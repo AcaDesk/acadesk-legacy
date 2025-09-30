@@ -1,0 +1,28 @@
+{
+  "mcpServers": {
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}"
+      }
+    },
+    "fs": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "fs-mcp-server"],
+      "env": {
+        "FS_MCP_ROOT": "${WORKSPACE_ROOT}",          // 기본 루트
+        "FS_MCP_ALLOW": "internal,README.md",        // 허용 경로(콤마 리스트)
+        "FS_MCP_DENY": "node_modules,.next,.git"     // 차단 경로
+      }
+    },
+    "github": {
+      "type": "http",
+      "url": "https://api.githubmcp.com/mcp",        // 예시: 공식/커뮤니티 엔드포인트에 맞춰 교체
+      "headers": {
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
+      }
+    }
+  }
+}
