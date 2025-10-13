@@ -43,8 +43,7 @@ test-results/
 # -------------------------
 .env
 .env.*           # ignore all env variants (.env.local, .env.production, etc.)
-!.env.example    # allow example env files to be committed
-!.env.*.example  # allow all example variants (.env.production.example, etc.)
+!.env.example    # allow example env file to be committed
 
 # -------------------------
 # Logs / Debug
