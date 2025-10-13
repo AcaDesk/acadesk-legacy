@@ -15,10 +15,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Plus, Edit, Trash2, Copy, FileText, Repeat } from 'lucide-react'
+import { Plus, Edit, Trash2, Copy, FileText, Repeat, ChevronRight } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { PageWrapper } from "@/components/layout/page-wrapper"
+import { FEATURES } from '@/lib/features.config'
+import { ComingSoon } from '@/components/layout/coming-soon'
+import { Maintenance } from '@/components/layout/maintenance'
 
 interface ExamTemplate {
   id: string
@@ -44,6 +47,17 @@ interface ExamCategory {
 }
 
 export default function ExamTemplatesPage() {
+  // 피처 플래그 상태 체크
+  const featureStatus = FEATURES.gradesManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="시험 템플릿" description="반복되는 시험을 템플릿으로 관리하고 자동으로 생성하여 업무 효율을 높일 수 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="시험 템플릿" reason="템플릿 시스템 업데이트가 진행 중입니다." />;
+  }
+
   const [templates, setTemplates] = useState<ExamTemplate[]>([])
   const [filteredTemplates, setFilteredTemplates] = useState<ExamTemplate[]>([])
   const [categories, setCategories] = useState<ExamCategory[]>([])
@@ -226,6 +240,18 @@ export default function ExamTemplatesPage() {
   return (
     <PageWrapper>
       <div className="space-y-6">
+        {/* Breadcrumbs */}
+        <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+          <button
+            onClick={() => router.push('/grades')}
+            className="hover:text-foreground transition-colors"
+          >
+            성적 관리
+          </button>
+          <ChevronRight className="h-4 w-4" />
+          <span className="text-foreground font-medium">시험 템플릿</span>
+        </nav>
+
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>

@@ -27,8 +27,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { FEATURES } from '@/lib/features.config'
+import { ComingSoon } from '@/components/layout/coming-soon'
 
 export default function StaffPage() {
+  // 피처 플래그 체크
+  if (!FEATURES.staffManagement) {
+    return <ComingSoon featureName="직원 관리" description="강사 및 관리자 정보를 체계적으로 관리하고, 역할별 권한을 효과적으로 제어하는 기능을 준비하고 있습니다." />;
+  }
   const [searchTerm, setSearchTerm] = useState('')
 
   const stats = {

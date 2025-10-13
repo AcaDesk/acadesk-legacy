@@ -23,6 +23,8 @@ import Link from 'next/link'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { PAGE_LAYOUT, GRID_LAYOUTS, TEXT_STYLES, CARD_STYLES } from '@/lib/constants'
 import { usePagination } from '@/hooks/use-pagination'
+import { FEATURES } from '@/lib/features.config'
+import { ComingSoon } from '@/components/layout/coming-soon'
 import {
   Pagination,
   PaginationContent,
@@ -55,6 +57,11 @@ interface ClassData {
 }
 
 export default function ClassesPage() {
+  // 피처 플래그 체크
+  if (!FEATURES.classManagement) {
+    return <ComingSoon featureName="수업 관리" description="학원의 모든 수업을 체계적으로 관리하고, 수강생 현황을 실시간으로 파악할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
   const [classes, setClasses] = useState<ClassData[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')

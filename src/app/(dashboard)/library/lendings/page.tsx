@@ -15,9 +15,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Search, Plus, BookOpen, Calendar, AlertCircle, CheckCircle, Send } from 'lucide-react'
+import { Search, Plus, BookOpen, Calendar, AlertCircle, CheckCircle, Send, ChevronRight } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
+import Link from 'next/link'
+import { FEATURES } from '@/lib/features.config'
+import { ComingSoon } from '@/components/layout/coming-soon'
+import { Maintenance } from '@/components/layout/maintenance'
 
 interface BookLending {
   id: string
@@ -41,6 +45,17 @@ interface BookLending {
 }
 
 export default function BookLendingsPage() {
+  // 피처 플래그 상태 체크
+  const featureStatus = FEATURES.libraryManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="도서 대출 관리" description="도서 대출 현황을 관리하고 연체 알림을 자동으로 전송할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="도서 대출 관리" reason="도서 대출 시스템 업데이트가 진행 중입니다." />;
+  }
+
   const [lendings, setLendings] = useState<BookLending[]>([])
   const [filteredLendings, setFilteredLendings] = useState<BookLending[]>([])
   const [searchTerm, setSearchTerm] = useState('')
@@ -293,22 +308,32 @@ export default function BookLendingsPage() {
     <PageWrapper>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">도서 대출 관리</h1>
-            <p className="text-muted-foreground">도서 대출 현황을 관리하고 반납 알림을 전송하세요</p>
-          </div>
-          <div className="flex gap-2">
-            {stats.overdue > 0 && (
-              <Button variant="outline" onClick={handleBulkReminder}>
-                <Send className="h-4 w-4 mr-2" />
-                연체 알림 ({stats.overdue}건)
+        <div className="space-y-4">
+          <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Link href="/library" className="hover:text-foreground transition-colors">
+              도서관
+            </Link>
+            <ChevronRight className="h-4 w-4" />
+            <span className="text-foreground font-medium">대여 관리</span>
+          </nav>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold">도서 대출 관리</h1>
+              <p className="text-muted-foreground">도서 대출 현황을 관리하고 반납 알림을 전송하세요</p>
+            </div>
+            <div className="flex gap-2">
+              {stats.overdue > 0 && (
+                <Button variant="outline" onClick={handleBulkReminder}>
+                  <Send className="h-4 w-4 mr-2" />
+                  연체 알림 ({stats.overdue}건)
+                </Button>
+              )}
+              <Button onClick={() => router.push('/library/lendings/new')}>
+                <Plus className="h-4 w-4 mr-2" />
+                대출 등록
               </Button>
-            )}
-            <Button onClick={() => router.push('/library/lendings/new')}>
-              <Plus className="h-4 w-4 mr-2" />
-              대출 등록
-            </Button>
+            </div>
           </div>
         </div>
 

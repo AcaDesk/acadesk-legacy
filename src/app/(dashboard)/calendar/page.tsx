@@ -13,8 +13,22 @@ import { Card } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
 import { Plus, Calendar as CalendarIcon, Loader2 } from 'lucide-react'
 import type { CalendarEvent } from '@/types/calendar'
+import { FEATURES } from '@/lib/features.config'
+import { ComingSoon } from '@/components/layout/coming-soon'
+import { Maintenance } from '@/components/layout/maintenance'
 
 export default function CalendarPage() {
+  // 피처 플래그 상태 체크
+  const featureStatus = FEATURES.calendarIntegration;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="학원 캘린더" description="학원의 모든 일정을 캘린더로 관리하고, 수업, 시험, 행사 일정을 한눈에 파악할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="학원 캘린더" reason="캘린더 시스템 업데이트가 진행 중입니다." />;
+  }
+
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)

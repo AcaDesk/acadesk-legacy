@@ -16,11 +16,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Search, TrendingUp, TrendingDown, Minus, Plus } from 'lucide-react'
+import { Search, TrendingUp, TrendingDown, Minus, Plus, ChevronRight } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { GradesLineChart } from '@/components/features/charts/grades-line-chart'
 import { GradesBarChart } from '@/components/features/charts/grades-bar-chart'
+import { FEATURES } from '@/lib/features.config'
+import { ComingSoon } from '@/components/layout/coming-soon'
+import { Maintenance } from '@/components/layout/maintenance'
 import { useServerPagination } from '@/hooks/use-pagination'
 import {
   Pagination,
@@ -64,6 +67,17 @@ interface Student {
 }
 
 export default function GradesListPage() {
+  // 피처 플래그 상태 체크
+  const featureStatus = FEATURES.gradesManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="성적 조회" description="학생별 시험 성적을 상세하게 조회하고, 성적 추이를 차트로 확인할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="성적 조회" reason="성적 시스템 업데이트가 진행 중입니다." />;
+  }
+
   const [scores, setScores] = useState<ExamScore[]>([])
   const [totalCount, setTotalCount] = useState(0)
   const [students, setStudents] = useState<Student[]>([])
@@ -279,6 +293,18 @@ export default function GradesListPage() {
   return (
     <PageWrapper>
       <div className="space-y-6">
+        {/* Breadcrumbs */}
+        <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+          <button
+            onClick={() => router.push('/grades')}
+            className="hover:text-foreground transition-colors"
+          >
+            성적 관리
+          </button>
+          <ChevronRight className="h-4 w-4" />
+          <span className="text-foreground font-medium">성적 조회</span>
+        </nav>
+
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>

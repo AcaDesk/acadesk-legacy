@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { PageWrapper } from "@/components/layout/page-wrapper"
-import { ArrowLeft } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { GRADES, generateStudentCode } from '@/lib/constants'
 
@@ -62,7 +62,6 @@ export default function NewStudentPage() {
 
     setLoading(true)
     try {
-
       // 1. public.users에 사용자 레코드 생성 (이름 저장을 위해 항상 생성)
       const { data: newUser, error: publicUserError } = await supabase
         .from('users')
@@ -88,21 +87,42 @@ export default function NewStudentPage() {
       const userId = newUser.id
 
       // 2. students 테이블에 학생 정보 저장
-      const studentCode = generateStudentCode()
+      // 학생 코드 중복 방지를 위해 최대 3번 재시도
+      let studentCode = ''
+      let studentInserted = false
+      let attempts = 0
+      const maxAttempts = 3
 
-      const { error: studentError } = await supabase
-        .from('students')
-        .insert({
-          tenant_id: currentUser.tenantId,
-          user_id: userId,
-          student_code: studentCode,
-          grade: data.grade,
-          school: data.school || null,
-          emergency_contact: data.emergencyContact,
-          notes: data.notes || null,
-        })
+      while (!studentInserted && attempts < maxAttempts) {
+        attempts++
+        studentCode = generateStudentCode()
 
-      if (studentError) throw studentError
+        const { error: studentError } = await supabase
+          .from('students')
+          .insert({
+            tenant_id: currentUser.tenantId,
+            user_id: userId,
+            student_code: studentCode,
+            grade: data.grade,
+            school: data.school || null,
+            emergency_contact: data.emergencyContact,
+            notes: data.notes || null,
+          })
+
+        if (!studentError) {
+          studentInserted = true
+        } else if (studentError.code === '23505') {
+          // Unique constraint violation - 학생 코드 중복
+          console.log(`학생 코드 중복 (시도 ${attempts}/${maxAttempts}):`, studentCode)
+          if (attempts >= maxAttempts) {
+            throw new Error('학생 코드 생성에 실패했습니다. 다시 시도해주세요.')
+          }
+        } else {
+          // 다른 에러는 즉시 throw
+          console.error('학생 정보 저장 실패:', studentError)
+          throw new Error(`학생 정보 저장 실패: ${studentError.message} (code: ${studentError.code})`)
+        }
+      }
 
       toast({
         title: '학생 추가 완료',
@@ -144,17 +164,22 @@ export default function NewStudentPage() {
   return (
     <PageWrapper>
       <div className="space-y-6">
+        {/* Breadcrumbs */}
+        <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+          <button
+            onClick={() => router.push('/students')}
+            className="hover:text-foreground transition-colors"
+          >
+            학생 관리
+          </button>
+          <ChevronRight className="h-4 w-4" />
+          <span className="text-foreground font-medium">새 학생</span>
+        </nav>
+
         {/* Header */}
-        <div className="flex items-center gap-4">
-          <Link href="/students">
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-3xl font-bold">학생 추가</h1>
-            <p className="text-muted-foreground">새로운 학생 정보를 입력하세요</p>
-          </div>
+        <div>
+          <h1 className="text-3xl font-bold">학생 추가</h1>
+          <p className="text-muted-foreground mt-1">새로운 학생 정보를 입력하세요</p>
         </div>
 
         <Card>

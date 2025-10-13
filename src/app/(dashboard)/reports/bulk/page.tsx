@@ -12,8 +12,12 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
 import { useToast } from '@/hooks/use-toast'
-import { FileText, Send, ArrowLeft, CheckCircle, XCircle } from 'lucide-react'
+import { FileText, Send, CheckCircle, XCircle, ChevronRight } from 'lucide-react'
 import { PageWrapper } from "@/components/layout/page-wrapper"
+import Link from 'next/link'
+import { FEATURES } from '@/lib/features.config'
+import { ComingSoon } from '@/components/layout/coming-soon'
+import { Maintenance } from '@/components/layout/maintenance'
 
 interface Student {
   id: string
@@ -37,6 +41,17 @@ interface GenerationResult {
 }
 
 export default function BulkReportsPage() {
+  // 피처 플래그 상태 체크
+  const featureStatus = FEATURES.reportManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="리포트 일괄 생성" description="여러 학생의 리포트를 한 번에 생성하고 자동으로 보호자에게 전송할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="리포트 일괄 생성" reason="리포트 생성 시스템 업데이트가 진행 중입니다." />;
+  }
+
   const [students, setStudents] = useState<Student[]>([])
   const [classes, setClasses] = useState<Class[]>([])
   const [selectedClass, setSelectedClass] = useState<string>('all')
@@ -242,14 +257,15 @@ export default function BulkReportsPage() {
     <PageWrapper>
       <div className="space-y-6 max-w-5xl mx-auto">
         {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => router.push('/reports')}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+        <div className="space-y-4">
+          <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Link href="/reports" className="hover:text-foreground transition-colors">
+              리포트 관리
+            </Link>
+            <ChevronRight className="h-4 w-4" />
+            <span className="text-foreground font-medium">일괄 생성</span>
+          </nav>
+
           <div>
             <h1 className="text-3xl font-bold">리포트 일괄 생성</h1>
             <p className="text-muted-foreground">반 또는 전체 학생의 리포트를 한 번에 생성하세요</p>

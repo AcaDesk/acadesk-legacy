@@ -15,6 +15,9 @@ import { PageWrapper } from "@/components/layout/page-wrapper"
 import { PAGE_LAYOUT, GRID_LAYOUTS, TEXT_STYLES, CARD_STYLES } from '@/lib/constants'
 import { ArrowRight, List, Users } from 'lucide-react'
 import Link from 'next/link'
+import { FEATURES } from '@/lib/features.config'
+import { ComingSoon } from '@/components/layout/coming-soon'
+import { Maintenance } from '@/components/layout/maintenance'
 
 interface Student {
   id: string
@@ -38,6 +41,17 @@ interface ExamCategory {
 }
 
 export default function GradesPage() {
+  // 피처 플래그 상태 체크
+  const featureStatus = FEATURES.gradesManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="성적 관리" description="시험 성적을 손쉽게 입력하고, 학생별 성적 추이를 한눈에 파악할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="성적 관리" reason="성적 처리 시스템 업데이트가 진행 중입니다." />;
+  }
+
   const [students, setStudents] = useState<Student[]>([])
   const [exams, setExams] = useState<Exam[]>([])
   const [categories, setCategories] = useState<ExamCategory[]>([])

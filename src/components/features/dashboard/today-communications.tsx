@@ -40,8 +40,6 @@ interface TodayCommunicationsProps {
 export function TodayCommunications({ birthdayStudents, scheduledConsultations, parentsToContact = [] }: TodayCommunicationsProps) {
   const hasAnyCommunications = birthdayStudents.length > 0 || scheduledConsultations.length > 0 || parentsToContact.length > 0
 
-  if (!hasAnyCommunications) return null
-
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'high': return 'destructive'
@@ -60,6 +58,14 @@ export function TodayCommunications({ birthdayStudents, scheduledConsultations, 
         <CardDescription>학생과 학부모와의 소통이 필요한 일정입니다</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Empty State */}
+        {!hasAnyCommunications && (
+          <div className="text-center py-8 text-muted-foreground">
+            <MessageSquare className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
+            <p className="text-sm">오늘 예정된 소통 일정이 없습니다</p>
+          </div>
+        )}
+
         {/* Birthday Students */}
         {birthdayStudents.length > 0 && (
           <div className="space-y-2">

@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AttendanceCheckDialog } from './attendance-check-dialog';
 import { ContactGuardianDialog } from './contact-guardian-dialog';
-import { ClipboardCheck, Clock, Play, CheckCircle2, Send, Users } from 'lucide-react';
+import { ClipboardCheck, Clock, Play, CheckCircle2, Send, Users, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type {
   AttendanceSessionWithClass,
@@ -216,21 +216,25 @@ export function AttendanceCheckPage({
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
+      {/* Breadcrumbs */}
+      <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+        <button
+          onClick={() => router.push('/attendance')}
+          className="hover:text-foreground transition-colors"
+        >
+          출석 관리
+        </button>
+        <ChevronRight className="h-4 w-4" />
+        <span className="text-foreground font-medium">{session.class?.name || 'Unknown Class'}</span>
+      </nav>
+
       {/* Header with Timer */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="outline"
-            onClick={() => router.push('/attendance')}
-          >
-            ← 목록으로
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold">{session.class?.name || 'Unknown Class'}</h1>
-            <p className="text-muted-foreground">
-              {format(new Date(session.session_date), 'yyyy년 MM월 dd일 (EEE)', { locale: ko })}
-            </p>
-          </div>
+        <div>
+          <h1 className="text-3xl font-bold">{session.class?.name || 'Unknown Class'}</h1>
+          <p className="text-muted-foreground">
+            {format(new Date(session.session_date), 'yyyy년 MM월 dd일 (EEE)', { locale: ko })}
+          </p>
         </div>
 
         {/* Session Timer */}

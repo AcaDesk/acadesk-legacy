@@ -11,9 +11,12 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
+import { FEATURES } from '@/lib/features.config'
+import { ComingSoon } from '@/components/layout/coming-soon'
+import { Maintenance } from '@/components/layout/maintenance'
 
 interface Student {
   id: string
@@ -33,6 +36,17 @@ interface TodoFormData {
 }
 
 export default function NewTodoPage() {
+  // 피처 플래그 상태 체크
+  const featureStatus = FEATURES.todoManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="TODO 생성" description="학생별 과제를 손쉽게 생성하고 관리하여 학습 진도를 효율적으로 추적할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="TODO 생성" reason="TODO 시스템 업데이트가 진행 중입니다." />;
+  }
+
   const [students, setStudents] = useState<Student[]>([])
   const [selectedStudents, setSelectedStudents] = useState<string[]>([])
   const [formData, setFormData] = useState<TodoFormData>({
@@ -68,7 +82,7 @@ export default function NewTodoPage() {
         .order('student_code')
 
       if (error) throw error
-      setStudents(data as Student[])
+      setStudents(data || [])
     } catch (error) {
       console.error('Error loading students:', error)
       toast({
@@ -160,17 +174,24 @@ export default function NewTodoPage() {
   return (
     <PageWrapper>
       <div className="space-y-6">
+        {/* Breadcrumbs */}
+        <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+          <button
+            onClick={() => router.push('/todos')}
+            className="hover:text-foreground transition-colors"
+          >
+            TODO 관리
+          </button>
+          <ChevronRight className="h-4 w-4" />
+          <span className="text-foreground font-medium">새 TODO</span>
+        </nav>
+
         {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.push('/todos')}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold">TODO 생성</h1>
-            <p className="text-muted-foreground">
-              학생별 과제를 생성합니다 (여러 학생 선택 가능)
-            </p>
-          </div>
+        <div>
+          <h1 className="text-3xl font-bold">TODO 생성</h1>
+          <p className="text-muted-foreground mt-1">
+            학생별 과제를 생성합니다 (여러 학생 선택 가능)
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -281,15 +302,18 @@ export default function NewTodoPage() {
                 {students.map((student) => (
                   <div
                     key={student.id}
-                    className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
+                    className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
                       selectedStudents.includes(student.id)
                         ? 'bg-primary/10 border-primary'
                         : 'hover:bg-muted'
                     }`}
-                    onClick={() => toggleStudent(student.id)}
                   >
-                    <div className="flex items-center space-x-3">
+                    <label
+                      htmlFor={`student-${student.id}`}
+                      className="flex items-center space-x-3 flex-1 cursor-pointer"
+                    >
                       <Checkbox
+                        id={`student-${student.id}`}
                         checked={selectedStudents.includes(student.id)}
                         onCheckedChange={() => toggleStudent(student.id)}
                       />
@@ -301,7 +325,7 @@ export default function NewTodoPage() {
                           {student.student_code}
                         </div>
                       </div>
-                    </div>
+                    </label>
                   </div>
                 ))}
               </div>

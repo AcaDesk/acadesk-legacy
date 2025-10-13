@@ -12,10 +12,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
-import { ArrowLeft } from 'lucide-react'
-import Link from 'next/link'
+import { ChevronRight } from 'lucide-react'
 import { GRADES } from '@/lib/constants'
 
 const studentSchema = z.object({
@@ -208,17 +208,29 @@ export default function EditStudentPage() {
   return (
     <PageWrapper>
       <div className="space-y-6">
+        {/* Breadcrumbs */}
+        <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+          <button
+            onClick={() => router.push('/students')}
+            className="hover:text-foreground transition-colors"
+          >
+            학생 관리
+          </button>
+          <ChevronRight className="h-4 w-4" />
+          <button
+            onClick={() => router.push(`/students/${student.id}`)}
+            className="hover:text-foreground transition-colors"
+          >
+            {student.users?.name || '학생'}
+          </button>
+          <ChevronRight className="h-4 w-4" />
+          <span className="text-foreground font-medium">수정</span>
+        </nav>
+
         {/* Header */}
-        <div className="flex items-center gap-4">
-          <Link href={`/students/${student.id}`}>
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-3xl font-bold">학생 정보 수정</h1>
-            <p className="text-muted-foreground">학번: {student.student_code}</p>
-          </div>
+        <div>
+          <h1 className="text-3xl font-bold">학생 정보 수정</h1>
+          <p className="text-muted-foreground mt-1">학번: {student.student_code}</p>
         </div>
 
         <Card>
@@ -230,7 +242,15 @@ export default function EditStudentPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              {/* 기본 정보 */}
+              <Tabs defaultValue="basic" className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="basic">기본 정보</TabsTrigger>
+                  <TabsTrigger value="contact">연락처</TabsTrigger>
+                  <TabsTrigger value="other">기타</TabsTrigger>
+                </TabsList>
+
+                {/* Tab 1: 기본 정보 */}
+                <TabsContent value="basic" className="space-y-6 mt-6">
               <div className="grid gap-6 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="name">이름 *</Label>
@@ -283,8 +303,10 @@ export default function EditStudentPage() {
                   />
                 </div>
               </div>
+                </TabsContent>
 
-              {/* 연락 정보 */}
+                {/* Tab 2: 연락처 */}
+                <TabsContent value="contact" className="space-y-6 mt-6">
               <div className="grid gap-6 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="email">이메일</Label>
@@ -311,8 +333,10 @@ export default function EditStudentPage() {
                   )}
                 </div>
               </div>
+                </TabsContent>
 
-              {/* 메모 */}
+                {/* Tab 3: 기타 */}
+                <TabsContent value="other" className="space-y-6 mt-6">
               <div className="space-y-2">
                 <Label htmlFor="notes">메모</Label>
                 <Textarea
@@ -323,14 +347,18 @@ export default function EditStudentPage() {
                   {...register('notes')}
                 />
               </div>
+                </TabsContent>
+              </Tabs>
 
-              {/* 버튼 */}
+              {/* 버튼 - Tabs 밖으로 */}
               <div className="flex gap-3 justify-end">
-                <Link href={`/students/${student.id}`}>
-                  <Button type="button" variant="outline">
-                    취소
-                  </Button>
-                </Link>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => router.push(`/students/${student.id}`)}
+                >
+                  취소
+                </Button>
                 <Button type="submit" disabled={loading}>
                   {loading ? '저장 중...' : '저장'}
                 </Button>

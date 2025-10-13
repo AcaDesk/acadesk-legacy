@@ -12,7 +12,10 @@ import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { PageWrapper } from "@/components/layout/page-wrapper"
-import { ArrowLeft, Repeat } from 'lucide-react'
+import { ChevronRight, Repeat } from 'lucide-react'
+import { FEATURES } from '@/lib/features.config'
+import { ComingSoon } from '@/components/layout/coming-soon'
+import { Maintenance } from '@/components/layout/maintenance'
 
 interface ExamCategory {
   code: string
@@ -26,6 +29,17 @@ interface Class {
 }
 
 export default function NewExamTemplatePage() {
+  // 피처 플래그 상태 체크
+  const featureStatus = FEATURES.gradesManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="시험 템플릿 등록" description="반복되는 시험을 템플릿으로 등록하여 자동으로 생성하고 관리할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="시험 템플릿 등록" reason="템플릿 시스템 업데이트가 진행 중입니다." />;
+  }
+
   const [name, setName] = useState('')
   const [categoryCode, setCategoryCode] = useState('')
   const [examType, setExamType] = useState('')
@@ -140,19 +154,29 @@ export default function NewExamTemplatePage() {
   return (
     <PageWrapper>
       <div className="space-y-6 max-w-2xl">
-        {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => router.push('/grades/exam-templates')}
+        {/* Breadcrumbs */}
+        <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+          <button
+            onClick={() => router.push('/grades')}
+            className="hover:text-foreground transition-colors"
           >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold">시험 템플릿 등록</h1>
-            <p className="text-muted-foreground">반복적으로 생성할 시험 템플릿을 등록합니다</p>
-          </div>
+            성적 관리
+          </button>
+          <ChevronRight className="h-4 w-4" />
+          <button
+            onClick={() => router.push('/grades/exam-templates')}
+            className="hover:text-foreground transition-colors"
+          >
+            시험 템플릿
+          </button>
+          <ChevronRight className="h-4 w-4" />
+          <span className="text-foreground font-medium">새 템플릿</span>
+        </nav>
+
+        {/* Header */}
+        <div>
+          <h1 className="text-3xl font-bold">시험 템플릿 등록</h1>
+          <p className="text-muted-foreground">반복적으로 생성할 시험 템플릿을 등록합니다</p>
         </div>
 
         <Card>

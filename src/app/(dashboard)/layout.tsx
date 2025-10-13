@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, memo } from "react"
+import { useState, memo, useEffect } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { ChevronLeft, ChevronRight, User, Settings, LogOut, Menu } from "lucide-react"
@@ -31,8 +31,10 @@ interface DashboardLayoutProps {
  */
 const SidebarContent = memo(function SidebarContent({
   isCollapsed = false,
+  onNavigate,
 }: {
   isCollapsed?: boolean
+  onNavigate?: () => void
 }) {
   return (
     <div className="flex h-full flex-col">
@@ -52,7 +54,7 @@ const SidebarContent = memo(function SidebarContent({
 
       {/* 네비게이션 */}
       <div className="flex-1 overflow-y-auto">
-        <AppNav isCollapsed={isCollapsed} />
+        <AppNav isCollapsed={isCollapsed} onNavigate={onNavigate} />
       </div>
     </div>
   )
@@ -88,20 +90,17 @@ const Header = memo(function Header({
 }) {
   return (
     <header className="flex h-16 items-center justify-between border-b bg-card px-4 md:px-6">
-      {/* 모바일 햄버거 메뉴 */}
-      {showMenuButton && (
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onMenuClick}
-          className="md:hidden"
-        >
-          <Menu className="h-5 w-5" />
-        </Button>
-      )}
-
-      {/* 로고 (모바일에서만 표시) */}
-      <div className="md:hidden">
+      {/* 모바일: 햄버거 메뉴 + 로고 */}
+      <div className="flex items-center gap-4 md:hidden">
+        {showMenuButton && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onMenuClick}
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+        )}
         <h1 className="text-lg font-bold">Acadesk</h1>
       </div>
 
@@ -152,8 +151,20 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
-  // 데스크톱 여부 감지 (1024px 이상)
-  const isDesktop = useMediaQuery("(min-width: 1024px)")
+  // 태블릿 이상 여부 감지 (768px 이상에서 사이드바 표시)
+  const isDesktop = useMediaQuery("(min-width: 768px)")
+  // 큰 데스크톱 감지 (1024px 이상)
+  const isLargeDesktop = useMediaQuery("(min-width: 1024px)")
+
+  // 화면 크기에 따라 사이드바 자동 축소/펼침
+  useEffect(() => {
+    // 태블릿 크기(768px ~ 1023px)에서는 축소, 큰 데스크톱(1024px 이상)에서는 펼침
+    if (isDesktop && !isLargeDesktop) {
+      setIsCollapsed(true)
+    } else if (isLargeDesktop) {
+      setIsCollapsed(false)
+    }
+  }, [isDesktop, isLargeDesktop])
 
   const toggleSidebar = () => setIsCollapsed(!isCollapsed)
   const toggleMobileMenu = () => setMobileMenuOpen(!mobileMenuOpen)
@@ -197,7 +208,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             <SheetHeader className="sr-only">
               <SheetTitle>메뉴</SheetTitle>
             </SheetHeader>
-            <SidebarContent />
+            <SidebarContent onNavigate={() => setMobileMenuOpen(false)} />
           </SheetContent>
         </Sheet>
       )}
