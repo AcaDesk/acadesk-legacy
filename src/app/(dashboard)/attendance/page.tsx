@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
-import { AttendanceRepository } from '@/repositories/attendanceRepository';
+import { AttendanceRepository } from '@/services/data/attendance.repository';
 import { AttendanceList } from '@/components/features/attendance/AttendanceList';
 import { FEATURES } from '@/lib/features.config';
 import { ComingSoon } from '@/components/layout/coming-soon';

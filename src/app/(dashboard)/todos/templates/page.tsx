@@ -59,6 +59,9 @@ import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { DAYS_OF_WEEK } from '@/lib/constants'
+import { StudentRepository } from '@/services/data/student.repository'
+import { TodoRepository } from '@/services/data/todo.repository'
+import { getErrorMessage } from '@/lib/error-handlers'
 
 interface TodoTemplate {
   id: string
@@ -105,6 +108,8 @@ export default function TodoTemplatesPage() {
   const router = useRouter()
   const supabase = createClient()
   const { user: currentUser } = useCurrentUser()
+  const studentRepo = new StudentRepository(supabase)
+  const todoRepo = new TodoRepository(supabase)
 
   useEffect(() => {
     loadTemplates()
@@ -129,10 +134,9 @@ export default function TodoTemplatesPage() {
       setTemplates(data)
       setFilteredTemplates(data)
     } catch (error) {
-      console.error('Error loading templates:', error)
       toast({
         title: '데이터 로드 오류',
-        description: '과제 템플릿을 불러오는 중 오류가 발생했습니다.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       })
     } finally {
@@ -208,10 +212,9 @@ export default function TodoTemplatesPage() {
 
       loadTemplates()
     } catch (error) {
-      console.error('Error deleting template:', error)
       toast({
         title: '삭제 오류',
-        description: '템플릿을 삭제하는 중 오류가 발생했습니다.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       })
     }
@@ -233,10 +236,9 @@ export default function TodoTemplatesPage() {
 
       loadTemplates()
     } catch (error) {
-      console.error('Error toggling active:', error)
       toast({
         title: '변경 오류',
-        description: '템플릿 상태를 변경하는 중 오류가 발생했습니다.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       })
     }
@@ -251,12 +253,7 @@ export default function TodoTemplatesPage() {
 
     try {
       // Get all active students
-      const { data: students, error: studentsError } = await supabase
-        .from('students')
-        .select('id')
-        .is('deleted_at', null)
-
-      if (studentsError) throw studentsError
+      const students = await studentRepo.search('', { limit: 1000 })
 
       if (!students || students.length === 0) {
         toast({
@@ -278,17 +275,13 @@ export default function TodoTemplatesPage() {
         tenant_id: currentUser.tenantId,
         student_id: student.id,
         title: template.title,
-        description: template.description,
-        subject: template.subject,
+        description: template.description || undefined,
+        subject: template.subject || undefined,
         due_date: dueDate.toISOString().split('T')[0],
-        due_day_of_week: targetDayOfWeek,
-        priority: template.priority,
-        estimated_duration_minutes: template.estimated_duration_minutes,
+        priority: template.priority || 'normal',
       }))
 
-      const { error } = await supabase.from('student_todos').insert(todosToCreate)
-
-      if (error) throw error
+      await todoRepo.createBulk(todosToCreate)
 
       toast({
         title: '과제 생성 완료',
@@ -296,11 +289,10 @@ export default function TodoTemplatesPage() {
       })
 
       router.push('/todos')
-    } catch (error: any) {
-      console.error('Error generating todos:', error)
+    } catch (error) {
       toast({
         title: '생성 오류',
-        description: error.message || '과제를 생성하는 중 오류가 발생했습니다.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       })
     }

@@ -38,6 +38,7 @@ import { DAYS_OF_WEEK } from '@/lib/constants'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
+import { getErrorMessage } from '@/lib/error-handlers'
 
 const DURATION_PRESETS = [
   { label: '15분', value: 15 },
@@ -201,11 +202,10 @@ export default function NewTodoTemplatePage() {
       })
 
       router.push('/todos/templates')
-    } catch (error: any) {
-      console.error('Error creating template:', error)
+    } catch (error) {
       toast({
         title: '등록 오류',
-        description: error.message || '템플릿을 등록하는 중 오류가 발생했습니다.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       })
     } finally {

@@ -25,25 +25,9 @@ import { Label } from '@/components/ui/label'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
-
-interface PendingTodo {
-  id: string
-  title: string
-  subject: string | null
-  completed_at: string
-  student_id: string
-  students: {
-    users: {
-      name: string
-    } | null
-  } | null
-}
-
-interface StudentData {
-  users: {
-    name: string
-  } | null
-}
+import { TodoRepository, type StudentTodoWithStudent } from '@/services/data/todo.repository'
+import { verifyTodos, rejectTodo as rejectTodoService } from '@/services/todo-management.service'
+import { getErrorMessage } from '@/lib/error-handlers'
 
 export default function VerifyTodosPage() {
   // 피처 플래그 상태 체크
@@ -57,7 +41,7 @@ export default function VerifyTodosPage() {
     return <Maintenance featureName="과제 검증" reason="검증 시스템 업데이트가 진행 중입니다." />;
   }
 
-  const [pendingTodos, setPendingTodos] = useState<PendingTodo[]>([])
+  const [pendingTodos, setPendingTodos] = useState<StudentTodoWithStudent[]>([])
   const [selectedTodos, setSelectedTodos] = useState<Set<string>>(new Set())
   const [feedbackDialog, setFeedbackDialog] = useState(false)
   const [currentTodoId, setCurrentTodoId] = useState<string | null>(null)
@@ -67,6 +51,7 @@ export default function VerifyTodosPage() {
   const { toast } = useToast()
   const supabase = createClient()
   const { user: currentUser } = useCurrentUser()
+  const todoRepo = new TodoRepository(supabase)
 
   useEffect(() => {
     if (currentUser) {
@@ -79,32 +64,12 @@ export default function VerifyTodosPage() {
 
     try {
       // Load todos that are completed but not verified
-      const { data, error } = await supabase
-        .from('student_todos')
-        .select(`
-          id,
-          title,
-          subject,
-          completed_at,
-          student_id,
-          students (
-            users (
-              name
-            )
-          )
-        `)
-        .eq('tenant_id', currentUser.tenantId)
-        .not('completed_at', 'is', null)
-        .is('verified_at', null)
-        .order('completed_at', { ascending: true })
-
-      if (error) throw error
-      setPendingTodos((data as any) || [])
+      const data = await todoRepo.findAll({ status: 'completed' })
+      setPendingTodos(data)
     } catch (error) {
-      console.error('Error loading pending todos:', error)
       toast({
         title: '로딩 오류',
-        description: '검증 대기 목록을 불러오는 중 오류가 발생했습니다.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       })
     }
@@ -129,6 +94,7 @@ export default function VerifyTodosPage() {
   }
 
   async function verifySelectedTodos() {
+    if (!currentUser) return
     if (selectedTodos.size === 0) {
       toast({
         title: '선택 필요',
@@ -141,15 +107,7 @@ export default function VerifyTodosPage() {
     setLoading(true)
 
     try {
-      const { error } = await supabase
-        .from('student_todos')
-        .update({
-          verified_by: currentUser!.id,
-          verified_at: new Date().toISOString(),
-        })
-        .in('id', Array.from(selectedTodos))
-
-      if (error) throw error
+      await verifyTodos(supabase, Array.from(selectedTodos), currentUser.id)
 
       toast({
         title: '검증 완료',
@@ -159,11 +117,10 @@ export default function VerifyTodosPage() {
       // Reload list and clear selection
       setSelectedTodos(new Set())
       await loadPendingTodos()
-    } catch (error: any) {
-      console.error('Error verifying todos:', error)
+    } catch (error) {
       toast({
         title: '검증 실패',
-        description: error.message || '과제를 검증하는 중 오류가 발생했습니다.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       })
     } finally {
@@ -190,15 +147,7 @@ export default function VerifyTodosPage() {
     setLoading(true)
 
     try {
-      const { error } = await supabase
-        .from('student_todos')
-        .update({
-          completed_at: null, // Reset completion
-          notes: feedback,
-        })
-        .eq('id', currentTodoId)
-
-      if (error) throw error
+      await rejectTodoService(supabase, currentTodoId, feedback)
 
       toast({
         title: '과제 반려',
@@ -207,11 +156,10 @@ export default function VerifyTodosPage() {
 
       setFeedbackDialog(false)
       await loadPendingTodos()
-    } catch (error: any) {
-      console.error('Error rejecting todo:', error)
+    } catch (error) {
       toast({
         title: '반려 실패',
-        description: error.message || '과제를 반려하는 중 오류가 발생했습니다.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       })
     } finally {

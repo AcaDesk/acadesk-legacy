@@ -17,7 +17,9 @@ import { useCurrentUser } from '@/hooks/use-current-user'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { ChevronRight } from 'lucide-react'
 import Link from 'next/link'
-import { GRADES, generateStudentCode } from '@/lib/constants'
+import { GRADES } from '@/lib/constants'
+import { createStudent, type CreateStudentInput } from '@/services/student-management.service'
+import { getErrorMessage } from '@/lib/error-handlers'
 
 const studentSchema = z.object({
   name: z.string().min(2, '이름은 최소 2자 이상이어야 합니다'),
@@ -62,80 +64,29 @@ export default function NewStudentPage() {
 
     setLoading(true)
     try {
-      // 1. public.users에 사용자 레코드 생성 (이름 저장을 위해 항상 생성)
-      const { data: newUser, error: publicUserError } = await supabase
-        .from('users')
-        .insert({
-          tenant_id: currentUser.tenantId,
-          email: data.email || null,
-          name: data.name,
-          phone: data.phone || null,
-          role_code: 'student',
-        })
-        .select()
-        .maybeSingle()
-
-      if (publicUserError) {
-        console.error('public.users 생성 실패:', publicUserError)
-        throw new Error(`사용자 레코드를 생성할 수 없습니다: ${publicUserError.message}`)
+      const input: CreateStudentInput = {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        grade: data.grade,
+        school: data.school,
+        emergencyContact: data.emergencyContact,
+        notes: data.notes,
       }
 
-      if (!newUser) {
-        throw new Error('사용자 레코드 생성 실패')
-      }
-
-      const userId = newUser.id
-
-      // 2. students 테이블에 학생 정보 저장
-      // 학생 코드 중복 방지를 위해 최대 3번 재시도
-      let studentCode = ''
-      let studentInserted = false
-      let attempts = 0
-      const maxAttempts = 3
-
-      while (!studentInserted && attempts < maxAttempts) {
-        attempts++
-        studentCode = generateStudentCode()
-
-        const { error: studentError } = await supabase
-          .from('students')
-          .insert({
-            tenant_id: currentUser.tenantId,
-            user_id: userId,
-            student_code: studentCode,
-            grade: data.grade,
-            school: data.school || null,
-            emergency_contact: data.emergencyContact,
-            notes: data.notes || null,
-          })
-
-        if (!studentError) {
-          studentInserted = true
-        } else if (studentError.code === '23505') {
-          // Unique constraint violation - 학생 코드 중복
-          console.log(`학생 코드 중복 (시도 ${attempts}/${maxAttempts}):`, studentCode)
-          if (attempts >= maxAttempts) {
-            throw new Error('학생 코드 생성에 실패했습니다. 다시 시도해주세요.')
-          }
-        } else {
-          // 다른 에러는 즉시 throw
-          console.error('학생 정보 저장 실패:', studentError)
-          throw new Error(`학생 정보 저장 실패: ${studentError.message} (code: ${studentError.code})`)
-        }
-      }
+      const result = await createStudent(supabase, currentUser.tenantId, input)
 
       toast({
         title: '학생 추가 완료',
-        description: `${data.name} 학생이 추가되었습니다. (학생 코드: ${studentCode})`,
+        description: `${data.name} 학생이 추가되었습니다. (학생 코드: ${result.studentCode})`,
       })
 
       router.push('/students')
       router.refresh()
-    } catch (error: any) {
-      console.error('학생 추가 오류:', error)
+    } catch (error) {
       toast({
         title: '학생 추가 실패',
-        description: error.message || '학생을 추가하는 중 오류가 발생했습니다.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       })
     } finally {

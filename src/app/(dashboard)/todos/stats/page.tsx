@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
+import { useToast } from '@/hooks/use-toast'
+import { getErrorMessage } from '@/lib/error-handlers'
 
 interface TodoStats {
   totalTodos: number
@@ -59,6 +61,7 @@ export default function TodoStatsPage() {
 
   const supabase = createClient()
   const { user: currentUser } = useCurrentUser()
+  const { toast } = useToast()
 
   useEffect(() => {
     if (currentUser) {
@@ -76,7 +79,11 @@ export default function TodoStatsPage() {
         loadSubjectStats(),
       ])
     } catch (error) {
-      console.error('Error loading stats:', error)
+      toast({
+        title: '통계 로드 실패',
+        description: getErrorMessage(error),
+        variant: 'destructive',
+      })
     } finally {
       setLoading(false)
     }
@@ -141,7 +148,7 @@ export default function TodoStatsPage() {
         completionRate,
       })
     } catch (error) {
-      console.error('Error loading overall stats:', error)
+      // Silent failure - error handled by parent function
     }
   }
 
@@ -225,7 +232,7 @@ export default function TodoStatsPage() {
 
       setStudentStats(studentStatsArray)
     } catch (error) {
-      console.error('Error loading student stats:', error)
+      // Silent failure - error handled by parent function
     }
   }
 
@@ -281,7 +288,7 @@ export default function TodoStatsPage() {
 
       setSubjectStats(subjectStatsArray)
     } catch (error) {
-      console.error('Error loading subject stats:', error)
+      // Silent failure - error handled by parent function
     }
   }
 

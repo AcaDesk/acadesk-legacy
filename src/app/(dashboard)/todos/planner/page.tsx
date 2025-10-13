@@ -22,6 +22,9 @@ import {
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
+import { StudentRepository } from '@/services/data/student.repository'
+import { TodoRepository } from '@/services/data/todo.repository'
+import { getErrorMessage } from '@/lib/error-handlers'
 
 interface Student {
   id: string
@@ -76,6 +79,8 @@ export default function WeeklyPlannerPage() {
   const { toast } = useToast()
   const supabase = createClient()
   const { user: currentUser } = useCurrentUser()
+  const studentRepo = new StudentRepository(supabase)
+  const todoRepo = new TodoRepository(supabase)
 
   useEffect(() => {
     if (currentUser) {
@@ -89,23 +94,14 @@ export default function WeeklyPlannerPage() {
     if (!currentUser) return
 
     try {
-      const { data, error } = await supabase
-        .from('students')
-        .select(`
-          id,
-          student_code,
-          users (
-            name
-          )
-        `)
-        .eq('tenant_id', currentUser.tenantId)
-        .is('deleted_at', null)
-        .order('student_code')
-
-      if (error) throw error
-      setStudents(data || [])
+      const data = await studentRepo.search('', { limit: 1000 })
+      setStudents(data as any[])
     } catch (error) {
-      console.error('Error loading students:', error)
+      toast({
+        title: '학생 목록 로드 실패',
+        description: getErrorMessage(error),
+        variant: 'destructive',
+      })
     }
   }
 
@@ -123,7 +119,11 @@ export default function WeeklyPlannerPage() {
       if (error) throw error
       setTemplates(data || [])
     } catch (error) {
-      console.error('Error loading templates:', error)
+      toast({
+        title: '템플릿 로드 실패',
+        description: getErrorMessage(error),
+        variant: 'destructive',
+      })
     }
   }
 
@@ -170,7 +170,7 @@ export default function WeeklyPlannerPage() {
         setRecommendedTemplates([])
       }
     } catch (error) {
-      console.error('Error loading recommended templates:', error)
+      // Silent failure for recommended templates
       setRecommendedTemplates([])
     }
   }
@@ -233,19 +233,13 @@ export default function WeeklyPlannerPage() {
           tenant_id: currentUser.tenantId,
           student_id: pt.studentId,
           title: pt.title,
-          subject: pt.subject || null,
+          subject: pt.subject,
           due_date: dueDate.toISOString().split('T')[0],
-          due_day_of_week: pt.dayOfWeek,
           priority: pt.priority,
-          estimated_duration_minutes: pt.estimatedDuration || null,
         }
       })
 
-      const { error } = await supabase
-        .from('student_todos')
-        .insert(todosToInsert)
-
-      if (error) throw error
+      await todoRepo.createBulk(todosToInsert)
 
       toast({
         title: '주간 과제 게시 완료',
@@ -255,10 +249,9 @@ export default function WeeklyPlannerPage() {
       // Clear planned todos
       setPlannedTodos([])
     } catch (error) {
-      console.error('Error publishing weekly plan:', error)
       toast({
         title: '게시 실패',
-        description: error instanceof Error ? error.message : '과제를 게시하는 중 오류가 발생했습니다.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       })
     } finally {
@@ -360,7 +353,7 @@ export default function WeeklyPlannerPage() {
         description: `${template.title}이(가) 추가되었습니다.`,
       })
     } catch (error) {
-      console.error('Error handling drop:', error)
+      // Silent failure for drag & drop errors
     }
   }
 

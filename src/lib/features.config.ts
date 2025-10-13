@@ -5,9 +5,11 @@
  * - 'active': 정상 운영 중 (모든 사용자 접근 가능)
  * - 'inactive': 출시 전 또는 영구 비활성화 (Coming Soon 페이지 표시)
  * - 'maintenance': 일시 점검 중 (Maintenance 페이지 표시)
+ * - 'beta': 베타 테스트 중 (일부 사용자만 접근 가능, 베타 배지 표시)
+ * - 'deprecated': 단계적 폐지 예정 (Deprecated 경고 표시)
  */
 
-export type FeatureStatus = 'active' | 'inactive' | 'maintenance'
+export type FeatureStatus = 'active' | 'inactive' | 'maintenance' | 'beta' | 'deprecated'
 
 export const FEATURES = {
   // ========================================
@@ -105,6 +107,28 @@ export function isFeatureMaintenance(feature: FeatureKey): boolean {
  */
 export function isFeatureInactive(feature: FeatureKey): boolean {
   return FEATURES[feature] === 'inactive'
+}
+
+/**
+ * 특정 기능이 베타 테스트 중인지 확인
+ */
+export function isFeatureBeta(feature: FeatureKey): boolean {
+  return FEATURES[feature] === 'beta'
+}
+
+/**
+ * 특정 기능이 단계적 폐지 예정인지 확인
+ */
+export function isFeatureDeprecated(feature: FeatureKey): boolean {
+  return FEATURES[feature] === 'deprecated'
+}
+
+/**
+ * 기능이 사용 가능한지 확인 (active 또는 beta 상태)
+ */
+export function isFeatureAvailable(feature: FeatureKey): boolean {
+  const status = FEATURES[feature]
+  return status === 'active' || status === 'beta'
 }
 
 /**

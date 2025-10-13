@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { StudentRepository } from '@/repositories/student.repository'
+import { StudentRepository } from '@/services/data/student.repository'
 import { handleError } from '@/lib/errors'
 import * as z from 'zod'
 
