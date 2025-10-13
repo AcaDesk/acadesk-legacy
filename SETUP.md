@@ -1,5 +1,53 @@
 # Acadesk Web - 설정 가이드
 
+## 0단계: 환경 변수 설정 (필수!)
+
+### 로컬 개발 환경
+
+1. **환경 변수 파일 생성**
+   ```bash
+   # .env.example을 복사하여 .env.local 생성
+   cp .env.example .env.local
+   ```
+
+2. **Supabase 프로젝트 정보 입력**
+   - Supabase 대시보드 접속: https://supabase.com/dashboard
+   - 프로젝트 선택
+   - Settings > API 메뉴
+   - 다음 정보를 복사하여 `.env.local`에 입력:
+     - **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
+     - **anon public** key → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+3. **`.env.local` 예시**
+   ```bash
+   NEXT_PUBLIC_SUPABASE_URL=https://mzftcusxsvwbzobmlwpm.supabase.co
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGc...
+   NEXT_PUBLIC_APP_URL=http://localhost:3000
+   ```
+
+⚠️ **중요**: `.env.local` 파일은 절대 git에 커밋하지 마세요!
+
+### Supabase CLI 설정 (선택사항)
+
+로컬에서 Supabase를 실행하려면:
+
+1. **Supabase CLI 설치**
+   ```bash
+   npm install -g supabase
+   ```
+
+2. **로컬 Supabase 시작**
+   ```bash
+   supabase start
+   ```
+
+3. **로컬 환경 변수 업데이트**
+   `supabase start` 명령 실행 후 출력되는 로컬 URL과 키로 `.env.local` 업데이트:
+   ```bash
+   NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=<로컬 anon key>
+   ```
+
 ## 1단계: 데이터베이스 마이그레이션 적용 (필수!)
 
 ### Supabase 대시보드에서 적용

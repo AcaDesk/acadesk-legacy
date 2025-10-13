@@ -18,13 +18,25 @@ pnpm lint             # Run ESLint
 
 ### Testing
 ```bash
-pnpm test             # Run tests in watch mode
-pnpm test:ui          # Run tests with UI
-pnpm test:run         # Run tests once
+pnpm test             # Run Vitest in watch mode
+pnpm test:ui          # Run Vitest with UI
+pnpm test:run         # Run Vitest once
+pnpm exec playwright test              # Run Playwright e2e tests
+pnpm exec playwright test --ui         # Run Playwright with UI
+pnpm exec playwright test --debug      # Run Playwright in debug mode
 ```
 
-### Database Setup
-See `SETUP.md` for detailed database migration and setup instructions.
+### Database
+```bash
+supabase start        # Start local Supabase instance
+supabase stop         # Stop local Supabase instance
+supabase status       # Check Supabase status
+supabase db reset     # Reset local database
+supabase migration new <name>          # Create new migration
+supabase db push      # Apply migrations to remote database
+```
+
+See `SETUP.md` for detailed database setup and first-time migration instructions.
 
 ## Architecture
 
@@ -184,10 +196,10 @@ From `internal/tech/ERD.md` and `internal/tech/CodeGuideline.md`:
 
 ### Database Migrations
 - **Location**: `supabase/migrations/`
-- **Naming**: `NN_descriptive_name.sql` (numbered sequence)
-- **Include**: Schema + RLS policies + sample data in each PR
-- **Update**: `supabase/migrations/README.md` for each change
-- **Strategy**: Two-phase column additions for zero-downtime
+- **Naming**: `YYYYMMDDNNNNNN_descriptive_name.sql` (timestamp + sequence)
+- **Application**: Apply via Supabase dashboard SQL Editor (see SETUP.md) or `supabase db push`
+- **Include**: Schema + RLS policies in each migration
+- **Strategy**: Two-phase column additions for zero-downtime (add nullable → populate → add constraint → remove old)
 
 ## Business Context
 
