@@ -3,7 +3,7 @@
 import { useState, memo } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
-import { ChevronLeft, ChevronRight, User, Settings, LogOut } from "lucide-react"
+import { ChevronLeft, ChevronRight, User, Settings, LogOut, Menu } from "lucide-react"
 import { AppNav } from "@/components/layout/app-nav"
 import { Button } from "@/components/ui/button"
 import {
@@ -14,126 +14,203 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
+import { useMediaQuery } from "@/hooks/use-media-query"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
 }
 
-// Memoize static components to prevent re-renders
-const Sidebar = memo(function Sidebar({
+/**
+ * 사이드바 내용 컴포넌트 (데스크톱/모바일 공통)
+ */
+const SidebarContent = memo(function SidebarContent({
+  isCollapsed = false,
+}: {
+  isCollapsed?: boolean
+}) {
+  return (
+    <div className="flex h-full flex-col">
+      {/* 로고 */}
+      <div className="flex h-16 items-center border-b px-6">
+        <motion.div
+          animate={{
+            opacity: isCollapsed ? 0 : 1,
+            x: isCollapsed ? -20 : 0
+          }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+          className="whitespace-nowrap"
+        >
+          <h1 className="text-xl font-bold">Acadesk</h1>
+        </motion.div>
+      </div>
+
+      {/* 네비게이션 */}
+      <div className="flex-1 overflow-y-auto">
+        <AppNav isCollapsed={isCollapsed} />
+      </div>
+    </div>
+  )
+})
+
+/**
+ * 데스크톱 사이드바 (접기/펼치기 기능)
+ */
+const DesktopSidebar = memo(function DesktopSidebar({
   isCollapsed
 }: {
   isCollapsed: boolean
 }) {
   return (
-    <motion.aside
+    <aside
       className="relative h-full border-r bg-card overflow-hidden"
-      animate={{
-        width: isCollapsed ? "4rem" : "16rem"
-      }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
+      style={{ width: isCollapsed ? "4rem" : "16rem" }}
     >
-      {/* 로고와 네비게이션을 포함하는 컨텐츠 래퍼 */}
-      <div className="flex h-full flex-col">
-        <div className="flex h-16 items-center border-b px-6">
-          <motion.div
-            animate={{
-              opacity: isCollapsed ? 0 : 1,
-              x: isCollapsed ? -20 : 0
-            }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="whitespace-nowrap"
-          >
-            <h1 className="text-xl font-bold">Acadesk</h1>
-          </motion.div>
-        </div>
-
-        {/* 네비게이션 */}
-        <div className="flex-1">
-          <AppNav isCollapsed={isCollapsed} />
-        </div>
-      </div>
-    </motion.aside>
+      <SidebarContent isCollapsed={isCollapsed} />
+    </aside>
   )
 })
 
-const Header = memo(function Header() {
+/**
+ * 헤더 컴포넌트
+ */
+const Header = memo(function Header({
+  onMenuClick,
+  showMenuButton = false,
+}: {
+  onMenuClick?: () => void
+  showMenuButton?: boolean
+}) {
   return (
-    <header className="flex h-16 items-center justify-end border-b bg-card px-6">
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="h-auto gap-3 p-2">
-            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-primary/70" />
-            <div className="text-left">
-              <p className="text-sm font-medium">관리자</p>
-              <p className="text-xs text-muted-foreground">admin@acadesk.com</p>
-            </div>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56" align="end" forceMount>
-          <DropdownMenuLabel>내 계정</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem asChild>
-            <Link href="/profile" className="cursor-pointer">
-              <User className="mr-2 h-4 w-4" />
-              <span>내 정보</span>
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/settings" className="cursor-pointer">
-              <Settings className="mr-2 h-4 w-4" />
-              <span>설정</span>
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <form action="/auth/logout" method="POST" className="w-full">
+    <header className="flex h-16 items-center justify-between border-b bg-card px-4 md:px-6">
+      {/* 모바일 햄버거 메뉴 */}
+      {showMenuButton && (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onMenuClick}
+          className="md:hidden"
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
+      )}
+
+      {/* 로고 (모바일에서만 표시) */}
+      <div className="md:hidden">
+        <h1 className="text-lg font-bold">Acadesk</h1>
+      </div>
+
+      {/* 사용자 메뉴 */}
+      <div className="ml-auto">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="h-auto gap-3 p-2">
+              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-primary/70" />
+              <div className="text-left hidden sm:block">
+                <p className="text-sm font-medium">관리자</p>
+                <p className="text-xs text-muted-foreground">admin@acadesk.com</p>
+              </div>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-56" align="end" forceMount>
+            <DropdownMenuLabel>내 계정</DropdownMenuLabel>
+            <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <button type="submit" className="w-full cursor-pointer">
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>로그아웃</span>
-              </button>
+              <Link href="/profile" className="cursor-pointer">
+                <User className="mr-2 h-4 w-4" />
+                <span>내 정보</span>
+              </Link>
             </DropdownMenuItem>
-          </form>
-        </DropdownMenuContent>
-      </DropdownMenu>
+            <DropdownMenuItem asChild>
+              <Link href="/settings" className="cursor-pointer">
+                <Settings className="mr-2 h-4 w-4" />
+                <span>설정</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <form action="/auth/logout" method="POST" className="w-full">
+              <DropdownMenuItem asChild>
+                <button type="submit" className="w-full cursor-pointer">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>로그아웃</span>
+                </button>
+              </DropdownMenuItem>
+            </form>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </header>
   )
 })
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  // 데스크톱 여부 감지 (1024px 이상)
+  const isDesktop = useMediaQuery("(min-width: 1024px)")
 
   const toggleSidebar = () => setIsCollapsed(!isCollapsed)
+  const toggleMobileMenu = () => setMobileMenuOpen(!mobileMenuOpen)
 
   return (
-    <div className="flex h-screen">
-      {/* Sidebar와 Button을 함께 감싸는 relative 컨테이너 */}
-      <div className="relative">
-        <Sidebar isCollapsed={isCollapsed} />
-
-        {/* 버튼을 Sidebar 밖으로 이동 */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="absolute top-20 h-6 w-6 rounded-full border bg-background shadow-md transition-all duration-300 ease-in-out"
-          style={{
-            left: isCollapsed ? '3.25rem' : '15.25rem', // 4rem - 0.75rem, 16rem - 0.75rem
+    <div className="flex h-screen overflow-hidden">
+      {/* 데스크톱: 고정 사이드바 */}
+      {isDesktop && (
+        <motion.div
+          className="relative flex-shrink-0"
+          animate={{
+            width: isCollapsed ? "4rem" : "16rem"
           }}
-          onClick={toggleSidebar}
+          transition={{ duration: 0.3, ease: "easeOut" }}
         >
-          {isCollapsed ? (
-            <ChevronRight className="h-4 w-4" />
-          ) : (
-            <ChevronLeft className="h-4 w-4" />
-          )}
-        </Button>
-      </div>
+          <DesktopSidebar isCollapsed={isCollapsed} />
 
+          {/* 접기/펼치기 버튼 */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-20 h-6 w-6 rounded-full border bg-background shadow-md transition-all duration-300 ease-in-out z-10"
+            style={{
+              left: isCollapsed ? '3.25rem' : '15.25rem',
+            }}
+            onClick={toggleSidebar}
+          >
+            {isCollapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
+          </Button>
+        </motion.div>
+      )}
+
+      {/* 모바일: Sheet (오프캔버스) 메뉴 */}
+      {!isDesktop && (
+        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+          <SheetContent side="left" className="w-64 p-0">
+            <SheetHeader className="sr-only">
+              <SheetTitle>메뉴</SheetTitle>
+            </SheetHeader>
+            <SidebarContent />
+          </SheetContent>
+        </Sheet>
+      )}
+
+      {/* 메인 콘텐츠 영역 */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Header />
+        <Header
+          onMenuClick={toggleMobileMenu}
+          showMenuButton={!isDesktop}
+        />
 
         {/* 메인 - 페이지 컨텐츠만 전환 */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-background p-6">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-background p-4 md:p-6">
           {children}
         </main>
       </div>

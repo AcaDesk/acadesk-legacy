@@ -1,8 +1,14 @@
 import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
+import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
 import { AttendanceRepository } from '@/repositories/attendanceRepository';
 import { AttendanceList } from '@/components/features/attendance/AttendanceList';
+
+export const metadata: Metadata = {
+  title: "출석 관리",
+  description: "수업별 출석 세션을 생성하고 학생들의 출석 현황을 관리합니다. 실시간 출석 체크, 지각/결석 기록, 출석률 통계를 확인하세요.",
+}
 
 export default async function AttendancePage() {
   try {
@@ -87,8 +93,8 @@ export default async function AttendancePage() {
 
     return (
       <div className="container mx-auto py-8 px-4">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">출석 관리</h1>
+        <div className="mb-8 space-y-6">
+          <h1 className="text-3xl font-bold">출석 관리</h1>
           <p className="text-gray-600">
             클래스별 출석 세션을 생성하고 학생들의 출석을 관리합니다.
           </p>
