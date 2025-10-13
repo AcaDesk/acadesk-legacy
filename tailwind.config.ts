@@ -7,6 +7,21 @@ const config: Config = {
     "./src/components/**/*.{ts,tsx}",
     "./src/features/**/*.{ts,tsx}",
   ],
+  safelist: [
+    // Quick Actions 위젯용 동적 색상 클래스
+    'bg-blue-100', 'bg-blue-200', 'text-blue-600',
+    'bg-green-100', 'bg-green-200', 'text-green-600',
+    'bg-purple-100', 'bg-purple-200', 'text-purple-600',
+    'bg-orange-100', 'bg-orange-200', 'text-orange-600',
+    'bg-teal-100', 'bg-teal-200', 'text-teal-600',
+    'bg-indigo-100', 'bg-indigo-200', 'text-indigo-600',
+    'bg-red-100', 'bg-red-200', 'text-red-600',
+    'bg-emerald-100', 'bg-emerald-200', 'text-emerald-600',
+    'bg-cyan-100', 'bg-cyan-200', 'text-cyan-600',
+    'bg-amber-100', 'bg-amber-200', 'text-amber-600',
+    'bg-rose-100', 'bg-rose-200', 'text-rose-600',
+    'bg-slate-100', 'bg-slate-200', 'text-slate-600',
+  ],
   theme: {
   	extend: {
   		colors: {
@@ -81,6 +96,9 @@ const config: Config = {
   		}
   	}
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [
+    require("tailwindcss-animate"),
+    require("@tailwindcss/typography"),
+  ],
 }
 export default config
