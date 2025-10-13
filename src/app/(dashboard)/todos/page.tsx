@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
+import { PageHeader } from '@/components/ui/page-header'
+import { EmptyState } from '@/components/ui/empty-state'
 import {
   Table,
   TableBody,
@@ -22,11 +24,11 @@ import {
   User,
   Search,
   Calendar,
-  FileText
+  FileText,
+  ListTodo
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import Link from 'next/link'
-import { PageWrapper } from "@/components/layout/page-wrapper"
 import { TodoRepository, type StudentTodoWithStudent } from '@/services/data/todo.repository'
 import { verifyTodo, deleteTodo } from '@/services/todo-management.service'
 import { getErrorMessage } from '@/lib/error-handlers'
@@ -188,34 +190,49 @@ export default function TodosPage() {
 
   if (loading) {
     return (
-      <PageWrapper>
-        <div className="text-center py-12">로딩 중...</div>
-      </PageWrapper>
+      <div className="space-y-6">
+        <div className="animate-pulse">
+          <div className="h-20 bg-muted rounded-lg mb-6" />
+          <div className="grid gap-4 md:grid-cols-4 mb-6">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-32 bg-muted rounded-lg" />
+            ))}
+          </div>
+          <div className="grid gap-4 md:grid-cols-4 mb-6">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-24 bg-muted rounded-lg" />
+            ))}
+          </div>
+          <div className="h-96 bg-muted rounded-lg" />
+        </div>
+      </div>
     )
   }
 
   return (
-    <PageWrapper>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">TODO 관리</h1>
-            <p className="text-muted-foreground">학생별 과제 및 TODO를 관리합니다</p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => window.location.href = '/todos/templates'}>
-              <FileText className="h-4 w-4 mr-2" />
-              템플릿 관리
-            </Button>
-            <Button onClick={() => window.location.href = '/todos/new'}>
-              <Plus className="h-4 w-4 mr-2" />
-              TODO 생성
-            </Button>
-          </div>
-        </div>
+    <div className="space-y-6">
+      {/* Header */}
+      <section aria-label="페이지 헤더" className="animate-in fade-in-50 slide-in-from-top-2 duration-500">
+        <PageHeader
+          title="TODO 관리"
+          description="학생별 과제 및 TODO를 관리합니다"
+          action={
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => window.location.href = '/todos/templates'}>
+                <FileText className="h-4 w-4 mr-2" />
+                템플릿 관리
+              </Button>
+              <Button onClick={() => window.location.href = '/todos/new'}>
+                <Plus className="h-4 w-4 mr-2" />
+                TODO 생성
+              </Button>
+            </div>
+          }
+        />
+      </section>
 
-        {/* Quick Navigation Cards */}
+      {/* Quick Navigation Cards */}
+      <section aria-label="빠른 탐색" className="animate-in fade-in-50 slide-in-from-bottom-2 duration-500" style={{ animationDelay: '100ms' }}>
         <div className="grid gap-4 md:grid-cols-4">
           <Card
             className="hover:bg-accent transition-colors cursor-pointer border-2 border-primary/20"
@@ -285,8 +302,10 @@ export default function TodosPage() {
             </CardContent>
           </Card>
         </div>
+      </section>
 
-        {/* Stats Cards */}
+      {/* Stats Cards */}
+      <section aria-label="통계" className="animate-in fade-in-50 slide-in-from-bottom-2 duration-500" style={{ animationDelay: '200ms' }}>
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="pb-3">
@@ -332,8 +351,10 @@ export default function TodosPage() {
             </CardContent>
           </Card>
         </div>
+      </section>
 
-        {/* Filters */}
+      {/* Filters */}
+      <section aria-label="필터" className="animate-in fade-in-50 slide-in-from-bottom-2 duration-500" style={{ animationDelay: '300ms' }}>
         <Card>
           <CardContent className="pt-6">
             <div className="flex flex-col md:flex-row gap-4">
@@ -358,16 +379,26 @@ export default function TodosPage() {
             </div>
           </CardContent>
         </Card>
+      </section>
 
-        {/* TODO List */}
+      {/* TODO List */}
+      <section aria-label="TODO 목록" className="animate-in fade-in-50 slide-in-from-bottom-2 duration-500" style={{ animationDelay: '400ms' }}>
         <Card>
           <CardContent className="pt-6">
             {filteredTodos.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <Circle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>TODO가 없습니다.</p>
-                {searchTerm && <p className="text-sm mt-2">검색 결과가 없습니다.</p>}
-              </div>
+              <EmptyState
+                icon={searchTerm ? Search : ListTodo}
+                title={searchTerm ? "검색 결과가 없습니다" : "TODO가 없습니다"}
+                description={searchTerm ? "다른 검색어를 입력해보세요" : "새로운 TODO를 생성하여 시작하세요"}
+                action={
+                  !searchTerm && (
+                    <Button onClick={() => window.location.href = '/todos/new'}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      TODO 생성
+                    </Button>
+                  )
+                }
+              />
             ) : (
               <div className="border rounded-lg">
                 <Table>
@@ -465,7 +496,7 @@ export default function TodosPage() {
             )}
           </CardContent>
         </Card>
-      </div>
-    </PageWrapper>
+      </section>
+    </div>
   )
 }

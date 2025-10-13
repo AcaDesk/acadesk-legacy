@@ -4,7 +4,7 @@ import { Suspense, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { PageWrapper } from "@/components/layout/page-wrapper"
+import { PageHeader } from '@/components/ui/page-header'
 import { StudentList } from '@/components/features/students/student-list'
 import { StudentListSkeleton } from '@/components/features/students/student-list-skeleton'
 import { AddStudentDialog } from '@/components/features/students/add-student-dialog'
@@ -19,19 +19,23 @@ export default function StudentsPage() {
   }
 
   return (
-    <PageWrapper>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">학생 관리</h1>
-            <p className="text-muted-foreground">학생 정보 및 성적을 관리합니다</p>
-          </div>
-          <Button onClick={() => setAddDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            학생 추가
-          </Button>
-        </div>
+    <div className="space-y-6">
+      {/* Header */}
+      <section aria-label="페이지 헤더" className="animate-in fade-in-50 slide-in-from-top-2 duration-500">
+        <PageHeader
+          title="학생 관리"
+          description="학생 정보 및 성적을 관리합니다"
+          action={
+            <Button onClick={() => setAddDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              학생 추가
+            </Button>
+          }
+        />
+      </section>
 
+      {/* Student List */}
+      <section aria-label="학생 목록" className="animate-in fade-in-50 slide-in-from-bottom-2 duration-500" style={{ animationDelay: '100ms' }}>
         <Card>
           <CardHeader>
             <CardTitle>전체 학생 목록</CardTitle>
@@ -42,13 +46,13 @@ export default function StudentsPage() {
             </Suspense>
           </CardContent>
         </Card>
+      </section>
 
-        <AddStudentDialog
-          open={addDialogOpen}
-          onOpenChange={setAddDialogOpen}
-          onSuccess={handleStudentAdded}
-        />
-      </div>
-    </PageWrapper>
+      <AddStudentDialog
+        open={addDialogOpen}
+        onOpenChange={setAddDialogOpen}
+        onSuccess={handleStudentAdded}
+      />
+    </div>
   )
 }
