@@ -20,9 +20,11 @@ import { useToast } from '@/hooks/use-toast'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { formatDistanceToNow } from 'date-fns'
 import { ko } from 'date-fns/locale'
+import { isFeatureActive } from '@/lib/features.config'
 
 export function NotificationPopover() {
   const [open, setOpen] = useState(false)
+  const isNotificationActive = isFeatureActive('notificationSystem')
   const [notifications, setNotifications] = useState<InAppNotification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -68,10 +70,10 @@ export function NotificationPopover() {
 
   // 컴포넌트 마운트 시 알림 로드
   useEffect(() => {
-    if (currentUser) {
+    if (currentUser && isNotificationActive) {
       loadNotifications()
     }
-  }, [currentUser])
+  }, [currentUser, isNotificationActive])
 
   // 알림 클릭 시 읽음 처리
   const handleNotificationClick = async (notification: InAppNotification) => {
@@ -124,6 +126,35 @@ export function NotificationPopover() {
       default:
         return 'bg-gray-100 text-gray-600'
     }
+  }
+
+  // 준비 중 기능 클릭 처리
+  const handleComingSoonClick = () => {
+    toast({
+      title: '준비 중입니다',
+      description: '알림 기능은 현재 개발 중입니다. 곧 만나보실 수 있습니다!',
+    })
+  }
+
+  // 기능이 비활성화되어 있으면 준비 중 버튼만 표시
+  if (!isNotificationActive) {
+    return (
+      <div className="relative">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleComingSoonClick}
+          aria-label="알림 (준비 중)"
+        >
+          <Bell className="h-5 w-5" />
+        </Button>
+        <Badge
+          className="absolute -top-1 -right-1 h-5 px-1.5 text-[10px] bg-amber-500 hover:bg-amber-500 pointer-events-none"
+        >
+          준비중
+        </Badge>
+      </div>
+    )
   }
 
   return (
