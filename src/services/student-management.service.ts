@@ -2,9 +2,9 @@
  * Student Management Service
  *
  * 학생 생성/수정/삭제 등 관리 작업을 위한 비즈니스 로직
+ * Client Component와 Server Component 모두에서 사용 가능
  */
 
-import { createClient } from '@/lib/supabase/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { DatabaseError, ConflictError } from '@/lib/error-types'
 import { logError } from '@/lib/error-handlers'
@@ -214,25 +214,3 @@ export async function updateStudent(
   }
 }
 
-/**
- * Server-side에서 사용 (createClient 내부 호출)
- */
-export async function createStudentServer(
-  tenantId: string,
-  input: CreateStudentInput
-): Promise<CreateStudentResult> {
-  const supabase = await createClient()
-  return createStudent(supabase, tenantId, input)
-}
-
-/**
- * Server-side에서 사용 (createClient 내부 호출)
- */
-export async function updateStudentServer(
-  studentId: string,
-  userId: string,
-  input: UpdateStudentInput
-): Promise<void> {
-  const supabase = await createClient()
-  return updateStudent(supabase, studentId, userId, input)
-}

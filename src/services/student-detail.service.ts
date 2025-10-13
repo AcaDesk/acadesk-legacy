@@ -161,7 +161,15 @@ export async function getClassAverages(scores: ExamScore[]): Promise<Record<stri
         .eq('exam_id', examId)
 
       if (error) {
-        console.error(`Error loading class average for exam ${examId}:`, error)
+        // 테이블이 없는 경우 조용히 실패
+        const errorMessage = error.message || String(error)
+        if (!errorMessage.includes('relation') && !errorMessage.includes('does not exist')) {
+          logError(error, {
+            service: 'StudentDetailService',
+            method: 'getClassAverages',
+            examId
+          })
+        }
         return
       }
 
@@ -189,7 +197,15 @@ export async function getRecentTodos(studentId: string): Promise<StudentTodo[]> 
     .limit(10)
 
   if (error) {
-    console.error('Error loading todos:', error)
+    // 테이블이 없는 경우 조용히 실패 (마이그레이션 미적용 시)
+    const errorMessage = error.message || String(error)
+    if (!errorMessage.includes('relation') && !errorMessage.includes('does not exist')) {
+      logError(error, {
+        service: 'StudentDetailService',
+        method: 'getRecentTodos',
+        studentId
+      })
+    }
     return []
   }
 
@@ -210,7 +226,15 @@ export async function getConsultations(studentId: string): Promise<Consultation[
     .limit(20)
 
   if (error) {
-    console.error('Error loading consultations:', error)
+    // 테이블이 없는 경우 조용히 실패 (마이그레이션 미적용 시)
+    const errorMessage = error.message || String(error)
+    if (!errorMessage.includes('relation') && !errorMessage.includes('does not exist')) {
+      logError(error, {
+        service: 'StudentDetailService',
+        method: 'getConsultations',
+        studentId
+      })
+    }
     return []
   }
 
@@ -245,7 +269,15 @@ export async function getAttendanceRecords(studentId: string): Promise<Attendanc
     .limit(30)
 
   if (error) {
-    console.error('Error loading attendance:', error)
+    // 테이블이 없는 경우 조용히 실패 (마이그레이션 미적용 시)
+    const errorMessage = error.message || String(error)
+    if (!errorMessage.includes('relation') && !errorMessage.includes('does not exist')) {
+      logError(error, {
+        service: 'StudentDetailService',
+        method: 'getAttendanceRecords',
+        studentId
+      })
+    }
     return []
   }
 
@@ -289,8 +321,15 @@ export async function getInvoices(studentId: string): Promise<Invoice[]> {
     .limit(12)
 
   if (error) {
-    console.error('Error loading invoices:', error)
-    // invoices 테이블이 없을 수 있으므로 빈 배열 반환
+    // 테이블이 없는 경우 조용히 실패 (마이그레이션 미적용 시)
+    const errorMessage = error.message || String(error)
+    if (!errorMessage.includes('relation') && !errorMessage.includes('does not exist')) {
+      logError(error, {
+        service: 'StudentDetailService',
+        method: 'getInvoices',
+        studentId
+      })
+    }
     return []
   }
 

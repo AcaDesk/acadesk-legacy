@@ -65,6 +65,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { getStudentAvatar } from '@/lib/avatar'
 import { cn } from '@/lib/utils'
+import { BulkActionsDialog } from './bulk-actions-dialog'
 
 export interface Student {
   id: string
@@ -127,6 +128,7 @@ export function StudentTableImproved({
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
   const [rowSelection, setRowSelection] = React.useState({})
   const [badgeFilter, setBadgeFilter] = React.useState<BadgeFilter>(null)
+  const [bulkActionsOpen, setBulkActionsOpen] = React.useState(false)
 
   const isNewStudent = (enrollmentDate: string) => {
     const daysSinceEnrollment = differenceInDays(new Date(), new Date(enrollmentDate))
@@ -572,6 +574,18 @@ export function StudentTableImproved({
 
   const searchValue = (table.getColumn('users')?.getFilterValue() as string) ?? ''
 
+  // 선택된 학생 목록 가져오기
+  const selectedStudents = table.getFilteredSelectedRowModel().rows.map(row => row.original)
+
+  // 일괄 작업 완료 후 처리
+  const handleBulkActionsComplete = () => {
+    // 선택 해제
+    table.toggleAllPageRowsSelected(false)
+    setRowSelection({})
+    // 부모 컴포넌트에 리로드 요청 (새로고침을 위해)
+    window.location.reload()
+  }
+
   // 뱃지 필터 라벨
   const getBadgeFilterLabel = (filter: BadgeFilter): string => {
     switch (filter) {
@@ -705,7 +719,7 @@ export function StudentTableImproved({
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={() => setBulkActionsOpen(true)}>
                 일괄 작업
               </Button>
               <Button
@@ -905,6 +919,14 @@ export function StudentTableImproved({
           </div>
         </div>
       </motion.div>
+
+      {/* Bulk Actions Dialog */}
+      <BulkActionsDialog
+        open={bulkActionsOpen}
+        onOpenChange={setBulkActionsOpen}
+        selectedStudents={selectedStudents}
+        onComplete={handleBulkActionsComplete}
+      />
     </div>
   )
 }
