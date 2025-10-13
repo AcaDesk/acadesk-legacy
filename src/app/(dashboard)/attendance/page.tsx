@@ -4,6 +4,9 @@ import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
 import { AttendanceRepository } from '@/repositories/attendanceRepository';
 import { AttendanceList } from '@/components/features/attendance/AttendanceList';
+import { FEATURES } from '@/lib/features.config';
+import { ComingSoon } from '@/components/layout/coming-soon';
+import { Maintenance } from '@/components/layout/maintenance';
 
 export const metadata: Metadata = {
   title: "출석 관리",
@@ -11,6 +14,16 @@ export const metadata: Metadata = {
 }
 
 export default async function AttendancePage() {
+  // 피처 플래그 상태 체크
+  const featureStatus = FEATURES.attendanceManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="출석 관리" description="실시간 출석 체크, 지각/결석 기록, 출석률 통계를 손쉽게 관리할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="출석 관리" reason="출석 시스템 개선 작업이 진행 중입니다." />;
+  }
   try {
     const supabase = await createClient();
 

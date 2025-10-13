@@ -22,14 +22,33 @@ export type GradeValue = typeof GRADES[number]['value']
 
 // 보호자 관계
 export const GUARDIAN_RELATIONSHIPS = [
-  { value: '부', label: '부' },
-  { value: '모', label: '모' },
-  { value: '조부', label: '조부' },
-  { value: '조모', label: '조모' },
-  { value: '기타', label: '기타' },
+  { value: 'father', label: '아버지' },
+  { value: 'mother', label: '어머니' },
+  { value: 'grandfather', label: '할아버지' },
+  { value: 'grandmother', label: '할머니' },
+  { value: 'uncle', label: '삼촌' },
+  { value: 'aunt', label: '이모/고모' },
+  { value: 'other', label: '기타' },
 ] as const
 
 export type GuardianRelationship = typeof GUARDIAN_RELATIONSHIPS[number]['value']
+
+// 보호자 관계 맵 헬퍼 함수
+export function getGuardianRelationshipLabel(relationship: string | null | undefined): string {
+  if (!relationship) return ''
+
+  const relationshipMap: Record<string, string> = {
+    'father': '아버지',
+    'mother': '어머니',
+    'grandfather': '할아버지',
+    'grandmother': '할머니',
+    'uncle': '삼촌',
+    'aunt': '이모/고모',
+    'other': '기타',
+  }
+
+  return relationshipMap[relationship] || relationship
+}
 
 // 출석 상태
 export const ATTENDANCE_STATUSES = [
@@ -65,12 +84,17 @@ export type UserRole = typeof USER_ROLES[number]['value']
 // 학생 코드 생성
 export function generateStudentCode(): string {
   const now = new Date()
-  const year = now.getFullYear().toString().slice(2) // 24
+  const year = now.getFullYear().toString().slice(2) // 25
   const month = (now.getMonth() + 1).toString().padStart(2, '0') // 01-12
-  const random = Math.floor(Math.random() * 10000)
+
+  // 더 안전한 랜덤 생성: timestamp(밀리초) + random
+  // 같은 밀리초에 생성될 확률은 극히 낮음
+  const timestamp = Date.now().toString().slice(-3) // 마지막 3자리 (000-999)
+  const random = Math.floor(Math.random() * 1000)
     .toString()
-    .padStart(4, '0') // 0000-9999
-  return `S${year}${month}${random}` // S2401XXXX
+    .padStart(3, '0') // 000-999
+
+  return `S${year}${month}${timestamp}${random}` // S2510123456 (11자리)
 }
 
 // 기본 Tenant ID (개발용)

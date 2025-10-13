@@ -17,6 +17,8 @@ import {
 import { Bell, Send, Clock, CheckCircle, XCircle, Search, AlertCircle, FileText } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
+import { FEATURES } from '@/lib/features.config'
+import { ComingSoon } from '@/components/layout/coming-soon'
 
 interface NotificationLog {
   id: string
@@ -46,6 +48,11 @@ interface AutoNotificationStats {
 }
 
 export default function NotificationsPage() {
+  // 피처 플래그 체크
+  if (!FEATURES.notificationSystem) {
+    return <ComingSoon featureName="알림 시스템" description="SMS와 이메일을 통한 자동 알림 발송, 알림 스케줄 관리 등의 기능을 준비하고 있습니다." />;
+  }
+
   const [logs, setLogs] = useState<NotificationLog[]>([])
   const [filteredLogs, setFilteredLogs] = useState<NotificationLog[]>([])
   const [searchTerm, setSearchTerm] = useState('')

@@ -7,10 +7,14 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { ArrowLeft, Download, Send, TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import { Download, Send, TrendingUp, TrendingDown, Minus, ChevronRight } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import type { ReportData } from '@/services/report-generator'
+import Link from 'next/link'
+import { FEATURES } from '@/lib/features.config'
+import { ComingSoon } from '@/components/layout/coming-soon'
+import { Maintenance } from '@/components/layout/maintenance'
 
 interface Report {
   id: string
@@ -32,6 +36,17 @@ interface Report {
 }
 
 export default function ReportDetailPage({ params }: { params: { id: string } }) {
+  // 피처 플래그 상태 체크
+  const featureStatus = FEATURES.reportManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="리포트 상세" description="학생별 월간 리포트를 상세하게 확인하고 보호자에게 전송할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="리포트 상세" reason="리포트 시스템 업데이트가 진행 중입니다." />;
+  }
+
   const [report, setReport] = useState<Report | null>(null)
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
@@ -172,15 +187,16 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
     <PageWrapper>
       <div className="max-w-5xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => router.push('/reports/list')}
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
+        <div className="space-y-4">
+          <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Link href="/reports" className="hover:text-foreground transition-colors">
+              리포트 관리
+            </Link>
+            <ChevronRight className="h-4 w-4" />
+            <span className="text-foreground font-medium">리포트 상세</span>
+          </nav>
+
+          <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold">
                 {getReportTypeLabel(report.report_type)} 리포트
@@ -189,18 +205,18 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
                 {formatPeriod(report.period_start, report.period_end)}
               </p>
             </div>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline">
-              <Download className="h-4 w-4 mr-2" />
-              PDF 다운로드
-            </Button>
-            {!report.sent_at && (
-              <Button onClick={handleSendToGuardian} disabled={sending}>
-                <Send className="h-4 w-4 mr-2" />
-                {sending ? '전송 중...' : '보호자 전송'}
+            <div className="flex gap-2">
+              <Button variant="outline">
+                <Download className="h-4 w-4 mr-2" />
+                PDF 다운로드
               </Button>
-            )}
+              {!report.sent_at && (
+                <Button onClick={handleSendToGuardian} disabled={sending}>
+                  <Send className="h-4 w-4 mr-2" />
+                  {sending ? '전송 중...' : '보호자 전송'}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 

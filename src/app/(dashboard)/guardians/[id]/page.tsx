@@ -7,9 +7,12 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ArrowLeft, Edit, Phone, Mail, Users as UsersIcon, UserCircle } from 'lucide-react'
+import { Edit, Phone, Mail, Users as UsersIcon, UserCircle, ChevronRight } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
+import { FEATURES } from '@/lib/features.config'
+import { ComingSoon } from '@/components/layout/coming-soon'
+import { Maintenance } from '@/components/layout/maintenance'
 
 interface GuardianDetail {
   id: string
@@ -33,6 +36,17 @@ interface GuardianDetail {
 }
 
 export default function GuardianDetailPage() {
+  // 피처 플래그 상태 체크
+  const featureStatus = FEATURES.guardianManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="보호자 상세" description="보호자 정보와 연결된 학생 목록을 확인하고 관리할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="보호자 상세" reason="보호자 관리 시스템 업데이트가 진행 중입니다." />;
+  }
+
   const params = useParams()
   const router = useRouter()
   const { toast } = useToast()
@@ -123,22 +137,27 @@ export default function GuardianDetailPage() {
     <PageWrapper>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => router.push('/guardians')}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
+        <div className="space-y-4">
+          <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+            <button onClick={() => router.push('/guardians')} className="hover:text-foreground transition-colors">
+              보호자 관리
+            </button>
+            <ChevronRight className="h-4 w-4" />
+            <span className="text-foreground font-medium">{guardian.users?.name || '이름 없음'}</span>
+          </nav>
+
+          <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold">{guardian.users?.name || '이름 없음'}</h1>
               <p className="text-muted-foreground">
                 {guardian.relationship ? `${guardian.relationship} · ` : ''}보호자
               </p>
             </div>
+            <Button onClick={() => router.push(`/guardians/${guardian.id}/edit`)}>
+              <Edit className="h-4 w-4 mr-2" />
+              수정
+            </Button>
           </div>
-          <Button onClick={() => router.push(`/guardians/${guardian.id}/edit`)}>
-            <Edit className="h-4 w-4 mr-2" />
-            수정
-          </Button>
         </div>
 
         {/* Basic Info Cards */}

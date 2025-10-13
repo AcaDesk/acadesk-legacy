@@ -16,7 +16,6 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import {
-  ArrowLeft,
   Edit,
   Users,
   Calendar,
@@ -26,12 +25,15 @@ import {
   Target,
   CheckCircle,
   BookOpen,
+  ChevronRight,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { GradesBarChart } from '@/components/features/charts/grades-bar-chart'
 import { TodoCompletionBar } from '@/components/features/charts/todo-completion-bar'
 import { AttendanceComboChart } from '@/components/features/charts/attendance-combo-chart'
+import { FEATURES } from '@/lib/features.config'
+import { ComingSoon } from '@/components/layout/coming-soon'
 import { usePagination } from '@/hooks/use-pagination'
 import {
   Pagination,
@@ -67,6 +69,11 @@ interface StudentInClass {
 }
 
 export default function ClassDetailPage() {
+  // 피처 플래그 체크
+  if (!FEATURES.classManagement) {
+    return <ComingSoon featureName="수업 상세" description="수업별 학생 현황, 성적 분석, 출석률 등을 상세하게 확인하고 관리할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
   const params = useParams()
   const router = useRouter()
   const { toast } = useToast()
@@ -305,15 +312,18 @@ export default function ClassDetailPage() {
       <div className="space-y-6">
         {/* Header */}
         <div className="space-y-4">
+          <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+            <button onClick={() => router.push('/classes')} className="hover:text-foreground transition-colors">
+              수업 관리
+            </button>
+            <ChevronRight className="h-4 w-4" />
+            <span className="text-foreground font-medium">{classData.name}</span>
+          </nav>
+
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" onClick={() => router.push('/classes')}>
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-              <div>
-                <h1 className="text-3xl font-bold">{classData.name}</h1>
-                <p className="text-muted-foreground">{classData.description || '수업 설명 없음'}</p>
-              </div>
+            <div>
+              <h1 className="text-3xl font-bold">{classData.name}</h1>
+              <p className="text-muted-foreground">{classData.description || '수업 설명 없음'}</p>
             </div>
             <Button onClick={() => router.push(`/classes/${classData.id}/edit`)}>
               <Edit className="h-4 w-4 mr-2" />

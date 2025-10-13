@@ -22,8 +22,14 @@ import { ProcessPaymentDialog } from '@/components/features/payments/process-pay
 import { CreateInvoicesDialog } from '@/components/features/payments/create-invoices-dialog'
 import { PaymentHistoryList } from '@/components/features/payments/payment-history-list'
 import { PaymentReminderDialog } from '@/components/features/payments/payment-reminder-dialog'
+import { FEATURES } from '@/lib/features.config'
+import { ComingSoon } from '@/components/layout/coming-soon'
 
 export default function PaymentsPage() {
+  // 피처 플래그 체크
+  if (!FEATURES.tuitionManagement) {
+    return <ComingSoon featureName="학원비 관리" description="월별 청구, 수납 현황 및 미납 관리를 자동화하여 효율적인 재무 관리를 지원하는 기능을 준비하고 있습니다." />;
+  }
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7))
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
   const [createInvoicesDialogOpen, setCreateInvoicesDialogOpen] = useState(false)

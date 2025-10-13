@@ -82,14 +82,14 @@ begin
     'birthdayStudents', (
       select coalesce(json_agg(row_to_json(t)), '[]'::json)
       from (
-        select 
+        select
           s.id,
-          json_build_object('name', u.name, 'birth_date', u.birth_date) as users
+          json_build_object('name', u.name, 'birth_date', s.birth_date) as users
         from students s
         left join users u on s.user_id = u.id
         where s.deleted_at is null
-          and u.birth_date is not null
-          and to_char(u.birth_date, 'MM-DD') = to_char(today_param, 'MM-DD')
+          and s.birth_date is not null
+          and to_char(s.birth_date, 'MM-DD') = to_char(today_param, 'MM-DD')
       ) t
     ),
     'scheduledConsultations', (

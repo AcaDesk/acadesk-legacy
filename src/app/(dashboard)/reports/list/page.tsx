@@ -16,10 +16,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Search, Eye, Download, Send, Plus, FileText } from 'lucide-react'
+import { Search, Eye, Download, Send, Plus, FileText, ChevronRight } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import type { ReportData } from '@/services/report-generator'
+import Link from 'next/link'
+import { FEATURES } from '@/lib/features.config'
+import { ComingSoon } from '@/components/layout/coming-soon'
+import { Maintenance } from '@/components/layout/maintenance'
 
 interface Report {
   id: string
@@ -47,6 +51,17 @@ interface Student {
 }
 
 export default function ReportsListPage() {
+  // 피처 플래그 상태 체크
+  const featureStatus = FEATURES.reportManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="리포트 목록" description="생성된 모든 리포트를 조회하고 보호자에게 전송할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="리포트 목록" reason="리포트 시스템 업데이트가 진행 중입니다." />;
+  }
+
   const [reports, setReports] = useState<Report[]>([])
   const [filteredReports, setFilteredReports] = useState<Report[]>([])
   const [students, setStudents] = useState<Student[]>([])
@@ -206,15 +221,25 @@ export default function ReportsListPage() {
     <PageWrapper>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">리포트 목록</h1>
-            <p className="text-muted-foreground">생성된 모든 리포트를 조회하고 관리합니다</p>
+        <div className="space-y-4">
+          <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Link href="/reports" className="hover:text-foreground transition-colors">
+              리포트 관리
+            </Link>
+            <ChevronRight className="h-4 w-4" />
+            <span className="text-foreground font-medium">리포트 목록</span>
+          </nav>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold">리포트 목록</h1>
+              <p className="text-muted-foreground">생성된 모든 리포트를 조회하고 관리합니다</p>
+            </div>
+            <Button onClick={() => router.push('/reports')}>
+              <Plus className="h-4 w-4 mr-2" />
+              리포트 생성
+            </Button>
           </div>
-          <Button onClick={() => router.push('/reports')}>
-            <Plus className="h-4 w-4 mr-2" />
-            리포트 생성
-          </Button>
         </div>
 
         {/* Filters */}

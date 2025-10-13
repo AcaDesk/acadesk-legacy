@@ -80,10 +80,10 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 }
 
 const colorMap: Record<string, string> = {
-  default: 'bg-primary text-primary-foreground',
-  secondary: 'bg-secondary text-secondary-foreground',
-  outline: 'bg-background border-2 border-primary text-foreground',
-  destructive: 'bg-destructive text-destructive-foreground',
+  default: 'bg-foreground text-background',
+  secondary: 'bg-muted text-foreground',
+  outline: 'bg-background border-2 border-border text-foreground',
+  destructive: 'bg-muted text-foreground',
 }
 
 export function ActivityTimeline({ studentId, limit = 50 }: ActivityTimelineProps) {

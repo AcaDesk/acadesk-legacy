@@ -14,6 +14,8 @@ import { PageWrapper } from "@/components/layout/page-wrapper"
 import { GradesLineChart } from '@/components/features/charts/grades-line-chart'
 import { TodoCompletionDonut } from '@/components/features/charts/todo-completion-donut'
 import { AttendanceHeatmap } from '@/components/features/charts/attendance-heatmap'
+import { FEATURES } from '@/lib/features.config'
+import { ComingSoon } from '@/components/layout/coming-soon'
 
 interface Student {
   id: string
@@ -24,6 +26,11 @@ interface Student {
 }
 
 export default function ReportsPage() {
+  // 피처 플래그 체크
+  if (!FEATURES.reportManagement) {
+    return <ComingSoon featureName="월간 리포트" description="학생별 월간 성적, 출석, 과제 완료율을 자동으로 분석하여 리포트를 생성하는 기능을 준비하고 있습니다." />;
+  }
+
   const [students, setStudents] = useState<Student[]>([])
   const [selectedStudent, setSelectedStudent] = useState<string>('')
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear())

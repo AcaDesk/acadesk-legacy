@@ -19,8 +19,14 @@ import Link from 'next/link'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { PAGE_LAYOUT, GRID_LAYOUTS, TEXT_STYLES, CARD_STYLES } from '@/lib/constants'
 import { Input } from '@/components/ui/input'
+import { FEATURES } from '@/lib/features.config'
+import { ComingSoon } from '@/components/layout/coming-soon'
 
 export default function LibraryPage() {
+  // 피처 플래그 체크
+  if (!FEATURES.libraryManagement) {
+    return <ComingSoon featureName="교재 관리" description="교재 및 도서 대여, 진도 관리를 체계적으로 지원하여 학습 자료 운영을 효율화하는 기능을 준비하고 있습니다." />;
+  }
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
 

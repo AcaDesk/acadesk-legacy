@@ -21,7 +21,8 @@ import {
   Circle,
   User,
   Search,
-  Calendar
+  Calendar,
+  FileText
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import Link from 'next/link'
@@ -237,12 +238,87 @@ export default function TodosPage() {
             <h1 className="text-3xl font-bold">TODO 관리</h1>
             <p className="text-muted-foreground">학생별 과제 및 TODO를 관리합니다</p>
           </div>
-          <Link href="/todos/new">
-            <Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => window.location.href = '/todos/templates'}>
+              <FileText className="h-4 w-4 mr-2" />
+              템플릿 관리
+            </Button>
+            <Button onClick={() => window.location.href = '/todos/new'}>
               <Plus className="h-4 w-4 mr-2" />
               TODO 생성
             </Button>
-          </Link>
+          </div>
+        </div>
+
+        {/* Quick Navigation Cards */}
+        <div className="grid gap-4 md:grid-cols-4">
+          <Card
+            className="hover:bg-accent transition-colors cursor-pointer border-2 border-primary/20"
+            onClick={() => window.location.href = '/todos/planner'}
+          >
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                주간 학습 플래너
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">
+                드래그 앤 드롭으로 주간 과제 배정
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="hover:bg-accent transition-colors cursor-pointer border-2 border-blue-500/20"
+            onClick={() => window.location.href = '/todos/verify'}
+          >
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4" />
+                검증 대기 목록
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">
+                완료된 과제 일괄 검증
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="hover:bg-accent transition-colors cursor-pointer border-2 border-green-500/20"
+            onClick={() => window.location.href = '/kiosk'}
+          >
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <User className="h-4 w-4" />
+                학생 키오스크
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">
+                학생용 과제 확인 모드
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="hover:bg-accent transition-colors cursor-pointer border-2 border-orange-500/20"
+            onClick={() => window.location.href = '/todos/stats'}
+          >
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                통계 대시보드
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">
+                과제 완료 현황 분석
+              </p>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Stats Cards */}

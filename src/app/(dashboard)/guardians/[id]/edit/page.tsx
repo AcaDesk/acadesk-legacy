@@ -14,9 +14,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
-import { ArrowLeft } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { GUARDIAN_RELATIONSHIPS } from '@/lib/constants'
+import { FEATURES } from '@/lib/features.config'
+import { ComingSoon } from '@/components/layout/coming-soon'
+import { Maintenance } from '@/components/layout/maintenance'
 
 const guardianSchema = z.object({
   name: z.string().min(2, '이름은 최소 2자 이상이어야 합니다'),
@@ -52,6 +55,17 @@ interface Student {
 }
 
 export default function EditGuardianPage() {
+  // 피처 플래그 상태 체크
+  const featureStatus = FEATURES.guardianManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="보호자 수정" description="보호자 정보를 수정하고 학생과의 연결을 관리할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="보호자 수정" reason="보호자 관리 시스템 업데이트가 진행 중입니다." />;
+  }
+
   const params = useParams()
   const [loading, setLoading] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
@@ -287,12 +301,19 @@ export default function EditGuardianPage() {
     <PageWrapper>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center gap-4">
-          <Link href={`/guardians/${guardian.id}`}>
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
+        <div className="space-y-4">
+          <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Link href="/guardians" className="hover:text-foreground transition-colors">
+              보호자 관리
+            </Link>
+            <ChevronRight className="h-4 w-4" />
+            <Link href={`/guardians/${guardian.id}`} className="hover:text-foreground transition-colors">
+              {guardian.users?.name || '이름 없음'}
+            </Link>
+            <ChevronRight className="h-4 w-4" />
+            <span className="text-foreground font-medium">수정</span>
+          </nav>
+
           <div>
             <h1 className="text-3xl font-bold">보호자 정보 수정</h1>
             <p className="text-muted-foreground">{guardian.users?.name || '이름 없음'}</p>

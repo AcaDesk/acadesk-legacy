@@ -15,10 +15,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Plus, Edit, Trash2, FileText, Search } from 'lucide-react'
+import { Plus, Edit, Trash2, FileText, Search, ChevronRight } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { PageWrapper } from "@/components/layout/page-wrapper"
+import { FEATURES } from '@/lib/features.config'
+import { ComingSoon } from '@/components/layout/coming-soon'
+import { Maintenance } from '@/components/layout/maintenance'
 
 interface Exam {
   id: string
@@ -40,6 +43,17 @@ interface ExamCategory {
 }
 
 export default function ExamsPage() {
+  // 피처 플래그 상태 체크
+  const featureStatus = FEATURES.gradesManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="시험 관리" description="시험을 등록하고 관리하여, 학생들의 시험 성적을 체계적으로 기록할 수 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="시험 관리" reason="시험 시스템 업데이트가 진행 중입니다." />;
+  }
+
   const [exams, setExams] = useState<Exam[]>([])
   const [filteredExams, setFilteredExams] = useState<Exam[]>([])
   const [categories, setCategories] = useState<ExamCategory[]>([])
@@ -175,6 +189,18 @@ export default function ExamsPage() {
   return (
     <PageWrapper>
       <div className="space-y-6">
+        {/* Breadcrumbs */}
+        <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+          <button
+            onClick={() => router.push('/grades')}
+            className="hover:text-foreground transition-colors"
+          >
+            성적 관리
+          </button>
+          <ChevronRight className="h-4 w-4" />
+          <span className="text-foreground font-medium">시험 관리</span>
+        </nav>
+
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>

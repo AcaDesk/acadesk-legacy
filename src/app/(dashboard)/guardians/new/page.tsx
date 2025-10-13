@@ -11,13 +11,16 @@ import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { PageWrapper } from "@/components/layout/page-wrapper"
-import { ArrowLeft, Users, UserPlus } from 'lucide-react'
+import { Users, UserPlus, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'motion/react'
 import {
   GuardianFormStandalone,
   type GuardianFormValues
 } from '@/components/features/guardians/guardian-form'
+import { FEATURES } from '@/lib/features.config'
+import { ComingSoon } from '@/components/layout/coming-soon'
+import { Maintenance } from '@/components/layout/maintenance'
 
 interface Student {
   id: string
@@ -28,6 +31,17 @@ interface Student {
 }
 
 export default function NewGuardianPage() {
+  // 피처 플래그 상태 체크
+  const featureStatus = FEATURES.guardianManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="보호자 추가" description="새로운 보호자 정보를 등록하고 학생과 연결하여 효과적인 학부모 관리를 할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="보호자 추가" reason="보호자 관리 시스템 업데이트가 진행 중입니다." />;
+  }
+
   const [loading, setLoading] = useState(false)
   const [students, setStudents] = useState<Student[]>([])
   const [selectedStudents, setSelectedStudents] = useState<string[]>([])
@@ -161,13 +175,16 @@ export default function NewGuardianPage() {
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className="flex items-center gap-4"
+          className="space-y-4"
         >
-          <Link href="/guardians">
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
+          <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Link href="/guardians" className="hover:text-foreground transition-colors">
+              보호자 관리
+            </Link>
+            <ChevronRight className="h-4 w-4" />
+            <span className="text-foreground font-medium">새 보호자</span>
+          </nav>
+
           <div>
             <h1 className="text-3xl font-bold flex items-center gap-2">
               <UserPlus className="h-8 w-8" />
