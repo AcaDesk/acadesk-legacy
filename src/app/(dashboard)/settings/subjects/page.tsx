@@ -51,6 +51,8 @@ import { DEFAULT_SUBJECT_COLORS } from '@/types/subject'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
+import { SubjectRepository } from '@/services/data/subject.repository'
+import { getErrorMessage } from '@/lib/error-handlers'
 
 const subjectFormSchema = z.object({
   name: z.string().min(1, '과목명을 입력해주세요'),
@@ -83,6 +85,7 @@ export default function SubjectsPage() {
 
   const { toast } = useToast()
   const supabase = createClient()
+  const subjectRepo = new SubjectRepository(supabase)
 
   const form = useForm<SubjectFormValues>({
     resolver: zodResolver(subjectFormSchema),
@@ -99,19 +102,13 @@ export default function SubjectsPage() {
   const loadSubjects = async () => {
     try {
       setLoading(true)
-      const { data, error } = await supabase
-        .from('subject_statistics')
-        .select('*')
-        .order('sort_order', { ascending: true })
-
-      if (error) throw error
-      setSubjects(data || [])
+      const data = await subjectRepo.findAllWithStatistics()
+      setSubjects(data)
     } catch (error) {
-      console.error('Failed to load subjects:', error)
       toast({
         variant: 'destructive',
         title: '과목 로드 실패',
-        description: '과목 목록을 불러오는데 실패했습니다.',
+        description: getErrorMessage(error),
       })
     } finally {
       setLoading(false)
@@ -126,7 +123,7 @@ export default function SubjectsPage() {
   const handleAddSubject = async (data: SubjectFormValues) => {
     setIsSubmitting(true)
     try {
-      const { error } = await supabase.from('subjects').insert({
+      await subjectRepo.create({
         name: data.name,
         description: data.description || null,
         code: data.code || null,
@@ -134,8 +131,6 @@ export default function SubjectsPage() {
         active: data.active,
         sort_order: subjects.length,
       })
-
-      if (error) throw error
 
       await loadSubjects()
       setIsAddModalOpen(false)
@@ -146,11 +141,10 @@ export default function SubjectsPage() {
         description: `"${data.name}" 과목이 추가되었습니다.`,
       })
     } catch (error) {
-      console.error('Failed to add subject:', error)
       toast({
         variant: 'destructive',
         title: '과목 추가 실패',
-        description: '과목을 추가하는데 실패했습니다.',
+        description: getErrorMessage(error),
       })
     } finally {
       setIsSubmitting(false)
@@ -163,18 +157,13 @@ export default function SubjectsPage() {
 
     setIsSubmitting(true)
     try {
-      const { error } = await supabase
-        .from('subjects')
-        .update({
-          name: data.name,
-          description: data.description || null,
-          code: data.code || null,
-          color: data.color,
-          active: data.active,
-        })
-        .eq('id', editingSubject.id)
-
-      if (error) throw error
+      await subjectRepo.update(editingSubject.id, {
+        name: data.name,
+        description: data.description || null,
+        code: data.code || null,
+        color: data.color,
+        active: data.active,
+      })
 
       await loadSubjects()
       setIsEditModalOpen(false)
@@ -186,11 +175,10 @@ export default function SubjectsPage() {
         description: `"${data.name}" 과목이 수정되었습니다.`,
       })
     } catch (error) {
-      console.error('Failed to update subject:', error)
       toast({
         variant: 'destructive',
         title: '과목 수정 실패',
-        description: '과목을 수정하는데 실패했습니다.',
+        description: getErrorMessage(error),
       })
     } finally {
       setIsSubmitting(false)
@@ -204,13 +192,7 @@ export default function SubjectsPage() {
     }
 
     try {
-      const { error } = await supabase
-        .from('subjects')
-        .update({ deleted_at: new Date().toISOString() })
-        .eq('id', subject.id)
-
-      if (error) throw error
-
+      await subjectRepo.delete(subject.id)
       await loadSubjects()
 
       toast({
@@ -218,11 +200,10 @@ export default function SubjectsPage() {
         description: `"${subject.name}" 과목이 삭제되었습니다.`,
       })
     } catch (error) {
-      console.error('Failed to delete subject:', error)
       toast({
         variant: 'destructive',
         title: '과목 삭제 실패',
-        description: '과목을 삭제하는데 실패했습니다.',
+        description: getErrorMessage(error),
       })
     }
   }

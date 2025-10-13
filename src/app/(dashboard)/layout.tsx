@@ -5,6 +5,9 @@ import Link from "next/link"
 import { motion } from "framer-motion"
 import { ChevronLeft, ChevronRight, User, Settings, LogOut, Menu } from "lucide-react"
 import { AppNav } from "@/components/layout/app-nav"
+import { HelpMenu } from "@/components/layout/help-menu"
+import { NotificationPopover } from "@/components/layout/notification-popover"
+import { ThemeToggle } from "@/components/layout/theme-toggle"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -104,8 +107,18 @@ const Header = memo(function Header({
         <h1 className="text-lg font-bold">Acadesk</h1>
       </div>
 
-      {/* 사용자 메뉴 */}
-      <div className="ml-auto">
+      {/* 우측 액션 영역: 도움말 + 알림 + 테마 + 사용자 메뉴 */}
+      <div className="ml-auto flex items-center gap-2">
+        {/* 도움말 */}
+        <HelpMenu />
+
+        {/* 알림 */}
+        <NotificationPopover />
+
+        {/* 테마 전환 */}
+        <ThemeToggle />
+
+        {/* 사용자 메뉴 */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="h-auto gap-3 p-2">

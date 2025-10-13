@@ -27,6 +27,9 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import Link from 'next/link'
 import { PageWrapper } from "@/components/layout/page-wrapper"
+import { TodoRepository, type StudentTodoWithStudent } from '@/services/data/todo.repository'
+import { verifyTodo, deleteTodo } from '@/services/todo-management.service'
+import { getErrorMessage } from '@/lib/error-handlers'
 
 interface Todo {
   id: string
@@ -61,14 +64,15 @@ const priorityLabels = {
 }
 
 export default function TodosPage() {
-  const [todos, setTodos] = useState<Todo[]>([])
-  const [filteredTodos, setFilteredTodos] = useState<Todo[]>([])
+  const [todos, setTodos] = useState<StudentTodoWithStudent[]>([])
+  const [filteredTodos, setFilteredTodos] = useState<StudentTodoWithStudent[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'completed' | 'verified'>('all')
   const [loading, setLoading] = useState(true)
 
   const { toast } = useToast()
   const supabase = createClient()
+  const todoRepo = new TodoRepository(supabase)
 
   useEffect(() => {
     loadTodos()
@@ -83,36 +87,12 @@ export default function TodosPage() {
   async function loadTodos() {
     try {
       setLoading(true)
-      const { data, error } = await supabase
-        .from('student_todos')
-        .select(`
-          id,
-          title,
-          description,
-          subject,
-          due_date,
-          priority,
-          completed_at,
-          verified_at,
-          verified_by,
-          students (
-            student_code,
-            users (
-              name
-            )
-          )
-        `)
-        .order('due_date', { ascending: false })
-        .limit(100)
-
-      if (error) throw error
-
-      setTodos(data as Todo[])
+      const data = await todoRepo.findAll()
+      setTodos(data)
     } catch (error) {
-      console.error('Error loading todos:', error)
       toast({
         title: '데이터 로드 오류',
-        description: 'TODO 목록을 불러오는 중 오류가 발생했습니다.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       })
     } finally {
@@ -149,7 +129,7 @@ export default function TodosPage() {
 
   async function handleVerify(todoId: string) {
     try {
-      // Get current user (this should come from auth context in real app)
+      // Get current user
       const { data: { user } } = await supabase.auth.getUser()
 
       if (!user) {
@@ -161,15 +141,7 @@ export default function TodosPage() {
         return
       }
 
-      const { error } = await supabase
-        .from('student_todos')
-        .update({
-          verified_at: new Date().toISOString(),
-          verified_by: user.id,
-        })
-        .eq('id', todoId)
-
-      if (error) throw error
+      await verifyTodo(supabase, todoId, user.id)
 
       toast({
         title: '검증 완료',
@@ -178,10 +150,9 @@ export default function TodosPage() {
 
       loadTodos()
     } catch (error) {
-      console.error('Error verifying todo:', error)
       toast({
         title: '검증 오류',
-        description: 'TODO를 검증하는 중 오류가 발생했습니다.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       })
     }
@@ -191,12 +162,7 @@ export default function TodosPage() {
     if (!confirm('이 TODO를 삭제하시겠습니까?')) return
 
     try {
-      const { error } = await supabase
-        .from('student_todos')
-        .delete()
-        .eq('id', todoId)
-
-      if (error) throw error
+      await deleteTodo(supabase, todoId)
 
       toast({
         title: '삭제 완료',
@@ -205,10 +171,9 @@ export default function TodosPage() {
 
       loadTodos()
     } catch (error) {
-      console.error('Error deleting todo:', error)
       toast({
         title: '삭제 오류',
-        description: 'TODO를 삭제하는 중 오류가 발생했습니다.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       })
     }

@@ -29,11 +29,18 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
+import { Maintenance } from '@/components/layout/maintenance'
 
 export default function StaffPage() {
   // 피처 플래그 체크
-  if (!FEATURES.staffManagement) {
+  const featureStatus = FEATURES.staffManagement;
+
+  if (featureStatus === 'inactive') {
     return <ComingSoon featureName="직원 관리" description="강사 및 관리자 정보를 체계적으로 관리하고, 역할별 권한을 효과적으로 제어하는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="직원 관리" reason="직원 관리 시스템 업데이트가 진행 중입니다." />;
   }
   const [searchTerm, setSearchTerm] = useState('')
 

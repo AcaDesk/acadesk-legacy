@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { ReportGenerator, type ReportData } from '@/services/report-generator'
+import { ReportGenerator, type ReportData } from '@/services/report.service'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -16,6 +16,7 @@ import { TodoCompletionDonut } from '@/components/features/charts/todo-completio
 import { AttendanceHeatmap } from '@/components/features/charts/attendance-heatmap'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
+import { Maintenance } from '@/components/layout/maintenance'
 
 interface Student {
   id: string
@@ -27,8 +28,14 @@ interface Student {
 
 export default function ReportsPage() {
   // 피처 플래그 체크
-  if (!FEATURES.reportManagement) {
+  const featureStatus = FEATURES.reportManagement;
+
+  if (featureStatus === 'inactive') {
     return <ComingSoon featureName="월간 리포트" description="학생별 월간 성적, 출석, 과제 완료율을 자동으로 분석하여 리포트를 생성하는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="월간 리포트" reason="리포트 생성 시스템 업그레이드가 진행 중입니다." />;
   }
 
   const [students, setStudents] = useState<Student[]>([])

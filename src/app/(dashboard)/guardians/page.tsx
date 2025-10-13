@@ -7,11 +7,18 @@ import { PageWrapper } from "@/components/layout/page-wrapper"
 import { GuardianList } from '@/components/features/guardians/guardian-list'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
+import { Maintenance } from '@/components/layout/maintenance'
 
 export default function GuardiansPage() {
   // 피처 플래그 체크
-  if (!FEATURES.guardianManagement) {
+  const featureStatus = FEATURES.guardianManagement;
+
+  if (featureStatus === 'inactive') {
     return <ComingSoon featureName="보호자 관리" description="학부모 및 보호자 정보를 체계적으로 관리하고, 효과적인 소통을 지원하는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="보호자 관리" reason="보호자 관리 시스템 개선 작업이 진행 중입니다." />;
   }
   return (
     <PageWrapper>

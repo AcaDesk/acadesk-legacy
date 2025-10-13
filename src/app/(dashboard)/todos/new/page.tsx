@@ -17,6 +17,8 @@ import { PageWrapper } from "@/components/layout/page-wrapper"
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
+import { createTodosForStudents, getTenantIdFromStudent, type CreateTodoInput } from '@/services/todo-management.service'
+import { getErrorMessage } from '@/lib/error-handlers'
 
 interface Student {
   id: string
@@ -115,55 +117,32 @@ export default function NewTodoPage() {
     setLoading(true)
 
     try {
-      if (!formData.title || !formData.due_date) {
-        throw new Error('제목과 마감일은 필수입니다.')
-      }
-
-      if (selectedStudents.length === 0) {
-        throw new Error('최소 한 명의 학생을 선택해야 합니다.')
-      }
-
       // Get tenant_id from first student
-      const { data: studentData, error: studentError } = await supabase
-        .from('students')
-        .select('tenant_id')
-        .eq('id', selectedStudents[0])
-        .maybeSingle()
+      const tenantId = await getTenantIdFromStudent(supabase, selectedStudents[0])
 
-      if (studentError) {
-        console.error('Error fetching student data:', studentError)
-        throw new Error(`학생 정보를 조회할 수 없습니다: ${studentError.message}`)
+      // Prepare input for service
+      const input: CreateTodoInput = {
+        title: formData.title,
+        description: formData.description,
+        subject: formData.subject,
+        due_date: formData.due_date,
+        priority: formData.priority as 'low' | 'normal' | 'high' | 'urgent',
+        student_ids: selectedStudents,
       }
 
-      if (!studentData) throw new Error('학생 정보를 찾을 수 없습니다.')
-
-      // Create todos for all selected students
-      const todos = selectedStudents.map((studentId) => ({
-        tenant_id: studentData.tenant_id,
-        student_id: studentId,
-        title: formData.title,
-        description: formData.description || null,
-        subject: formData.subject || null,
-        due_date: formData.due_date,
-        priority: formData.priority,
-        due_day_of_week: new Date(formData.due_date).getDay(),
-      }))
-
-      const { error } = await supabase.from('student_todos').insert(todos)
-
-      if (error) throw error
+      // Create TODOs for all selected students
+      const result = await createTodosForStudents(supabase, tenantId, input)
 
       toast({
         title: 'TODO 생성 완료',
-        description: `${selectedStudents.length}명의 학생에게 TODO가 생성되었습니다.`,
+        description: `${result.todoCount}명의 학생에게 TODO가 생성되었습니다.`,
       })
 
       router.push('/todos')
     } catch (error) {
-      console.error('Error creating todos:', error)
       toast({
         title: '생성 오류',
-        description: error instanceof Error ? error.message : 'TODO를 생성하는 중 오류가 발생했습니다.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       })
     } finally {

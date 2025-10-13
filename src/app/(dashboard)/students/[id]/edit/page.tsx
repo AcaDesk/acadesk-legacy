@@ -17,6 +17,8 @@ import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { ChevronRight } from 'lucide-react'
 import { GRADES } from '@/lib/constants'
+import { updateStudent, type UpdateStudentInput } from '@/services/student-management.service'
+import { getErrorMessage } from '@/lib/error-handlers'
 
 const studentSchema = z.object({
   name: z.string().min(2, '이름은 최소 2자 이상이어야 합니다'),
@@ -97,7 +99,6 @@ export default function EditStudentPage() {
         .maybeSingle()
 
       if (error) {
-        console.error('Error fetching student:', error)
         throw error
       }
 
@@ -117,11 +118,10 @@ export default function EditStudentPage() {
       setValue('school', data.school || '')
       setValue('emergencyContact', data.emergency_contact || '')
       setValue('notes', data.notes || '')
-    } catch (error: any) {
-      console.error('학생 조회 오류:', error)
+    } catch (error) {
       toast({
         title: '학생 조회 실패',
-        description: error.message || '학생 정보를 불러오는 중 오류가 발생했습니다.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       })
       router.push('/students')
@@ -131,42 +131,21 @@ export default function EditStudentPage() {
   }
 
   const onSubmit = async (data: StudentFormValues) => {
-    if (!student) return
+    if (!student || !student.users) return
 
     setLoading(true)
     try {
-      // 1. Update users table
-      if (student.users) {
-        const { error: userError } = await supabase
-          .from('users')
-          .update({
-            name: data.name,
-            email: data.email || null,
-            phone: data.phone || null,
-          })
-          .eq('id', student.users.id)
-
-        if (userError) {
-          console.error('사용자 업데이트 오류:', userError)
-          throw new Error(`사용자 정보를 업데이트할 수 없습니다: ${userError.message}`)
-        }
+      const input: UpdateStudentInput = {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        grade: data.grade,
+        school: data.school,
+        emergencyContact: data.emergencyContact,
+        notes: data.notes,
       }
 
-      // 2. Update students table
-      const { error: studentError } = await supabase
-        .from('students')
-        .update({
-          grade: data.grade,
-          school: data.school || null,
-          emergency_contact: data.emergencyContact,
-          notes: data.notes || null,
-        })
-        .eq('id', student.id)
-
-      if (studentError) {
-        console.error('학생 업데이트 오류:', studentError)
-        throw studentError
-      }
+      await updateStudent(supabase, student.id, student.users.id, input)
 
       toast({
         title: '학생 정보 수정 완료',
@@ -175,11 +154,10 @@ export default function EditStudentPage() {
 
       router.push(`/students/${student.id}`)
       router.refresh()
-    } catch (error: any) {
-      console.error('학생 수정 오류:', error)
+    } catch (error) {
       toast({
         title: '학생 수정 실패',
-        description: error.message || '학생 정보를 수정하는 중 오류가 발생했습니다.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       })
     } finally {

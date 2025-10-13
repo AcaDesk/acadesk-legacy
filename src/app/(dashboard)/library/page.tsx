@@ -21,11 +21,18 @@ import { PAGE_LAYOUT, GRID_LAYOUTS, TEXT_STYLES, CARD_STYLES } from '@/lib/const
 import { Input } from '@/components/ui/input'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
+import { Maintenance } from '@/components/layout/maintenance'
 
 export default function LibraryPage() {
   // 피처 플래그 체크
-  if (!FEATURES.libraryManagement) {
+  const featureStatus = FEATURES.libraryManagement;
+
+  if (featureStatus === 'inactive') {
     return <ComingSoon featureName="교재 관리" description="교재 및 도서 대여, 진도 관리를 체계적으로 지원하여 학습 자료 운영을 효율화하는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="교재 관리" reason="교재 관리 시스템 업데이트가 진행 중입니다." />;
   }
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')

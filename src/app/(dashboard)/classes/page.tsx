@@ -25,6 +25,7 @@ import { PAGE_LAYOUT, GRID_LAYOUTS, TEXT_STYLES, CARD_STYLES } from '@/lib/const
 import { usePagination } from '@/hooks/use-pagination'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
+import { Maintenance } from '@/components/layout/maintenance'
 import {
   Pagination,
   PaginationContent,
@@ -58,8 +59,14 @@ interface ClassData {
 
 export default function ClassesPage() {
   // 피처 플래그 체크
-  if (!FEATURES.classManagement) {
+  const featureStatus = FEATURES.classManagement;
+
+  if (featureStatus === 'inactive') {
     return <ComingSoon featureName="수업 관리" description="학원의 모든 수업을 체계적으로 관리하고, 수강생 현황을 실시간으로 파악할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="수업 관리" reason="수업 관리 시스템 개선 작업이 진행 중입니다." />;
   }
 
   const [classes, setClasses] = useState<ClassData[]>([])

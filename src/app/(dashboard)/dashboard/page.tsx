@@ -1,6 +1,7 @@
-import { createClient } from '@/lib/supabase/server'
 import { PageWrapper } from "@/components/layout/page-wrapper"
-import { DashboardClientRefactored as DashboardClient } from './dashboard-client-refactored'
+import { DashboardClient } from './dashboard-client'
+import { getCurrentTenantId } from '@/lib/auth-helpers'
+import { logError } from '@/lib/error-handlers'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -9,7 +10,9 @@ export const metadata: Metadata = {
 }
 
 export default async function DashboardPage() {
-  const supabase = await createClient()
+  // 인증 확인 및 tenant_id 조회
+  const { supabase } = await getCurrentTenantId()
+
   const today = new Date().toISOString().split('T')[0]
 
   // Single RPC call to fetch all dashboard data
@@ -18,7 +21,11 @@ export default async function DashboardPage() {
   })
 
   if (error) {
-    console.error('Dashboard data fetch error:', error)
+    logError(error, {
+      page: 'dashboard',
+      rpc: 'get_dashboard_data',
+      today_param: today,
+    })
   }
 
   // Fetch recent activity logs
@@ -39,7 +46,10 @@ export default async function DashboardPage() {
     .limit(20)
 
   if (activityError) {
-    console.error('Activity logs fetch error:', activityError)
+    logError(activityError, {
+      page: 'dashboard',
+      query: 'student_activity_logs',
+    })
   }
 
   const dashboardData = data || {

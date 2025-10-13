@@ -15,6 +15,8 @@ import { useToast } from '@/hooks/use-toast'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { StudentTableImproved, Student } from './student-table-improved'
+import { StudentRepository } from '@/services/data/student.repository'
+import { getErrorMessage } from '@/lib/error-handlers'
 
 export function StudentList() {
   const [students, setStudents] = useState<Student[]>([])
@@ -32,6 +34,7 @@ export function StudentList() {
 
   const { toast } = useToast()
   const supabase = createClient()
+  const studentRepo = new StudentRepository(supabase)
 
   useEffect(() => {
     loadClasses()
@@ -116,11 +119,9 @@ export function StudentList() {
 
       setStudents(studentsWithAttendance as Student[])
     } catch (error) {
-      console.error('Error loading students:', error)
-      console.error('Error details:', JSON.stringify(error, null, 2))
       toast({
         title: '데이터 로드 오류',
-        description: error instanceof Error ? error.message : '학생 목록을 불러오는 중 오류가 발생했습니다.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       })
     } finally {
@@ -139,41 +140,39 @@ export function StudentList() {
       if (error) throw error
       setClasses(data || [])
     } catch (error) {
-      console.error('Error loading classes:', error)
+      toast({
+        title: '수업 목록 로드 실패',
+        description: getErrorMessage(error),
+        variant: 'destructive',
+      })
     }
   }
 
   async function loadGrades() {
     try {
-      const { data, error } = await supabase
-        .from('students')
-        .select('grade')
-        .is('deleted_at', null)
-        .not('grade', 'is', null)
-
-      if (error) throw error
-
-      const uniqueGrades = Array.from(new Set(data.map(s => s.grade).filter(Boolean))) as string[]
-      setGrades(uniqueGrades.sort())
+      const uniqueGrades = await studentRepo.findUniqueGrades()
+      setGrades(uniqueGrades)
     } catch (error) {
-      console.error('Error loading grades:', error)
+      // Repository already logs the error, just show user message
+      toast({
+        title: '학년 목록 로드 실패',
+        description: getErrorMessage(error),
+        variant: 'destructive',
+      })
     }
   }
 
   async function loadSchools() {
     try {
-      const { data, error } = await supabase
-        .from('students')
-        .select('school')
-        .is('deleted_at', null)
-        .not('school', 'is', null)
-
-      if (error) throw error
-
-      const uniqueSchools = Array.from(new Set(data.map(s => s.school).filter(Boolean))) as string[]
-      setSchools(uniqueSchools.sort())
+      const uniqueSchools = await studentRepo.findUniqueSchools()
+      setSchools(uniqueSchools)
     } catch (error) {
-      console.error('Error loading schools:', error)
+      // Repository already logs the error, just show user message
+      toast({
+        title: '학교 목록 로드 실패',
+        description: getErrorMessage(error),
+        variant: 'destructive',
+      })
     }
   }
 
@@ -183,12 +182,7 @@ export function StudentList() {
     }
 
     try {
-      const { error } = await supabase
-        .from('students')
-        .update({ deleted_at: new Date().toISOString() })
-        .eq('id', id)
-
-      if (error) throw error
+      await studentRepo.delete(id)
 
       toast({
         title: '삭제 완료',
@@ -197,10 +191,9 @@ export function StudentList() {
 
       loadStudents()
     } catch (error) {
-      console.error('Error deleting student:', error)
       toast({
         title: '삭제 오류',
-        description: '학생을 삭제하는 중 오류가 발생했습니다.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       })
     }
