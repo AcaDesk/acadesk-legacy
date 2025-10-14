@@ -268,8 +268,7 @@ export function StudentTableImproved({
                 src={getStudentAvatar(
                   student.profile_image_url,
                   student.id,
-                  student.users?.name || 'Student',
-                  student.gender
+                  student.users?.name || 'Student'
                 )}
                 alt={student.users?.name || '학생'}
                 className="h-full w-full object-cover"
@@ -863,7 +862,7 @@ export function StudentTableImproved({
                 table.setPageSize(Number(value))
               }}
             >
-              <SelectTrigger className="w-20" size="sm" id="rows-per-page">
+              <SelectTrigger className="w-20" id="rows-per-page">
                 <SelectValue placeholder={table.getState().pagination.pageSize} />
               </SelectTrigger>
               <SelectContent side="top">
