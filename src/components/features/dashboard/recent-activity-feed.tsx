@@ -18,15 +18,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
-
-interface ActivityLog {
-  id: string
-  activity_type: string
-  description: string
-  created_at: string
-  student_name?: string
-  metadata?: unknown
-}
+import type { ActivityLog } from "@/hooks/use-dashboard-data"
 
 interface RecentActivityFeedProps {
   activities: ActivityLog[]
@@ -128,8 +120,10 @@ export function RecentActivityFeed({ activities, maxItems = 10 }: RecentActivity
           <ScrollArea className="h-[400px] pr-4">
             <div className="space-y-3">
               {displayActivities.map((activity, index) => {
-                const config = activityConfig[activity.activity_type as keyof typeof activityConfig] || activityConfig.default
+                const config = activityConfig[activity.activity_type_code as keyof typeof activityConfig] || activityConfig.default
                 const Icon = config.icon
+                const studentName = activity.students?.name || '알 수 없음'
+                const activityName = activity.ref_activity_types?.name_ko || config.label
 
                 return (
                   <div
@@ -156,7 +150,7 @@ export function RecentActivityFeed({ activities, maxItems = 10 }: RecentActivity
                           {activity.description}
                         </p>
                         <Badge variant="secondary" className="text-xs shrink-0">
-                          {config.label}
+                          {activityName}
                         </Badge>
                       </div>
                       <div className="flex items-center gap-2">
