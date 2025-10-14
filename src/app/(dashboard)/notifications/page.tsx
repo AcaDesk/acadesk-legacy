@@ -48,6 +48,14 @@ interface AutoNotificationStats {
   enabled: boolean
 }
 
+interface ReportAutoSendStatus {
+  total: number
+  sent: number
+  pending: number
+  readyToSend: number
+  nextRun: string
+}
+
 export default function NotificationsPage() {
   // All Hooks must be called before any early returns
   const [logs, setLogs] = useState<NotificationLog[]>([])
@@ -57,7 +65,7 @@ export default function NotificationsPage() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'sent' | 'failed'>('all')
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState<string | null>(null)
-  const [reportAutoSendStatus, setReportAutoSendStatus] = useState<unknown>(null)
+  const [reportAutoSendStatus, setReportAutoSendStatus] = useState<ReportAutoSendStatus | null>(null)
   const [sendingReports, setSendingReports] = useState(false)
 
   const { toast } = useToast()
@@ -127,7 +135,7 @@ export default function NotificationsPage() {
         .limit(200)
 
       if (error) throw error
-      setLogs(data as unknown)
+      setLogs(data as unknown as NotificationLog[])
     } catch (error) {
       console.error('Error loading logs:', error)
       toast({

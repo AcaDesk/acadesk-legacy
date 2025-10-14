@@ -56,7 +56,7 @@ export default function ReportsPage() {
         .order('student_code')
 
       if (error) throw error
-      setStudents(data as unknown)
+      setStudents(data as unknown as Student[])
     } catch (error) {
       console.error('Error loading students:', error)
       toast({

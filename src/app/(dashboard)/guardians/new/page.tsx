@@ -61,7 +61,7 @@ export default function NewGuardianPage() {
         .order('student_code')
 
       if (error) throw error
-      setStudents(data as Student[])
+      setStudents(data as unknown as Student[])
     } catch (error) {
       console.error('학생 목록 조회 오류:', error)
     }
