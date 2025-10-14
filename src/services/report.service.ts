@@ -178,15 +178,6 @@ export class ReportGenerator {
       periodEndStr
     )
 
-    interface StudentDataWithUser {
-      id: string
-      student_code: string
-      grade: string | null
-      users: {
-        name: string
-      } | null
-    }
-
     return {
       student: {
         id: studentData.id,
