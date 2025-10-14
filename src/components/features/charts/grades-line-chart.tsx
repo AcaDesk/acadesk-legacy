@@ -85,7 +85,6 @@ export function GradesLineChart({
             <Select value={timeRange} onValueChange={setTimeRange}>
               <SelectTrigger
                 className="flex w-32 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate @[540px]/card:hidden"
-                size="sm"
                 aria-label="범위 선택"
               >
                 <SelectValue placeholder="전체" />
