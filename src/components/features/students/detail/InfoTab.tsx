@@ -279,13 +279,13 @@ export function InfoTab() {
                 </div>
               )}
 
-              {(student as any).student_type ? (
+              {(student as unknown).student_type ? (
                 <div className="flex items-start gap-3">
                   <Tag className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-muted-foreground">학생 유형</p>
                     <Badge variant="outline">
-                      {getStudentTypeLabel((student as any).student_type)}
+                      {getStudentTypeLabel((student as unknown).student_type)}
                     </Badge>
                   </div>
                 </div>
@@ -327,18 +327,18 @@ export function InfoTab() {
                 </div>
               </div>
 
-              {(student as any).uses_shuttle_bus !== null ? (
+              {(student as unknown).uses_shuttle_bus !== null ? (
                 <div className="flex items-start gap-3">
                   <Bus className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-muted-foreground">셔틀버스 이용</p>
                     <div className="flex items-center gap-2">
-                      <Badge variant={(student as any).uses_shuttle_bus ? 'default' : 'outline'}>
-                        {(student as any).uses_shuttle_bus ? '이용' : '미이용'}
+                      <Badge variant={(student as unknown).uses_shuttle_bus ? 'default' : 'outline'}>
+                        {(student as unknown).uses_shuttle_bus ? '이용' : '미이용'}
                       </Badge>
-                      {(student as any).uses_shuttle_bus && (student as any).shuttle_bus_location && (
+                      {(student as unknown).uses_shuttle_bus && (student as unknown).shuttle_bus_location && (
                         <span className="text-sm text-muted-foreground break-words">
-                          ({(student as any).shuttle_bus_location})
+                          ({(student as unknown).shuttle_bus_location})
                         </span>
                       )}
                     </div>
