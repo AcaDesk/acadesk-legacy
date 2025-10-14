@@ -41,7 +41,7 @@ interface ActivityLog {
   activity_date: string
   title: string
   description: string | null
-  metadata: Record<string, any>
+  metadata: Record<string, unknown>
   created_at: string
   ref_activity_types: {
     label: string
