@@ -119,14 +119,14 @@ export interface ClassEnrollment extends TenantScoped, Timestamps {
   enrollment_id: UUID
   class_id: UUID
   student_id: UUID
-  enrolled_at: Date
-  withdrawn_at?: Date | null
+  enrolled_at: string
+  withdrawn_at?: string | null
 }
 
 export interface ClassSession extends TenantScoped, Timestamps {
   session_id: UUID
   class_id: UUID
-  scheduled_at: Date
+  scheduled_at: string
   duration_minutes: number
   status: 'scheduled' | 'completed' | 'cancelled'
   notes?: string | null
@@ -140,7 +140,7 @@ export interface Attendance extends TenantScoped, Timestamps {
   session_id: UUID
   student_id: UUID
   status: string
-  arrived_at?: Date | null
+  arrived_at?: string | null
   notes?: string | null
 }
 
@@ -178,8 +178,8 @@ export interface TaskAssignment extends Timestamps {
   task_id: UUID
   student_id: UUID
   status: string
-  submitted_at?: Date | null
-  graded_at?: Date | null
+  submitted_at?: string | null
+  graded_at?: string | null
   grade?: number | null
   feedback?: string | null
 }
