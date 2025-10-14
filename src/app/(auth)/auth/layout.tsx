@@ -7,8 +7,8 @@ export default function AuthLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
-      <div className="w-full max-w-lg space-y-8">
+    <div className="h-screen overflow-y-auto bg-muted/40 py-8 px-4">
+      <div className="w-full max-w-lg mx-auto space-y-8">
         {/* 공통 로고 */}
         <Link
           href="/"
