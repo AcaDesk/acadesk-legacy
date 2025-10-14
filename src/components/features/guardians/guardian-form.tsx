@@ -64,7 +64,7 @@ export function GuardianFormStandalone({
 
 // Form fields component (for use with external form state)
 interface GuardianFormFieldsProps {
-  form: UseFormReturn<any>
+  form: UseFormReturn<unknown>
   prefix?: string
   disabled?: boolean
 }
@@ -102,7 +102,7 @@ export function GuardianFormFields({ form, prefix = '', disabled = false }: Guar
   const getError = (field: string) => {
     const keys = `${prefix}${field}`.split('.')
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let error: any = errors
+    let error: unknown = errors
     for (const key of keys) {
       error = error?.[key]
     }
