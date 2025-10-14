@@ -20,6 +20,20 @@ import { useStudentDetail } from '@/contexts/studentDetailContext'
 import { StudentPointsWidget } from './StudentPointsWidget'
 import { ClassEnrollmentsList } from './ClassEnrollmentsList'
 
+interface ClassEnrollment {
+  id: string
+  class_id: string
+  status: string
+  enrolled_at: string
+  end_date: string | null
+  withdrawal_reason: string | null
+  notes: string | null
+  classes: {
+    id: string
+    name: string
+  } | null
+}
+
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
@@ -69,7 +83,7 @@ export function OverviewTab() {
     })),
     ...attendanceRecords.slice(0, 3).map((record) => ({
       type: 'attendance' as const,
-      date: record.attendance_sessions?.session_date || record.created_at,
+      date: record.attendance_sessions?.session_date || '',
       title: record.attendance_sessions?.classes?.name || '출석',
       description:
         record.status === 'present'
@@ -146,7 +160,7 @@ export function OverviewTab() {
               <div>
                 <p className="text-xs text-muted-foreground">수강 중</p>
                 <p className="text-2xl font-bold">
-                  {student.class_enrollments?.filter((ce: unknown) => ce.status === 'active')
+                  {(student.class_enrollments as unknown as ClassEnrollment[])?.filter((ce) => ce.status === 'active')
                     .length || 0}
                   <span className="text-sm font-normal text-muted-foreground ml-1">
                     과목
@@ -329,8 +343,8 @@ export function OverviewTab() {
       {student.class_enrollments && student.class_enrollments.length > 0 && (
         <motion.div variants={itemVariants}>
         <ClassEnrollmentsList
-          enrollments={student.class_enrollments as unknown}
-          onUpdate={onRefresh}
+          enrollments={student.class_enrollments as unknown as ClassEnrollment[]}
+          onUpdate={onRefresh || (() => {})}
         />
         </motion.div>
       )}
