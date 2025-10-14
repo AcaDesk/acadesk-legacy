@@ -17,12 +17,13 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Sparkles, Loader2, GraduationCap } from "lucide-react"
+import { Sparkles, Loader2, GraduationCap, LogOut } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { RoleSelector } from "@/components/auth/RoleSelector"
 import { TermsCheckbox, type TermsCheckboxValues } from "@/components/auth/TermsCheckbox"
 import { onboardingService } from "@/services/auth/onboardingService"
 import type { OnboardingFormData } from "@/types/auth.types"
+import { createClient } from "@/lib/supabase/client"
 
 const onboardingSchema = z.object({
   name: z.string().min(2, "이름은 2자 이상이어야 합니다."),
@@ -42,12 +43,14 @@ type OnboardingFormValues = z.infer<typeof onboardingSchema>
 export default function OnboardingPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [userName, setUserName] = useState<string | null>(null)
   const [userEmail, setUserEmail] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
 
   const router = useRouter()
   const { toast } = useToast()
+  const supabase = createClient()
 
   const {
     register,
@@ -66,6 +69,27 @@ export default function OnboardingPage() {
   })
 
   const selectedRole = watch("role")
+
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true)
+      await supabase.auth.signOut()
+      toast({
+        title: "로그아웃 완료",
+        description: "안전하게 로그아웃되었습니다.",
+      })
+      router.push("/auth/login")
+    } catch (error) {
+      console.error("Logout error:", error)
+      toast({
+        title: "오류",
+        description: "로그아웃 중 오류가 발생했습니다.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoggingOut(false)
+    }
+  }
 
   useEffect(() => {
     const checkUser = async () => {
@@ -217,7 +241,25 @@ export default function OnboardingPage() {
       className="w-full"
     >
       <Card>
-        <CardHeader className="space-y-2 text-center">
+        <CardHeader className="space-y-2 text-center relative">
+          {/* 로그아웃 버튼 - 우측 상단 */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className="absolute right-4 top-4"
+          >
+            {isLoggingOut ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <>
+                <LogOut className="h-4 w-4 mr-2" />
+                로그아웃
+              </>
+            )}
+          </Button>
+
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
