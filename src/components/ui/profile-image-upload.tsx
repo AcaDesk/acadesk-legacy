@@ -106,7 +106,7 @@ export function ProfileImageUpload({
     }
   }
 
-  const displayUrl = previewUrl || (studentId ? getStudentAvatar(null, studentId, studentName, gender) : null)
+  const displayUrl = previewUrl || (studentId ? getStudentAvatar(null, studentId, studentName) : null)
 
   return (
     <div className="space-y-4">
