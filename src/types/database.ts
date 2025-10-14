@@ -56,32 +56,48 @@ export interface TenantCode extends TenantScoped {
 // Students
 // ============================================================================
 export interface Student extends TenantScoped, Timestamps {
-  student_id: UUID
-  student_code?: string | null
+  id: UUID
+  user_id?: UUID | null
+  student_code: string
   name: string
-  grade_level?: string | null
-  status: string
+  grade?: string | null
+  school?: string | null
   enrollment_date?: string | null
-  withdrawal_date?: string | null
-  meta: Record<string, unknown>
+  gender?: 'male' | 'female' | 'other' | null
+  student_phone?: string | null
+  emergency_contact?: string | null
+  commute_method?: string | null
+  marketing_source?: string | null
+  notes?: string | null
+  birth_date?: string | null
+  profile_image_url?: string | null
+  kiosk_pin?: string | null
+  deleted_at?: string | null
+  meta?: Record<string, unknown>
 }
 
 // ============================================================================
 // Guardians
 // ============================================================================
 export interface Guardian extends TenantScoped, Timestamps {
-  guardian_id: UUID
-  name: string
+  id: UUID
+  user_id?: UUID | null
   relationship?: string | null
-  phone?: string | null
-  email?: string | null
+  emergency_phone?: string | null
+  occupation?: string | null
+  address?: string | null
+  deleted_at?: string | null
 }
 
-export interface StudentGuardian {
+export interface StudentGuardian extends TenantScoped {
+  id: UUID
   student_id: UUID
   guardian_id: UUID
   is_primary: boolean
-  created_at: Date
+  can_pickup: boolean
+  can_view_reports: boolean
+  relation?: string | null
+  created_at: string
 }
 
 // ============================================================================
@@ -129,7 +145,24 @@ export interface Attendance extends TenantScoped, Timestamps {
 }
 
 // ============================================================================
-// Tasks
+// Student TODOs
+// ============================================================================
+export interface StudentTodo extends TenantScoped, Timestamps {
+  id: UUID
+  student_id: UUID
+  title: string
+  description?: string | null
+  subject?: string | null
+  due_date?: string | null
+  due_day_of_week?: number | null
+  priority: 'low' | 'normal' | 'high' | 'urgent'
+  completed_at?: string | null
+  verified_at?: string | null
+  verified_by?: UUID | null
+}
+
+// ============================================================================
+// Tasks (legacy - for future features)
 // ============================================================================
 export interface Task extends TenantScoped, Timestamps {
   task_id: UUID
