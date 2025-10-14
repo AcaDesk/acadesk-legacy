@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -46,7 +46,7 @@ const acceptInvitationSchema = z
 
 type AcceptInvitationFormValues = z.infer<typeof acceptInvitationSchema>
 
-export default function AcceptInvitationPage() {
+function AcceptInvitationContent() {
   const [invitation, setInvitation] = useState<Invitation | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -330,5 +330,13 @@ export default function AcceptInvitationPage() {
           </form>
         </Card>
     </motion.div>
+  )
+}
+
+export default function AcceptInvitationPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center">로딩 중...</div>}>
+      <AcceptInvitationContent />
+    </Suspense>
   )
 }
