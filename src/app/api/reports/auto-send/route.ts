@@ -56,12 +56,13 @@ export async function POST(request: NextRequest) {
     const errors: string[] = []
 
     for (const report of reports) {
-      const student = report.students
-      const guardianEmail = student?.users?.email
+      const student = Array.isArray(report.students) ? report.students[0] : report.students
+      const userInfo = Array.isArray(student?.users) ? student.users[0] : student?.users
+      const guardianEmail = userInfo?.email
 
       if (!guardianEmail) {
         failedCount++
-        errors.push(`${student?.users?.name || 'Unknown'}: No email registered`)
+        errors.push(`${userInfo?.name || 'Unknown'}: No email registered`)
         continue
       }
 
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest) {
         // TODO: Integrate with actual email service (SendGrid, AWS SES, etc.)
         // For now, we'll log the email notification
         const { error: logError } = await supabase.from('notification_logs').insert({
-          student_id: student.id,
+          student_id: student?.id,
           notification_type: 'email',
           status: 'sent',
           message: `${targetYear}년 ${targetMonth}월 월간 리포트가 발송되었습니다.`,
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
       } catch (error: unknown) {
         failedCount++
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-        errors.push(`${student?.users?.name || 'Unknown'}: ${errorMessage}`)
+        errors.push(`${userInfo?.name || 'Unknown'}: ${errorMessage}`)
 
         // Log failure
         await supabase.from('notification_logs').insert({
