@@ -12,13 +12,13 @@ import { CalendarWidget } from "./calendar-widget"
 import { StatsCard } from "./stats-card"
 import { Users, GraduationCap, TrendingUp, Calendar, FileText } from "lucide-react"
 import { DashboardWidget } from "@/types/dashboard"
-import { DashboardData } from "@/hooks/use-dashboard-data"
+import { DashboardData, TodaySession } from "@/hooks/use-dashboard-data"
 
 interface WidgetRendererProps {
   widgetId: string
   widgets: DashboardWidget[]
   data: DashboardData
-  upcomingSessions: unknown[]
+  upcomingSessions: TodaySession[]
 }
 
 export function WidgetRenderer({
@@ -122,6 +122,7 @@ export function WidgetRenderer({
     case 'attendance-summary':
       return (
         <AttendanceSummary
+          sessions={upcomingSessions}
           todayAttendance={stats.todayAttendance}
           totalStudents={stats.totalStudents}
         />
