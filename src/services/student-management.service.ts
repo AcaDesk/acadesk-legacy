@@ -49,7 +49,7 @@ export async function createStudent(
   input: CreateStudentInput
 ): Promise<CreateStudentResult> {
   try {
-    // 1. users 테이블에 사용자 생성
+    // 1. users 테이블에 사용자 생성 (학생은 role_code를 null로 설정)
     const { data: newUser, error: userError } = await supabase
       .from('users')
       .insert({
@@ -57,7 +57,7 @@ export async function createStudent(
         email: input.email || null,
         name: input.name,
         phone: input.phone || null,
-        role_code: 'student',
+        role_code: null, // 학생은 스태프가 아니므로 null
       })
       .select()
       .single()
@@ -93,6 +93,7 @@ export async function createStudent(
           tenant_id: tenantId,
           user_id: userId,
           student_code: studentCode,
+          name: input.name, // students.name 필드 추가 (users.name과 동기화)
           grade: input.grade,
           school: input.school || null,
           emergency_contact: input.emergencyContact,
