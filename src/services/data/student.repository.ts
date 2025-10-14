@@ -68,12 +68,26 @@ export class StudentRepository extends BaseRepository<Student> {
       }
 
       // Transform the nested data
-      const guardians = data.student_guardians?.map((sg: any) => ({
-        guardian_id: sg.guardians.id,
-        name: sg.guardians.users?.name || '',
-        email: sg.guardians.users?.email || '',
-        phone: sg.guardians.users?.phone || '',
-        relationship: sg.guardians.relationship || '',
+      interface StudentGuardianJoin {
+        is_primary: boolean
+        guardians: {
+          id: string
+          relationship?: string | null
+          users?: {
+            id: string
+            name: string
+            email?: string | null
+            phone?: string | null
+          } | null
+        } | null
+      }
+
+      const guardians = (data.student_guardians as unknown as StudentGuardianJoin[] | undefined)?.map((sg) => ({
+        guardian_id: sg.guardians?.id || '',
+        name: sg.guardians?.users?.name || '',
+        email: sg.guardians?.users?.email || '',
+        phone: sg.guardians?.users?.phone || '',
+        relationship: sg.guardians?.relationship || '',
         is_primary: sg.is_primary,
       }))
 
