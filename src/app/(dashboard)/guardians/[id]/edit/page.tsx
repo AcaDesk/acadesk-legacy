@@ -40,9 +40,9 @@ interface GuardianData {
     phone: string | null
   } | null
   student_guardians: Array<{
-    students: {
+    students: Array<{
       id: string
-    } | null
+    }>
   }>
 }
 
@@ -138,7 +138,7 @@ export default function EditGuardianPage() {
       // Set selected students
       const connectedStudentIds =
         data.student_guardians
-          ?.map((sg: { students: { id: string } | null }) => sg.students?.id)
+          ?.flatMap(sg => sg.students?.map(s => s.id) || [])
           .filter((id): id is string => Boolean(id)) || []
       setSelectedStudents(connectedStudentIds)
     } catch (error: unknown) {

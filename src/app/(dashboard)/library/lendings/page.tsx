@@ -92,7 +92,7 @@ export default function BookLendingsPage() {
         .order('borrowed_at', { ascending: false })
 
       if (error) throw error
-      setLendings(data as unknown)
+      setLendings(data as unknown as BookLending[])
     } catch (error) {
       console.error('Error loading lendings:', error)
       toast({

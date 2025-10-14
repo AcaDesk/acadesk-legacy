@@ -84,7 +84,7 @@ export default function ReportsListPage() {
         .order('student_code')
 
       if (studentsError) throw studentsError
-      setStudents(studentsData as unknown)
+      setStudents(studentsData as unknown as Student[])
 
       // Load reports with student data
       const { data: reportsData, error: reportsError } = await supabase
@@ -108,8 +108,8 @@ export default function ReportsListPage() {
         .order('generated_at', { ascending: false })
 
       if (reportsError) throw reportsError
-      setReports(reportsData as unknown)
-      setFilteredReports(reportsData as unknown)
+      setReports(reportsData as unknown as Report[])
+      setFilteredReports(reportsData as unknown as Report[])
     } catch (error) {
       console.error('Error loading data:', error)
       toast({
