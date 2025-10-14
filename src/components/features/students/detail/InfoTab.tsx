@@ -385,7 +385,7 @@ export function InfoTab() {
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 md:grid-cols-2">
-              {student.student_guardians.map((sg: any, index: number) => (
+              {student.student_guardians.map((sg: unknown, index: number) => (
                 <div key={index} className="p-4 rounded-lg border space-y-3">
                   <div className="flex items-center gap-2">
                     <Users className="h-4 w-4 text-muted-foreground" />
