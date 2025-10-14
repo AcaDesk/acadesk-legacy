@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { motion } from "framer-motion"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -9,7 +9,7 @@ import { Mail, CheckCircle, RefreshCw } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const searchParams = useSearchParams()
   const email = searchParams.get("email")
   const [isResending, setIsResending] = useState(false)
@@ -131,5 +131,13 @@ export default function VerifyEmailPage() {
           </CardContent>
         </Card>
     </motion.div>
+  )
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={<div className="text-center py-12">로딩 중...</div>}>
+      <VerifyEmailContent />
+    </Suspense>
   )
 }
