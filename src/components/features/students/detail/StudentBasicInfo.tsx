@@ -15,11 +15,20 @@ import { format as formatDate } from 'date-fns'
 import { getGuardianRelationshipLabel } from '@/lib/constants'
 import type { StudentDetail } from '@/types/studentDetail.types'
 
+// Extended student type with optional fields
+interface ExtendedStudentDetail extends StudentDetail {
+  student_type?: string | null
+  student_region?: string | null
+  uses_shuttle_bus?: boolean | null
+  shuttle_bus_location?: string | null
+}
+
 interface StudentBasicInfoProps {
   student: StudentDetail
 }
 
-export function StudentBasicInfo({ student }: StudentBasicInfoProps) {
+export function StudentBasicInfo({ student: baseStudent }: StudentBasicInfoProps) {
+  const student = baseStudent as ExtendedStudentDetail
   const getCommuteMethodLabel = (method: string | null) => {
     if (!method) return null
     const labels: Record<string, string> = {
@@ -111,7 +120,7 @@ export function StudentBasicInfo({ student }: StudentBasicInfoProps) {
                 </div>
               </div>
 
-              {(student as unknown).student_type && (
+              {student.student_type && (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Tag className="h-4 w-4" />
@@ -119,13 +128,13 @@ export function StudentBasicInfo({ student }: StudentBasicInfoProps) {
                   </div>
                   <div className="pl-6">
                     <p className="text-xs">
-                      {getStudentTypeLabel((student as unknown).student_type)}
+                      {getStudentTypeLabel(student.student_type)}
                     </p>
                   </div>
                 </div>
               )}
 
-              {(student as unknown).student_region && (
+              {student.student_region && (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <MapPin className="h-4 w-4" />
@@ -133,7 +142,7 @@ export function StudentBasicInfo({ student }: StudentBasicInfoProps) {
                   </div>
                   <div className="pl-6">
                     <p className="text-xs">
-                      {getRegionLabel((student as unknown).student_region)}
+                      {getRegionLabel(student.student_region)}
                     </p>
                   </div>
                 </div>
@@ -184,7 +193,7 @@ export function StudentBasicInfo({ student }: StudentBasicInfoProps) {
                 </div>
               </div>
 
-              {(student.commute_method || (student as unknown).uses_shuttle_bus) && (
+              {(student.commute_method || student.uses_shuttle_bus) && (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Bus className="h-4 w-4" />
@@ -196,12 +205,12 @@ export function StudentBasicInfo({ student }: StudentBasicInfoProps) {
                         {getCommuteMethodLabel(student.commute_method)}
                       </p>
                     )}
-                    {(student as unknown).uses_shuttle_bus && (
+                    {student.uses_shuttle_bus && (
                       <>
                         <p className="text-xs font-medium">셔틀버스 이용</p>
-                        {(student as unknown).shuttle_bus_location && (
+                        {student.shuttle_bus_location && (
                           <p className="text-xs text-muted-foreground">
-                            탑승지: {(student as unknown).shuttle_bus_location}
+                            탑승지: {student.shuttle_bus_location}
                           </p>
                         )}
                       </>
