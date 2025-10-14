@@ -131,7 +131,7 @@ export default function WeeklyPlannerPage() {
 
     try {
       const data = await studentRepo.search('', { limit: 1000 })
-      setStudents(data as any[])
+      setStudents(data as unknown[])
     } catch (error) {
       toast({
         title: '학생 목록 로드 실패',
