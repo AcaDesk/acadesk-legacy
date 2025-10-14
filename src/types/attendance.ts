@@ -66,12 +66,10 @@ export const createSessionSchema = z.object({
 });
 
 export const updateAttendanceSchema = z.object({
-  status: z.enum(['present', 'late', 'absent', 'excused'], {
-    errorMap: () => ({ message: '유효한 출석 상태를 선택해주세요' }),
-  }),
-  check_in_at: z.string().optional(),
-  check_out_at: z.string().optional(),
-  notes: z.string().max(500, '메모는 500자 이내로 입력해주세요').optional(),
+  status: z.enum(["present", "late", "absent", "excused"], {
+    required_error: "출석 상태를 선택해주세요",
+    invalid_type_error: "올바른 출석 상태를 선택해주세요"
+  }),  notes: z.string().max(500, '메모는 500자 이내로 입력해주세요').optional(),
 }).refine((data) => {
   if (data.check_in_at && data.check_out_at) {
     const checkIn = new Date(data.check_in_at);

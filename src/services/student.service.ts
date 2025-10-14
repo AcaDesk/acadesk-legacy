@@ -211,7 +211,7 @@ export class StudentService {
       .order('enrolled_at', { ascending: false })
 
     if (error) throw error
-    return data || []
+    return data as unknown as StudentClass[] || []
   }
 
   /**
