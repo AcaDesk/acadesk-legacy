@@ -44,7 +44,7 @@ const itemVariants = {
 export function AttendanceTab() {
   const { attendanceRecords, student } = useStudentDetail()
   const [editDialogOpen, setEditDialogOpen] = useState(false)
-  const [selectedRecord, setSelectedRecord] = useState<any>(null)
+  const [selectedRecord, setSelectedRecord] = useState<unknown>(null)
 
   // 출석 통계 데이터 (월별)
   const attendanceStatsData = (() => {
