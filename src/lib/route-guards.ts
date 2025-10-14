@@ -1,4 +1,4 @@
-import { FEATURES, getFeatureStatus, type FeatureKey, type FeatureStatus } from './features.config'
+import { getFeatureStatus, type FeatureKey, type FeatureStatus } from './features.config'
 
 /**
  * 라우트 경로와 피처 플래그 매핑
