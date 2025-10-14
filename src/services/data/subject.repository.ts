@@ -199,7 +199,17 @@ export class SubjectRepository {
    */
   async update(subjectId: string, input: UpdateSubjectInput): Promise<Subject> {
     try {
-      const updateData: any = { updated_at: new Date().toISOString() }
+      interface SubjectUpdateData {
+        updated_at: string
+        name?: string
+        description?: string | null
+        code?: string | null
+        color?: string
+        active?: boolean
+        sort_order?: number
+      }
+
+      const updateData: SubjectUpdateData = { updated_at: new Date().toISOString() }
 
       if (input.name !== undefined) updateData.name = input.name
       if (input.description !== undefined) updateData.description = input.description
