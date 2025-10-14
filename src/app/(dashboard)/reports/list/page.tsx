@@ -38,8 +38,8 @@ interface Report {
     student_code: string
     users: {
       name: string
-    } | null
-  } | null
+    }[] | null
+  }[] | null
 }
 
 interface Student {
@@ -47,7 +47,7 @@ interface Student {
   student_code: string
   users: {
     name: string
-  } | null
+  }[] | null
 }
 
 export default function ReportsListPage() {
@@ -127,7 +127,7 @@ export default function ReportsListPage() {
 
     // Student filter
     if (selectedStudent !== 'all') {
-      filtered = filtered.filter((report) => report.students?.id === selectedStudent)
+      filtered = filtered.filter((report) => report.students?.[0]?.id === selectedStudent)
     }
 
     // Type filter
@@ -138,8 +138,8 @@ export default function ReportsListPage() {
     // Search filter
     if (searchTerm) {
       filtered = filtered.filter((report) => {
-        const studentName = report.students?.users?.name?.toLowerCase() || ''
-        const studentCode = report.students?.student_code?.toLowerCase() || ''
+        const studentName = report.students?.[0]?.users?.[0]?.name?.toLowerCase() || ''
+        const studentCode = report.students?.[0]?.student_code?.toLowerCase() || ''
         const search = searchTerm.toLowerCase()
 
         return studentName.includes(search) || studentCode.includes(search)
@@ -262,7 +262,7 @@ export default function ReportsListPage() {
               <SelectItem value="all">전체 학생</SelectItem>
               {students.map((student) => (
                 <SelectItem key={student.id} value={student.id}>
-                  {student.student_code} - {student.users?.name || '이름 없음'}
+                  {student.student_code} - {student.users?.[0]?.name || '이름 없음'}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -327,10 +327,10 @@ export default function ReportsListPage() {
                           <TableCell>
                             <div>
                               <div className="font-medium">
-                                {report.students?.users?.name || '이름 없음'}
+                                {report.students?.[0]?.users?.[0]?.name || '이름 없음'}
                               </div>
                               <div className="text-xs text-muted-foreground">
-                                {report.students?.student_code}
+                                {report.students?.[0]?.student_code}
                               </div>
                             </div>
                           </TableCell>
@@ -395,7 +395,7 @@ export default function ReportsListPage() {
                                   onClick={() =>
                                     handleSendToGuardian(
                                       report.id,
-                                      report.students?.users?.name || '학생'
+                                      report.students?.[0]?.users?.[0]?.name || '학생'
                                     )
                                   }
                                 >
