@@ -35,7 +35,7 @@ interface ExamTemplate {
   class_id: string | null
   classes?: {
     name: string
-  } | null
+  }[] | null
   _count?: {
     generated: number
   }
@@ -333,7 +333,7 @@ export default function ExamTemplatesPage() {
                           {template.total_questions || '-'}
                         </TableCell>
                         <TableCell>
-                          {template.classes?.name || '-'}
+                          {template.classes?.[0]?.name || '-'}
                         </TableCell>
                         <TableCell className="max-w-xs">
                           {template.description ? (
