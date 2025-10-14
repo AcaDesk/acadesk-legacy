@@ -136,8 +136,10 @@ export function ManageGuardiansDialog({
           user_id: typedItem.guardians.user_id,
           name: typedItem.guardians.users.name,
           phone: typedItem.guardians.users.phone,
-          email: typedItem.guardians.users.email,
-          relation: typedItem.relationship,
+          email: typedItem.guardians.users.email ?? null,
+          address: null,
+          occupation: null,
+          relation: typedItem.relationship as GuardianRelation,
           is_primary: typedItem.is_primary,
         }
       })
@@ -183,11 +185,15 @@ export function ManageGuardiansDialog({
       // Filter out already linked guardians
       const available = (allGuardians || [])
         .filter(g => !linkedGuardianIds.has(g.id))
-        .map(g => ({
-          id: g.id,
-          name: g.users.name,
-          phone: g.users.phone,
-        }))
+        .map(g => {
+          const usersArray = g.users as unknown as Array<{ name: string; phone: string }>
+          const user = Array.isArray(usersArray) && usersArray.length > 0 ? usersArray[0] : { name: '', phone: '' }
+          return {
+            id: g.id,
+            name: user.name,
+            phone: user.phone,
+          }
+        })
 
       setAvailableGuardians(available)
     } catch (error) {
