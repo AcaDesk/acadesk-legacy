@@ -18,7 +18,7 @@ interface WidgetRendererProps {
   widgetId: string
   widgets: DashboardWidget[]
   data: DashboardData
-  upcomingSessions: any[]
+  upcomingSessions: unknown[]
 }
 
 export function WidgetRenderer({
