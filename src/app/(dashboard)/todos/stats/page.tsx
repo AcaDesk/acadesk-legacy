@@ -42,6 +42,18 @@ interface SubjectStats {
   completionRate: number
 }
 
+interface TodoWithStudent {
+  student_id: string
+  students: {
+    student_code: string
+    users: {
+      name: string
+    }[]
+  }[]
+  completed_at: string | null
+  verified_at: string | null
+}
+
 export default function TodoStatsPage() {
   // All Hooks must be called before any early returns
   const [overallStats, setOverallStats] = useState<TodoStats | null>(null)
@@ -138,7 +150,7 @@ export default function TodoStatsPage() {
         averageCompletionTime,
         completionRate,
       })
-    } catch (error) {
+    } catch {
       // Silent failure - error handled by parent function
     }
   }
@@ -175,22 +187,11 @@ export default function TodoStatsPage() {
       // Group by student
       const studentMap = new Map<string, StudentStats>()
 
-      interface TodoWithStudent {
-        student_id: string
-        completed_at: string | null
-        verified_at: string | null
-        students?: {
-          student_code?: string
-          users?: {
-            name?: string
-          }
-        }
-      }
-
       data?.forEach((todo: TodoWithStudent) => {
         const studentId = todo.student_id
-        const studentName = todo.students?.users?.name || '이름 없음'
-        const studentCode = todo.students?.student_code || ''
+        const studentsRel = todo.students[0] ?? null
+        const studentName = studentsRel?.users?.[0]?.name || '이름 없음'
+        const studentCode = studentsRel?.student_code || ''
 
         if (!studentMap.has(studentId)) {
           studentMap.set(studentId, {
@@ -222,7 +223,7 @@ export default function TodoStatsPage() {
       studentStatsArray.sort((a, b) => b.completionRate - a.completionRate)
 
       setStudentStats(studentStatsArray)
-    } catch (error) {
+    } catch {
       // Silent failure - error handled by parent function
     }
   }
@@ -278,7 +279,7 @@ export default function TodoStatsPage() {
       subjectStatsArray.sort((a, b) => b.totalTodos - a.totalTodos)
 
       setSubjectStats(subjectStatsArray)
-    } catch (error) {
+    } catch {
       // Silent failure - error handled by parent function
     }
   }
