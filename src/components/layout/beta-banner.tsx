@@ -1,6 +1,6 @@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { Flask, AlertTriangle, MessageSquare } from "lucide-react"
+import { TestTube, AlertTriangle, MessageSquare } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 
@@ -19,7 +19,7 @@ export function BetaBanner({ featureName, description, feedbackUrl }: BetaBanner
 
   return (
     <Alert className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/20 mb-6">
-      <Flask className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+      <TestTube className="h-4 w-4 text-amber-600 dark:text-amber-500" />
       <AlertTitle className="flex items-center gap-2 text-amber-900 dark:text-amber-100">
         <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700">
           BETA
