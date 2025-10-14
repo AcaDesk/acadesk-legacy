@@ -199,7 +199,7 @@ function DroppableColumn({ id, widgets, title }: DroppableColumnProps) {
           <div className="space-y-2">
             {widgets.length > 0 ? (
               widgets
-                .sort((a, b) => a.order - b.order)
+                .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
                 .map(widget => (
                   <DraggableWidget key={widget.id} widget={widget} />
                 ))
@@ -350,7 +350,7 @@ export function DashboardEditDialog({ open, onOpenChange, widgets, onSave }: Das
         columns.forEach(column => {
           const columnWidgets = newWidgets
             .filter(w => w.column === column)
-            .sort((a, b) => a.order - b.order)
+            .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
           columnWidgets.forEach((widget, index) => {
             const widgetIndex = newWidgets.findIndex(w => w.id === widget.id)
             newWidgets[widgetIndex].order = index
@@ -373,7 +373,7 @@ export function DashboardEditDialog({ open, onOpenChange, widgets, onSave }: Das
         // Reorder source column
         const sourceColumnWidgets = newWidgets
           .filter(w => w.column === activeWidget.column && w.id !== active.id)
-          .sort((a, b) => a.order - b.order)
+          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
         sourceColumnWidgets.forEach((widget, index) => {
           const widgetIndex = newWidgets.findIndex(w => w.id === widget.id)
           newWidgets[widgetIndex].order = index
