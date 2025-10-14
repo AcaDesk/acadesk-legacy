@@ -45,9 +45,29 @@ const itemVariants = {
   },
 }
 
+// Extended student type with optional fields
+interface ExtendedStudent {
+  student_type?: string | null
+  uses_shuttle_bus?: boolean | null
+  shuttle_bus_location?: string | null
+  [key: string]: unknown
+}
+
+interface StudentGuardianInfo {
+  guardians?: {
+    users?: {
+      name?: string
+      phone?: string | null
+      email?: string | null
+    } | null
+    relationship?: string | null
+  } | null
+}
+
 export function InfoTab() {
   const router = useRouter()
-  const { student } = useStudentDetail()
+  const { student: baseStudent } = useStudentDetail()
+  const student = baseStudent as typeof baseStudent & ExtendedStudent
 
   const calculateAge = (birthDate: string | null) => {
     if (!birthDate) return null
@@ -64,7 +84,7 @@ export function InfoTab() {
     return labels[gender] || gender
   }
 
-  const getStudentTypeLabel = (type: string | null) => {
+  const getStudentTypeLabel = (type: string | null | undefined) => {
     if (!type) return null
     const labels: Record<string, string> = {
       regular: '정규',
@@ -279,13 +299,13 @@ export function InfoTab() {
                 </div>
               )}
 
-              {(student as unknown).student_type ? (
+              {student.student_type ? (
                 <div className="flex items-start gap-3">
                   <Tag className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-muted-foreground">학생 유형</p>
                     <Badge variant="outline">
-                      {getStudentTypeLabel((student as unknown).student_type)}
+                      {getStudentTypeLabel(student.student_type)}
                     </Badge>
                   </div>
                 </div>
@@ -327,18 +347,18 @@ export function InfoTab() {
                 </div>
               </div>
 
-              {(student as unknown).uses_shuttle_bus !== null ? (
+              {student.uses_shuttle_bus !== null && student.uses_shuttle_bus !== undefined ? (
                 <div className="flex items-start gap-3">
                   <Bus className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-muted-foreground">셔틀버스 이용</p>
                     <div className="flex items-center gap-2">
-                      <Badge variant={(student as unknown).uses_shuttle_bus ? 'default' : 'outline'}>
-                        {(student as unknown).uses_shuttle_bus ? '이용' : '미이용'}
+                      <Badge variant={student.uses_shuttle_bus ? 'default' : 'outline'}>
+                        {student.uses_shuttle_bus ? '이용' : '미이용'}
                       </Badge>
-                      {(student as unknown).uses_shuttle_bus && (student as unknown).shuttle_bus_location && (
+                      {student.uses_shuttle_bus && student.shuttle_bus_location && (
                         <span className="text-sm text-muted-foreground break-words">
-                          ({(student as unknown).shuttle_bus_location})
+                          ({student.shuttle_bus_location})
                         </span>
                       )}
                     </div>
@@ -385,7 +405,7 @@ export function InfoTab() {
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 md:grid-cols-2">
-              {student.student_guardians.map((sg: unknown, index: number) => (
+              {student.student_guardians.map((sg: StudentGuardianInfo, index: number) => (
                 <div key={index} className="p-4 rounded-lg border space-y-3">
                   <div className="flex items-center gap-2">
                     <Users className="h-4 w-4 text-muted-foreground" />
