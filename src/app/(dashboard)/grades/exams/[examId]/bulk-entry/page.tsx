@@ -33,7 +33,7 @@ interface Student {
   student_code: string
   users: {
     name: string
-  } | null
+  }[] | null
 }
 
 interface ScoreEntry {
@@ -756,7 +756,7 @@ export default function BulkGradeEntryPage() {
                         <td className="p-4">
                           <div className="flex items-center gap-2">
                             <span className={`font-medium ${isNotEntered ? 'text-orange-600' : ''}`}>
-                              {student.users?.name || '이름 없음'}
+                              {student.users?.[0]?.name || '이름 없음'}
                             </span>
                             {isNotEntered && (
                               <Badge variant="outline" className="text-orange-600 border-orange-600">
