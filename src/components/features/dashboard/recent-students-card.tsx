@@ -19,24 +19,10 @@ import {
   CalendarDays
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-
-interface Student {
-  id: string
-  student_code: string
-  created_at: string
-  users?: {
-    name: string
-    email?: string
-  }
-  class_enrollments?: Array<{
-    classes?: {
-      name: string
-    }
-  }>
-}
+import type { RecentStudent } from "@/hooks/use-dashboard-data"
 
 interface RecentStudentsCardProps {
-  students: Student[]
+  students: RecentStudent[]
   maxDisplay?: number
 }
 
@@ -59,7 +45,7 @@ export function RecentStudentsCard({ students, maxDisplay = 5 }: RecentStudentsC
     return date.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })
   }
 
-  const getStudentInitials = (name?: string) => {
+  const getStudentInitials = (name: string) => {
     if (!name) return '?'
     const parts = name.trim().split(' ')
     if (parts.length === 1) {
@@ -134,9 +120,6 @@ export function RecentStudentsCard({ students, maxDisplay = 5 }: RecentStudentsC
       <CardContent>
         <div className="space-y-4">
           {displayedStudents.map((student) => {
-            const hasClasses = student.class_enrollments && student.class_enrollments.length > 0
-            const enrolledClass = student.class_enrollments?.[0]?.classes?.name
-
             return (
               <div
                 key={student.id}
@@ -144,7 +127,7 @@ export function RecentStudentsCard({ students, maxDisplay = 5 }: RecentStudentsC
               >
                 <Avatar className="h-10 w-10">
                   <AvatarFallback className="text-sm">
-                    {getStudentInitials(student.users?.name)}
+                    {getStudentInitials(student.name)}
                   </AvatarFallback>
                 </Avatar>
 
@@ -154,18 +137,20 @@ export function RecentStudentsCard({ students, maxDisplay = 5 }: RecentStudentsC
                     className="block hover:underline"
                   >
                     <p className="text-sm font-medium leading-none">
-                      {student.users?.name || '이름 없음'}
+                      {student.name || '이름 없음'}
                     </p>
                   </Link>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>{student.student_code}</span>
-                    {enrolledClass && (
+                    {student.grade_level && (
+                      <span className="flex items-center gap-1">
+                        <GraduationCap className="h-3 w-3" />
+                        {student.grade_level}
+                      </span>
+                    )}
+                    {student.guardian_name && (
                       <>
                         <span>•</span>
-                        <span className="flex items-center gap-1">
-                          <GraduationCap className="h-3 w-3" />
-                          {enrolledClass}
-                        </span>
+                        <span>{student.guardian_name}</span>
                       </>
                     )}
                   </div>
@@ -174,14 +159,8 @@ export function RecentStudentsCard({ students, maxDisplay = 5 }: RecentStudentsC
                 <div className="flex items-center gap-2">
                   <Badge variant="secondary" className="text-xs">
                     <CalendarDays className="h-3 w-3 mr-1" />
-                    {formatDate(student.created_at)}
+                    {formatDate(student.enrollment_date)}
                   </Badge>
-                  {!hasClasses && (
-                    <Badge variant="outline" className="text-xs border-orange-200 text-orange-700 dark:border-orange-800 dark:text-orange-400">
-                      <AlertCircle className="h-3 w-3 mr-1" />
-                      미배정
-                    </Badge>
-                  )}
                 </div>
 
                 <Link href={`/students/${student.id}`}>
