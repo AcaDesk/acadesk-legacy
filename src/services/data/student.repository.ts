@@ -22,7 +22,7 @@ export interface StudentWithGuardians extends Student {
   }>
 }
 
-export class StudentRepository extends BaseRepository<Student> {
+export class StudentRepository extends BaseRepository<Student & Record<string, unknown>> {
   constructor(supabase: SupabaseClient) {
     super(supabase, 'students')
   }
