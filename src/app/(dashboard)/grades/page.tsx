@@ -24,7 +24,7 @@ interface Student {
   student_code: string
   users: {
     name: string
-  }
+  }[] | null
 }
 
 interface Exam {
@@ -281,7 +281,7 @@ export default function GradesPage() {
                     <SelectContent>
                       {students.map((student) => (
                         <SelectItem key={student.id} value={student.id}>
-                          {student.student_code} - {student.users?.name || 'Unknown'}
+                          {student.student_code} - {student.users?.[0]?.name || 'Unknown'}
                         </SelectItem>
                       ))}
                     </SelectContent>
