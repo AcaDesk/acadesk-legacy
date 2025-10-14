@@ -283,7 +283,7 @@ export default function BulkReportsPage() {
             <div className="grid gap-4 md:grid-cols-3">
               <div className="space-y-2">
                 <Label>리포트 유형</Label>
-                <Select value={reportType} onValueChange={(v: any) => setReportType(v)}>
+                <Select value={reportType} onValueChange={(v: unknown) => setReportType(v)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
