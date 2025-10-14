@@ -243,7 +243,7 @@ export default function TodoTemplatesPage() {
 
     try {
       // Get all active students
-      const students = await studentRepo.search('', { limit: 1000 })
+      const students = await studentRepo.search('', currentUser.tenantId)
 
       if (!students || students.length === 0) {
         toast({
@@ -449,7 +449,7 @@ export default function TodoTemplatesPage() {
                   <span className="text-sm font-medium">필터:</span>
                 </div>
 
-                <Select value={statusFilter} onValueChange={(v: unknown) => setStatusFilter(v)}>
+                <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
                   <SelectTrigger className="w-[120px]">
                     <SelectValue />
                   </SelectTrigger>
@@ -460,7 +460,7 @@ export default function TodoTemplatesPage() {
                   </SelectContent>
                 </Select>
 
-                <Select value={priorityFilter} onValueChange={(v: unknown) => setPriorityFilter(v)}>
+                <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter(v as typeof priorityFilter)}>
                   <SelectTrigger className="w-[130px]">
                     <SelectValue />
                   </SelectTrigger>
