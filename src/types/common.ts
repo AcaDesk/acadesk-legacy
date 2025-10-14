@@ -5,9 +5,9 @@
 export type UUID = string
 
 export interface Timestamps {
-  created_at: Date
-  updated_at: Date
-  deleted_at?: Date | null
+  created_at: string
+  updated_at: string
+  deleted_at?: string | null
 }
 
 export interface TenantScoped {
