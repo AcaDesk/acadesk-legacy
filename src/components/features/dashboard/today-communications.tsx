@@ -57,7 +57,7 @@ export function TodayCommunications({ birthdayStudents, scheduledConsultations, 
                       <div className="h-8 w-8 rounded-full bg-pink-100 dark:bg-pink-950 flex items-center justify-center">
                         <Cake className="h-4 w-4 text-pink-600" />
                       </div>
-                      <span className="font-medium">{student.users?.name || '이름 없음'}</span>
+                      <span className="font-medium">{student.name || '이름 없음'}</span>
                     </div>
                     <Badge variant="outline" className="bg-pink-50 dark:bg-pink-950 border-pink-200">
                       🎉 생일
@@ -85,9 +85,9 @@ export function TodayCommunications({ birthdayStudents, scheduledConsultations, 
                         <Users className="h-4 w-4 text-blue-600" />
                       </div>
                       <div>
-                        <div className="font-medium">{consultation.students?.users?.name || '이름 없음'}</div>
+                        <div className="font-medium">{consultation.student_name || '이름 없음'}</div>
                         <div className="text-xs text-muted-foreground">
-                          {new Date(consultation.scheduled_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                          {consultation.scheduled_time}
                         </div>
                       </div>
                     </div>
@@ -108,7 +108,7 @@ export function TodayCommunications({ birthdayStudents, scheduledConsultations, 
             </h4>
             <div className="space-y-2">
               {parentsToContact.map((parent) => (
-                <Link key={parent.id} href={`/students/${parent.student_id}`}>
+                <Link key={parent.id} href={`/guardians/${parent.guardian_id}`}>
                   <div className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted transition-colors cursor-pointer bg-orange-50/50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800">
                     <div className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-full bg-orange-100 dark:bg-orange-950 flex items-center justify-center">
