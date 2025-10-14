@@ -483,7 +483,7 @@ export class ReportGenerator {
 
         return {
           examName,
-          score: Math.round(score * 10) / 10,
+          score: Math.round(scoreValue * 10) / 10,
           classAverage: undefined, // 필요시 구현
           date,
         }
@@ -513,11 +513,20 @@ export class ReportGenerator {
       return []
     }
 
-    return attendanceRecords.map((record: any) => ({
-      date: new Date(record.attendance_date),
-      status: record.status as 'present' | 'late' | 'absent' | 'none',
-      note: record.note || undefined,
-    }))
+    interface AttendanceRecordType {
+      attendance_date: string
+      status: 'present' | 'late' | 'absent' | 'none'
+      note?: string | null
+    }
+
+    return attendanceRecords.map((record) => {
+      const attendanceRecord = record as unknown as AttendanceRecordType
+      return {
+        date: new Date(attendanceRecord.attendance_date),
+        status: attendanceRecord.status,
+        note: attendanceRecord.note || undefined,
+      }
+    })
   }
 
   /**
@@ -543,7 +552,7 @@ export class ReportGenerator {
         report_type: reportType,
         period_start: reportData.period.start,
         period_end: reportData.period.end,
-        content: reportData as any,
+        content: reportData as unknown as Record<string, unknown>,
       })
       .select()
       .single()
