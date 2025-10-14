@@ -145,10 +145,10 @@ export default function ClassDetailPage() {
         .from('class_enrollments')
         .select(`
           student_id,
-          students (
+          students!inner (
             id,
             student_code,
-            users (
+            users!inner (
               name
             )
           )
@@ -215,10 +215,12 @@ export default function ClassDetailPage() {
           ? Math.round((completedCount / studentTodos.length) * 100)
           : 0
 
+        const userName = student?.users?.name
+
         return {
           id: student?.id || '',
           student_code: student?.student_code || '',
-          users: student?.users || null,
+          users: userName ? { name: userName } : null,
           avgScore,
           attendanceRate,
           homeworkRate,
