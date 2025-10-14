@@ -24,7 +24,11 @@ import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 
 export default function LibraryPage() {
-  // 피처 플래그 체크
+  // All Hooks must be called before any early returns
+  const [loading, setLoading] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+
+  // Feature flag checks after all Hooks
   const featureStatus = FEATURES.libraryManagement;
 
   if (featureStatus === 'inactive') {
@@ -34,8 +38,6 @@ export default function LibraryPage() {
   if (featureStatus === 'maintenance') {
     return <Maintenance featureName="교재 관리" reason="교재 관리 시스템 업데이트가 진행 중입니다." />;
   }
-  const [loading, setLoading] = useState(false)
-  const [searchTerm, setSearchTerm] = useState('')
 
   const stats = {
     totalMaterials: 45,

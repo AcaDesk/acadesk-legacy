@@ -54,17 +54,7 @@ const PRIORITY_OPTIONS = [
 ]
 
 export default function NewTodoTemplatePage() {
-  // 피처 플래그 상태 체크
-  const featureStatus = FEATURES.todoManagement;
-
-  if (featureStatus === 'inactive') {
-    return <ComingSoon featureName="과제 템플릿 등록" description="반복적으로 배정할 과제를 템플릿으로 등록하고 자동으로 학생들에게 배정할 수 있는 기능을 준비하고 있습니다." />;
-  }
-
-  if (featureStatus === 'maintenance') {
-    return <Maintenance featureName="과제 템플릿 등록" reason="템플릿 시스템 업데이트가 진행 중입니다." />;
-  }
-
+  // All Hooks must be called before any early returns
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [subject, setSubject] = useState('')
@@ -214,6 +204,17 @@ export default function NewTodoTemplatePage() {
   }
 
   const selectedPriority = PRIORITY_OPTIONS.find(opt => opt.value === priority)
+
+  // Feature flag checks after all Hooks
+  const featureStatus = FEATURES.todoManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="과제 템플릿 등록" description="반복적으로 배정할 과제를 템플릿으로 등록하고 자동으로 학생들에게 배정할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="과제 템플릿 등록" reason="템플릿 시스템 업데이트가 진행 중입니다." />;
+  }
 
   if (userLoading) {
     return (

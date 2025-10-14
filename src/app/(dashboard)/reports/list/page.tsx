@@ -51,17 +51,7 @@ interface Student {
 }
 
 export default function ReportsListPage() {
-  // 피처 플래그 상태 체크
-  const featureStatus = FEATURES.reportManagement;
-
-  if (featureStatus === 'inactive') {
-    return <ComingSoon featureName="리포트 목록" description="생성된 모든 리포트를 조회하고 보호자에게 전송할 수 있는 기능을 준비하고 있습니다." />;
-  }
-
-  if (featureStatus === 'maintenance') {
-    return <Maintenance featureName="리포트 목록" reason="리포트 시스템 업데이트가 진행 중입니다." />;
-  }
-
+  // All Hooks must be called before any early returns
   const [reports, setReports] = useState<Report[]>([])
   const [filteredReports, setFilteredReports] = useState<Report[]>([])
   const [students, setStudents] = useState<Student[]>([])
@@ -205,6 +195,17 @@ export default function ReportsListPage() {
         variant: 'destructive',
       })
     }
+  }
+
+  // Feature flag checks after all Hooks
+  const featureStatus = FEATURES.reportManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="리포트 목록" description="생성된 모든 리포트를 조회하고 보호자에게 전송할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="리포트 목록" reason="리포트 시스템 업데이트가 진행 중입니다." />;
   }
 
   if (loading) {

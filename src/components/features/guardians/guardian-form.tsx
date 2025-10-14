@@ -101,6 +101,7 @@ export function GuardianFormFields({ form, prefix = '', disabled = false }: Guar
 
   const getError = (field: string) => {
     const keys = `${prefix}${field}`.split('.')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let error: any = errors
     for (const key of keys) {
       error = error?.[key]

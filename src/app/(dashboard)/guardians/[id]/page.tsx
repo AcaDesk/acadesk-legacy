@@ -36,17 +36,7 @@ interface GuardianDetail {
 }
 
 export default function GuardianDetailPage() {
-  // 피처 플래그 상태 체크
-  const featureStatus = FEATURES.guardianManagement;
-
-  if (featureStatus === 'inactive') {
-    return <ComingSoon featureName="보호자 상세" description="보호자 정보와 연결된 학생 목록을 확인하고 관리할 수 있는 기능을 준비하고 있습니다." />;
-  }
-
-  if (featureStatus === 'maintenance') {
-    return <Maintenance featureName="보호자 상세" reason="보호자 관리 시스템 업데이트가 진행 중입니다." />;
-  }
-
+  // All Hooks must be called before any early returns
   const params = useParams()
   const router = useRouter()
   const { toast } = useToast()
@@ -62,6 +52,7 @@ export default function GuardianDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id])
 
+  // Function definitions
   async function loadGuardianDetail(guardianId: string) {
     try {
       setLoading(true)
@@ -110,6 +101,17 @@ export default function GuardianDetailPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Feature flag checks after all Hooks
+  const featureStatus = FEATURES.guardianManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="보호자 상세" description="보호자 정보와 연결된 학생 목록을 확인하고 관리할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="보호자 상세" reason="보호자 관리 시스템 업데이트가 진행 중입니다." />;
   }
 
   if (loading) {

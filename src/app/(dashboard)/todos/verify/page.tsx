@@ -30,17 +30,7 @@ import { verifyTodos, rejectTodo as rejectTodoService } from '@/services/todo-ma
 import { getErrorMessage } from '@/lib/error-handlers'
 
 export default function VerifyTodosPage() {
-  // 피처 플래그 상태 체크
-  const featureStatus = FEATURES.todoManagement;
-
-  if (featureStatus === 'inactive') {
-    return <ComingSoon featureName="과제 검증" description="학생들이 완료한 과제를 검증하고 피드백을 제공할 수 있는 기능을 준비하고 있습니다." />;
-  }
-
-  if (featureStatus === 'maintenance') {
-    return <Maintenance featureName="과제 검증" reason="검증 시스템 업데이트가 진행 중입니다." />;
-  }
-
+  // All Hooks must be called before any early returns
   const [pendingTodos, setPendingTodos] = useState<StudentTodoWithStudent[]>([])
   const [filteredTodos, setFilteredTodos] = useState<StudentTodoWithStudent[]>([])
   const [selectedTodos, setSelectedTodos] = useState<Set<string>>(new Set())
@@ -199,6 +189,17 @@ export default function VerifyTodosPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Feature flag checks after all Hooks
+  const featureStatus = FEATURES.todoManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="과제 검증" description="학생들이 완료한 과제를 검증하고 피드백을 제공할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="과제 검증" reason="검증 시스템 업데이트가 진행 중입니다." />;
   }
 
   return (

@@ -65,17 +65,7 @@ const subjectFormSchema = z.object({
 type SubjectFormValues = z.infer<typeof subjectFormSchema>
 
 export default function SubjectsPage() {
-  // 피처 플래그 상태 체크
-  const featureStatus = FEATURES.subjectManagement;
-
-  if (featureStatus === 'inactive') {
-    return <ComingSoon featureName="과목 관리" description="학원의 과목을 등록하고 관리하여 수업과 성적 관리에 활용할 수 있는 기능을 준비하고 있습니다." />;
-  }
-
-  if (featureStatus === 'maintenance') {
-    return <Maintenance featureName="과목 관리" reason="과목 관리 시스템 업데이트가 진행 중입니다." />;
-  }
-
+  // All Hooks must be called before any early returns
   const [subjects, setSubjects] = useState<SubjectStatistics[]>([])
   const [loading, setLoading] = useState(true)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
@@ -219,6 +209,17 @@ export default function SubjectsPage() {
       active: subject.active,
     })
     setIsEditModalOpen(true)
+  }
+
+  // Feature flag checks after all Hooks
+  const featureStatus = FEATURES.subjectManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="과목 관리" description="학원의 과목을 등록하고 관리하여 수업과 성적 관리에 활용할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="과목 관리" reason="과목 관리 시스템 업데이트가 진행 중입니다." />;
   }
 
   return (

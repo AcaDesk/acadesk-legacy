@@ -45,17 +45,7 @@ interface BookLending {
 }
 
 export default function BookLendingsPage() {
-  // 피처 플래그 상태 체크
-  const featureStatus = FEATURES.libraryManagement;
-
-  if (featureStatus === 'inactive') {
-    return <ComingSoon featureName="도서 대출 관리" description="도서 대출 현황을 관리하고 연체 알림을 자동으로 전송할 수 있는 기능을 준비하고 있습니다." />;
-  }
-
-  if (featureStatus === 'maintenance') {
-    return <Maintenance featureName="도서 대출 관리" reason="도서 대출 시스템 업데이트가 진행 중입니다." />;
-  }
-
+  // All Hooks must be called before any early returns
   const [lendings, setLendings] = useState<BookLending[]>([])
   const [filteredLendings, setFilteredLendings] = useState<BookLending[]>([])
   const [searchTerm, setSearchTerm] = useState('')
@@ -74,6 +64,7 @@ export default function BookLendingsPage() {
     filterLendings()
   }, [searchTerm, filterStatus, lendings])
 
+  // Function definitions
   async function loadLendings() {
     try {
       setLoading(true)
@@ -282,6 +273,17 @@ export default function BookLendingsPage() {
     }
 
     return <Badge variant="outline">대출 중</Badge>
+  }
+
+  // Feature flag checks after all Hooks
+  const featureStatus = FEATURES.libraryManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="도서 대출 관리" description="도서 대출 현황을 관리하고 연체 알림을 자동으로 전송할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="도서 대출 관리" reason="도서 대출 시스템 업데이트가 진행 중입니다." />;
   }
 
   if (loading) {

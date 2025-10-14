@@ -31,17 +31,7 @@ interface Student {
 }
 
 export default function NewGuardianPage() {
-  // 피처 플래그 상태 체크
-  const featureStatus = FEATURES.guardianManagement;
-
-  if (featureStatus === 'inactive') {
-    return <ComingSoon featureName="보호자 추가" description="새로운 보호자 정보를 등록하고 학생과 연결하여 효과적인 학부모 관리를 할 수 있는 기능을 준비하고 있습니다." />;
-  }
-
-  if (featureStatus === 'maintenance') {
-    return <Maintenance featureName="보호자 추가" reason="보호자 관리 시스템 업데이트가 진행 중입니다." />;
-  }
-
+  // All Hooks must be called before any early returns
   const [loading, setLoading] = useState(false)
   const [students, setStudents] = useState<Student[]>([])
   const [selectedStudents, setSelectedStudents] = useState<string[]>([])
@@ -55,6 +45,7 @@ export default function NewGuardianPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Function definitions
   async function loadStudents() {
     try {
       const { data, error } = await supabase
@@ -147,11 +138,12 @@ export default function NewGuardianPage() {
 
       router.push('/guardians')
       router.refresh()
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('보호자 추가 오류:', error)
+      const errorMessage = error instanceof Error ? error.message : '보호자를 추가하는 중 오류가 발생했습니다.'
       toast({
         title: '보호자 추가 실패',
-        description: error.message || '보호자를 추가하는 중 오류가 발생했습니다.',
+        description: errorMessage,
         variant: 'destructive',
       })
     } finally {
@@ -165,6 +157,17 @@ export default function NewGuardianPage() {
         ? prev.filter((id) => id !== studentId)
         : [...prev, studentId]
     )
+  }
+
+  // Feature flag checks after all Hooks
+  const featureStatus = FEATURES.guardianManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="보호자 추가" description="새로운 보호자 정보를 등록하고 학생과 연결하여 효과적인 학부모 관리를 할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="보호자 추가" reason="보호자 관리 시스템 업데이트가 진행 중입니다." />;
   }
 
   return (

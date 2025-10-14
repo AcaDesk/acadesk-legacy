@@ -36,17 +36,7 @@ interface Report {
 }
 
 export default function ReportDetailPage({ params }: { params: { id: string } }) {
-  // 피처 플래그 상태 체크
-  const featureStatus = FEATURES.reportManagement;
-
-  if (featureStatus === 'inactive') {
-    return <ComingSoon featureName="리포트 상세" description="학생별 월간 리포트를 상세하게 확인하고 보호자에게 전송할 수 있는 기능을 준비하고 있습니다." />;
-  }
-
-  if (featureStatus === 'maintenance') {
-    return <Maintenance featureName="리포트 상세" reason="리포트 시스템 업데이트가 진행 중입니다." />;
-  }
-
+  // All Hooks must be called before any early returns
   const [report, setReport] = useState<Report | null>(null)
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
@@ -158,6 +148,17 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
       quarterly: '분기',
     }
     return types[type] || type
+  }
+
+  // Feature flag checks after all Hooks
+  const featureStatus = FEATURES.reportManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="리포트 상세" description="학생별 월간 리포트를 상세하게 확인하고 보호자에게 전송할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="리포트 상세" reason="리포트 시스템 업데이트가 진행 중입니다." />;
   }
 
   if (loading) {

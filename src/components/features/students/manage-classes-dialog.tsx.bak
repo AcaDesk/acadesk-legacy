@@ -129,7 +129,7 @@ export function ManageClassesDialog({
       console.error('Error saving classes:', error)
       toast({
         title: '저장 실패',
-        description: error instanceof Error ? error.message : '수업을 배정하는 중 오류가 발생했습니다.',
+        description: error.message || '수업을 배정하는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
     } finally {
