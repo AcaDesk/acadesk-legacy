@@ -43,17 +43,7 @@ interface ExamCategory {
 }
 
 export default function ExamsPage() {
-  // 피처 플래그 상태 체크
-  const featureStatus = FEATURES.gradesManagement;
-
-  if (featureStatus === 'inactive') {
-    return <ComingSoon featureName="시험 관리" description="시험을 등록하고 관리하여, 학생들의 시험 성적을 체계적으로 기록할 수 있습니다." />;
-  }
-
-  if (featureStatus === 'maintenance') {
-    return <Maintenance featureName="시험 관리" reason="시험 시스템 업데이트가 진행 중입니다." />;
-  }
-
+  // All Hooks must be called before any early returns
   const [exams, setExams] = useState<Exam[]>([])
   const [filteredExams, setFilteredExams] = useState<Exam[]>([])
   const [categories, setCategories] = useState<ExamCategory[]>([])
@@ -65,6 +55,7 @@ export default function ExamsPage() {
   const supabase = createClient()
   const { user: currentUser } = useCurrentUser()
 
+  // useEffect must be called before any early returns
   useEffect(() => {
     loadData()
   }, [])
@@ -174,6 +165,17 @@ export default function ExamsPage() {
     if (!code) return '-'
     const category = categories.find((c) => c.code === code)
     return category?.label || code
+  }
+
+  // Feature flag checks after all Hooks
+  const featureStatus = FEATURES.gradesManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="시험 관리" description="시험을 등록하고 관리하여, 학생들의 시험 성적을 체계적으로 기록할 수 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="시험 관리" reason="시험 시스템 업데이트가 진행 중입니다." />;
   }
 
   if (loading) {

@@ -47,17 +47,7 @@ interface ExamCategory {
 }
 
 export default function ExamTemplatesPage() {
-  // 피처 플래그 상태 체크
-  const featureStatus = FEATURES.gradesManagement;
-
-  if (featureStatus === 'inactive') {
-    return <ComingSoon featureName="시험 템플릿" description="반복되는 시험을 템플릿으로 관리하고 자동으로 생성하여 업무 효율을 높일 수 있습니다." />;
-  }
-
-  if (featureStatus === 'maintenance') {
-    return <Maintenance featureName="시험 템플릿" reason="템플릿 시스템 업데이트가 진행 중입니다." />;
-  }
-
+  // All Hooks must be called before any early returns
   const [templates, setTemplates] = useState<ExamTemplate[]>([])
   const [filteredTemplates, setFilteredTemplates] = useState<ExamTemplate[]>([])
   const [categories, setCategories] = useState<ExamCategory[]>([])
@@ -69,6 +59,7 @@ export default function ExamTemplatesPage() {
   const supabase = createClient()
   const { user: currentUser } = useCurrentUser()
 
+  // useEffect must be called before any early returns
   useEffect(() => {
     loadData()
   }, [])
@@ -225,6 +216,17 @@ export default function ExamTemplatesPage() {
       quarterly: '분기별',
     }
     return scheduleMap[schedule] || schedule
+  }
+
+  // Feature flag checks after all Hooks
+  const featureStatus = FEATURES.gradesManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="시험 템플릿" description="반복되는 시험을 템플릿으로 관리하고 자동으로 생성하여 업무 효율을 높일 수 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="시험 템플릿" reason="템플릿 시스템 업데이트가 진행 중입니다." />;
   }
 
   if (loading) {

@@ -45,11 +45,13 @@ export function useCurrentUser(): UseCurrentUserResult {
       if (!authUser) throw new Error('Not authenticated')
 
       // Get user data from public.users
-      let { data: userData, error: userError } = await supabase
+      const { data: userDataTemp, error: userError } = await supabase
         .from('users')
         .select('id, tenant_id, email, name, role_code')
         .eq('id', authUser.id)
         .maybeSingle()
+
+      let userData = userDataTemp;
 
       if (userError) {
         console.error('Error fetching user data:', userError)

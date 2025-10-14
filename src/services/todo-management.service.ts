@@ -258,7 +258,7 @@ export async function verifyTodos(
 }
 
 /**
- * TODO 반려 처리 (완료 취소 + 피드백)
+ * TODO 반려 처리 (완료 취소 + 피드백 + 알림 생성)
  */
 export async function rejectTodo(
   supabase: SupabaseClient,
@@ -272,11 +272,67 @@ export async function rejectTodo(
 
     const todoRepo = new TodoRepository(supabase)
 
-    // 완료 상태 취소 및 피드백 추가
+    // 1. TODO 정보 조회 (학생 정보 포함)
+    const { data: todo, error: todoError } = await supabase
+      .from('student_todos')
+      .select(`
+        id,
+        title,
+        tenant_id,
+        student_id,
+        students (
+          user_id,
+          users (
+            name
+          )
+        )
+      `)
+      .eq('id', todoId)
+      .maybeSingle()
+
+    if (todoError) {
+      logError(todoError, { service: 'TodoManagementService', method: 'rejectTodo', todoId })
+      throw new DatabaseError('TODO 정보를 조회할 수 없습니다', todoError)
+    }
+
+    if (!todo) {
+      throw new DatabaseError('TODO를 찾을 수 없습니다')
+    }
+
+    // 2. 완료 상태 취소 및 피드백 추가
     await todoRepo.update(todoId, {
       completed_at: null,
       description: feedback.trim(), // 피드백을 description에 저장
     })
+
+    // 3. 학생에게 인앱 알림 생성
+    const studentUserId = todo.students?.user_id
+    if (studentUserId) {
+      const { error: notificationError } = await supabase
+        .from('in_app_notifications')
+        .insert({
+          tenant_id: todo.tenant_id,
+          user_id: studentUserId,
+          type: 'todo_rejected',
+          title: '과제가 반려되었습니다',
+          message: `"${todo.title}" 과제가 반려되었습니다.\n피드백: ${feedback.trim()}`,
+          reference_type: 'todo',
+          reference_id: todoId,
+          action_url: '/todos',
+          is_read: false,
+        })
+
+      if (notificationError) {
+        // 알림 생성 실패는 로그만 남기고 오류를 throw하지 않음 (주요 기능에 영향 X)
+        logError(notificationError, {
+          service: 'TodoManagementService',
+          method: 'rejectTodo',
+          context: 'notification creation failed',
+          todoId,
+          studentUserId,
+        })
+      }
+    }
   } catch (error) {
     if (error instanceof DatabaseError || error instanceof ValidationError) throw error
     logError(error, { service: 'TodoManagementService', method: 'rejectTodo' })

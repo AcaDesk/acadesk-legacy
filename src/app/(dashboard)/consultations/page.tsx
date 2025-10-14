@@ -26,7 +26,11 @@ import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 
 export default function ConsultationsPage() {
-  // 피처 플래그 체크
+  // All Hooks must be called before any early returns
+  const [searchTerm, setSearchTerm] = useState('')
+  const [activeTab, setActiveTab] = useState('all')
+
+  // 피처 플래그 체크 (Hooks 이후에 체크)
   const featureStatus = FEATURES.consultationManagement;
 
   if (featureStatus === 'inactive') {
@@ -36,8 +40,6 @@ export default function ConsultationsPage() {
   if (featureStatus === 'maintenance') {
     return <Maintenance featureName="상담 관리" reason="상담 관리 시스템 개선 작업이 진행 중입니다." />;
   }
-  const [searchTerm, setSearchTerm] = useState('')
-  const [activeTab, setActiveTab] = useState('all')
 
   const stats = {
     totalConsultations: 24,

@@ -69,11 +69,7 @@ interface StudentInClass {
 }
 
 export default function ClassDetailPage() {
-  // 피처 플래그 체크
-  if (!FEATURES.classManagement) {
-    return <ComingSoon featureName="수업 상세" description="수업별 학생 현황, 성적 분석, 출석률 등을 상세하게 확인하고 관리할 수 있는 기능을 준비하고 있습니다." />;
-  }
-
+  // All Hooks must be called before any early returns
   const params = useParams()
   const router = useRouter()
   const { toast } = useToast()
@@ -83,14 +79,7 @@ export default function ClassDetailPage() {
   const [students, setStudents] = useState<StudentInClass[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    if (params.id) {
-      const classId = params.id as string
-      loadClassDetail(classId)
-      loadStudents(classId)
-    }
-  }, [params.id])
-
+  // Load class detail and students - defined before feature check
   async function loadClassDetail(classId: string) {
     try {
       setLoading(true)
@@ -216,6 +205,30 @@ export default function ClassDetailPage() {
     }
   }
 
+  // useEffect must be called before any early returns
+  useEffect(() => {
+    if (params.id) {
+      const classId = params.id as string
+      loadClassDetail(classId)
+      loadStudents(classId)
+    }
+  }, [params.id])
+
+  // usePagination must be called before any early returns
+  const {
+    currentPage,
+    totalPages,
+    paginatedData: paginatedStudents,
+    goToPage,
+    nextPage,
+    previousPage,
+    hasNextPage,
+    hasPreviousPage,
+  } = usePagination({
+    data: students,
+    itemsPerPage: 10,
+  })
+
   // Calculate class-level KPIs
   const calculateClassKPIs = () => {
     if (students.length === 0) {
@@ -268,6 +281,7 @@ export default function ClassDetailPage() {
     return { gradesData, todoData, attendanceData }
   }
 
+  // Now we can have early returns after all Hooks have been called
   if (loading) {
     return (
       <PageWrapper>
@@ -291,21 +305,6 @@ export default function ClassDetailPage() {
 
   const kpis = calculateClassKPIs()
   const chartData = generateChartData()
-
-  // Pagination for students table
-  const {
-    currentPage,
-    totalPages,
-    paginatedData: paginatedStudents,
-    goToPage,
-    nextPage,
-    previousPage,
-    hasNextPage,
-    hasPreviousPage,
-  } = usePagination({
-    data: students,
-    itemsPerPage: 10,
-  })
 
   return (
     <PageWrapper>

@@ -5,7 +5,7 @@ import { DashboardHeader } from "@/components/features/dashboard/dashboard-heade
 import { DashboardWidgetWrapper, DashboardWidgetSkeleton } from "@/components/features/dashboard/dashboard-widget-wrapper"
 import { WelcomeBanner } from "@/components/features/dashboard/welcome-banner"
 import { DEFAULT_WIDGETS, type DashboardWidget, isWidgetAvailable, LAYOUT_PRESETS, type DashboardPreset, type DashboardWidgetId } from "@/types/dashboard"
-import { useDashboardData, type DashboardData } from "@/hooks/use-dashboard-data"
+import { useDashboardData, type DashboardData, type TodaySession } from "@/hooks/use-dashboard-data"
 import { renderWidgetContent } from "./widget-factory"
 import { WidgetErrorBoundary } from "@/components/features/dashboard/widget-error-boundary"
 import { DASHBOARD_LAYOUT, shouldShowSection, getVisibleWidgetsInSection } from "./dashboard-layout-config"
@@ -32,10 +32,10 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
   const completionRate = useMemo(() => 89, []) // Mock
 
   const upcomingSessions = useMemo(() => {
-    return todaySessions.filter((s: any) => {
+    return todaySessions.filter((s: TodaySession) => {
       if (s.status === 'completed') return false
       const now = new Date()
-      const startTime = new Date(s.scheduled_start_at)
+      const startTime = new Date(s.scheduled_start)
       const minutesUntilStart = Math.floor((startTime.getTime() - now.getTime()) / 60000)
       return minutesUntilStart <= 30
     })

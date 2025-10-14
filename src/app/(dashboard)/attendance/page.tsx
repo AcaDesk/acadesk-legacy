@@ -36,11 +36,13 @@ export default async function AttendancePage() {
     }
 
     // Get user's tenant
-    let { data: userData, error: userError } = await supabase
+    const { data: userDataTemp, error: userError } = await supabase
       .from('users')
       .select('tenant_id')
       .eq('id', user.id)
       .maybeSingle();
+
+    let userData = userDataTemp;
 
     if (userError) {
       console.error('Error fetching user data:', userError);

@@ -67,17 +67,7 @@ interface Student {
 }
 
 export default function GradesListPage() {
-  // 피처 플래그 상태 체크
-  const featureStatus = FEATURES.gradesManagement;
-
-  if (featureStatus === 'inactive') {
-    return <ComingSoon featureName="성적 조회" description="학생별 시험 성적을 상세하게 조회하고, 성적 추이를 차트로 확인할 수 있는 기능을 준비하고 있습니다." />;
-  }
-
-  if (featureStatus === 'maintenance') {
-    return <Maintenance featureName="성적 조회" reason="성적 시스템 업데이트가 진행 중입니다." />;
-  }
-
+  // All Hooks must be called before any early returns
   const [scores, setScores] = useState<ExamScore[]>([])
   const [totalCount, setTotalCount] = useState(0)
   const [students, setStudents] = useState<Student[]>([])
@@ -96,7 +86,7 @@ export default function GradesListPage() {
 
   const itemsPerPage = 15
 
-  // Server-side Pagination
+  // Server-side Pagination - useServerPagination must be called before any early returns
   const {
     currentPage,
     totalPages,
@@ -116,6 +106,7 @@ export default function GradesListPage() {
     itemsPerPage,
   })
 
+  // useEffect must be called before any early returns
   useEffect(() => {
     loadStudents()
   }, [])

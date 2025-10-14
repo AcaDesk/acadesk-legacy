@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { PageWrapper } from "@/components/layout/page-wrapper"
-import { Calendar, Plus, Save, Copy } from 'lucide-react'
+import { Calendar, Plus, Save, Copy, Search, ChevronLeft, ChevronRight, MousePointer2, Trash2, CheckSquare } from 'lucide-react'
 import { DAYS_OF_WEEK } from '@/lib/constants'
 import {
   Dialog,
@@ -65,6 +66,7 @@ export default function WeeklyPlannerPage() {
   }
 
   const [students, setStudents] = useState<Student[]>([])
+  const [filteredStudents, setFilteredStudents] = useState<Student[]>([])
   const [templates, setTemplates] = useState<TodoTemplate[]>([])
   const [plannedTodos, setPlannedTodos] = useState<PlannedTodo[]>([])
   const [selectedCell, setSelectedCell] = useState<{ studentId: string; dayOfWeek: number } | null>(null)
@@ -75,6 +77,31 @@ export default function WeeklyPlannerPage() {
   const [loading, setLoading] = useState(false)
   const [dragOverCell, setDragOverCell] = useState<{ studentId: string; dayOfWeek: number } | null>(null)
   const [recommendedTemplates, setRecommendedTemplates] = useState<TodoTemplate[]>([])
+
+  // Search and Pagination
+  const [searchTerm, setSearchTerm] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const studentsPerPage = 10
+
+  // Multi-cell selection
+  const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set())
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false)
+
+  // Helper to generate cell key
+  function getCellKey(studentId: string, dayOfWeek: number): string {
+    return `${studentId}-${dayOfWeek}`
+  }
+
+  // Helper to parse cell key
+  function parseCellKey(key: string): { studentId: string; dayOfWeek: number } | null {
+    const [studentId, dayStr] = key.split('-')
+    const dayOfWeek = parseInt(dayStr, 10)
+    if (studentId && !isNaN(dayOfWeek)) {
+      return { studentId, dayOfWeek }
+    }
+    return null
+  }
 
   const { toast } = useToast()
   const supabase = createClient()
@@ -89,6 +116,25 @@ export default function WeeklyPlannerPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser])
+
+  // Filter and paginate students
+  useEffect(() => {
+    let filtered = [...students]
+
+    // Apply search filter
+    if (searchTerm) {
+      const search = searchTerm.toLowerCase()
+      filtered = filtered.filter(
+        (s) =>
+          s.users?.name?.toLowerCase().includes(search) ||
+          s.student_code?.toLowerCase().includes(search)
+      )
+    }
+
+    setFilteredStudents(filtered)
+    // Reset to first page when search changes
+    setCurrentPage(1)
+  }, [students, searchTerm])
 
   async function loadStudents() {
     if (!currentUser) return
@@ -128,11 +174,106 @@ export default function WeeklyPlannerPage() {
   }
 
   async function handleCellClick(studentId: string, dayOfWeek: number) {
+    // If in selection mode, toggle cell selection
+    if (selectionMode) {
+      toggleCellSelection(studentId, dayOfWeek)
+      return
+    }
+
+    // Otherwise, open dialog for single cell
     setSelectedCell({ studentId, dayOfWeek })
     setDialogOpen(true)
 
     // Load recommended templates based on student's schedule
     await loadRecommendedTemplates(studentId, dayOfWeek)
+  }
+
+  function toggleCellSelection(studentId: string, dayOfWeek: number) {
+    const cellKey = getCellKey(studentId, dayOfWeek)
+    const newSelection = new Set(selectedCells)
+
+    if (newSelection.has(cellKey)) {
+      newSelection.delete(cellKey)
+    } else {
+      newSelection.add(cellKey)
+    }
+
+    setSelectedCells(newSelection)
+  }
+
+  function clearCellSelection() {
+    setSelectedCells(new Set())
+    setSelectionMode(false)
+  }
+
+  function selectAllVisibleCells() {
+    const allCells = new Set<string>()
+    paginatedStudents.forEach(student => {
+      [1, 2, 3, 4, 5].forEach(day => {
+        allCells.add(getCellKey(student.id, day))
+      })
+    })
+    setSelectedCells(allCells)
+  }
+
+  function openBulkDialog() {
+    if (selectedCells.size === 0) {
+      toast({
+        title: '셀 선택 필요',
+        description: '먼저 작업할 셀들을 선택해주세요.',
+        variant: 'destructive',
+      })
+      return
+    }
+    setBulkDialogOpen(true)
+  }
+
+  function addTodoToBulkCells(template: TodoTemplate) {
+    const newTodos: PlannedTodo[] = []
+
+    selectedCells.forEach(cellKey => {
+      const parsed = parseCellKey(cellKey)
+      if (parsed) {
+        newTodos.push({
+          studentId: parsed.studentId,
+          dayOfWeek: parsed.dayOfWeek,
+          templateId: template.id,
+          title: template.title,
+          subject: template.subject || undefined,
+          estimatedDuration: template.estimated_duration_minutes || undefined,
+          priority: template.priority,
+        })
+      }
+    })
+
+    setPlannedTodos([...plannedTodos, ...newTodos])
+    setBulkDialogOpen(false)
+    clearCellSelection()
+
+    toast({
+      title: '일괄 과제 추가 완료',
+      description: `${selectedCells.size}개 셀에 과제가 추가되었습니다.`,
+    })
+  }
+
+  function deleteTodosFromBulkCells() {
+    if (!confirm(`선택한 ${selectedCells.size}개 셀의 모든 과제를 삭제하시겠습니까?`)) {
+      return
+    }
+
+    const cellsToDelete = new Set(selectedCells)
+    const updatedTodos = plannedTodos.filter(todo => {
+      const cellKey = getCellKey(todo.studentId, todo.dayOfWeek)
+      return !cellsToDelete.has(cellKey)
+    })
+
+    setPlannedTodos(updatedTodos)
+    clearCellSelection()
+
+    toast({
+      title: '일괄 삭제 완료',
+      description: `선택한 셀의 과제가 삭제되었습니다.`,
+    })
   }
 
   async function loadRecommendedTemplates(studentId: string, _dayOfWeek: number) {
@@ -310,6 +451,17 @@ export default function WeeklyPlannerPage() {
     })
   }
 
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredStudents.length / studentsPerPage)
+  const startIndex = (currentPage - 1) * studentsPerPage
+  const endIndex = startIndex + studentsPerPage
+  const paginatedStudents = filteredStudents.slice(startIndex, endIndex)
+
+  function goToPage(page: number) {
+    if (page < 1 || page > totalPages) return
+    setCurrentPage(page)
+  }
+
   // Drag and Drop handlers
   function handleDragStart(e: React.DragEvent, template: TodoTemplate) {
     e.dataTransfer.effectAllowed = 'copy'
@@ -375,14 +527,67 @@ export default function WeeklyPlannerPage() {
             <Badge variant="outline" className="text-base px-4 py-2">
               계획된 과제: {plannedTodos.length}개
             </Badge>
-            <Button
-              onClick={publishWeeklyPlan}
-              disabled={loading || plannedTodos.length === 0}
-              className="gap-2"
-            >
-              <Save className="h-4 w-4" />
-              {loading ? '게시 중...' : '이번 주 과제 게시'}
-            </Button>
+            {selectedCells.size > 0 && (
+              <Badge variant="secondary" className="text-base px-4 py-2">
+                선택된 셀: {selectedCells.size}개
+              </Badge>
+            )}
+            {selectionMode ? (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={clearCellSelection}
+                  className="gap-2"
+                >
+                  선택 취소
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={selectAllVisibleCells}
+                  className="gap-2"
+                >
+                  <CheckSquare className="h-4 w-4" />
+                  전체 선택
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={openBulkDialog}
+                  disabled={selectedCells.size === 0}
+                  className="gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  일괄 추가
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={deleteTodosFromBulkCells}
+                  disabled={selectedCells.size === 0}
+                  className="gap-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  일괄 삭제
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => setSelectionMode(true)}
+                  className="gap-2"
+                >
+                  <MousePointer2 className="h-4 w-4" />
+                  셀 선택 모드
+                </Button>
+                <Button
+                  onClick={publishWeeklyPlan}
+                  disabled={loading || plannedTodos.length === 0}
+                  className="gap-2"
+                >
+                  <Save className="h-4 w-4" />
+                  {loading ? '게시 중...' : '이번 주 과제 게시'}
+                </Button>
+              </>
+            )}
           </div>
         </div>
 
@@ -428,7 +633,24 @@ export default function WeeklyPlannerPage() {
           {/* Weekly Planner Matrix */}
           <Card className="lg:col-span-3">
             <CardHeader>
-              <CardTitle>주간 과제 매트릭스</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>주간 과제 매트릭스</CardTitle>
+                <Badge variant="outline" className="text-sm">
+                  {filteredStudents.length}명의 학생
+                </Badge>
+              </div>
+              {/* Search Input */}
+              <div className="mt-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="학생 이름 또는 학번으로 검색..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
             <div className="overflow-x-auto">
@@ -446,7 +668,14 @@ export default function WeeklyPlannerPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {students.map(student => (
+                  {paginatedStudents.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                        {searchTerm ? '검색 결과가 없습니다' : '등록된 학생이 없습니다'}
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedStudents.map(student => (
                     <tr key={student.id} className="border-b hover:bg-muted/30">
                       <td className="p-3 font-medium bg-muted/20 sticky left-0 z-10">
                         <div>
@@ -465,11 +694,17 @@ export default function WeeklyPlannerPage() {
                       </td>
                       {[1, 2, 3, 4, 5].map(dayOfWeek => {
                         const isDropTarget = dragOverCell?.studentId === student.id && dragOverCell?.dayOfWeek === dayOfWeek
+                        const cellKey = getCellKey(student.id, dayOfWeek)
+                        const isSelected = selectedCells.has(cellKey)
                         return (
                           <td
                             key={dayOfWeek}
-                            className={`p-2 align-top cursor-pointer hover:bg-primary/5 transition-colors ${
-                              isDropTarget ? 'bg-primary/10 ring-2 ring-primary' : ''
+                            className={`p-2 align-top cursor-pointer transition-colors ${
+                              isSelected
+                                ? 'bg-primary/20 ring-2 ring-primary ring-inset'
+                                : isDropTarget
+                                ? 'bg-primary/10 ring-2 ring-primary'
+                                : 'hover:bg-primary/5'
                             }`}
                             onClick={() => handleCellClick(student.id, dayOfWeek)}
                             onDragOver={(e) => handleDragOver(e, student.id, dayOfWeek)}
@@ -500,10 +735,68 @@ export default function WeeklyPlannerPage() {
                         )
                       })}
                     </tr>
-                  ))}
+                  ))
+                  )}
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                <div className="text-sm text-muted-foreground">
+                  {startIndex + 1}-{Math.min(endIndex, filteredStudents.length)} / {filteredStudents.length}명
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => goToPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    이전
+                  </Button>
+
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter(page => {
+                        // Show first page, last page, current page, and pages around current
+                        return page === 1 ||
+                               page === totalPages ||
+                               Math.abs(page - currentPage) <= 1
+                      })
+                      .map((page, index, array) => {
+                        // Add ellipsis if there's a gap
+                        const showEllipsis = index > 0 && page - array[index - 1] > 1
+                        return (
+                          <div key={page} className="flex items-center gap-1">
+                            {showEllipsis && <span className="px-2 text-muted-foreground">...</span>}
+                            <Button
+                              variant={currentPage === page ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => goToPage(page)}
+                              className="w-8 h-8 p-0"
+                            >
+                              {page}
+                            </Button>
+                          </div>
+                        )
+                      })}
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => goToPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                  >
+                    다음
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
             </CardContent>
           </Card>
         </div>
@@ -607,6 +900,66 @@ export default function WeeklyPlannerPage() {
 
             <DialogFooter>
               <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                취소
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Bulk Add Dialog */}
+        <Dialog open={bulkDialogOpen} onOpenChange={setBulkDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>일괄 과제 추가</DialogTitle>
+              <DialogDescription>
+                선택한 {selectedCells.size}개 셀에 동일한 과제를 추가합니다
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-semibold mb-2">과제 템플릿 선택</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  템플릿을 클릭하여 선택한 모든 셀에 추가하세요
+                </p>
+                <div className="grid gap-2 max-h-[400px] overflow-y-auto">
+                  {templates.map(template => (
+                    <div
+                      key={template.id}
+                      className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                      onClick={() => addTodoToBulkCells(template)}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <p className="font-medium">{template.title}</p>
+                          <div className="flex gap-2 mt-1">
+                            {template.subject && (
+                              <Badge variant="secondary" className="text-xs">
+                                {template.subject}
+                              </Badge>
+                            )}
+                            {template.estimated_duration_minutes && (
+                              <Badge variant="outline" className="text-xs">
+                                {template.estimated_duration_minutes}분
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <Plus className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </div>
+                  ))}
+                  {templates.length === 0 && (
+                    <p className="text-center py-8 text-muted-foreground">
+                      등록된 템플릿이 없습니다
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setBulkDialogOpen(false)}>
                 취소
               </Button>
             </DialogFooter>
