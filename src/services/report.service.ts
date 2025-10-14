@@ -461,8 +461,19 @@ export class ReportGenerator {
     }
 
     // 각 시험별로 반 평균 계산
+    interface ExamScoreChartType {
+      score: number
+      total_score: number
+      percentage: number
+      exams?: {
+        name: string
+        exam_date: string
+      } | null
+    }
+
     const chartData = await Promise.all(
-      examScores.map(async (examScore: any) => {
+      examScores.map(async (examScore) => {
+        const score = examScore as unknown as ExamScoreChartType
         const examName = examScore.exams?.name || '시험'
         const score = examScore.percentage || 0
         const date = examScore.exams?.exam_date
