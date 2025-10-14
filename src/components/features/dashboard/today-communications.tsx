@@ -5,31 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Cake, MessageSquare, Users, Phone } from "lucide-react"
-
-interface BirthdayStudent {
-  id: string
-  users: {
-    name: string
-  } | null
-}
-
-interface ScheduledConsultation {
-  id: string
-  scheduled_at: string
-  students: {
-    users: {
-      name: string
-    } | null
-  } | null
-}
-
-interface ParentToContact {
-  id: string
-  student_id: string
-  student_name: string
-  reason: string
-  priority: 'high' | 'medium' | 'low'
-}
+import type { BirthdayStudent, ScheduledConsultation, ParentToContact } from "@/hooks/use-dashboard-data"
 
 interface TodayCommunicationsProps {
   birthdayStudents: BirthdayStudent[]
