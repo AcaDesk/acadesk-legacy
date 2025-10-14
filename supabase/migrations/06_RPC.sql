@@ -5,6 +5,72 @@
 -- Prerequisites: 01_extensions.sql, 02_schema.sql, 03_helpers.sql, 05_rls.sql
 -- ============================================================
 
+-- ============================================================
+-- A) Onboarding helpers (필수 가드용)
+-- ============================================================
+
+-- A-1) 온보딩 상태 확인: 최초 진입시 이 함수만 호출하여 라우팅 결정
+create or replace function public.get_onboarding_state()
+returns json
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_auth_user auth.users%rowtype;
+  v_app_user  public.users%rowtype;
+begin
+  select * into v_auth_user from auth.users where id = auth.uid();
+  select * into v_app_user from public.users where id = auth.uid();
+
+  return json_build_object(
+    'auth_user_id', v_auth_user.id,
+    'email_confirmed', (v_auth_user.email_confirmed_at is not null),
+    'app_user_exists', (v_app_user.id is not null),
+    'tenant_id', v_app_user.tenant_id,
+    'role_code', v_app_user.role_code,
+    'onboarding_completed', coalesce(v_app_user.onboarding_completed, false),
+    'approval_status', coalesce(v_app_user.approval_status, 'pending')
+  );
+end
+$$;
+
+-- A-2) 초대 토큰 검증 (읽기 전용)
+create or replace function public.validate_invitation_token(_token text)
+returns json
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_inv record;
+begin
+  select id, tenant_id, email, role_code, status, expires_at
+    into v_inv
+  from public.tenant_invitations
+  where token = _token;
+
+  if not found then
+    return json_build_object('valid', false, 'reason', 'not_found');
+  end if;
+
+  if v_inv.status <> 'pending' then
+    return json_build_object('valid', false, 'reason', 'status_'||v_inv.status);
+  end if;
+
+  if v_inv.expires_at <= now() then
+    return json_build_object('valid', false, 'reason', 'expired');
+  end if;
+
+  return json_build_object(
+    'valid', true,
+    'tenant_id', v_inv.tenant_id,
+    'email', v_inv.email,
+    'role_code', v_inv.role_code,
+    'expires_at', v_inv.expires_at
+  );
+end
+$$;
 
 -- ============================================================
 -- 1) Dashboard Summary (홈 대시보드 요약용)
@@ -85,7 +151,6 @@ begin
 end
 $$;
 
-
 -- ============================================================
 -- 2) Verify multiple student TODOs
 -- ============================================================
@@ -109,7 +174,6 @@ begin
     and verified_at is null;
 end
 $$;
-
 
 -- ============================================================
 -- 3) Upsert attendance record
@@ -143,7 +207,6 @@ begin
     updated_at = now();
 end
 $$;
-
 
 -- ============================================================
 -- 4) Get Student Detail (학생 상세 페이지용)
@@ -235,7 +298,6 @@ begin
 end
 $$;
 
-
 -- ============================================================
 -- 5) Verify student kiosk PIN
 -- ============================================================
@@ -265,9 +327,9 @@ begin
 end
 $$;
 
-
 -- ============================================================
 -- 6) Create staff invitation
+--    NOTE: 02_schema.sql의 컬럼명(created_by)와 일치시킴
 -- ============================================================
 create or replace function public.create_staff_invitation(
   _email text,
@@ -288,7 +350,7 @@ begin
   v_token := encode(gen_random_bytes(16), 'hex');
 
   insert into public.tenant_invitations(
-    tenant_id, invited_by, email, role_code, token, expires_at, status
+    tenant_id, created_by, email, role_code, token, expires_at, status
   )
   values (
     v_tenant_id,
