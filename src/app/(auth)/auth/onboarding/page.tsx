@@ -26,9 +26,7 @@ import type { OnboardingFormData } from "@/types/auth.types"
 
 const onboardingSchema = z.object({
   name: z.string().min(2, "이름은 2자 이상이어야 합니다."),
-  role: z.enum(["owner", "staff"], {
-    required_error: "역할을 선택해주세요.",
-  }),
+  role: z.enum(["owner", "staff"]),
   invitationCode: z.string().optional(),
   terms: z.boolean().refine((val) => val === true, {
     message: "이용약관에 동의해주세요.",
