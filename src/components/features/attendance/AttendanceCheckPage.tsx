@@ -422,7 +422,7 @@ export function AttendanceCheckPage({
           student_id: r.student_id,
           status: r.status,
           notes: r.notes || '',
-          checked_at: r.check_in_at,
+          checked_at: r.check_in_at ?? null,
         }))}
         onSuccess={handleSuccess}
         onContactGuardian={handleContactGuardian}
