@@ -104,7 +104,7 @@ export default function BulkReportsPage() {
         .order('student_code')
 
       if (error) throw error
-      setStudents(data as any)
+      setStudents(data as unknown)
     } catch (error) {
       console.error('Error loading students:', error)
     }
@@ -136,7 +136,7 @@ export default function BulkReportsPage() {
         .order('student_code')
 
       if (studentsError) throw studentsError
-      setStudents(studentsData as any)
+      setStudents(studentsData as unknown)
     } catch (error) {
       console.error('Error filtering students:', error)
     }
