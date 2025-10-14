@@ -127,7 +127,7 @@ export default function NotificationsPage() {
         .limit(200)
 
       if (error) throw error
-      setLogs(data as any)
+      setLogs(data as unknown)
     } catch (error) {
       console.error('Error loading logs:', error)
       toast({
