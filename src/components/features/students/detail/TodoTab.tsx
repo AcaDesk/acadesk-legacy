@@ -135,7 +135,7 @@ export function TodoTab() {
   const getPriorityBadge = (priority: string | null) => {
     if (!priority) return null
 
-    const priorityMap: Record<string, { label: string; variant: any }> = {
+    const priorityMap: Record<string, { label: string; variant: unknown }> = {
       high: { label: '높음', variant: 'destructive' },
       medium: { label: '보통', variant: 'default' },
       low: { label: '낮음', variant: 'outline' },
@@ -221,7 +221,7 @@ export function TodoTab() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <CardTitle className="text-base">TODO 목록</CardTitle>
             <div className="flex flex-col sm:flex-row gap-2">
-              <Select value={filter} onValueChange={(v: any) => setFilter(v)}>
+              <Select value={filter} onValueChange={(v: unknown) => setFilter(v)}>
                 <SelectTrigger className="w-full sm:w-[140px]">
                   <SelectValue />
                 </SelectTrigger>
