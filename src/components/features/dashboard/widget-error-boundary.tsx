@@ -28,7 +28,7 @@ export class WidgetErrorBoundary extends Component<Props, State> {
     return { hasError: true, error }
   }
 
-  componentDidCatch(error: Error, errorInfo: any) {
+  componentDidCatch(error: Error, errorInfo: unknown) {
     console.error(`Widget Error [${this.props.widgetId}]:`, error, errorInfo)
     this.setState({ error, errorInfo })
   }
