@@ -91,7 +91,7 @@ export function WidgetWithControls({
       )}
 
       {/* Close button for maximized state */}
-      {isMaximized && (
+      {isMaximized && onMaximize && (
         <Button
           size="icon"
           variant="default"
