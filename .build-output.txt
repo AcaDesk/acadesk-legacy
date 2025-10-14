@@ -1,0 +1,82 @@
+
+> acadesk-web@0.1.0 type-check /Users/lee/Developer/personal/acadesk-web
+> tsc --noEmit
+
+src/components/features/calendar/AcademyCalendar.tsx(4,57): error TS7016: Could not find a declaration file for module 'react-big-calendar'. '/Users/lee/Developer/personal/acadesk-web/node_modules/.pnpm/react-big-calendar@1.19.4_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/react-big-calendar/lib/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/react-big-calendar` if it exists or add a new declaration (.d.ts) file containing `declare module 'react-big-calendar';`
+src/components/features/calendar/AcademyCalendar.tsx(5,29): error TS7016: Could not find a declaration file for module 'react-big-calendar/lib/addons/dragAndDrop'. '/Users/lee/Developer/personal/acadesk-web/node_modules/.pnpm/react-big-calendar@1.19.4_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/react-big-calendar/lib/addons/dragAndDrop/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/react-big-calendar` if it exists or add a new declaration (.d.ts) file containing `declare module 'react-big-calendar/lib/addons/dragAndDrop';`
+src/components/features/charts/grades-line-chart.tsx(88,17): error TS2322: Type '{ children: Element; className: string; size: string; "aria-label": string; }' is not assignable to type 'IntrinsicAttributes & Omit<SelectTriggerProps & RefAttributes<HTMLButtonElement>, "ref"> & RefAttributes<...>'.
+  Property 'size' does not exist on type 'IntrinsicAttributes & Omit<SelectTriggerProps & RefAttributes<HTMLButtonElement>, "ref"> & RefAttributes<...>'.
+src/components/features/dashboard/today-communications.tsx(60,62): error TS2339: Property 'users' does not exist on type 'BirthdayStudent'.
+src/components/features/dashboard/today-communications.tsx(88,68): error TS2339: Property 'students' does not exist on type 'ScheduledConsultation'.
+src/components/features/dashboard/today-communications.tsx(90,50): error TS2551: Property 'scheduled_at' does not exist on type 'ScheduledConsultation'. Did you mean 'scheduled_date'?
+src/components/features/dashboard/today-communications.tsx(111,65): error TS2339: Property 'student_id' does not exist on type 'ParentToContact'.
+src/components/features/dashboard/today-tasks.tsx(19,38): error TS2551: Property 'scheduled_start_at' does not exist on type 'TodaySession'. Did you mean 'scheduled_start'?
+src/components/features/dashboard/today-tasks.tsx(20,36): error TS2551: Property 'scheduled_end_at' does not exist on type 'TodaySession'. Did you mean 'scheduled_end'?
+src/components/features/dashboard/today-tasks.tsx(125,34): error TS2339: Property 'classes' does not exist on type 'TodaySession'.
+src/components/features/dashboard/today-tasks.tsx(128,45): error TS2551: Property 'scheduled_start_at' does not exist on type 'TodaySession'. Did you mean 'scheduled_start'?
+src/components/features/dashboard/today-tasks.tsx(128,88): error TS2551: Property 'scheduled_end_at' does not exist on type 'TodaySession'. Did you mean 'scheduled_end'?
+src/components/features/dashboard/weekly-performance.tsx(168,16): error TS2367: This comparison appears to be unintentional because the types '5.2' and '0' have no overlap.
+src/components/features/dashboard/weekly-performance.tsx(189,16): error TS2367: This comparison appears to be unintentional because the types '-2.1' and '0' have no overlap.
+src/components/features/dashboard/weekly-performance.tsx(210,16): error TS2367: This comparison appears to be unintentional because the types '12.5' and '0' have no overlap.
+src/components/features/dashboard/widget-renderer.tsx(39,11): error TS2322: Type 'unknown[]' is not assignable to type 'TodaySession[]'.
+  Type 'unknown' is not assignable to type 'TodaySession'.
+src/components/features/dashboard/widget-renderer.tsx(124,10): error TS2741: Property 'sessions' is missing in type '{ todayAttendance: number; totalStudents: number; }' but required in type 'AttendanceSummaryProps'.
+src/components/features/dashboard/widget-with-controls.tsx(106,13): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/components/features/guardians/guardian-list.tsx(49,20): error TS2352: Conversion of type '{ id: any; relationship: any; users: { name: any; email: any; phone: any; }[]; guardian_students: { relationship: any; is_primary: any; students: any[]; }[]; }[]' to type 'Guardian[]' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ id: any; relationship: any; users: { name: any; email: any; phone: any; }[]; guardian_students: { relationship: any; is_primary: any; students: any[]; }[]; }' is not comparable to type 'Guardian'.
+    Types of property 'users' are incompatible.
+      Type '{ name: any; email: any; phone: any; }[]' is missing the following properties from type '{ name: string; email: string | null; phone: string | null; }': name, email, phone
+src/components/features/payments/process-payment-dialog.tsx(29,21): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(values: readonly ["card", "transfer", "cash"], params?: string | { error?: string | $ZodErrorMap<$ZodIssueInvalidValue<unknown>> | undefined; message?: string | undefined; } | undefined): ZodEnum<...>', gave the following error.
+    Object literal may only specify known properties, and 'required_error' does not exist in type '{ error?: string | $ZodErrorMap<$ZodIssueInvalidValue<unknown>> | undefined; message?: string | undefined; }'.
+  Overload 2 of 2, '(entries: Readonly<Record<string, EnumValue>>, params?: string | { error?: string | $ZodErrorMap<$ZodIssueInvalidValue<unknown>> | undefined; message?: string | undefined; } | undefined): ZodEnum<...>', gave the following error.
+    Argument of type 'string[]' is not assignable to parameter of type 'Readonly<Record<string, EnumValue>>'.
+      Index signature for type 'string' is missing in type 'string[]'.
+src/components/features/students/detail/ClassEnrollmentsList.tsx(114,9): error TS18046: 'updateData' is of type 'unknown'.
+src/components/features/students/detail/ClassEnrollmentsList.tsx(176,30): error TS2322: Type 'unknown' is not assignable to type '"secondary" | "destructive" | "default" | "outline" | null | undefined'.
+src/components/features/students/detail/OverviewTab.tsx(72,64): error TS2339: Property 'created_at' does not exist on type 'AttendanceRecord'.
+src/components/features/students/detail/OverviewTab.tsx(149,71): error TS18046: 'ce' is of type 'unknown'.
+src/components/features/students/detail/OverviewTab.tsx(332,11): error TS2322: Type 'unknown' is not assignable to type 'ClassEnrollment[]'.
+src/components/features/students/detail/OverviewTab.tsx(333,11): error TS2322: Type '(() => void) | undefined' is not assignable to type '() => void'.
+  Type 'undefined' is not assignable to type '() => void'.
+src/components/features/students/detail/StudentHeader.tsx(200,17): error TS2554: Expected 3 arguments, but got 4.
+src/components/features/students/manage-guardians-dialog.tsx(132,13): error TS2322: Type '{ id: string; user_id: string; name: string; phone: string; email: string | null | undefined; relation: string; is_primary: boolean; }[]' is not assignable to type 'GuardianWithUser[]'.
+  Type '{ id: string; user_id: string; name: string; phone: string; email: string | null | undefined; relation: string; is_primary: boolean; }' is missing the following properties from type 'GuardianWithUser': address, occupation
+src/components/features/students/manage-guardians-dialog.tsx(188,25): error TS2339: Property 'name' does not exist on type '{ name: any; phone: any; }[]'.
+src/components/features/students/manage-guardians-dialog.tsx(189,26): error TS2339: Property 'phone' does not exist on type '{ name: any; phone: any; }[]'.
+src/components/features/students/student-table-improved.tsx(272,19): error TS2554: Expected 3 arguments, but got 4.
+src/components/features/students/student-table-improved.tsx(866,47): error TS2322: Type '{ children: Element; className: string; size: string; id: string; }' is not assignable to type 'IntrinsicAttributes & Omit<SelectTriggerProps & RefAttributes<HTMLButtonElement>, "ref"> & RefAttributes<...>'.
+  Property 'size' does not exist on type 'IntrinsicAttributes & Omit<SelectTriggerProps & RefAttributes<HTMLButtonElement>, "ref"> & RefAttributes<...>'.
+src/components/layout/app-nav.tsx(136,3): error TS2322: Type 'string' is not assignable to type 'boolean'.
+  Type 'string' is not assignable to type 'boolean'.
+src/components/layout/beta-banner.tsx(1,53): error TS2307: Cannot find module '@/components/ui/alert' or its corresponding type declarations.
+src/components/layout/beta-banner.tsx(3,10): error TS2305: Module '"lucide-react"' has no exported member 'Flask'.
+src/components/layout/deprecated-banner.tsx(1,53): error TS2307: Cannot find module '@/components/ui/alert' or its corresponding type declarations.
+src/components/layout/deprecated.tsx(2,53): error TS2307: Cannot find module '@/components/ui/alert' or its corresponding type declarations.
+src/components/ui/profile-image-upload.tsx(109,96): error TS2554: Expected 3 arguments, but got 4.
+src/lib/error-handlers.ts(92,26): error TS2345: Argument of type '(err: { path: (string | number)[]; message: string; }) => void' is not assignable to parameter of type '(value: $ZodIssue, index: number, array: $ZodIssue[]) => void'.
+  Types of parameters 'err' and 'value' are incompatible.
+    Type '$ZodIssue' is not assignable to type '{ path: (string | number)[]; message: string; }'.
+      Type '$ZodIssueInvalidType<unknown>' is not assignable to type '{ path: (string | number)[]; message: string; }'.
+        Types of property 'path' are incompatible.
+          Type 'PropertyKey[]' is not assignable to type '(string | number)[]'.
+            Type 'PropertyKey' is not assignable to type 'string | number'.
+              Type 'symbol' is not assignable to type 'string | number'.
+src/lib/validators.ts(97,24): error TS2345: Argument of type '(err: { path: (string | number)[]; message: string; }) => void' is not assignable to parameter of type '(value: $ZodIssue, index: number, array: $ZodIssue[]) => void'.
+  Types of parameters 'err' and 'value' are incompatible.
+    Type '$ZodIssue' is not assignable to type '{ path: (string | number)[]; message: string; }'.
+      Type '$ZodIssueInvalidStringFormat' is not assignable to type '{ path: (string | number)[]; message: string; }'.
+        Types of property 'path' are incompatible.
+          Type 'PropertyKey[]' is not assignable to type '(string | number)[]'.
+            Type 'PropertyKey' is not assignable to type 'string | number'.
+              Type 'symbol' is not assignable to type 'string | number'.
+src/services/data/attendance.repository.ts(358,7): error TS2322: Type 'PostgrestFilterBuilder<any, any, any, { status: any; session: { session_date: any; }[]; }[], "attendance", unknown, "GET">' is not assignable to type 'PostgrestFilterBuilder<any, any, any, { status: any; }[], "attendance", unknown, "GET">'.
+  Type '{ status: any; }[]' is not assignable to type '{ status: any; session: { session_date: any; }[]; }[]'.
+    Property 'session' is missing in type '{ status: any; }' but required in type '{ status: any; session: { session_date: any; }[]; }'.
+src/services/data/attendance.repository.ts(358,7): error TS2589: Type instantiation is excessively deep and possibly infinite.
+src/services/data/student.repository.ts(25,55): error TS2344: Type 'Student' does not satisfy the constraint '{ [key: string]: unknown; }'.
+  Index signature for type 'string' is missing in type 'Student'.
+src/services/todo-management.service.ts(318,42): error TS2339: Property 'user_id' does not exist on type '{ user_id: any; users: { name: any; }[]; }[]'.
+ ELIFECYCLE  Command failed with exit code 2.
