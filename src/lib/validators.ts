@@ -94,7 +94,7 @@ export function safeValidate<T extends z.ZodType>(
  */
 export function getValidationErrors(error: z.ZodError): Record<string, string> {
   const errors: Record<string, string> = {}
-  error.errors.forEach((err) => {
+  error.issues.forEach((err: z.ZodIssue) => {
     const path = err.path.join('.')
     errors[path] = err.message
   })
