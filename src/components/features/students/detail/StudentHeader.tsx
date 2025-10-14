@@ -196,8 +196,7 @@ export function StudentHeader({
               src={getStudentAvatar(
                 student.profile_image_url,
                 student.id,
-                student.users?.name || 'Student',
-                student.gender
+                student.users?.name || 'Student'
               )}
               alt={student.users?.name || '학생'}
               className="h-full w-full object-cover"
