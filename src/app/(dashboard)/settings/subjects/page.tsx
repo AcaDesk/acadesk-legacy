@@ -59,7 +59,7 @@ const subjectFormSchema = z.object({
   description: z.string().optional(),
   code: z.string().optional(),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, '올바른 색상 코드를 입력해주세요'),
-  active: z.boolean().default(true),
+  active: z.boolean(),
 })
 
 type SubjectFormValues = z.infer<typeof subjectFormSchema>
