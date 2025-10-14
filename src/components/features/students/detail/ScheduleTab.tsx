@@ -104,7 +104,7 @@ export function ScheduleTab() {
       if (error) throw error
 
       // Group by day of week
-      const scheduleByDay: Record<number, any[]> = {}
+      const scheduleByDay: Record<number, unknown[]> = {}
       ;(data || []).forEach((session: unknown) => {
         const dayOfWeek = new Date(session.session_date).getDay()
         // Convert Sunday (0) to 7 for easier sorting
