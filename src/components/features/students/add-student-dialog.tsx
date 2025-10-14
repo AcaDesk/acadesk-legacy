@@ -342,7 +342,7 @@ export function AddStudentDialog({ open, onOpenChange, onSuccess }: AddStudentDi
       if (error) throw error
 
       // Transform data to match Guardian interface
-      const transformedGuardians: Guardian[] = (data || []).map((g: any) => ({
+      const transformedGuardians: Guardian[] = (data || []).map((g: unknown) => ({
         id: g.id,
         name: g.users?.name || '',
         phone: g.users?.phone || '',
