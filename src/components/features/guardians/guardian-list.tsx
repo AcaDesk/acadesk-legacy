@@ -46,7 +46,29 @@ export function GuardianList() {
 
       if (error) throw error
 
-      setGuardians(data as Guardian[])
+      // Map Supabase data to Guardian type (handle array joins)
+      const mappedData: Guardian[] = (data || []).map((item) => ({
+        id: item.id,
+        relationship: item.relationship,
+        users: Array.isArray(item.users) && item.users.length > 0
+          ? item.users[0]
+          : null,
+        guardian_students: (item.guardian_students || []).map((gs) => ({
+          relationship: gs.relationship,
+          is_primary: gs.is_primary,
+          students: Array.isArray(gs.students) && gs.students.length > 0
+            ? {
+                id: gs.students[0].id,
+                student_code: gs.students[0].student_code,
+                users: Array.isArray(gs.students[0].users) && gs.students[0].users.length > 0
+                  ? gs.students[0].users[0]
+                  : null,
+              }
+            : null,
+        })),
+      }))
+
+      setGuardians(mappedData)
     } catch (error) {
       console.error('Error loading guardians:', error)
       toast({
