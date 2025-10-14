@@ -329,7 +329,7 @@ export function OverviewTab() {
       {student.class_enrollments && student.class_enrollments.length > 0 && (
         <motion.div variants={itemVariants}>
         <ClassEnrollmentsList
-          enrollments={student.class_enrollments as any}
+          enrollments={student.class_enrollments as unknown}
           onUpdate={onRefresh}
         />
         </motion.div>
