@@ -53,7 +53,7 @@ export function GradesTab() {
   }))
 
   // 과목별 성적 분석 (최근 점수 기준)
-  const subjectScores = recentScores.reduce((acc: any, score) => {
+  const subjectScores = recentScores.reduce((acc: unknown, score) => {
     const subject = score.exams?.class_id || 'unknown'
     if (!acc[subject]) {
       acc[subject] = []
