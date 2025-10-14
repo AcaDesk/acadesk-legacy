@@ -12,10 +12,15 @@ interface Props {
   fallback?: ReactNode
 }
 
+interface ErrorInfo {
+  componentStack?: string
+  [key: string]: unknown
+}
+
 interface State {
   hasError: boolean
   error?: Error
-  errorInfo?: unknown
+  errorInfo?: ErrorInfo
 }
 
 export class WidgetErrorBoundary extends Component<Props, State> {
@@ -28,7 +33,7 @@ export class WidgetErrorBoundary extends Component<Props, State> {
     return { hasError: true, error }
   }
 
-  componentDidCatch(error: Error, errorInfo: unknown) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error(`Widget Error [${this.props.widgetId}]:`, error, errorInfo)
     this.setState({ error, errorInfo })
   }

@@ -249,7 +249,7 @@ function PrivacyContent() {
       <section>
         <h3 className="mb-2 font-semibold">4. 개인정보의 제3자 제공</h3>
         <p className="text-muted-foreground">
-          회사는 정보주체의 동의, 법률의 특별한 규정 등 「개인정보 보호법」 제17조
+          회사는 정보주체의 동의, 법률의 특별한 규정 등 &quot;개인정보 보호법&quot; 제17조
           및 제18조에 해당하는 경우에만 개인정보를 제3자에게 제공합니다.
         </p>
         <p className="mt-2 text-muted-foreground">

@@ -56,13 +56,25 @@ export function WeeklyPerformance({ data }: WeeklyPerformanceProps) {
   const todosChange = -2.1
   const reportsChange = 12.5
 
-  const CustomTooltip = ({ active, payload, label }: unknown) => {
+  interface TooltipPayloadEntry {
+    color?: string
+    name?: string
+    value?: number | string
+  }
+
+  interface CustomTooltipProps {
+    active?: boolean
+    payload?: TooltipPayloadEntry[]
+    label?: string
+  }
+
+  const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
     if (active && payload && payload.length) {
       return (
         <div className="rounded-lg border bg-background p-2 shadow-sm">
           <div className="text-sm font-medium">{label}요일</div>
           <div className="space-y-1 mt-1">
-            {payload.map((entry: unknown, index: number) => (
+            {payload.map((entry, index: number) => (
               <div key={index} className="flex items-center gap-2 text-xs">
                 <div
                   className="h-2 w-2 rounded-full"
