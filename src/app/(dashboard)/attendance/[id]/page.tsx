@@ -77,7 +77,13 @@ export default async function AttendanceSessionPage({
       redirect('/attendance');
     }
 
-    students = studentsData || [];
+    students = (studentsData as Array<{
+      id: string
+      student_code: string
+      users: {
+        name: string
+      } | null
+    }>) || [];
   }
 
   // Get existing attendance records for this session
