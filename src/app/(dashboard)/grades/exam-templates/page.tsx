@@ -102,8 +102,8 @@ export default function ExamTemplatesPage() {
         .order('name')
 
       if (templatesError) throw templatesError
-      setTemplates(templatesData as any)
-      setFilteredTemplates(templatesData as any)
+      setTemplates(templatesData as ExamTemplate[])
+      setFilteredTemplates(templatesData as ExamTemplate[])
     } catch (error) {
       console.error('Error loading data:', error)
       toast({
@@ -191,11 +191,12 @@ export default function ExamTemplatesPage() {
       })
 
       router.push('/grades/exams')
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error generating exam:', error)
+      const errorMessage = error instanceof Error ? error.message : '시험을 생성하는 중 오류가 발생했습니다.'
       toast({
         title: '생성 오류',
-        description: error.message || '시험을 생성하는 중 오류가 발생했습니다.',
+        description: errorMessage,
         variant: 'destructive',
       })
     }

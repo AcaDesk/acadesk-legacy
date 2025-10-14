@@ -28,6 +28,18 @@ interface Class {
   subject: string | null
 }
 
+interface ExamTemplateData {
+  tenant_id: string
+  name: string
+  category_code: string | null
+  exam_type: string | null
+  total_questions: number | null
+  recurring_schedule: string
+  is_recurring: boolean
+  class_id: string | null
+  description: string | null
+}
+
 export default function NewExamTemplatePage() {
   // All Hooks must be called before any early returns
   const [name, setName] = useState('')
@@ -98,7 +110,7 @@ export default function NewExamTemplatePage() {
     setLoading(true)
 
     try {
-      const templateData: any = {
+      const templateData: ExamTemplateData = {
         tenant_id: currentUser.tenantId,
         name,
         category_code: categoryCode || null,
@@ -120,11 +132,12 @@ export default function NewExamTemplatePage() {
       })
 
       router.push('/grades/exam-templates')
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating template:', error)
+      const errorMessage = error instanceof Error ? error.message : '템플릿을 등록하는 중 오류가 발생했습니다.'
       toast({
         title: '등록 오류',
-        description: error.message || '템플릿을 등록하는 중 오류가 발생했습니다.',
+        description: errorMessage,
         variant: 'destructive',
       })
     } finally {

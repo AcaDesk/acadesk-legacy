@@ -89,8 +89,7 @@ export async function POST(request: NextRequest) {
         sentCount++
       } catch (error: unknown) {
         failedCount++
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-        errors.push(`${student?.users?.name || 'Unknown'}: ${errorMessage}`)
+        errors.push(`${student?.users?.name || 'Unknown'}: ${error.message}`)
 
         // Log failure
         await supabase.from('notification_logs').insert({
@@ -98,7 +97,7 @@ export async function POST(request: NextRequest) {
           notification_type: 'email',
           status: 'failed',
           message: `${targetYear}년 ${targetMonth}월 월간 리포트 발송 실패`,
-          error_message: errorMessage,
+          error_message: error.message,
           sent_at: new Date().toISOString(),
         })
       }
@@ -114,7 +113,7 @@ export async function POST(request: NextRequest) {
     })
   } catch (error: unknown) {
     console.error('Auto-report send error:', error)
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Unknown error" }, { status: 500 })
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
 
@@ -162,7 +161,6 @@ export async function GET(request: NextRequest) {
 
     if (emailError) throw emailError
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const readyToSend = reportsWithEmail?.filter((r: any) => {
       return r.students?.users?.email
     }).length || 0
@@ -178,6 +176,6 @@ export async function GET(request: NextRequest) {
     })
   } catch (error: unknown) {
     console.error('Get auto-send status error:', error)
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Unknown error" }, { status: 500 })
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

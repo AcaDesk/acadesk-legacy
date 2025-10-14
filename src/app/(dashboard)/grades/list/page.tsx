@@ -139,7 +139,7 @@ export default function GradesListPage() {
         .order('student_code')
 
       if (studentsError) throw studentsError
-      setStudents(studentsData as any)
+      setStudents(studentsData as Student[])
     } catch (error) {
       console.error('Error loading students:', error)
     }
@@ -199,7 +199,7 @@ export default function GradesListPage() {
       if (scoresError) throw scoresError
 
       // Calculate percentage if not stored
-      const processedScores = (scoresData as any[]).map((score) => ({
+      const processedScores = (scoresData as ExamScore[]).map((score) => ({
         ...score,
         percentage: score.percentage ||
           (score.total_questions > 0
@@ -269,6 +269,17 @@ export default function GradesListPage() {
       console.error('Error loading student stats:', error)
       setStudentStats({ average: 0, total: 0, retests: 0 })
     }
+  }
+
+  // Feature flag checks after all Hooks
+  const featureStatus = FEATURES.gradesManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="성적 조회" description="학생별 시험 성적을 상세하게 조회하고, 성적 추이를 차트로 확인할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="성적 조회" reason="성적 시스템 업데이트가 진행 중입니다." />;
   }
 
   if (loading) {

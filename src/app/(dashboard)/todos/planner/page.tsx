@@ -54,17 +54,7 @@ interface PlannedTodo {
 }
 
 export default function WeeklyPlannerPage() {
-  // 피처 플래그 상태 체크
-  const featureStatus = FEATURES.todoManagement;
-
-  if (featureStatus === 'inactive') {
-    return <ComingSoon featureName="주간 학습 플래너" description="학생별 주간 과제를 한 화면에서 계획하고 일괄 배정할 수 있는 기능을 준비하고 있습니다." />;
-  }
-
-  if (featureStatus === 'maintenance') {
-    return <Maintenance featureName="주간 학습 플래너" reason="플래너 시스템 업데이트가 진행 중입니다." />;
-  }
-
+  // All Hooks must be called before any early returns
   const [students, setStudents] = useState<Student[]>([])
   const [filteredStudents, setFilteredStudents] = useState<Student[]>([])
   const [templates, setTemplates] = useState<TodoTemplate[]>([])
@@ -507,6 +497,17 @@ export default function WeeklyPlannerPage() {
     } catch (error) {
       // Silent failure for drag & drop errors
     }
+  }
+
+  // Feature flag checks after all Hooks
+  const featureStatus = FEATURES.todoManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="주간 학습 플래너" description="학생별 주간 과제를 한 화면에서 계획하고 일괄 배정할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="주간 학습 플래너" reason="플래너 시스템 업데이트가 진행 중입니다." />;
   }
 
   return (

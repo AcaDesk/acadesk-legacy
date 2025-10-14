@@ -256,7 +256,7 @@ export function PaymentReminderDialog({
       console.error('알림 발송 오류:', error)
       toast({
         title: '알림 발송 실패',
-        description: error instanceof Error ? error.message : '알림을 발송하는 중 오류가 발생했습니다.',
+        description: error.message || '알림을 발송하는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
     } finally {

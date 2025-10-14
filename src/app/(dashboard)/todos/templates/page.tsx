@@ -81,17 +81,7 @@ const PRIORITY_CONFIG = {
 }
 
 export default function TodoTemplatesPage() {
-  // 피처 플래그 상태 체크
-  const featureStatus = FEATURES.todoManagement;
-
-  if (featureStatus === 'inactive') {
-    return <ComingSoon featureName="과제 템플릿" description="반복되는 과제를 템플릿으로 관리하고 자동으로 배정하여 효율적으로 학습 관리를 할 수 있습니다." />;
-  }
-
-  if (featureStatus === 'maintenance') {
-    return <Maintenance featureName="과제 템플릿" reason="템플릿 시스템 업데이트가 진행 중입니다." />;
-  }
-
+  // All Hooks must be called before any early returns
   const [templates, setTemplates] = useState<TodoTemplate[]>([])
   const [filteredTemplates, setFilteredTemplates] = useState<TodoTemplate[]>([])
   const [searchTerm, setSearchTerm] = useState('')
@@ -331,6 +321,17 @@ export default function TodoTemplatesPage() {
       .replace(/\n\n+/g, ' ')
       .replace(/\n/g, ' ')
       .trim()
+  }
+
+  // Feature flag checks after all Hooks
+  const featureStatus = FEATURES.todoManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="과제 템플릿" description="반복되는 과제를 템플릿으로 관리하고 자동으로 배정하여 효율적으로 학습 관리를 할 수 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="과제 템플릿" reason="템플릿 시스템 업데이트가 진행 중입니다." />;
   }
 
   if (loading) {

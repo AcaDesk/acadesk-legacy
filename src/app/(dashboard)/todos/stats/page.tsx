@@ -43,17 +43,7 @@ interface SubjectStats {
 }
 
 export default function TodoStatsPage() {
-  // 피처 플래그 상태 체크
-  const featureStatus = FEATURES.todoManagement;
-
-  if (featureStatus === 'inactive') {
-    return <ComingSoon featureName="과제 통계" description="학생별, 과목별 과제 완료 현황을 상세한 통계로 확인하고 분석할 수 있는 기능을 준비하고 있습니다." />;
-  }
-
-  if (featureStatus === 'maintenance') {
-    return <Maintenance featureName="과제 통계" reason="통계 시스템 업데이트가 진행 중입니다." />;
-  }
-
+  // All Hooks must be called before any early returns
   const [overallStats, setOverallStats] = useState<TodoStats | null>(null)
   const [studentStats, setStudentStats] = useState<StudentStats[]>([])
   const [subjectStats, setSubjectStats] = useState<SubjectStats[]>([])
@@ -291,6 +281,17 @@ export default function TodoStatsPage() {
     } catch (error) {
       // Silent failure - error handled by parent function
     }
+  }
+
+  // Feature flag checks after all Hooks
+  const featureStatus = FEATURES.todoManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="과제 통계" description="학생별, 과목별 과제 완료 현황을 상세한 통계로 확인하고 분석할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="과제 통계" reason="통계 시스템 업데이트가 진행 중입니다." />;
   }
 
   if (loading) {

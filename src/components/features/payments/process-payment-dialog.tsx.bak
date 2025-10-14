@@ -120,7 +120,7 @@ export function ProcessPaymentDialog({
       console.error('수납 처리 오류:', error)
       toast({
         title: '수납 처리 실패',
-        description: error instanceof Error ? error.message : '수납 처리 중 오류가 발생했습니다.',
+        description: error.message || '수납 처리 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
     } finally {

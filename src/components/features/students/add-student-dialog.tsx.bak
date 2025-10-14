@@ -569,7 +569,7 @@ export function AddStudentDialog({ open, onOpenChange, onSuccess }: AddStudentDi
       console.error('학생 추가 오류:', error)
       toast({
         title: '학생 추가 실패',
-        description: error instanceof Error ? error.message : '학생을 추가하는 중 오류가 발생했습니다.',
+        description: error.message || '학생을 추가하는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
     } finally {

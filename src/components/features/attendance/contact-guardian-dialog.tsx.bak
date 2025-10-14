@@ -138,7 +138,7 @@ export function ContactGuardianDialog({
       console.error('Error logging contact:', error)
       toast({
         title: '저장 실패',
-        description: error instanceof Error ? error.message : '연락 기록을 저장하는 중 오류가 발생했습니다.',
+        description: error.message || '연락 기록을 저장하는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
     } finally {

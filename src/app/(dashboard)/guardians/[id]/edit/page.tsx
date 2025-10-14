@@ -46,6 +46,12 @@ interface GuardianData {
   }>
 }
 
+interface StudentGuardianRelation {
+  students: {
+    id: string
+  } | null
+}
+
 interface Student {
   id: string
   student_code: string
@@ -55,17 +61,7 @@ interface Student {
 }
 
 export default function EditGuardianPage() {
-  // 피처 플래그 상태 체크
-  const featureStatus = FEATURES.guardianManagement;
-
-  if (featureStatus === 'inactive') {
-    return <ComingSoon featureName="보호자 수정" description="보호자 정보를 수정하고 학생과의 연결을 관리할 수 있는 기능을 준비하고 있습니다." />;
-  }
-
-  if (featureStatus === 'maintenance') {
-    return <Maintenance featureName="보호자 수정" reason="보호자 관리 시스템 업데이트가 진행 중입니다." />;
-  }
-
+  // All Hooks must be called before any early returns
   const params = useParams()
   const [loading, setLoading] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
@@ -88,6 +84,7 @@ export default function EditGuardianPage() {
 
   const selectedRelationship = watch('relationship')
 
+  // useEffect must be called before any early returns
   useEffect(() => {
     if (params.id) {
       loadGuardianData(params.id as string)
@@ -141,14 +138,15 @@ export default function EditGuardianPage() {
       // Set selected students
       const connectedStudentIds =
         data.student_guardians
-          ?.map((sg: any) => sg.students?.id)
+          ?.map((sg: StudentGuardianRelation) => sg.students?.id)
           .filter(Boolean) || []
       setSelectedStudents(connectedStudentIds)
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('보호자 조회 오류:', error)
+      const errorMessage = error instanceof Error ? error.message : '보호자 정보를 불러오는 중 오류가 발생했습니다.'
       toast({
         title: '보호자 조회 실패',
-        description: error.message || '보호자 정보를 불러오는 중 오류가 발생했습니다.',
+        description: errorMessage,
         variant: 'destructive',
       })
       router.push('/guardians')
@@ -259,11 +257,12 @@ export default function EditGuardianPage() {
 
       router.push(`/guardians/${guardian.id}`)
       router.refresh()
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('보호자 수정 오류:', error)
+      const errorMessage = error instanceof Error ? error.message : '보호자 정보를 수정하는 중 오류가 발생했습니다.'
       toast({
         title: '보호자 수정 실패',
-        description: error.message || '보호자 정보를 수정하는 중 오류가 발생했습니다.',
+        description: errorMessage,
         variant: 'destructive',
       })
     } finally {
@@ -277,6 +276,17 @@ export default function EditGuardianPage() {
         ? prev.filter((id) => id !== studentId)
         : [...prev, studentId]
     )
+  }
+
+  // Feature flag checks after all Hooks
+  const featureStatus = FEATURES.guardianManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="보호자 수정" description="보호자 정보를 수정하고 학생과의 연결을 관리할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="보호자 수정" reason="보호자 관리 시스템 업데이트가 진행 중입니다." />;
   }
 
   if (initialLoading) {

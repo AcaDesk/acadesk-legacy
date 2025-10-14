@@ -41,17 +41,7 @@ interface ExamCategory {
 }
 
 export default function GradesPage() {
-  // 피처 플래그 상태 체크
-  const featureStatus = FEATURES.gradesManagement;
-
-  if (featureStatus === 'inactive') {
-    return <ComingSoon featureName="성적 관리" description="시험 성적을 손쉽게 입력하고, 학생별 성적 추이를 한눈에 파악할 수 있는 기능을 준비하고 있습니다." />;
-  }
-
-  if (featureStatus === 'maintenance') {
-    return <Maintenance featureName="성적 관리" reason="성적 처리 시스템 업데이트가 진행 중입니다." />;
-  }
-
+  // All Hooks must be called before any early returns
   const [students, setStudents] = useState<Student[]>([])
   const [exams, setExams] = useState<Exam[]>([])
   const [categories, setCategories] = useState<ExamCategory[]>([])
@@ -66,6 +56,7 @@ export default function GradesPage() {
   const { toast } = useToast()
   const supabase = createClient()
 
+  // useEffect must be called before any early returns
   useEffect(() => {
     loadData()
   }, [])
@@ -93,7 +84,7 @@ export default function GradesPage() {
         .order('student_code')
 
       if (studentsError) throw studentsError
-      setStudents(studentsData as any)
+      setStudents(studentsData as Student[])
 
       // Load exams
       const { data: examsData, error: examsError } = await supabase
@@ -178,16 +169,28 @@ export default function GradesPage() {
       setTotalQuestions('')
       setFeedback('')
       setCalculatedPercentage(null)
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving score:', error)
+      const errorMessage = error instanceof Error ? error.message : '성적을 저장하는 중 오류가 발생했습니다.'
       toast({
         title: '저장 오류',
-        description: error.message || '성적을 저장하는 중 오류가 발생했습니다.',
+        description: errorMessage,
         variant: 'destructive',
       })
     } finally {
       setLoading(false)
     }
+  }
+
+  // Feature flag checks after all Hooks
+  const featureStatus = FEATURES.gradesManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="성적 관리" description="시험 성적을 손쉽게 입력하고, 학생별 성적 추이를 한눈에 파악할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="성적 관리" reason="성적 처리 시스템 업데이트가 진행 중입니다." />;
   }
 
   return (
@@ -278,7 +281,7 @@ export default function GradesPage() {
                     <SelectContent>
                       {students.map((student) => (
                         <SelectItem key={student.id} value={student.id}>
-                          {student.student_code} - {(student.users as any)?.name || 'Unknown'}
+                          {student.student_code} - {student.users?.name || 'Unknown'}
                         </SelectItem>
                       ))}
                     </SelectContent>

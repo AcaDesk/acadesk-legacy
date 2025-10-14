@@ -38,17 +38,7 @@ interface TodoFormData {
 }
 
 export default function NewTodoPage() {
-  // 피처 플래그 상태 체크
-  const featureStatus = FEATURES.todoManagement;
-
-  if (featureStatus === 'inactive') {
-    return <ComingSoon featureName="TODO 생성" description="학생별 과제를 손쉽게 생성하고 관리하여 학습 진도를 효율적으로 추적할 수 있는 기능을 준비하고 있습니다." />;
-  }
-
-  if (featureStatus === 'maintenance') {
-    return <Maintenance featureName="TODO 생성" reason="TODO 시스템 업데이트가 진행 중입니다." />;
-  }
-
+  // All Hooks must be called before any early returns
   const [students, setStudents] = useState<Student[]>([])
   const [selectedStudents, setSelectedStudents] = useState<string[]>([])
   const [formData, setFormData] = useState<TodoFormData>({
@@ -148,6 +138,17 @@ export default function NewTodoPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Feature flag checks after all Hooks
+  const featureStatus = FEATURES.todoManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="TODO 생성" description="학생별 과제를 손쉽게 생성하고 관리하여 학습 진도를 효율적으로 추적할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="TODO 생성" reason="TODO 시스템 업데이트가 진행 중입니다." />;
   }
 
   return (

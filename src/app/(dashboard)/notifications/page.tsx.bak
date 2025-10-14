@@ -180,7 +180,7 @@ export default function NotificationsPage() {
       console.error('Error sending reports:', error)
       toast({
         title: '발송 오류',
-        description: error instanceof Error ? error.message : '리포트 발송 중 오류가 발생했습니다.',
+        description: error.message || '리포트 발송 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
     } finally {
@@ -246,7 +246,7 @@ export default function NotificationsPage() {
       console.error('Error triggering notification:', error)
       toast({
         title: '전송 오류',
-        description: error instanceof Error ? error.message : '알림 전송 중 오류가 발생했습니다.',
+        description: error.message || '알림 전송 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
     } finally {

@@ -248,7 +248,7 @@ export function ManageGuardiansDialog({
       console.error('학부모 추가 오류:', error)
       toast({
         title: '학부모 추가 실패',
-        description: error instanceof Error ? error.message : '학부모를 추가하는 중 오류가 발생했습니다.',
+        description: error.message || '학부모를 추가하는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
     } finally {
@@ -295,7 +295,7 @@ export function ManageGuardiansDialog({
       console.error('학부모 연결 오류:', error)
       toast({
         title: '학부모 연결 실패',
-        description: error instanceof Error ? error.message : '학부모를 연결하는 중 오류가 발생했습니다.',
+        description: error.message || '학부모를 연결하는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
     } finally {
@@ -333,7 +333,7 @@ export function ManageGuardiansDialog({
       console.error('연결 해제 오류:', error)
       toast({
         title: '연결 해제 실패',
-        description: error instanceof Error ? error.message : '연결을 해제하는 중 오류가 발생했습니다.',
+        description: error.message || '연결을 해제하는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
     } finally {

@@ -26,17 +26,7 @@ interface StudentTodo {
 }
 
 export default function KioskPage() {
-  // 피처 플래그 상태 체크
-  const featureStatus = FEATURES.kioskMode;
-
-  if (featureStatus === 'inactive') {
-    return <ComingSoon featureName="키오스크 모드" description="학생들이 직접 출석 체크와 과제 완료를 확인할 수 있는 키오스크 화면 기능을 준비하고 있습니다." />;
-  }
-
-  if (featureStatus === 'maintenance') {
-    return <Maintenance featureName="키오스크 모드" reason="키오스크 시스템 업데이트가 진행 중입니다." />;
-  }
-
+  // All Hooks must be called before any early returns
   const [studentId, setStudentId] = useState<string | null>(null) // TODO: Get from login
   const [todos, setTodos] = useState<StudentTodo[]>([])
   const [showCelebration, setShowCelebration] = useState(false)
@@ -53,6 +43,7 @@ export default function KioskPage() {
     }
   }, [studentId])
 
+  // Function definitions
   async function loadTodos() {
     if (!studentId) return
 
@@ -100,11 +91,12 @@ export default function KioskPage() {
       })
 
       await loadTodos()
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error toggling todo:', error)
+      const errorMessage = error instanceof Error ? error.message : '과제 상태를 변경하는 중 오류가 발생했습니다.'
       toast({
         title: '오류',
-        description: error.message || '과제 상태를 변경하는 중 오류가 발생했습니다.',
+        description: errorMessage,
         variant: 'destructive',
       })
     } finally {
@@ -119,6 +111,17 @@ export default function KioskPage() {
   const progressPercentage = totalTodos > 0 ? (completedTodos / totalTodos) * 100 : 0
   const allCompleted = totalTodos > 0 && completedTodos === totalTodos
   const allVerified = totalTodos > 0 && verifiedTodos === totalTodos
+
+  // Feature flag checks after all Hooks
+  const featureStatus = FEATURES.kioskMode;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="키오스크 모드" description="학생들이 직접 출석 체크와 과제 완료를 확인할 수 있는 키오스크 화면 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="키오스크 모드" reason="키오스크 시스템 업데이트가 진행 중입니다." />;
+  }
 
   return (
     <PageWrapper>

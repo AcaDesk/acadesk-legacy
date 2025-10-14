@@ -28,6 +28,17 @@ interface Class {
   subject: string | null
 }
 
+interface ExamData {
+  tenant_id: string
+  name: string
+  category_code: string | null
+  exam_type: string | null
+  exam_date: string | null
+  total_questions: number | null
+  class_id: string | null
+  description: string | null
+}
+
 export default function NewExamPage() {
   // All Hooks must be called before any early returns
   const [name, setName] = useState('')
@@ -98,7 +109,7 @@ export default function NewExamPage() {
     setLoading(true)
 
     try {
-      const examData: any = {
+      const examData: ExamData = {
         tenant_id: currentUser.tenantId,
         name,
         category_code: categoryCode || null,
@@ -119,11 +130,12 @@ export default function NewExamPage() {
       })
 
       router.push('/grades/exams')
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating exam:', error)
+      const errorMessage = error instanceof Error ? error.message : '시험을 등록하는 중 오류가 발생했습니다.'
       toast({
         title: '등록 오류',
-        description: error.message || '시험을 등록하는 중 오류가 발생했습니다.',
+        description: errorMessage,
         variant: 'destructive',
       })
     } finally {
