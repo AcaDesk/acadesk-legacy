@@ -7,17 +7,10 @@ import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { GraduationCap, Users, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react"
-
-interface ClassInfo {
-  id: string
-  name: string
-  current_enrollment: number
-  max_capacity: number
-  status: 'full' | 'near_full' | 'under_enrolled' | 'normal'
-}
+import type { ClassStatus as ClassStatusType } from "@/hooks/use-dashboard-data"
 
 interface ClassStatusProps {
-  classes: ClassInfo[]
+  classes: ClassStatusType[]
 }
 
 export function ClassStatus({ classes }: ClassStatusProps) {
@@ -32,22 +25,20 @@ export function ClassStatus({ classes }: ClassStatusProps) {
   )
   const totalPages = Math.ceil(classes.length / itemsPerPage)
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'full': return 'destructive'
-      case 'near_full': return 'secondary'
-      case 'under_enrolled': return 'outline'
-      default: return 'default'
-    }
+  const getStatusColor = (status: 'active' | 'inactive') => {
+    return status === 'active' ? 'default' : 'secondary'
   }
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'full': return '정원 마감'
-      case 'near_full': return '정원 임박'
-      case 'under_enrolled': return '미달'
-      default: return '정상'
-    }
+  const getStatusLabel = (status: 'active' | 'inactive') => {
+    return status === 'active' ? '활성' : '비활성'
+  }
+
+  const getEnrollmentStatus = (studentCount: number, activeStudents: number) => {
+    if (activeStudents === 0) return { label: '수강생 없음', variant: 'outline' as const }
+    const activeRate = (activeStudents / studentCount) * 100
+    if (activeRate >= 90) return { label: '우수', variant: 'default' as const }
+    if (activeRate >= 70) return { label: '양호', variant: 'secondary' as const }
+    return { label: '관리 필요', variant: 'destructive' as const }
   }
 
   return (
@@ -67,7 +58,10 @@ export function ClassStatus({ classes }: ClassStatusProps) {
       <CardContent>
         <div className="space-y-4">
           {paginatedClasses.map((classInfo) => {
-            const enrollmentRate = (classInfo.current_enrollment / classInfo.max_capacity) * 100
+            const enrollmentStatus = getEnrollmentStatus(classInfo.student_count, classInfo.active_students)
+            const activeRate = classInfo.student_count > 0
+              ? (classInfo.active_students / classInfo.student_count) * 100
+              : 0
 
             return (
               <div key={classInfo.id} className="block">
@@ -85,15 +79,25 @@ export function ClassStatus({ classes }: ClassStatusProps) {
 
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">현재 인원</span>
+                        <span className="text-muted-foreground">활동 학생</span>
                         <span className="font-medium">
-                          {classInfo.current_enrollment} / {classInfo.max_capacity}명
+                          {classInfo.active_students} / {classInfo.student_count}명
                         </span>
                       </div>
-                      <Progress value={enrollmentRate} className="h-2" />
-                      <p className="text-xs text-muted-foreground">
-                        {enrollmentRate.toFixed(0)}% 등록
-                      </p>
+                      <Progress value={activeRate} className="h-2" />
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">
+                          {activeRate.toFixed(0)}% 활동 중
+                        </span>
+                        <Badge variant={enrollmentStatus.variant} className="text-xs">
+                          {enrollmentStatus.label}
+                        </Badge>
+                      </div>
+                      {classInfo.attendance_rate !== undefined && (
+                        <p className="text-xs text-muted-foreground">
+                          출석률: {classInfo.attendance_rate.toFixed(0)}%
+                        </p>
+                      )}
                     </div>
                   </div>
                 </Link>
