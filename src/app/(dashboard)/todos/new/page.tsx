@@ -25,7 +25,7 @@ interface Student {
   student_code: string
   users: {
     name: string
-  } | null
+  }[] | null
 }
 
 interface TodoFormData {
@@ -299,7 +299,7 @@ export default function NewTodoPage() {
                       />
                       <div>
                         <div className="font-medium">
-                          {student.users?.name || 'Unknown'}
+                          {student.users?.[0]?.name || 'Unknown'}
                         </div>
                         <div className="text-sm text-muted-foreground">
                           {student.student_code}
