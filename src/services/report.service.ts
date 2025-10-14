@@ -1,5 +1,62 @@
 import { createClient } from '@/lib/supabase/client'
 
+// Internal helper interfaces for Supabase query results
+interface ExamScoreWithExam {
+  percentage: number
+  feedback?: string | null
+  exams: {
+    name: string
+    exam_date: string
+    category_code: string
+    ref_exam_categories?: {
+      label: string
+    }
+  } | null
+}
+
+interface ExamScoreBasic {
+  percentage: number
+  exams: {
+    category_code: string
+  } | null
+}
+
+interface ExamScoreChart {
+  score: number
+  total_score: number
+  percentage: number
+  exams: {
+    name: string
+    exam_date: string
+  } | null
+}
+
+interface AttendanceRecord {
+  attendance_date: string
+  status: 'present' | 'late' | 'absent' | 'none'
+  note?: string | null
+}
+
+interface StudentWithUser {
+  id: string
+  student_code: string
+  grade: string | null
+  users: {
+    name: string
+  } | null
+}
+
+interface CategoryData {
+  category: string
+  tests: Array<{
+    name: string
+    date: string
+    percentage: number
+    feedback: string | null
+  }>
+  percentages: number[]
+}
+
 export interface ReportData {
   student: {
     id: string

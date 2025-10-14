@@ -58,26 +58,11 @@ interface ClassData {
 }
 
 export default function ClassesPage() {
-  // 피처 플래그 체크
-  const featureStatus = FEATURES.classManagement;
-
-  if (featureStatus === 'inactive') {
-    return <ComingSoon featureName="수업 관리" description="학원의 모든 수업을 체계적으로 관리하고, 수강생 현황을 실시간으로 파악할 수 있는 기능을 준비하고 있습니다." />;
-  }
-
-  if (featureStatus === 'maintenance') {
-    return <Maintenance featureName="수업 관리" reason="수업 관리 시스템 개선 작업이 진행 중입니다." />;
-  }
-
+  // All Hooks must be called before any early returns
   const [classes, setClasses] = useState<ClassData[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const { toast } = useToast()
-  const supabase = createClient()
-
-  useEffect(() => {
-    loadClasses()
-  }, [])
 
   async function loadClasses() {
     try {
@@ -139,6 +124,11 @@ export default function ClassesPage() {
       setLoading(false)
     }
   }
+
+  // useEffect must be called before any early returns
+  useEffect(() => {
+    loadClasses()
+  }, [])
 
   const filteredClasses = classes.filter(cls =>
     cls.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

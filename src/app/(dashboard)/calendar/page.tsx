@@ -18,17 +18,7 @@ import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 
 export default function CalendarPage() {
-  // 피처 플래그 상태 체크
-  const featureStatus = FEATURES.calendarIntegration;
-
-  if (featureStatus === 'inactive') {
-    return <ComingSoon featureName="학원 캘린더" description="학원의 모든 일정을 캘린더로 관리하고, 수업, 시험, 행사 일정을 한눈에 파악할 수 있는 기능을 준비하고 있습니다." />;
-  }
-
-  if (featureStatus === 'maintenance') {
-    return <Maintenance featureName="학원 캘린더" reason="캘린더 시스템 업데이트가 진행 중입니다." />;
-  }
-
+  // All Hooks must be called before any early returns
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
@@ -40,7 +30,7 @@ export default function CalendarPage() {
   const { toast } = useToast()
   const supabase = createClient()
 
-  // Load events from database
+  // Load events from database - Must be called before any early returns
   const loadEvents = useCallback(async () => {
     try {
       setLoading(true)
@@ -337,6 +327,17 @@ export default function CalendarPage() {
     },
     [supabase, loadEvents, toast]
   )
+
+  // 피처 플래그 상태 체크 (모든 Hooks 이후에 체크)
+  const featureStatus = FEATURES.calendarIntegration;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="학원 캘린더" description="학원의 모든 일정을 캘린더로 관리하고, 수업, 시험, 행사 일정을 한눈에 파악할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="학원 캘린더" reason="캘린더 시스템 업데이트가 진행 중입니다." />;
+  }
 
   return (
     <PageWrapper

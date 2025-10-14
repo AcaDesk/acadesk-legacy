@@ -1,5 +1,8 @@
-import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+import { LandingHeader } from "@/components/landing/LandingHeader"
+import { HeroSection } from "@/components/landing/HeroSection"
+import { PreRegistrationSection } from "@/components/landing/PreRegistrationSection"
+import { FeaturesSection } from "@/components/landing/FeaturesSection"
 
 export default async function HomePage() {
   const supabase = await createClient()
@@ -8,9 +11,14 @@ export default async function HomePage() {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (user) {
-    redirect("/dashboard")
-  } else {
-    redirect("/auth/login")
-  }
+  return (
+    <div className="min-h-screen">
+      <LandingHeader user={user} />
+      <main>
+        <HeroSection />
+        <PreRegistrationSection />
+        <FeaturesSection />
+      </main>
+    </div>
+  )
 }

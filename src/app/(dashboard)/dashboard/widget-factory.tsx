@@ -14,24 +14,54 @@ import { QuickStats } from "@/components/features/dashboard/quick-stats"
 import { RecentActivityFeed } from "@/components/features/dashboard/recent-activity-feed"
 import { WidgetErrorBoundary } from "@/components/features/dashboard/widget-error-boundary"
 import type { DashboardWidgetId } from "@/types/dashboard"
+import type {
+  RecentStudent,
+  TodaySession,
+  BirthdayStudent,
+  ScheduledConsultation,
+  StudentAlert,
+  ClassStatus as ClassStatusType,
+  ParentToContact,
+  CalendarEvent,
+  ActivityLog,
+} from "@/hooks/use-dashboard-data"
+
+export interface DashboardStats {
+  totalStudents: number
+  activeClasses: number
+  todayAttendance: number
+  pendingTodos: number
+  totalReports: number
+  unsentReports: number
+}
+
+export interface FinancialData {
+  currentMonthRevenue: number
+  previousMonthRevenue: number
+  unpaidTotal: number
+  unpaidCount: number
+}
 
 export interface WidgetFactoryProps {
   widgetId: DashboardWidgetId
-  stats: any
+  stats: DashboardStats
   attendanceRate: number
   averageScore: number
   completionRate: number
-  upcomingSessions: any[]
-  recentStudents: any[]
-  todaySessions: any[]
-  birthdayStudents: any[]
-  scheduledConsultations: any[]
-  studentAlerts: any
-  financialData: any
-  classStatus: any[]
-  parentsToContact: any[]
-  calendarEvents: any[]
-  activityLogs: any[]
+  upcomingSessions: TodaySession[]
+  recentStudents: RecentStudent[]
+  todaySessions: TodaySession[]
+  birthdayStudents: BirthdayStudent[]
+  scheduledConsultations: ScheduledConsultation[]
+  studentAlerts: {
+    longAbsence: StudentAlert[]
+    pendingAssignments: StudentAlert[]
+  }
+  financialData: FinancialData | undefined
+  classStatus: ClassStatusType[]
+  parentsToContact: ParentToContact[]
+  calendarEvents: CalendarEvent[]
+  activityLogs: ActivityLog[]
   isEditMode: boolean
 }
 

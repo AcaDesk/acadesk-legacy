@@ -45,17 +45,7 @@ interface ScoreEntry {
 }
 
 export default function BulkGradeEntryPage() {
-  // 피처 플래그 상태 체크
-  const featureStatus = FEATURES.gradesManagement;
-
-  if (featureStatus === 'inactive') {
-    return <ComingSoon featureName="성적 일괄 입력" description="한 시험의 모든 학생 성적을 한 화면에서 빠르게 입력하고 통계를 확인할 수 있는 기능을 준비하고 있습니다." />;
-  }
-
-  if (featureStatus === 'maintenance') {
-    return <Maintenance featureName="성적 일괄 입력" reason="성적 입력 시스템 업데이트가 진행 중입니다." />;
-  }
-
+  // All Hooks must be called before any early returns
   const params = useParams()
   const examId = params.examId as string
   const router = useRouter()
@@ -78,6 +68,7 @@ export default function BulkGradeEntryPage() {
   const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map())
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
 
+  // useEffect must be called before any early returns
   useEffect(() => {
     loadData()
   }, [examId])
@@ -347,6 +338,17 @@ export default function BulkGradeEntryPage() {
 
     setBulkFeedback('')
     setShowBulkFeedback(false)
+  }
+
+  // Feature flag checks after all Hooks
+  const featureStatus = FEATURES.gradesManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="성적 일괄 입력" description="한 시험의 모든 학생 성적을 한 화면에서 빠르게 입력하고 통계를 확인할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="성적 일괄 입력" reason="성적 입력 시스템 업데이트가 진행 중입니다." />;
   }
 
   if (loading) {

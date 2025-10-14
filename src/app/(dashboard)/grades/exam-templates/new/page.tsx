@@ -29,17 +29,7 @@ interface Class {
 }
 
 export default function NewExamTemplatePage() {
-  // 피처 플래그 상태 체크
-  const featureStatus = FEATURES.gradesManagement;
-
-  if (featureStatus === 'inactive') {
-    return <ComingSoon featureName="시험 템플릿 등록" description="반복되는 시험을 템플릿으로 등록하여 자동으로 생성하고 관리할 수 있는 기능을 준비하고 있습니다." />;
-  }
-
-  if (featureStatus === 'maintenance') {
-    return <Maintenance featureName="시험 템플릿 등록" reason="템플릿 시스템 업데이트가 진행 중입니다." />;
-  }
-
+  // All Hooks must be called before any early returns
   const [name, setName] = useState('')
   const [categoryCode, setCategoryCode] = useState('')
   const [examType, setExamType] = useState('')
@@ -56,6 +46,7 @@ export default function NewExamTemplatePage() {
   const supabase = createClient()
   const { user: currentUser, loading: userLoading } = useCurrentUser()
 
+  // useEffect must be called before any early returns
   useEffect(() => {
     loadCategories()
     loadClasses()
@@ -139,6 +130,17 @@ export default function NewExamTemplatePage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Feature flag checks after all Hooks
+  const featureStatus = FEATURES.gradesManagement;
+
+  if (featureStatus === 'inactive') {
+    return <ComingSoon featureName="시험 템플릿 등록" description="반복되는 시험을 템플릿으로 등록하여 자동으로 생성하고 관리할 수 있는 기능을 준비하고 있습니다." />;
+  }
+
+  if (featureStatus === 'maintenance') {
+    return <Maintenance featureName="시험 템플릿 등록" reason="템플릿 시스템 업데이트가 진행 중입니다." />;
   }
 
   if (userLoading) {

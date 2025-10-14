@@ -9,7 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { PageWrapper } from "@/components/layout/page-wrapper"
-import { CheckCircle, XCircle } from 'lucide-react'
+import { CheckCircle, XCircle, Eye, Calendar, User, Flag } from 'lucide-react'
 import { formatDate } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import {
@@ -42,11 +42,21 @@ export default function VerifyTodosPage() {
   }
 
   const [pendingTodos, setPendingTodos] = useState<StudentTodoWithStudent[]>([])
+  const [filteredTodos, setFilteredTodos] = useState<StudentTodoWithStudent[]>([])
   const [selectedTodos, setSelectedTodos] = useState<Set<string>>(new Set())
   const [feedbackDialog, setFeedbackDialog] = useState(false)
+  const [detailDialog, setDetailDialog] = useState(false)
   const [currentTodoId, setCurrentTodoId] = useState<string | null>(null)
+  const [currentTodo, setCurrentTodo] = useState<StudentTodoWithStudent | null>(null)
   const [feedback, setFeedback] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Filter & Sort states
+  const [searchTerm, setSearchTerm] = useState('')
+  const [subjectFilter, setSubjectFilter] = useState<string>('all')
+  const [priorityFilter, setPriorityFilter] = useState<string>('all')
+  const [sortBy, setSortBy] = useState<'completed_at' | 'due_date' | 'priority' | 'student_name'>('completed_at')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
   const { toast } = useToast()
   const supabase = createClient()
@@ -58,6 +68,11 @@ export default function VerifyTodosPage() {
       loadPendingTodos()
     }
   }, [currentUser])
+
+  // Apply filters and sorting whenever data or filter/sort options change
+  useEffect(() => {
+    applyFiltersAndSort()
+  }, [pendingTodos, searchTerm, subjectFilter, priorityFilter, sortBy, sortOrder])
 
   async function loadPendingTodos() {
     if (!currentUser) return
@@ -132,6 +147,25 @@ export default function VerifyTodosPage() {
     setCurrentTodoId(todoId)
     setFeedback('')
     setFeedbackDialog(true)
+  }
+
+  function openDetailDialog(todo: StudentTodoWithStudent) {
+    setCurrentTodo(todo)
+    setDetailDialog(true)
+  }
+
+  const priorityLabels = {
+    low: '낮음',
+    normal: '보통',
+    high: '높음',
+    urgent: '긴급',
+  }
+
+  const priorityColors = {
+    low: 'bg-gray-500',
+    normal: 'bg-blue-500',
+    high: 'bg-orange-500',
+    urgent: 'bg-red-500',
   }
 
   async function rejectTodo() {
@@ -249,15 +283,26 @@ export default function VerifyTodosPage() {
                               </span>
                             </div>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openFeedbackDialog(todo.id)}
-                            className="gap-1 text-destructive hover:text-destructive"
-                          >
-                            <XCircle className="h-4 w-4" />
-                            반려
-                          </Button>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openDetailDialog(todo)}
+                              className="gap-1"
+                            >
+                              <Eye className="h-4 w-4" />
+                              상세
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openFeedbackDialog(todo.id)}
+                              className="gap-1 text-destructive hover:text-destructive"
+                            >
+                              <XCircle className="h-4 w-4" />
+                              반려
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -304,6 +349,158 @@ export default function VerifyTodosPage() {
                 <XCircle className="h-4 w-4" />
                 {loading ? '반려 중...' : '반려하기'}
               </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Detail Dialog */}
+        <Dialog open={detailDialog} onOpenChange={setDetailDialog}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>과제 상세 정보</DialogTitle>
+              <DialogDescription>
+                과제의 모든 정보를 확인하세요
+              </DialogDescription>
+            </DialogHeader>
+
+            {currentTodo && (
+              <div className="space-y-4">
+                {/* Student Info */}
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-semibold">학생 정보</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">이름:</span>{' '}
+                      <span className="font-medium">{currentTodo.students?.users?.name || '이름 없음'}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">학번:</span>{' '}
+                      <span className="font-medium">{currentTodo.students?.student_code || '-'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* TODO Info */}
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-sm font-semibold">제목</Label>
+                    <p className="text-base mt-1">{currentTodo.title}</p>
+                  </div>
+
+                  {currentTodo.description && (
+                    <div>
+                      <Label className="text-sm font-semibold">설명</Label>
+                      <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">
+                        {currentTodo.description}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-4">
+                    {currentTodo.subject && (
+                      <div>
+                        <Label className="text-sm font-semibold">과목</Label>
+                        <div className="mt-1">
+                          <Badge variant="secondary">{currentTodo.subject}</Badge>
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <Label className="text-sm font-semibold flex items-center gap-1">
+                        <Flag className="h-3 w-3" />
+                        우선순위
+                      </Label>
+                      <div className="mt-1">
+                        <Badge
+                          className={priorityColors[currentTodo.priority as keyof typeof priorityColors]}
+                        >
+                          {priorityLabels[currentTodo.priority as keyof typeof priorityLabels]}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-semibold flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        마감일
+                      </Label>
+                      <p className="text-sm mt-1">
+                        {formatDate(new Date(currentTodo.due_date), 'yyyy년 MM월 dd일 (EEE)', {
+                          locale: ko,
+                        })}
+                      </p>
+                    </div>
+
+                    <div>
+                      <Label className="text-sm font-semibold flex items-center gap-1">
+                        <CheckCircle className="h-3 w-3" />
+                        완료 시간
+                      </Label>
+                      <p className="text-sm mt-1">
+                        {formatDate(new Date(currentTodo.completed_at), 'yyyy년 MM월 dd일 HH:mm', {
+                          locale: ko,
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDetailDialog(false)}>
+                닫기
+              </Button>
+              {currentTodo && (
+                <>
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      setDetailDialog(false)
+                      openFeedbackDialog(currentTodo.id)
+                    }}
+                    className="gap-2"
+                  >
+                    <XCircle className="h-4 w-4" />
+                    반려
+                  </Button>
+                  <Button
+                    onClick={async () => {
+                      if (currentUser && currentTodo) {
+                        setLoading(true)
+                        try {
+                          await verifyTodos(supabase, [currentTodo.id], currentUser.id)
+                          toast({
+                            title: '검증 완료',
+                            description: '과제가 검증되었습니다.',
+                          })
+                          setDetailDialog(false)
+                          await loadPendingTodos()
+                        } catch (error) {
+                          toast({
+                            title: '검증 실패',
+                            description: getErrorMessage(error),
+                            variant: 'destructive',
+                          })
+                        } finally {
+                          setLoading(false)
+                        }
+                      }
+                    }}
+                    disabled={loading}
+                    className="gap-2"
+                  >
+                    <CheckCircle className="h-4 w-4" />
+                    {loading ? '검증 중...' : '검증'}
+                  </Button>
+                </>
+              )}
             </DialogFooter>
           </DialogContent>
         </Dialog>

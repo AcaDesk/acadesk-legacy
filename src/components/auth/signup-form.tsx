@@ -17,21 +17,11 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Eye, EyeOff, GraduationCap, Users, Building2 } from "lucide-react"
+import { Eye, EyeOff, GraduationCap } from "lucide-react"
 import { authService } from "@/services/auth/auth.service"
 import { useToast } from "@/hooks/use-toast"
 
 const signupSchema = z.object({
-  role: z.enum(["admin", "teacher", "staff"], {
-    required_error: "역할을 선택해주세요.",
-  }),
   academyName: z.string().min(2, "학원명은 2자 이상이어야 합니다."),
   name: z.string().min(2, "이름은 2자 이상이어야 합니다."),
   phone: z
@@ -90,7 +80,6 @@ export default function SignupForm() {
   } = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
     defaultValues: {
-      role: "admin",
       agreedToTerms: false,
     },
   })
@@ -104,7 +93,7 @@ export default function SignupForm() {
         name: data.name,
         phone: data.phone,
         academyName: data.academyName,
-        role: data.role,
+        role: "admin", // 원장으로 고정
       })
 
       if (error) {
@@ -134,77 +123,42 @@ export default function SignupForm() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-background to-muted p-4">
-      <motion.div
-        className="w-full max-w-lg"
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-      >
-        <Card className="border-none pb-0 shadow-lg">
-          <CardHeader className="flex flex-col items-center space-y-1.5 pb-4 pt-6">
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.2, duration: 0.4 }}
-              className="mb-2 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10"
-            >
-              <GraduationCap className="h-8 w-8 text-primary" />
-            </motion.div>
-            <div className="flex flex-col items-center space-y-0.5">
-              <h2 className="text-2xl font-semibold text-foreground">
-                Acadesk 회원가입
-              </h2>
-              <p className="text-muted-foreground">
-                학원 관리 시스템에 오신 것을 환영합니다
-              </p>
-            </div>
-          </CardHeader>
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="w-full"
+    >
+      <Card className="border-none pb-0 shadow-lg">
+        <CardHeader className="flex flex-col items-center space-y-1.5 pb-4 pt-6">
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.2, duration: 0.4 }}
+            className="mb-2 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10"
+          >
+            <GraduationCap className="h-8 w-8 text-primary" />
+          </motion.div>
+          <div className="flex flex-col items-center space-y-0.5">
+            <h2 className="text-2xl font-semibold text-foreground">
+              Acadesk 회원가입
+            </h2>
+            <p className="text-muted-foreground">
+              학원 원장님 전용 가입 페이지입니다
+            </p>
+          </div>
+        </CardHeader>
           <form onSubmit={handleSubmit(onSubmit)}>
             <CardContent className="space-y-5 px-8">
-              <motion.div
-                className="space-y-2"
-                custom={0}
-                variants={itemVariants}
-                initial="hidden"
-                animate="visible"
-              >
-                <Label htmlFor="role">역할</Label>
-                <Select
-                  defaultValue="admin"
-                  onValueChange={(value) =>
-                    setValue("role", value as "admin" | "teacher" | "staff")
-                  }
-                >
-                  <SelectTrigger
-                    id="role"
-                    className="[&>span]:flex [&>span]:items-center [&>span]:gap-2 [&>span_svg]:shrink-0"
-                  >
-                    <SelectValue placeholder="역할 선택" />
-                  </SelectTrigger>
-                  <SelectContent className="[&_*[role=option]]:pe-8 [&_*[role=option]]:ps-2 [&_*[role=option]>span]:end-2 [&_*[role=option]>span]:start-auto [&_*[role=option]>span]:flex [&_*[role=option]>span]:items-center [&_*[role=option]>span]:gap-2 [&_*[role=option]>span>svg]:shrink-0">
-                    <SelectItem value="admin">
-                      <Building2 size={16} aria-hidden="true" />
-                      <span className="truncate">학원 관리자</span>
-                    </SelectItem>
-                    <SelectItem value="teacher">
-                      <Users size={16} aria-hidden="true" />
-                      <span className="truncate">강사</span>
-                    </SelectItem>
-                    <SelectItem value="staff">
-                      <Users size={16} aria-hidden="true" />
-                      <span className="truncate">직원</span>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                {errors.role && (
-                  <p className="text-sm text-destructive">{errors.role.message}</p>
-                )}
-              </motion.div>
+              <div className="rounded-lg bg-primary/5 p-3 text-center text-sm text-muted-foreground">
+                <strong className="text-foreground">학원 원장</strong>으로 가입합니다.
+                <br />
+                직원 초대는 가입 후 가능합니다.
+              </div>
 
               <motion.div
                 className="space-y-2"
-                custom={1}
+                custom={0}
                 variants={itemVariants}
                 initial="hidden"
                 animate="visible"
@@ -224,7 +178,7 @@ export default function SignupForm() {
 
               <motion.div
                 className="grid grid-cols-2 gap-4"
-                custom={2}
+                custom={1}
                 variants={itemVariants}
                 initial="hidden"
                 animate="visible"
@@ -251,7 +205,7 @@ export default function SignupForm() {
 
               <motion.div
                 className="space-y-2"
-                custom={3}
+                custom={2}
                 variants={itemVariants}
                 initial="hidden"
                 animate="visible"
@@ -270,7 +224,7 @@ export default function SignupForm() {
 
               <motion.div
                 className="space-y-2"
-                custom={4}
+                custom={3}
                 variants={itemVariants}
                 initial="hidden"
                 animate="visible"
@@ -307,7 +261,7 @@ export default function SignupForm() {
 
               <motion.div
                 className="space-y-2"
-                custom={5}
+                custom={4}
                 variants={itemVariants}
                 initial="hidden"
                 animate="visible"
@@ -344,7 +298,7 @@ export default function SignupForm() {
 
               <motion.div
                 className="flex items-start space-x-2"
-                custom={6}
+                custom={5}
                 variants={itemVariants}
                 initial="hidden"
                 animate="visible"
@@ -375,7 +329,7 @@ export default function SignupForm() {
               )}
 
               <motion.div
-                custom={7}
+                custom={6}
                 variants={itemVariants}
                 initial="hidden"
                 animate="visible"
@@ -401,6 +355,5 @@ export default function SignupForm() {
           </CardFooter>
         </Card>
       </motion.div>
-    </div>
   )
 }

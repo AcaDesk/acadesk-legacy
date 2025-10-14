@@ -1,6 +1,97 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 
+// Dashboard data type definitions
+export interface RecentStudent {
+  id: string
+  name: string
+  grade_level?: string
+  enrollment_date: string
+  guardian_name?: string
+}
+
+export interface TodaySession {
+  id: string
+  class_id: string
+  class_name: string
+  scheduled_start: string
+  scheduled_end: string
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled'
+  attendance_count?: number
+  total_students?: number
+}
+
+export interface BirthdayStudent {
+  id: string
+  name: string
+  birth_date: string
+  grade_level?: string
+  guardian_phone?: string
+}
+
+export interface ScheduledConsultation {
+  id: string
+  student_id: string
+  student_name: string
+  guardian_name: string
+  scheduled_date: string
+  scheduled_time: string
+  topic?: string
+  status: 'scheduled' | 'completed' | 'cancelled'
+}
+
+export interface StudentAlert {
+  id: string
+  student_id: string
+  student_name: string
+  alert_type: 'absence' | 'pending_assignment' | 'low_score'
+  description: string
+  created_at: string
+}
+
+export interface ClassStatus {
+  id: string
+  name: string
+  student_count: number
+  active_students: number
+  attendance_rate?: number
+  status: 'active' | 'inactive'
+}
+
+export interface ParentToContact {
+  id: string
+  guardian_id: string
+  guardian_name: string
+  student_name: string
+  phone: string
+  reason: string
+  priority: 'high' | 'medium' | 'low'
+}
+
+export interface CalendarEvent {
+  id: string
+  title: string
+  start_date: string
+  end_date: string
+  event_type: 'class' | 'consultation' | 'exam' | 'other'
+  description?: string
+}
+
+export interface ActivityLog {
+  id: string
+  student_id: string
+  activity_type_code: string
+  description: string
+  created_at: string
+  students: {
+    name: string
+  }
+  ref_activity_types: {
+    name_ko: string
+    icon: string
+  }
+}
+
 export interface DashboardData {
   stats: {
     totalStudents: number
@@ -10,13 +101,13 @@ export interface DashboardData {
     totalReports: number
     unsentReports: number
   }
-  recentStudents: any[]
-  todaySessions: any[]
-  birthdayStudents: any[]
-  scheduledConsultations: any[]
+  recentStudents: RecentStudent[]
+  todaySessions: TodaySession[]
+  birthdayStudents: BirthdayStudent[]
+  scheduledConsultations: ScheduledConsultation[]
   studentAlerts: {
-    longAbsence: any[]
-    pendingAssignments: any[]
+    longAbsence: StudentAlert[]
+    pendingAssignments: StudentAlert[]
   }
   financialData?: {
     currentMonthRevenue: number
@@ -24,10 +115,10 @@ export interface DashboardData {
     unpaidTotal: number
     unpaidCount: number
   }
-  classStatus?: any[]
-  parentsToContact?: any[]
-  calendarEvents?: any[]
-  activityLogs?: any[]
+  classStatus?: ClassStatus[]
+  parentsToContact?: ParentToContact[]
+  calendarEvents?: CalendarEvent[]
+  activityLogs?: ActivityLog[]
 }
 
 async function fetchDashboardData(): Promise<DashboardData> {

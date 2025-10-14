@@ -14,6 +14,7 @@ import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { useToast } from '@/hooks/use-toast'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { StudentCompletionBarChart } from '@/components/features/charts/student-completion-bar-chart'
 
 interface TodoStats {
   totalTodos: number
@@ -385,6 +386,9 @@ export default function TodoStatsPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Student Completion Chart */}
+        <StudentCompletionBarChart data={studentStats} maxStudents={10} />
 
         {/* Student Stats */}
         <Card>
