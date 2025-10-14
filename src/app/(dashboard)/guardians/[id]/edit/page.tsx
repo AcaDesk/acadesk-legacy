@@ -125,20 +125,20 @@ export default function EditGuardianPage() {
         throw new Error('보호자 정보를 찾을 수 없습니다.')
       }
 
-      setGuardian(data as GuardianData)
+      setGuardian(data as unknown as GuardianData)
 
       // Populate form fields
-      if (data.users) {
-        setValue('name', data.users.name)
-        setValue('email', data.users.email || '')
-        setValue('phone', data.users.phone || '')
+      if (data.users && Array.isArray(data.users) && data.users.length > 0) {
+        setValue('name', data.users[0].name)
+        setValue('email', data.users[0].email || '')
+        setValue('phone', data.users[0].phone || '')
       }
       setValue('relationship', data.relationship || '')
 
       // Set selected students
       const connectedStudentIds =
         data.student_guardians
-          ?.map((sg: StudentGuardianRelation) => sg.students?.id)
+          ?.map((sg: any) => sg.students?.[0]?.id)
           .filter(Boolean) || []
       setSelectedStudents(connectedStudentIds)
     } catch (error: unknown) {
@@ -170,7 +170,7 @@ export default function EditGuardianPage() {
         .order('student_code')
 
       if (error) throw error
-      setStudents(data as Student[])
+      setStudents(data as unknown as Student[])
     } catch (error) {
       console.error('학생 목록 조회 오류:', error)
     }
