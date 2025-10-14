@@ -315,7 +315,8 @@ export async function rejectTodo(
     })
 
     // 3. 학생에게 인앱 알림 생성
-    const studentUserId = todo.students?.user_id
+    const students = Array.isArray(todo.students) ? todo.students : []
+    const studentUserId = students.length > 0 ? students[0].user_id : null
     if (studentUserId) {
       const { error: notificationError } = await supabase
         .from('in_app_notifications')
