@@ -49,7 +49,7 @@ const guardianSchema = z.object({
   phone: z.string().min(1, '연락처를 입력해주세요'),
   email: z.string().email('올바른 이메일 형식이 아닙니다').optional().or(z.literal('')),
   relation: z.enum(['father', 'mother', 'grandfather', 'grandmother', 'uncle', 'aunt', 'other'], {
-    required_error: '관계를 선택해주세요',
+    message: '관계를 선택해주세요',
   }),
   address: z.string().optional(),
   occupation: z.string().optional(),
@@ -59,7 +59,7 @@ const studentSchema = z.object({
   // 기본 정보
   name: z.string().min(2, '이름은 최소 2자 이상이어야 합니다'),
   birthDate: z.date({
-    required_error: '생년월일을 선택해주세요',
+    message: '생년월일을 선택해주세요',
   }),
   gender: z.enum(['male', 'female', 'other']).optional(),
   studentPhone: z.string().optional(),
@@ -342,12 +342,27 @@ export function AddStudentDialog({ open, onOpenChange, onSuccess }: AddStudentDi
       if (error) throw error
 
       // Transform data to match Guardian interface
-      const transformedGuardians: Guardian[] = (data || []).map((g: unknown) => ({
-        id: g.id,
-        name: g.users?.name || '',
-        phone: g.users?.phone || '',
-        student_guardians: g.student_guardians || [],
-      }))
+      interface GuardianData {
+        id: string
+        users?: { name?: string; phone?: string }[] | null
+        student_guardians?: Array<{
+          relation: string
+          students: { users: { name: string } | null } | null
+        }>
+      }
+
+      const transformedGuardians: Guardian[] = (data || []).map((g) => {
+        const guardianData = g as unknown as GuardianData
+        const usersArray = guardianData.users
+        const user = Array.isArray(usersArray) ? usersArray[0] : null
+
+        return {
+          id: guardianData.id,
+          name: user?.name || '',
+          phone: user?.phone || '',
+          student_guardians: guardianData.student_guardians || [],
+        }
+      })
 
       setGuardians(transformedGuardians)
     } catch (error) {
