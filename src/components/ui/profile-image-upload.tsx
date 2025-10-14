@@ -115,6 +115,7 @@ export function ProfileImageUpload({
         {/* Preview */}
         <div className="h-24 w-24 rounded-full overflow-hidden bg-muted flex items-center justify-center">
           {displayUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={displayUrl}
               alt="프로필 사진"
