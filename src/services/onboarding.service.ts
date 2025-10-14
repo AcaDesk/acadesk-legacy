@@ -158,7 +158,7 @@ export class OnboardingService {
    * Uses RPC function to bypass RLS restrictions
    */
   static async checkOnboardingStatus(
-    userId: string
+    _userId: string
   ): Promise<{
     needsApproval: boolean
     needsOnboarding: boolean
