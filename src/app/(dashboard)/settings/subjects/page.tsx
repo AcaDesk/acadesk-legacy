@@ -78,7 +78,7 @@ export default function SubjectsPage() {
   const subjectRepo = new SubjectRepository(supabase)
 
   const form = useForm<SubjectFormValues>({
-    resolver: zodResolver(subjectFormSchema) as any,
+    resolver: zodResolver(subjectFormSchema),
     defaultValues: {
       name: '',
       description: '',
