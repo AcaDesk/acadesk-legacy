@@ -6,17 +6,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { AlertCircle, FileText, TrendingUp, Clock, CheckCircle, ChevronRight, ListTodo } from "lucide-react"
-
-interface TodaySession {
-  id: string
-  session_date: string
-  scheduled_start_at: string
-  scheduled_end_at: string
-  status: string
-  classes: {
-    name: string
-  } | null
-}
+import type { TodaySession } from "@/hooks/use-dashboard-data"
 
 interface TodayTasksProps {
   upcomingSessions: TodaySession[]
