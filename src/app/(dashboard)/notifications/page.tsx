@@ -57,7 +57,7 @@ export default function NotificationsPage() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'sent' | 'failed'>('all')
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState<string | null>(null)
-  const [reportAutoSendStatus, setReportAutoSendStatus] = useState<any>(null)
+  const [reportAutoSendStatus, setReportAutoSendStatus] = useState<unknown>(null)
   const [sendingReports, setSendingReports] = useState(false)
 
   const { toast } = useToast()
