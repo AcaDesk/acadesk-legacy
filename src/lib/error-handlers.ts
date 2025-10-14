@@ -5,15 +5,10 @@
  */
 
 import {
-  AppError,
   isAppError,
-  AuthenticationError,
-  AuthorizationError,
-  NotFoundError,
   ValidationError,
-  DatabaseError,
 } from './error-types'
-import { ZodError } from 'zod'
+import { ZodError, type ZodIssue } from 'zod'
 
 /**
  * Error response structure for API routes
@@ -36,7 +31,7 @@ export function getErrorMessage(error: unknown): string {
 
   // Zod validation errors
   if (error instanceof ZodError) {
-    const firstError = error.errors[0]
+    const firstError = error.issues[0]
     return firstError?.message || '입력값이 올바르지 않습니다'
   }
 
@@ -94,7 +89,7 @@ export function toErrorResponse(error: unknown): ErrorResponse {
   if (error instanceof ZodError) {
     const errors: Record<string, string[]> = {}
 
-    error.errors.forEach((err) => {
+    error.issues.forEach((err: ZodIssue) => {
       const path = err.path.join('.')
       if (!errors[path]) {
         errors[path] = []
@@ -118,11 +113,6 @@ export function toErrorResponse(error: unknown): ErrorResponse {
     typeof error.code === 'string'
   ) {
     const code = error.code as string
-    const message =
-      'message' in error && typeof error.message === 'string'
-        ? error.message
-        : '데이터베이스 오류가 발생했습니다'
-
     let statusCode = 500
 
     // Map Supabase error codes to HTTP status codes
