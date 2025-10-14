@@ -89,7 +89,7 @@ export function BugReportDialog({ open, onOpenChange }: BugReportDialogProps) {
       setDescription('')
       setSteps('')
       onOpenChange(false)
-    } catch (error) {
+    } catch {
       toast({
         title: '리포트 전송 실패',
         description: '잠시 후 다시 시도해주세요.',
