@@ -164,7 +164,7 @@ export default function ClassDetailPage() {
       }
 
       // Calculate stats for each student
-      const studentIds = (enrollments as Enrollment[]).map((e) => e.student_id).filter(Boolean)
+      const studentIds = (enrollments as unknown as Enrollment[]).map((e) => e.student_id).filter(Boolean)
 
       // Get exam scores
       const { data: scores, error: scoresError } = await supabase
@@ -191,26 +191,26 @@ export default function ClassDetailPage() {
       if (todosError) throw todosError
 
       // Calculate stats per student
-      const studentsWithStats: StudentInClass[] = (enrollments as Enrollment[]).map((enrollment) => {
+      const studentsWithStats: StudentInClass[] = (enrollments as unknown as Enrollment[]).map((enrollment) => {
         // Access the first element since Supabase returns arrays for joins
         const student = enrollment.students?.[0]
         const studentId = enrollment.student_id
 
         // Calculate average score
-        const studentScores = (scores as ExamScore[])?.filter((s) => s.student_id === studentId) || []
+        const studentScores = (scores as unknown as ExamScore[])?.filter((s) => s.student_id === studentId) || []
         const avgScore = studentScores.length > 0
           ? Math.round(studentScores.reduce((sum, s) => sum + (s.percentage || 0), 0) / studentScores.length)
           : 0
 
         // Calculate attendance rate
-        const studentAttendance = (attendance as AttendanceRecord[])?.filter((a) => a.student_id === studentId) || []
+        const studentAttendance = (attendance as unknown as AttendanceRecord[])?.filter((a) => a.student_id === studentId) || []
         const presentCount = studentAttendance.filter((a) => a.status === 'present').length
         const attendanceRate = studentAttendance.length > 0
           ? Math.round((presentCount / studentAttendance.length) * 100)
           : 0
 
         // Calculate homework completion rate
-        const studentTodos = (todos as TodoRecord[])?.filter((t) => t.student_id === studentId) || []
+        const studentTodos = (todos as unknown as TodoRecord[])?.filter((t) => t.student_id === studentId) || []
         const completedCount = studentTodos.filter((t) => t.completed_at).length
         const homeworkRate = studentTodos.length > 0
           ? Math.round((completedCount / studentTodos.length) * 100)
