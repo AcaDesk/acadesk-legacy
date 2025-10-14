@@ -3,22 +3,10 @@ import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Users, UserCheck, UserX, Clock } from "lucide-react"
 import Link from "next/link"
-
-interface AttendanceSession {
-  id: string
-  session_date: string
-  scheduled_start_at: string
-  scheduled_end_at: string
-  status: 'scheduled' | 'in_progress' | 'completed'
-  classes: {
-    name: string
-  }
-  attendance_count?: number
-  total_students?: number
-}
+import type { TodaySession } from "@/hooks/use-dashboard-data"
 
 interface AttendanceSummaryProps {
-  sessions: AttendanceSession[]
+  sessions: TodaySession[]
   todayAttendance: number
   totalStudents: number
 }
@@ -33,8 +21,8 @@ export function AttendanceSummary({
 
   // 현재 진행 중인 세션 찾기
   const currentSession = sessions.find(session => {
-    const startTime = new Date(session.scheduled_start_at)
-    const endTime = new Date(session.scheduled_end_at)
+    const startTime = new Date(session.scheduled_start)
+    const endTime = new Date(session.scheduled_end)
     const sessionStart = startTime.getHours() * 60 + startTime.getMinutes()
     const sessionEnd = endTime.getHours() * 60 + endTime.getMinutes()
 
@@ -46,7 +34,7 @@ export function AttendanceSummary({
 
   // 세션별 출석 통계
   const sessionStats = sessions.map(session => {
-    const startTime = new Date(session.scheduled_start_at)
+    const startTime = new Date(session.scheduled_start)
     const timeStr = startTime.toLocaleTimeString('ko-KR', {
       hour: '2-digit',
       minute: '2-digit'
@@ -55,8 +43,8 @@ export function AttendanceSummary({
     return {
       ...session,
       timeStr,
-      attendanceRate: session.total_students > 0
-        ? ((session.attendance_count || 0) / session.total_students) * 100
+      attendanceRate: (session.total_students || 0) > 0
+        ? ((session.attendance_count || 0) / (session.total_students || 0)) * 100
         : 0
     }
   })
@@ -101,12 +89,12 @@ export function AttendanceSummary({
             </div>
             <div className="flex items-center justify-between">
               <div className="text-sm">
-                <div className="font-medium">{currentSession.classes.name}</div>
+                <div className="font-medium">{currentSession.class_name}</div>
                 <div className="text-xs text-muted-foreground">
-                  {new Date(currentSession.scheduled_start_at).toLocaleTimeString('ko-KR', {
+                  {new Date(currentSession.scheduled_start).toLocaleTimeString('ko-KR', {
                     hour: '2-digit',
                     minute: '2-digit'
-                  })} - {new Date(currentSession.scheduled_end_at).toLocaleTimeString('ko-KR', {
+                  })} - {new Date(currentSession.scheduled_end).toLocaleTimeString('ko-KR', {
                     hour: '2-digit',
                     minute: '2-digit'
                   })}
@@ -137,7 +125,7 @@ export function AttendanceSummary({
                   <div className="flex items-center gap-3">
                     <div className="flex flex-col">
                       <span className="text-sm font-medium">
-                        {session.classes.name}
+                        {session.class_name}
                       </span>
                       <span className="text-xs text-muted-foreground">
                         {session.timeStr}
