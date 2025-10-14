@@ -50,6 +50,11 @@ const itemVariants = {
   },
 }
 
+interface ExtendedTodo {
+  priority?: string | null
+  description?: string | null
+}
+
 export function TodoTab() {
   const router = useRouter()
   const { toast } = useToast()
@@ -93,7 +98,7 @@ export function TodoTab() {
         description: currentStatus ? 'TODO가 미완료로 변경되었습니다.' : 'TODO가 완료되었습니다.',
       })
 
-      onRefresh()
+      onRefresh?.()
     } catch (error) {
       console.error('Error toggling todo:', error)
       toast({
@@ -132,10 +137,10 @@ export function TodoTab() {
   }
 
   // 우선순위 표시
-  const getPriorityBadge = (priority: string | null) => {
+  const getPriorityBadge = (priority: string | null | undefined) => {
     if (!priority) return null
 
-    const priorityMap: Record<string, { label: string; variant: unknown }> = {
+    const priorityMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
       high: { label: '높음', variant: 'destructive' },
       medium: { label: '보통', variant: 'default' },
       low: { label: '낮음', variant: 'outline' },
@@ -221,7 +226,7 @@ export function TodoTab() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <CardTitle className="text-base">TODO 목록</CardTitle>
             <div className="flex flex-col sm:flex-row gap-2">
-              <Select value={filter} onValueChange={(v: unknown) => setFilter(v)}>
+              <Select value={filter} onValueChange={(v) => setFilter(v as 'all' | 'pending' | 'completed')}>
                 <SelectTrigger className="w-full sm:w-[140px]">
                   <SelectValue />
                 </SelectTrigger>
@@ -267,8 +272,9 @@ export function TodoTab() {
           ) : (
             <div className="space-y-2">
               {filteredTodos.map((todo) => {
+                const extendedTodo = todo as typeof todo & ExtendedTodo
                 const dueDateInfo = getDueDateDisplay(todo.due_date)
-                const priorityInfo = getPriorityBadge(todo.priority)
+                const priorityInfo = getPriorityBadge(extendedTodo.priority)
                 const isCompleted = !!todo.completed_at
                 const isOverdue = !isCompleted && todo.due_date && isPast(new Date(todo.due_date))
 
@@ -299,9 +305,9 @@ export function TodoTab() {
                         >
                           {todo.title}
                         </p>
-                        {todo.description && (
+                        {extendedTodo.description && (
                           <p className="text-xs text-muted-foreground mt-1 break-words">
-                            {todo.description}
+                            {extendedTodo.description}
                           </p>
                         )}
                       </div>
