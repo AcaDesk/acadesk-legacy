@@ -86,7 +86,7 @@ export function ContactGuardianDialog({
 
       // Extract guardian data from the nested structure
       const guardianList = data
-        ?.map((item: any) => item.guardians)
+        ?.map((item: unknown) => item.guardians)
         .filter(Boolean) || []
 
       setGuardians(guardianList)
