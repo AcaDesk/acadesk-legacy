@@ -130,7 +130,7 @@ export default function WeeklyPlannerPage() {
     if (!currentUser) return
 
     try {
-      const data = await studentRepo.search('', { limit: 1000 })
+      const data = await studentRepo.search('', currentUser.tenantId)
       setStudents(data as unknown as Student[])
     } catch (error) {
       toast({
@@ -284,11 +284,14 @@ export default function WeeklyPlannerPage() {
       if (enrollError) throw enrollError
 
       // Extract unique subjects
-      const subjects = new Set<string>()
-      enrollments?.forEach((enrollment: { classes?: { subject?: string } }) => {
-        if (enrollment.classes?.subject) {
-          subjects.add(enrollment.classes.subject)
-        }
+      const subjects = new Set<string>();
+      (enrollments ?? []).forEach((enrollment) => {
+        const classes = Array.isArray(enrollment.classes)
+          ? enrollment.classes
+          : [enrollment.classes]
+        classes.forEach((c) => {
+          if (c?.subject) subjects.add(c.subject)
+        })
       })
 
       // Filter templates that match the student's subjects
