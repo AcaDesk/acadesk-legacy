@@ -86,7 +86,7 @@ export function InquiryDialog({ open, onOpenChange }: InquiryDialogProps) {
       setSubject('')
       setMessage('')
       onOpenChange(false)
-    } catch (error) {
+    } catch {
       toast({
         title: '문의 전송 실패',
         description: '잠시 후 다시 시도해주세요.',
