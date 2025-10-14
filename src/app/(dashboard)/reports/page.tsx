@@ -56,7 +56,7 @@ export default function ReportsPage() {
         .order('student_code')
 
       if (error) throw error
-      setStudents(data as any)
+      setStudents(data as unknown)
     } catch (error) {
       console.error('Error loading students:', error)
       toast({
@@ -155,7 +155,7 @@ export default function ReportsPage() {
                   <SelectContent>
                     {students.map((student) => (
                       <SelectItem key={student.id} value={student.id}>
-                        {student.student_code} - {(student.users as any)?.name || 'Unknown'}
+                        {student.student_code} - {(student.users as unknown)?.name || 'Unknown'}
                       </SelectItem>
                     ))}
                   </SelectContent>
