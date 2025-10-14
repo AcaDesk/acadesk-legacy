@@ -57,7 +57,7 @@ interface ClassEnrollmentsListProps {
   onUpdate: () => void
 }
 
-const enrollmentStatusMap: Record<string, { label: string; variant: any }> = {
+const enrollmentStatusMap: Record<string, { label: string; variant: unknown }> = {
   active: { label: '수강중', variant: 'default' },
   completed: { label: '수강종료', variant: 'secondary' },
   on_hold: { label: '휴원', variant: 'outline' },
@@ -104,7 +104,7 @@ export function ClassEnrollmentsList({
     if (!selectedEnrollment) return
 
     try {
-      const updateData: any = {
+      const updateData: unknown = {
         status: newStatus,
         end_date: endDate ? formatDate(endDate, 'yyyy-MM-dd') : null,
         notes,
