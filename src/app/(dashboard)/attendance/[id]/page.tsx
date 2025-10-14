@@ -77,7 +77,7 @@ export default async function AttendanceSessionPage({
       redirect('/attendance');
     }
 
-    students = (studentsData as Array<{
+    students = (studentsData as unknown as Array<{
       id: string
       student_code: string
       users: {
