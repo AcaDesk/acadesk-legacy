@@ -15,7 +15,7 @@ interface Props {
 interface State {
   hasError: boolean
   error?: Error
-  errorInfo?: any
+  errorInfo?: unknown
 }
 
 export class WidgetErrorBoundary extends Component<Props, State> {
