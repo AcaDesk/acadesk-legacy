@@ -449,7 +449,7 @@ export default function TodoTemplatesPage() {
                   <span className="text-sm font-medium">필터:</span>
                 </div>
 
-                <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
+                <Select value={statusFilter} onValueChange={(v: unknown) => setStatusFilter(v)}>
                   <SelectTrigger className="w-[120px]">
                     <SelectValue />
                   </SelectTrigger>
@@ -460,7 +460,7 @@ export default function TodoTemplatesPage() {
                   </SelectContent>
                 </Select>
 
-                <Select value={priorityFilter} onValueChange={(v: any) => setPriorityFilter(v)}>
+                <Select value={priorityFilter} onValueChange={(v: unknown) => setPriorityFilter(v)}>
                   <SelectTrigger className="w-[130px]">
                     <SelectValue />
                   </SelectTrigger>
