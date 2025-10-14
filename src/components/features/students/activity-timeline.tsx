@@ -273,22 +273,22 @@ export function ActivityTimeline({ studentId, limit = 50 }: ActivityTimelineProp
                       {/* Metadata */}
                       {activity.metadata && Object.keys(activity.metadata).length > 0 && (
                         <div className="flex flex-wrap gap-2 mt-2">
-                          {activity.metadata.percentage && (
+                          {!!activity.metadata.percentage && (
                             <Badge variant="secondary" className="text-xs">
-                              {activity.metadata.percentage}%
+                              {String(activity.metadata.percentage)}%
                             </Badge>
                           )}
-                          {activity.metadata.raw_score && activity.metadata.max_score && (
+                          {!!activity.metadata.raw_score && !!activity.metadata.max_score && (
                             <Badge variant="secondary" className="text-xs">
-                              {activity.metadata.raw_score}/{activity.metadata.max_score}점
+                              {String(activity.metadata.raw_score)}/{String(activity.metadata.max_score)}점
                             </Badge>
                           )}
-                          {activity.metadata.subject && (
+                          {!!activity.metadata.subject && (
                             <Badge variant="outline" className="text-xs">
-                              {activity.metadata.subject}
+                              {String(activity.metadata.subject)}
                             </Badge>
                           )}
-                          {activity.metadata.status && (
+                          {!!activity.metadata.status && (
                             <Badge
                               variant={
                                 activity.metadata.status === 'present'
@@ -299,7 +299,7 @@ export function ActivityTimeline({ studentId, limit = 50 }: ActivityTimelineProp
                               }
                               className="text-xs"
                             >
-                              {activity.metadata.status}
+                              {String(activity.metadata.status)}
                             </Badge>
                           )}
                         </div>
