@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { Bell, Check, CheckCheck, X } from 'lucide-react'
+import { Bell, CheckCheck } from 'lucide-react'
 import {
   Popover,
   PopoverContent,
@@ -10,7 +10,6 @@ import {
 } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -35,7 +34,7 @@ export function NotificationPopover() {
   const { toast } = useToast()
 
   // 알림 목록 로드
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
     if (!currentUser) return
 
     try {
@@ -66,14 +65,14 @@ export function NotificationPopover() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentUser, notificationRepo, toast])
 
   // 컴포넌트 마운트 시 알림 로드
   useEffect(() => {
     if (currentUser && isNotificationActive) {
       loadNotifications()
     }
-  }, [currentUser, isNotificationActive])
+  }, [currentUser, isNotificationActive, loadNotifications])
 
   // 알림 클릭 시 읽음 처리
   const handleNotificationClick = async (notification: InAppNotification) => {
@@ -81,7 +80,7 @@ export function NotificationPopover() {
       try {
         await notificationRepo.markAsRead(notification.id)
         await loadNotifications() // 다시 로드하여 읽음 상태 반영
-      } catch (error) {
+      } catch {
         // 에러는 무시 (사용자 경험을 방해하지 않음)
       }
     }
