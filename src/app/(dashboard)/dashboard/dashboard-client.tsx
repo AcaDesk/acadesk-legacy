@@ -207,10 +207,10 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
       scheduledConsultations,
       studentAlerts,
       financialData,
-      classStatus,
-      parentsToContact,
-      calendarEvents,
-      activityLogs,
+      classStatus: classStatus || [],
+      parentsToContact: parentsToContact || [],
+      calendarEvents: calendarEvents || [],
+      activityLogs: activityLogs || [],
       isEditMode,
     })
 
