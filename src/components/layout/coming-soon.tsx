@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Sparkles, ArrowLeft, Bell } from "lucide-react"
+import { Sparkles, ArrowLeft } from "lucide-react"
 
 interface ComingSoonProps {
   featureName: string
