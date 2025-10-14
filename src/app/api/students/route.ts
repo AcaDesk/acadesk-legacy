@@ -12,7 +12,7 @@ const createStudentSchema = z.object({
   grade_level: z.string().optional(),
   status: z.string().default('active'),
   enrollment_date: z.string().optional(),
-  meta: z.record(z.unknown()).default({}),
+  meta: z.record(z.string(), z.unknown()).default({}),
 })
 
 /**
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation failed', details: error.errors },
+        { error: 'Validation failed', details: error.issues },
         { status: 400 }
       )
     }
