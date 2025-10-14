@@ -106,18 +106,37 @@ export default function EditStudentPage() {
         throw new Error('학생 정보를 찾을 수 없습니다.')
       }
 
-      setStudent(data as StudentData)
+      const usersRel = Array.isArray(data.users) ? (data.users[0] ?? null) : data.users
+
+      const normalized: StudentData = {
+        id: data.id as string,
+        student_code: data.student_code as string,
+        grade: (data.grade ?? null) as string | null,
+        school: (data.school ?? null) as string | null,
+        emergency_contact: (data.emergency_contact ?? null) as string | null,
+        notes: (data.notes ?? null) as string | null,
+        users: usersRel
+          ? {
+              id: usersRel.id as string,
+              name: usersRel.name as string,
+              email: (usersRel.email ?? null) as string | null,
+              phone: (usersRel.phone ?? null) as string | null,
+            }
+          : null,
+      }
+
+      setStudent(normalized)
 
       // Populate form fields
-      if (data.users) {
-        setValue('name', data.users.name)
-        setValue('email', data.users.email || '')
-        setValue('phone', data.users.phone || '')
+      if (usersRel) {
+        setValue('name', usersRel.name)
+        setValue('email', usersRel.email || '')
+        setValue('phone', usersRel.phone || '')
       }
-      setValue('grade', data.grade || '')
-      setValue('school', data.school || '')
-      setValue('emergencyContact', data.emergency_contact || '')
-      setValue('notes', data.notes || '')
+      setValue('grade', (data.grade as string | null) || '')
+      setValue('school', (data.school as string | null) || '')
+      setValue('emergencyContact', (data.emergency_contact as string | null) || '')
+      setValue('notes', (data.notes as string | null) || '')
     } catch (error) {
       toast({
         title: '학생 조회 실패',
