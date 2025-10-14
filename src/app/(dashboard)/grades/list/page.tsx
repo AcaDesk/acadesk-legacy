@@ -48,14 +48,14 @@ interface ExamScore {
     name: string
     exam_date: string
     category_code: string
-  } | null
+  }[] | null
   students: {
     id: string
     student_code: string
     users: {
       name: string
-    } | null
-  } | null
+    }[] | null
+  }[] | null
 }
 
 interface Student {
@@ -63,7 +63,7 @@ interface Student {
   student_code: string
   users: {
     name: string
-  } | null
+  }[] | null
 }
 
 export default function GradesListPage() {
@@ -338,7 +338,7 @@ export default function GradesListPage() {
               <SelectItem value="all">전체 학생</SelectItem>
               {students.map((student) => (
                 <SelectItem key={student.id} value={student.id}>
-                  {student.student_code} - {student.users?.name || '이름 없음'}
+                  {student.student_code} - {student.users?.[0]?.name || '이름 없음'}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -386,9 +386,9 @@ export default function GradesListPage() {
                   .slice(0, 10)
                   .reverse()
                   .map(score => ({
-                    examName: score.exams?.name || '시험',
+                    examName: score.exams?.[0]?.name || '시험',
                     score: score.percentage,
-                    date: score.exams?.exam_date,
+                    date: score.exams?.[0]?.exam_date,
                   }))}
                 title="성적 추이"
                 description="최근 시험별 점수 변화"
@@ -434,16 +434,16 @@ export default function GradesListPage() {
                           <TableCell>
                             <div>
                               <div className="font-medium">
-                                {score.students?.users?.name || '이름 없음'}
+                                {score.students?.[0]?.users?.[0]?.name || '이름 없음'}
                               </div>
                               <div className="text-xs text-muted-foreground">
-                                {score.students?.student_code}
+                                {score.students?.[0]?.student_code}
                               </div>
                             </div>
                           </TableCell>
                           <TableCell>
                             <div>
-                              <div>{score.exams?.name || '시험 정보 없음'}</div>
+                              <div>{score.exams?.[0]?.name || '시험 정보 없음'}</div>
                               {score.is_retest && (
                                 <Badge variant="outline" className="text-xs mt-1">
                                   재시험 #{score.retest_count}
@@ -452,8 +452,8 @@ export default function GradesListPage() {
                             </div>
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground">
-                            {score.exams?.exam_date
-                              ? new Date(score.exams.exam_date).toLocaleDateString('ko-KR')
+                            {score.exams?.[0]?.exam_date
+                              ? new Date(score.exams[0].exam_date).toLocaleDateString('ko-KR')
                               : '-'}
                           </TableCell>
                           <TableCell className="text-center">
