@@ -22,8 +22,9 @@ const localizer = dateFnsLocalizer({
   locales,
 })
 
-// Create DnD Calendar
-const DnDCalendar = withDragAndDrop(Calendar)
+// Create DnD Calendar - use any to bypass complex type constraints
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const DnDCalendar = withDragAndDrop<any>(Calendar)
 
 // 한글 메시지
 const messages = {
@@ -139,12 +140,13 @@ export function AcademyCalendar({
 
   // Handle event drop (drag and drop)
   const handleEventDrop = useCallback(
-    (data: { event: BigCalendarEvent; start: Date; end: Date; isAllDay: boolean }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (data: any) => {
       if (onEventDrop && data.event.resource) {
         onEventDrop({
           event: data.event.resource,
-          start: data.start,
-          end: data.end,
+          start: data.start instanceof Date ? data.start : new Date(data.start),
+          end: data.end instanceof Date ? data.end : new Date(data.end),
         })
       }
     },
@@ -153,12 +155,13 @@ export function AcademyCalendar({
 
   // Handle event resize
   const handleEventResize = useCallback(
-    (data: { event: BigCalendarEvent; start: Date; end: Date }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (data: any) => {
       if (onEventResize && data.event.resource) {
         onEventResize({
           event: data.event.resource,
-          start: data.start,
-          end: data.end,
+          start: data.start instanceof Date ? data.start : new Date(data.start),
+          end: data.end instanceof Date ? data.end : new Date(data.end),
         })
       }
     },
