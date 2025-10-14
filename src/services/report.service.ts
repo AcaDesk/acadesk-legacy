@@ -46,6 +46,15 @@ interface StudentWithUser {
   } | null
 }
 
+interface StudentDataWithUser {
+  id: string
+  student_code: string
+  grade: string | null
+  users: {
+    name: string
+  } | null
+}
+
 interface CategoryData {
   category: string
   tests: Array<{
@@ -169,10 +178,19 @@ export class ReportGenerator {
       periodEndStr
     )
 
+    interface StudentDataWithUser {
+      id: string
+      student_code: string
+      grade: string | null
+      users: {
+        name: string
+      } | null
+    }
+
     return {
       student: {
         id: studentData.id,
-        name: (studentData.users as any)?.name || 'Unknown',
+        name: (studentData as unknown as StudentDataWithUser).users?.name || 'Unknown',
         grade: studentData.grade || '',
         student_code: studentData.student_code,
       },
@@ -275,11 +293,36 @@ export class ReportGenerator {
       .lte('created_at', prevPeriodEnd)
 
     // 카테고리별로 그룹화
-    const categories = new Map<string, any>()
+    interface CategoryDataMap {
+      category: string
+      tests: Array<{
+        name: string
+        date: string
+        percentage: number
+        feedback: string | null
+      }>
+      percentages: number[]
+    }
 
-    currentScores?.forEach((score: any) => {
-      const category = score.exams?.category_code
-      const label = score.exams?.ref_exam_categories?.label || category
+    const categories = new Map<string, CategoryDataMap>()
+
+    interface ExamScoreWithDetails {
+      percentage: number
+      feedback?: string | null
+      exams?: {
+        name: string
+        exam_date: string
+        category_code: string
+        ref_exam_categories?: {
+          label: string
+        } | null
+      } | null
+    }
+
+    currentScores?.forEach((score) => {
+      const examScore = score as unknown as ExamScoreWithDetails
+      const category = examScore.exams?.category_code || ''
+      const label = examScore.exams?.ref_exam_categories?.label || category
 
       if (!categories.has(category)) {
         categories.set(category, {
@@ -289,23 +332,37 @@ export class ReportGenerator {
         })
       }
 
-      categories.get(category).tests.push({
-        name: score.exams?.name,
-        date: score.exams?.exam_date,
-        percentage: score.percentage,
-        feedback: score.feedback,
-      })
-      categories.get(category).percentages.push(score.percentage)
+      const categoryData = categories.get(category)
+      if (categoryData) {
+        categoryData.tests.push({
+          name: examScore.exams?.name || '',
+          date: examScore.exams?.exam_date || '',
+          percentage: examScore.percentage,
+          feedback: examScore.feedback || null,
+        })
+        categoryData.percentages.push(examScore.percentage)
+      }
     })
 
     // 이전 기간 평균 계산
-    const prevAverages = new Map<string, number>()
-    previousScores?.forEach((score: any) => {
-      const category = score.exams?.category_code
+    interface ExamScoreBasicType {
+      percentage: number
+      exams?: {
+        category_code: string
+      } | null
+    }
+
+    const prevAverages = new Map<string, number[]>()
+    previousScores?.forEach((score) => {
+      const examScore = score as unknown as ExamScoreBasicType
+      const category = examScore.exams?.category_code || ''
       if (!prevAverages.has(category)) {
         prevAverages.set(category, [])
       }
-      prevAverages.get(category).push(score.percentage)
+      const categoryScores = prevAverages.get(category)
+      if (categoryScores) {
+        categoryScores.push(examScore.percentage)
+      }
     })
 
     // 최종 결과 생성
@@ -337,9 +394,9 @@ export class ReportGenerator {
    * 강사 코멘트 자동 생성 (기본 템플릿)
    */
   private async generateInstructorComment(
-    student: any,
-    attendance: any,
-    scores: any[]
+    student: StudentDataWithUser,
+    attendance: { total: number; present: number; late: number; absent: number; rate: number },
+    scores: Array<{ category: string; current: number; previous: number | null; change: number | null; tests: unknown[] }>
   ): Promise<string> {
     const comments: string[] = []
 
