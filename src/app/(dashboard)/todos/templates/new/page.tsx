@@ -171,7 +171,7 @@ export default function NewTodoTemplatePage() {
     setLoading(true)
 
     try {
-      const templateData: any = {
+      const templateData: unknown = {
         tenant_id: currentUser.tenantId,
         title: title.trim(),
         description: description.trim() || null,
