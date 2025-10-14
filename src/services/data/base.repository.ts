@@ -7,7 +7,7 @@ import type { QueryParams, PaginatedResponse, UUID } from '@/types/common'
 import { QueryBuilder } from '@/lib/query-builder'
 import { NotFoundError, DatabaseError } from '@/lib/errors'
 
-export abstract class BaseRepository<T extends { [key: string]: unknown }> {
+export abstract class BaseRepository<T extends Record<string, unknown>> {
   protected queryBuilder: QueryBuilder<T>
 
   constructor(
@@ -119,7 +119,7 @@ export abstract class BaseRepository<T extends { [key: string]: unknown }> {
     try {
       const record = await this.queryBuilder.findById(id)
       return record !== null
-    } catch (error) {
+    } catch {
       return false
     }
   }
