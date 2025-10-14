@@ -7,15 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Calendar, ChevronLeft, ChevronRight, CalendarDays, Clock, Users, GraduationCap } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
-
-interface CalendarEvent {
-  id: string
-  title: string
-  start_time: string
-  end_time: string
-  type: 'class' | 'consultation' | 'exam' | 'event' | 'holiday'
-  description?: string
-}
+import type { CalendarEvent } from "@/hooks/use-dashboard-data"
 
 interface CalendarWidgetProps {
   events?: CalendarEvent[]
@@ -108,7 +100,7 @@ export function CalendarWidget({ events = [] }: CalendarWidgetProps) {
 
   const getEventsForDate = (date: Date) => {
     return events.filter(event => {
-      const eventDate = new Date(event.start_time)
+      const eventDate = new Date(event.start_date)
       return eventDate.getDate() === date.getDate() &&
         eventDate.getMonth() === date.getMonth() &&
         eventDate.getFullYear() === date.getFullYear()
@@ -120,8 +112,7 @@ export function CalendarWidget({ events = [] }: CalendarWidgetProps) {
       case 'class': return 'bg-blue-500'
       case 'consultation': return 'bg-green-500'
       case 'exam': return 'bg-red-500'
-      case 'event': return 'bg-purple-500'
-      case 'holiday': return 'bg-yellow-500'
+      case 'other': return 'bg-purple-500'
       default: return 'bg-gray-500'
     }
   }
@@ -231,7 +222,7 @@ export function CalendarWidget({ events = [] }: CalendarWidgetProps) {
                           key={i}
                           className={cn(
                             "h-1 w-1 rounded-full",
-                            getEventTypeColor(event.type)
+                            getEventTypeColor(event.event_type)
                           )}
                         />
                       ))}
@@ -255,14 +246,14 @@ export function CalendarWidget({ events = [] }: CalendarWidgetProps) {
                 <div key={event.id} className="flex items-center gap-2 text-sm">
                   <div className={cn(
                     "h-6 w-6 rounded flex items-center justify-center text-white",
-                    getEventTypeColor(event.type)
+                    getEventTypeColor(event.event_type)
                   )}>
-                    {getEventTypeIcon(event.type)}
+                    {getEventTypeIcon(event.event_type)}
                   </div>
                   <div className="flex-1">
                     <span className="font-medium">{event.title}</span>
                     <span className="text-muted-foreground ml-2">
-                      {new Date(event.start_time).toLocaleTimeString('ko-KR', {
+                      {new Date(event.start_date).toLocaleTimeString('ko-KR', {
                         hour: '2-digit',
                         minute: '2-digit'
                       })}
@@ -286,14 +277,14 @@ export function CalendarWidget({ events = [] }: CalendarWidgetProps) {
                 <div key={event.id} className="flex items-center gap-2 text-sm">
                   <div className={cn(
                     "h-6 w-6 rounded flex items-center justify-center text-white",
-                    getEventTypeColor(event.type)
+                    getEventTypeColor(event.event_type)
                   )}>
-                    {getEventTypeIcon(event.type)}
+                    {getEventTypeIcon(event.event_type)}
                   </div>
                   <div className="flex-1">
                     <span className="font-medium">{event.title}</span>
                     <span className="text-muted-foreground ml-2">
-                      {new Date(event.start_time).toLocaleTimeString('ko-KR', {
+                      {new Date(event.start_date).toLocaleTimeString('ko-KR', {
                         hour: '2-digit',
                         minute: '2-digit'
                       })}
