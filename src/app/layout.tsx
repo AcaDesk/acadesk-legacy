@@ -19,6 +19,10 @@ export const metadata: Metadata = {
     type: "website",
     locale: "ko_KR",
   },
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
+  },
 }
 
 export default function RootLayout({
