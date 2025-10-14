@@ -32,16 +32,37 @@ const itemVariants = {
   },
 }
 
+interface SessionInfo {
+  id: string
+  class_id: string
+  class_name: string
+  scheduled_start_at: string
+  scheduled_end_at: string
+  instructor_name: string | null
+}
+
 interface WeeklySchedule {
   day_of_week: number
-  sessions: {
-    id: string
-    class_id: string
-    class_name: string
-    scheduled_start_at: string
-    scheduled_end_at: string
-    instructor_name: string | null
-  }[]
+  sessions: SessionInfo[]
+}
+
+interface ClassEnrollment {
+  status: string
+  class_id: string
+}
+
+interface AttendanceSessionData {
+  id: string
+  session_date: string
+  scheduled_start_at: string
+  scheduled_end_at: string
+  class_id: string
+  classes?: {
+    name?: string
+    users?: {
+      name?: string
+    }[] | null
+  }[] | null
 }
 
 export function ScheduleTab() {
@@ -64,8 +85,8 @@ export function ScheduleTab() {
       // Get student's enrolled classes
       const enrolledClassIds =
         student.class_enrollments
-          ?.filter((ce: unknown) => ce.status === 'active')
-          .map((ce: unknown) => ce.class_id) || []
+          ?.filter((ce) => (ce as unknown as ClassEnrollment).status === 'active')
+          .map((ce) => (ce as unknown as ClassEnrollment).class_id) || []
 
       if (enrolledClassIds.length === 0) {
         setWeeklySchedule([])
@@ -104,8 +125,9 @@ export function ScheduleTab() {
       if (error) throw error
 
       // Group by day of week
-      const scheduleByDay: Record<number, unknown[]> = {}
-      ;(data || []).forEach((session: unknown) => {
+      const scheduleByDay: Record<number, SessionInfo[]> = {}
+      ;(data || []).forEach((sessionData) => {
+        const session = sessionData as AttendanceSessionData
         const dayOfWeek = new Date(session.session_date).getDay()
         // Convert Sunday (0) to 7 for easier sorting
         const adjustedDay = dayOfWeek === 0 ? 7 : dayOfWeek
@@ -117,10 +139,10 @@ export function ScheduleTab() {
         scheduleByDay[adjustedDay].push({
           id: session.id,
           class_id: session.class_id,
-          class_name: session.classes?.name || '수업',
+          class_name: session.classes?.[0]?.name || '수업',
           scheduled_start_at: session.scheduled_start_at,
           scheduled_end_at: session.scheduled_end_at,
-          instructor_name: session.classes?.users?.name || null,
+          instructor_name: session.classes?.[0]?.users?.[0]?.name || null,
         })
       })
 
