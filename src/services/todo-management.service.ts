@@ -152,7 +152,16 @@ export async function updateTodo(
     const todoRepo = new TodoRepository(supabase)
 
     // 업데이트할 데이터 준비
-    const updates: any = {}
+    interface TodoUpdateData {
+      title?: string
+      description?: string | null
+      subject?: string | null
+      due_date?: string
+      due_day_of_week?: number
+      priority?: 'low' | 'normal' | 'high' | 'urgent'
+    }
+
+    const updates: TodoUpdateData = {}
 
     if (input.title !== undefined) {
       updates.title = input.title.trim()
