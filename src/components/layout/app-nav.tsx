@@ -26,7 +26,7 @@ import {
   LibraryBig,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { FEATURES, type FeatureKey } from "@/lib/features.config"
+import { isFeatureAvailable, type FeatureKey } from "@/lib/features.config"
 import { Separator } from "@/components/ui/separator"
 import {
   Accordion,
@@ -130,10 +130,8 @@ function filterNavItemsByFeatureFlags(item: NavItem): boolean {
   // featureFlag가 없으면 항상 표시
   if (!item.featureFlag) return true
 
-  // featureFlag가 있으면 해당 기능이 활성화되어 있는지 확인
-  const isEnabled = FEATURES[item.featureFlag]
-
-  return isEnabled
+  // featureFlag가 있으면 해당 기능이 사용 가능한지 확인 (active 또는 beta)
+  return isFeatureAvailable(item.featureFlag)
 }
 
 /**
@@ -302,7 +300,7 @@ export const AppNav = memo(function AppNav({ isCollapsed = false, onNavigate }: 
     if (activeValue && !openItems.includes(activeValue)) {
       setOpenItems(prev => [...prev, activeValue])
     }
-  }, [pathname, activeValue])
+  }, [pathname, activeValue, openItems])
 
   return (
     <nav className={cn(
