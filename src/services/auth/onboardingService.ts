@@ -29,7 +29,7 @@ export const onboardingService = {
    * Check if user has completed onboarding
    * Uses RPC function to bypass RLS restrictions
    */
-  async checkOnboardingStatus(userId: string) {
+  async checkOnboardingStatus(_userId: string) {
     const supabase = createClient()
 
     // Use RPC function instead of direct SELECT to bypass RLS
