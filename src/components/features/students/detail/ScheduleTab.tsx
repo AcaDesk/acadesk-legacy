@@ -64,8 +64,8 @@ export function ScheduleTab() {
       // Get student's enrolled classes
       const enrolledClassIds =
         student.class_enrollments
-          ?.filter((ce: any) => ce.status === 'active')
-          .map((ce: any) => ce.class_id) || []
+          ?.filter((ce: unknown) => ce.status === 'active')
+          .map((ce: unknown) => ce.class_id) || []
 
       if (enrolledClassIds.length === 0) {
         setWeeklySchedule([])
@@ -105,7 +105,7 @@ export function ScheduleTab() {
 
       // Group by day of week
       const scheduleByDay: Record<number, any[]> = {}
-      ;(data || []).forEach((session: any) => {
+      ;(data || []).forEach((session: unknown) => {
         const dayOfWeek = new Date(session.session_date).getDay()
         // Convert Sunday (0) to 7 for easier sorting
         const adjustedDay = dayOfWeek === 0 ? 7 : dayOfWeek
