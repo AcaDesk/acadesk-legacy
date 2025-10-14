@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useForm, UseFormReturn } from 'react-hook-form'
+import { useForm, UseFormReturn, Path, FieldValues } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { Input } from '@/components/ui/input'
@@ -63,24 +63,28 @@ export function GuardianFormStandalone({
 }
 
 // Form fields component (for use with external form state)
-interface GuardianFormFieldsProps {
-  form: UseFormReturn<unknown>
+interface GuardianFormFieldsProps<T extends FieldValues = GuardianFormValues> {
+  form: UseFormReturn<T>
   prefix?: string
   disabled?: boolean
 }
 
-export function GuardianFormFields({ form, prefix = '', disabled = false }: GuardianFormFieldsProps) {
+export function GuardianFormFields<T extends FieldValues = GuardianFormValues>({
+  form,
+  prefix = '',
+  disabled = false
+}: GuardianFormFieldsProps<T>) {
   const { register, setValue, watch, formState: { errors } } = form
 
-  const phoneValue = watch(`${prefix}phone`)
-  const relationshipValue = watch(`${prefix}relationship`)
+  const phoneValue = watch(`${prefix}phone` as Path<T>)
+  const relationshipValue = watch(`${prefix}relationship` as Path<T>)
 
   // Auto-format phone number
   useEffect(() => {
-    if (phoneValue) {
+    if (phoneValue && typeof phoneValue === 'string') {
       const formatted = formatPhoneNumber(phoneValue)
       if (formatted !== phoneValue) {
-        setValue(`${prefix}phone`, formatted, { shouldValidate: true })
+        setValue(`${prefix}phone` as Path<T>, formatted as never, { shouldValidate: true })
       }
     }
   }, [phoneValue, setValue, prefix])
@@ -99,14 +103,18 @@ export function GuardianFormFields({ form, prefix = '', disabled = false }: Guar
     }
   }
 
-  const getError = (field: string) => {
+  const getError = (field: string): { message?: string } | undefined => {
     const keys = `${prefix}${field}`.split('.')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let error: unknown = errors
+
+    let error: Record<string, unknown> = errors as Record<string, unknown>
     for (const key of keys) {
-      error = error?.[key]
+      if (error && typeof error === 'object' && key in error) {
+        error = error[key] as Record<string, unknown>
+      } else {
+        return undefined
+      }
     }
-    return error
+    return error as { message?: string } | undefined
   }
 
   return (
@@ -118,11 +126,11 @@ export function GuardianFormFields({ form, prefix = '', disabled = false }: Guar
           <Input
             id={`${prefix}name`}
             placeholder="홍길동"
-            {...register(`${prefix}name`)}
+            {...register(`${prefix}name` as Path<T>)}
             disabled={disabled}
           />
           {getError('name') && (
-            <p className="text-sm text-destructive">{getError('name').message}</p>
+            <p className="text-sm text-destructive">{getError('name')?.message}</p>
           )}
         </div>
 
@@ -130,8 +138,8 @@ export function GuardianFormFields({ form, prefix = '', disabled = false }: Guar
         <div className="space-y-2">
           <Label htmlFor={`${prefix}relationship`}>관계 *</Label>
           <Select
-            value={relationshipValue}
-            onValueChange={(value) => setValue(`${prefix}relationship`, value)}
+            value={(relationshipValue as string | undefined) || ''}
+            onValueChange={(value) => setValue(`${prefix}relationship` as Path<T>, value as never)}
             disabled={disabled}
           >
             <SelectTrigger id={`${prefix}relationship`}>
@@ -146,7 +154,7 @@ export function GuardianFormFields({ form, prefix = '', disabled = false }: Guar
             </SelectContent>
           </Select>
           {getError('relationship') && (
-            <p className="text-sm text-destructive">{getError('relationship').message}</p>
+            <p className="text-sm text-destructive">{getError('relationship')?.message}</p>
           )}
         </div>
       </div>
@@ -159,11 +167,11 @@ export function GuardianFormFields({ form, prefix = '', disabled = false }: Guar
             id={`${prefix}phone`}
             type="tel"
             placeholder="010-0000-0000"
-            {...register(`${prefix}phone`)}
+            {...register(`${prefix}phone` as Path<T>)}
             disabled={disabled}
           />
           {getError('phone') && (
-            <p className="text-sm text-destructive">{getError('phone').message}</p>
+            <p className="text-sm text-destructive">{getError('phone')?.message}</p>
           )}
         </div>
 
@@ -174,11 +182,11 @@ export function GuardianFormFields({ form, prefix = '', disabled = false }: Guar
             id={`${prefix}email`}
             type="email"
             placeholder="example@email.com"
-            {...register(`${prefix}email`)}
+            {...register(`${prefix}email` as Path<T>)}
             disabled={disabled}
           />
           {getError('email') && (
-            <p className="text-sm text-destructive">{getError('email').message}</p>
+            <p className="text-sm text-destructive">{getError('email')?.message}</p>
           )}
         </div>
       </div>
