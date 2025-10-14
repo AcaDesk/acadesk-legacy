@@ -32,7 +32,6 @@ import { getErrorMessage } from '@/lib/error-handlers'
 export default function VerifyTodosPage() {
   // All Hooks must be called before any early returns
   const [pendingTodos, setPendingTodos] = useState<StudentTodoWithStudent[]>([])
-  const [filteredTodos, setFilteredTodos] = useState<StudentTodoWithStudent[]>([])
   const [selectedTodos, setSelectedTodos] = useState<Set<string>>(new Set())
   const [feedbackDialog, setFeedbackDialog] = useState(false)
   const [detailDialog, setDetailDialog] = useState(false)
@@ -40,13 +39,6 @@ export default function VerifyTodosPage() {
   const [currentTodo, setCurrentTodo] = useState<StudentTodoWithStudent | null>(null)
   const [feedback, setFeedback] = useState('')
   const [loading, setLoading] = useState(false)
-
-  // Filter & Sort states
-  const [searchTerm, setSearchTerm] = useState('')
-  const [subjectFilter, setSubjectFilter] = useState<string>('all')
-  const [priorityFilter, setPriorityFilter] = useState<string>('all')
-  const [sortBy, setSortBy] = useState<'completed_at' | 'due_date' | 'priority' | 'student_name'>('completed_at')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
   const { toast } = useToast()
   const supabase = createClient()
@@ -58,11 +50,6 @@ export default function VerifyTodosPage() {
       loadPendingTodos()
     }
   }, [currentUser])
-
-  // Apply filters and sorting whenever data or filter/sort options change
-  useEffect(() => {
-    applyFiltersAndSort()
-  }, [pendingTodos, searchTerm, subjectFilter, priorityFilter, sortBy, sortOrder])
 
   async function loadPendingTodos() {
     if (!currentUser) return
@@ -280,7 +267,7 @@ export default function VerifyTodosPage() {
                               )}
                               <span>•</span>
                               <span>
-                                {formatDate(new Date(todo.completed_at), 'MM/dd HH:mm', { locale: ko })}
+                                {todo.completed_at ? formatDate(new Date(todo.completed_at), 'MM/dd HH:mm', { locale: ko }) : 'N/A'}
                               </span>
                             </div>
                           </div>
@@ -444,9 +431,9 @@ export default function VerifyTodosPage() {
                         완료 시간
                       </Label>
                       <p className="text-sm mt-1">
-                        {formatDate(new Date(currentTodo.completed_at), 'yyyy년 MM월 dd일 HH:mm', {
+                        {currentTodo.completed_at ? formatDate(new Date(currentTodo.completed_at), 'yyyy년 MM월 dd일 HH:mm', {
                           locale: ko,
-                        })}
+                        }) : 'N/A'}
                       </p>
                     </div>
                   </div>
