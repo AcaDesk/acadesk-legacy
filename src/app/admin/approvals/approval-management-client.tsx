@@ -47,7 +47,7 @@ interface PendingUser {
   tenants: {
     name: string
     slug: string
-  }
+  }[]
 }
 
 interface RecentDecision {
@@ -59,7 +59,7 @@ interface RecentDecision {
   created_at: string
   tenants: {
     name: string
-  }
+  }[]
 }
 
 interface ApprovalManagementClientProps {
@@ -287,7 +287,7 @@ export function ApprovalManagementClient({
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Building2 className="h-4 w-4 text-muted-foreground" />
-                            {user.tenants.name}
+                            {user.tenants[0]?.name || '-'}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -361,7 +361,7 @@ export function ApprovalManagementClient({
                       <TableRow key={decision.id}>
                         <TableCell className="font-medium">{decision.name}</TableCell>
                         <TableCell>{decision.email}</TableCell>
-                        <TableCell>{decision.tenants.name}</TableCell>
+                        <TableCell>{decision.tenants[0]?.name || '-'}</TableCell>
                         <TableCell>{getStatusBadge(decision.approval_status)}</TableCell>
                         <TableCell>
                           {new Date(decision.approved_at).toLocaleString("ko-KR")}
