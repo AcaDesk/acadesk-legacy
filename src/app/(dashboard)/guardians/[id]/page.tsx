@@ -17,21 +17,21 @@ import { Maintenance } from '@/components/layout/maintenance'
 interface GuardianDetail {
   id: string
   relationship: string | null
-  users: {
+  users: Array<{
     name: string
     email: string | null
     phone: string | null
-  } | null
+  }>
   student_guardians: Array<{
     is_primary: boolean
-    students: {
+    students: Array<{
       id: string
       student_code: string
       grade: string | null
-      users: {
+      users: Array<{
         name: string
-      } | null
-    } | null
+      }>
+    }>
   }>
 }
 
@@ -90,7 +90,7 @@ export default function GuardianDetailPage() {
         throw new Error('보호자 정보를 찾을 수 없습니다.')
       }
 
-      setGuardian(data as GuardianDetail)
+      setGuardian(data as unknown as GuardianDetail)
     } catch (error) {
       console.error('Error loading guardian:', error)
       toast({
@@ -145,12 +145,12 @@ export default function GuardianDetailPage() {
               보호자 관리
             </button>
             <ChevronRight className="h-4 w-4" />
-            <span className="text-foreground font-medium">{guardian.users?.name || '이름 없음'}</span>
+            <span className="text-foreground font-medium">{guardian.users?.[0]?.name || '이름 없음'}</span>
           </nav>
 
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold">{guardian.users?.name || '이름 없음'}</h1>
+              <h1 className="text-3xl font-bold">{guardian.users?.[0]?.name || '이름 없음'}</h1>
               <p className="text-muted-foreground">
                 {guardian.relationship ? `${guardian.relationship} · ` : ''}보호자
               </p>
@@ -170,19 +170,19 @@ export default function GuardianDetailPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {guardian.users?.phone && (
+                {guardian.users?.[0]?.phone && (
                   <div className="flex items-center gap-2">
                     <Phone className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{guardian.users.phone}</span>
+                    <span className="text-sm">{guardian.users[0].phone}</span>
                   </div>
                 )}
-                {guardian.users?.email && (
+                {guardian.users?.[0]?.email && (
                   <div className="flex items-center gap-2">
                     <Mail className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{guardian.users.email}</span>
+                    <span className="text-sm">{guardian.users[0].email}</span>
                   </div>
                 )}
-                {!guardian.users?.phone && !guardian.users?.email && (
+                {!guardian.users?.[0]?.phone && !guardian.users?.[0]?.email && (
                   <p className="text-sm text-muted-foreground">연락처 정보 없음</p>
                 )}
               </div>
@@ -231,7 +231,7 @@ export default function GuardianDetailPage() {
                           <div>
                             <div className="flex items-center gap-2">
                               <div className="font-medium">
-                                {sg.students?.users?.name || '이름 없음'}
+                                {sg.students?.[0]?.users?.[0]?.name || '이름 없음'}
                               </div>
                               {sg.is_primary && (
                                 <Badge variant="default" className="text-xs">
@@ -240,8 +240,8 @@ export default function GuardianDetailPage() {
                               )}
                             </div>
                             <div className="text-sm text-muted-foreground">
-                              {sg.students?.student_code || '학번 없음'}
-                              {sg.students?.grade && ` · ${sg.students.grade}`}
+                              {sg.students?.[0]?.student_code || '학번 없음'}
+                              {sg.students?.[0]?.grade && ` · ${sg.students[0].grade}`}
                             </div>
                           </div>
                         </div>
@@ -249,7 +249,7 @@ export default function GuardianDetailPage() {
                           variant="outline"
                           size="sm"
                           onClick={() =>
-                            sg.students?.id && router.push(`/students/${sg.students.id}`)
+                            sg.students?.[0]?.id && router.push(`/students/${sg.students[0].id}`)
                           }
                         >
                           학생 상세
