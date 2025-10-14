@@ -349,13 +349,10 @@ export class AttendanceRepository {
   }> {
     const supabase = await createClient();
 
-    let query = supabase
-      .from('attendance')
-      .select('status')
-      .eq('student_id', studentId);
+    let data, error;
 
     if (startDate || endDate) {
-      query = supabase
+      let dateQuery = supabase
         .from('attendance')
         .select(
           `
@@ -368,15 +365,24 @@ export class AttendanceRepository {
         .eq('student_id', studentId);
 
       if (startDate) {
-        query = query.gte('session.session_date', startDate);
+        dateQuery = dateQuery.gte('session.session_date', startDate);
       }
 
       if (endDate) {
-        query = query.lte('session.session_date', endDate);
+        dateQuery = dateQuery.lte('session.session_date', endDate);
       }
-    }
 
-    const { data, error } = await query;
+      const result = await dateQuery;
+      data = result.data;
+      error = result.error;
+    } else {
+      const result = await supabase
+        .from('attendance')
+        .select('status')
+        .eq('student_id', studentId);
+      data = result.data;
+      error = result.error;
+    }
 
     if (error) throw error;
 
