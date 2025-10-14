@@ -1,8 +1,11 @@
 -- ============================================================
--- 05) RLS (Row Level Security)
+-- 05) RLS (Row Level Security)  — Hardened Version
 -- ------------------------------------------------------------
--- Purpose: Enable RLS and define all row-level policies
+-- Purpose: Enable RLS and define least-privilege policies
 -- Prerequisites: 01_extensions.sql, 02_schema.sql, 03_helpers.sql
+-- Notes:
+--  - Uses helper fns: current_user_tenant_id(), is_owner(), is_teacher(), is_ta(), is_staff()
+--  - Idempotent via DO $$ ... exception when duplicate_object ...
 -- ============================================================
 
 -- 1) Enable RLS on all relevant tables
@@ -35,7 +38,14 @@ do $$ begin
     using (id = public.current_user_tenant_id());
 exception when duplicate_object then null; end $$;
 
--- users: 같은 테넌트만 조회, 본인 업데이트 허용, 스태프는 같은 테넌트 사용자 업데이트 허용
+-- users: 본인 레코드 또는 같은 테넌트 조회 가능, 본인/스태프 업데이트
+do $$ begin
+  create policy users_self_select
+    on public.users
+    for select
+    using (id = auth.uid());
+exception when duplicate_object then null; end $$;
+
 do $$ begin
   create policy users_same_tenant_select
     on public.users
@@ -89,43 +99,95 @@ do $$ begin
     using (tenant_id = public.current_user_tenant_id() and public.is_owner());
 exception when duplicate_object then null; end $$;
 
--- guardians: 같은 테넌트 전체 권한
+-- guardians: 읽기 same-tenant, 쓰기 staff, 삭제 owner
 do $$ begin
-  create policy guardians_same_tenant_all
+  drop policy if exists guardians_same_tenant_all on public.guardians;
+  create policy guardians_read_same_tenant
     on public.guardians
-    for all
-    using (tenant_id = public.current_user_tenant_id())
+    for select
+    using (tenant_id = public.current_user_tenant_id());
+  create policy guardians_write_staff
+    on public.guardians
+    for insert
+    with check (tenant_id = public.current_user_tenant_id() and public.is_staff());
+  create policy guardians_update_staff
+    on public.guardians
+    for update
+    using (tenant_id = public.current_user_tenant_id() and public.is_staff())
     with check (tenant_id = public.current_user_tenant_id());
+  create policy guardians_delete_owner
+    on public.guardians
+    for delete
+    using (tenant_id = public.current_user_tenant_id() and public.is_owner());
 exception when duplicate_object then null; end $$;
 
--- student_guardians: 같은 테넌트 전체 권한
+-- student_guardians: 읽기 same-tenant, 쓰기 staff, 삭제 owner
 do $$ begin
-  create policy sg_same_tenant_all
+  drop policy if exists sg_same_tenant_all on public.student_guardians;
+  create policy sg_read_same_tenant
     on public.student_guardians
-    for all
-    using (tenant_id = public.current_user_tenant_id())
+    for select
+    using (tenant_id = public.current_user_tenant_id());
+  create policy sg_write_staff
+    on public.student_guardians
+    for insert
+    with check (tenant_id = public.current_user_tenant_id() and public.is_staff());
+  create policy sg_update_staff
+    on public.student_guardians
+    for update
+    using (tenant_id = public.current_user_tenant_id() and public.is_staff())
     with check (tenant_id = public.current_user_tenant_id());
+  create policy sg_delete_owner
+    on public.student_guardians
+    for delete
+    using (tenant_id = public.current_user_tenant_id() and public.is_owner());
 exception when duplicate_object then null; end $$;
 
--- subjects: 같은 테넌트 전체 권한
+-- subjects: 읽기 same-tenant, 쓰기 staff, 삭제 owner
 do $$ begin
-  create policy subjects_same_tenant_all
+  drop policy if exists subjects_same_tenant_all on public.subjects;
+  create policy subjects_read_same_tenant
     on public.subjects
-    for all
-    using (tenant_id = public.current_user_tenant_id())
+    for select
+    using (tenant_id = public.current_user_tenant_id());
+  create policy subjects_write_staff
+    on public.subjects
+    for insert
+    with check (tenant_id = public.current_user_tenant_id() and public.is_staff());
+  create policy subjects_update_staff
+    on public.subjects
+    for update
+    using (tenant_id = public.current_user_tenant_id() and public.is_staff())
     with check (tenant_id = public.current_user_tenant_id());
+  create policy subjects_delete_owner
+    on public.subjects
+    for delete
+    using (tenant_id = public.current_user_tenant_id() and public.is_owner());
 exception when duplicate_object then null; end $$;
 
--- classes: 같은 테넌트 전체 권한
+-- classes: 읽기 same-tenant, 쓰기 staff, 삭제 owner
 do $$ begin
-  create policy classes_same_tenant_all
+  drop policy if exists classes_same_tenant_all on public.classes;
+  create policy classes_read_same_tenant
     on public.classes
-    for all
-    using (tenant_id = public.current_user_tenant_id())
+    for select
+    using (tenant_id = public.current_user_tenant_id());
+  create policy classes_write_staff
+    on public.classes
+    for insert
+    with check (tenant_id = public.current_user_tenant_id() and public.is_staff());
+  create policy classes_update_staff
+    on public.classes
+    for update
+    using (tenant_id = public.current_user_tenant_id() and public.is_staff())
     with check (tenant_id = public.current_user_tenant_id());
+  create policy classes_delete_owner
+    on public.classes
+    for delete
+    using (tenant_id = public.current_user_tenant_id() and public.is_owner());
 exception when duplicate_object then null; end $$;
 
--- class_enrollments: 조회는 같은 테넌트, 쓰기는 owner/teacher
+-- class_enrollments: 읽기 same-tenant, 쓰기 owner/teacher, 삭제 owner/teacher
 do $$ begin
   create policy enroll_read_same_tenant
     on public.class_enrollments
@@ -167,37 +229,85 @@ do $$ begin
     );
 exception when duplicate_object then null; end $$;
 
--- attendance_sessions: 같은 테넌트 전체 권한
+-- attendance_sessions: 읽기 same-tenant, 쓰기 staff, 삭제 owner
 do $$ begin
-  create policy att_sess_same_tenant_all
+  drop policy if exists att_sess_same_tenant_all on public.attendance_sessions;
+  create policy att_sess_read_same_tenant
     on public.attendance_sessions
-    for all
-    using (tenant_id = public.current_user_tenant_id())
+    for select
+    using (tenant_id = public.current_user_tenant_id());
+  create policy att_sess_write_staff
+    on public.attendance_sessions
+    for insert
+    with check (tenant_id = public.current_user_tenant_id() and public.is_staff());
+  create policy att_sess_update_staff
+    on public.attendance_sessions
+    for update
+    using (tenant_id = public.current_user_tenant_id() and public.is_staff())
     with check (tenant_id = public.current_user_tenant_id());
+  create policy att_sess_delete_owner
+    on public.attendance_sessions
+    for delete
+    using (tenant_id = public.current_user_tenant_id() and public.is_owner());
 exception when duplicate_object then null; end $$;
 
--- attendance: 같은 테넌트 전체 권한
+-- attendance: 읽기 same-tenant, 쓰기 staff, 삭제 owner
 do $$ begin
-  create policy att_same_tenant_all
+  drop policy if exists att_same_tenant_all on public.attendance;
+  create policy att_read_same_tenant
     on public.attendance
-    for all
-    using (tenant_id = public.current_user_tenant_id())
+    for select
+    using (tenant_id = public.current_user_tenant_id());
+  create policy att_write_staff
+    on public.attendance
+    for insert
+    with check (tenant_id = public.current_user_tenant_id() and public.is_staff());
+  create policy att_update_staff
+    on public.attendance
+    for update
+    using (tenant_id = public.current_user_tenant_id() and public.is_staff())
     with check (tenant_id = public.current_user_tenant_id());
+  create policy att_delete_owner
+    on public.attendance
+    for delete
+    using (tenant_id = public.current_user_tenant_id() and public.is_owner());
 exception when duplicate_object then null; end $$;
 
--- student_schedules: 같은 테넌트 전체 권한
+-- student_schedules: 읽기 same-tenant, 쓰기 staff, 삭제 owner
 do $$ begin
-  create policy sched_same_tenant_all
+  drop policy if exists sched_same_tenant_all on public.student_schedules;
+  create policy sched_read_same_tenant
     on public.student_schedules
-    for all
-    using (tenant_id = public.current_user_tenant_id())
+    for select
+    using (tenant_id = public.current_user_tenant_id());
+  create policy sched_write_staff
+    on public.student_schedules
+    for insert
+    with check (tenant_id = public.current_user_tenant_id() and public.is_staff());
+  create policy sched_update_staff
+    on public.student_schedules
+    for update
+    using (tenant_id = public.current_user_tenant_id() and public.is_staff())
     with check (tenant_id = public.current_user_tenant_id());
+  create policy sched_delete_owner
+    on public.student_schedules
+    for delete
+    using (tenant_id = public.current_user_tenant_id() and public.is_owner());
 exception when duplicate_object then null; end $$;
 
 -- student_todos:
---   - 생성/수정/삭제: owner 또는 teacher
---   - 학생 본인은 자신의 항목 조회 가능
---   - 학생 본인은 자신의 항목을 완료(complete) 갱신 허용(검증 전까지만)
+--   - 스태프: same-tenant 읽기 + 생성/수정/삭제
+--   - 학생: 본인 항목 읽기 + 완료 체크(검증 전까지만)
+do $$ begin
+  create policy todos_staff_read_same_tenant
+    on public.student_todos
+    for select
+    using (
+      tenant_id = public.current_user_tenant_id()
+      and (public.is_owner() or public.is_teacher() or public.is_ta())
+    );
+exception when duplicate_object then null; end $$;
+
 do $$ begin
   create policy todos_insert_teacher_plus
     on public.student_todos
@@ -283,7 +393,7 @@ do $$ begin
     );
 exception when duplicate_object then null; end $$;
 
--- tenant_invitations: 같은 테넌트 + owner만 조회/등록
+-- tenant_invitations: 같은 테넌트 + owner만 조회/등록/업데이트/삭제
 do $$ begin
   create policy inv_owner_read
     on public.tenant_invitations
@@ -298,20 +408,61 @@ do $$ begin
     with check (tenant_id = public.current_user_tenant_id() and public.is_owner());
 exception when duplicate_object then null; end $$;
 
--- in_app_notifications: 같은 테넌트 전체 권한
 do $$ begin
-  create policy notif_same_tenant_all
-    on public.in_app_notifications
-    for all
-    using (tenant_id = public.current_user_tenant_id())
+  create policy inv_owner_update
+    on public.tenant_invitations
+    for update
+    using (tenant_id = public.current_user_tenant_id() and public.is_owner())
     with check (tenant_id = public.current_user_tenant_id());
 exception when duplicate_object then null; end $$;
 
--- student_activity_logs: 같은 테넌트 전체 권한
 do $$ begin
-  create policy logs_same_tenant_all
-    on public.student_activity_logs
-    for all
-    using (tenant_id = public.current_user_tenant_id())
+  create policy inv_owner_delete
+    on public.tenant_invitations
+    for delete
+    using (tenant_id = public.current_user_tenant_id() and public.is_owner());
+exception when duplicate_object then null; end $$;
+
+-- in_app_notifications: 읽기 same-tenant, 쓰기 staff, 삭제 owner
+do $$ begin
+  drop policy if exists notif_same_tenant_all on public.in_app_notifications;
+  create policy notif_read_same_tenant
+    on public.in_app_notifications
+    for select
+    using (tenant_id = public.current_user_tenant_id());
+  create policy notif_write_staff
+    on public.in_app_notifications
+    for insert
+    with check (tenant_id = public.current_user_tenant_id() and public.is_staff());
+  create policy notif_update_staff
+    on public.in_app_notifications
+    for update
+    using (tenant_id = public.current_user_tenant_id() and public.is_staff())
     with check (tenant_id = public.current_user_tenant_id());
+  create policy notif_delete_owner
+    on public.in_app_notifications
+    for delete
+    using (tenant_id = public.current_user_tenant_id() and public.is_owner());
+exception when duplicate_object then null; end $$;
+
+-- student_activity_logs: 읽기 same-tenant, 쓰기 staff, 삭제 owner
+do $$ begin
+  drop policy if exists logs_same_tenant_all on public.student_activity_logs;
+  create policy logs_read_same_tenant
+    on public.student_activity_logs
+    for select
+    using (tenant_id = public.current_user_tenant_id());
+  create policy logs_write_staff
+    on public.student_activity_logs
+    for insert
+    with check (tenant_id = public.current_user_tenant_id() and public.is_staff());
+  create policy logs_update_staff
+    on public.student_activity_logs
+    for update
+    using (tenant_id = public.current_user_tenant_id() and public.is_staff())
+    with check (tenant_id = public.current_user_tenant_id());
+  create policy logs_delete_owner
+    on public.student_activity_logs
+    for delete
+    using (tenant_id = public.current_user_tenant_id() and public.is_owner());
 exception when duplicate_object then null; end $$;

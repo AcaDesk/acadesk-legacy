@@ -8,6 +8,10 @@
 
 -- ============================================================
 -- 1. Onboarding: handle user creation (auth.users → public.users)
+--    - role: 'admin' 이 오면 'owner'로 정규화
+--    - academy_name 비었으면 이메일 로컬파트로 기본값
+--    - slug 충돌 시 -1, -2 ... suffix 부여
+--    - 초대 토큰(invitation_token) 있으면 기존 테넌트 합류
 -- ============================================================
 
 create or replace function public.handle_user_created()
@@ -21,12 +25,17 @@ declare
   _role text;
   _academy_name text;
   _invitation_token text;
+  _slug text;
+  _base_slug text;
+  _n int := 0;
 begin
   _role := coalesce(new.raw_user_meta_data->>'role', 'owner');
-  _academy_name := coalesce(new.raw_user_meta_data->>'academy_name', 'My Academy');
+  if _role = 'admin' then _role := 'owner'; end if;
+
+  _academy_name := coalesce(nullif(new.raw_user_meta_data->>'academy_name',''), split_part(coalesce(new.email,''),'@',1));
   _invitation_token := new.raw_user_meta_data->>'invitation_token';
 
-  -- 초대 토큰이 있는 경우: 기존 학원에 합류
+  -- 초대 합류 경로
   if _invitation_token is not null then
     update public.tenant_invitations
       set status = 'accepted', accepted_at = now(), accepted_by = new.id
@@ -48,23 +57,29 @@ begin
     end if;
   end if;
 
-  -- owner인 경우 신규 학원 생성
+  -- owner 신규 학원 생성
   if _role = 'owner' then
+    _base_slug := lower(regexp_replace(coalesce(_academy_name,'my-academy'), '\s+', '-', 'g'));
+    _slug := _base_slug;
+    -- slug 충돌 회피
+    while exists (select 1 from public.tenants where slug = _slug) loop
+      _n := _n + 1;
+      _slug := _base_slug || '-' || _n::text;
+    end loop;
+
     insert into public.tenants(name, slug)
-    values (
-      _academy_name,
-      lower(replace(_academy_name, ' ', '-'))
-    )
+    values (_academy_name, _slug)
     returning id into _tenant_id;
 
-    insert into public.users(id, tenant_id, email, name, role_code, approval_status)
+    insert into public.users(id, tenant_id, email, name, role_code, approval_status, onboarding_completed)
     values (
       new.id,
       _tenant_id,
       coalesce(new.email, public.primary_email(new.id)),
       coalesce(new.raw_user_meta_data->>'name', 'Unknown'),
       'owner',
-      'approved'
+      'approved',
+      false
     );
   end if;
 
@@ -127,7 +142,6 @@ for each row execute function public.sync_student_name_from_user();
 -- 4. Auto-updated_at triggers
 -- ============================================================
 
--- 각 테이블별 updated_at 자동 갱신
 drop trigger if exists trg_u_tenants on public.tenants;
 create trigger trg_u_tenants
 before update on public.tenants
@@ -207,7 +221,7 @@ returns trigger
 language plpgsql
 as $$
 begin
-  if new.kiosk_pin is not null and new.kiosk_pin <> old.kiosk_pin then
+  if new.kiosk_pin is not null and (tg_op = 'INSERT' or new.kiosk_pin <> old.kiosk_pin) then
     new.kiosk_pin := crypt(new.kiosk_pin, gen_salt('bf'));
   end if;
   return new;
