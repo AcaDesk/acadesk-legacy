@@ -31,14 +31,28 @@ const itemVariants = {
   },
 }
 
+interface ClassEnrollment {
+  id: string
+  class_id: string
+  status: string
+  enrolled_at: string
+  end_date: string | null
+  withdrawal_reason: string | null
+  notes: string | null
+  classes: {
+    id: string
+    name: string
+  } | null
+}
+
 export function LearningStatusTab() {
   const router = useRouter()
   const { student, onRefresh } = useStudentDetail()
 
   // 수강 중인 과목 수
-  const activeEnrollments = student.class_enrollments?.filter((ce: unknown) => ce.status === 'active') || []
+  const activeEnrollments = (student.class_enrollments as unknown as ClassEnrollment[])?.filter((ce) => ce.status === 'active') || []
   const totalEnrollments = student.class_enrollments?.length || 0
-  const completedEnrollments = student.class_enrollments?.filter((ce: unknown) => ce.status === 'completed').length || 0
+  const completedEnrollments = (student.class_enrollments as unknown as ClassEnrollment[])?.filter((ce) => ce.status === 'completed').length || 0
 
   return (
     <motion.div
@@ -111,8 +125,8 @@ export function LearningStatusTab() {
       {student.class_enrollments && student.class_enrollments.length > 0 ? (
         <motion.div variants={itemVariants}>
         <ClassEnrollmentsList
-          enrollments={student.class_enrollments as unknown}
-          onUpdate={onRefresh}
+          enrollments={student.class_enrollments as unknown as ClassEnrollment[]}
+          onUpdate={onRefresh || (() => {})}
         />
         </motion.div>
       ) : (
@@ -142,7 +156,7 @@ export function LearningStatusTab() {
         <CardContent>
           {activeEnrollments.length > 0 ? (
             <div className="space-y-4">
-              {activeEnrollments.map((ce: unknown) => (
+              {activeEnrollments.map((ce) => (
                 <ClassProgressCard
                   key={ce.id}
                   studentId={student.id}
