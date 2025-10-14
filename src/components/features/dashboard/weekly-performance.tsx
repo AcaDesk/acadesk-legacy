@@ -52,9 +52,9 @@ export function WeeklyPerformance({ data }: WeeklyPerformanceProps) {
   const thisWeekReports = weeklyData.reduce((sum, day) => sum + day.리포트생성, 0)
 
   // 지난 주 대비 변화율 (더미 데이터)
-  const attendanceChange = 5.2
-  const todosChange = -2.1
-  const reportsChange = 12.5
+  const attendanceChange: number = 5.2
+  const todosChange: number = -2.1
+  const reportsChange: number = 12.5
 
   interface TooltipPayloadEntry {
     color?: string
