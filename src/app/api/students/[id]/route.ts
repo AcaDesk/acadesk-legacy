@@ -10,7 +10,7 @@ const updateStudentSchema = z.object({
   status: z.string().optional(),
   enrollment_date: z.string().optional(),
   withdrawal_date: z.string().optional(),
-  meta: z.record(z.unknown()).optional(),
+  meta: z.record(z.string(), z.unknown()).optional(),
 })
 
 /**
@@ -79,7 +79,7 @@ export async function PATCH(
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation failed', details: error.errors },
+        { error: 'Validation failed', details: error.issues },
         { status: 400 }
       )
     }
