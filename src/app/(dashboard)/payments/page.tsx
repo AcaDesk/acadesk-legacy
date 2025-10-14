@@ -249,7 +249,7 @@ export default function PaymentsPage() {
                       <li>청구 연월과 납부 기한을 설정합니다</li>
                       <li>기본 수강료(수업당 금액)를 입력합니다</li>
                       <li>청구할 학생을 선택하고 필요시 개별 금액을 조정합니다</li>
-                      <li>"청구서 생성" 버튼을 클릭하여 일괄 생성합니다</li>
+                      <li>&quot;청구서 생성&quot; 버튼을 클릭하여 일괄 생성합니다</li>
                     </ol>
                   </div>
                 </div>
