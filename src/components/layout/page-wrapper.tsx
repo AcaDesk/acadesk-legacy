@@ -4,7 +4,6 @@ import { motion } from "framer-motion"
 import { ReactNode } from "react"
 import { cn } from "@/lib/utils"
 import { createPageContainer } from "@/lib/design-system"
-import { PageHeader } from "@/components/ui/page-header"
 
 interface PageWrapperProps {
   children: ReactNode
