@@ -225,6 +225,9 @@ importers:
       '@types/react':
         specifier: ^19
         version: 19.1.15
+      '@types/react-big-calendar':
+        specifier: ^1.16.3
+        version: 1.16.3
       '@types/react-dom':
         specifier: ^19
         version: 19.1.9(@types/react@19.1.15)
@@ -1912,6 +1915,9 @@ packages:
   '@types/d3-timer@3.0.2':
     resolution: {integrity: sha512-Ps3T8E8dZDam6fUyNiMkekK3XUsaUEik+idO9/YjPtfj2qruF8tFBXS7XhtE4iIXBLxhmLjP3SXpLhVf21I9Lw==}
 
+  '@types/date-arithmetic@4.1.4':
+    resolution: {integrity: sha512-p9eZ2X9B80iKiTW4ukVj8B4K6q9/+xFtQ5MGYA5HWToY9nL4EkhV9+6ftT2VHpVMEZb5Tv00Iel516bVdO+yRw==}
+
   '@types/debug@4.1.12':
     resolution: {integrity: sha512-vIChWdVG3LG1SMxEvI/AK+FWJthlrqlTu7fbrlywTkkaONwk/UAGaULXRlf8vkzFBLVm0zkMdCquhL5aOjhXPQ==}
 
@@ -1953,6 +1959,12 @@ packages:
 
   '@types/phoenix@1.6.6':
     resolution: {integrity: sha512-PIzZZlEppgrpoT2QgbnDU+MMzuR6BbCjllj0bM70lWoejMeNJAxCchxnv7J3XFkI8MpygtRpzXrIlmWUBclP5A==}
+
+  '@types/prop-types@15.7.15':
+    resolution: {integrity: sha512-F6bEyamV9jKGAFBEmlQnesRPGOQqS2+Uwi0Em15xenOxHaf2hv6L8YCVn3rPdPJOiJfPiCnLIRyvwVaqMY3MIw==}
+
+  '@types/react-big-calendar@1.16.3':
+    resolution: {integrity: sha512-CR+5BKMhlr/wPgsp+sXOeNKNkoU1h/+6H1XoWuL7xnurvzGRQv/EnM8jPS9yxxBvXI8pjQBaJcI7RTSGiewG/Q==}
 
   '@types/react-dom@19.1.9':
     resolution: {integrity: sha512-qXRuZaOsAdXKFyOhRBg6Lqqc0yay13vN7KrIg4L7N4aaHN68ma9OK3NE1BoDFgFOTfM7zg+3/8+2n8rLUH3OKQ==}
@@ -6633,6 +6645,8 @@ snapshots:
 
   '@types/d3-timer@3.0.2': {}
 
+  '@types/date-arithmetic@4.1.4': {}
+
   '@types/debug@4.1.12':
     dependencies:
       '@types/ms': 2.1.0
@@ -6675,6 +6689,14 @@ snapshots:
       undici-types: 6.21.0
 
   '@types/phoenix@1.6.6': {}
+
+  '@types/prop-types@15.7.15': {}
+
+  '@types/react-big-calendar@1.16.3':
+    dependencies:
+      '@types/date-arithmetic': 4.1.4
+      '@types/prop-types': 15.7.15
+      '@types/react': 19.1.15
 
   '@types/react-dom@19.1.9(@types/react@19.1.15)':
     dependencies:
