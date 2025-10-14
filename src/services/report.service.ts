@@ -473,10 +473,10 @@ export class ReportGenerator {
 
     const chartData = await Promise.all(
       examScores.map(async (examScore) => {
-        const score = examScore as unknown as ExamScoreChartType
-        const examName = examScore.exams?.name || '시험'
-        const score = examScore.percentage || 0
-        const date = examScore.exams?.exam_date
+        const typedScore = examScore as unknown as ExamScoreChartType
+        const examName = typedScore.exams?.name || '시험'
+        const scoreValue = typedScore.percentage || 0
+        const date = typedScore.exams?.exam_date
 
         // 해당 시험의 반 평균 계산을 위해 exam_id가 필요
         // 여기서는 간단히 처리하고, 실제로는 exam_id를 통해 반 평균 계산 가능
