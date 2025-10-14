@@ -60,7 +60,6 @@ export class AttendanceService {
 
     // Validate that session date is not in the future beyond reasonable limit
     const sessionDate = new Date(validated.session_date);
-    const today = new Date();
     const maxFutureDate = new Date();
     maxFutureDate.setMonth(maxFutureDate.getMonth() + 3); // 3 months ahead
 
