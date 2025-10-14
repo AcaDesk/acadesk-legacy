@@ -138,8 +138,8 @@ export default function EditGuardianPage() {
       // Set selected students
       const connectedStudentIds =
         data.student_guardians
-          ?.map((sg: any) => sg.students?.[0]?.id)
-          .filter(Boolean) || []
+          ?.map((sg: { students: { id: string } | null }) => sg.students?.id)
+          .filter((id): id is string => Boolean(id)) || []
       setSelectedStudents(connectedStudentIds)
     } catch (error: unknown) {
       console.error('보호자 조회 오류:', error)
