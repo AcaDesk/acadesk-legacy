@@ -158,7 +158,7 @@ export class StudentService {
       .single()
 
     if (error) throw error
-    return data
+    return data as unknown as StudentClass[]
   }
 
   /**

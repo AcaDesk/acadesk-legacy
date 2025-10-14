@@ -41,13 +41,7 @@ import { z } from 'zod'
 import {
   BookOpen,
   Plus,
-type SubjectFormData = {
-  name: string
-  color: string
-  active: boolean
-  description?: string
-  code?: string
-}  Edit,
+  Edit,
   Trash2,
   Loader2,
   Palette,
@@ -84,7 +78,7 @@ export default function SubjectsPage() {
   const subjectRepo = new SubjectRepository(supabase)
 
   const form = useForm<SubjectFormValues>({
-    resolver: zodResolver(subjectFormSchema),
+    resolver: zodResolver(subjectFormSchema) as any,
     defaultValues: {
       name: '',
       description: '',
