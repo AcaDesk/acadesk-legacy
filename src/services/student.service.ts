@@ -44,8 +44,8 @@ export interface StudentGuardian {
       name: string
       email: string | null
       phone: string | null
-    }
-  }
+    }[]
+  }[]
 }
 
 export interface StudentClass {
@@ -82,7 +82,7 @@ export interface StudentExamScore {
     name: string
     exam_date: string
     class_id: string
-  }
+  }[]
 }
 
 export interface StudentTodo {
@@ -106,8 +106,8 @@ export interface StudentAttendance {
     scheduled_end_at: string
     classes: {
       name: string
-    }
-  }
+    }[]
+  }[]
 }
 
 export interface StudentInvoice {
@@ -158,7 +158,7 @@ export class StudentService {
       .single()
 
     if (error) throw error
-    return data as unknown as StudentClass[]
+    return data as unknown as StudentDetail | null
   }
 
   /**
@@ -253,8 +253,8 @@ export class StudentService {
 
     // Sort by exam_date client-side since we can't order by foreign table columns
     const sorted = (data || []).sort((a, b) => {
-      const dateA = new Date(a.exams.exam_date).getTime()
-      const dateB = new Date(b.exams.exam_date).getTime()
+      const dateA = new Date(a.exams[0]?.exam_date || 0).getTime()
+      const dateB = new Date(b.exams[0]?.exam_date || 0).getTime()
       return dateB - dateA // descending
     })
 
@@ -321,8 +321,8 @@ export class StudentService {
 
     // Sort by session_date client-side
     const sorted = (data || []).sort((a, b) => {
-      const dateA = new Date(a.attendance_sessions.session_date).getTime()
-      const dateB = new Date(b.attendance_sessions.session_date).getTime()
+      const dateA = new Date(a.attendance_sessions[0]?.session_date || 0).getTime()
+      const dateB = new Date(b.attendance_sessions[0]?.session_date || 0).getTime()
       return dateB - dateA // descending
     })
 
