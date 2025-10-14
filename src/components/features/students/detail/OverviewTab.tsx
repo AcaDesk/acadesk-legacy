@@ -146,7 +146,7 @@ export function OverviewTab() {
               <div>
                 <p className="text-xs text-muted-foreground">수강 중</p>
                 <p className="text-2xl font-bold">
-                  {student.class_enrollments?.filter((ce: any) => ce.status === 'active')
+                  {student.class_enrollments?.filter((ce: unknown) => ce.status === 'active')
                     .length || 0}
                   <span className="text-sm font-normal text-muted-foreground ml-1">
                     과목
