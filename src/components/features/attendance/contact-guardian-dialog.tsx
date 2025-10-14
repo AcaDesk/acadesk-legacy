@@ -85,8 +85,25 @@ export function ContactGuardianDialog({
       if (error) throw error
 
       // Extract guardian data from the nested structure
-      const guardianList = data
-        ?.map((item: unknown) => item.guardians)
+      interface StudentGuardianJoin {
+        guardians: {
+          id: string
+          relationship: string | null
+          users: {
+            id: string
+            name: string
+            email: string | null
+            phone: string | null
+          }[] | null
+        }[] | null
+      }
+
+      const guardianList = (data as unknown as StudentGuardianJoin[])
+        ?.flatMap((item) => (item.guardians || []).map(g => ({
+          id: g.id,
+          relationship: g.relationship,
+          users: g.users?.[0] || null
+        })))
         .filter(Boolean) || []
 
       setGuardians(guardianList)
