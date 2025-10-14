@@ -207,16 +207,19 @@ export function handleServerActionError(
  * Wrap async function with error handling
  * Usage: const safeFunction = withErrorHandling(asyncFunction)
  */
-export function withErrorHandling<T extends (...args: any[]) => Promise<any>>(
-  fn: T,
+export function withErrorHandling<
+  TArgs extends unknown[],
+  TReturn
+>(
+  fn: (...args: TArgs) => Promise<TReturn>,
   context?: Record<string, unknown>
-): T {
-  return (async (...args: Parameters<T>): Promise<ReturnType<T>> => {
+): (...args: TArgs) => Promise<TReturn> {
+  return async (...args: TArgs): Promise<TReturn> => {
     try {
       return await fn(...args)
     } catch (error) {
       logError(error, { ...context, args })
       throw error
     }
-  }) as T
+  }
 }
