@@ -25,7 +25,7 @@ interface ActivityLog {
   description: string
   created_at: string
   student_name?: string
-  metadata?: any
+  metadata?: unknown
 }
 
 interface RecentActivityFeedProps {
