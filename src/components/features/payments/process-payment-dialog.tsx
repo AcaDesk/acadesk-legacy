@@ -27,7 +27,7 @@ const paymentSchema = z.object({
   paid_amount: z.string().min(1, '입금액을 입력해주세요'),
   payment_date: z.string().min(1, '입금일을 선택해주세요'),
   payment_method: z.enum(['card', 'transfer', 'cash'], {
-    required_error: '결제 방법을 선택해주세요',
+    message: '결제 방법을 선택해주세요',
   }),
   reference_number: z.string().optional(),
   notes: z.string().optional(),
