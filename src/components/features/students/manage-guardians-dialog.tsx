@@ -115,15 +115,32 @@ export function ManageGuardiansDialog({
       if (error) throw error
 
       // Transform data to match GuardianWithUser type
-      const guardians: GuardianWithUser[] = (data || []).map((item: any) => ({
-        id: item.guardians.id,
-        user_id: item.guardians.user_id,
-        name: item.guardians.users.name,
-        phone: item.guardians.users.phone,
-        email: item.guardians.users.email,
-        relation: item.relationship,
-        is_primary: item.is_primary,
-      }))
+      interface GuardianStudentJoin {
+        relationship: string
+        is_primary: boolean
+        guardians: {
+          id: string
+          user_id: string
+          users: {
+            name: string
+            phone: string
+            email?: string | null
+          }
+        }
+      }
+
+      const guardians: GuardianWithUser[] = (data || []).map((item) => {
+        const typedItem = item as unknown as GuardianStudentJoin
+        return {
+          id: typedItem.guardians.id,
+          user_id: typedItem.guardians.user_id,
+          name: typedItem.guardians.users.name,
+          phone: typedItem.guardians.users.phone,
+          email: typedItem.guardians.users.email,
+          relation: typedItem.relationship,
+          is_primary: typedItem.is_primary,
+        }
+      })
 
       setLinkedGuardians(guardians)
     } catch (error) {
