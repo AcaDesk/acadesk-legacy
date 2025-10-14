@@ -16,8 +16,8 @@ interface TodayTasksProps {
 
 function getSessionStatus(session: TodaySession) {
   const now = new Date()
-  const startTime = new Date(session.scheduled_start_at)
-  const endTime = new Date(session.scheduled_end_at)
+  const startTime = new Date(session.scheduled_start)
+  const endTime = new Date(session.scheduled_end)
   const minutesUntilStart = Math.floor((startTime.getTime() - now.getTime()) / 60000)
 
   if (session.status === 'completed') return { label: '완료', variant: 'outline' as const, icon: CheckCircle }
@@ -122,10 +122,10 @@ export function TodayTasks({ upcomingSessions, unsentReports, pendingTodos }: To
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-sm truncate">
-                        {session.classes?.name || '수업'}
+                        {session.class_name || '수업'}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {formatTime(session.scheduled_start_at)} - {formatTime(session.scheduled_end_at)}
+                        {formatTime(session.scheduled_start)} - {formatTime(session.scheduled_end)}
                       </div>
                     </div>
                   </div>
