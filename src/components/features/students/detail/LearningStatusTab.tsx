@@ -36,9 +36,9 @@ export function LearningStatusTab() {
   const { student, onRefresh } = useStudentDetail()
 
   // 수강 중인 과목 수
-  const activeEnrollments = student.class_enrollments?.filter((ce: any) => ce.status === 'active') || []
+  const activeEnrollments = student.class_enrollments?.filter((ce: unknown) => ce.status === 'active') || []
   const totalEnrollments = student.class_enrollments?.length || 0
-  const completedEnrollments = student.class_enrollments?.filter((ce: any) => ce.status === 'completed').length || 0
+  const completedEnrollments = student.class_enrollments?.filter((ce: unknown) => ce.status === 'completed').length || 0
 
   return (
     <motion.div
@@ -142,7 +142,7 @@ export function LearningStatusTab() {
         <CardContent>
           {activeEnrollments.length > 0 ? (
             <div className="space-y-4">
-              {activeEnrollments.map((ce: any) => (
+              {activeEnrollments.map((ce: unknown) => (
                 <ClassProgressCard
                   key={ce.id}
                   studentId={student.id}
