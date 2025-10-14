@@ -75,8 +75,8 @@ interface Enrollment {
     student_code: string
     users: {
       name: string
-    } | null
-  } | null
+    }[]
+  }[]
 }
 
 interface ExamScore {
@@ -192,7 +192,8 @@ export default function ClassDetailPage() {
 
       // Calculate stats per student
       const studentsWithStats: StudentInClass[] = (enrollments as Enrollment[]).map((enrollment) => {
-        const student = enrollment.students
+        // Access the first element since Supabase returns arrays for joins
+        const student = enrollment.students?.[0]
         const studentId = enrollment.student_id
 
         // Calculate average score
@@ -215,7 +216,7 @@ export default function ClassDetailPage() {
           ? Math.round((completedCount / studentTodos.length) * 100)
           : 0
 
-        const userName = student?.users?.name
+        const userName = student?.users?.[0]?.name
 
         return {
           id: student?.id || '',
