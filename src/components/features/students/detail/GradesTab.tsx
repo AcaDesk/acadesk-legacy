@@ -53,17 +53,17 @@ export function GradesTab() {
   }))
 
   // 과목별 성적 분석 (최근 점수 기준)
-  const subjectScores = recentScores.reduce((acc: unknown, score) => {
+  const subjectScores = recentScores.reduce((acc: Record<string, number[]>, score) => {
     const subject = score.exams?.class_id || 'unknown'
     if (!acc[subject]) {
       acc[subject] = []
     }
     acc[subject].push(score.percentage)
     return acc
-  }, {})
+  }, {} as Record<string, number[]>)
 
   // 레이더 차트 데이터 (최신 성적 기준으로 과목별 평균)
-  const radarChartData = Object.entries(subjectScores).map(([subject, scores]: [string, any]) => ({
+  const radarChartData = Object.entries(subjectScores).map(([subject, scores]: [string, number[]]) => ({
     subject: subject.substring(0, 10), // 과목명 축약
     score: Math.round(scores.reduce((sum: number, s: number) => sum + s, 0) / scores.length),
   }))
