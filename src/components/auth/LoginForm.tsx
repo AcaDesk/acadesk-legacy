@@ -154,7 +154,7 @@ export function LoginForm({
         </Button>
 
         <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
-          <span className="relative z-10 bg-background px-2 text-muted-foreground">
+          <span className="relative z-10 bg-card px-2 text-muted-foreground">
             또는 이메일로 로그인
           </span>
         </div>
