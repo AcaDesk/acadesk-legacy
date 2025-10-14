@@ -5,6 +5,7 @@
 
 import { createClient as createServerClient } from "@/lib/supabase/server"
 import { createClient } from "@/lib/supabase/client"
+import type { OnboardingStateResponse } from "@/types/auth.types"
 
 export interface AcademySetupData {
   academyName: string
@@ -30,17 +31,24 @@ export class OnboardingService {
     try {
       const supabase = createClient()
 
-      // 1. tenant 정보 업데이트
-      const { data: userData, error: userError } = await supabase
-        .from("users")
-        .select("tenant_id")
-        .eq("id", userId)
+      // 1. RPC로 사용자 상태 조회 (RLS 우회)
+      const { data: state, error: stateError } = await supabase
+        .rpc("get_onboarding_state")
         .single()
 
-      if (userError || !userData?.tenant_id) {
+      if (stateError || !state) {
         return { success: false, error: "사용자 정보를 찾을 수 없습니다." }
       }
 
+      const onboardingState = state as OnboardingStateResponse
+
+      if (!onboardingState.tenant_id) {
+        return { success: false, error: "테넌트 정보를 찾을 수 없습니다." }
+      }
+
+      const tenantId = onboardingState.tenant_id
+
+      // 2. tenant 정보 업데이트
       const { error: tenantError } = await supabase
         .from("tenants")
         .update({
@@ -53,13 +61,13 @@ export class OnboardingService {
             subjects: data.subjects,
           },
         })
-        .eq("id", userData.tenant_id)
+        .eq("id", tenantId)
 
       if (tenantError) {
         return { success: false, error: "학원 정보 업데이트에 실패했습니다." }
       }
 
-      // 2. 사용자의 온보딩 완료 처리
+      // 3. 사용자의 온보딩 완료 처리
       const { error: updateError } = await supabase
         .from("users")
         .update({
@@ -89,17 +97,24 @@ export class OnboardingService {
     try {
       const supabase = await createServerClient()
 
-      // 1. tenant 정보 업데이트
-      const { data: userData, error: userError } = await supabase
-        .from("users")
-        .select("tenant_id")
-        .eq("id", userId)
+      // 1. RPC로 사용자 상태 조회 (RLS 우회)
+      const { data: state, error: stateError } = await supabase
+        .rpc("get_onboarding_state")
         .single()
 
-      if (userError || !userData?.tenant_id) {
+      if (stateError || !state) {
         return { success: false, error: "사용자 정보를 찾을 수 없습니다." }
       }
 
+      const onboardingState = state as OnboardingStateResponse
+
+      if (!onboardingState.tenant_id) {
+        return { success: false, error: "테넌트 정보를 찾을 수 없습니다." }
+      }
+
+      const tenantId = onboardingState.tenant_id
+
+      // 2. tenant 정보 업데이트
       const { error: tenantError } = await supabase
         .from("tenants")
         .update({
@@ -112,13 +127,13 @@ export class OnboardingService {
             subjects: data.subjects,
           },
         })
-        .eq("id", userData.tenant_id)
+        .eq("id", tenantId)
 
       if (tenantError) {
         return { success: false, error: "학원 정보 업데이트에 실패했습니다." }
       }
 
-      // 2. 사용자의 온보딩 완료 처리
+      // 3. 사용자의 온보딩 완료 처리
       const { error: updateError } = await supabase
         .from("users")
         .update({
@@ -140,6 +155,7 @@ export class OnboardingService {
 
   /**
    * 온보딩 상태 확인
+   * Uses RPC function to bypass RLS restrictions
    */
   static async checkOnboardingStatus(
     userId: string
@@ -152,22 +168,23 @@ export class OnboardingService {
     try {
       const supabase = createClient()
 
+      // Use RPC function instead of direct SELECT to bypass RLS
       const { data, error } = await supabase
-        .from("users")
-        .select("approval_status, onboarding_completed")
-        .eq("id", userId)
+        .rpc("get_onboarding_state")
         .single()
 
       if (error || !data) {
         return { needsApproval: false, needsOnboarding: false }
       }
 
+      const state = data as OnboardingStateResponse
+
       return {
-        needsApproval: data.approval_status === "pending",
+        needsApproval: state.approval_status === "pending",
         needsOnboarding:
-          data.approval_status === "approved" && !data.onboarding_completed,
-        approvalStatus: data.approval_status,
-        onboardingCompleted: data.onboarding_completed,
+          state.approval_status === "approved" && !state.onboarding_completed,
+        approvalStatus: state.approval_status,
+        onboardingCompleted: state.onboarding_completed,
       }
     } catch (error) {
       console.error("Check onboarding status error:", error)

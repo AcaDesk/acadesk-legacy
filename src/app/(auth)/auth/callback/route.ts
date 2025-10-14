@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
+import type { OnboardingStateResponse } from "@/types/auth.types"
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url)
@@ -26,16 +27,19 @@ export async function GET(request: Request) {
       return NextResponse.redirect(`${origin}/auth/login`)
     }
 
-    // 사용자 프로필에서 온보딩 완료 여부 확인
-    const { data: profile } = await supabase
-      .from("users")
-      .select("onboarding_completed")
-      .eq("id", user.id)
-      .single()
+    // RPC 함수로 온보딩 상태 확인 (RLS 우회)
+    const { data: state, error: stateError } = await supabase
+      .rpc("get_onboarding_state")
+      .single() as { data: OnboardingStateResponse | null; error: unknown }
+
+    if (stateError) {
+      console.error("Failed to get onboarding state:", stateError)
+      return NextResponse.redirect(`${origin}/auth/login`)
+    }
 
     // 온보딩이 완료되지 않았으면 온보딩 페이지로
-    if (!profile?.onboarding_completed) {
-      return NextResponse.redirect(`${origin}/auth/onboarding`)
+    if (!state?.onboarding_completed) {
+      return NextResponse.redirect(`${origin}/auth/onboarding?email=${encodeURIComponent(user.email || '')}`)
     }
 
     // 온보딩 완료된 사용자는 대시보드로

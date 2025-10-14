@@ -4,7 +4,12 @@
  */
 
 import { createClient } from "@/lib/supabase/client"
-import type { OnboardingFormData, Invitation } from "@/types/auth.types"
+import type {
+  OnboardingFormData,
+  Invitation,
+  OnboardingStateResponse,
+  InvitationValidationResponse,
+} from "@/types/auth.types"
 
 export const onboardingService = {
   /**
@@ -22,51 +27,77 @@ export const onboardingService = {
 
   /**
    * Check if user has completed onboarding
+   * Uses RPC function to bypass RLS restrictions
    */
   async checkOnboardingStatus(userId: string) {
     const supabase = createClient()
 
+    // Use RPC function instead of direct SELECT to bypass RLS
     const { data, error } = await supabase
-      .from("users")
-      .select("onboarding_completed, role_code")
-      .eq("id", userId)
+      .rpc("get_onboarding_state")
       .single()
 
-    return { data, error }
+    if (error || !data) {
+      return { data: null, error }
+    }
+
+    const state = data as OnboardingStateResponse
+
+    // Transform RPC response to expected format
+    return {
+      data: {
+        onboarding_completed: state.onboarding_completed,
+        role_code: state.role_code,
+      },
+      error: null,
+    }
   },
 
   /**
    * Validate invitation code
+   * Uses RPC function for secure validation
    */
   async validateInvitationCode(code: string) {
     const supabase = createClient()
 
+    // Use RPC function for validation (bypasses RLS)
     const { data, error } = await supabase
-      .from("staff_invitations")
-      .select("*")
-      .eq("token", code)
-      .eq("status", "pending")
+      .rpc("validate_invitation_token", { _token: code })
       .single()
 
     if (error || !data) {
-      return { invitation: null, error: error || new Error("Invalid invitation code") }
+      return { invitation: null, error: error || new Error("Failed to validate invitation") }
     }
 
-    // Check expiration
-    if (new Date(data.expires_at) < new Date()) {
-      return { invitation: null, error: new Error("Invitation expired") }
+    const validation = data as InvitationValidationResponse
+
+    // Check if valid
+    if (!validation.valid) {
+      const reason = validation.reason || "unknown"
+      let errorMessage = "Invalid invitation code"
+
+      if (reason === "not_found") {
+        errorMessage = "Invitation not found"
+      } else if (reason === "expired") {
+        errorMessage = "Invitation expired"
+      } else if (reason.startsWith("status_")) {
+        errorMessage = "Invitation already used"
+      }
+
+      return { invitation: null, error: new Error(errorMessage) }
     }
 
+    // Build invitation object from RPC response
     const invitation: Invitation = {
-      id: data.id,
-      tenantId: data.tenant_id,
-      invitedBy: data.invited_by,
-      email: data.email,
-      roleCode: data.role_code,
-      token: data.token,
-      status: data.status,
-      expiresAt: data.expires_at,
-      createdAt: data.created_at,
+      id: "", // RPC doesn't return ID - we'll fetch it separately if needed
+      tenantId: validation.tenant_id!,
+      invitedBy: "", // Not returned by RPC
+      email: validation.email!,
+      roleCode: validation.role_code!,
+      token: code,
+      status: "pending",
+      expiresAt: validation.expires_at!,
+      createdAt: "", // Not returned by RPC
     }
 
     return { invitation, error: null }

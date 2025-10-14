@@ -1,17 +1,20 @@
 /**
  * Custom hook to get current user and tenant information
- * Automatically creates user in public.users if not exists
+ * Uses RPC function to bypass RLS restrictions during onboarding
  */
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import type { OnboardingStateResponse } from '@/types/auth.types'
 
 interface CurrentUser {
   id: string
   tenantId: string
   email: string | null
   name: string
-  roleCode: string
+  roleCode: string | null
+  onboardingCompleted: boolean
+  approvalStatus: 'pending' | 'approved' | 'rejected'
 }
 
 interface UseCurrentUserResult {
@@ -20,8 +23,6 @@ interface UseCurrentUserResult {
   error: Error | null
   refetch: () => Promise<void>
 }
-
-const DEFAULT_TENANT_ID = 'a0000000-0000-0000-0000-000000000001'
 
 export function useCurrentUser(): UseCurrentUserResult {
   const [user, setUser] = useState<CurrentUser | null>(null)
@@ -35,7 +36,7 @@ export function useCurrentUser(): UseCurrentUserResult {
       setLoading(true)
       setError(null)
 
-      // Get auth user
+      // Get auth user first
       const {
         data: { user: authUser },
         error: authError,
@@ -44,57 +45,40 @@ export function useCurrentUser(): UseCurrentUserResult {
       if (authError) throw authError
       if (!authUser) throw new Error('Not authenticated')
 
-      // Get user data from public.users
-      const { data: userDataTemp, error: userError } = await supabase
-        .from('users')
-        .select('id, tenant_id, email, name, role_code')
-        .eq('id', authUser.id)
-        .maybeSingle()
+      // Use RPC function to get onboarding state (bypasses RLS)
+      const { data: state, error: rpcError } = await supabase
+        .rpc('get_onboarding_state')
+        .single()
 
-      let userData = userDataTemp;
-
-      if (userError) {
-        console.error('Error fetching user data:', userError)
-        throw new Error(`Failed to fetch user data: ${userError.message}`)
+      if (rpcError) {
+        console.error('Error fetching onboarding state:', rpcError)
+        throw new Error(`Failed to fetch user state: ${rpcError.message}`)
       }
 
-      // If user doesn't exist in public.users, create it
-      if (!userData) {
-        console.log('Creating user in public.users for auth user:', authUser.id)
-        const { data: newUserData, error: createError } = await supabase
-          .from('users')
-          .insert({
-            id: authUser.id,
-            tenant_id: DEFAULT_TENANT_ID,
-            email: authUser.email,
-            name: authUser.email?.split('@')[0] || 'User',
-            role_code: 'admin',
-          })
-          .select('id, tenant_id, email, name, role_code')
-          .maybeSingle()
+      const onboardingState = state as OnboardingStateResponse
 
-        if (createError) {
-          console.error('Error creating user:', createError)
-          throw new Error(`Failed to create user: ${createError.message}`)
-        }
-
-        userData = newUserData
+      // Check if user exists in public.users (trigger should have created it)
+      if (!onboardingState.app_user_exists) {
+        throw new Error('User not found in database. Please contact support.')
       }
 
-      if (!userData) {
-        throw new Error('User data not found')
+      // For dashboard access, require onboarding completion
+      if (!onboardingState.onboarding_completed) {
+        throw new Error('Onboarding not completed')
       }
 
-      if (!userData.tenant_id) {
+      if (!onboardingState.tenant_id) {
         throw new Error('User has no tenant_id')
       }
 
       setUser({
-        id: userData.id,
-        tenantId: userData.tenant_id,
-        email: userData.email,
-        name: userData.name,
-        roleCode: userData.role_code,
+        id: onboardingState.auth_user_id,
+        tenantId: onboardingState.tenant_id,
+        email: authUser.email || null,
+        name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
+        roleCode: onboardingState.role_code,
+        onboardingCompleted: onboardingState.onboarding_completed,
+        approvalStatus: onboardingState.approval_status,
       })
     } catch (err) {
       console.error('Error in useCurrentUser:', err)
