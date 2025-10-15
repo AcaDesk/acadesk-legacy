@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -58,13 +58,7 @@ export default function NewExamTemplatePage() {
   const supabase = createClient()
   const { user: currentUser, loading: userLoading } = useCurrentUser()
 
-  // useEffect must be called before any early returns
-  useEffect(() => {
-    loadCategories()
-    loadClasses()
-  }, [])
-
-  async function loadCategories() {
+  const loadCategories = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('ref_exam_categories')
@@ -77,9 +71,9 @@ export default function NewExamTemplatePage() {
     } catch (error) {
       console.error('Error loading categories:', error)
     }
-  }
+  }, [supabase])
 
-  async function loadClasses() {
+  const loadClasses = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('classes')
@@ -93,7 +87,13 @@ export default function NewExamTemplatePage() {
     } catch (error) {
       console.error('Error loading classes:', error)
     }
-  }
+  }, [supabase])
+
+  // useEffect must be called before any early returns
+  useEffect(() => {
+    loadCategories()
+    loadClasses()
+  }, [loadCategories, loadClasses])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
