@@ -46,12 +46,6 @@ interface GuardianData {
   }>
 }
 
-interface StudentGuardianRelation {
-  students: {
-    id: string
-  } | null
-}
-
 interface Student {
   id: string
   student_code: string
