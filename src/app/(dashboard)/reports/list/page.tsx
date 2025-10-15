@@ -66,10 +66,12 @@ export default function ReportsListPage() {
 
   useEffect(() => {
     loadData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
     filterReports()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, selectedStudent, selectedType, reports])
 
   async function loadData() {
