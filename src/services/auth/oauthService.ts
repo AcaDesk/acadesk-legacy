@@ -13,10 +13,13 @@ export const oauthService = {
   async signInWithOAuth(provider: OAuthProvider) {
     const supabase = createClient()
 
+    // 환경변수에서 앱 URL 가져오기, 없으면 현재 origin 사용
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
+
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${appUrl}/auth/callback`,
       },
     })
 

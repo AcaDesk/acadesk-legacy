@@ -30,11 +30,14 @@ export class AuthService {
   async signUp(data: SignUpData): Promise<AuthResult> {
     const { email, password, name, phone, academyName, role } = data
 
+    // 환경변수에서 앱 URL 가져오기, 없으면 현재 origin 사용
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
+
     const { data: authData, error } = await this.supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: `${appUrl}/auth/callback`,
         data: {
           name,
           phone,
@@ -89,8 +92,11 @@ export class AuthService {
    * 비밀번호 재설정 이메일 전송
    */
   async resetPassword(email: string): Promise<{ error: AuthError | null }> {
+    // 환경변수에서 앱 URL 가져오기, 없으면 현재 origin 사용
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
+
     const { error } = await this.supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/reset-password`,
+      redirectTo: `${appUrl}/auth/reset-password`,
     })
     return { error }
   }
