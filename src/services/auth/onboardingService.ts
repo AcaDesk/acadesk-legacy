@@ -139,7 +139,7 @@ export const onboardingService = {
         _user_id: userId,
         _name: data.name,
         _academy_name: data.academyName!,
-        _academy_code: null, // Auto-generated
+        _slug: null, // Auto-generated
       })
       .single()
 
