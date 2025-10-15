@@ -54,21 +54,25 @@ export default function PendingApprovalPage() {
       const user = await authService.getCurrentUser()
 
       if (user) {
-        // RPC 함수를 사용하여 승인 상태 확인
-        const { data: result } = await supabase.rpc('check_approval_status')
+        // 사용자 정보 직접 조회 (RLS: users_self_select 정책)
+        const { data: me, error: meErr } = await supabase
+          .from("users")
+          .select("approval_status, approval_reason, role_code")
+          .eq("id", user.id)
+          .maybeSingle()
 
-        if (!result?.success) {
+        if (meErr || !me) {
           if (!silent) {
             toast({
               title: "오류",
-              description: result?.error || "상태를 확인할 수 없습니다.",
+              description: "상태를 확인할 수 없습니다.",
               variant: "destructive",
             })
           }
           return
         }
 
-        if (result.status === "approved") {
+        if (me.approval_status === "approved") {
           if (!silent) {
             toast({
               title: "승인 완료",
@@ -77,8 +81,8 @@ export default function PendingApprovalPage() {
           }
           // 승인 완료 → 학원 설정 페이지로
           router.push("/onboarding/academy-setup")
-        } else if (result.status === "rejected") {
-          const reason = result.reason || APPROVAL_MESSAGES.rejected.description
+        } else if (me.approval_status === "rejected") {
+          const reason = me.approval_reason || APPROVAL_MESSAGES.rejected.description
           setRejectionReason(reason)
 
           if (!silent) {

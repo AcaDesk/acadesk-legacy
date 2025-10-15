@@ -161,7 +161,12 @@ function OnboardingForm() {
           setValue("name", name)
         }
 
-        const { data: profile } = await onboardingService.checkOnboardingStatus(user.id)
+        // 사용자 정보 직접 조회 (RLS: users_self_select 정책)
+        const { data: profile } = await supabase
+          .from("users")
+          .select("onboarding_completed")
+          .eq("id", user.id)
+          .maybeSingle()
 
         if (profile?.onboarding_completed) {
           router.push("/dashboard")
