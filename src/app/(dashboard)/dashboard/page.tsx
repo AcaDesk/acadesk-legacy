@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 }
 
 export default async function DashboardPage() {
-  // 인증 확인 및 tenant_id 조회
+  // 인증 확인 및 tenant_id 조회 (getCurrentTenantId는 자체적으로 인증을 확인하고 리다이렉트)
   const { supabase } = await getCurrentTenantId()
 
   const today = new Date().toISOString().split('T')[0]
