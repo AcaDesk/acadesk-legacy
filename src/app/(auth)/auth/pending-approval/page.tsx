@@ -72,11 +72,11 @@ export default function PendingApprovalPage() {
           if (!silent) {
             toast({
               title: "승인 완료",
-              description: "학원 대시보드로 이동합니다.",
+              description: "학원 설정 페이지로 이동합니다.",
             })
           }
-          // 온보딩이 완료되지 않았으면 온보딩 페이지로
-          router.push("/onboarding")
+          // 승인 완료 → 학원 설정 페이지로
+          router.push("/onboarding/academy-setup")
         } else if (result.status === "rejected") {
           const reason = result.reason || APPROVAL_MESSAGES.rejected.description
           setRejectionReason(reason)

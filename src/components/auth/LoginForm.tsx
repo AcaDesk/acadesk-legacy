@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Eye, EyeOff } from "lucide-react"
 import { authService } from "@/services/auth/auth.service"
 import { oauthService } from "@/services/auth/oauthService"
+import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import type { OAuthProvider } from "@/types/auth.types"
 import { getAuthErrorMessage, LOGIN_SUCCESS_MESSAGE, GENERIC_ERROR_MESSAGE } from "@/lib/auth-messages"
@@ -82,6 +83,45 @@ export function LoginForm({
         return
       }
 
+      // 로그인 성공 후 온보딩 및 승인 상태 확인
+      const supabase = createClient()
+
+      // 온보딩 상태 확인
+      const { data: onboardingState } = await supabase
+        .rpc("get_onboarding_state")
+        .single()
+
+      // 온보딩이 완료되지 않았으면 온보딩 페이지로
+      if (!onboardingState?.onboarding_completed) {
+        toast({
+          title: "추가 정보 입력 필요",
+          description: "서비스 이용을 위해 추가 정보를 입력해주세요.",
+        })
+        router.push("/auth/onboarding")
+        return
+      }
+
+      // 승인 상태 확인
+      const { data: approvalResult } = await supabase.rpc('check_approval_status')
+
+      if (approvalResult?.status === 'pending') {
+        toast({
+          title: "승인 대기 중",
+          description: "관리자 승인 후 서비스를 이용하실 수 있습니다.",
+        })
+        router.push("/auth/pending-approval")
+        return
+      } else if (approvalResult?.status === 'rejected') {
+        toast({
+          title: "승인 거부",
+          description: "가입 승인이 거부되었습니다. 자세한 사항은 문의해주세요.",
+          variant: "destructive",
+        })
+        await authService.signOut()
+        return
+      }
+
+      // 모든 검증 통과 - 대시보드로
       toast({
         title: LOGIN_SUCCESS_MESSAGE.title,
         description: LOGIN_SUCCESS_MESSAGE.description,
