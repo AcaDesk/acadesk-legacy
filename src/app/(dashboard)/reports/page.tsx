@@ -33,7 +33,7 @@ export default function ReportsPage() {
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear())
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1)
   const [reportData, setReportData] = useState<ReportData | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [loading] = useState = useState(false)
   const [generating, setGenerating] = useState(false)
 
   const { toast } = useToast()
@@ -45,6 +45,7 @@ export default function ReportsPage() {
 
   useEffect(() => {
     loadStudents()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function loadStudents() {
