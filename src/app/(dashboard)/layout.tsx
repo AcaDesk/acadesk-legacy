@@ -2,13 +2,15 @@
 
 import { useState, memo, useEffect } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { ChevronLeft, ChevronRight, User, Settings, LogOut, Menu } from "lucide-react"
+import { ChevronLeft, ChevronRight, User, Settings, LogOut, Menu, Loader2 } from "lucide-react"
 import { AppNav } from "@/components/layout/app-nav"
 import { HelpMenu } from "@/components/layout/help-menu"
 import { NotificationPopover } from "@/components/layout/notification-popover"
 import { ThemeToggle } from "@/components/layout/theme-toggle"
 import { Button } from "@/components/ui/button"
+import { useCurrentUser } from "@/hooks/use-current-user"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -163,11 +165,32 @@ const Header = memo(function Header({
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const router = useRouter()
+
+  // 온보딩 상태 확인 - tenant_id가 없으면 대시보드 접근 차단
+  const { user, loading, error } = useCurrentUser()
 
   // 태블릿 이상 여부 감지 (768px 이상에서 사이드바 표시)
   const isDesktop = useMediaQuery("(min-width: 768px)")
   // 큰 데스크톱 감지 (1024px 이상)
   const isLargeDesktop = useMediaQuery("(min-width: 1024px)")
+
+  // 온보딩 상태에 따라 리디렉션
+  useEffect(() => {
+    if (loading) return
+
+    if (error) {
+      // 온보딩 미완료 또는 tenant_id 없음
+      const errorMessage = error.message.toLowerCase()
+      if (errorMessage.includes('onboarding')) {
+        router.push('/auth/onboarding')
+      } else if (errorMessage.includes('tenant')) {
+        router.push('/auth/pending-approval')
+      } else {
+        router.push('/auth/login')
+      }
+    }
+  }, [loading, error, router])
 
   // 화면 크기에 따라 사이드바 자동 축소/펼침
   useEffect(() => {
@@ -181,6 +204,20 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const toggleSidebar = () => setIsCollapsed(!isCollapsed)
   const toggleMobileMenu = () => setMobileMenuOpen(!mobileMenuOpen)
+
+  // 로딩 중이거나 에러가 있으면 로딩 화면 표시
+  if (loading || error) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+          <p className="mt-4 text-muted-foreground">
+            {error ? '권한을 확인하는 중...' : '로딩 중...'}
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-screen overflow-hidden">
