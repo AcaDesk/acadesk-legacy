@@ -62,10 +62,12 @@ export default function ExamTemplatesPage() {
   // useEffect must be called before any early returns
   useEffect(() => {
     loadData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
     filterTemplates()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, templates])
 
   async function loadData() {
