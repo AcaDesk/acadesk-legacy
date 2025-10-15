@@ -61,6 +61,7 @@ export default function NewExamPage() {
   useEffect(() => {
     loadCategories()
     loadClasses()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function loadCategories() {
