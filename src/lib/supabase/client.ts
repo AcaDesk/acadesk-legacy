@@ -1,9 +1,16 @@
 import { createBrowserClient } from "@supabase/ssr"
 
 /**
- * 클라이언트 컴포넌트용 Supabase 클라이언트
+ * 브라우저 클라이언트용 Supabase 클라이언트
+ * ⚠️ 반드시 클라이언트 컴포넌트('use client')에서만 사용하세요!
+ * 서버 컴포넌트/API Route에서는 createServerClient() from '@/lib/supabase/server' 사용
+ *
+ * @example
+ * 'use client'
+ * import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+ * const supabase = createSupabaseBrowserClient()
  */
-export function createClient() {
+export function createSupabaseBrowserClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
@@ -22,3 +29,9 @@ export function createClient() {
 
   return createBrowserClient(supabaseUrl, supabaseAnonKey)
 }
+
+/**
+ * @deprecated Use createSupabaseBrowserClient() instead
+ * 이전 호환성을 위해 유지하지만, 새 코드에서는 createSupabaseBrowserClient() 사용 권장
+ */
+export const createClient = createSupabaseBrowserClient
