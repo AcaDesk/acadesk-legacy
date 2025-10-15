@@ -78,7 +78,7 @@ begin
       coalesce(new.email, public.primary_email(new.id)),
       coalesce(new.raw_user_meta_data->>'name', 'Unknown'),
       'owner',
-      'approved',
+      'pending',
       false
     );
   end if;
