@@ -55,7 +55,7 @@ export default function BulkReportsPage() {
   const [results, setResults] = useState<GenerationResult[]>([])
 
   const { toast } = useToast()
-  const router = useRouter()
+  // const router = useRouter()
   const supabase = createClient()
   const reportGenerator = new ReportGenerator()
 
@@ -64,6 +64,7 @@ export default function BulkReportsPage() {
 
   useEffect(() => {
     loadData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
