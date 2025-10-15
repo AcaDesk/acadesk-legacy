@@ -40,7 +40,7 @@ import {
 } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { UserPlus, Mail, Clock, CheckCircle, XCircle, Copy } from "lucide-react"
-import { InvitationService } from "@/services/invitation.service"
+import { invitationService } from "@/services/invitation.service"
 import { useToast } from "@/hooks/use-toast"
 
 interface StaffMember {
@@ -90,7 +90,7 @@ export function StaffManagementClient({
 
     setIsSubmitting(true)
     try {
-      const { success, invitationId, error } = await InvitationService.inviteStaff({
+      const { success, invitationId, error } = await invitationService.inviteStaff({
         email: inviteEmail,
         roleCode: inviteRole,
       })

@@ -125,10 +125,6 @@ export default function SignupForm({
       const { error } = await authService.signUp({
         email: data.email,
         password: data.password,
-        name: "", // 온보딩에서 입력받음
-        phone: "", // 온보딩에서 입력받음
-        academyName: "", // 온보딩에서 입력받음
-        role: "admin", // 온보딩에서 업데이트됨
       })
 
       if (error) {

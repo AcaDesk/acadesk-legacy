@@ -1,6 +1,7 @@
 /**
  * Onboarding Service
  * Data Access Layer for user onboarding logic
+ * Uses RPC functions for transaction-safe operations
  */
 
 import { createClient } from "@/lib/supabase/client"
@@ -34,12 +35,10 @@ export const onboardingService = {
     const supabase = createClient()
 
     // Use RPC function instead of direct SELECT to bypass RLS
-    const { data, error } = await supabase
-      .rpc("get_onboarding_state")
-      .single()
+    const { data, error } = await supabase.rpc("get_onboarding_state").single()
 
     if (error || !data) {
-      return { data: null, error }
+      return { data: null, error: error || new Error("온보딩 상태를 확인할 수 없습니다.") }
     }
 
     const state = data as OnboardingStateResponse
@@ -56,18 +55,21 @@ export const onboardingService = {
 
   /**
    * Validate invitation code
-   * Uses RPC function for secure validation
+   * Uses improved RPC function that returns FULL invitation object
    */
   async validateInvitationCode(code: string) {
     const supabase = createClient()
 
-    // Use RPC function for validation (bypasses RLS)
+    // Use RPC function for validation (bypasses RLS, returns full data)
     const { data, error } = await supabase
       .rpc("validate_invitation_token", { _token: code })
       .single()
 
     if (error || !data) {
-      return { invitation: null, error: error || new Error("Failed to validate invitation") }
+      return {
+        invitation: null,
+        error: error || new Error("초대장 검증에 실패했습니다."),
+      }
     }
 
     const validation = data as InvitationValidationResponse
@@ -75,30 +77,31 @@ export const onboardingService = {
     // Check if valid
     if (!validation.valid) {
       const reason = validation.reason || "unknown"
-      let errorMessage = "Invalid invitation code"
+      let errorMessage = "유효하지 않은 초대 코드입니다."
 
       if (reason === "not_found") {
-        errorMessage = "Invitation not found"
+        errorMessage = "초대장을 찾을 수 없습니다."
       } else if (reason === "expired") {
-        errorMessage = "Invitation expired"
+        errorMessage = "초대장이 만료되었습니다."
       } else if (reason.startsWith("status_")) {
-        errorMessage = "Invitation already used"
+        errorMessage = "이미 사용된 초대장입니다."
       }
 
       return { invitation: null, error: new Error(errorMessage) }
     }
 
-    // Build invitation object from RPC response
+    // Build invitation object from RPC response (Single Source of Truth)
+    // RPC now returns ALL fields, no manual assembly needed!
     const invitation: Invitation = {
-      id: "", // RPC doesn't return ID - we'll fetch it separately if needed
+      id: validation.id!,
       tenantId: validation.tenant_id!,
-      invitedBy: "", // Not returned by RPC
+      invitedBy: validation.created_by!,
       email: validation.email!,
       roleCode: validation.role_code!,
-      token: code,
-      status: "pending",
+      token: validation.token!,
+      status: (validation.status as Invitation["status"]) || "pending",
       expiresAt: validation.expires_at!,
-      createdAt: "", // Not returned by RPC
+      createdAt: validation.created_at!,
     }
 
     return { invitation, error: null }
@@ -106,24 +109,37 @@ export const onboardingService = {
 
   /**
    * Complete onboarding for owner role
+   * Uses transactional RPC function
    */
   async completeOwnerOnboarding(userId: string, data: OnboardingFormData) {
     const supabase = createClient()
 
-    const { error } = await supabase
-      .from("users")
-      .update({
-        name: data.name,
-        role_code: "owner",
-        onboarding_completed: true,
+    const { data: result, error } = await supabase
+      .rpc("complete_owner_onboarding", {
+        _user_id: userId,
+        _name: data.name,
+        _academy_name: data.academyName!,
+        _academy_code: null, // Auto-generated
       })
-      .eq("id", userId)
+      .single()
 
-    return { error }
+    if (error) {
+      return { error: new Error("온보딩 완료에 실패했습니다.") }
+    }
+
+    // Type-safe result check
+    const rpcResult = result as { success: boolean; error?: string }
+
+    if (!rpcResult.success) {
+      return { error: new Error(rpcResult.error || "온보딩 완료에 실패했습니다.") }
+    }
+
+    return { error: null }
   },
 
   /**
    * Complete onboarding for staff role with invitation
+   * Uses transactional RPC function (atomic operation)
    */
   async completeStaffOnboarding(
     userId: string,
@@ -132,27 +148,26 @@ export const onboardingService = {
   ) {
     const supabase = createClient()
 
-    // Update user profile
-    const { error: userError } = await supabase
-      .from("users")
-      .update({
-        name: data.name,
-        role_code: invitation.roleCode,
-        tenant_id: invitation.tenantId,
-        onboarding_completed: true,
+    // Call transactional RPC (updates users + invitation atomically)
+    const { data: result, error } = await supabase
+      .rpc("complete_staff_onboarding", {
+        _user_id: userId,
+        _name: data.name,
+        _invitation_token: invitation.token,
       })
-      .eq("id", userId)
+      .single()
 
-    if (userError) {
-      return { error: userError }
+    if (error) {
+      return { error: new Error("온보딩 완료에 실패했습니다.") }
     }
 
-    // Update invitation status
-    const { error: invitationError } = await supabase
-      .from("staff_invitations")
-      .update({ status: "accepted" })
-      .eq("id", invitation.id)
+    // Type-safe result check
+    const rpcResult = result as { success: boolean; error?: string }
 
-    return { error: invitationError }
+    if (!rpcResult.success) {
+      return { error: new Error(rpcResult.error || "온보딩 완료에 실패했습니다.") }
+    }
+
+    return { error: null }
   },
 }

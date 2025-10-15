@@ -25,18 +25,22 @@ export interface Invitation {
   createdAt: string
 }
 
-export class InvitationService {
+/**
+ * Invitation Service
+ * Handles staff invitation operations
+ */
+export const invitationService = {
   /**
    * 초대 토큰 생성
    */
-  private static generateToken(): string {
+  generateToken(): string {
     return randomBytes(32).toString("hex")
-  }
+  },
 
   /**
    * 직원 초대 (클라이언트용)
    */
-  static async inviteStaff(
+  async inviteStaff(
     data: InvitationData
   ): Promise<{ success: boolean; invitationId?: string; error?: string }> {
     try {
@@ -94,12 +98,12 @@ export class InvitationService {
       console.error("Invite staff error:", error)
       return { success: false, error: "알 수 없는 오류가 발생했습니다." }
     }
-  }
+  },
 
   /**
    * 직원 초대 (서버용)
    */
-  static async inviteStaffServer(
+  async inviteStaffServer(
     userId: string,
     data: InvitationData
   ): Promise<{ success: boolean; invitationId?: string; error?: string }> {
@@ -147,12 +151,12 @@ export class InvitationService {
       console.error("Invite staff error:", error)
       return { success: false, error: "알 수 없는 오류가 발생했습니다." }
     }
-  }
+  },
 
   /**
    * 초대 토큰으로 초대 정보 조회
    */
-  static async getInvitationByToken(
+  async getInvitationByToken(
     token: string
   ): Promise<{ invitation?: Invitation; error?: string }> {
     try {
@@ -207,12 +211,12 @@ export class InvitationService {
       console.error("Get invitation error:", error)
       return { error: "초대 정보를 가져올 수 없습니다." }
     }
-  }
+  },
 
   /**
    * 초대 수락
    */
-  static async acceptInvitation(
+  async acceptInvitation(
     token: string,
     userId: string
   ): Promise<{ success: boolean; error?: string }> {
@@ -246,12 +250,12 @@ export class InvitationService {
       console.error("Accept invitation error:", error)
       return { success: false, error: "알 수 없는 오류가 발생했습니다." }
     }
-  }
+  },
 
   /**
    * 초대 취소
    */
-  static async cancelInvitation(
+  async cancelInvitation(
     invitationId: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
@@ -271,12 +275,12 @@ export class InvitationService {
       console.error("Cancel invitation error:", error)
       return { success: false, error: "알 수 없는 오류가 발생했습니다." }
     }
-  }
+  },
 
   /**
    * 학원의 모든 초대 목록 조회
    */
-  static async getInvitations(): Promise<{
+  async getInvitations(): Promise<{
     invitations?: Invitation[]
     error?: string
   }> {
