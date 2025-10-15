@@ -115,7 +115,7 @@ function AcceptInvitationContent() {
           expiresAt: data.expires_at,
           createdAt: data.created_at,
         })
-      } catch (err) {
+      } catch {
         setError("초대 정보를 가져올 수 없습니다.")
       } finally {
         setIsLoading(false)
@@ -174,7 +174,7 @@ function AcceptInvitationContent() {
         router.push("/dashboard")
         router.refresh()
       }, 1000)
-    } catch (error) {
+    } catch {
       toast({
         title: "오류",
         description: "알 수 없는 오류가 발생했습니다.",
