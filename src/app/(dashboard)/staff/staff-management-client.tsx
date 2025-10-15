@@ -113,7 +113,7 @@ export function StaffManagementClient({
       setInviteRole("instructor")
       setIsInviteDialogOpen(false)
       router.refresh()
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: "오류",
         description: "알 수 없는 오류가 발생했습니다.",
