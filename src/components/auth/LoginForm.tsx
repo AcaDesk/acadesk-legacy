@@ -52,7 +52,7 @@ export function LoginForm({
           variant: "destructive",
         })
       }
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: "오류",
         description: `${provider === "google" ? "구글" : "카카오"} 로그인 중 오류가 발생했습니다.`,
@@ -87,7 +87,7 @@ export function LoginForm({
 
       router.push("/dashboard")
       router.refresh()
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: "오류가 발생했습니다",
         description: "다시 시도해주세요.",
