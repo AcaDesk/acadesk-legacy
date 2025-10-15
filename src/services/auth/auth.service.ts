@@ -56,8 +56,10 @@ export const authService = {
       }
     }
 
-    // 회원가입 성공 후 public.users 프로필 생성 (트리거 대신 명시적 호출)
-    if (authData.user) {
+    // 이메일 확인이 필요한 경우 auth/callback에서 프로필 생성
+    // 이메일 확인이 불필요한 경우 여기서 프로필 생성
+    if (authData.user && authData.user.email_confirmed_at) {
+      // 이미 이메일이 확인된 경우 (소셜 로그인 등)
       const { data: profileResult } = await supabase
         .rpc('create_user_profile')
 

@@ -138,10 +138,10 @@ export default function SignupForm({
 
       toast({
         title: "회원가입 완료",
-        description: "관리자 승인 후 로그인할 수 있습니다.",
+        description: "이메일로 전송된 링크를 클릭하여 이메일을 인증해주세요.",
       })
 
-      router.push("/auth/pending-approval")
+      router.push("/auth/verify-email?email=" + encodeURIComponent(data.email))
     } catch (error) {
       toast({
         title: GENERIC_ERROR_MESSAGE.title,
