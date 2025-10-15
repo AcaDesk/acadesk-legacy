@@ -35,7 +35,8 @@ export function NotificationPopover() {
 
   // 알림 목록 로드
   const loadNotifications = useCallback(async () => {
-    if (!currentUser) return
+    // tenant_id가 없으면 데이터 페칭하지 않음 (온보딩 전 또는 승인 대기 중)
+    if (!currentUser || !currentUser.tenantId) return
 
     try {
       setLoading(true)
