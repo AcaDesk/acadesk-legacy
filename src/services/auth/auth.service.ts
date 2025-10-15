@@ -34,6 +34,7 @@ export class AuthService {
       email,
       password,
       options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
         data: {
           name,
           phone,
