@@ -20,7 +20,7 @@ export function ProfileImageUpload({
   currentImageUrl,
   studentId,
   studentName = 'Student',
-  gender,
+  gender: _gender, // eslint-disable-line @typescript-eslint/no-unused-vars
   onImageUploaded,
 }: ProfileImageUploadProps) {
   const [uploading, setUploading] = useState(false)
