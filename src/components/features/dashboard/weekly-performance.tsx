@@ -2,13 +2,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { TrendingUp, TrendingDown, Minus, Calendar } from "lucide-react"
 import { cn } from "@/lib/utils"
-import {
-  LineChart,
-  Line,
-  AreaChart,
+import {  AreaChart,
   Area,
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
