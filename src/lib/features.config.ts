@@ -19,6 +19,9 @@ export const FEATURES = {
   /** 대시보드 */
   dashboard: 'active' as FeatureStatus,
 
+  /** 회원가입 */
+  signup: 'inactive' as FeatureStatus,
+
   /** 학생 관리 */
   studentManagement: 'active' as FeatureStatus,
 

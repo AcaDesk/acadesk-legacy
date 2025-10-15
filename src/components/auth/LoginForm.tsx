@@ -16,6 +16,7 @@ import { oauthService } from "@/services/auth/oauthService"
 import { useToast } from "@/hooks/use-toast"
 import type { OAuthProvider } from "@/types/auth.types"
 import { getAuthErrorMessage, LOGIN_SUCCESS_MESSAGE, GENERIC_ERROR_MESSAGE } from "@/lib/auth-messages"
+import { isFeatureActive } from "@/lib/features.config"
 
 const loginSchema = z.object({
   email: z.string().email("올바른 이메일 형식이 아닙니다."),
@@ -222,12 +223,15 @@ export function LoginForm({
         </Button>
       </div>
 
-      <div className="text-center text-sm">
-        계정이 없으신가요?{" "}
-        <Link href="/auth/signup" className="underline underline-offset-4">
-          회원가입
-        </Link>
-      </div>
+      {/* 회원가입 링크 - 피처 플래그로 제어 */}
+      {isFeatureActive('signup') && (
+        <div className="text-center text-sm">
+          계정이 없으신가요?{" "}
+          <Link href="/auth/signup" className="underline underline-offset-4">
+            회원가입
+          </Link>
+        </div>
+      )}
     </form>
   )
 }
