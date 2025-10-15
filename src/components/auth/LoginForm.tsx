@@ -86,13 +86,25 @@ export function LoginForm({
       // 로그인 성공 후 온보딩 및 승인 상태 확인
       const supabase = createClient()
 
-      // 온보딩 상태 확인
-      const { data: onboardingState } = await supabase
-        .rpc("get_onboarding_state")
-        .single()
+      // 사용자 정보 직접 조회 (RLS: users_self_select 정책)
+      const { data: { user: currentUser } } = await supabase.auth.getUser()
 
-      // 온보딩이 완료되지 않았으면 온보딩 페이지로
-      if (!onboardingState?.onboarding_completed) {
+      if (!currentUser) {
+        toast({
+          title: "인증 오류",
+          description: "사용자 정보를 가져올 수 없습니다.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const { data: me, error: meErr } = await supabase
+        .from("users")
+        .select("onboarding_completed, role_code, approval_status")
+        .eq("id", currentUser.id)
+        .maybeSingle()
+
+      if (meErr || !me) {
         toast({
           title: "추가 정보 입력 필요",
           description: "서비스 이용을 위해 추가 정보를 입력해주세요.",
@@ -101,24 +113,34 @@ export function LoginForm({
         return
       }
 
-      // 승인 상태 확인
-      const { data: approvalResult } = await supabase.rpc('check_approval_status')
+      // 온보딩이 완료되지 않았으면 온보딩 페이지로
+      if (!me.onboarding_completed) {
+        toast({
+          title: "추가 정보 입력 필요",
+          description: "서비스 이용을 위해 추가 정보를 입력해주세요.",
+        })
+        router.push("/auth/onboarding")
+        return
+      }
 
-      if (approvalResult?.status === 'pending') {
-        toast({
-          title: "승인 대기 중",
-          description: "관리자 승인 후 서비스를 이용하실 수 있습니다.",
-        })
-        router.push("/auth/pending-approval")
-        return
-      } else if (approvalResult?.status === 'rejected') {
-        toast({
-          title: "승인 거부",
-          description: "가입 승인이 거부되었습니다. 자세한 사항은 문의해주세요.",
-          variant: "destructive",
-        })
-        await authService.signOut()
-        return
+      // Owner만 승인 상태 확인
+      if (me.role_code === 'owner') {
+        if (me.approval_status === 'pending') {
+          toast({
+            title: "승인 대기 중",
+            description: "관리자 승인 후 서비스를 이용하실 수 있습니다.",
+          })
+          router.push("/auth/pending-approval")
+          return
+        } else if (me.approval_status === 'rejected') {
+          toast({
+            title: "승인 거부",
+            description: "가입 승인이 거부되었습니다. 자세한 사항은 문의해주세요.",
+            variant: "destructive",
+          })
+          await authService.signOut()
+          return
+        }
       }
 
       // 모든 검증 통과 - 대시보드로
