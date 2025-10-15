@@ -55,8 +55,19 @@ export const onboardingService = {
 
   /**
    * Validate invitation code
-   * Uses improved RPC function that returns FULL invitation object
+   *
+   * ⚠️ MVP: 현재 미지원 (invitation 테이블/RPC 없음)
+   * 추후 구현 예정
    */
+  async validateInvitationCode(_code: string) {
+    return {
+      invitation: null,
+      error: new Error("초대 기능은 현재 준비 중입니다."),
+    }
+  },
+
+  /*
+  // TODO: MVP 이후 구현 예정
   async validateInvitationCode(code: string) {
     const supabase = createClient()
 
@@ -106,6 +117,7 @@ export const onboardingService = {
 
     return { invitation, error: null }
   },
+  */
 
   /**
    * Complete onboarding for owner role
@@ -147,8 +159,20 @@ export const onboardingService = {
 
   /**
    * Complete onboarding for staff role with invitation
-   * Uses transactional RPC function (atomic operation)
+   *
+   * ⚠️ MVP: 현재 미지원 (invitation 테이블/RPC 없음)
+   * 추후 구현 예정
    */
+  async completeStaffOnboarding(
+    _userId: string,
+    _data: OnboardingFormData,
+    _invitation: Invitation
+  ) {
+    return { error: new Error("초대 기능은 현재 준비 중입니다.") }
+  },
+
+  /*
+  // TODO: MVP 이후 구현 예정
   async completeStaffOnboarding(
     userId: string,
     data: OnboardingFormData,
@@ -178,4 +202,5 @@ export const onboardingService = {
 
     return { error: null }
   },
+  */
 }
