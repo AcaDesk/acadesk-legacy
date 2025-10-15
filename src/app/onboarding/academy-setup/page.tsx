@@ -26,7 +26,7 @@ const academySetupSchema = z.object({
   academyAddress: z.string().optional(),
   academyPhone: z
     .string()
-    .regex(/^01[0-9]-?[0-9]{4}-?[0-9]{4}$/, "올바른 연락처 형식이 아닙니다.")
+    .regex(/^01[0-9]-?[0-9]{3,4}-?[0-9]{4}$/, "올바른 연락처 형식이 아닙니다 (예: 010-1234-5678)")
     .optional()
     .or(z.literal("")),
 })
@@ -42,9 +42,36 @@ export default function AcademySetupPage() {
     register,
     handleSubmit,
     formState: { errors },
+    setValue,
   } = useForm<AcademySetupFormValues>({
     resolver: zodResolver(academySetupSchema),
   })
+
+  // 전화번호 자동 포맷팅 함수
+  const formatPhoneNumber = (value: string) => {
+    // 숫자만 추출
+    const numbers = value.replace(/[^\d]/g, "")
+
+    // 최대 11자리 제한
+    const limited = numbers.slice(0, 11)
+
+    // 포맷팅
+    if (limited.length <= 3) {
+      return limited
+    } else if (limited.length <= 7) {
+      return `${limited.slice(0, 3)}-${limited.slice(3)}`
+    } else if (limited.length <= 10) {
+      return `${limited.slice(0, 3)}-${limited.slice(3, 6)}-${limited.slice(6)}`
+    } else {
+      return `${limited.slice(0, 3)}-${limited.slice(3, 7)}-${limited.slice(7)}`
+    }
+  }
+
+  // 전화번호 입력 핸들러
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhoneNumber(e.target.value)
+    setValue("academyPhone", formatted)
+  }
 
   const onSubmit = async (data: AcademySetupFormValues) => {
     setIsSubmitting(true)
@@ -117,28 +144,13 @@ export default function AcademySetupPage() {
             >
               <GraduationCap className="h-8 w-8 text-primary" />
             </motion.div>
-            <CardTitle className="text-2xl">학원 설정</CardTitle>
+            <CardTitle className="text-2xl">학원 정보 입력</CardTitle>
             <CardDescription className="mt-2">
-              학원 정보를 입력하여 시작하세요
+              마지막 단계입니다! 학원 기본 정보를 입력해주세요
             </CardDescription>
           </CardHeader>
           <form onSubmit={handleSubmit(onSubmit)}>
             <CardContent className="space-y-6">
-              {/* Progress indicator */}
-              <div className="flex items-center justify-center space-x-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-medium text-primary-foreground">
-                  1
-                </div>
-                <div className="h-px w-12 bg-primary" />
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground">
-                  2
-                </div>
-                <div className="h-px w-12 bg-muted" />
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground">
-                  3
-                </div>
-              </div>
-
               <div className="space-y-4">
                 <motion.div
                   initial={{ opacity: 0, x: -20 }}
@@ -146,19 +158,23 @@ export default function AcademySetupPage() {
                   transition={{ delay: 0.3 }}
                   className="space-y-2"
                 >
-                  <Label htmlFor="academyName">
+                  <Label htmlFor="academyName" className="text-base font-semibold">
                     학원명 <span className="text-destructive">*</span>
                   </Label>
                   <Input
                     id="academyName"
                     placeholder="예) 서울영어학원"
                     {...register("academyName")}
+                    className="h-11"
                   />
                   {errors.academyName && (
                     <p className="text-sm text-destructive">
                       {errors.academyName.message}
                     </p>
                   )}
+                  <p className="text-sm text-muted-foreground">
+                    학부모와 학생들에게 보여질 학원 이름입니다
+                  </p>
                 </motion.div>
 
                 <motion.div
@@ -167,17 +183,23 @@ export default function AcademySetupPage() {
                   transition={{ delay: 0.4 }}
                   className="space-y-2"
                 >
-                  <Label htmlFor="academyAddress">학원 주소</Label>
+                  <Label htmlFor="academyAddress" className="text-base font-semibold">
+                    학원 주소 <span className="text-muted-foreground text-sm font-normal">(선택)</span>
+                  </Label>
                   <Input
                     id="academyAddress"
                     placeholder="예) 서울시 강남구 테헤란로 123"
                     {...register("academyAddress")}
+                    className="h-11"
                   />
                   {errors.academyAddress && (
                     <p className="text-sm text-destructive">
                       {errors.academyAddress.message}
                     </p>
                   )}
+                  <p className="text-sm text-muted-foreground">
+                    학원 찾기 및 안내문에 사용됩니다
+                  </p>
                 </motion.div>
 
                 <motion.div
@@ -186,32 +208,53 @@ export default function AcademySetupPage() {
                   transition={{ delay: 0.5 }}
                   className="space-y-2"
                 >
-                  <Label htmlFor="academyPhone">학원 연락처</Label>
+                  <Label htmlFor="academyPhone" className="text-base font-semibold">
+                    학원 연락처 <span className="text-muted-foreground text-sm font-normal">(선택)</span>
+                  </Label>
                   <Input
                     id="academyPhone"
-                    placeholder="010-0000-0000"
+                    placeholder="010-1234-5678"
                     {...register("academyPhone")}
+                    onChange={handlePhoneChange}
+                    className="h-11"
+                    type="tel"
+                    inputMode="numeric"
                   />
                   {errors.academyPhone && (
                     <p className="text-sm text-destructive">
                       {errors.academyPhone.message}
                     </p>
                   )}
+                  <p className="text-sm text-muted-foreground">
+                    학부모 문의 시 표시되는 대표 연락처입니다
+                  </p>
                 </motion.div>
               </div>
 
-              <div className="rounded-lg bg-primary/5 p-4">
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-5">
                 <div className="flex items-start space-x-3">
                   <CheckCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-primary" />
-                  <div className="text-sm text-muted-foreground">
-                    <p className="font-medium text-foreground">
-                      설정 완료 후 가능한 작업:
+                  <div className="text-sm">
+                    <p className="font-semibold text-foreground mb-2">
+                      💡 설정 완료 후 바로 시작할 수 있어요
                     </p>
-                    <ul className="mt-2 list-inside list-disc space-y-1">
-                      <li>학생 및 학부모 등록</li>
-                      <li>수업 및 시간표 관리</li>
-                      <li>출석 및 성적 기록</li>
-                      <li>직원 초대 및 권한 관리</li>
+                    <ul className="space-y-1.5 text-muted-foreground">
+                      <li className="flex items-center">
+                        <span className="mr-2">•</span>
+                        <span>학생 및 학부모 등록 관리</span>
+                      </li>
+                      <li className="flex items-center">
+                        <span className="mr-2">•</span>
+                        <span>출석 및 성적 기록</span>
+                      </li>
+                      <li className="flex items-center">
+                        <span className="mr-2">•</span>
+                        <span>수업 일정 및 시간표 관리</span>
+                      </li>
+                      <li className="flex items-center">
+                        <span className="mr-2">•</span>
+                        <span>학생별 TODO 관리</span>
+                      </li>
                     </ul>
                   </div>
                 </div>
@@ -224,11 +267,11 @@ export default function AcademySetupPage() {
               >
                 <Button
                   type="submit"
-                  className="w-full"
+                  className="w-full h-12 text-base font-semibold"
                   size="lg"
                   disabled={isSubmitting}
                 >
-                  {isSubmitting ? "설정 중..." : "설정 완료 및 시작하기"}
+                  {isSubmitting ? "설정 중..." : "완료하고 시작하기"}
                 </Button>
               </motion.div>
             </CardContent>
