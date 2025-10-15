@@ -132,7 +132,7 @@ export default function WeeklyPlannerPage() {
     try {
       const data = await studentRepo.search('', currentUser.tenantId)
       setStudents(data as unknown as Student[])
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: '학생 목록 로드 실패',
         description: getErrorMessage(error),
@@ -154,7 +154,7 @@ export default function WeeklyPlannerPage() {
 
       if (error) throw error
       setTemplates(data || [])
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: '템플릿 로드 실패',
         description: getErrorMessage(error),
@@ -303,7 +303,7 @@ export default function WeeklyPlannerPage() {
       } else {
         setRecommendedTemplates([])
       }
-    } catch (error) {
+    } catch (_error) {
       // Silent failure for recommended templates
       setRecommendedTemplates([])
     }
@@ -382,7 +382,7 @@ export default function WeeklyPlannerPage() {
 
       // Clear planned todos
       setPlannedTodos([])
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: '게시 실패',
         description: getErrorMessage(error),
@@ -497,7 +497,7 @@ export default function WeeklyPlannerPage() {
         title: '과제 추가',
         description: `${template.title}이(가) 추가되었습니다.`,
       })
-    } catch (error) {
+    } catch (_error) {
       // Silent failure for drag & drop errors
     }
   }
