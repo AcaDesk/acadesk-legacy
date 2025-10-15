@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useEffect, useState } from "react"
+import { Suspense, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { motion } from "framer-motion"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -39,7 +39,7 @@ function VerifyEmailContent() {
         title: "이메일 재전송 완료",
         description: "인증 이메일을 다시 보냈습니다.",
       })
-    } catch (error) {
+    } catch {
       toast({
         title: "오류",
         description: "이메일 재전송 중 오류가 발생했습니다.",
