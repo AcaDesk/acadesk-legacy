@@ -8,8 +8,6 @@ import {
   UserCheck,
   FileText,
   CheckCircle,
-  TrendingUp,
-  Calendar,
   MessageSquare,
   Book,
   AlertCircle,
@@ -122,7 +120,7 @@ export function RecentActivityFeed({ activities, maxItems = 10 }: RecentActivity
               {displayActivities.map((activity, index) => {
                 const config = activityConfig[activity.activity_type_code as keyof typeof activityConfig] || activityConfig.default
                 const Icon = config.icon
-                const studentName = activity.students?.name || '알 수 없음'
+                // const studentName = activity.students?.name || '알 수 없음'
                 const activityName = activity.ref_activity_types?.name_ko || config.label
 
                 return (
