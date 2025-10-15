@@ -14,6 +14,15 @@ import { NextResponse, type NextRequest } from "next/server"
  * 3. 기본 라우팅 (로그인 여부, 이메일 인증 여부만)
  */
 export async function updateSession(request: NextRequest) {
+  const pathname = request.nextUrl.pathname
+
+  // ⚠️ CRITICAL: /auth/callback은 완전히 우회 (이메일 스캐너 대응)
+  // - code 파라미터가 유실되지 않도록 어떤 리다이렉트도 하지 않음
+  // - 세션 체크도 하지 않음 (RLS 위험)
+  if (pathname === "/auth/callback") {
+    return NextResponse.next({ request })
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   })
@@ -45,8 +54,6 @@ export async function updateSession(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-
-  const pathname = request.nextUrl.pathname
 
   // 공개 경로
   const publicPaths = [
