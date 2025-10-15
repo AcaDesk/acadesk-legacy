@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -58,7 +58,35 @@ const onboardingSchema = z.object({
 
 type OnboardingFormValues = z.infer<typeof onboardingSchema>
 
-export default function OnboardingPage() {
+/**
+ * 이메일 인증 성공 메시지를 표시하는 컴포넌트
+ * useSearchParams()를 사용하므로 Suspense로 감싸야 함
+ */
+function EmailVerificationToast() {
+  const searchParams = useSearchParams()
+  const { toast } = useToast()
+
+  useEffect(() => {
+    const verified = searchParams.get("verified")
+    if (verified === "true") {
+      toast({
+        title: EMAIL_VERIFICATION_SUCCESS_MESSAGE.title,
+        description: EMAIL_VERIFICATION_SUCCESS_MESSAGE.description,
+      })
+      // URL 파라미터 제거
+      const url = new URL(window.location.href)
+      url.searchParams.delete("verified")
+      window.history.replaceState({}, "", url.toString())
+    }
+  }, [searchParams, toast])
+
+  return null
+}
+
+/**
+ * 온보딩 폼 컴포넌트
+ */
+function OnboardingForm() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
@@ -67,7 +95,6 @@ export default function OnboardingPage() {
   const [userId, setUserId] = useState<string | null>(null)
 
   const router = useRouter()
-  const searchParams = useSearchParams()
   const { toast } = useToast()
   const supabase = createClient()
 
@@ -149,21 +176,6 @@ export default function OnboardingPage() {
 
     checkUser()
   }, [router, setValue, toast])
-
-  // 이메일 인증 성공 메시지 표시
-  useEffect(() => {
-    const verified = searchParams.get("verified")
-    if (verified === "true") {
-      toast({
-        title: EMAIL_VERIFICATION_SUCCESS_MESSAGE.title,
-        description: EMAIL_VERIFICATION_SUCCESS_MESSAGE.description,
-      })
-      // URL 파라미터 제거
-      const url = new URL(window.location.href)
-      url.searchParams.delete("verified")
-      window.history.replaceState({}, "", url.toString())
-    }
-  }, [searchParams, toast])
 
   const onSubmit = async (data: OnboardingFormData) => {
     if (!userId) {
@@ -423,5 +435,20 @@ export default function OnboardingPage() {
         </form>
       </Card>
     </motion.div>
+  )
+}
+
+/**
+ * 메인 온보딩 페이지
+ * EmailVerificationToast를 Suspense로 감싸서 useSearchParams() 에러 방지
+ */
+export default function OnboardingPage() {
+  return (
+    <>
+      <Suspense fallback={null}>
+        <EmailVerificationToast />
+      </Suspense>
+      <OnboardingForm />
+    </>
   )
 }
