@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { GraduationCap, CheckCircle } from "lucide-react"
-import { OnboardingService } from "@/services/onboarding.service"
+import { onboardingService } from "@/services/auth/onboardingService"
 import { authService } from "@/services/auth/auth.service"
 import { useToast } from "@/hooks/use-toast"
 
@@ -59,7 +59,7 @@ export default function AcademySetupPage() {
         return
       }
 
-      const { success, error } = await OnboardingService.completeAcademySetup(
+      const { success, error } = await onboardingService.completeAcademySetup(
         user.id,
         {
           academyName: data.academyName,
