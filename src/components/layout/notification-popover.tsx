@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { Bell, CheckCheck } from 'lucide-react'
 import {
@@ -29,7 +29,7 @@ export function NotificationPopover() {
   const [loading, setLoading] = useState(false)
 
   const supabase = createClient()
-  const notificationRepo = new NotificationRepository(supabase)
+  const notificationRepo = useMemo(() => new NotificationRepository(supabase), [supabase])
   const { user: currentUser } = useCurrentUser()
   const { toast } = useToast()
 
