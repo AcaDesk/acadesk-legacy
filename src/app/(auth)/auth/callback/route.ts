@@ -39,7 +39,7 @@ export async function GET(request: Request) {
 
     // 온보딩이 완료되지 않았으면 온보딩 페이지로
     if (!state?.onboarding_completed) {
-      return NextResponse.redirect(`${origin}/auth/onboarding?email=${encodeURIComponent(user.email || '')}`)
+      return NextResponse.redirect(`${origin}/auth/onboarding?email=${encodeURIComponent(user.email || '')}&verified=true`)
     }
 
     // 온보딩 완료된 사용자는 대시보드로
