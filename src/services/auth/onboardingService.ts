@@ -224,61 +224,37 @@ export const onboardingService = {
   /**
    * 학원 설정 완료 (클라이언트용)
    * Complete academy setup after owner onboarding
+   * Uses transactional RPC function for atomic updates
    */
   async completeAcademySetup(
-    userId: string,
+    _userId: string,
     data: AcademySetupData
   ): Promise<{ success: boolean; error?: string }> {
     try {
       const supabase = createClient()
 
-      // 1. RPC로 사용자 상태 조회 (RLS 우회)
-      const { data: state, error: stateError } = await supabase.rpc("get_onboarding_state")
+      // Call RPC function (transactional: updates tenant + user atomically)
+      const { data: result, error } = await supabase.rpc("finish_owner_academy_setup", {
+        _academy_name: data.academyName,
+        _timezone: data.timezone ?? "Asia/Seoul",
+        _settings: {
+          address: data.academyAddress,
+          phone: data.academyPhone,
+          businessHours: data.businessHours,
+          subjects: data.subjects,
+        },
+      })
 
-      if (stateError || !state) {
-        return { success: false, error: "사용자 정보를 찾을 수 없습니다." }
+      if (error) {
+        console.error("finish_owner_academy_setup RPC error:", error)
+        return { success: false, error: "학원 설정 중 오류가 발생했습니다." }
       }
 
-      const onboardingState = state as OnboardingStateResponse
+      // Type-safe result check
+      const rpcResult = result as { success: boolean; error?: string }
 
-      if (!onboardingState.tenant_id) {
-        return { success: false, error: "테넌트 정보를 찾을 수 없습니다." }
-      }
-
-      const tenantId = onboardingState.tenant_id
-
-      // 2. tenant 정보 업데이트
-      const { error: tenantError } = await supabase
-        .from("tenants")
-        .update({
-          name: data.academyName,
-          timezone: data.timezone || "Asia/Seoul",
-          settings: {
-            address: data.academyAddress,
-            phone: data.academyPhone,
-            businessHours: data.businessHours,
-            subjects: data.subjects,
-          },
-        })
-        .eq("id", tenantId)
-
-      if (tenantError) {
-        console.error("Tenant update error:", tenantError)
-        return { success: false, error: "학원 정보 업데이트에 실패했습니다." }
-      }
-
-      // 3. 사용자의 온보딩 완료 처리
-      const { error: updateError } = await supabase
-        .from("users")
-        .update({
-          onboarding_completed: true,
-          onboarding_completed_at: new Date().toISOString(),
-        })
-        .eq("id", userId)
-
-      if (updateError) {
-        console.error("User onboarding update error:", updateError)
-        return { success: false, error: "온보딩 완료 처리에 실패했습니다." }
+      if (!rpcResult?.success) {
+        return { success: false, error: rpcResult?.error || "학원 설정에 실패했습니다." }
       }
 
       return { success: true }
@@ -290,61 +266,37 @@ export const onboardingService = {
 
   /**
    * 학원 설정 완료 (서버용 - Server Component/API Route)
+   * Uses transactional RPC function for atomic updates
    */
   async completeAcademySetupServer(
-    userId: string,
+    _userId: string,
     data: AcademySetupData
   ): Promise<{ success: boolean; error?: string }> {
     try {
       const supabase = await createServerClient()
 
-      // 1. RPC로 사용자 상태 조회 (RLS 우회)
-      const { data: state, error: stateError } = await supabase.rpc("get_onboarding_state")
+      // Call RPC function (transactional: updates tenant + user atomically)
+      const { data: result, error } = await supabase.rpc("finish_owner_academy_setup", {
+        _academy_name: data.academyName,
+        _timezone: data.timezone ?? "Asia/Seoul",
+        _settings: {
+          address: data.academyAddress,
+          phone: data.academyPhone,
+          businessHours: data.businessHours,
+          subjects: data.subjects,
+        },
+      })
 
-      if (stateError || !state) {
-        return { success: false, error: "사용자 정보를 찾을 수 없습니다." }
+      if (error) {
+        console.error("finish_owner_academy_setup RPC error:", error)
+        return { success: false, error: "학원 설정 중 오류가 발생했습니다." }
       }
 
-      const onboardingState = state as OnboardingStateResponse
+      // Type-safe result check
+      const rpcResult = result as { success: boolean; error?: string }
 
-      if (!onboardingState.tenant_id) {
-        return { success: false, error: "테넌트 정보를 찾을 수 없습니다." }
-      }
-
-      const tenantId = onboardingState.tenant_id
-
-      // 2. tenant 정보 업데이트
-      const { error: tenantError } = await supabase
-        .from("tenants")
-        .update({
-          name: data.academyName,
-          timezone: data.timezone || "Asia/Seoul",
-          settings: {
-            address: data.academyAddress,
-            phone: data.academyPhone,
-            businessHours: data.businessHours,
-            subjects: data.subjects,
-          },
-        })
-        .eq("id", tenantId)
-
-      if (tenantError) {
-        console.error("Tenant update error:", tenantError)
-        return { success: false, error: "학원 정보 업데이트에 실패했습니다." }
-      }
-
-      // 3. 사용자의 온보딩 완료 처리
-      const { error: updateError } = await supabase
-        .from("users")
-        .update({
-          onboarding_completed: true,
-          onboarding_completed_at: new Date().toISOString(),
-        })
-        .eq("id", userId)
-
-      if (updateError) {
-        console.error("User onboarding update error:", updateError)
-        return { success: false, error: "온보딩 완료 처리에 실패했습니다." }
+      if (!rpcResult?.success) {
+        return { success: false, error: rpcResult?.error || "학원 설정에 실패했습니다." }
       }
 
       return { success: true }

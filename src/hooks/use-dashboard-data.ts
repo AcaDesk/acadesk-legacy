@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 // Dashboard data type definitions
@@ -123,6 +124,14 @@ export interface DashboardData {
 
 async function fetchDashboardData(): Promise<DashboardData> {
   const supabase = createClient()
+
+  // 인증 확인
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) {
+    console.warn('Dashboard data fetch skipped: No active session')
+    return getDefaultDashboardData()
+  }
+
   const today = new Date().toISOString().split('T')[0]
 
   const { data, error } = await supabase.rpc('get_dashboard_data', {
@@ -131,6 +140,11 @@ async function fetchDashboardData(): Promise<DashboardData> {
 
   if (error) {
     console.error('Dashboard data fetch error:', error)
+    // 404는 RPC 함수가 없거나 권한이 없는 경우 (조용히 기본값 반환)
+    if (error.code === 'PGRST116' || error.message.includes('404')) {
+      console.warn('Dashboard RPC not available, returning default data')
+      return getDefaultDashboardData()
+    }
     throw error
   }
 
@@ -169,18 +183,25 @@ function getDefaultDashboardData(): DashboardData {
 }
 
 export function useDashboardData(initialData?: DashboardData) {
+  const pathname = usePathname()
+
+  // 대시보드 경로인지 확인 (정확히 /dashboard 또는 /dashboard/로 시작)
+  const isDashboardRoute = pathname === '/dashboard' || pathname?.startsWith('/dashboard/')
+
   return useQuery({
     queryKey: ['dashboard-data'],
     queryFn: fetchDashboardData,
     initialData,
-    refetchInterval: 30000, // 30초마다 자동 새로고침
-    refetchOnWindowFocus: true,
+    // 대시보드 페이지에서만 쿼리 활성화
+    enabled: isDashboardRoute,
+    refetchInterval: isDashboardRoute ? 30000 : false, // 30초마다 자동 새로고침 (대시보드에서만)
+    refetchOnWindowFocus: isDashboardRoute,
     staleTime: 10000, // 10초 후 stale 처리
   })
 }
 
 // 수동 새로고침을 위한 유틸리티
 export function useRefreshDashboard() {
-  const { refetch } = useDashboardData()
-  return refetch
+  const queryClient = useQueryClient()
+  return () => queryClient.invalidateQueries({ queryKey: ['dashboard-data'] })
 }
