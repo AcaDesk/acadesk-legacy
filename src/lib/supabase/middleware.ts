@@ -61,6 +61,17 @@ export async function updateSession(request: NextRequest) {
 
   // 로그인된 사용자의 경우 온보딩 상태 확인
   if (user) {
+    // 이메일 인증 확인 - 인증되지 않은 경우 verify-email 페이지로 리다이렉트
+    if (!user.email_confirmed_at && pathname !== "/auth/verify-email" && !pathname.startsWith("/auth/logout")) {
+      const url = request.nextUrl.clone()
+      url.pathname = "/auth/verify-email"
+      // 이메일 정보를 쿼리 파라미터로 전달
+      if (user.email) {
+        url.searchParams.set("email", user.email)
+      }
+      return NextResponse.redirect(url)
+    }
+
     // 사용자 정보 조회
     const { data: userData } = await supabase
       .from("users")
@@ -69,7 +80,8 @@ export async function updateSession(request: NextRequest) {
       .single()
 
     // 온보딩 미완료인 경우 - 모든 사용자 (소셜/이메일 가입 모두)
-    if (!userData?.onboarding_completed) {
+    // 단, 이메일 인증이 완료된 경우만
+    if (user.email_confirmed_at && !userData?.onboarding_completed) {
       // 온보딩 페이지가 아니고 로그아웃도 아닌 경우
       if (
         pathname !== "/auth/onboarding" &&
