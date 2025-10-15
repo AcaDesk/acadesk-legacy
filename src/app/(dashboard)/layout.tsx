@@ -175,17 +175,21 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   // 큰 데스크톱 감지 (1024px 이상)
   const isLargeDesktop = useMediaQuery("(min-width: 1024px)")
 
-  // 온보딩 상태에 따라 리디렉션
+  // 온보딩 상태에 따라 리디렉션 (tenant_id 없음 제외)
   useEffect(() => {
     if (loading) return
 
     if (error) {
-      // 온보딩 미완료 또는 tenant_id 없음
       const errorMessage = error.message.toLowerCase()
+
+      // tenant_id 없는 경우는 배너로 처리하므로 리디렉션하지 않음
+      if (errorMessage.includes('tenant')) {
+        return
+      }
+
+      // 그 외 에러는 적절한 페이지로 리디렉션
       if (errorMessage.includes('onboarding')) {
         router.push('/auth/onboarding')
-      } else if (errorMessage.includes('tenant')) {
-        router.push('/auth/pending-approval')
       } else {
         router.push('/auth/login')
       }
@@ -205,15 +209,40 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const toggleSidebar = () => setIsCollapsed(!isCollapsed)
   const toggleMobileMenu = () => setMobileMenuOpen(!mobileMenuOpen)
 
-  // 로딩 중이거나 에러가 있으면 로딩 화면 표시
-  if (loading || error) {
+  // 로딩 중이면 로딩 화면 표시
+  if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
           <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
-          <p className="mt-4 text-muted-foreground">
-            {error ? '권한을 확인하는 중...' : '로딩 중...'}
-          </p>
+          <p className="mt-4 text-muted-foreground">로딩 중...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // tenant_id 없는 경우: 안내 배너 표시
+  const isTenantError = error && error.message.toLowerCase().includes('tenant')
+  if (isTenantError) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background p-4">
+        <div className="max-w-md w-full space-y-4 text-center">
+          <div className="rounded-lg border border-amber-500/50 bg-amber-50 dark:bg-amber-950/20 p-6">
+            <h2 className="text-lg font-semibold text-amber-900 dark:text-amber-100 mb-2">
+              계정 설정이 완료되지 않았습니다
+            </h2>
+            <p className="text-sm text-amber-700 dark:text-amber-300 mb-4">
+              관리자가 계정 설정을 완료하는 중입니다. 잠시 후 다시 시도해 주세요.
+            </p>
+            <p className="text-xs text-amber-600 dark:text-amber-400">
+              문제가 지속되면 관리자에게 문의하세요.
+            </p>
+          </div>
+          <form action="/auth/logout" method="POST">
+            <Button type="submit" variant="outline" className="w-full">
+              로그아웃
+            </Button>
+          </form>
         </div>
       </div>
     )
