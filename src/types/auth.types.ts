@@ -18,6 +18,7 @@ export interface OnboardingFormData {
   name: string
   role: "owner" | "staff"
   invitationCode?: string
+  academyName?: string // Required for owner role
 }
 
 export interface Invitation {
@@ -62,13 +63,20 @@ export interface OnboardingStateResponse {
 }
 
 /**
- * Response from validate_invitation_token() RPC function
+ * Response from validate_invitation_token() RPC function (improved version)
+ * Now returns FULL invitation object (Single Source of Truth)
  */
 export interface InvitationValidationResponse {
   valid: boolean
   reason?: string // Only present when valid = false
-  tenant_id?: string // Only present when valid = true
-  email?: string // Only present when valid = true
-  role_code?: string // Only present when valid = true
-  expires_at?: string // Only present when valid = true
+  // Full invitation data (only present when valid = true)
+  id?: string
+  tenant_id?: string
+  created_by?: string
+  email?: string
+  role_code?: string
+  token?: string
+  status?: string
+  expires_at?: string
+  created_at?: string
 }

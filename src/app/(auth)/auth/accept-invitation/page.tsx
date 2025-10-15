@@ -130,14 +130,10 @@ function AcceptInvitationContent() {
 
     setIsSubmitting(true)
     try {
-      // 회원가입
+      // 회원가입 (email/password만)
       const { error: signUpError } = await authService.signUp({
         email: invitation.email,
         password: data.password,
-        name: data.name,
-        phone: "",
-        academyName: "",
-        role: invitation.roleCode as "admin" | "teacher" | "staff",
       })
 
       if (signUpError) {

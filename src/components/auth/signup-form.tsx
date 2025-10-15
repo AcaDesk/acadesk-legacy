@@ -90,10 +90,6 @@ export default function SignupForm() {
       const { error } = await authService.signUp({
         email: data.email,
         password: data.password,
-        name: data.name,
-        phone: data.phone,
-        academyName: data.academyName,
-        role: "admin", // 원장으로 고정
       })
 
       if (error) {
