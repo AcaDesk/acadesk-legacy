@@ -66,7 +66,7 @@ export default function FeedbackPage() {
       setCategory('')
       setSubject('')
       setFeedback('')
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: '피드백 전송 실패',
         description: '잠시 후 다시 시도해주세요.',
