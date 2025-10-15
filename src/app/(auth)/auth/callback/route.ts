@@ -17,11 +17,20 @@ function classifyAuthError(error: { message?: string; code?: string }): string {
 
 export async function GET(request: Request) {
   const url = new URL(request.url)
+
+  // 🔍 로깅: 콜백 진입 (스캐너 감지용)
+  console.log("[auth/callback] hit:", {
+    fullUrl: url.toString(),
+    params: Object.fromEntries(url.searchParams),
+    timestamp: new Date().toISOString(),
+  })
+
   const code = url.searchParams.get("code")
   const type = (url.searchParams.get("type") || "signup").toLowerCase() // signup|recovery|invitation 등
   const origin = url.origin
 
   if (!code) {
+    console.warn("[auth/callback] missing code param")
     return NextResponse.redirect(`${origin}/auth/login`)
   }
 
@@ -29,10 +38,19 @@ export async function GET(request: Request) {
   const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code)
 
   if (exchangeErr) {
-    console.error("Auth callback error:", exchangeErr)
+    // 🔍 로깅: 교환 실패 (스캐너가 먼저 호출했는지 확인)
+    console.error("[auth/callback] exchange error:", {
+      message: exchangeErr.message,
+      status: exchangeErr.status,
+      code: exchangeErr.code,
+      name: exchangeErr.name,
+      fullError: exchangeErr,
+    })
     const errType = classifyAuthError(exchangeErr)
     return NextResponse.redirect(`${origin}/auth/link-expired?type=${type}&error=${errType}`)
   }
+
+  console.log("[auth/callback] exchange success")
 
   // 세션 교환 성공 → 현재 사용자
   const {
