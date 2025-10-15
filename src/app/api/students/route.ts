@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { StudentRepository } from '@/services/data/student.repository'
 import { handleError } from '@/lib/errors'
-import { paginationSchema, searchSchema, sortSchema } from '@/lib/validators'
+// import { paginationSchema, searchSchema, sortSchema } from '@/lib/validators'
 import * as z from 'zod'
 
 const createStudentSchema = z.object({
