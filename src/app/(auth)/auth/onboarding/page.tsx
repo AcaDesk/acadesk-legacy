@@ -342,26 +342,22 @@ function OnboardingForm() {
               </motion.div>
             )}
 
+            {/* MVP: staff 역할은 현재 미지원 */}
             {selectedRole === "staff" && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
                 transition={{ duration: 0.3 }}
-                className="space-y-2"
+                className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20 p-4"
               >
-                <Label htmlFor="invitationCode">초대 코드</Label>
-                <Input
-                  id="invitationCode"
-                  placeholder="원장님에게 받은 초대 코드를 입력하세요"
-                  {...register("invitationCode")}
-                  disabled={isSubmitting}
-                />
-                {errors.invitationCode && (
-                  <p className="text-sm text-destructive">
-                    {errors.invitationCode.message}
-                  </p>
-                )}
+                <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                  💡 준비 중인 기능
+                </p>
+                <p className="mt-1 text-sm text-amber-700 dark:text-amber-300">
+                  강사/직원 초대 기능은 현재 준비 중입니다.
+                  원장 역할을 선택하여 학원을 먼저 생성해주세요.
+                </p>
               </motion.div>
             )}
 
