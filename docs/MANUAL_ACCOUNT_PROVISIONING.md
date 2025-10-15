@@ -32,7 +32,24 @@
 
 ## 사전 준비
 
-### 1. Supabase Auth 설정 변경
+### 1. 회원가입 UI 비활성화 (피처 플래그)
+
+**현재 상태:**
+- 회원가입 기능은 이미 피처 플래그로 비활성화되어 있습니다.
+- `src/lib/features.config.ts`에서 `signup: 'inactive'`로 설정됨
+- 로그인 페이지에 회원가입 링크가 표시되지 않음
+- `/auth/signup` 직접 접근 시 "Coming Soon" 페이지 표시
+
+**향후 활성화 방법:**
+```typescript
+// src/lib/features.config.ts
+export const FEATURES = {
+  signup: 'active' as FeatureStatus,  // 'inactive' → 'active'로 변경
+  // ...
+}
+```
+
+### 2. Supabase Auth 설정 변경
 
 **회원가입 비활성화:**
 
@@ -274,15 +291,24 @@ WHERE tablename IN ('users', 'tenants', 'students', 'classes');
 
 ### 정식 온보딩 플로우 복원 (릴리즈 1~2주 후)
 
-1. **회원가입 다시 활성화:**
+1. **피처 플래그로 회원가입 활성화:**
+   ```typescript
+   // src/lib/features.config.ts
+   export const FEATURES = {
+     signup: 'active' as FeatureStatus,  // 'inactive' → 'active'
+     // ...
+   }
+   ```
+
+2. **Supabase Auth 설정:**
    - Supabase Dashboard → Authentication → Settings
    - "Enable sign ups" 옵션 **ON**
 
-2. **온보딩/초대 UI 복구:**
+3. **온보딩/초대 UI 복구:**
    - `/auth/onboarding` 페이지 활성화
    - 직원 초대 기능 활성화
 
-3. **수동 발급 기능 유지:**
+4. **수동 발급 기능 유지:**
    - 긴급 상황 대비용으로 이 문서 보관
    - 백오피스 관리 페이지에서 사용 가능하도록 개선
 
@@ -298,6 +324,9 @@ WHERE tablename IN ('users', 'tenants', 'students', 'classes');
 
 출시 전 확인사항:
 
+- [ ] 피처 플래그로 회원가입 비활성화 확인 (`src/lib/features.config.ts`)
+- [ ] 로그인 페이지에서 회원가입 링크 숨김 확인
+- [ ] `/auth/signup` 접근 시 Coming Soon 페이지 표시 확인
 - [ ] Supabase Auth에서 회원가입 비활성화 완료
 - [ ] 모든 마이그레이션 적용 완료 (`supabase db push`)
 - [ ] 원장 계정 생성 및 tenant 연결 완료
