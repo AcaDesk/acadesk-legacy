@@ -21,7 +21,7 @@ export function CalendarWidget({ className }: CalendarWidgetProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
-  const [loading] = useState = useState(true)
+  const [loading, setLoading] = useState(true)
 
   const supabase = createClient()
 
