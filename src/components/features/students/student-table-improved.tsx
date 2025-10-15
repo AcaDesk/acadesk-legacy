@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -32,7 +33,6 @@ import {
   IconChevronsRight,
 } from '@tabler/icons-react'
 import { format, differenceInDays } from 'date-fns'
-import { ko } from 'date-fns/locale'
 import { motion, AnimatePresence } from 'motion/react'
 
 import { Button } from '@/components/ui/button'
@@ -263,15 +263,16 @@ export function StudentTableImproved({
 
         return (
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full overflow-hidden flex-shrink-0 bg-muted">
-              <img
+            <div className="h-10 w-10 rounded-full overflow-hidden flex-shrink-0 bg-muted relative">
+              <Image
                 src={getStudentAvatar(
                   student.profile_image_url,
                   student.id,
                   student.users?.name || 'Student'
                 )}
                 alt={student.users?.name || '학생'}
-                className="h-full w-full object-cover"
+                fill
+                className="object-cover"
               />
             </div>
             <div>
