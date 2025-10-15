@@ -6,7 +6,6 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { motion } from "framer-motion"
-import Link from "next/link"
 import {
   Card,
   CardContent,
@@ -17,10 +16,10 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Sparkles, Loader2, GraduationCap, LogOut } from "lucide-react"
+import { Sparkles, Loader2, LogOut } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { RoleSelector } from "@/components/auth/RoleSelector"
-import { TermsCheckbox, type TermsCheckboxValues } from "@/components/auth/TermsCheckbox"
+import { TermsCheckbox } from "@/components/auth/TermsCheckbox"
 import { onboardingService } from "@/services/auth/onboardingService"
 import type { OnboardingFormData } from "@/types/auth.types"
 import { createClient } from "@/lib/supabase/client"
