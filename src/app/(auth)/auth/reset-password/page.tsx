@@ -99,7 +99,7 @@ export default function ResetPasswordPage() {
       })
 
       router.push("/auth/login")
-    } catch (error) {
+    } catch {
       toast({
         title: "오류가 발생했습니다",
         description: "다시 시도해주세요.",
