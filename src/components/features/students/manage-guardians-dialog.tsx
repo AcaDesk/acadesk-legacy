@@ -42,7 +42,7 @@ import { useCurrentUser } from '@/hooks/use-current-user'
 import { Users, UserPlus, Check, ChevronsUpDown, Trash2, Loader2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { GuardianFormStandalone, guardianFormSchema, type GuardianFormValues } from '@/components/features/guardians/guardian-form'
+import { GuardianFormStandalone, type GuardianFormValues } from '@/components/features/guardians/guardian-form'
 import type { GuardianRelation, GuardianWithUser } from '@/types/guardian'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'motion/react'
@@ -91,6 +91,7 @@ export function ManageGuardiansDialog({
       loadLinkedGuardians()
       loadAvailableGuardians()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, studentId])
 
   async function loadLinkedGuardians() {
