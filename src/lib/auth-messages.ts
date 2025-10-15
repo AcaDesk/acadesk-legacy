@@ -143,3 +143,34 @@ export const GENERIC_ERROR_MESSAGE = {
   title: "오류가 발생했습니다",
   description: "문제가 계속되면 team@acadesk.site로 문의해주세요.",
 }
+
+/**
+ * 링크 만료/무효 관련 메시지
+ */
+export const LINK_EXPIRED_MESSAGES = {
+  signup: {
+    title: "인증 링크가 만료되었습니다",
+    description: "이메일 인증 링크는 1시간 동안만 유효합니다.",
+    action: "인증 이메일 다시 받기",
+  },
+  recovery: {
+    title: "비밀번호 재설정 링크가 만료되었습니다",
+    description: "비밀번호 재설정 링크는 1시간 동안만 유효합니다.",
+    action: "비밀번호 재설정 다시 요청하기",
+  },
+  invitation: {
+    title: "초대 링크가 만료되었습니다",
+    description: "초대 링크가 만료되었습니다. 학원 관리자에게 새로운 초대를 요청해주세요.",
+    action: "로그인 페이지로 이동",
+  },
+  alreadyUsed: {
+    title: "이미 사용된 링크입니다",
+    description: "이 링크는 이미 사용되었습니다. 로그인을 시도해주세요.",
+    action: "로그인하기",
+  },
+  invalid: {
+    title: "유효하지 않은 링크입니다",
+    description: "요청하신 링크가 유효하지 않습니다.",
+    action: "처음부터 다시 시작하기",
+  },
+}
