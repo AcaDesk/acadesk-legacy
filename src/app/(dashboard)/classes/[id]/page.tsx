@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -32,8 +32,6 @@ import { PageWrapper } from "@/components/layout/page-wrapper"
 import { GradesBarChart } from '@/components/features/charts/grades-bar-chart'
 import { TodoCompletionBar } from '@/components/features/charts/todo-completion-bar'
 import { AttendanceComboChart } from '@/components/features/charts/attendance-combo-chart'
-import { FEATURES } from '@/lib/features.config'
-import { ComingSoon } from '@/components/layout/coming-soon'
 import { usePagination } from '@/hooks/use-pagination'
 import {
   Pagination,
@@ -106,7 +104,7 @@ export default function ClassDetailPage() {
   const [loading, setLoading] = useState(true)
 
   // Load class detail and students - defined before feature check
-  async function loadClassDetail(classId: string) {
+  const loadClassDetail = useCallback(async (classId: string) => {
     try {
       setLoading(true)
       const { data, error } = await supabase
@@ -136,9 +134,9 @@ export default function ClassDetailPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [supabase, toast])
 
-  async function loadStudents(classId: string) {
+  const loadStudents = useCallback(async (classId: string) => {
     try {
       // Load students enrolled in this class
       const { data: enrollments, error: enrollError } = await supabase
@@ -232,7 +230,7 @@ export default function ClassDetailPage() {
     } catch (error) {
       console.error('Error loading students:', error)
     }
-  }
+  }, [supabase])
 
   // useEffect must be called before any early returns
   useEffect(() => {
@@ -241,7 +239,7 @@ export default function ClassDetailPage() {
       loadClassDetail(classId)
       loadStudents(classId)
     }
-  }, [params.id])
+  }, [params.id, loadClassDetail, loadStudents])
 
   // usePagination must be called before any early returns
   const {
