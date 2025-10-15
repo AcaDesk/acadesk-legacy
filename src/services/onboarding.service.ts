@@ -157,6 +157,7 @@ export class OnboardingService {
    * 온보딩 상태 확인
    * Uses RPC function to bypass RLS restrictions
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   static async checkOnboardingStatus(
     _userId: string
   ): Promise<{
