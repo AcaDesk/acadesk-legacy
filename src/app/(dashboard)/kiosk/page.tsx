@@ -27,7 +27,7 @@ interface StudentTodo {
 
 export default function KioskPage() {
   // All Hooks must be called before any early returns
-  const [studentId, setStudentId] = useState<string | null>(null) // TODO: Get from login
+  const [studentId] = useState<string | null>(null) // TODO: Get from login
   const [todos, setTodos] = useState<StudentTodo[]>([])
   const [showCelebration, setShowCelebration] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -41,6 +41,7 @@ export default function KioskPage() {
     if (studentId) {
       loadTodos()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentId])
 
   // Function definitions
