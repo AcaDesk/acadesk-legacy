@@ -77,7 +77,7 @@ export function EditEventModal({
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const form = useForm<EventFormValues>({
-    resolver: zodResolver(eventFormSchema) as unknown as Parameters<typeof useForm<EventFormValues>>[0]['resolver'],
+    resolver: zodResolver(eventFormSchema) as any,
     defaultValues: {
       title: '',
       description: '',
