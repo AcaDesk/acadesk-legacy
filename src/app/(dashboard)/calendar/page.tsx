@@ -125,7 +125,7 @@ export default function CalendarPage() {
         rruleString = rule.toString()
       }
 
-      const { data: newEvent, error } = await supabase
+      const { error } = await supabase
         .from('calendar_events')
         .insert({
           title: data.title,
