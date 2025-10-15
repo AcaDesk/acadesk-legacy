@@ -137,11 +137,11 @@ export default function SignupForm({
       }
 
       toast({
-        title: SIGNUP_SUCCESS_MESSAGE.title,
-        description: SIGNUP_SUCCESS_MESSAGE.description,
+        title: "회원가입 완료",
+        description: "관리자 승인 후 로그인할 수 있습니다.",
       })
 
-      router.push("/auth/verify-email?email=" + encodeURIComponent(data.email))
+      router.push("/auth/pending-approval")
     } catch (error) {
       toast({
         title: GENERIC_ERROR_MESSAGE.title,

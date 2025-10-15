@@ -56,6 +56,16 @@ export const authService = {
       }
     }
 
+    // 회원가입 성공 후 public.users 프로필 생성 (트리거 대신 명시적 호출)
+    if (authData.user) {
+      const { data: profileResult } = await supabase
+        .rpc('create_user_profile')
+
+      if (!profileResult?.success) {
+        console.error('Failed to create user profile:', profileResult?.error)
+      }
+    }
+
     return {
       user: authData.user,
       error: null,

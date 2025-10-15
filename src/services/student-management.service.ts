@@ -9,6 +9,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { DatabaseError, ConflictError } from '@/lib/error-types'
 import { logError } from '@/lib/error-handlers'
 import { generateStudentCode } from '@/lib/constants'
+import { hashKioskPin } from '@/app/actions/kiosk'
 
 // ==================== Types ====================
 
@@ -20,6 +21,7 @@ export interface CreateStudentInput {
   school?: string
   emergencyContact: string
   notes?: string
+  kioskPin?: string
 }
 
 export interface UpdateStudentInput {
@@ -30,6 +32,7 @@ export interface UpdateStudentInput {
   school?: string
   emergencyContact: string
   notes?: string
+  kioskPin?: string
 }
 
 export interface CreateStudentResult {
@@ -83,6 +86,12 @@ export async function createStudent(
     let attempts = 0
     const maxAttempts = 5
 
+    // Hash PIN if provided
+    let hashedPin: string | null = null
+    if (input.kioskPin && input.kioskPin.trim().length === 4) {
+      hashedPin = await hashKioskPin(input.kioskPin)
+    }
+
     while (attempts < maxAttempts) {
       attempts++
       studentCode = generateStudentCode()
@@ -98,6 +107,7 @@ export async function createStudent(
           school: input.school || null,
           emergency_contact: input.emergencyContact,
           notes: input.notes || null,
+          kiosk_pin: hashedPin,
         })
         .select('id')
         .single()
@@ -189,14 +199,32 @@ export async function updateStudent(
     }
 
     // 2. students 테이블 업데이트
+    // Hash PIN if provided (new PIN to update)
+    let hashedPin: string | null | undefined = undefined
+    if (input.kioskPin !== undefined) {
+      if (input.kioskPin && input.kioskPin.trim().length === 4) {
+        hashedPin = await hashKioskPin(input.kioskPin)
+      } else {
+        // Empty string means remove PIN
+        hashedPin = null
+      }
+    }
+
+    const updateData: Record<string, unknown> = {
+      grade: input.grade,
+      school: input.school || null,
+      emergency_contact: input.emergencyContact,
+      notes: input.notes || null,
+    }
+
+    // Only include kiosk_pin if it was provided in the input
+    if (hashedPin !== undefined) {
+      updateData.kiosk_pin = hashedPin
+    }
+
     const { error: studentError } = await supabase
       .from('students')
-      .update({
-        grade: input.grade,
-        school: input.school || null,
-        emergency_contact: input.emergencyContact,
-        notes: input.notes || null,
-      })
+      .update(updateData)
       .eq('id', studentId)
 
     if (studentError) {
