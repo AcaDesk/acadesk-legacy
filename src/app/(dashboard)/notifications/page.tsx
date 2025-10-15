@@ -78,6 +78,7 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     filterLogs()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, filterType, filterStatus, logs])
 
   // Function definitions
