@@ -103,10 +103,12 @@ export default function TodoTemplatesPage() {
 
   useEffect(() => {
     loadTemplates()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
     filterTemplates()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, templates, statusFilter, priorityFilter, dayFilter])
 
   async function loadTemplates() {
