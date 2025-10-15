@@ -5,11 +5,9 @@ import { PageWrapper } from "@/components/layout/page-wrapper"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+// import { Badge } from '@/components/ui/badge'
 import {
   CreditCard,
-  TrendingUp,
-  TrendingDown,
   Clock,
   CheckCircle,
   AlertCircle,
@@ -28,12 +26,12 @@ import { Maintenance } from '@/components/layout/maintenance'
 
 export default function PaymentsPage() {
   // All Hooks must be called before any early returns
-  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7))
+  const [selectedMonth] = useState = useState(new Date().toISOString().slice(0, 7))
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
   const [createInvoicesDialogOpen, setCreateInvoicesDialogOpen] = useState(false)
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false)
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string>('')
-  const [refreshKey, setRefreshKey] = useState(0)
+  const [refreshKey] = useState = useState(0)
 
   const handlePaymentSuccess = () => {
     setRefreshKey(prev => prev + 1)
