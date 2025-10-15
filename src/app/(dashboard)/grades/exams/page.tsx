@@ -53,15 +53,17 @@ export default function ExamsPage() {
   const { toast } = useToast()
   const router = useRouter()
   const supabase = createClient()
-  const { user: currentUser } = useCurrentUser()
+  const { user } = useCurrentUser()
 
   // useEffect must be called before any early returns
   useEffect(() => {
     loadData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
     filterExams()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, exams])
 
   async function loadData() {
