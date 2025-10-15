@@ -29,6 +29,7 @@ export const onboardingService = {
    * Check if user has completed onboarding
    * Uses RPC function to bypass RLS restrictions
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async checkOnboardingStatus(_userId: string) {
     const supabase = createClient()
 
