@@ -59,6 +59,7 @@ export default function GradesPage() {
   // useEffect must be called before any early returns
   useEffect(() => {
     loadData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
