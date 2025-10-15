@@ -195,59 +195,19 @@ function OnboardingForm() {
     setIsSubmitting(true)
 
     try {
+      // MVP: staff 역할은 현재 미지원 (invitation 테이블/RPC 없음)
       if (data.role === "staff") {
-        if (!data.invitationCode) {
-          toast({
-            title: "초대 코드 필요",
-            description: "강사/직원으로 가입하려면 초대 코드가 필요합니다.",
-            variant: "destructive",
-          })
-          setIsSubmitting(false)
-          return
-        }
-
-        const { invitation, error: invitationError } =
-          await onboardingService.validateInvitationCode(data.invitationCode)
-
-        if (invitationError || !invitation) {
-          // 만료된 초대 코드인지 확인
-          const isExpired = invitationError?.message?.toLowerCase().includes("expired")
-          const message = isExpired
-            ? ONBOARDING_MESSAGES.expiredInvitation
-            : ONBOARDING_MESSAGES.invalidInvitation
-
-          toast({
-            title: message.title,
-            description: message.description,
-            variant: "destructive",
-          })
-          setIsSubmitting(false)
-          return
-        }
-
-        const { error } = await onboardingService.completeStaffOnboarding(
-          userId,
-          data,
-          invitation
-        )
-
-        if (error) {
-          toast({
-            title: GENERIC_ERROR_MESSAGE.title,
-            description: GENERIC_ERROR_MESSAGE.description,
-            variant: "destructive",
-          })
-          setIsSubmitting(false)
-          return
-        }
-
         toast({
-          title: ONBOARDING_MESSAGES.staffSuccess.title,
-          description: ONBOARDING_MESSAGES.staffSuccess.description,
+          title: "준비 중인 기능",
+          description: "강사/직원 초대 기능은 현재 준비 중입니다. owner 역할을 선택해주세요.",
+          variant: "destructive",
         })
+        setIsSubmitting(false)
+        return
+      }
 
-        router.push("/dashboard")
-      } else {
+      // Owner 온보딩
+      if (data.role === "owner") {
         const { error } = await onboardingService.completeOwnerOnboarding(userId, data)
 
         if (error) {
