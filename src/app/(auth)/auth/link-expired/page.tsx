@@ -283,20 +283,45 @@ function LinkExpiredContent() {
             </motion.div>
           )}
 
-          {/* 안내 메시지 */}
-          <div className="rounded-lg border border-border bg-muted/50 p-4">
-            <div className="flex items-start gap-3">
-              <Mail className="mt-0.5 h-5 w-5 flex-shrink-0 text-primary" />
-              <div className="space-y-2 text-sm">
-                <p className="font-medium text-foreground">알고 계셨나요?</p>
-                <ul className="ml-4 list-disc space-y-1 text-muted-foreground">
-                  <li>인증 링크는 1시간 동안만 유효합니다</li>
-                  <li>한 번 사용된 링크는 재사용할 수 없습니다</li>
-                  <li>새로운 링크를 받으면 이전 링크는 자동으로 무효화됩니다</li>
-                </ul>
+          {/* 스캐너 관련 안내 (중요) */}
+          {errorType === "used" || errorType === "invalid" ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20 p-4">
+              <div className="flex items-start gap-3">
+                <Mail className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+                <div className="space-y-2 text-sm">
+                  <p className="font-medium text-amber-900 dark:text-amber-100">
+                    💡 이메일 보안 검사로 인한 문제일 수 있습니다
+                  </p>
+                  <p className="text-amber-700 dark:text-amber-300">
+                    Gmail, 네이버, Outlook 등의 이메일 서비스는 보안을 위해 링크를 자동으로 확인합니다.
+                    이 과정에서 인증 링크가 미리 사용되었을 수 있습니다.
+                  </p>
+                  <p className="font-medium text-amber-900 dark:text-amber-100 mt-3">
+                    해결 방법:
+                  </p>
+                  <ul className="ml-4 list-disc space-y-1 text-amber-700 dark:text-amber-300">
+                    <li>아래 버튼을 눌러 새 인증 이메일을 받으세요</li>
+                    <li>또는 이메일 링크를 복사하여 브라우저 주소창에 직접 붙여넣으세요</li>
+                    <li>모바일에서는 이메일 앱 대신 웹 브라우저에서 이메일을 확인해보세요</li>
+                  </ul>
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="rounded-lg border border-border bg-muted/50 p-4">
+              <div className="flex items-start gap-3">
+                <Mail className="mt-0.5 h-5 w-5 flex-shrink-0 text-primary" />
+                <div className="space-y-2 text-sm">
+                  <p className="font-medium text-foreground">알고 계셨나요?</p>
+                  <ul className="ml-4 list-disc space-y-1 text-muted-foreground">
+                    <li>인증 링크는 1시간 동안만 유효합니다</li>
+                    <li>한 번 사용된 링크는 재사용할 수 없습니다</li>
+                    <li>새로운 링크를 받으면 이전 링크는 자동으로 무효화됩니다</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* 액션 버튼 */}
           <div className="space-y-3">
