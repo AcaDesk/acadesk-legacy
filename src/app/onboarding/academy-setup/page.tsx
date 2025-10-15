@@ -88,7 +88,7 @@ export default function AcademySetupPage() {
         router.push("/dashboard")
         router.refresh()
       }, 1000)
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: "오류",
         description: "알 수 없는 오류가 발생했습니다.",
