@@ -20,7 +20,6 @@ import { Search, TrendingUp, TrendingDown, Minus, Plus, ChevronRight } from 'luc
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { GradesLineChart } from '@/components/features/charts/grades-line-chart'
-import { GradesBarChart } from '@/components/features/charts/grades-bar-chart'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
@@ -109,6 +108,7 @@ export default function GradesListPage() {
   // useEffect must be called before any early returns
   useEffect(() => {
     loadStudents()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -228,7 +228,7 @@ export default function GradesListPage() {
     return 'destructive'
   }
 
-  function getScoreTrend(currentScore: ExamScore, index: number): 'up' | 'down' | 'same' | null {
+  function getScoreTrend(_currentScore: ExamScore, _index: number): 'up' | 'down' | 'same' | null {
     // Trend calculation would need additional data fetching for accurate comparison
     // For now, return null to avoid incorrect calculations with paginated data
     return null
