@@ -67,6 +67,25 @@ export async function GET(request: Request) {
       return NextResponse.redirect(`${origin}/auth/login`)
     }
 
+    // 이메일 확인 후 프로필 생성 (회원가입 시 이메일 확인이 필요한 경우)
+    // 이미 프로필이 있으면 성공 메시지 반환
+    const { data: profileResult } = await supabase.rpc('create_user_profile')
+
+    if (profileResult && !profileResult.success) {
+      console.error('Failed to create user profile:', profileResult.error)
+    }
+
+    // 승인 상태 확인
+    const { data: approvalResult } = await supabase.rpc('check_approval_status')
+
+    if (approvalResult?.status === 'pending') {
+      // 승인 대기 중이면 대기 페이지로
+      return NextResponse.redirect(`${origin}/auth/pending-approval`)
+    } else if (approvalResult?.status === 'rejected') {
+      // 거부되었으면 로그인 페이지로
+      return NextResponse.redirect(`${origin}/auth/login?error=rejected`)
+    }
+
     // RPC 함수로 온보딩 상태 확인 (RLS 우회)
     const { data: state, error: stateError } = await supabase
       .rpc("get_onboarding_state")
@@ -74,12 +93,13 @@ export async function GET(request: Request) {
 
     if (stateError) {
       console.error("Failed to get onboarding state:", stateError)
-      return NextResponse.redirect(`${origin}/auth/login`)
+      // 온보딩 상태를 가져올 수 없으면 온보딩 페이지로
+      return NextResponse.redirect(`${origin}/onboarding?email=${encodeURIComponent(user.email || '')}&verified=true`)
     }
 
     // 온보딩이 완료되지 않았으면 온보딩 페이지로
     if (!state?.onboarding_completed) {
-      return NextResponse.redirect(`${origin}/auth/onboarding?email=${encodeURIComponent(user.email || '')}&verified=true`)
+      return NextResponse.redirect(`${origin}/onboarding?email=${encodeURIComponent(user.email || '')}&verified=true`)
     }
 
     // 온보딩 완료된 사용자는 대시보드로
