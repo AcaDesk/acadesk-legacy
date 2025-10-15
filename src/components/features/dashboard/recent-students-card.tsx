@@ -5,11 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { ScrollArea } from "@/components/ui/scroll-area"
+// import { ScrollArea } from "@/components/ui/scroll-area"
 import Link from "next/link"
-import {
-  Users,
-  ArrowRight,
+import {  ArrowRight,
   ChevronLeft,
   ChevronRight,
   UserPlus,
@@ -18,7 +16,7 @@ import {
   AlertCircle,
   CalendarDays
 } from "lucide-react"
-import { cn } from "@/lib/utils"
+// import { cn } from "@/lib/utils"
 import type { RecentStudent } from "@/hooks/use-dashboard-data"
 
 interface RecentStudentsCardProps {
