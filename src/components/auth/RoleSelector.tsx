@@ -39,16 +39,19 @@ export function RoleSelector({
             </span>
           </Label>
         </div>
-        <div>
-          <RadioGroupItem value="staff" id="role-staff" className="peer sr-only" />
+        <div className="relative">
+          <RadioGroupItem value="staff" id="role-staff" className="peer sr-only" disabled />
           <Label
             htmlFor="role-staff"
-            className="flex cursor-pointer flex-col items-center justify-between rounded-lg border-2 border-muted bg-transparent p-4 hover:bg-accent peer-data-[state=checked]:border-primary [&:has([data-disabled])]:cursor-not-allowed [&:has([data-disabled])]:opacity-50"
+            className="flex cursor-not-allowed flex-col items-center justify-between rounded-lg border-2 border-muted bg-muted/30 p-4 opacity-60"
           >
             <Users className="mb-2 h-6 w-6" />
             <span className="text-sm font-medium">강사/직원</span>
             <span className="mt-1 text-center text-xs text-muted-foreground">
               초대받은 학원에 참여합니다
+            </span>
+            <span className="mt-2 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+              준비 중
             </span>
           </Label>
         </div>
