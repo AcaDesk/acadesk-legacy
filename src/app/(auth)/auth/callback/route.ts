@@ -2,9 +2,44 @@ import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 import type { OnboardingStateResponse } from "@/types/auth.types"
 
+/**
+ * Supabase 인증 에러를 분석하여 적절한 에러 타입을 반환
+ */
+function classifyAuthError(error: { message?: string; code?: string }): string {
+  const message = error.message?.toLowerCase() || ""
+  const code = error.code?.toLowerCase() || ""
+
+  // 만료된 링크
+  if (message.includes("expired") || code.includes("expired")) {
+    return "expired"
+  }
+
+  // 이미 사용된 링크
+  if (
+    message.includes("already") ||
+    message.includes("used") ||
+    code.includes("consumed")
+  ) {
+    return "used"
+  }
+
+  // 유효하지 않은 토큰
+  if (
+    message.includes("invalid") ||
+    code.includes("invalid") ||
+    message.includes("not found")
+  ) {
+    return "invalid"
+  }
+
+  // 기타 에러
+  return "unknown"
+}
+
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get("code")
+  const type = requestUrl.searchParams.get("type") || "signup" // signup, recovery, invitation
   const origin = requestUrl.origin
 
   if (code) {
@@ -13,8 +48,13 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error("Auth callback error:", error)
+
+      // 에러 타입 분류
+      const errorType = classifyAuthError(error)
+
+      // 에러 타입에 따라 적절한 페이지로 리디렉션
       return NextResponse.redirect(
-        `${origin}/auth/login?error=${encodeURIComponent(error.message)}`
+        `${origin}/auth/link-expired?type=${type}&error=${errorType}`
       )
     }
 
