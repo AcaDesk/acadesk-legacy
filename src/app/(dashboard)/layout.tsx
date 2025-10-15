@@ -167,34 +167,33 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const router = useRouter()
 
-  // 온보딩 상태 확인 - tenant_id가 없으면 대시보드 접근 차단
-  const { user, loading, error } = useCurrentUser()
+  // 현재 사용자 정보 조회 (안전하게 - 에러 던지지 않음)
+  const { user, loading } = useCurrentUser()
 
   // 태블릿 이상 여부 감지 (768px 이상에서 사이드바 표시)
   const isDesktop = useMediaQuery("(min-width: 768px)")
   // 큰 데스크톱 감지 (1024px 이상)
   const isLargeDesktop = useMediaQuery("(min-width: 1024px)")
 
-  // 온보딩 상태에 따라 리디렉션 (tenant_id 없음 제외)
+  // 인증 및 온보딩 상태 확인
   useEffect(() => {
     if (loading) return
 
-    if (error) {
-      const errorMessage = error.message.toLowerCase()
-
-      // tenant_id 없는 경우는 배너로 처리하므로 리디렉션하지 않음
-      if (errorMessage.includes('tenant')) {
-        return
-      }
-
-      // 그 외 에러는 적절한 페이지로 리디렉션
-      if (errorMessage.includes('onboarding')) {
-        router.push('/auth/onboarding')
-      } else {
-        router.push('/auth/login')
-      }
+    // 로그인 안 됨
+    if (!user) {
+      router.push('/auth/login')
+      return
     }
-  }, [loading, error, router])
+
+    // 온보딩 미완료
+    if (!user.onboardingCompleted) {
+      router.push('/auth/onboarding')
+      return
+    }
+
+    // tenant_id 없음 (배너로 처리하므로 리디렉션하지 않음)
+    // 이 경우는 아래 렌더링에서 배너 표시
+  }, [loading, user, router])
 
   // 화면 크기에 따라 사이드바 자동 축소/펼침
   useEffect(() => {
@@ -222,8 +221,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   // tenant_id 없는 경우: 안내 배너 표시
-  const isTenantError = error && error.message.toLowerCase().includes('tenant')
-  if (isTenantError) {
+  const hasTenantIssue = user && !user.tenantId
+  if (hasTenantIssue) {
     return (
       <div className="flex h-screen items-center justify-center bg-background p-4">
         <div className="max-w-md w-full space-y-4 text-center">
