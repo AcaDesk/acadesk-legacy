@@ -28,6 +28,7 @@ import { ONBOARDING_MESSAGES, LOGOUT_SUCCESS_MESSAGE, GENERIC_ERROR_MESSAGE } fr
 const onboardingSchema = z.object({
   name: z.string().min(2, "이름은 2자 이상이어야 합니다."),
   role: z.enum(["owner", "staff"]),
+  academyName: z.string().optional(), // Owner role일 때 필수
   invitationCode: z.string().optional(),
   terms: z.boolean().refine((val) => val === true, {
     message: "이용약관에 동의해주세요.",
@@ -36,6 +37,23 @@ const onboardingSchema = z.object({
     message: "개인정보처리방침에 동의해주세요.",
   }),
   marketing: z.boolean(), // 선택 사항
+}).superRefine((data, ctx) => {
+  // Owner role일 때 academyName 필수 검증
+  if (data.role === "owner" && !data.academyName) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "학원명은 필수입니다.",
+      path: ["academyName"],
+    })
+  }
+  // Staff role일 때 invitationCode 필수 검증
+  if (data.role === "staff" && !data.invitationCode) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "초대 코드는 필수입니다.",
+      path: ["invitationCode"],
+    })
+  }
 })
 
 type OnboardingFormValues = z.infer<typeof onboardingSchema>
@@ -304,6 +322,32 @@ export default function OnboardingPage() {
               error={errors.role?.message}
               disabled={isSubmitting}
             />
+
+            {selectedRole === "owner" && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-2"
+              >
+                <Label htmlFor="academyName">학원명</Label>
+                <Input
+                  id="academyName"
+                  placeholder="예) 서울학원"
+                  {...register("academyName")}
+                  disabled={isSubmitting}
+                />
+                {errors.academyName && (
+                  <p className="text-sm text-destructive">
+                    {errors.academyName.message}
+                  </p>
+                )}
+                <p className="text-sm text-muted-foreground">
+                  학원 이름을 입력해주세요
+                </p>
+              </motion.div>
+            )}
 
             {selectedRole === "staff" && (
               <motion.div
