@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
-import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -23,9 +22,6 @@ import Link from 'next/link'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { PAGE_LAYOUT, GRID_LAYOUTS, TEXT_STYLES, CARD_STYLES } from '@/lib/constants'
 import { usePagination } from '@/hooks/use-pagination'
-import { FEATURES } from '@/lib/features.config'
-import { ComingSoon } from '@/components/layout/coming-soon'
-import { Maintenance } from '@/components/layout/maintenance'
 import {
   Pagination,
   PaginationContent,
@@ -64,7 +60,7 @@ export default function ClassesPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const { toast } = useToast()
 
-  async function loadClasses() {
+  const loadClasses = useCallback(async () => {
     try {
       setLoading(true)
 
@@ -123,12 +119,12 @@ export default function ClassesPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [toast])
 
   // useEffect must be called before any early returns
   useEffect(() => {
     loadClasses()
-  }, [])
+  }, [loadClasses])
 
   const filteredClasses = classes.filter(cls =>
     cls.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
