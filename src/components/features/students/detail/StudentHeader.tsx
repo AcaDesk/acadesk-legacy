@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { motion } from 'motion/react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -192,14 +193,15 @@ export function StudentHeader({
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
-            <img
+            <Image
               src={getStudentAvatar(
                 student.profile_image_url,
                 student.id,
                 student.users?.name || 'Student'
               )}
               alt={student.users?.name || '학생'}
-              className="h-full w-full object-cover"
+              fill
+              className="object-cover"
             />
             <div className="absolute inset-0 bg-foreground/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
               <Edit className="h-5 w-5 text-background" />
