@@ -47,7 +47,7 @@ export function ContactGuardianDialog({
 }: ContactGuardianDialogProps) {
   const [guardians, setGuardians] = useState<Guardian[]>([])
   const [loading, setLoading] = useState(false)
-  const [contactMethod] = useState = useState<'phone' | 'sms' | 'email' | null>(null)
+  const [contactMethod, setContactMethod] = useState<'phone' | 'sms' | 'email' | null>(null)
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const { toast } = useToast()
