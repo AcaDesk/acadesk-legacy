@@ -122,13 +122,23 @@ export interface DashboardData {
   activityLogs?: ActivityLog[]
 }
 
-async function fetchDashboardData(): Promise<DashboardData> {
+/**
+ * 대시보드 데이터 페치 함수 (순수 함수)
+ * @param isDashboardRoute - 현재 경로가 대시보드인지 여부
+ */
+async function fetchDashboardData(isDashboardRoute: boolean = true): Promise<DashboardData> {
+  // 경로 확인 - 대시보드가 아니면 즉시 기본값 반환
+  if (!isDashboardRoute) {
+    console.warn('Dashboard data fetch skipped: Not on dashboard route')
+    return getDefaultDashboardData()
+  }
+
   const supabase = createClient()
 
   // 인증 확인
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) {
-    console.warn('Dashboard data fetch skipped: No active session')
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+  if (sessionError || !session) {
+    console.warn('Dashboard data fetch skipped: No active session', sessionError)
     return getDefaultDashboardData()
   }
 
@@ -140,9 +150,13 @@ async function fetchDashboardData(): Promise<DashboardData> {
 
   if (error) {
     console.error('Dashboard data fetch error:', error)
-    // 404는 RPC 함수가 없거나 권한이 없는 경우 (조용히 기본값 반환)
-    if (error.code === 'PGRST116' || error.message.includes('404')) {
-      console.warn('Dashboard RPC not available, returning default data')
+    // RPC 함수가 없거나 권한이 없는 경우 (조용히 기본값 반환)
+    // PGRST116: 찾을 수 없음 (404)
+    // PGRST202: 함수가 존재하지 않음
+    // PGRST301: 권한 없음
+    const knownSafeCodes = ['PGRST116', 'PGRST202', 'PGRST301']
+    if (knownSafeCodes.includes(error.code) || error.message.includes('404')) {
+      console.warn(`Dashboard RPC not available (${error.code}), returning default data`)
       return getDefaultDashboardData()
     }
     throw error
@@ -189,19 +203,29 @@ export function useDashboardData(initialData?: DashboardData) {
   const isDashboardRoute = pathname === '/dashboard' || pathname?.startsWith('/dashboard/')
 
   return useQuery({
-    queryKey: ['dashboard-data'],
-    queryFn: fetchDashboardData,
+    // 경로를 쿼리 키에 포함하여 완전히 분리
+    queryKey: ['dashboard-data', { route: isDashboardRoute ? 'dashboard' : 'other' }],
+    // 경로 정보를 fetch 함수에 전달 (순수 함수로 만들기)
+    queryFn: () => fetchDashboardData(isDashboardRoute),
     initialData,
     // 대시보드 페이지에서만 쿼리 활성화
     enabled: isDashboardRoute,
     refetchInterval: isDashboardRoute ? 30000 : false, // 30초마다 자동 새로고침 (대시보드에서만)
     refetchOnWindowFocus: isDashboardRoute,
     staleTime: 10000, // 10초 후 stale 처리
+    // 쿼리가 비활성화될 때 캐시 유지 시간 (0으로 설정하여 즉시 제거)
+    gcTime: isDashboardRoute ? 5 * 60 * 1000 : 0, // 대시보드: 5분, 기타: 즉시 제거
+    // 대시보드가 아닌 경우 재시도하지 않음 (불필요한 로그 방지)
+    retry: isDashboardRoute ? 1 : false,
   })
 }
 
 // 수동 새로고침을 위한 유틸리티
 export function useRefreshDashboard() {
   const queryClient = useQueryClient()
-  return () => queryClient.invalidateQueries({ queryKey: ['dashboard-data'] })
+  // 모든 대시보드 데이터 쿼리 무효화 (쿼리 키의 첫 번째 요소만 매칭)
+  return () => queryClient.invalidateQueries({
+    queryKey: ['dashboard-data'],
+    exact: false
+  })
 }
