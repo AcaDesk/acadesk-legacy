@@ -5,12 +5,28 @@
  */
 
 import { createClient } from "@/lib/supabase/client"
+import { createClient as createServerClient } from "@/lib/supabase/server"
 import type {
   OnboardingFormData,
   Invitation,
   OnboardingStateResponse,
   InvitationValidationResponse,
 } from "@/types/auth.types"
+
+// ==================== Academy Setup Types ====================
+
+export interface AcademySetupData {
+  academyName: string
+  academyAddress?: string
+  academyPhone?: string
+  timezone?: string
+  businessHours?: {
+    start: string
+    end: string
+  }
+  subjects?: string[]
+  logo?: File
+}
 
 export const onboardingService = {
   /**
@@ -35,7 +51,7 @@ export const onboardingService = {
     const supabase = createClient()
 
     // Use RPC function instead of direct SELECT to bypass RLS
-    const { data, error } = await supabase.rpc("get_onboarding_state").single()
+    const { data, error } = await supabase.rpc("get_onboarding_state")
 
     if (error || !data) {
       return { data: null, error: error || new Error("온보딩 상태를 확인할 수 없습니다.") }
@@ -126,32 +142,31 @@ export const onboardingService = {
   async completeOwnerOnboarding(userId: string, data: OnboardingFormData) {
     const supabase = createClient()
 
-    // 디버깅: 환경 변수 확인
-    console.log("🔍 Supabase Client Debug:", {
-      hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-      hasKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      url: process.env.NEXT_PUBLIC_SUPABASE_URL,
-      keyPrefix: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.substring(0, 20) + "...",
+    // 디버깅: 환경 변수 확인 (개발 환경에서만)
+    if (process.env.NODE_ENV !== "production") {
+      console.log("🔍 Supabase Client Debug:", {
+        hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+        hasKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      })
+    }
+
+    const { data: result, error } = await supabase.rpc("complete_owner_onboarding", {
+      _user_id: userId,
+      _name: data.name,
+      _academy_name: data.academyName!,
+      _slug: null, // Auto-generated
     })
 
-    const { data: result, error } = await supabase
-      .rpc("complete_owner_onboarding", {
-        _user_id: userId,
-        _name: data.name,
-        _academy_name: data.academyName!,
-        _slug: null, // Auto-generated
-      })
-      .single()
-
     if (error) {
-      return { error: new Error("온보딩 완료에 실패했습니다.") }
+      console.error("complete_owner_onboarding RPC error:", error)
+      return { error: new Error("온보딩 처리 중 문제가 발생했어요. 잠시 후 다시 시도해주세요.") }
     }
 
     // Type-safe result check
     const rpcResult = result as { success: boolean; error?: string }
 
-    if (!rpcResult.success) {
-      return { error: new Error(rpcResult.error || "온보딩 완료에 실패했습니다.") }
+    if (!rpcResult?.success) {
+      return { error: new Error(rpcResult?.error || "온보딩 완료에 실패했습니다.") }
     }
 
     return { error: null }
@@ -203,4 +218,175 @@ export const onboardingService = {
     return { error: null }
   },
   */
+
+  // ==================== Academy Setup (Client) ====================
+
+  /**
+   * 학원 설정 완료 (클라이언트용)
+   * Complete academy setup after owner onboarding
+   */
+  async completeAcademySetup(
+    userId: string,
+    data: AcademySetupData
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const supabase = createClient()
+
+      // 1. RPC로 사용자 상태 조회 (RLS 우회)
+      const { data: state, error: stateError } = await supabase.rpc("get_onboarding_state")
+
+      if (stateError || !state) {
+        return { success: false, error: "사용자 정보를 찾을 수 없습니다." }
+      }
+
+      const onboardingState = state as OnboardingStateResponse
+
+      if (!onboardingState.tenant_id) {
+        return { success: false, error: "테넌트 정보를 찾을 수 없습니다." }
+      }
+
+      const tenantId = onboardingState.tenant_id
+
+      // 2. tenant 정보 업데이트
+      const { error: tenantError } = await supabase
+        .from("tenants")
+        .update({
+          name: data.academyName,
+          timezone: data.timezone || "Asia/Seoul",
+          settings: {
+            address: data.academyAddress,
+            phone: data.academyPhone,
+            businessHours: data.businessHours,
+            subjects: data.subjects,
+          },
+        })
+        .eq("id", tenantId)
+
+      if (tenantError) {
+        console.error("Tenant update error:", tenantError)
+        return { success: false, error: "학원 정보 업데이트에 실패했습니다." }
+      }
+
+      // 3. 사용자의 온보딩 완료 처리
+      const { error: updateError } = await supabase
+        .from("users")
+        .update({
+          onboarding_completed: true,
+          onboarding_completed_at: new Date().toISOString(),
+        })
+        .eq("id", userId)
+
+      if (updateError) {
+        console.error("User onboarding update error:", updateError)
+        return { success: false, error: "온보딩 완료 처리에 실패했습니다." }
+      }
+
+      return { success: true }
+    } catch (error) {
+      console.error("Academy setup error:", error)
+      return { success: false, error: "알 수 없는 오류가 발생했습니다." }
+    }
+  },
+
+  /**
+   * 학원 설정 완료 (서버용 - Server Component/API Route)
+   */
+  async completeAcademySetupServer(
+    userId: string,
+    data: AcademySetupData
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const supabase = await createServerClient()
+
+      // 1. RPC로 사용자 상태 조회 (RLS 우회)
+      const { data: state, error: stateError } = await supabase.rpc("get_onboarding_state")
+
+      if (stateError || !state) {
+        return { success: false, error: "사용자 정보를 찾을 수 없습니다." }
+      }
+
+      const onboardingState = state as OnboardingStateResponse
+
+      if (!onboardingState.tenant_id) {
+        return { success: false, error: "테넌트 정보를 찾을 수 없습니다." }
+      }
+
+      const tenantId = onboardingState.tenant_id
+
+      // 2. tenant 정보 업데이트
+      const { error: tenantError } = await supabase
+        .from("tenants")
+        .update({
+          name: data.academyName,
+          timezone: data.timezone || "Asia/Seoul",
+          settings: {
+            address: data.academyAddress,
+            phone: data.academyPhone,
+            businessHours: data.businessHours,
+            subjects: data.subjects,
+          },
+        })
+        .eq("id", tenantId)
+
+      if (tenantError) {
+        console.error("Tenant update error:", tenantError)
+        return { success: false, error: "학원 정보 업데이트에 실패했습니다." }
+      }
+
+      // 3. 사용자의 온보딩 완료 처리
+      const { error: updateError } = await supabase
+        .from("users")
+        .update({
+          onboarding_completed: true,
+          onboarding_completed_at: new Date().toISOString(),
+        })
+        .eq("id", userId)
+
+      if (updateError) {
+        console.error("User onboarding update error:", updateError)
+        return { success: false, error: "온보딩 완료 처리에 실패했습니다." }
+      }
+
+      return { success: true }
+    } catch (error) {
+      console.error("Academy setup error:", error)
+      return { success: false, error: "알 수 없는 오류가 발생했습니다." }
+    }
+  },
+
+  /**
+   * 온보딩 상태 확인 (checkOnboardingStatus와 유사하지만 더 많은 정보 반환)
+   */
+  async checkOnboardingStatusDetailed(
+    _userId: string
+  ): Promise<{
+    needsApproval: boolean
+    needsOnboarding: boolean
+    approvalStatus?: string
+    onboardingCompleted?: boolean
+  }> {
+    try {
+      const supabase = createClient()
+
+      // Use RPC function instead of direct SELECT to bypass RLS
+      const { data, error } = await supabase.rpc("get_onboarding_state")
+
+      if (error || !data) {
+        return { needsApproval: false, needsOnboarding: false }
+      }
+
+      const state = data as OnboardingStateResponse
+
+      return {
+        needsApproval: state.approval_status === "pending",
+        needsOnboarding:
+          state.approval_status === "approved" && !state.onboarding_completed,
+        approvalStatus: state.approval_status,
+        onboardingCompleted: state.onboarding_completed,
+      }
+    } catch (error) {
+      console.error("Check onboarding status error:", error)
+      return { needsApproval: false, needsOnboarding: false }
+    }
+  },
 }
