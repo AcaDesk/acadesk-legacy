@@ -2,7 +2,16 @@ import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
 /**
- * Middleware용 Supabase 클라이언트
+ * Middleware용 Supabase 클라이언트 + 세션 관리
+ *
+ * ⚠️ 중요: 미들웨어에서는 DB SELECT를 하지 않습니다!
+ * - 세션이 anon일 때 RLS에 막혀 403 에러 발생
+ * - 온보딩/승인 상태 확인은 페이지에서 RPC로 처리
+ *
+ * 미들웨어 역할:
+ * 1. 세션 쿠키 유지/갱신
+ * 2. 인증 상태만 확인 (auth.getUser)
+ * 3. 기본 라우팅 (로그인 여부, 이메일 인증 여부만)
  */
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -32,6 +41,7 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
+  // 세션만 확인 (DB 접근 X)
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -47,6 +57,7 @@ export async function updateSession(request: NextRequest) {
     "/auth/verify-email",
     "/auth/callback",
     "/auth/onboarding",
+    "/auth/pending-approval",
     "/auth/forgot-password",
     "/auth/reset-password",
     "/auth/link-expired",
@@ -60,75 +71,26 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // 로그인된 사용자의 경우 온보딩 상태 확인
+  // 로그인된 사용자 - 최소한의 라우팅만
   if (user) {
-    // 이메일 인증 확인 - 인증되지 않은 경우 verify-email 페이지로 리다이렉트
-    if (!user.email_confirmed_at && pathname !== "/auth/verify-email" && !pathname.startsWith("/auth/logout")) {
+    // 이메일 인증 확인
+    if (
+      !user.email_confirmed_at &&
+      pathname !== "/auth/verify-email" &&
+      !pathname.startsWith("/auth/logout")
+    ) {
       const url = request.nextUrl.clone()
       url.pathname = "/auth/verify-email"
-      // 이메일 정보를 쿼리 파라미터로 전달
       if (user.email) {
         url.searchParams.set("email", user.email)
       }
       return NextResponse.redirect(url)
     }
 
-    // 사용자 정보 조회
-    const { data: userData } = await supabase
-      .from("users")
-      .select("approval_status, onboarding_completed, role_code")
-      .eq("id", user.id)
-      .single()
-
-    // 온보딩 미완료인 경우 - 모든 사용자 (소셜/이메일 가입 모두)
-    // 단, 이메일 인증이 완료된 경우만
-    if (user.email_confirmed_at && !userData?.onboarding_completed) {
-      // 온보딩 페이지가 아니고 로그아웃도 아닌 경우
-      if (
-        pathname !== "/auth/onboarding" &&
-        !pathname.startsWith("/auth/logout") &&
-        !pathname.startsWith("/auth/callback")
-      ) {
-        const url = request.nextUrl.clone()
-        url.pathname = "/auth/onboarding"
-        return NextResponse.redirect(url)
-      }
-    }
-    // 온보딩 완료 후 approval_status 확인
-    else if (userData?.onboarding_completed) {
-      // 승인 대기 중인 경우 (원장만 해당)
-      if (
-        userData?.approval_status === "pending" &&
-        userData?.role_code === "owner"
-      ) {
-        if (
-          pathname !== "/auth/pending-approval" &&
-          !pathname.startsWith("/auth/logout")
-        ) {
-          const url = request.nextUrl.clone()
-          url.pathname = "/auth/pending-approval"
-          return NextResponse.redirect(url)
-        }
-      }
-      // 승인 완료된 사용자
-      else if (userData?.approval_status === "approved") {
-        // auth 페이지 접근 시 대시보드로 리다이렉트 (로그아웃 제외)
-        if (
-          pathname.startsWith("/auth") &&
-          !pathname.startsWith("/auth/logout")
-        ) {
-          const url = request.nextUrl.clone()
-          url.pathname = "/dashboard"
-          return NextResponse.redirect(url)
-        }
-
-        // 루트 경로는 랜딩 페이지로 유지 (redirect 제거)
-        // LandingHeader에서 로그인 상태에 따라 다른 UI를 보여줌
-      }
-    }
+    // ⚠️ 온보딩/승인 상태 확인은 페이지 레벨에서 처리
+    // 미들웨어에서 DB SELECT 하면 RLS 403 위험
+    // → onboarding/pending-approval 페이지에서 RPC 호출로 확인
   }
-
-  // 로그인하지 않은 사용자도 루트 경로 접근 허용 (랜딩 페이지 표시)
 
   return supabaseResponse
 }

@@ -25,7 +25,11 @@ export function getAuthErrorMessage(error: { message?: string; code?: string } |
   }
 
   if (message.includes("email rate limit") || message.includes("rate limit")) {
-    return "너무 많은 요청을 보냈습니다. 잠시 후 다시 시도해주세요."
+    return "현재 많은 사용자가 동시에 가입하고 있습니다. 1-2분 후 다시 시도해주세요."
+  }
+
+  if (message.includes("too many requests") || message.includes("429")) {
+    return "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
   }
 
   // 로그인 관련 에러
@@ -142,6 +146,24 @@ export const APPROVAL_MESSAGES = {
 export const GENERIC_ERROR_MESSAGE = {
   title: "오류가 발생했습니다",
   description: "문제가 계속되면 team@acadesk.site로 문의해주세요.",
+}
+
+/**
+ * Rate Limit 관련 메시지
+ */
+export const RATE_LIMIT_MESSAGES = {
+  emailTooMany: {
+    title: "잠시만 기다려주세요",
+    description: "현재 많은 사용자가 동시에 가입하고 있습니다. 1-2분 후 다시 시도해주세요.",
+  },
+  emailResendWait: {
+    title: "잠시 후 다시 시도해주세요",
+    description: (seconds: number) => `${seconds}초 후에 다시 전송할 수 있습니다.`,
+  },
+  tooManyRequests: {
+    title: "요청이 너무 많습니다",
+    description: "잠시 후 다시 시도해주세요. 문제가 계속되면 team@acadesk.site로 문의해주세요.",
+  },
 }
 
 /**

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Mail, CheckCircle, RefreshCw, Loader2 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
-import { getAuthErrorMessage, EMAIL_RESEND_SUCCESS_MESSAGE, GENERIC_ERROR_MESSAGE } from "@/lib/auth-messages"
+import { getAuthErrorMessage, EMAIL_RESEND_SUCCESS_MESSAGE, GENERIC_ERROR_MESSAGE, RATE_LIMIT_MESSAGES } from "@/lib/auth-messages"
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams()
@@ -16,8 +16,39 @@ function VerifyEmailContent() {
   const email = searchParams.get("email")
   const [isResending, setIsResending] = useState(false)
   const [isCheckingAuth, setIsCheckingAuth] = useState(false)
+  const [remainingSeconds, setRemainingSeconds] = useState(0)
   const { toast } = useToast()
   const supabase = createClient()
+
+  // Rate Limiting: 60초 대기 시간 체크
+  useEffect(() => {
+    const checkRateLimit = () => {
+      const lastResendTime = localStorage.getItem("lastEmailResendTime")
+      if (lastResendTime) {
+        const elapsed = Date.now() - parseInt(lastResendTime, 10)
+        const waitTime = 60000 // 60초
+
+        if (elapsed < waitTime) {
+          const remaining = Math.ceil((waitTime - elapsed) / 1000)
+          setRemainingSeconds(remaining)
+        } else {
+          setRemainingSeconds(0)
+        }
+      }
+    }
+
+    // 초기 체크
+    checkRateLimit()
+
+    // 1초마다 카운트다운 업데이트
+    const intervalId = setInterval(() => {
+      if (remainingSeconds > 0) {
+        setRemainingSeconds(prev => Math.max(0, prev - 1))
+      }
+    }, 1000)
+
+    return () => clearInterval(intervalId)
+  }, [])
 
   // 자동으로 인증 상태 확인 (3초마다)
   useEffect(() => {
@@ -66,6 +97,16 @@ function VerifyEmailContent() {
   const handleResendEmail = async () => {
     if (!email) return
 
+    // Rate Limiting 체크
+    if (remainingSeconds > 0) {
+      toast({
+        title: RATE_LIMIT_MESSAGES.emailResendWait.title,
+        description: RATE_LIMIT_MESSAGES.emailResendWait.description(remainingSeconds),
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsResending(true)
     try {
       const { error } = await supabase.auth.resend({
@@ -74,13 +115,27 @@ function VerifyEmailContent() {
       })
 
       if (error) {
-        toast({
-          title: "이메일 재전송 실패",
-          description: getAuthErrorMessage(error),
-          variant: "destructive",
-        })
+        // Rate limit 에러 특별 처리
+        if (error.message?.toLowerCase().includes("rate limit") ||
+            error.message?.toLowerCase().includes("too many")) {
+          toast({
+            title: RATE_LIMIT_MESSAGES.emailTooMany.title,
+            description: RATE_LIMIT_MESSAGES.emailTooMany.description,
+            variant: "destructive",
+          })
+        } else {
+          toast({
+            title: "이메일 재전송 실패",
+            description: getAuthErrorMessage(error),
+            variant: "destructive",
+          })
+        }
         return
       }
+
+      // 성공 시 마지막 재전송 시간 기록
+      localStorage.setItem("lastEmailResendTime", Date.now().toString())
+      setRemainingSeconds(60)
 
       toast({
         title: EMAIL_RESEND_SUCCESS_MESSAGE.title,
@@ -169,10 +224,14 @@ function VerifyEmailContent() {
                 variant="outline"
                 className="w-full"
                 onClick={handleResendEmail}
-                disabled={isResending || !email}
+                disabled={isResending || !email || remainingSeconds > 0}
               >
                 <RefreshCw className={`mr-2 h-4 w-4 ${isResending ? "animate-spin" : ""}`} />
-                {isResending ? "재전송 중..." : "인증 이메일 다시 받기"}
+                {isResending
+                  ? "재전송 중..."
+                  : remainingSeconds > 0
+                    ? `${remainingSeconds}초 후 재전송 가능`
+                    : "인증 이메일 다시 받기"}
               </Button>
 
               <p className="text-center text-xs text-muted-foreground">

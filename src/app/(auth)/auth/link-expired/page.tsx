@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useState } from "react"
+import { Suspense, useState, useEffect } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { AlertCircle, Mail, RefreshCw, ArrowRight } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
-import { LINK_EXPIRED_MESSAGES, EMAIL_RESEND_SUCCESS_MESSAGE, GENERIC_ERROR_MESSAGE, getAuthErrorMessage } from "@/lib/auth-messages"
+import { LINK_EXPIRED_MESSAGES, EMAIL_RESEND_SUCCESS_MESSAGE, GENERIC_ERROR_MESSAGE, RATE_LIMIT_MESSAGES, getAuthErrorMessage } from "@/lib/auth-messages"
 
 function LinkExpiredContent() {
   const searchParams = useSearchParams()
@@ -22,6 +22,37 @@ function LinkExpiredContent() {
 
   const [email, setEmail] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
+  const [remainingSeconds, setRemainingSeconds] = useState(0)
+
+  // Rate Limiting: 60초 대기 시간 체크
+  useEffect(() => {
+    const checkRateLimit = () => {
+      const lastResendTime = localStorage.getItem("lastEmailResendTime")
+      if (lastResendTime) {
+        const elapsed = Date.now() - parseInt(lastResendTime, 10)
+        const waitTime = 60000 // 60초
+
+        if (elapsed < waitTime) {
+          const remaining = Math.ceil((waitTime - elapsed) / 1000)
+          setRemainingSeconds(remaining)
+        } else {
+          setRemainingSeconds(0)
+        }
+      }
+    }
+
+    // 초기 체크
+    checkRateLimit()
+
+    // 1초마다 카운트다운 업데이트
+    const intervalId = setInterval(() => {
+      if (remainingSeconds > 0) {
+        setRemainingSeconds(prev => Math.max(0, prev - 1))
+      }
+    }, 1000)
+
+    return () => clearInterval(intervalId)
+  }, [])
 
   // 에러 타입에 따른 메시지 선택
   const getErrorMessage = () => {
@@ -55,6 +86,16 @@ function LinkExpiredContent() {
       return
     }
 
+    // Rate Limiting 체크
+    if (remainingSeconds > 0) {
+      toast({
+        title: RATE_LIMIT_MESSAGES.emailResendWait.title,
+        description: RATE_LIMIT_MESSAGES.emailResendWait.description(remainingSeconds),
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsProcessing(true)
     try {
       const { error } = await supabase.auth.resend({
@@ -63,13 +104,27 @@ function LinkExpiredContent() {
       })
 
       if (error) {
-        toast({
-          title: "이메일 재전송 실패",
-          description: getAuthErrorMessage(error),
-          variant: "destructive",
-        })
+        // Rate limit 에러 특별 처리
+        if (error.message?.toLowerCase().includes("rate limit") ||
+            error.message?.toLowerCase().includes("too many")) {
+          toast({
+            title: RATE_LIMIT_MESSAGES.emailTooMany.title,
+            description: RATE_LIMIT_MESSAGES.emailTooMany.description,
+            variant: "destructive",
+          })
+        } else {
+          toast({
+            title: "이메일 재전송 실패",
+            description: getAuthErrorMessage(error),
+            variant: "destructive",
+          })
+        }
         return
       }
+
+      // 성공 시 마지막 재전송 시간 기록
+      localStorage.setItem("lastEmailResendTime", Date.now().toString())
+      setRemainingSeconds(60)
 
       toast({
         title: EMAIL_RESEND_SUCCESS_MESSAGE.title,
@@ -100,6 +155,16 @@ function LinkExpiredContent() {
       return
     }
 
+    // Rate Limiting 체크
+    if (remainingSeconds > 0) {
+      toast({
+        title: RATE_LIMIT_MESSAGES.emailResendWait.title,
+        description: RATE_LIMIT_MESSAGES.emailResendWait.description(remainingSeconds),
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsProcessing(true)
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -107,13 +172,27 @@ function LinkExpiredContent() {
       })
 
       if (error) {
-        toast({
-          title: "비밀번호 재설정 요청 실패",
-          description: getAuthErrorMessage(error),
-          variant: "destructive",
-        })
+        // Rate limit 에러 특별 처리
+        if (error.message?.toLowerCase().includes("rate limit") ||
+            error.message?.toLowerCase().includes("too many")) {
+          toast({
+            title: RATE_LIMIT_MESSAGES.emailTooMany.title,
+            description: RATE_LIMIT_MESSAGES.emailTooMany.description,
+            variant: "destructive",
+          })
+        } else {
+          toast({
+            title: "비밀번호 재설정 요청 실패",
+            description: getAuthErrorMessage(error),
+            variant: "destructive",
+          })
+        }
         return
       }
+
+      // 성공 시 마지막 재전송 시간 기록
+      localStorage.setItem("lastEmailResendTime", Date.now().toString())
+      setRemainingSeconds(60)
 
       toast({
         title: "비밀번호 재설정 이메일 전송 완료",
@@ -224,12 +303,17 @@ function LinkExpiredContent() {
             <Button
               className="w-full"
               onClick={handleAction}
-              disabled={isProcessing || (needsEmailInput && !email)}
+              disabled={isProcessing || (needsEmailInput && !email) || (needsEmailInput && remainingSeconds > 0)}
             >
               {isProcessing ? (
                 <>
                   <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                   처리 중...
+                </>
+              ) : remainingSeconds > 0 && needsEmailInput ? (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  {`${remainingSeconds}초 후 재전송 가능`}
                 </>
               ) : (
                 <>
