@@ -132,7 +132,7 @@ export default function WeeklyPlannerPage() {
     try {
       const data = await studentRepo.search('', currentUser.tenantId)
       setStudents(data as unknown as Student[])
-    } catch (_error) {
+    } catch (error: unknown) {
       toast({
         title: '학생 목록 로드 실패',
         description: getErrorMessage(error),
@@ -154,7 +154,7 @@ export default function WeeklyPlannerPage() {
 
       if (error) throw error
       setTemplates(data || [])
-    } catch (_error) {
+    } catch (error: unknown) {
       toast({
         title: '템플릿 로드 실패',
         description: getErrorMessage(error),
@@ -382,7 +382,7 @@ export default function WeeklyPlannerPage() {
 
       // Clear planned todos
       setPlannedTodos([])
-    } catch (_error) {
+    } catch (error: unknown) {
       toast({
         title: '게시 실패',
         description: getErrorMessage(error),
