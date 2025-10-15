@@ -20,9 +20,11 @@ import { APPROVAL_MESSAGES } from "@/lib/auth-messages"
 export default function PendingApprovalPage() {
   const [userEmail, setUserEmail] = useState<string>("")
   const [isChecking, setIsChecking] = useState(false)
+  const [rejectionReason, setRejectionReason] = useState<string | null>(null)
   const router = useRouter()
   const { toast } = useToast()
 
+  // 자동 폴링으로 승인 상태 확인
   useEffect(() => {
     const getUserEmail = async () => {
       const user = await authService.getCurrentUser()
@@ -31,43 +33,86 @@ export default function PendingApprovalPage() {
       }
     }
     getUserEmail()
+
+    // 30초마다 승인 상태 자동 체크
+    const intervalId = setInterval(() => {
+      checkApprovalStatus(true) // 자동 체크는 토스트 표시 안함
+    }, 30000)
+
+    // 초기 체크
+    checkApprovalStatus(true)
+
+    return () => clearInterval(intervalId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const handleCheckStatus = async () => {
-    setIsChecking(true)
+  const checkApprovalStatus = async (silent = false) => {
+    if (!silent) setIsChecking(true)
+
     try {
       const supabase = createClient()
       const user = await authService.getCurrentUser()
 
       if (user) {
-        const { data } = await supabase
-          .from("users")
-          .select("approval_status")
-          .eq("id", user.id)
-          .single()
+        // RPC 함수를 사용하여 승인 상태 확인
+        const { data: result } = await supabase.rpc('check_approval_status')
 
-        if (data?.approval_status === "approved") {
-          toast({
-            title: "승인 완료",
-            description: "학원 대시보드로 이동합니다.",
-          })
-          router.push("/dashboard")
-        } else if (data?.approval_status === "rejected") {
-          toast({
-            title: APPROVAL_MESSAGES.rejected.title,
-            description: APPROVAL_MESSAGES.rejected.description,
-            variant: "destructive",
-          })
+        if (!result?.success) {
+          if (!silent) {
+            toast({
+              title: "오류",
+              description: result?.error || "상태를 확인할 수 없습니다.",
+              variant: "destructive",
+            })
+          }
+          return
+        }
+
+        if (result.status === "approved") {
+          if (!silent) {
+            toast({
+              title: "승인 완료",
+              description: "학원 대시보드로 이동합니다.",
+            })
+          }
+          // 온보딩이 완료되지 않았으면 온보딩 페이지로
+          router.push("/onboarding")
+        } else if (result.status === "rejected") {
+          const reason = result.reason || APPROVAL_MESSAGES.rejected.description
+          setRejectionReason(reason)
+
+          if (!silent) {
+            toast({
+              title: APPROVAL_MESSAGES.rejected.title,
+              description: reason,
+              variant: "destructive",
+            })
+          }
         } else {
-          toast({
-            title: "아직 승인 대기 중입니다",
-            description: "1-2 영업일 내에 승인이 완료됩니다.",
-          })
+          if (!silent) {
+            toast({
+              title: "아직 승인 대기 중입니다",
+              description: "1-2 영업일 내에 승인이 완료됩니다.",
+            })
+          }
         }
       }
+    } catch (error) {
+      console.error('승인 상태 확인 오류:', error)
+      if (!silent) {
+        toast({
+          title: "오류",
+          description: "상태 확인 중 문제가 발생했습니다.",
+          variant: "destructive",
+        })
+      }
     } finally {
-      setIsChecking(false)
+      if (!silent) setIsChecking(false)
     }
+  }
+
+  const handleCheckStatus = () => {
+    checkApprovalStatus(false)
   }
 
   const handleLogout = async () => {
@@ -97,19 +142,33 @@ export default function PendingApprovalPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="rounded-lg bg-muted p-4 text-center">
-              <p className="text-sm text-muted-foreground">
-                관리자 승인 후 모든 기능을 사용하실 수 있습니다.
-                <br />
-                승인은 1-2 영업일 내에 완료됩니다.
-              </p>
-              {userEmail && (
-                <p className="mt-3 text-sm font-medium text-foreground">
-                  <Mail className="mr-2 inline h-4 w-4" />
-                  {userEmail}
+            {rejectionReason ? (
+              <div className="rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 p-4">
+                <p className="text-sm font-semibold text-red-900 dark:text-red-100 mb-2">
+                  승인이 거부되었습니다
                 </p>
-              )}
-            </div>
+                <p className="text-sm text-red-700 dark:text-red-300">
+                  {rejectionReason}
+                </p>
+                <p className="mt-3 text-xs text-red-600 dark:text-red-400">
+                  자세한 사항은 team@acadesk.site로 문의해주세요.
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-lg bg-muted p-4 text-center">
+                <p className="text-sm text-muted-foreground">
+                  관리자 승인 후 모든 기능을 사용하실 수 있습니다.
+                  <br />
+                  승인은 1-2 영업일 내에 완료됩니다.
+                </p>
+                {userEmail && (
+                  <p className="mt-3 text-sm font-medium text-foreground">
+                    <Mail className="mr-2 inline h-4 w-4" />
+                    {userEmail}
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="space-y-3">
               <Button

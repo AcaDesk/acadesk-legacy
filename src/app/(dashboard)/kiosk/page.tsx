@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -9,61 +9,71 @@ import { Progress } from '@/components/ui/progress'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
-import { Trophy, CheckCircle, Clock, AlertCircle, PartyPopper } from 'lucide-react'
+import { Trophy, CheckCircle, Clock, AlertCircle, PartyPopper, LogOut, Loader2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
-
-interface StudentTodo {
-  id: string
-  title: string
-  subject: string | null
-  estimated_duration_minutes: number | null
-  completed_at: string | null
-  verified_at: string | null
-  notes: string | null
-}
+import { getKioskSession, clearKioskSession } from '@/services/kiosk/kiosk.service'
+import { getStudentTodosForToday, toggleTodoComplete, type StudentTodo } from '@/app/actions/kiosk'
 
 export default function KioskPage() {
   // All Hooks must be called before any early returns
-  const [studentId] = useState<string | null>(null) // TODO: Get from login
+  const [studentId, setStudentId] = useState<string | null>(null)
+  const [studentName, setStudentName] = useState<string>('')
   const [todos, setTodos] = useState<StudentTodo[]>([])
   const [showCelebration, setShowCelebration] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [isCheckingSession, setIsCheckingSession] = useState(true)
 
+  const router = useRouter()
   const { toast } = useToast()
-  const supabase = createClient()
 
+  // 세션 체크
   useEffect(() => {
-    // TODO: Get actual logged-in student ID
-    // For now, using a placeholder
-    if (studentId) {
+    const session = getKioskSession()
+
+    if (!session) {
+      // 세션이 없으면 로그인 페이지로 리다이렉트
+      router.push('/kiosk/login')
+      return
+    }
+
+    setStudentId(session.studentId)
+    setStudentName(session.studentName)
+    setIsCheckingSession(false)
+  }, [router])
+
+  // TODO 로드
+  useEffect(() => {
+    if (studentId && !isCheckingSession) {
       loadTodos()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studentId])
+  }, [studentId, isCheckingSession])
 
   // Function definitions
   async function loadTodos() {
     if (!studentId) return
 
     try {
-      const today = new Date().toISOString().split('T')[0]
+      const result = await getStudentTodosForToday(studentId)
 
-      const { data, error } = await supabase
-        .from('student_todos')
-        .select('*')
-        .eq('student_id', studentId)
-        .eq('due_date', today)
-        .order('created_at')
+      if (!result.success) {
+        console.error('TODO 로드 오류:', result.error)
+        toast({
+          title: '오류',
+          description: result.error || 'TODO를 불러올 수 없습니다.',
+          variant: 'destructive',
+        })
+        return
+      }
 
-      if (error) throw error
-      setTodos(data || [])
+      setTodos(result.todos || [])
 
       // Check if all todos are verified
-      if (data && data.length > 0) {
-        const allVerified = data.every(t => t.verified_at !== null)
+      if (result.todos && result.todos.length > 0) {
+        const allVerified = result.todos.every(t => t.verified_at !== null)
         if (allVerified) {
           setShowCelebration(true)
         }
@@ -73,18 +83,22 @@ export default function KioskPage() {
     }
   }
 
-  async function toggleTodoComplete(todoId: string, currentStatus: boolean) {
+  async function handleToggleTodo(todoId: string, currentStatus: boolean) {
+    if (!studentId) return
+
     setLoading(true)
 
     try {
-      const { error } = await supabase
-        .from('student_todos')
-        .update({
-          completed_at: currentStatus ? null : new Date().toISOString(),
-        })
-        .eq('id', todoId)
+      const result = await toggleTodoComplete(todoId, studentId, !!currentStatus)
 
-      if (error) throw error
+      if (!result.success) {
+        toast({
+          title: '오류',
+          description: result.error || '과제 상태를 변경할 수 없습니다.',
+          variant: 'destructive',
+        })
+        return
+      }
 
       toast({
         title: currentStatus ? '완료 취소' : '완료 체크',
@@ -105,6 +119,16 @@ export default function KioskPage() {
     }
   }
 
+  // 로그아웃 처리
+  const handleLogout = () => {
+    clearKioskSession()
+    toast({
+      title: '로그아웃 완료',
+      description: '안전하게 로그아웃되었습니다.',
+    })
+    router.push('/kiosk/login')
+  }
+
   // Calculate progress
   const totalTodos = todos.length
   const completedTodos = todos.filter(t => t.completed_at).length
@@ -122,6 +146,18 @@ export default function KioskPage() {
 
   if (featureStatus === 'maintenance') {
     return <Maintenance featureName="키오스크 모드" reason="키오스크 시스템 업데이트가 진행 중입니다." />;
+  }
+
+  // 세션 체크 중
+  if (isCheckingSession) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+          <p className="mt-4 text-muted-foreground">세션 확인 중...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -199,10 +235,34 @@ export default function KioskPage() {
           )}
         </AnimatePresence>
 
+        {/* 학생 정보 헤더 */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center justify-between"
+        >
+          <div>
+            <h2 className="text-2xl font-bold">{studentName}님, 환영합니다! 👋</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              오늘도 열심히 공부해요!
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleLogout}
+            className="gap-2"
+          >
+            <LogOut className="h-4 w-4" />
+            로그아웃
+          </Button>
+        </motion.div>
+
         {/* Header with Progress */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
         >
           <Card className="border-l-4 border-l-primary">
             <CardContent className="p-6">
@@ -266,7 +326,7 @@ export default function KioskPage() {
                     <Checkbox
                       checked={!!todo.completed_at}
                       onCheckedChange={() =>
-                        toggleTodoComplete(todo.id, !!todo.completed_at)
+                        handleToggleTodo(todo.id, !!todo.completed_at)
                       }
                       disabled={loading || !!todo.verified_at}
                       className="mt-1"

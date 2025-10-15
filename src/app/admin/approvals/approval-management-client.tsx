@@ -32,8 +32,8 @@ import {
 } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CheckCircle, XCircle, Clock, User, Building2 } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
+import { approveUser, rejectUser } from "@/app/actions/approve-user"
 
 interface PendingUser {
   id: string
@@ -84,21 +84,12 @@ export function ApprovalManagementClient({
 
     setIsProcessing(true)
     try {
-      const supabase = createClient()
+      const result = await approveUser(selectedUser.id)
 
-      const { error } = await supabase
-        .from("users")
-        .update({
-          approval_status: "approved",
-          approved_at: new Date().toISOString(),
-          approved_by: currentUserId,
-        })
-        .eq("id", selectedUser.id)
-
-      if (error) {
+      if (!result.success) {
         toast({
           title: "승인 실패",
-          description: "사용자 승인에 실패했습니다.",
+          description: result.error || "사용자 승인에 실패했습니다.",
           variant: "destructive",
         })
         return
@@ -128,21 +119,12 @@ export function ApprovalManagementClient({
 
     setIsProcessing(true)
     try {
-      const supabase = createClient()
+      const result = await rejectUser(selectedUser.id, "관리자가 가입을 거부했습니다.")
 
-      const { error } = await supabase
-        .from("users")
-        .update({
-          approval_status: "rejected",
-          approved_at: new Date().toISOString(),
-          approved_by: currentUserId,
-        })
-        .eq("id", selectedUser.id)
-
-      if (error) {
+      if (!result.success) {
         toast({
           title: "거부 실패",
-          description: "사용자 거부에 실패했습니다.",
+          description: result.error || "사용자 거부에 실패했습니다.",
           variant: "destructive",
         })
         return

@@ -28,6 +28,10 @@ const studentSchema = z.object({
   school: z.string().optional(),
   emergencyContact: z.string().min(1, '비상 연락처를 입력해주세요'),
   notes: z.string().optional(),
+  kioskPin: z.string()
+    .regex(/^\d{4}$/, '4자리 숫자를 입력해주세요')
+    .optional()
+    .or(z.literal('')),
 })
 
 type StudentFormValues = z.infer<typeof studentSchema>
@@ -162,6 +166,7 @@ export default function EditStudentPage() {
         school: data.school,
         emergencyContact: data.emergencyContact,
         notes: data.notes,
+        kioskPin: data.kioskPin,
       }
 
       await updateStudent(supabase, student.id, student.users.id, input)
@@ -343,6 +348,25 @@ export default function EditStudentPage() {
                   className="resize-none"
                   {...register('notes')}
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="kioskPin">키오스크 PIN (4자리)</Label>
+                <Input
+                  id="kioskPin"
+                  type="password"
+                  placeholder="••••"
+                  maxLength={4}
+                  {...register('kioskPin')}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 4)
+                    setValue('kioskPin', value)
+                  }}
+                />
+                {errors.kioskPin && (
+                  <p className="text-sm text-destructive">{errors.kioskPin.message}</p>
+                )}
+                <p className="text-xs text-muted-foreground">학생이 키오스크 모드에서 TODO를 확인하기 위한 4자리 PIN입니다. 미입력 시 키오스크 접근 불가능합니다.</p>
               </div>
                 </TabsContent>
               </Tabs>

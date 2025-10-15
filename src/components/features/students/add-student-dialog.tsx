@@ -43,6 +43,7 @@ import type { GuardianRelation } from '@/types/guardian'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { ProfileImageUpload } from '@/components/ui/profile-image-upload'
+import { hashKioskPin } from '@/app/actions/kiosk'
 
 const guardianSchema = z.object({
   name: z.string().min(2, '이름은 최소 2자 이상이어야 합니다'),
@@ -79,6 +80,12 @@ const studentSchema = z.object({
   notes: z.string().optional(),
   commuteMethod: z.string().optional(),
   marketingSource: z.string().optional(),
+
+  // 키오스크 정보
+  kioskPin: z.string()
+    .regex(/^\d{4}$/, '4자리 숫자를 입력해주세요')
+    .optional()
+    .or(z.literal('')),
 
   // Guardian info
   guardianMode: z.enum(['new', 'existing']),
@@ -137,6 +144,7 @@ export function AddStudentDialog({ open, onOpenChange, onSuccess }: AddStudentDi
       notes: '',
       commuteMethod: '',
       marketingSource: '',
+      kioskPin: '',
       guardianMode: 'new',
       guardian: {
         name: '',
@@ -472,6 +480,12 @@ export function AddStudentDialog({ open, onOpenChange, onSuccess }: AddStudentDi
       // 2. Create student record with extended fields
       const studentCode = generateStudentCode()
 
+      // Hash PIN if provided
+      let hashedPin: string | null = null
+      if (data.kioskPin && data.kioskPin.trim().length === 4) {
+        hashedPin = await hashKioskPin(data.kioskPin)
+      }
+
       const { data: newStudent, error: studentError } = await supabase
         .from('students')
         .insert({
@@ -489,6 +503,7 @@ export function AddStudentDialog({ open, onOpenChange, onSuccess }: AddStudentDi
           notes: data.notes || null,
           commute_method: data.commuteMethod || null,
           marketing_source: data.marketingSource || null,
+          kiosk_pin: hashedPin,
         })
         .select()
         .single()
@@ -903,6 +918,25 @@ export function AddStudentDialog({ open, onOpenChange, onSuccess }: AddStudentDi
                 {...register('notes')}
               />
               <p className="text-xs text-muted-foreground">매우 중요한 항목입니다. 학생 지도에 필요한 모든 정보를 자세히 기록해주세요.</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="kioskPin">키오스크 PIN (4자리)</Label>
+              <Input
+                id="kioskPin"
+                type="password"
+                placeholder="••••"
+                maxLength={4}
+                {...register('kioskPin')}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, '').slice(0, 4)
+                  setValue('kioskPin', value)
+                }}
+              />
+              {errors.kioskPin && (
+                <p className="text-sm text-destructive">{errors.kioskPin.message}</p>
+              )}
+              <p className="text-xs text-muted-foreground">학생이 키오스크 모드에서 TODO를 확인하기 위한 4자리 PIN입니다. 미입력 시 키오스크 접근 불가능합니다.</p>
             </div>
           </div>
 

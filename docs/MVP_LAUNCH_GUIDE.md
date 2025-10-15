@@ -51,59 +51,75 @@ supabase db push
 
 ---
 
-## 2. 초기 데이터 설정
+## 2. 초기 데이터 설정 (원장님 계정)
 
-### 2-1. 첫 번째 테넌트(학원) 생성
+### 방법 1: 자동화 SQL 스크립트 (추천 ⭐)
 
-Supabase SQL Editor에서 다음 쿼리를 실행합니다:
+**단계:**
 
-```sql
--- 학원(테넌트) 생성
-INSERT INTO public.tenants (id, name, slug, timezone)
-VALUES (
-  'a0000000-0000-0000-0000-000000000001',  -- 고정 UUID (개발용)
-  '예시 학원',                              -- 학원 이름
-  'example-academy',                        -- URL slug
-  'Asia/Seoul'                              -- 시간대
-)
-ON CONFLICT (id) DO NOTHING;
-```
+1. **Supabase Auth에서 사용자 생성**
+   - Supabase 대시보드 → **Authentication** → **Users**
+   - **Add user** 클릭
+   - 이메일/비밀번호 입력 (예: `owner@myacademy.com`)
+   - **Auto Confirm User** 체크 ✅
+   - 생성 후 **사용자 UUID 복사** 📋
 
-**참고:** 프로덕션에서는 UUID를 자동 생성하세요. 위 UUID는 `src/lib/constants.ts`의 `DEFAULT_TENANT_ID`와 일치합니다.
+2. **초기 설정 SQL 실행**
+   - `supabase/migrations/20250115000002_create_first_owner.sql` 파일 열기
+   - 다음 변수들을 수정:
+     ```sql
+     v_owner_id uuid := '복사한-UUID-붙여넣기';
+     v_tenant_name text := '우리학원';
+     v_tenant_slug text := 'my-academy';
+     v_owner_name text := '홍길동';
+     v_owner_email text := 'owner@myacademy.com';
+     ```
+   - Supabase SQL Editor에서 실행
+   - ✅ 성공 메시지 확인
 
-### 2-2. 관리자 계정 생성
+**자동으로 처리되는 것:**
+- ✅ 학원(테넌트) 생성
+- ✅ `public.users`에 tenant_id, role_code 설정
+- ✅ 온보딩 완료 처리
+
+---
+
+### 방법 2: 수동 SQL (고급 사용자용)
+
+<details>
+<summary>펼쳐서 보기</summary>
 
 #### A. Supabase Auth에서 사용자 생성
 
-1. Supabase 대시보드 → **Authentication** → **Users** 탭
+1. Supabase 대시보드 → **Authentication** → **Users**
 2. **Add user** 버튼 클릭
-3. 이메일과 비밀번호 입력 (예: `admin@example.com` / `your-password`)
-4. 생성된 사용자의 **UUID 복사** (예: `11111111-2222-3333-4444-555555555555`)
+3. 이메일과 비밀번호 입력 (예: `owner@example.com`)
+4. **Auto Confirm User** 체크
+5. 생성된 사용자의 **UUID 복사** (예: `11111111-2222-3333-4444-555555555555`)
 
-#### B. public.users 테이블에 연결
-
-생성된 Auth User의 UUID를 사용하여 `public.users`에 레코드를 추가합니다:
+#### B. 테넌트 생성 + 사용자 연결
 
 ```sql
--- 관리자 계정 생성
-INSERT INTO public.users (
-  id,                                        -- auth.users.id와 동일
-  tenant_id,                                 -- 위에서 생성한 테넌트 ID
-  email,
-  name,
-  role_code,
-  onboarding_completed
-)
-VALUES (
-  '11111111-2222-3333-4444-555555555555',  -- Auth User의 UUID (위에서 복사한 값)
-  'a0000000-0000-0000-0000-000000000001',  -- 테넌트 ID
-  'admin@example.com',
-  '관리자',
-  'owner',                                  -- owner 역할
-  true                                      -- 온보딩 완료
-)
-ON CONFLICT (id) DO NOTHING;
+-- Step 1: 테넛트 생성
+INSERT INTO public.tenants (name, slug, timezone)
+VALUES ('우리학원', 'my-academy', 'Asia/Seoul')
+RETURNING id;  -- 이 ID를 복사
+
+-- Step 2: public.users 업데이트 (자동 생성된 레코드)
+UPDATE public.users
+SET
+  tenant_id = '위에서-복사한-테넌트-ID',
+  name = '홍길동',
+  email = 'owner@example.com',
+  role_code = 'owner',
+  onboarding_completed = true,
+  onboarding_completed_at = now()
+WHERE id = '복사한-Auth-UUID';
 ```
+
+**참고:** `auth.users` 생성 시 트리거로 `public.users`에 빈 레코드가 자동 생성됩니다.
+
+</details>
 
 ---
 

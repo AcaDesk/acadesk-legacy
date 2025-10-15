@@ -20,7 +20,7 @@ export const FEATURES = {
   dashboard: 'active' as FeatureStatus,
 
   /** 회원가입 */
-  signup: 'inactive' as FeatureStatus,
+  signup: 'active' as FeatureStatus,
 
   /** 학생 관리 */
   studentManagement: 'active' as FeatureStatus,
@@ -73,7 +73,7 @@ export const FEATURES = {
   calendarIntegration: 'inactive' as FeatureStatus,
 
   /** 키오스크 모드 */
-  kioskMode: 'inactive' as FeatureStatus,
+  kioskMode: 'active' as FeatureStatus,
 
   /** 과목 관리 */
   subjectManagement: 'inactive' as FeatureStatus,
