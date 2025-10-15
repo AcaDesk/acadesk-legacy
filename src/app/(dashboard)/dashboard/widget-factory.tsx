@@ -1,4 +1,4 @@
-import { Users, TrendingUp, Calendar, FileText, Trophy, Target, BookOpen, DollarSign } from "lucide-react"
+import { Users, Calendar, Trophy, Target, BookOpen, DollarSign } from "lucide-react"
 import { StatsCard } from "@/components/features/dashboard/stats-card"
 import { TodayTasks } from "@/components/features/dashboard/today-tasks"
 import { TodayCommunications } from "@/components/features/dashboard/today-communications"
@@ -12,7 +12,6 @@ import { CalendarWidget } from "@/components/features/dashboard/calendar-widget"
 import { QuickActions } from "@/components/features/dashboard/quick-actions"
 import { QuickStats } from "@/components/features/dashboard/quick-stats"
 import { RecentActivityFeed } from "@/components/features/dashboard/recent-activity-feed"
-import { WidgetErrorBoundary } from "@/components/features/dashboard/widget-error-boundary"
 import type { DashboardWidgetId } from "@/types/dashboard"
 import type {
   RecentStudent,
