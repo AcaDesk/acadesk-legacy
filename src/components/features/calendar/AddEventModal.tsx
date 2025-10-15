@@ -33,7 +33,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { EVENT_TYPE_CONFIG, type EventType } from '@/types/calendar'
+import { EVENT_TYPE_CONFIG } from '@/types/calendar'
 import { Plus, Loader2 } from 'lucide-react'
 
 const eventFormSchema = z.object({
@@ -80,7 +80,7 @@ export function AddEventModal({
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const form = useForm<EventFormValues>({
-    resolver: zodResolver(eventFormSchema) as any,
+    resolver: zodResolver(eventFormSchema) as unknown as Parameters<typeof useForm<EventFormValues>>[0]['resolver'],
     defaultValues: {
       title: '',
       description: '',
@@ -122,7 +122,6 @@ export function AddEventModal({
   }
 
   const allDay = form.watch('all_day')
-  const selectedEventType = form.watch('event_type')
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
