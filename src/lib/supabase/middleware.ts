@@ -49,6 +49,7 @@ export async function updateSession(request: NextRequest) {
     "/auth/onboarding",
     "/auth/forgot-password",
     "/auth/reset-password",
+    "/auth/link-expired",
   ]
   const isPublicPath = publicPaths.some((path) => pathname.startsWith(path))
 
