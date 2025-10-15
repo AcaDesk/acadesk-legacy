@@ -77,6 +77,14 @@ export const SIGNUP_SUCCESS_MESSAGE = {
 }
 
 /**
+ * 이메일 인증 성공 메시지
+ */
+export const EMAIL_VERIFICATION_SUCCESS_MESSAGE = {
+  title: "이메일 인증 완료",
+  description: "계정 인증이 완료되었습니다. 이제 서비스를 시작할 수 있습니다.",
+}
+
+/**
  * 이메일 재전송 성공 메시지
  */
 export const EMAIL_RESEND_SUCCESS_MESSAGE = {
