@@ -15,6 +15,7 @@ import { authService } from "@/services/auth/auth.service"
 import { oauthService } from "@/services/auth/oauthService"
 import { useToast } from "@/hooks/use-toast"
 import type { OAuthProvider } from "@/types/auth.types"
+import { getAuthErrorMessage, LOGIN_SUCCESS_MESSAGE, GENERIC_ERROR_MESSAGE } from "@/lib/auth-messages"
 
 const loginSchema = z.object({
   email: z.string().email("올바른 이메일 형식이 아닙니다."),
@@ -48,14 +49,14 @@ export function LoginForm({
       if (error) {
         toast({
           title: `${provider === "google" ? "구글" : "카카오"} 로그인 실패`,
-          description: error.message,
+          description: getAuthErrorMessage(error),
           variant: "destructive",
         })
       }
-    } catch (_error) {
+    } catch (error) {
       toast({
-        title: "오류",
-        description: `${provider === "google" ? "구글" : "카카오"} 로그인 중 오류가 발생했습니다.`,
+        title: `${provider === "google" ? "구글" : "카카오"} 로그인 오류`,
+        description: getAuthErrorMessage(error as { message?: string }),
         variant: "destructive",
       })
     } finally {
@@ -74,23 +75,23 @@ export function LoginForm({
       if (error) {
         toast({
           title: "로그인 실패",
-          description: error.message,
+          description: getAuthErrorMessage(error),
           variant: "destructive",
         })
         return
       }
 
       toast({
-        title: "로그인 성공",
-        description: "대시보드로 이동합니다.",
+        title: LOGIN_SUCCESS_MESSAGE.title,
+        description: LOGIN_SUCCESS_MESSAGE.description,
       })
 
       router.push("/dashboard")
       router.refresh()
-    } catch (_error) {
+    } catch (error) {
       toast({
-        title: "오류가 발생했습니다",
-        description: "다시 시도해주세요.",
+        title: GENERIC_ERROR_MESSAGE.title,
+        description: GENERIC_ERROR_MESSAGE.description,
         variant: "destructive",
       })
     } finally {

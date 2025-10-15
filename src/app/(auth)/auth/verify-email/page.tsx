@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Mail, CheckCircle, RefreshCw } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
+import { getAuthErrorMessage, EMAIL_RESEND_SUCCESS_MESSAGE, GENERIC_ERROR_MESSAGE } from "@/lib/auth-messages"
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams()
@@ -28,21 +29,21 @@ function VerifyEmailContent() {
 
       if (error) {
         toast({
-          title: "재전송 실패",
-          description: error.message,
+          title: "이메일 재전송 실패",
+          description: getAuthErrorMessage(error),
           variant: "destructive",
         })
         return
       }
 
       toast({
-        title: "이메일 재전송 완료",
-        description: "인증 이메일을 다시 보냈습니다.",
+        title: EMAIL_RESEND_SUCCESS_MESSAGE.title,
+        description: EMAIL_RESEND_SUCCESS_MESSAGE.description,
       })
-    } catch {
+    } catch (error) {
       toast({
-        title: "오류",
-        description: "이메일 재전송 중 오류가 발생했습니다.",
+        title: GENERIC_ERROR_MESSAGE.title,
+        description: GENERIC_ERROR_MESSAGE.description,
         variant: "destructive",
       })
     } finally {

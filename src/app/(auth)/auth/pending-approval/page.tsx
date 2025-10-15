@@ -14,11 +14,14 @@ import { Button } from "@/components/ui/button"
 import { Clock, Mail, RefreshCw } from "lucide-react"
 import { authService } from "@/services/auth/auth.service"
 import { createClient } from "@/lib/supabase/client"
+import { useToast } from "@/hooks/use-toast"
+import { APPROVAL_MESSAGES } from "@/lib/auth-messages"
 
 export default function PendingApprovalPage() {
   const [userEmail, setUserEmail] = useState<string>("")
   const [isChecking, setIsChecking] = useState(false)
   const router = useRouter()
+  const { toast } = useToast()
 
   useEffect(() => {
     const getUserEmail = async () => {
@@ -44,9 +47,22 @@ export default function PendingApprovalPage() {
           .single()
 
         if (data?.approval_status === "approved") {
+          toast({
+            title: "승인 완료",
+            description: "학원 대시보드로 이동합니다.",
+          })
           router.push("/dashboard")
         } else if (data?.approval_status === "rejected") {
-          alert("죄송합니다. 회원가입이 거부되었습니다. 관리자에게 문의해주세요.")
+          toast({
+            title: APPROVAL_MESSAGES.rejected.title,
+            description: APPROVAL_MESSAGES.rejected.description,
+            variant: "destructive",
+          })
+        } else {
+          toast({
+            title: "아직 승인 대기 중입니다",
+            description: "1-2 영업일 내에 승인이 완료됩니다.",
+          })
         }
       }
     } finally {
@@ -129,7 +145,7 @@ export default function PendingApprovalPage() {
                 <strong className="text-foreground">안내:</strong>
                 <br />• 승인이 완료되면 등록하신 이메일로 알림이 발송됩니다.
                 <br />• 승인 후 학원 설정을 완료해주세요.
-                <br />• 문의사항은 support@acadesk.com으로 연락주세요.
+                <br />• 문의사항은 team@acadesk.site로 연락주세요.
               </p>
             </div>
           </CardContent>

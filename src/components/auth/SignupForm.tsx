@@ -17,6 +17,7 @@ import { oauthService } from "@/services/auth/oauthService"
 import { useToast } from "@/hooks/use-toast"
 import { TermsCheckbox, type TermsCheckboxValues } from "@/components/auth/TermsCheckbox"
 import type { OAuthProvider } from "@/types/auth.types"
+import { getAuthErrorMessage, SIGNUP_SUCCESS_MESSAGE, GENERIC_ERROR_MESSAGE } from "@/lib/auth-messages"
 
 // 비밀번호 강도 계산
 const calculatePasswordStrength = (password: string): number => {
@@ -103,14 +104,14 @@ export default function SignupForm({
       if (error) {
         toast({
           title: `${provider === "google" ? "구글" : "카카오"} 로그인 실패`,
-          description: error.message,
+          description: getAuthErrorMessage(error),
           variant: "destructive",
         })
       }
-    } catch (_error) {
+    } catch (error) {
       toast({
-        title: "오류",
-        description: `${provider === "google" ? "구글" : "카카오"} 로그인 중 오류가 발생했습니다.`,
+        title: `${provider === "google" ? "구글" : "카카오"} 로그인 오류`,
+        description: getAuthErrorMessage(error as { message?: string }),
         variant: "destructive",
       })
     } finally {
@@ -133,22 +134,22 @@ export default function SignupForm({
       if (error) {
         toast({
           title: "회원가입 실패",
-          description: error.message,
+          description: getAuthErrorMessage(error),
           variant: "destructive",
         })
         return
       }
 
       toast({
-        title: "회원가입 성공",
-        description: "이메일을 확인하여 계정을 활성화해주세요.",
+        title: SIGNUP_SUCCESS_MESSAGE.title,
+        description: SIGNUP_SUCCESS_MESSAGE.description,
       })
 
       router.push("/auth/verify-email?email=" + encodeURIComponent(data.email))
-    } catch (_error) {
+    } catch (error) {
       toast({
-        title: "오류가 발생했습니다",
-        description: "다시 시도해주세요.",
+        title: GENERIC_ERROR_MESSAGE.title,
+        description: GENERIC_ERROR_MESSAGE.description,
         variant: "destructive",
       })
     } finally {

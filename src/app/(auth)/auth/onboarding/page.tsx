@@ -23,6 +23,7 @@ import { TermsCheckbox } from "@/components/auth/TermsCheckbox"
 import { onboardingService } from "@/services/auth/onboardingService"
 import type { OnboardingFormData } from "@/types/auth.types"
 import { createClient } from "@/lib/supabase/client"
+import { ONBOARDING_MESSAGES, LOGOUT_SUCCESS_MESSAGE, GENERIC_ERROR_MESSAGE } from "@/lib/auth-messages"
 
 const onboardingSchema = z.object({
   name: z.string().min(2, "이름은 2자 이상이어야 합니다."),
@@ -74,15 +75,15 @@ export default function OnboardingPage() {
       setIsLoggingOut(true)
       await supabase.auth.signOut()
       toast({
-        title: "로그아웃 완료",
-        description: "안전하게 로그아웃되었습니다.",
+        title: LOGOUT_SUCCESS_MESSAGE.title,
+        description: LOGOUT_SUCCESS_MESSAGE.description,
       })
       router.push("/auth/login")
     } catch (error) {
       console.error("Logout error:", error)
       toast({
-        title: "오류",
-        description: "로그아웃 중 오류가 발생했습니다.",
+        title: GENERIC_ERROR_MESSAGE.title,
+        description: GENERIC_ERROR_MESSAGE.description,
         variant: "destructive",
       })
     } finally {
@@ -97,8 +98,8 @@ export default function OnboardingPage() {
 
         if (userError || !user) {
           toast({
-            title: "인증 필요",
-            description: "로그인이 필요합니다.",
+            title: ONBOARDING_MESSAGES.authRequired.title,
+            description: ONBOARDING_MESSAGES.authRequired.description,
             variant: "destructive",
           })
           router.push("/auth/login")
@@ -133,8 +134,8 @@ export default function OnboardingPage() {
   const onSubmit = async (data: OnboardingFormData) => {
     if (!userId) {
       toast({
-        title: "오류",
-        description: "사용자 정보를 가져올 수 없습니다.",
+        title: ONBOARDING_MESSAGES.authRequired.title,
+        description: ONBOARDING_MESSAGES.authRequired.description,
         variant: "destructive",
       })
       return
@@ -158,9 +159,15 @@ export default function OnboardingPage() {
           await onboardingService.validateInvitationCode(data.invitationCode)
 
         if (invitationError || !invitation) {
+          // 만료된 초대 코드인지 확인
+          const isExpired = invitationError?.message?.toLowerCase().includes("expired")
+          const message = isExpired
+            ? ONBOARDING_MESSAGES.expiredInvitation
+            : ONBOARDING_MESSAGES.invalidInvitation
+
           toast({
-            title: "유효하지 않은 초대 코드",
-            description: invitationError?.message || "초대 코드를 확인해주세요.",
+            title: message.title,
+            description: message.description,
             variant: "destructive",
           })
           setIsSubmitting(false)
@@ -175,8 +182,8 @@ export default function OnboardingPage() {
 
         if (error) {
           toast({
-            title: "오류",
-            description: "프로필 업데이트에 실패했습니다.",
+            title: GENERIC_ERROR_MESSAGE.title,
+            description: GENERIC_ERROR_MESSAGE.description,
             variant: "destructive",
           })
           setIsSubmitting(false)
@@ -184,8 +191,8 @@ export default function OnboardingPage() {
         }
 
         toast({
-          title: "환영합니다!",
-          description: "학원에 성공적으로 등록되었습니다.",
+          title: ONBOARDING_MESSAGES.staffSuccess.title,
+          description: ONBOARDING_MESSAGES.staffSuccess.description,
         })
 
         router.push("/dashboard")
@@ -194,8 +201,8 @@ export default function OnboardingPage() {
 
         if (error) {
           toast({
-            title: "오류",
-            description: "프로필 업데이트에 실패했습니다.",
+            title: GENERIC_ERROR_MESSAGE.title,
+            description: GENERIC_ERROR_MESSAGE.description,
             variant: "destructive",
           })
           setIsSubmitting(false)
@@ -203,8 +210,8 @@ export default function OnboardingPage() {
         }
 
         toast({
-          title: "환영합니다!",
-          description: "학원 설정을 시작하세요.",
+          title: ONBOARDING_MESSAGES.ownerSuccess.title,
+          description: ONBOARDING_MESSAGES.ownerSuccess.description,
         })
 
         router.push("/auth/pending-approval")
@@ -212,8 +219,8 @@ export default function OnboardingPage() {
     } catch (error) {
       console.error("Onboarding error:", error)
       toast({
-        title: "오류",
-        description: "온보딩 처리 중 오류가 발생했습니다.",
+        title: GENERIC_ERROR_MESSAGE.title,
+        description: GENERIC_ERROR_MESSAGE.description,
         variant: "destructive",
       })
     } finally {
