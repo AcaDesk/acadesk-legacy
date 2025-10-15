@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -23,7 +23,7 @@ import { TermsCheckbox } from "@/components/auth/TermsCheckbox"
 import { onboardingService } from "@/services/auth/onboardingService"
 import type { OnboardingFormData } from "@/types/auth.types"
 import { createClient } from "@/lib/supabase/client"
-import { ONBOARDING_MESSAGES, LOGOUT_SUCCESS_MESSAGE, GENERIC_ERROR_MESSAGE } from "@/lib/auth-messages"
+import { ONBOARDING_MESSAGES, LOGOUT_SUCCESS_MESSAGE, GENERIC_ERROR_MESSAGE, EMAIL_VERIFICATION_SUCCESS_MESSAGE } from "@/lib/auth-messages"
 
 const onboardingSchema = z.object({
   name: z.string().min(2, "이름은 2자 이상이어야 합니다."),
@@ -67,6 +67,7 @@ export default function OnboardingPage() {
   const [userId, setUserId] = useState<string | null>(null)
 
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
   const supabase = createClient()
 
@@ -148,6 +149,21 @@ export default function OnboardingPage() {
 
     checkUser()
   }, [router, setValue, toast])
+
+  // 이메일 인증 성공 메시지 표시
+  useEffect(() => {
+    const verified = searchParams.get("verified")
+    if (verified === "true") {
+      toast({
+        title: EMAIL_VERIFICATION_SUCCESS_MESSAGE.title,
+        description: EMAIL_VERIFICATION_SUCCESS_MESSAGE.description,
+      })
+      // URL 파라미터 제거
+      const url = new URL(window.location.href)
+      url.searchParams.delete("verified")
+      window.history.replaceState({}, "", url.toString())
+    }
+  }, [searchParams, toast])
 
   const onSubmit = async (data: OnboardingFormData) => {
     if (!userId) {
