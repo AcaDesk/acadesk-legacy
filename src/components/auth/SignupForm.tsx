@@ -107,7 +107,7 @@ export default function SignupForm({
           variant: "destructive",
         })
       }
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: "오류",
         description: `${provider === "google" ? "구글" : "카카오"} 로그인 중 오류가 발생했습니다.`,
@@ -145,7 +145,7 @@ export default function SignupForm({
       })
 
       router.push("/auth/verify-email?email=" + encodeURIComponent(data.email))
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: "오류가 발생했습니다",
         description: "다시 시도해주세요.",
