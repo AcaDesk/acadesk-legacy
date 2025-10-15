@@ -67,7 +67,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { createPortal } from 'react-dom';
+// import { createPortal } from 'react-dom';
 
 // 액션 색상 스타일 맵 (Amber Minimal 테마 - 통일성과 컴팩트함 강조)
 const ACTION_STYLES = {
