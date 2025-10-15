@@ -44,7 +44,6 @@ import {
   Edit,
   Trash2,
   Loader2,
-  Palette,
 } from 'lucide-react'
 import type { Subject, SubjectStatistics } from '@/types/subject'
 import { DEFAULT_SUBJECT_COLORS } from '@/types/subject'
@@ -107,6 +106,7 @@ export default function SubjectsPage() {
 
   useEffect(() => {
     loadSubjects()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Handle add subject
