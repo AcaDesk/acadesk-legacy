@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, KeyboardEvent } from 'react'
+import { useState, useEffect, useRef, KeyboardEvent, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
@@ -68,40 +68,7 @@ export default function BulkGradeEntryPage() {
   const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map())
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
 
-  // useEffect must be called before any early returns
-  useEffect(() => {
-    loadData()
-  }, [examId])
-
-  // Auto-save effect
-  useEffect(() => {
-    if (!autoSave) return
-
-    if (autoSaveTimerRef.current) {
-      clearTimeout(autoSaveTimerRef.current)
-    }
-
-    autoSaveTimerRef.current = setTimeout(() => {
-      handleSave(true) // silent save
-    }, 3000) // 3초 후 자동 저장
-
-    return () => {
-      if (autoSaveTimerRef.current) {
-        clearTimeout(autoSaveTimerRef.current)
-      }
-    }
-  }, [scores, autoSave])
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (autoSaveTimerRef.current) {
-        clearTimeout(autoSaveTimerRef.current)
-      }
-    }
-  }, [])
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true)
 
@@ -179,7 +146,100 @@ export default function BulkGradeEntryPage() {
     } finally {
       setLoading(false)
     }
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [examId, supabase, toast])
+
+  const handleSave = useCallback(async (silent = false) => {
+    if (!currentUser) return
+
+    setSaving(true)
+    try {
+      const scoresToSave = Array.from(scores.values())
+        .filter(score => score.correct && score.total)
+        .map(score => ({
+          tenant_id: currentUser.tenantId,
+          exam_id: examId,
+          student_id: score.student_id,
+          score: parseInt(score.correct),
+          total_points: parseInt(score.total),
+          percentage: score.percentage,
+          feedback: score.feedback || null,
+        }))
+
+      if (scoresToSave.length === 0 && !silent) {
+        toast({
+          title: '입력 필요',
+          description: '최소 1명 이상의 성적을 입력해주세요.',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      const { error } = await supabase
+        .from('exam_scores')
+        .upsert(scoresToSave, {
+          onConflict: 'exam_id,student_id',
+          ignoreDuplicates: false,
+        })
+
+      if (error) throw error
+
+      setLastSaved(new Date())
+
+      if (!silent) {
+        toast({
+          title: '저장 완료',
+          description: `${scoresToSave.length}명의 성적이 저장되었습니다.`,
+        })
+
+        router.push(`/grades/exams`)
+      }
+    } catch (error) {
+      console.error('Error saving scores:', error)
+      if (!silent) {
+        toast({
+          title: '저장 오류',
+          description: error instanceof Error ? error.message : '성적을 저장하는 중 오류가 발생했습니다.',
+          variant: 'destructive',
+        })
+      }
+    } finally {
+      setSaving(false)
+    }
+  }, [currentUser, examId, scores, supabase, toast, router])
+
+  // useEffect must be called before any early returns
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  // Auto-save effect
+  useEffect(() => {
+    if (!autoSave) return
+
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current)
+    }
+
+    autoSaveTimerRef.current = setTimeout(() => {
+      handleSave(true) // silent save
+    }, 3000) // 3초 후 자동 저장
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current)
+      }
+    }
+  }, [scores, autoSave, handleSave])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current)
+      }
+    }
+  }, [])
 
   function parseScore(input: string): { correct: number; total: number } | null {
     // Support formats: "30/32", "30", "30 / 32"
@@ -255,65 +315,6 @@ export default function BulkGradeEntryPage() {
         const nextInput = inputRefs.current.get(`score-${nextStudent.id}`)
         nextInput?.focus()
       }
-    }
-  }
-
-  async function handleSave(silent = false) {
-    if (!currentUser) return
-
-    setSaving(true)
-    try {
-      const scoresToSave = Array.from(scores.values())
-        .filter(score => score.correct && score.total)
-        .map(score => ({
-          tenant_id: currentUser.tenantId,
-          exam_id: examId,
-          student_id: score.student_id,
-          score: parseInt(score.correct),
-          total_points: parseInt(score.total),
-          percentage: score.percentage,
-          feedback: score.feedback || null,
-        }))
-
-      if (scoresToSave.length === 0 && !silent) {
-        toast({
-          title: '입력 필요',
-          description: '최소 1명 이상의 성적을 입력해주세요.',
-          variant: 'destructive',
-        })
-        return
-      }
-
-      const { error } = await supabase
-        .from('exam_scores')
-        .upsert(scoresToSave, {
-          onConflict: 'exam_id,student_id',
-          ignoreDuplicates: false,
-        })
-
-      if (error) throw error
-
-      setLastSaved(new Date())
-
-      if (!silent) {
-        toast({
-          title: '저장 완료',
-          description: `${scoresToSave.length}명의 성적이 저장되었습니다.`,
-        })
-
-        router.push(`/grades/exams`)
-      }
-    } catch (error) {
-      console.error('Error saving scores:', error)
-      if (!silent) {
-        toast({
-          title: '저장 오류',
-          description: error instanceof Error ? error.message : '성적을 저장하는 중 오류가 발생했습니다.',
-          variant: 'destructive',
-        })
-      }
-    } finally {
-      setSaving(false)
     }
   }
 
