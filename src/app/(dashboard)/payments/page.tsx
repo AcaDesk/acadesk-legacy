@@ -26,12 +26,12 @@ import { Maintenance } from '@/components/layout/maintenance'
 
 export default function PaymentsPage() {
   // All Hooks must be called before any early returns
-  const [selectedMonth] = useState = useState(new Date().toISOString().slice(0, 7))
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7))
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
   const [createInvoicesDialogOpen, setCreateInvoicesDialogOpen] = useState(false)
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false)
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string>('')
-  const [refreshKey] = useState = useState(0)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   const handlePaymentSuccess = () => {
     setRefreshKey(prev => prev + 1)
