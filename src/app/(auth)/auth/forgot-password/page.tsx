@@ -59,7 +59,7 @@ export default function ForgotPasswordPage() {
         title: "이메일 전송 완료",
         description: "비밀번호 재설정 링크를 이메일로 보냈습니다.",
       })
-    } catch (error) {
+    } catch {
       toast({
         title: "오류가 발생했습니다",
         description: "다시 시도해주세요.",
