@@ -33,7 +33,7 @@ export default function ReportsPage() {
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear())
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1)
   const [reportData, setReportData] = useState<ReportData | null>(null)
-  const [loading] = useState = useState(false)
+  const [loading, setLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
 
   const { toast } = useToast()
