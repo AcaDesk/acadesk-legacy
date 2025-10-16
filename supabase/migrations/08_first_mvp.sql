@@ -16,12 +16,12 @@ create extension if not exists "citext";
 -- ============================================================
 create table if not exists public.ref_roles (
   code        text primary key,
-  name        text not null,
+  label       text not null,
   description text,
   created_at  timestamptz not null default now()
 );
 
-insert into public.ref_roles (code, name, description) values
+insert into public.ref_roles (code, label, description) values
   ('owner',      '원장',   '학원 소유자 및 최고 관리자'),
   ('instructor', '강사',   '수업 담당 강사'),
   ('assistant',  '조교',   '수업 보조 및 행정 업무')
@@ -49,27 +49,28 @@ create index if not exists idx_tenants_deleted on public.tenants (deleted_at);
 -- 2-2) Users (앱 사용자)
 --  ⚠ auth.users FK는 운영·권한 이슈 방지를 위해 연결하지 않고, 동일 uuid만 저장
 create table if not exists public.users (
-  id                   uuid primary key,               -- == auth.users.id
-  tenant_id            uuid references public.tenants (id),
-  email                citext not null,                -- 테이블 UNIQUE 제거 → 부분 유니크 인덱스 사용
-  name                 text not null,
-  phone                text,
-  role_code            text references public.ref_roles (code),
-  onboarding_completed boolean not null default false,
-  approval_status      text not null default 'pending'
-                         check (approval_status in ('pending','approved','rejected')),
-  approval_reason      text,
-  approved_at          timestamptz,
-  approved_by          uuid,
-  settings             jsonb not null default '{}'::jsonb,
-  preferences          jsonb not null default '{}'::jsonb,
-  address              text,
-  created_at           timestamptz not null default now(),
-  updated_at           timestamptz not null default now(),
-  deleted_at           timestamptz
+  id                     uuid primary key default uuid_generate_v4(),  -- 학생용 레코드는 자동 생성
+  tenant_id              uuid references public.tenants (id),
+  email                  citext not null,                -- 전역 UNIQUE 대신 부분 유니크 인덱스
+  name                   text not null,
+  phone                  text,
+  role_code              text references public.ref_roles (code),
+  onboarding_completed   boolean not null default false,
+  onboarding_completed_at timestamptz,
+  approval_status        text not null default 'pending'
+                           check (approval_status in ('pending','approved','rejected')),
+  approval_reason        text,
+  approved_at            timestamptz,
+  approved_by            uuid,
+  settings               jsonb not null default '{}'::jsonb,
+  preferences            jsonb not null default '{}'::jsonb,
+  address                text,
+  created_at             timestamptz not null default now(),
+  updated_at             timestamptz not null default now(),
+  deleted_at             timestamptz
 );
 
--- (전역 UNIQUE on email이 있다면 제거 → 소프트 삭제 고려한 부분 유니크 인덱스로 전환)
+-- (전역 UNIQUE on email이 있었다면 제거 → 소프트 삭제 고려한 부분 유니크 인덱스로 전환)
 do $$
 begin
   if exists (select 1 from pg_constraint where conname = 'users_email_key') then
@@ -90,8 +91,8 @@ create index if not exists idx_users_approval    on public.users (approval_statu
 create table if not exists public.students (
   id                uuid primary key default uuid_generate_v4(),
   tenant_id         uuid not null references public.tenants (id),
-  user_id           uuid,                                    -- 학생이 앱 계정과 매핑될 경우
-  student_code      text not null,                           -- 전역 UNIQUE 금지
+  user_id           uuid references public.users (id),        -- 학생-앱 사용자 매핑 FK
+  student_code      text not null,                            -- 전역 UNIQUE 금지
   name              text not null,
   birth_date        date,
   gender            text check (gender in ('male','female','other')),
@@ -105,7 +106,7 @@ create table if not exists public.students (
   notes             text,
   commute_method    text,
   marketing_source  text,
-  kiosk_pin         text,                                    -- bcrypt 해시 저장
+  kiosk_pin         text,                                     -- bcrypt 해시 저장
   meta              jsonb not null default '{}'::jsonb,
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now(),
@@ -139,8 +140,10 @@ create table if not exists public.student_todos (
   description                  text,
   subject                      text,
   due_date                     date not null,
-  priority                     text not null default 'medium'
-                                 check (priority in ('low','medium','high')),
+  due_day_of_week              int not null default 0
+                                 check (due_day_of_week >= 0 and due_day_of_week <= 6),
+  priority                     text not null default 'normal'
+                                 check (priority in ('low','normal','high','urgent')),
   estimated_duration_minutes   int,
   completed_at                 timestamptz,
   verified_at                  timestamptz,
@@ -151,10 +154,10 @@ create table if not exists public.student_todos (
   deleted_at                   timestamptz
 );
 
-create index if not exists idx_todos_tenant_due on public.student_todos (tenant_id, due_date) where deleted_at is null;
-create index if not exists idx_todos_student    on public.student_todos (student_id)           where deleted_at is null;
-create index if not exists idx_todos_completed  on public.student_todos (tenant_id, completed_at) where deleted_at is null;
-create index if not exists idx_todos_verified   on public.student_todos (tenant_id, verified_at)  where deleted_at is null;
+create index if not exists idx_todos_tenant_due on public.student_todos (tenant_id, due_date);
+create index if not exists idx_todos_student    on public.student_todos (student_id);
+create index if not exists idx_todos_completed  on public.student_todos (tenant_id, completed_at);
+create index if not exists idx_todos_verified   on public.student_todos (tenant_id, verified_at);
 
 -- ============================================================
 -- 3) Helper & Utility Functions
@@ -171,7 +174,7 @@ begin
 end
 $$;
 
--- 대표 이메일 추출 (auth.users에서 email 또는 identities)
+-- 대표 이메일 추출 (auth.users/identities 기반)
 create or replace function public.primary_email(_auth_user_id uuid)
 returns text
 language plpgsql
@@ -181,30 +184,35 @@ set search_path = public, auth
 as $$
 declare
   v_email text;
-  v_ident jsonb;
 begin
-  select email, identities into v_email, v_ident
+  -- 1) auth.users.email
+  select lower(trim(email)) into v_email
   from auth.users
   where id = _auth_user_id;
 
-  v_email := case when v_email is null then null else lower(trim(v_email)) end;
-  if v_email is not null then
+  if v_email is not null and v_email <> '' then
     return v_email;
   end if;
 
-  if v_ident is not null then
-    v_email := lower(trim(
-      (select (i->'identity_data'->>'email')
-         from jsonb_array_elements(v_ident) i
-        where (i->>'provider') in ('google','kakao')
-        limit 1)
-    ));
-    if v_email is not null then
-      return v_email;
-    end if;
+  -- 2) auth.users.raw_user_meta_data->>'email'
+  select lower(trim(raw_user_meta_data->>'email')) into v_email
+  from auth.users
+  where id = _auth_user_id;
+
+  if v_email is not null and v_email <> '' then
+    return v_email;
   end if;
 
-  return null;
+  -- 3) auth.identities.identity_data->>'email' (google/kakao 등)
+  select lower(trim(identity_data->>'email')) into v_email
+  from auth.identities
+  where user_id = _auth_user_id
+    and provider in ('google','kakao')
+    and (identity_data->>'email') is not null
+  order by created_at
+  limit 1;
+
+  return v_email; -- 없으면 NULL
 end
 $$;
 
@@ -270,6 +278,56 @@ $$;
 -- 4) RPC Functions (트리거 대신 명시 호출)
 -- ============================================================
 
+-- 4-0) 온보딩 상태 조회
+create or replace function public.get_onboarding_state()
+returns json
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_id    uuid := auth.uid();
+  v_user  record;
+begin
+  if v_id is null then
+    return json_build_object(
+      'onboarding_completed', false,
+      'role_code',            null,
+      'tenant_id',            null,
+      'approval_status',      null
+    );
+  end if;
+
+  select
+    onboarding_completed,
+    role_code,
+    tenant_id,
+    approval_status
+  into v_user
+  from public.users
+  where id = v_id
+    and deleted_at is null;
+
+  if not found then
+    return json_build_object(
+      'onboarding_completed', false,
+      'role_code',            null,
+      'tenant_id',            null,
+      'approval_status',      null
+    );
+  end if;
+
+  return json_build_object(
+    'onboarding_completed', coalesce(v_user.onboarding_completed, false),
+    'role_code',            v_user.role_code,
+    'tenant_id',            v_user.tenant_id,
+    'approval_status',      v_user.approval_status
+  );
+end
+$$;
+
+grant execute on function public.get_onboarding_state() to authenticated;
+
 -- 4-1) 회원가입 후 사용자 프로필 생성 (앱 최초 1회)
 create or replace function public.create_user_profile()
 returns json
@@ -302,6 +360,8 @@ exception
     return json_build_object('success', false, 'error', SQLERRM);
 end
 $$;
+
+grant execute on function public.create_user_profile() to authenticated, anon;
 
 -- 4-2) 승인 상태 확인
 create or replace function public.check_approval_status()
@@ -339,6 +399,8 @@ begin
 end
 $$;
 
+grant execute on function public.check_approval_status() to authenticated;
+
 -- 4-3) 원장 온보딩(트랜잭션): 테넌트 생성 + 사용자 업데이트
 create or replace function public.complete_owner_onboarding(
   _user_id      uuid,
@@ -349,29 +411,51 @@ create or replace function public.complete_owner_onboarding(
 returns json
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, auth
 as $$
 declare
   v_tenant_id uuid;
   v_slug      text := coalesce(_slug, public.gen_unique_slug(_academy_name));
+  v_email     text;
 begin
+  -- auth.users 최소 존재 확인
+  select email into v_email from auth.users where id = _user_id;
+  if v_email is null then
+    return json_build_object('success', false, 'error', 'Auth user not found');
+  end if;
+
+  -- 테넌트 생성
   insert into public.tenants (name, slug)
   values (_academy_name, v_slug)
   returning id into v_tenant_id;
 
-  update public.users
-     set name                 = _name,
-         role_code            = 'owner',
-         tenant_id            = v_tenant_id,
-         onboarding_completed = true,
-         approval_status      = 'approved',
-         approved_at          = now(),
-         updated_at           = now()
-   where id = _user_id;
-
-  if not found then
-    raise exception 'User not found';
-  end if;
+  -- users 업서트: 없으면 생성, 있으면 owner로 갱신
+  insert into public.users as u (
+    id, email, name, role_code, tenant_id,
+    onboarding_completed, onboarding_completed_at,
+    approval_status, approved_at, updated_at
+  )
+  values (
+    _user_id,
+    coalesce(public.primary_email(_user_id), v_email, ''),
+    _name,
+    'owner',
+    v_tenant_id,
+    true,
+    now(),
+    'approved',
+    now(),
+    now()
+  )
+  on conflict (id) do update
+    set name                   = excluded.name,
+        role_code              = 'owner',
+        tenant_id              = excluded.tenant_id,
+        onboarding_completed   = true,
+        onboarding_completed_at= now(),
+        approval_status        = 'approved',
+        approved_at            = now(),
+        updated_at             = now();
 
   return json_build_object(
     'success', true,
@@ -384,7 +468,58 @@ exception
 end
 $$;
 
--- 4-4) 키오스크: 학생 TODO 조회 (PIN 검증 포함)
+grant execute on function public.complete_owner_onboarding(uuid, text, text, text) to authenticated;
+
+-- 4-4) 원장 학원 설정 마무리
+create or replace function public.finish_owner_academy_setup(
+  _academy_name text,
+  _timezone     text default 'Asia/Seoul',
+  _settings     jsonb default '{}'::jsonb
+)
+returns json
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid    uuid := auth.uid();
+  v_tenant uuid;
+begin
+  if v_uid is null then
+    return json_build_object('success', false, 'error', 'unauthenticated');
+  end if;
+
+  select tenant_id into v_tenant
+  from public.users
+  where id = v_uid and deleted_at is null;
+
+  if v_tenant is null then
+    return json_build_object('success', false, 'error', 'tenant_not_found');
+  end if;
+
+  update public.tenants
+     set name = _academy_name,
+         timezone = coalesce(_timezone, 'Asia/Seoul'),
+         settings = coalesce(_settings, '{}'::jsonb),
+         updated_at = now()
+   where id = v_tenant;
+
+  update public.users
+     set onboarding_completed = true,
+         onboarding_completed_at = now(),
+         updated_at = now()
+   where id = v_uid;
+
+  return json_build_object('success', true);
+exception
+  when others then
+    return json_build_object('success', false, 'error', SQLERRM);
+end
+$$;
+
+grant execute on function public.finish_owner_academy_setup(text, text, jsonb) to authenticated;
+
+-- 4-5) 키오스크: 학생 TODO 조회 (PIN 검증 포함)
 create or replace function public.get_student_todos_for_kiosk(
   p_student_id uuid,
   p_date       date,
@@ -424,24 +559,44 @@ begin
     'notes', notes,
     'description', description,
     'estimated_duration_minutes', estimated_duration_minutes
-  ))
+  ) order by created_at)
   into v_todos
   from public.student_todos
   where student_id = p_student_id
     and due_date   = p_date
-    and deleted_at is null
-  order by created_at;
+    and deleted_at is null;
 
   return coalesce(v_todos, '[]'::json);
 end
 $$;
 
--- RPC 권한
-grant usage on schema public to authenticated, anon;
-grant execute on function public.create_user_profile()                          to authenticated, anon;
-grant execute on function public.check_approval_status()                        to authenticated;
-grant execute on function public.complete_owner_onboarding(uuid, text, text, text) to authenticated;
-grant execute on function public.get_student_todos_for_kiosk(uuid, date, text)  to anon;
+grant execute on function public.get_student_todos_for_kiosk(uuid, date, text) to anon;
+
+-- 4-6) 대시보드 데이터 (Stub)
+create or replace function public.get_dashboard_data(today_param date default current_date)
+returns json
+language sql
+stable
+as $$
+  select json_build_object(
+    'stats', json_build_object(
+      'totalStudents', 0, 'activeClasses', 0, 'todayAttendance', 0,
+      'pendingTodos', 0, 'totalReports', 0, 'unsentReports', 0
+    ),
+    'recentStudents', '[]'::json,
+    'todaySessions', '[]'::json,
+    'birthdayStudents', '[]'::json,
+    'scheduledConsultations', '[]'::json,
+    'studentAlerts', json_build_object('longAbsence','[]'::json,'pendingAssignments','[]'::json),
+    'financialData', json_build_object('currentMonthRevenue',0,'previousMonthRevenue',0,'unpaidTotal',0,'unpaidCount',0),
+    'classStatus','[]'::json,
+    'parentsToContact','[]'::json,
+    'calendarEvents','[]'::json,
+    'activityLogs','[]'::json
+  );
+$$;
+
+grant execute on function public.get_dashboard_data(date) to authenticated;
 
 -- ============================================================
 -- 5) Triggers (선호 시 사용; 미사용 가능)
@@ -539,6 +694,16 @@ create policy users_insert_signup
   on public.users
   for insert
   with check (id = auth.uid());
+
+-- Users: Staff(owner/instructor)가 학생용 users 레코드 생성 가능
+drop policy if exists users_insert_staff on public.users;
+create policy users_insert_staff
+  on public.users
+  for insert
+  with check (
+    public.current_user_role() in ('owner', 'instructor')
+    and tenant_id = public.current_user_tenant_id()
+  );
 
 -- Students: 같은 테넌트 조회 / Owner·Instructor INSERT/UPDATE / Owner DELETE
 drop policy if exists students_select_tenant on public.students;

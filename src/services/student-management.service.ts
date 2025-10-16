@@ -53,11 +53,13 @@ export async function createStudent(
 ): Promise<CreateStudentResult> {
   try {
     // 1. users 테이블에 사용자 생성 (학생은 role_code를 null로 설정)
+    // 학생용 users 레코드는 auth.users 계정이 없으므로 UUID 직접 생성
     const { data: newUser, error: userError } = await supabase
       .from('users')
       .insert({
+        // id는 DB의 gen_random_uuid()로 자동 생성되도록 생략
         tenant_id: tenantId,
-        email: input.email || null,
+        email: input.email || '',  // email은 NOT NULL이므로 빈 문자열로
         name: input.name,
         phone: input.phone || null,
         role_code: null, // 학생은 스태프가 아니므로 null

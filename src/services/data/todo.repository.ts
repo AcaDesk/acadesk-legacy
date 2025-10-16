@@ -30,9 +30,8 @@ export interface StudentTodo {
 export interface StudentTodoWithStudent extends StudentTodo {
   students: {
     student_code: string
-    users: {
-      name: string
-    } | null
+    name: string
+    user_id: string | null
   } | null
 }
 
@@ -100,11 +99,10 @@ export class TodoRepository {
         .from('student_todos')
         .select(`
           *,
-          students (
+          students!inner (
             student_code,
-            users (
-              name
-            )
+            name,
+            user_id
           )
         `)
         .order('due_date', { ascending: false })

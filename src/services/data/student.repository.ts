@@ -110,19 +110,14 @@ export class StudentRepository extends BaseRepository<Student & Record<string, u
   }
 
   /**
-   * Search students by name (searches in users table via user_id)
+   * Search students by name or student code
    */
   async search(query: string, tenantId?: UUID): Promise<Student[]> {
     try {
       let searchQuery = this.supabase
         .from('students')
-        .select(`
-          *,
-          users!inner (
-            name
-          )
-        `)
-        .ilike('users.name', `%${query}%`)
+        .select('*')
+        .or(`name.ilike.%${query}%,student_code.ilike.%${query}%`)
         .is('deleted_at', null)
         .limit(20)
 
