@@ -26,48 +26,48 @@ export const FEATURES = {
   studentManagement: 'active' as FeatureStatus,
 
   /** 출석 관리 */
-  attendanceManagement: 'inactive' as FeatureStatus,
+  attendanceManagement: 'active' as FeatureStatus,
 
   /** 성적 관리 */
-  gradesManagement: 'inactive' as FeatureStatus,
+  gradesManagement: 'active' as FeatureStatus,
 
   /** TODO 관리 (자율 학습) */
   todoManagement: 'active' as FeatureStatus,
 
   /** 수업 관리 */
-  classManagement: 'inactive' as FeatureStatus,
+  classManagement: 'active' as FeatureStatus,
 
   /** 보호자 관리 */
-  guardianManagement: 'inactive' as FeatureStatus,
+  guardianManagement: 'active' as FeatureStatus,
 
   // ========================================
   // 2차 배포: 추가 기능 (Additional Features)
   // ========================================
 
   /** 상담 관리 */
-  consultationManagement: 'inactive' as FeatureStatus,
+  consultationManagement: 'active' as FeatureStatus,
 
   /** 도서관 (도서 대여) */
-  libraryManagement: 'inactive' as FeatureStatus,
+  libraryManagement: 'active' as FeatureStatus,
 
   /** 리포트 (학습 리포트) */
-  reportManagement: 'inactive' as FeatureStatus,
+  reportManagement: 'active' as FeatureStatus,
 
   /** 알림 시스템 */
-  notificationSystem: 'inactive' as FeatureStatus,
+  notificationSystem: 'active' as FeatureStatus,
 
   /** 직원 관리 */
-  staffManagement: 'inactive' as FeatureStatus,
+  staffManagement: 'active' as FeatureStatus,
 
   // ========================================
   // 3차 배포: 고급 기능 (Advanced Features)
   // ========================================
 
   /** 학원비 관리 */
-  tuitionManagement: 'inactive' as FeatureStatus,
+  tuitionManagement: 'active' as FeatureStatus,
 
   /** 학부모 앱 */
-  parentApp: 'inactive' as FeatureStatus,
+  parentApp: 'active' as FeatureStatus,
 
   /** 캘린더 통합 */
   calendarIntegration: 'inactive' as FeatureStatus,
@@ -76,17 +76,17 @@ export const FEATURES = {
   kioskMode: 'active' as FeatureStatus,
 
   /** 과목 관리 */
-  subjectManagement: 'inactive' as FeatureStatus,
+  subjectManagement: 'active' as FeatureStatus,
 
   // ========================================
   // 개발 중 (In Development)
   // ========================================
 
   /** AI 기반 분석 */
-  aiAnalytics: 'inactive' as FeatureStatus,
+  aiAnalytics: 'active' as FeatureStatus,
 
   /** 자동화 워크플로우 */
-  automationWorkflow: 'inactive' as FeatureStatus,
+  automationWorkflow: 'active' as FeatureStatus,
 } as const
 
 export type FeatureKey = keyof typeof FEATURES

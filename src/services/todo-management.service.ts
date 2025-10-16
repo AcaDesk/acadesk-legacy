@@ -289,11 +289,9 @@ export async function rejectTodo(
         title,
         tenant_id,
         student_id,
-        students (
+        students!inner (
           user_id,
-          users (
-            name
-          )
+          name
         )
       `)
       .eq('id', todoId)
