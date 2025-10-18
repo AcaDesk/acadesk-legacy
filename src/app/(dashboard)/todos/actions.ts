@@ -2,7 +2,10 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { verifyTodo, deleteTodo } from '@/services/todo-management.service'
+import {
+  createVerifyTodoUseCase,
+  createDeleteTodoUseCase,
+} from '@/application/factories/todoUseCaseFactory.server'
 
 /**
  * TODO 검증 Server Action
@@ -24,7 +27,11 @@ export async function verifyTodoAction(todoId: string) {
       }
     }
 
-    await verifyTodo(supabase, todoId, user.id)
+    const verifyTodoUseCase = await createVerifyTodoUseCase()
+    await verifyTodoUseCase.execute({
+      todoId,
+      verifiedBy: user.id,
+    })
 
     revalidatePath('/todos')
 
@@ -46,9 +53,8 @@ export async function verifyTodoAction(todoId: string) {
  */
 export async function deleteTodoAction(todoId: string) {
   try {
-    const supabase = await createClient()
-
-    await deleteTodo(supabase, todoId)
+    const deleteTodoUseCase = await createDeleteTodoUseCase()
+    await deleteTodoUseCase.execute(todoId)
 
     revalidatePath('/todos')
 
