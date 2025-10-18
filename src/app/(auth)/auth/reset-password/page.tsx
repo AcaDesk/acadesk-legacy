@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { KeyRound, Eye, EyeOff, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { passwordResetService } from "@/services/auth/passwordResetService"
+import { createUpdatePasswordUseCase } from "@/application/factories/authUseCaseFactory.client"
 
 const resetPasswordSchema = z
   .object({
