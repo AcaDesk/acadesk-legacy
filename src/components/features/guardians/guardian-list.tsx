@@ -30,15 +30,13 @@ export function GuardianList() {
             email,
             phone
           ),
-          guardian_students (
-            relationship,
+          student_guardians (
+            relation,
             is_primary,
             students (
               id,
               student_code,
-              users (
-                name
-              )
+              name
             )
           )
         `)
@@ -53,16 +51,16 @@ export function GuardianList() {
         users: Array.isArray(item.users) && item.users.length > 0
           ? item.users[0]
           : null,
-        guardian_students: (item.guardian_students || []).map((gs) => ({
-          relationship: gs.relationship,
-          is_primary: gs.is_primary,
-          students: Array.isArray(gs.students) && gs.students.length > 0
+        guardian_students: (item.student_guardians || []).map((sg) => ({
+          relationship: sg.relation,
+          is_primary: sg.is_primary,
+          students: Array.isArray(sg.students) && sg.students.length > 0
             ? {
-                id: gs.students[0].id,
-                student_code: gs.students[0].student_code,
-                users: Array.isArray(gs.students[0].users) && gs.students[0].users.length > 0
-                  ? gs.students[0].users[0]
-                  : null,
+                id: sg.students[0].id,
+                student_code: sg.students[0].student_code,
+                users: {
+                  name: sg.students[0].name
+                },
               }
             : null,
         })),

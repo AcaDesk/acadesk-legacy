@@ -29,6 +29,7 @@ export default function SettingsPage() {
       icon: Building2,
       href: '/settings/academy',
       badge: null,
+      disabled: false,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50 dark:bg-blue-950/20',
     },
@@ -37,7 +38,8 @@ export default function SettingsPage() {
       description: '사용자 프로필 및 비밀번호 변경',
       icon: User,
       href: '/settings/account',
-      badge: null,
+      badge: '준비 중',
+      disabled: true,
       color: 'text-green-600',
       bgColor: 'bg-green-50 dark:bg-green-950/20',
     },
@@ -46,7 +48,8 @@ export default function SettingsPage() {
       description: '푸시 알림 및 이메일 알림 관리',
       icon: Bell,
       href: '/settings/notifications',
-      badge: null,
+      badge: '준비 중',
+      disabled: true,
       color: 'text-yellow-600',
       bgColor: 'bg-yellow-50 dark:bg-yellow-950/20',
     },
@@ -55,7 +58,8 @@ export default function SettingsPage() {
       description: '2단계 인증 및 개인정보 보호 설정',
       icon: Lock,
       href: '/settings/security',
-      badge: '권장',
+      badge: '준비 중',
+      disabled: true,
       color: 'text-red-600',
       bgColor: 'bg-red-50 dark:bg-red-950/20',
     },
@@ -64,7 +68,8 @@ export default function SettingsPage() {
       description: '다크모드 및 색상 테마 변경',
       icon: Palette,
       href: '/settings/theme',
-      badge: null,
+      badge: '준비 중',
+      disabled: true,
       color: 'text-purple-600',
       bgColor: 'bg-purple-50 dark:bg-purple-950/20',
     },
@@ -73,7 +78,8 @@ export default function SettingsPage() {
       description: '데이터 백업 및 내보내기',
       icon: Database,
       href: '/settings/data',
-      badge: null,
+      badge: '준비 중',
+      disabled: true,
       color: 'text-gray-600',
       bgColor: 'bg-gray-50 dark:bg-gray-950/20',
     },
@@ -142,6 +148,7 @@ export default function SettingsPage() {
           <div className={GRID_LAYOUTS.DUAL}>
             {settingsSections.map((section, index) => {
               const Icon = section.icon
+              const CardWrapper = section.disabled ? 'div' : Link
               return (
                 <motion.div
                   key={section.title}
@@ -149,8 +156,8 @@ export default function SettingsPage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: 0.05 * (index + 4) }}
                 >
-                  <Link href={section.href}>
-                    <Card className={CARD_STYLES.INTERACTIVE}>
+                  <CardWrapper {...(!section.disabled ? { href: section.href, prefetch: false } : {})}>
+                    <Card className={section.disabled ? 'opacity-60 cursor-not-allowed' : CARD_STYLES.INTERACTIVE}>
                       <CardContent className="py-6">
                         <div className="flex items-center gap-4">
                           <div className={`w-12 h-12 rounded-lg ${section.bgColor} flex items-center justify-center flex-shrink-0`}>
@@ -175,7 +182,7 @@ export default function SettingsPage() {
                         </div>
                       </CardContent>
                     </Card>
-                  </Link>
+                  </CardWrapper>
                 </motion.div>
               )
             })}

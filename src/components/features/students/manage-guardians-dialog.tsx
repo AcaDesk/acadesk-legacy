@@ -99,9 +99,9 @@ export function ManageGuardiansDialog({
 
     try {
       const { data, error } = await supabase
-        .from('guardian_students')
+        .from('student_guardians')
         .select(`
-          relationship,
+          relation,
           is_primary,
           guardians!inner(
             id,
@@ -116,8 +116,8 @@ export function ManageGuardiansDialog({
       if (error) throw error
 
       // Transform data to match GuardianWithUser type
-      interface GuardianStudentJoin {
-        relationship: string
+      interface StudentGuardianJoin {
+        relation: string
         is_primary: boolean
         guardians: {
           id: string
@@ -131,7 +131,7 @@ export function ManageGuardiansDialog({
       }
 
       const guardians: GuardianWithUser[] = (data || []).map((item) => {
-        const typedItem = item as unknown as GuardianStudentJoin
+        const typedItem = item as unknown as StudentGuardianJoin
         return {
           id: typedItem.guardians.id,
           user_id: typedItem.guardians.user_id,
@@ -140,7 +140,7 @@ export function ManageGuardiansDialog({
           email: typedItem.guardians.users.email ?? null,
           address: null,
           occupation: null,
-          relation: typedItem.relationship as GuardianRelation,
+          relation: typedItem.relation as GuardianRelation,
           is_primary: typedItem.is_primary,
         }
       })
@@ -173,7 +173,7 @@ export function ManageGuardiansDialog({
 
       // Get already linked guardian IDs
       const { data: linkedIds, error: linkedError } = await supabase
-        .from('guardian_students')
+        .from('student_guardians')
         .select('guardian_id')
         .eq('student_id', studentId)
         .eq('tenant_id', currentUser.tenantId)
@@ -249,12 +249,12 @@ export function ManageGuardiansDialog({
 
       // 3. Link to student
       const { error: linkError } = await supabase
-        .from('guardian_students')
+        .from('student_guardians')
         .insert({
           tenant_id: currentUser.tenantId,
           guardian_id: newGuardian.id,
           student_id: studentId,
-          relationship: data.relationship,
+          relation: data.relationship,
           is_primary: linkedGuardians.length === 0, // First guardian is primary
         })
 
@@ -293,12 +293,12 @@ export function ManageGuardiansDialog({
     setLoading(true)
     try {
       const { error: linkError } = await supabase
-        .from('guardian_students')
+        .from('student_guardians')
         .insert({
           tenant_id: currentUser.tenantId,
           guardian_id: data.guardianId,
           student_id: studentId,
-          relationship: data.relationship,
+          relation: data.relationship,
           is_primary: linkedGuardians.length === 0,
         })
 
@@ -337,7 +337,7 @@ export function ManageGuardiansDialog({
     setLoading(true)
     try {
       const { error } = await supabase
-        .from('guardian_students')
+        .from('student_guardians')
         .update({ deleted_at: new Date().toISOString() })
         .eq('tenant_id', currentUser.tenantId)
         .eq('guardian_id', guardianId)
