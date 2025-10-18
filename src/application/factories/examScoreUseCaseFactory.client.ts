@@ -4,14 +4,14 @@
  */
 
 import { createClient } from '@/lib/supabase/client'
-import { SupabaseExamScoreRepository } from '@/infrastructure/database/SupabaseExamScoreRepository'
+import { ExamScoreRepository } from '@/infrastructure/database/exam-score.repository'
 
 /**
  * 시험 성적 리포지토리 생성 (클라이언트 사이드)
  */
 function createExamScoreRepository() {
   const supabase = createClient()
-  return new SupabaseExamScoreRepository(supabase)
+  return new ExamScoreRepository(supabase)
 }
 
 /**
