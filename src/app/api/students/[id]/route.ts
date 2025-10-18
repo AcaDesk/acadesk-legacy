@@ -1,16 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { StudentRepository } from '@/services/data/student.repository'
+import {
+  createGetStudentUseCase,
+  createUpdateStudentUseCase,
+  createDeleteStudentUseCase,
+} from '@/application/factories/studentUseCaseFactory'
 import { handleError } from '@/lib/errors'
 import * as z from 'zod'
 
 const updateStudentSchema = z.object({
   name: z.string().min(2).optional(),
-  grade_level: z.string().optional(),
-  status: z.string().optional(),
-  enrollment_date: z.string().optional(),
-  withdrawal_date: z.string().optional(),
-  meta: z.record(z.string(), z.unknown()).optional(),
+  birthDate: z.string().optional().transform(val => val ? new Date(val) : undefined),
+  gender: z.enum(['male', 'female', 'other']).optional(),
+  studentPhone: z.string().optional(),
+  profileImageUrl: z.string().optional(),
+  grade: z.string().optional(),
+  school: z.string().optional(),
+  emergencyContact: z.string().optional(),
+  notes: z.string().optional(),
+  commuteMethod: z.string().optional(),
+  marketingSource: z.string().optional(),
+  kioskPin: z.string().optional(),
 })
 
 /**
@@ -34,10 +44,10 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const repository = new StudentRepository(supabase)
-    const student = await repository.findByIdWithGuardians(id)
+    const useCase = await createGetStudentUseCase()
+    const student = await useCase.getByIdOrThrow(id)
 
-    return NextResponse.json(student)
+    return NextResponse.json(student.toDTO())
   } catch (error) {
     const errorResponse = handleError(error)
     return NextResponse.json(
@@ -72,10 +82,13 @@ export async function PATCH(
     const body = await request.json()
     const validated = updateStudentSchema.parse(body)
 
-    const repository = new StudentRepository(supabase)
-    const student = await repository.update(id, validated)
+    const useCase = await createUpdateStudentUseCase()
+    const student = await useCase.execute({
+      id,
+      ...validated,
+    })
 
-    return NextResponse.json(student)
+    return NextResponse.json(student.toDTO())
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -113,8 +126,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const repository = new StudentRepository(supabase)
-    await repository.softDelete(id)
+    const useCase = await createDeleteStudentUseCase()
+    await useCase.execute(id)
 
     return NextResponse.json({ message: 'Student deleted successfully' })
   } catch (error) {

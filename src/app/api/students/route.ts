@@ -1,18 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { StudentRepository } from '@/services/data/student.repository'
+import {
+  createGetStudentUseCase,
+  createCreateStudentUseCase
+} from '@/application/factories/studentUseCaseFactory'
 import { handleError } from '@/lib/errors'
-// import { paginationSchema, searchSchema, sortSchema } from '@/lib/validators'
 import * as z from 'zod'
 
 const createStudentSchema = z.object({
-  tenant_id: z.string().uuid(),
-  student_code: z.string().optional(),
+  tenantId: z.string().uuid(),
   name: z.string().min(2),
-  grade_level: z.string().optional(),
-  status: z.string().default('active'),
-  enrollment_date: z.string().optional(),
-  meta: z.record(z.string(), z.unknown()).default({}),
+  birthDate: z.string().optional().transform(val => val ? new Date(val) : null),
+  gender: z.enum(['male', 'female', 'other']).optional(),
+  studentPhone: z.string().optional(),
+  profileImageUrl: z.string().optional(),
+  grade: z.string().optional(),
+  school: z.string().optional(),
+  enrollmentDate: z.string().optional().transform(val => val ? new Date(val) : new Date()),
+  emergencyContact: z.string().optional(),
+  notes: z.string().optional(),
+  commuteMethod: z.string().optional(),
+  marketingSource: z.string().optional(),
+  kioskPin: z.string().optional(),
 })
 
 /**
@@ -32,19 +41,31 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Parse query parameters
-    const searchParams = request.nextUrl.searchParams
-    const params = {
-      page: Number(searchParams.get('page')) || 1,
-      limit: Number(searchParams.get('limit')) || 20,
-      sort_by: searchParams.get('sort_by') || 'created_at',
-      sort_order: (searchParams.get('sort_order') as 'asc' | 'desc') || 'desc',
-      search: searchParams.get('search') || undefined,
-      status: searchParams.get('status') || undefined,
+    // Get tenant ID from user metadata
+    const { data: userData } = await supabase
+      .from('users')
+      .select('tenant_id')
+      .eq('id', user.id)
+      .single()
+
+    if (!userData?.tenant_id) {
+      return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
     }
 
-    const repository = new StudentRepository(supabase)
-    const result = await repository.findAll(params)
+    // Parse query parameters
+    const searchParams = request.nextUrl.searchParams
+    const search = searchParams.get('search') || undefined
+    const grade = searchParams.get('grade') || undefined
+    const school = searchParams.get('school') || undefined
+
+    const useCase = await createGetStudentUseCase()
+    const students = await useCase.getAllByTenant(
+      userData.tenant_id,
+      { search, grade, school }
+    )
+
+    // Convert to DTOs
+    const result = students.map(student => student.toDTO())
 
     return NextResponse.json(result)
   } catch (error) {
@@ -73,14 +94,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Get tenant ID from user metadata
+    const { data: userData } = await supabase
+      .from('users')
+      .select('tenant_id')
+      .eq('id', user.id)
+      .single()
+
+    if (!userData?.tenant_id) {
+      return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
+    }
+
     // Parse and validate request body
     const body = await request.json()
-    const validated = createStudentSchema.parse(body)
+    const validated = createStudentSchema.parse({
+      ...body,
+      tenantId: userData.tenant_id,
+    })
 
-    const repository = new StudentRepository(supabase)
-    const student = await repository.create(validated)
+    const useCase = await createCreateStudentUseCase()
+    const student = await useCase.execute(validated)
 
-    return NextResponse.json(student, { status: 201 })
+    return NextResponse.json(student.toDTO(), { status: 201 })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
