@@ -927,6 +927,7 @@ export function AddStudentDialog({ open, onOpenChange, onSuccess }: AddStudentDi
                 type="password"
                 placeholder="••••"
                 maxLength={4}
+                autoComplete="new-password"
                 {...register('kioskPin')}
                 onChange={(e) => {
                   const value = e.target.value.replace(/\D/g, '').slice(0, 4)

@@ -118,12 +118,12 @@ export default function NewGuardianPage() {
           tenant_id: currentUser.tenantId,
           student_id: studentId,
           guardian_id: newGuardian.id,
-          relationship: data.relationship,
+          relation: data.relationship,
           is_primary: false,
         }))
 
         const { error: linkError } = await supabase
-          .from('guardian_students')
+          .from('student_guardians')
           .insert(guardianStudentRecords)
 
         if (linkError) {

@@ -430,9 +430,10 @@ begin
   returning id into v_tenant_id;
 
   -- users 업서트: 없으면 생성, 있으면 owner로 갱신
+  -- ⚠️ onboarding_completed는 academy-setup 완료 후 true로 설정됨
   insert into public.users as u (
     id, email, name, role_code, tenant_id,
-    onboarding_completed, onboarding_completed_at,
+    onboarding_completed,
     approval_status, approved_at, updated_at
   )
   values (
@@ -441,8 +442,7 @@ begin
     _name,
     'owner',
     v_tenant_id,
-    true,
-    now(),
+    false,
     'approved',
     now(),
     now()
@@ -451,8 +451,7 @@ begin
     set name                   = excluded.name,
         role_code              = 'owner',
         tenant_id              = excluded.tenant_id,
-        onboarding_completed   = true,
-        onboarding_completed_at= now(),
+        onboarding_completed   = false,
         approval_status        = 'approved',
         approved_at            = now(),
         updated_at             = now();
