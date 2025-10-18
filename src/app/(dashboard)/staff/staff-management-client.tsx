@@ -125,7 +125,7 @@ export function StaffManagementClient({
   }
 
   const copyInvitationLink = (token: string) => {
-    const link = `${window.location.origin}/auth/accept-invitation?token=${token}`
+    const link = `${window.location.origin}/auth/invite/accept?token=${token}`
     navigator.clipboard.writeText(link)
     toast({
       title: "링크 복사됨",
