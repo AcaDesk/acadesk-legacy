@@ -1,0 +1,2 @@
+-- 401_indexes_academy.sql
+-- academy/activity 보조 인덱스 추가 위치
