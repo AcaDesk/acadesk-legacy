@@ -47,7 +47,7 @@ export function LoginForm({
     setIsLoading(true)
     try {
       const signInWithOAuthUseCase = createSignInWithOAuthUseCase()
-      const { error } = await signInWithOAuthUseCase.execute(provider)
+      const { error } = await signInWithOAuthUseCase.execute({ provider })
 
       if (error) {
         toast({
