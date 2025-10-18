@@ -9,6 +9,8 @@ import { Mail, CheckCircle, RefreshCw, Loader2 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { getAuthErrorMessage, EMAIL_RESEND_SUCCESS_MESSAGE, GENERIC_ERROR_MESSAGE, RATE_LIMIT_MESSAGES } from "@/lib/auth-messages"
+import { routeAfterLogin } from "@/lib/auth/route-after-login"
+import { inviteTokenStore } from "@/lib/auth/invite-token-store"
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams()
@@ -63,16 +65,17 @@ function VerifyEmailContent() {
           return
         }
 
-        // 이메일 인증이 완료되었으면 온보딩 페이지로 이동
+        // 이메일 인증이 완료되었으면 단일 라우팅 규칙 적용
         if (user?.email_confirmed_at) {
           setIsCheckingAuth(true)
           toast({
             title: "이메일 인증 완료",
-            description: "온보딩 페이지로 이동합니다...",
+            description: "다음 단계로 이동합니다...",
           })
           // 잠시 후 리디렉트 (사용자가 메시지를 볼 수 있도록)
-          setTimeout(() => {
-            router.push(`/auth/onboarding?email=${encodeURIComponent(user.email || '')}&verified=true`)
+          setTimeout(async () => {
+            const inviteToken = inviteTokenStore.get()
+            await routeAfterLogin(router, inviteToken ?? undefined)
           }, 1000)
         }
       } catch (error) {
