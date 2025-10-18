@@ -11,13 +11,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Eye, EyeOff } from "lucide-react"
-import { authService } from "@/services/auth/auth.service"
-import { oauthService } from "@/services/auth/oauthService"
-import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import type { OAuthProvider } from "@/types/auth.types"
 import { getAuthErrorMessage, LOGIN_SUCCESS_MESSAGE, GENERIC_ERROR_MESSAGE } from "@/lib/auth-messages"
 import { isFeatureActive } from "@/lib/features.config"
+import { routeAfterLogin } from "@/lib/auth/route-after-login"
+import { inviteTokenStore } from "@/lib/auth/invite-token-store"
+import { createSignInUseCase, createSignInWithOAuthUseCase } from "@/application/factories/authUseCaseFactory.client"
 
 const loginSchema = z.object({
   email: z.string().email("올바른 이메일 형식이 아닙니다."),
@@ -46,7 +46,8 @@ export function LoginForm({
   const handleSocialLogin = async (provider: OAuthProvider) => {
     setIsLoading(true)
     try {
-      const { error } = await oauthService.signInWithOAuth(provider)
+      const signInWithOAuthUseCase = createSignInWithOAuthUseCase()
+      const { error } = await signInWithOAuthUseCase.execute(provider)
 
       if (error) {
         toast({
@@ -69,7 +70,8 @@ export function LoginForm({
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true)
     try {
-      const { error } = await authService.signIn({
+      const signInUseCase = createSignInUseCase()
+      const { error } = await signInUseCase.execute({
         email: data.email,
         password: data.password,
       })
@@ -83,74 +85,15 @@ export function LoginForm({
         return
       }
 
-      // 로그인 성공 후 온보딩 및 승인 상태 확인
-      const supabase = createClient()
-
-      // 사용자 정보 직접 조회 (RLS: users_self_select 정책)
-      const { data: { user: currentUser } } = await supabase.auth.getUser()
-
-      if (!currentUser) {
-        toast({
-          title: "인증 오류",
-          description: "사용자 정보를 가져올 수 없습니다.",
-          variant: "destructive",
-        })
-        return
-      }
-
-      const { data: me, error: meErr } = await supabase
-        .from("users")
-        .select("onboarding_completed, role_code, approval_status")
-        .eq("id", currentUser.id)
-        .maybeSingle()
-
-      if (meErr || !me) {
-        toast({
-          title: "추가 정보 입력 필요",
-          description: "서비스 이용을 위해 추가 정보를 입력해주세요.",
-        })
-        router.push("/auth/onboarding")
-        return
-      }
-
-      // 온보딩이 완료되지 않았으면 온보딩 페이지로
-      if (!me.onboarding_completed) {
-        toast({
-          title: "추가 정보 입력 필요",
-          description: "서비스 이용을 위해 추가 정보를 입력해주세요.",
-        })
-        router.push("/auth/onboarding")
-        return
-      }
-
-      // Owner만 승인 상태 확인
-      if (me.role_code === 'owner') {
-        if (me.approval_status === 'pending') {
-          toast({
-            title: "승인 대기 중",
-            description: "관리자 승인 후 서비스를 이용하실 수 있습니다.",
-          })
-          router.push("/auth/pending-approval")
-          return
-        } else if (me.approval_status === 'rejected') {
-          toast({
-            title: "승인 거부",
-            description: "가입 승인이 거부되었습니다. 자세한 사항은 문의해주세요.",
-            variant: "destructive",
-          })
-          await authService.signOut()
-          return
-        }
-      }
-
-      // 모든 검증 통과 - 대시보드로
+      // 로그인 성공 - 단일 라우팅 규칙 적용
       toast({
         title: LOGIN_SUCCESS_MESSAGE.title,
         description: LOGIN_SUCCESS_MESSAGE.description,
       })
 
-      router.push("/dashboard")
-      router.refresh()
+      // 초대 토큰 확인 (있으면 전달)
+      const inviteToken = inviteTokenStore.get()
+      await routeAfterLogin(router, inviteToken ?? undefined)
     } catch (error) {
       toast({
         title: GENERIC_ERROR_MESSAGE.title,
