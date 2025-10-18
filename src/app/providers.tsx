@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { useState, ReactNode } from "react"
 import { ThemeProvider } from "@/components/providers/theme-provider"
+import { AuthStateListener } from "@/components/auth/AuthStateListener"
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -25,6 +26,7 @@ export function Providers({ children }: { children: ReactNode }) {
         enableSystem
         disableTransitionOnChange
       >
+        <AuthStateListener />
         {children}
       </ThemeProvider>
     </QueryClientProvider>
