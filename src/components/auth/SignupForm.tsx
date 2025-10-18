@@ -12,12 +12,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Eye, EyeOff } from "lucide-react"
 import { motion } from "framer-motion"
-import { authService } from "@/services/auth/auth.service"
-import { oauthService } from "@/services/auth/oauthService"
 import { useToast } from "@/hooks/use-toast"
 import { TermsCheckbox, type TermsCheckboxValues } from "@/components/auth/TermsCheckbox"
 import type { OAuthProvider } from "@/types/auth.types"
 import { getAuthErrorMessage, SIGNUP_SUCCESS_MESSAGE, GENERIC_ERROR_MESSAGE } from "@/lib/auth-messages"
+import { createSignUpUseCase, createSignInWithOAuthUseCase } from "@/application/factories/authUseCaseFactory.client"
 
 // 비밀번호 강도 계산
 const calculatePasswordStrength = (password: string): number => {
@@ -99,7 +98,8 @@ export default function SignupForm({
   const handleSocialSignup = async (provider: OAuthProvider) => {
     setIsLoading(true)
     try {
-      const { error } = await oauthService.signUpWithOAuth(provider)
+      const signInWithOAuthUseCase = createSignInWithOAuthUseCase()
+      const { error } = await signInWithOAuthUseCase.execute(provider)
 
       if (error) {
         toast({
@@ -122,7 +122,8 @@ export default function SignupForm({
   const onSubmit = async (data: SignupFormValues) => {
     setIsLoading(true)
     try {
-      const { error } = await authService.signUp({
+      const signUpUseCase = createSignUpUseCase()
+      const { error } = await signUpUseCase.execute({
         email: data.email,
         password: data.password,
       })
