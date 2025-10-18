@@ -43,7 +43,8 @@ export default function ForgotPasswordPage() {
   const onSubmit = async (data: ForgotPasswordFormValues) => {
     setIsLoading(true)
     try {
-      const { error } = await passwordResetService.sendResetEmail(data.email)
+      const resetPasswordUseCase = createResetPasswordUseCase()
+      const { error } = await resetPasswordUseCase.execute(data.email)
 
       if (error) {
         toast({
