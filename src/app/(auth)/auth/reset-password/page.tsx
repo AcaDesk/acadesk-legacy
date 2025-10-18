@@ -82,7 +82,8 @@ export default function ResetPasswordPage() {
   const onSubmit = async (data: ResetPasswordFormValues) => {
     setIsLoading(true)
     try {
-      const { error } = await passwordResetService.updatePassword(data.password)
+      const updatePasswordUseCase = createUpdatePasswordUseCase()
+      const { error } = await updatePasswordUseCase.execute(data.password)
 
       if (error) {
         toast({
