@@ -44,7 +44,7 @@ export default function ForgotPasswordPage() {
     setIsLoading(true)
     try {
       const resetPasswordUseCase = createResetPasswordUseCase()
-      const { error } = await resetPasswordUseCase.execute(data.email)
+      const { error } = await resetPasswordUseCase.execute({ email: data.email })
 
       if (error) {
         toast({
