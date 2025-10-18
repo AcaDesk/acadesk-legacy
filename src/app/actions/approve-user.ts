@@ -54,7 +54,7 @@ export async function approveUser(userId: string): Promise<ApproveUserResult> {
 
     // 캐시 무효화
     revalidatePath('/dashboard')
-    revalidatePath('/auth/pending-approval')
+    revalidatePath('/auth/pending')
 
     return { success: true }
   } catch (error) {
