@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ArrowLeft, Mail, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { passwordResetService } from "@/services/auth/passwordResetService"
+import { createResetPasswordUseCase } from "@/application/factories/authUseCaseFactory.client"
 
 const forgotPasswordSchema = z.object({
   email: z.string().email("올바른 이메일 형식이 아닙니다."),
