@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
+import { isPublicPath } from "@/lib/route-guards"
 
 /**
  * Middleware용 Supabase 클라이언트 + 세션 관리
@@ -55,24 +56,12 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // 공개 경로
-  const publicPaths = [
-    "/",
-    "/auth/login",
-    "/auth/signup",
-    "/auth/accept-invitation",
-    "/auth/verify-email",
-    "/auth/callback",
-    "/auth/onboarding",
-    "/auth/pending-approval",
-    "/auth/forgot-password",
-    "/auth/reset-password",
-    "/auth/link-expired",
-  ]
-  const isPublicPath = publicPaths.some((path) => pathname.startsWith(path))
+  // 공개 경로 확인 (route-guards에서 중앙 관리)
+  const isPublic = isPublicPath(pathname)
 
   // 보호된 라우트 처리 - 로그인하지 않은 사용자
-  if (!user && !isPublicPath) {
+  // 무한 리다이렉트 방지: 이미 로그인 페이지면 재리다이렉트 금지
+  if (!user && !isPublic && pathname !== "/auth/login") {
     const url = request.nextUrl.clone()
     url.pathname = "/auth/login"
     return NextResponse.redirect(url)
