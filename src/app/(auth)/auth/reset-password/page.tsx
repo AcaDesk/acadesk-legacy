@@ -83,7 +83,7 @@ export default function ResetPasswordPage() {
     setIsLoading(true)
     try {
       const updatePasswordUseCase = createUpdatePasswordUseCase()
-      const { error } = await updatePasswordUseCase.execute(data.password)
+      const { error } = await updatePasswordUseCase.execute({ newPassword: data.password })
 
       if (error) {
         toast({
