@@ -3,8 +3,7 @@
  * 출석 세션 생성 유스케이스 - Application Layer
  */
 
-import { AttendanceRepository, type CreateSessionInput } from '@/services/data/attendance.repository'
-import { createClient } from '@/lib/supabase/server'
+import { AttendanceRepository, type CreateSessionInput } from '@/infrastructure/database/attendance.repository'
 import { ValidationError } from '@/lib/error-types'
 import { createSessionSchema } from '@/types/attendance'
 
@@ -26,10 +25,7 @@ export class CreateAttendanceSessionUseCase {
       throw new ValidationError('세션 날짜는 3개월 이내로 설정해주세요')
     }
 
-    const supabase = await createClient()
-    const attendanceRepo = new AttendanceRepository(supabase)
-
     // Create session
-    return await attendanceRepo.createSession(tenantId, validated)
+    return await AttendanceRepository.createSession(tenantId, validated)
   }
 }

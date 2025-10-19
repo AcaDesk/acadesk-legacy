@@ -3,8 +3,7 @@
  * 출석 기록 대량 생성/업데이트 유스케이스 - Application Layer
  */
 
-import { AttendanceRepository, type BulkAttendanceInput } from '@/services/data/attendance.repository'
-import { createClient } from '@/lib/supabase/server'
+import { AttendanceRepository, type BulkAttendanceInput } from '@/infrastructure/database/attendance.repository'
 import { ValidationError } from '@/lib/error-types'
 import { bulkAttendanceSchema } from '@/types/attendance'
 
@@ -31,10 +30,7 @@ export class BulkUpsertAttendanceUseCase {
       return att
     })
 
-    const supabase = await createClient()
-    const attendanceRepo = new AttendanceRepository(supabase)
-
-    return await attendanceRepo.bulkUpsertAttendance(
+    return await AttendanceRepository.bulkUpsertAttendance(
       tenantId,
       validated.session_id,
       attendances

@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AttendanceService } from '@/services/attendance.service';
+import {
+  createGetAttendanceSessionUseCase,
+  createUpdateAttendanceSessionStatusUseCase,
+  createDeleteAttendanceSessionUseCase
+} from '@/application/factories/attendanceUseCaseFactory';
 import { createClient } from '@/lib/supabase/server';
 
 export async function GET(
@@ -17,7 +21,8 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const session = await AttendanceService.getSessionById(id);
+    const useCase = createGetAttendanceSessionUseCase();
+    const session = await useCase.execute(id);
 
     return NextResponse.json(session);
   } catch (error) {
@@ -47,12 +52,8 @@ export async function PATCH(
     const body = await request.json();
     const { status, actual_start_at, actual_end_at } = body;
 
-    const session = await AttendanceService.updateSessionStatus(
-      id,
-      status,
-      actual_start_at,
-      actual_end_at
-    );
+    const useCase = createUpdateAttendanceSessionStatusUseCase();
+    const session = await useCase.execute(id, status, actual_start_at, actual_end_at);
 
     return NextResponse.json(session);
   } catch (error) {
@@ -79,7 +80,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    await AttendanceService.deleteSession(id);
+    const useCase = createDeleteAttendanceSessionUseCase();
+    await useCase.execute(id);
 
     return NextResponse.json({ success: true });
   } catch (error) {
