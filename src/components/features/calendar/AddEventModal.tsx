@@ -54,8 +54,8 @@ const eventFormSchema = z.object({
   start_time: z.string().optional(),
   end_date: z.string(),
   end_time: z.string().optional(),
-  all_day: z.boolean().default(false),
-  repeat: z.enum(['none', 'daily', 'weekly', 'monthly']).default('none'),
+  all_day: z.boolean(),
+  repeat: z.enum(['none', 'daily', 'weekly', 'monthly']),
   reminder_minutes: z.number().optional(),
   color: z.string().optional(),
 })
