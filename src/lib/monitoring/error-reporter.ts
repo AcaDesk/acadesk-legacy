@@ -155,7 +155,7 @@ class ErrorReporter {
   /**
    * 브레드크럼 추가 (디버깅용 이벤트 로그)
    */
-  addBreadcrumb(message: string, data?: ErrorContext) {
+  addBreadcrumb(..._args: unknown[]) {
     if (!this.config.enabled) {
       return
     }
@@ -178,7 +178,7 @@ class ErrorReporter {
   /**
    * 사용자 컨텍스트 설정
    */
-  setUser(user: { id: string; email?: string; username?: string }) {
+  setUser(..._args: unknown[]) {
     if (!this.config.enabled) {
       return
     }

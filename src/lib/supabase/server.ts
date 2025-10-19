@@ -29,7 +29,7 @@ export async function createServerClient() {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options)
             )
-          } catch (error) {
+          } catch {
             // Server Component에서는 쿠키 설정 불가 (읽기 전용)
             // 디버깅 필요 시 아래 주석 해제
             // console.warn('Cookie setting failed in Server Component:', error)
