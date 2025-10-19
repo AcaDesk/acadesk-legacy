@@ -50,7 +50,7 @@ import { DEFAULT_SUBJECT_COLORS } from '@/types/subject'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
-import { SubjectRepository } from '@/services/data/subject.repository'
+import { SubjectRepository } from '@/infrastructure/database/subject.repository'
 import { getErrorMessage } from '@/lib/error-handlers'
 
 const subjectFormSchema = z.object({

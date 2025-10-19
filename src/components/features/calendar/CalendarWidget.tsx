@@ -21,7 +21,7 @@ export function CalendarWidget({ className }: CalendarWidgetProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [, setLoading] = useState(true)
 
   const supabase = createClient()
 
@@ -156,7 +156,7 @@ export function CalendarWidget({ className }: CalendarWidgetProps) {
                   <span>{format(day, 'd')}</span>
                   {hasEvents && (
                     <div className="flex gap-0.5 mt-1">
-                      {dayEvents.slice(0, 3).map((event, i) => {
+                      {dayEvents.slice(0, 3).map((event) => {
                         const config = EVENT_TYPE_CONFIG[event.event_type]
                         return (
                           <div
