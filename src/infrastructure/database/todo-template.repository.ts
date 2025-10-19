@@ -105,16 +105,16 @@ export class TodoTemplateRepository implements ITodoTemplateRepository {
 
   private mapToDomain(row: Record<string, unknown>): TodoTemplate {
     return TodoTemplate.fromDatabase({
-      id: row.id,
-      tenantId: row.tenant_id,
-      title: row.title,
-      description: row.description,
-      subject: row.subject,
-      estimatedDurationMinutes: row.estimated_duration_minutes,
-      priority: Priority.fromString(row.priority),
-      active: row.active,
-      createdAt: new Date(row.created_at),
-      updatedAt: new Date(row.updated_at),
+      id: row.id as string,
+      tenantId: row.tenant_id as string,
+      title: row.title as string,
+      description: row.description as string | null,
+      subject: row.subject as string | null,
+      estimatedDurationMinutes: row.estimated_duration_minutes as number | null,
+      priority: Priority.fromString(row.priority as string),
+      active: row.active as boolean,
+      createdAt: new Date(row.created_at as string | number | Date),
+      updatedAt: new Date(row.updated_at as string | number | Date),
     })
   }
 }

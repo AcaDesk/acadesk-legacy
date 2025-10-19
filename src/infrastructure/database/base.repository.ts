@@ -24,7 +24,7 @@ export abstract class BaseRepository<T extends Record<string, unknown>> {
     try {
       return await this.queryBuilder.paginate(params)
     } catch (error) {
-      throw new DatabaseError(`Failed to fetch ${this.tableName}`, error)
+      throw new DatabaseError(`Failed to fetch ${this.tableName}`, error instanceof Error ? error : undefined)
     }
   }
 
@@ -35,14 +35,14 @@ export abstract class BaseRepository<T extends Record<string, unknown>> {
     try {
       const record = await this.queryBuilder.findById(id)
       if (!record) {
-        throw new NotFoundError(this.tableName, id)
+        throw new NotFoundError(this.tableName)
       }
       return record
     } catch (error) {
       if (error instanceof NotFoundError) {
         throw error
       }
-      throw new DatabaseError(`Failed to fetch ${this.tableName} by ID`, error)
+      throw new DatabaseError(`Failed to fetch ${this.tableName} by ID`, error instanceof Error ? error : undefined)
     }
   }
 
@@ -53,7 +53,7 @@ export abstract class BaseRepository<T extends Record<string, unknown>> {
     try {
       return await this.queryBuilder.findBy(field, value)
     } catch (error) {
-      throw new DatabaseError(`Failed to fetch ${this.tableName} by ${field}`, error)
+      throw new DatabaseError(`Failed to fetch ${this.tableName} by ${field}`, error instanceof Error ? error : undefined)
     }
   }
 
@@ -64,7 +64,7 @@ export abstract class BaseRepository<T extends Record<string, unknown>> {
     try {
       return await this.queryBuilder.create(data)
     } catch (error) {
-      throw new DatabaseError(`Failed to create ${this.tableName}`, error)
+      throw new DatabaseError(`Failed to create ${this.tableName}`, error instanceof Error ? error : undefined)
     }
   }
 
@@ -75,7 +75,7 @@ export abstract class BaseRepository<T extends Record<string, unknown>> {
     try {
       return await this.queryBuilder.update(id, data)
     } catch (error) {
-      throw new DatabaseError(`Failed to update ${this.tableName}`, error)
+      throw new DatabaseError(`Failed to update ${this.tableName}`, error instanceof Error ? error : undefined)
     }
   }
 
@@ -86,7 +86,7 @@ export abstract class BaseRepository<T extends Record<string, unknown>> {
     try {
       await this.queryBuilder.softDelete(id)
     } catch (error) {
-      throw new DatabaseError(`Failed to delete ${this.tableName}`, error)
+      throw new DatabaseError(`Failed to delete ${this.tableName}`, error instanceof Error ? error : undefined)
     }
   }
 
@@ -97,7 +97,7 @@ export abstract class BaseRepository<T extends Record<string, unknown>> {
     try {
       await this.queryBuilder.delete(id)
     } catch (error) {
-      throw new DatabaseError(`Failed to permanently delete ${this.tableName}`, error)
+      throw new DatabaseError(`Failed to permanently delete ${this.tableName}`, error instanceof Error ? error : undefined)
     }
   }
 
@@ -108,7 +108,7 @@ export abstract class BaseRepository<T extends Record<string, unknown>> {
     try {
       return await this.queryBuilder.count(filters)
     } catch (error) {
-      throw new DatabaseError(`Failed to count ${this.tableName}`, error)
+      throw new DatabaseError(`Failed to count ${this.tableName}`, error instanceof Error ? error : undefined)
     }
   }
 

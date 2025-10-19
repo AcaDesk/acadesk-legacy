@@ -1,0 +1,98 @@
+/**
+ * StudentImport Entity
+ * 엑셀 파일을 통한 학생 일괄 등록 도메인 엔티티
+ */
+
+export interface GuardianImportData {
+  emergency_phone: string
+  relationship?: string
+  is_primary?: boolean
+  can_pickup?: boolean
+  can_view_reports?: boolean
+}
+
+export interface StudentImportData {
+  name: string
+  birth_date: string // YYYY-MM-DD
+  grade?: string
+  school?: string
+  student_phone?: string
+  student_code?: string
+  notes?: string
+}
+
+export interface StudentImportItemProps {
+  rowIndex?: number
+  student: StudentImportData
+  guardians: GuardianImportData[]
+}
+
+/**
+ * 엑셀 업로드 시 한 행의 데이터를 나타내는 엔티티
+ */
+export class StudentImportItem {
+  private constructor(private readonly props: StudentImportItemProps) {}
+
+  static create(props: StudentImportItemProps): StudentImportItem {
+    return new StudentImportItem(props)
+  }
+
+  get rowIndex(): number | undefined {
+    return this.props.rowIndex
+  }
+
+  get student(): StudentImportData {
+    return this.props.student
+  }
+
+  get guardians(): GuardianImportData[] {
+    return this.props.guardians
+  }
+
+  /**
+   * 필수 필드 검증
+   */
+  validateRequired(): { valid: boolean; errors: string[] } {
+    const errors: string[] = []
+
+    if (!this.props.student.name?.trim()) {
+      errors.push('학생 이름은 필수입니다')
+    }
+
+    if (!this.props.student.birth_date) {
+      errors.push('생년월일은 필수입니다')
+    }
+
+    // 생년월일 형식 검증 (YYYY-MM-DD)
+    if (this.props.student.birth_date) {
+      const datePattern = /^\d{4}-\d{2}-\d{2}$/
+      if (!datePattern.test(this.props.student.birth_date)) {
+        errors.push('생년월일은 YYYY-MM-DD 형식이어야 합니다')
+      }
+    }
+
+    // 보호자 연락처 검증
+    if (this.props.guardians.length > 0) {
+      this.props.guardians.forEach((guardian, index) => {
+        if (!guardian.emergency_phone?.trim()) {
+          errors.push(`보호자 ${index + 1}의 연락처는 필수입니다`)
+        }
+      })
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors,
+    }
+  }
+
+  /**
+   * JSON 변환 (RPC 호출용)
+   */
+  toJSON(): Record<string, unknown> {
+    return {
+      student: this.props.student,
+      guardians: this.props.guardians,
+    }
+  }
+}
