@@ -54,9 +54,7 @@ export function PaymentList({ month, onPaymentClick }: PaymentListProps) {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [loading, setLoading] = useState(true)
 
-  const router = useRouter()
   const { toast } = useToast()
-  const supabase = createClient()
 
   const itemsPerPage = 20
 
@@ -72,8 +70,6 @@ export function PaymentList({ month, onPaymentClick }: PaymentListProps) {
     startIndex,
     endIndex,
     totalItems,
-    from,
-    to,
   } = useServerPagination({
     totalCount,
     itemsPerPage,

@@ -52,13 +52,12 @@ interface ProcessPaymentDialogProps {
 export function ProcessPaymentDialog({
   open,
   onOpenChange,
-  invoiceId,
+  invoiceId: _invoiceId,
   invoiceDetails,
   onSuccess,
 }: ProcessPaymentDialogProps) {
   const [loading, setLoading] = useState(false)
   const { toast } = useToast()
-  const supabase = createClient()
   const { user: currentUser } = useCurrentUser()
 
   const {
@@ -128,16 +127,17 @@ export function ProcessPaymentDialog({
     }
   }
 
-  const getPaymentMethodIcon = (method: PaymentMethod) => {
-    switch (method) {
-      case 'card':
-        return <CreditCard className="h-4 w-4" />
-      case 'transfer':
-        return <Building2 className="h-4 w-4" />
-      case 'cash':
-        return <Banknote className="h-4 w-4" />
-    }
-  }
+  // Unused helper function - may be used for future UI enhancements
+  // const getPaymentMethodIcon = (method: PaymentMethod) => {
+  //   switch (method) {
+  //     case 'card':
+  //       return <CreditCard className="h-4 w-4" />
+  //     case 'transfer':
+  //       return <Building2 className="h-4 w-4" />
+  //     case 'cash':
+  //       return <Banknote className="h-4 w-4" />
+  //   }
+  // }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

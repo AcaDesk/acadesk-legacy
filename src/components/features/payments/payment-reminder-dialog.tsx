@@ -29,7 +29,7 @@ import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { MessageSquare, Mail, Loader2, AlertCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 const reminderSchema = z.object({
   message: z.string().min(10, '메시지는 최소 10자 이상이어야 합니다'),
@@ -62,19 +62,16 @@ export function PaymentReminderDialog({
   month,
   onSuccess,
 }: PaymentReminderDialogProps) {
-  const [loading, setLoading] = useState(false)
   const [loadingStudents, setLoadingStudents] = useState(false)
   const [students, setStudents] = useState<UnpaidStudent[]>([])
   const [sending, setSending] = useState(false)
   const [sendMethod, setSendMethod] = useState<'sms' | 'email'>('sms')
   const { toast } = useToast()
-  const supabase = createClient()
   const { user: currentUser } = useCurrentUser()
 
   const {
     register,
     handleSubmit,
-    setValue,
     watch,
     reset,
     formState: { errors },

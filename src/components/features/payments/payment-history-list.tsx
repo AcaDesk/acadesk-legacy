@@ -54,7 +54,6 @@ export function PaymentHistoryList({ month }: PaymentHistoryListProps) {
   const [selectedPaymentId, setSelectedPaymentId] = useState<string>('')
 
   const { toast } = useToast()
-  const supabase = createClient()
 
   const itemsPerPage = 20
 
@@ -70,8 +69,6 @@ export function PaymentHistoryList({ month }: PaymentHistoryListProps) {
     startIndex,
     endIndex,
     totalItems,
-    from,
-    to,
   } = useServerPagination({
     totalCount,
     itemsPerPage,
