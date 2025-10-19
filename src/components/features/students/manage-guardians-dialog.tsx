@@ -102,11 +102,19 @@ export function ManageGuardiansDialog({
         .from('student_guardians')
         .select(`
           relation,
-          is_primary,
+          is_primary_contact,
+          receives_notifications,
+          receives_billing,
+          can_pickup,
           guardians!inner(
             id,
             user_id,
-            users!inner(name, phone, email)
+            name,
+            phone,
+            email,
+            relationship,
+            occupation,
+            address
           )
         `)
         .eq('student_id', studentId)
@@ -117,16 +125,20 @@ export function ManageGuardiansDialog({
 
       // Transform data to match GuardianWithUser type
       interface StudentGuardianJoin {
-        relation: string
-        is_primary: boolean
+        relation: string | null
+        is_primary_contact: boolean
+        receives_notifications: boolean
+        receives_billing: boolean
+        can_pickup: boolean
         guardians: {
           id: string
-          user_id: string
-          users: {
-            name: string
-            phone: string
-            email?: string | null
-          }
+          user_id: string | null
+          name: string
+          phone: string | null
+          email: string | null
+          relationship: string | null
+          occupation: string | null
+          address: string | null
         }
       }
 
@@ -135,13 +147,17 @@ export function ManageGuardiansDialog({
         return {
           id: typedItem.guardians.id,
           user_id: typedItem.guardians.user_id,
-          name: typedItem.guardians.users.name,
-          phone: typedItem.guardians.users.phone,
-          email: typedItem.guardians.users.email ?? null,
-          address: null,
-          occupation: null,
+          name: typedItem.guardians.name,
+          phone: typedItem.guardians.phone,
+          email: typedItem.guardians.email,
+          relationship: typedItem.guardians.relationship,
+          address: typedItem.guardians.address,
+          occupation: typedItem.guardians.occupation,
           relation: typedItem.relation as GuardianRelation,
-          is_primary: typedItem.is_primary,
+          is_primary_contact: typedItem.is_primary_contact,
+          receives_notifications: typedItem.receives_notifications,
+          receives_billing: typedItem.receives_billing,
+          can_pickup: typedItem.can_pickup,
         }
       })
 
@@ -163,11 +179,9 @@ export function ManageGuardiansDialog({
       // Get all guardians in the tenant
       const { data: allGuardians, error: allError } = await supabase
         .from('guardians')
-        .select(`
-          id,
-          users!inner(name, phone)
-        `)
+        .select('id, name, phone')
         .eq('tenant_id', currentUser.tenantId)
+        .is('deleted_at', null)
 
       if (allError) throw allError
 
@@ -186,15 +200,11 @@ export function ManageGuardiansDialog({
       // Filter out already linked guardians
       const available = (allGuardians || [])
         .filter(g => !linkedGuardianIds.has(g.id))
-        .map(g => {
-          const usersArray = g.users as unknown as Array<{ name: string; phone: string }>
-          const user = Array.isArray(usersArray) && usersArray.length > 0 ? usersArray[0] : { name: '', phone: '' }
-          return {
-            id: g.id,
-            name: user.name,
-            phone: user.phone,
-          }
-        })
+        .map(g => ({
+          id: g.id,
+          name: g.name,
+          phone: g.phone || '',
+        }))
 
       setAvailableGuardians(available)
     } catch (error) {
@@ -219,43 +229,35 @@ export function ManageGuardiansDialog({
 
     setLoading(true)
     try {
-      // TODO: Replace with RPC function for atomic transaction
-      // 1. Create guardian user
-      const { data: guardianUser, error: guardianUserError } = await supabase
-        .from('users')
-        .insert({
-          tenant_id: currentUser.tenantId,
-          name: data.name,
-          phone: data.phone,
-          email: data.email || null,
-          role_code: 'guardian',
-        })
-        .select()
-        .single()
-
-      if (guardianUserError) throw guardianUserError
-
-      // 2. Create guardian record
+      // 1. Create guardian record directly
       const { data: newGuardian, error: guardianError } = await supabase
         .from('guardians')
         .insert({
           tenant_id: currentUser.tenantId,
-          user_id: guardianUser.id,
+          name: data.name,
+          phone: data.phone || null,
+          email: data.email || null,
+          relationship: data.relationship || null,
+          occupation: data.occupation || null,
+          address: data.address || null,
         })
         .select()
         .single()
 
       if (guardianError) throw guardianError
 
-      // 3. Link to student
+      // 2. Link to student
       const { error: linkError } = await supabase
         .from('student_guardians')
         .insert({
           tenant_id: currentUser.tenantId,
           guardian_id: newGuardian.id,
           student_id: studentId,
-          relation: data.relationship,
-          is_primary: linkedGuardians.length === 0, // First guardian is primary
+          relation: data.relationship || null,
+          is_primary_contact: linkedGuardians.length === 0, // First guardian is primary
+          receives_notifications: true,
+          receives_billing: false,
+          can_pickup: true,
         })
 
       if (linkError) throw linkError
@@ -298,8 +300,11 @@ export function ManageGuardiansDialog({
           tenant_id: currentUser.tenantId,
           guardian_id: data.guardianId,
           student_id: studentId,
-          relation: data.relationship,
-          is_primary: linkedGuardians.length === 0,
+          relation: data.relationship || null,
+          is_primary_contact: linkedGuardians.length === 0,
+          receives_notifications: true,
+          receives_billing: false,
+          can_pickup: true,
         })
 
       if (linkError) throw linkError
@@ -451,7 +456,7 @@ export function ManageGuardiansDialog({
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <span className="font-medium">{guardian.name}</span>
-                              {guardian.is_primary && (
+                              {guardian.is_primary_contact && (
                                 <Badge variant="default" className="text-xs">주</Badge>
                               )}
                             </div>
