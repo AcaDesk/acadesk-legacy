@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AttendanceService } from '@/services/attendance.service';
+import { createGetAttendanceSessionsUseCase, createCreateAttendanceSessionUseCase } from '@/application/factories/attendanceUseCaseFactory';
 import { createClient } from '@/lib/supabase/server';
 
 export async function GET(request: NextRequest) {
@@ -31,15 +31,13 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get('end_date') || undefined;
     const status = searchParams.get('status') || undefined;
 
-    const sessions = await AttendanceService.getSessionsByTenant(
-      userData.tenant_id,
-      {
-        classId,
-        startDate,
-        endDate,
-        status,
-      }
-    );
+    const useCase = createGetAttendanceSessionsUseCase();
+    const sessions = await useCase.execute(userData.tenant_id, {
+      classId,
+      startDate,
+      endDate,
+      status,
+    });
 
     return NextResponse.json(sessions);
   } catch (error) {
@@ -75,10 +73,8 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    const session = await AttendanceService.createSession(
-      userData.tenant_id,
-      body
-    );
+    const useCase = createCreateAttendanceSessionUseCase();
+    const session = await useCase.execute(userData.tenant_id, body);
 
     return NextResponse.json(session, { status: 201 });
   } catch (error) {

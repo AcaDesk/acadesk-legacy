@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AttendanceService } from '@/services/attendance.service';
+import {
+  createUpsertAttendanceUseCase,
+  createBulkUpsertAttendanceUseCase
+} from '@/application/factories/attendanceUseCaseFactory';
+import { AttendanceRepository } from '@/infrastructure/database/attendance.repository';
 import { createClient } from '@/lib/supabase/server';
 
 export async function GET(request: NextRequest) {
@@ -27,11 +31,11 @@ export async function GET(request: NextRequest) {
     let records;
 
     if (sessionId) {
-      records = await AttendanceService.getAttendanceBySession(sessionId);
+      records = await AttendanceRepository.getAttendanceBySession(sessionId);
     } else if (studentId) {
       const startDate = searchParams.get('start_date') || undefined;
       const endDate = searchParams.get('end_date') || undefined;
-      records = await AttendanceService.getAttendanceByStudent(studentId, {
+      records = await AttendanceRepository.getAttendanceByStudent(studentId, {
         startDate,
         endDate,
       });
@@ -83,10 +87,8 @@ export async function POST(request: NextRequest) {
     // Check if it's bulk update or single update
     if (body.attendances && Array.isArray(body.attendances)) {
       // Bulk update
-      const records = await AttendanceService.bulkUpsertAttendance(
-        userData.tenant_id,
-        body
-      );
+      const useCase = createBulkUpsertAttendanceUseCase();
+      const records = await useCase.execute(userData.tenant_id, body);
       return NextResponse.json(records, { status: 201 });
     } else {
       // Single update
@@ -99,7 +101,8 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const record = await AttendanceService.upsertAttendance(
+      const useCase = createUpsertAttendanceUseCase();
+      const record = await useCase.execute(
         userData.tenant_id,
         session_id,
         student_id,
