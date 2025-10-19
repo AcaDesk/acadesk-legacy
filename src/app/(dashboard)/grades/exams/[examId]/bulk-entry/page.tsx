@@ -146,7 +146,6 @@ export default function BulkGradeEntryPage() {
     } finally {
       setLoading(false)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [examId, supabase, toast])
 
   const handleSave = useCallback(async (silent = false) => {

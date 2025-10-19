@@ -53,7 +53,7 @@ export default function ExamsPage() {
   const { toast } = useToast()
   const router = useRouter()
   const supabase = createClient()
-  const { user } = useCurrentUser()
+  useCurrentUser()
 
   // useEffect must be called before any early returns
   useEffect(() => {

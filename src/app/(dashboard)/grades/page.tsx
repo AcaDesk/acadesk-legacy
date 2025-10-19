@@ -35,16 +35,10 @@ interface Exam {
   total_questions: number
 }
 
-interface ExamCategory {
-  code: string
-  label: string
-}
-
 export default function GradesPage() {
   // All Hooks must be called before any early returns
   const [students, setStudents] = useState<Student[]>([])
   const [exams, setExams] = useState<Exam[]>([])
-  const [categories, setCategories] = useState<ExamCategory[]>([])
   const [selectedStudent, setSelectedStudent] = useState<string>('')
   const [selectedExam, setSelectedExam] = useState<string>('')
   const [correctAnswers, setCorrectAnswers] = useState<string>('')

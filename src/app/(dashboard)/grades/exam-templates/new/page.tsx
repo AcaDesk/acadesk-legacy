@@ -98,7 +98,7 @@ export default function NewExamTemplatePage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
-    if (!currentUser) {
+    if (!currentUser || !currentUser.tenantId) {
       toast({
         title: '인증 오류',
         description: '로그인 정보를 확인할 수 없습니다.',
