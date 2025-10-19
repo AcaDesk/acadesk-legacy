@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -22,10 +21,6 @@ import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 
 export default function LibraryPage() {
-  // All Hooks must be called before any early returns
-  const [loading] = useState(false)
-  const [searchTerm] = useState('')
-
   // Feature flag checks after all Hooks
   const featureStatus = FEATURES.libraryManagement;
 

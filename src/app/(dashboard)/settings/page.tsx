@@ -148,7 +148,34 @@ export default function SettingsPage() {
           <div className={GRID_LAYOUTS.DUAL}>
             {settingsSections.map((section, index) => {
               const Icon = section.icon
-              const CardWrapper = section.disabled ? 'div' : Link
+              const cardContent = (
+                <Card className={section.disabled ? 'opacity-60 cursor-not-allowed' : CARD_STYLES.INTERACTIVE}>
+                  <CardContent className="py-6">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-12 h-12 rounded-lg ${section.bgColor} flex items-center justify-center flex-shrink-0`}>
+                        <Icon className={`h-6 w-6 ${section.color}`} />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-semibold truncate">{section.title}</h3>
+                          {section.badge && (
+                            <Badge variant="secondary" className="text-xs">
+                              {section.badge}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground truncate">
+                          {section.description}
+                        </p>
+                      </div>
+
+                      <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+
               return (
                 <motion.div
                   key={section.title}
@@ -156,33 +183,13 @@ export default function SettingsPage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: 0.05 * (index + 4) }}
                 >
-                  <CardWrapper {...(!section.disabled ? { href: section.href, prefetch: false } : {})}>
-                    <Card className={section.disabled ? 'opacity-60 cursor-not-allowed' : CARD_STYLES.INTERACTIVE}>
-                      <CardContent className="py-6">
-                        <div className="flex items-center gap-4">
-                          <div className={`w-12 h-12 rounded-lg ${section.bgColor} flex items-center justify-center flex-shrink-0`}>
-                            <Icon className={`h-6 w-6 ${section.color}`} />
-                          </div>
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h3 className="font-semibold truncate">{section.title}</h3>
-                              {section.badge && (
-                                <Badge variant="secondary" className="text-xs">
-                                  {section.badge}
-                                </Badge>
-                              )}
-                            </div>
-                            <p className="text-sm text-muted-foreground truncate">
-                              {section.description}
-                            </p>
-                          </div>
-
-                          <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </CardWrapper>
+                  {section.disabled ? (
+                    <div>{cardContent}</div>
+                  ) : (
+                    <Link href={section.href} prefetch={false}>
+                      {cardContent}
+                    </Link>
+                  )}
                 </motion.div>
               )
             })}

@@ -63,6 +63,7 @@ export default function BookLendingsPage() {
 
   useEffect(() => {
     filterLendings()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, filterStatus, lendings])
 
   // Function definitions

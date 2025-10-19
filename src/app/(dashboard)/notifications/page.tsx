@@ -74,6 +74,7 @@ export default function NotificationsPage() {
   useEffect(() => {
     loadNotificationLogs()
     loadReportAutoSendStatus()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {

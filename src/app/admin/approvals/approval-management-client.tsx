@@ -71,7 +71,6 @@ interface ApprovalManagementClientProps {
 export function ApprovalManagementClient({
   pendingUsers,
   recentDecisions,
-  currentUserId,
 }: ApprovalManagementClientProps) {
   const [selectedUser, setSelectedUser] = useState<PendingUser | null>(null)
   const [action, setAction] = useState<"approve" | "reject" | null>(null)
@@ -103,7 +102,7 @@ export function ApprovalManagementClient({
       setSelectedUser(null)
       setAction(null)
       router.refresh()
-    } catch (_error) {
+    } catch {
       toast({
         title: "오류",
         description: "알 수 없는 오류가 발생했습니다.",
@@ -138,7 +137,7 @@ export function ApprovalManagementClient({
       setSelectedUser(null)
       setAction(null)
       router.refresh()
-    } catch (_error) {
+    } catch {
       toast({
         title: "오류",
         description: "알 수 없는 오류가 발생했습니다.",
