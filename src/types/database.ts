@@ -65,7 +65,6 @@ export interface Student extends TenantScoped, Timestamps {
   enrollment_date?: string | null
   gender?: 'male' | 'female' | 'other' | null
   student_phone?: string | null
-  emergency_contact?: string | null
   commute_method?: string | null
   marketing_source?: string | null
   notes?: string | null
@@ -82,10 +81,13 @@ export interface Student extends TenantScoped, Timestamps {
 export interface Guardian extends TenantScoped, Timestamps {
   id: UUID
   user_id?: UUID | null
+  name: string
+  phone?: string | null
+  email?: string | null
   relationship?: string | null
-  emergency_phone?: string | null
   occupation?: string | null
   address?: string | null
+  notes?: string | null
   deleted_at?: string | null
 }
 
@@ -93,11 +95,14 @@ export interface StudentGuardian extends TenantScoped {
   id: UUID
   student_id: UUID
   guardian_id: UUID
-  is_primary: boolean
-  can_pickup: boolean
-  can_view_reports: boolean
   relation?: string | null
+  is_primary_contact: boolean
+  receives_notifications: boolean
+  receives_billing: boolean
+  can_pickup: boolean
   created_at: string
+  updated_at: string
+  deleted_at?: string | null
 }
 
 // ============================================================================
