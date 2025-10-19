@@ -38,6 +38,7 @@ import { getStudentAvatar } from '@/lib/avatar'
 import { differenceInYears } from 'date-fns'
 import { useToast } from '@/hooks/use-toast'
 import { createClient } from '@/lib/supabase/client'
+import { RoleGuard } from '@/components/auth/role-guard'
 import type { StudentDetail } from '@/types/studentDetail.types'
 
 interface StudentHeaderProps {
@@ -273,22 +274,24 @@ export function StudentHeader({
             </Button>
           )}
 
-          <Button
-            variant="outline"
-            className="gap-2"
-            onClick={onClassDialogOpen}
-          >
-            <Users className="h-4 w-4" />
-            수강반 관리
-          </Button>
+          <RoleGuard allowedRoles={['owner', 'instructor']}>
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={onClassDialogOpen}
+            >
+              <Users className="h-4 w-4" />
+              수강반 관리
+            </Button>
 
-          <Button
-            onClick={() => router.push(`/students/${student.id}/edit`)}
-            className="gap-2"
-          >
-            <Edit className="h-4 w-4" />
-            편집
-          </Button>
+            <Button
+              onClick={() => router.push(`/students/${student.id}/edit`)}
+              className="gap-2"
+            >
+              <Edit className="h-4 w-4" />
+              편집
+            </Button>
+          </RoleGuard>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -305,14 +308,16 @@ export function StudentHeader({
                 <MessageSquare className="h-4 w-4 mr-2" />
                 상담 기록 추가
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-destructive focus:text-destructive"
-                onClick={handleDeleteStudent}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                학생 삭제
-              </DropdownMenuItem>
+              <RoleGuard allowedRoles={['owner']}>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={handleDeleteStudent}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  학생 삭제
+                </DropdownMenuItem>
+              </RoleGuard>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
