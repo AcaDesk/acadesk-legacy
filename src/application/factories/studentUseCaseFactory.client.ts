@@ -4,11 +4,14 @@
  */
 
 import { createClient } from '@/lib/supabase/client'
-import { SupabaseStudentRepository } from '@/infrastructure/database/SupabaseStudentRepository'
+import { StudentRepository } from '@/infrastructure/database/student.repository'
 import { CreateStudentUseCase } from '../use-cases/student/CreateStudentUseCase'
 import { UpdateStudentUseCase } from '../use-cases/student/UpdateStudentUseCase'
 import { DeleteStudentUseCase } from '../use-cases/student/DeleteStudentUseCase'
 import { GetStudentUseCase } from '../use-cases/student/GetStudentUseCase'
+import { GetStudentsUseCase } from '../use-cases/student/GetStudentsUseCase'
+import { GetUniqueGradesUseCase } from '../use-cases/student/GetUniqueGradesUseCase'
+import { GetUniqueSchoolsUseCase } from '../use-cases/student/GetUniqueSchoolsUseCase'
 import { WithdrawStudentUseCase } from '../use-cases/student/WithdrawStudentUseCase'
 
 /**
@@ -16,7 +19,7 @@ import { WithdrawStudentUseCase } from '../use-cases/student/WithdrawStudentUseC
  */
 function createStudentRepository() {
   const supabase = createClient()
-  return new SupabaseStudentRepository(supabase)
+  return new StudentRepository(supabase)
 }
 
 /**
@@ -57,4 +60,28 @@ export function createGetStudentUseCase() {
 export function createWithdrawStudentUseCase() {
   const repository = createStudentRepository()
   return new WithdrawStudentUseCase(repository)
+}
+
+/**
+ * GetStudents 유스케이스 생성
+ */
+export function createGetStudentsUseCase() {
+  const repository = createStudentRepository()
+  return new GetStudentsUseCase(repository)
+}
+
+/**
+ * GetUniqueGrades 유스케이스 생성
+ */
+export function createGetUniqueGradesUseCase() {
+  const repository = createStudentRepository()
+  return new GetUniqueGradesUseCase(repository)
+}
+
+/**
+ * GetUniqueSchools 유스케이스 생성
+ */
+export function createGetUniqueSchoolsUseCase() {
+  const repository = createStudentRepository()
+  return new GetUniqueSchoolsUseCase(repository)
 }

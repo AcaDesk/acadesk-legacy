@@ -56,7 +56,7 @@ export interface ExamScore {
     id: string
     name: string
     exam_date: string
-    category_code: string
+    category_code: string | null
     class_id: string | null
   } | null
 }
@@ -72,8 +72,8 @@ export interface StudentTodo {
 export interface Consultation {
   id: string
   consultation_date: string
-  consultation_type: string
-  content: string
+  consultation_type: string | null
+  content: string | null
   created_at: string
   instructor_id?: string
 }

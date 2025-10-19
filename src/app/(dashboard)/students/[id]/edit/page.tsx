@@ -17,7 +17,6 @@ import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { ChevronRight } from 'lucide-react'
 import { GRADES } from '@/lib/constants'
-import { updateStudent, type UpdateStudentInput } from '@/services/student-management.service'
 import { getErrorMessage } from '@/lib/error-handlers'
 
 const studentSchema = z.object({
@@ -158,18 +157,27 @@ export default function EditStudentPage() {
 
     setLoading(true)
     try {
-      const input: UpdateStudentInput = {
-        name: data.name,
-        email: data.email,
-        phone: data.phone,
-        grade: data.grade,
-        school: data.school,
-        emergencyContact: data.emergencyContact,
-        notes: data.notes,
-        kioskPin: data.kioskPin,
-      }
+      const response = await fetch(`/api/students/${student.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: data.name,
+          email: data.email,
+          phone: data.phone,
+          grade: data.grade,
+          school: data.school,
+          emergencyContact: data.emergencyContact,
+          notes: data.notes,
+          kioskPin: data.kioskPin,
+        }),
+      })
 
-      await updateStudent(supabase, student.id, student.users.id, input)
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || '학생 정보 수정에 실패했습니다')
+      }
 
       toast({
         title: '학생 정보 수정 완료',

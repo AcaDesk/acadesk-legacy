@@ -9,7 +9,7 @@ import { Calendar, Clock, MapPin, User } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { format as formatDate, addDays, startOfWeek } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { useStudentDetail } from '@/contexts/studentDetailContext'
+import { useStudentDetail } from '@/hooks/use-student-detail'
 
 const containerVariants = {
   hidden: { opacity: 0 },

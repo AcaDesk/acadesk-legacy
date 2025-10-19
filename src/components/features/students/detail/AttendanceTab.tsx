@@ -1,24 +1,15 @@
 'use client'
 
-import { useState } from 'react'
 import { motion } from 'motion/react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { format as formatDate } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { Calendar, CheckCircle, XCircle, Clock, AlertCircle, Plus, Edit3 } from 'lucide-react'
+import { Calendar, CheckCircle, XCircle, Clock, Plus, Edit3 } from 'lucide-react'
 import { getAttendanceStatusInfo } from '@/lib/constants'
-import { AttendanceHeatmap } from '@/components/features/charts/attendance-heatmap'
 import { AttendanceComboChart } from '@/components/features/charts/attendance-combo-chart'
-import { useStudentDetail } from '@/contexts/studentDetailContext'
+import { useStudentDetail } from '@/hooks/use-student-detail'
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -42,9 +33,7 @@ const itemVariants = {
 }
 
 export function AttendanceTab() {
-  const { attendanceRecords, student } = useStudentDetail()
-  const [editDialogOpen, setEditDialogOpen] = useState(false)
-  const [selectedRecord, setSelectedRecord] = useState<unknown>(null)
+  const { attendanceRecords } = useStudentDetail()
 
   // 출석 통계 데이터 (월별)
   const attendanceStatsData = (() => {

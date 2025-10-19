@@ -15,8 +15,12 @@ import { useToast } from '@/hooks/use-toast'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { StudentTableImproved, Student } from './student-table-improved'
-import { StudentRepository } from '@/services/data/student.repository'
 import { getErrorMessage } from '@/lib/error-handlers'
+import {
+  createGetUniqueGradesUseCase,
+  createGetUniqueSchoolsUseCase,
+  createDeleteStudentUseCase,
+} from '@/application/factories/studentUseCaseFactory.client'
 
 export function StudentList() {
   const [students, setStudents] = useState<Student[]>([])
@@ -31,17 +35,39 @@ export function StudentList() {
   const [classes, setClasses] = useState<Array<{ id: string; name: string }>>([])
   const [grades, setGrades] = useState<string[]>([])
   const [schools, setSchools] = useState<string[]>([])
+  const [tenantId, setTenantId] = useState<string | null>(null)
 
-  const { toast } = useToast()
+  const { toast} = useToast()
   const supabase = createClient()
-  const studentRepo = new StudentRepository(supabase)
 
+  // Load tenant ID
   useEffect(() => {
-    loadClasses()
-    loadGrades()
-    loadSchools()
+    async function loadTenantId() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data } = await supabase
+          .from('users')
+          .select('tenant_id')
+          .eq('id', user.id)
+          .single()
+
+        if (data?.tenant_id) {
+          setTenantId(data.tenant_id)
+        }
+      }
+    }
+    loadTenantId()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    if (tenantId) {
+      loadClasses()
+      loadGrades()
+      loadSchools()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenantId])
 
   useEffect(() => {
     loadStudents()
@@ -149,11 +175,15 @@ export function StudentList() {
   }
 
   async function loadGrades() {
+    if (!tenantId) return
+
     try {
-      const uniqueGrades = await studentRepo.findUniqueGrades()
+      const getUniqueGradesUseCase = createGetUniqueGradesUseCase()
+      const { grades: uniqueGrades, error } = await getUniqueGradesUseCase.execute({ tenantId })
+
+      if (error) throw error
       setGrades(uniqueGrades)
     } catch (error) {
-      // Repository already logs the error, just show user message
       toast({
         title: '학년 목록 로드 실패',
         description: getErrorMessage(error),
@@ -163,11 +193,15 @@ export function StudentList() {
   }
 
   async function loadSchools() {
+    if (!tenantId) return
+
     try {
-      const uniqueSchools = await studentRepo.findUniqueSchools()
+      const getUniqueSchoolsUseCase = createGetUniqueSchoolsUseCase()
+      const { schools: uniqueSchools, error } = await getUniqueSchoolsUseCase.execute({ tenantId })
+
+      if (error) throw error
       setSchools(uniqueSchools)
     } catch (error) {
-      // Repository already logs the error, just show user message
       toast({
         title: '학교 목록 로드 실패',
         description: getErrorMessage(error),
@@ -182,7 +216,8 @@ export function StudentList() {
     }
 
     try {
-      await studentRepo.delete(id)
+      const deleteStudentUseCase = createDeleteStudentUseCase()
+      await deleteStudentUseCase.execute(id)
 
       toast({
         title: '삭제 완료',

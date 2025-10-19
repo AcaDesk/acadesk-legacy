@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -18,7 +17,6 @@ import { PageWrapper } from "@/components/layout/page-wrapper"
 import { ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { GRADES } from '@/lib/constants'
-import { createStudent, type CreateStudentInput } from '@/services/student-management.service'
 import { getErrorMessage } from '@/lib/error-handlers'
 
 const studentSchema = z.object({
@@ -41,7 +39,6 @@ export default function NewStudentPage() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
-  const supabase = createClient()
   const { user: currentUser, loading: userLoading } = useCurrentUser()
 
   const {
@@ -68,18 +65,29 @@ export default function NewStudentPage() {
 
     setLoading(true)
     try {
-      const input: CreateStudentInput = {
-        name: data.name,
-        email: data.email,
-        phone: data.phone,
-        grade: data.grade,
-        school: data.school,
-        emergencyContact: data.emergencyContact,
-        notes: data.notes,
-        kioskPin: data.kioskPin,
+      const response = await fetch('/api/students', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: data.name,
+          email: data.email,
+          phone: data.phone,
+          grade: data.grade,
+          school: data.school,
+          emergencyContact: data.emergencyContact,
+          notes: data.notes,
+          kioskPin: data.kioskPin,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || '학생 추가에 실패했습니다')
       }
 
-      const result = await createStudent(supabase, currentUser.tenantId, input)
+      const result = await response.json()
 
       toast({
         title: '학생 추가 완료',
@@ -209,6 +217,7 @@ export default function NewStudentPage() {
                     id="email"
                     type="email"
                     placeholder="student@example.com"
+                    autoComplete="email"
                     {...register('email')}
                   />
                   {errors.email && (

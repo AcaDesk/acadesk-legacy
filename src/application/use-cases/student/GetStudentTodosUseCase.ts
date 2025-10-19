@@ -11,6 +11,7 @@ export interface StudentTodoDTO {
   student_id: string
   title: string
   description: string | null
+  subject: string | null
   due_date: string
   completed_at: string | null
   verified_at: string | null
