@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { motion } from 'motion/react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -34,6 +35,8 @@ const itemVariants = {
 
 export function AttendanceTab() {
   const { attendanceRecords } = useStudentDetail()
+  const [selectedRecord, setSelectedRecord] = useState<typeof attendanceRecords[0] | null>(null)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
 
   // 출석 통계 데이터 (월별)
   const attendanceStatsData = (() => {
