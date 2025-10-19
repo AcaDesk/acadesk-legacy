@@ -488,8 +488,125 @@ async function onSubmit(data: z.infer<typeof studentSchema>) {
 }
 ```
 
+## Async Widgets & Error Handling Strategy
+
+### Overview
+
+The project implements a **granular error handling and loading state management** strategy using React Suspense and Error Boundaries. This allows each widget to load independently and fail gracefully without affecting the entire page.
+
+**Key Benefits:**
+- 🔥 **Isolated Failures** - One widget failure doesn't crash the entire page
+- ⚡ **Progressive Loading** - Fast data loads immediately, heavy data streams in
+- 🎯 **Better UX** - Users see partial content instead of blank pages
+- 🛡️ **Resilient** - Error boundaries catch and display errors gracefully
+
+### Demo Page
+
+Visit `/dashboard/demo` to see the pattern in action with real examples.
+
+### Core Components
+
+1. **ErrorFallback** (`src/components/ui/error-fallback.tsx`)
+   - Multiple variants: `default`, `compact`, `inline`, `full-page`
+   - Specialized fallbacks: `WidgetErrorFallback`, `ListItemErrorFallback`, `SectionErrorFallback`
+
+2. **WidgetSkeleton** (`src/components/ui/widget-skeleton.tsx`)
+   - Loading states for different widget types: `stats`, `list`, `chart`, `calendar`, `table`
+   - Utility skeletons: `CompactWidgetSkeleton`, `KPIGridSkeleton`, `InlineSkeleton`
+
+3. **WidgetErrorBoundary** (`src/components/features/dashboard/widget-error-boundary.tsx`)
+   - Wrapper using `react-error-boundary` library
+   - Handles error logging and reset functionality
+
+### Usage Pattern
+
+```tsx
+// 1. Create async Server Component
+async function MyWidgetContent() {
+  const supabase = await createClient()
+  const { data, error } = await supabase.from('table').select('*')
+  if (error) throw new Error('Failed to load data')
+  return <Card>{data}</Card>
+}
+
+// 2. Wrap with Error Boundary and Suspense
+export function MyWidgetAsync() {
+  return (
+    <ErrorBoundary
+      fallbackRender={({ error, resetErrorBoundary }) => (
+        <ErrorFallback error={error} resetErrorBoundary={resetErrorBoundary} />
+      )}
+    >
+      <Suspense fallback={<WidgetSkeleton variant="list" />}>
+        <MyWidgetContent />
+      </Suspense>
+    </ErrorBoundary>
+  )
+}
+
+// 3. Use in page
+export default function Page() {
+  return (
+    <div className="grid grid-cols-2 gap-6">
+      <MyWidgetAsync />
+      <AnotherWidgetAsync />
+    </div>
+  )
+}
+```
+
+### Hybrid Approach (Recommended)
+
+Combine fast RPC calls with independent async widgets:
+
+```tsx
+export default async function DashboardPage() {
+  // Fast data - single RPC call
+  const { data: kpiData } = await supabase.rpc('get_kpi_data')
+
+  return (
+    <div>
+      {/* Fast widgets - render immediately */}
+      <KPICards data={kpiData} />
+
+      {/* Heavy widgets - stream independently */}
+      <div className="grid grid-cols-2 gap-6">
+        <RecentActivityFeedAsync />
+        <ComplexAnalyticsWidgetAsync />
+      </div>
+    </div>
+  )
+}
+```
+
+### When to Use
+
+✅ **Use async widgets for:**
+- Slow queries (complex joins, large datasets)
+- Independent data that can fail gracefully
+- Real-time/frequently updated data
+- Optional features (user can work without them)
+
+❌ **Don't use async widgets for:**
+- Fast data (KPIs, simple queries)
+- Critical data (required for page function)
+- Data with dependencies between widgets
+
+### Examples
+
+**Live examples:**
+- `src/components/features/dashboard/recent-activity-feed-async.tsx`
+- `src/components/features/dashboard/recent-students-card-async.tsx`
+- `src/components/features/dashboard/async-widget-example.tsx`
+
+**Documentation:**
+- `docs/error-and-loading-strategy.md` - Detailed guide with patterns
+- `docs/ASYNC_WIDGETS_GUIDE.md` - Quick start guide
+
 ## Important Files
 
+- `docs/error-and-loading-strategy.md` - **NEW** - Error handling strategy
+- `docs/ASYNC_WIDGETS_GUIDE.md` - **NEW** - Async widgets quick start
 - `internal/tech/Architecture.md` - System architecture and deployment
 - `internal/tech/ERD.md` - Database schema design principles
 - `internal/tech/CodeGuideline.md` - Detailed coding standards (Korean)
