@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/table'
 import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
-import { FileText, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
+import { FileText, AlertCircle, Loader2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 
 const createInvoicesSchema = z.object({
@@ -60,18 +60,15 @@ export function CreateInvoicesDialog({
   onOpenChange,
   onSuccess,
 }: CreateInvoicesDialogProps) {
-  const [loading, setLoading] = useState(false)
   const [loadingStudents, setLoadingStudents] = useState(false)
   const [students, setStudents] = useState<StudentForInvoice[]>([])
   const [creating, setCreating] = useState(false)
   const { toast } = useToast()
-  const supabase = createClient()
   const { user: currentUser } = useCurrentUser()
 
   const {
     register,
     handleSubmit,
-    setValue,
     watch,
     reset,
     formState: { errors },

@@ -37,7 +37,7 @@ interface ReceiptDialogProps {
 export function ReceiptDialog({
   open,
   onOpenChange,
-  paymentId,
+  paymentId: _paymentId,
   paymentDetails,
 }: ReceiptDialogProps) {
   const [downloading, setDownloading] = useState(false)
@@ -55,7 +55,7 @@ export function ReceiptDialog({
         title: '영수증 다운로드 완료',
         description: 'PDF 파일이 다운로드되었습니다.',
       })
-    } catch (error) {
+    } catch {
       toast({
         title: '다운로드 실패',
         description: '영수증 다운로드 중 오류가 발생했습니다.',
@@ -72,7 +72,7 @@ export function ReceiptDialog({
       // TODO: Implement print functionality
       await new Promise((resolve) => setTimeout(resolve, 500))
       window.print()
-    } catch (error) {
+    } catch {
       toast({
         title: '인쇄 실패',
         description: '영수증 인쇄 중 오류가 발생했습니다.',
@@ -94,7 +94,7 @@ export function ReceiptDialog({
         description: '학부모에게 영수증이 발송되었습니다.',
       })
       onOpenChange(false)
-    } catch (error) {
+    } catch {
       toast({
         title: '이메일 발송 실패',
         description: '영수증 발송 중 오류가 발생했습니다.',
