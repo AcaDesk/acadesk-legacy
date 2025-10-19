@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { authenticateKioskPin } from '@/app/actions/kiosk'
-import { createKioskSession } from '@/services/kiosk/kiosk.service'
+import { createKioskSession } from '@/lib/kiosk-session'
 
 export default function KioskLoginPage() {
   const [studentCode, setStudentCode] = useState('')
