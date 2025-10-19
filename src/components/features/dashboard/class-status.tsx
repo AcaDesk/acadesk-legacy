@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { GraduationCap, Users, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react"
+import { GraduationCap, Users, ChevronLeft, ChevronRight } from "lucide-react"
 import type { ClassStatus as ClassStatusType } from "@/hooks/use-dashboard-data"
 
 interface ClassStatusProps {

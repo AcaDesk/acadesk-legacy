@@ -11,9 +11,7 @@ import {  ArrowRight,
   ChevronLeft,
   ChevronRight,
   UserPlus,
-  Clock,
   GraduationCap,
-  AlertCircle,
   CalendarDays
 } from "lucide-react"
 // import { cn } from "@/lib/utils"

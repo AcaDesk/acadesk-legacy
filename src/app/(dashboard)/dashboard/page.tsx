@@ -1,6 +1,6 @@
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { DashboardClient } from './dashboard-client'
-import { getCurrentTenantId } from '@/lib/auth-helpers'
+import { getCurrentTenantId } from '@/lib/auth/helpers'
 import { logError } from '@/lib/error-handlers'
 import type { Metadata } from 'next'
 

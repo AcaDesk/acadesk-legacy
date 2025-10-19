@@ -2,7 +2,7 @@
 
 import { ReactNode, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { RotateCw, Maximize2, Minimize2, X } from 'lucide-react'
+import { RotateCw, Maximize2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface WidgetWithControlsProps {
