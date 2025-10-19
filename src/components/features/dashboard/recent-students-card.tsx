@@ -64,7 +64,7 @@ export function RecentStudentsCard({ students, maxDisplay = 5 }: RecentStudentsC
             </div>
             <p className="text-sm font-medium mb-1">학생이 없습니다</p>
             <p className="text-xs text-muted-foreground mb-4">첫 번째 학생을 등록해보세요</p>
-            <Link href="/students/new">
+            <Link href="/students">
               <Button size="sm" variant="outline">
                 <UserPlus className="h-4 w-4 mr-2" />
                 학생 등록
