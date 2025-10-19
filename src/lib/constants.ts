@@ -50,6 +50,25 @@ export function getGuardianRelationshipLabel(relationship: string | null | undef
   return relationshipMap[relationship] || relationship
 }
 
+// 기본 학교 목록 (tenant_codes 테이블이 없을 때 사용)
+export const DEFAULT_SCHOOLS = [
+  '서울초등학교',
+  '강남중학교',
+  '역삼고등학교',
+  '선릉초등학교',
+  '대치중학교',
+  '개포고등학교',
+] as const
+
+// 학부모 등록 모드
+export const GUARDIAN_MODES = {
+  NEW: 'new',
+  EXISTING: 'existing',
+  SKIP: 'skip',
+} as const
+
+export type GuardianMode = typeof GUARDIAN_MODES[keyof typeof GUARDIAN_MODES]
+
 // 출석 상태
 export const ATTENDANCE_STATUSES = [
   { value: 'present', label: '출석', variant: 'default' as const },
