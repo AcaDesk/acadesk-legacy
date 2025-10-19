@@ -28,8 +28,37 @@ grant select on table
   public.student_guardians,
   public.student_schedules,
   public.todo_templates,
+  public.exams,
+  public.exam_scores,
+  public.books,
+  public.book_lendings,
   public.in_app_notifications,
-  public.student_activity_logs
+  public.student_activity_logs,
+  public.reports,
+  public.ref_exam_categories,
+  public.notification_logs,
+  public.calendar_events,
+  public.class_sessions,
+  public.consultations,
+  public.tenant_codes
+ to authenticated;
+
+-- Writes allowed (RLS governs row-level permissions)
+grant select, insert, update, delete on table
+  public.attendance_sessions,
+  public.attendance,
+  public.todo_templates,
+  public.exams,
+  public.exam_scores,
+  public.books,
+  public.book_lendings,
+  public.reports,
+  public.guardians,
+  public.student_guardians,
+  public.calendar_events,
+  public.class_sessions,
+  public.consultations,
+  public.tenant_codes
 to authenticated;
 
 -- 초대 테이블(생성/업데이트는 정책으로 제한)
@@ -81,6 +110,17 @@ do $$ begin
   grant execute on function public.now_kst()           to authenticated, service_role;
   grant execute on function public.is_same_tenant(uuid) to authenticated, service_role;
   grant execute on function public.require_owner()      to authenticated, service_role;
+
+  grant execute on function public.create_student_with_guardians(jsonb, jsonb) to authenticated;
+  grant execute on function public.upsert_guardian_and_link(uuid, text, text, boolean, boolean, boolean) to authenticated;
+  grant execute on function public.unlink_student_guardian(uuid, uuid) to authenticated;
+
+  grant execute on function public.bulk_create_students_with_guardians(jsonb) to authenticated;
+  grant execute on function public.bulk_update_students(jsonb) to authenticated;
+  grant execute on function public.bulk_soft_delete_students(uuid[]) to authenticated;
+  grant execute on function public.bulk_restore_students(uuid[]) to authenticated;
+  grant execute on function public.preview_student_import(jsonb) to authenticated;
+  grant execute on function public.confirm_student_import(jsonb, text) to authenticated;
 end $$;
 
 -- ============================================================

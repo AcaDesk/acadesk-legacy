@@ -7,6 +7,7 @@ create table if not exists public.staff_invites (
   token        text not null unique,
   expires_at   timestamptz not null,
   accepted_at  timestamptz,
+  status       text not null default 'pending' check (status in ('pending','accepted','cancelled','expired')),
   created_by   uuid references public.users(id),
   created_at   timestamptz not null default now()
 );
