@@ -56,6 +56,9 @@ begin
 
   update public.staff_invites set accepted_at = now() where id = v_inv.id;
 
+  -- 상태 업데이트
+  update public.staff_invites set status = 'accepted' where id = v_inv.id;
+
   return json_build_object('ok', true);
 end $$;
 
