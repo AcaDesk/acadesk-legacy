@@ -228,7 +228,7 @@ export default function GradesListPage() {
     return 'destructive'
   }
 
-  function getScoreTrend(_currentScore: ExamScore, _index: number): 'up' | 'down' | 'same' | null {
+  function getScoreTrend(): 'up' | 'down' | 'same' | null {
     // Trend calculation would need additional data fetching for accurate comparison
     // For now, return null to avoid incorrect calculations with paginated data
     return null

@@ -4,7 +4,7 @@
  */
 
 import { createClient } from '@/lib/supabase/server'
-import { SupabaseExamRepository } from '@/infrastructure/database/SupabaseExamRepository'
+import { ExamRepository } from '@/infrastructure/database/exam.repository'
 import { CreateExamUseCase } from '../use-cases/exam/CreateExamUseCase'
 import { UpdateExamUseCase } from '../use-cases/exam/UpdateExamUseCase'
 import { DeleteExamUseCase } from '../use-cases/exam/DeleteExamUseCase'
@@ -15,7 +15,7 @@ import { GetUpcomingExamsUseCase } from '../use-cases/exam/GetUpcomingExamsUseCa
  */
 async function createExamRepository() {
   const supabase = await createClient()
-  return new SupabaseExamRepository(supabase)
+  return new ExamRepository(supabase)
 }
 
 /**
