@@ -239,7 +239,7 @@ export function DashboardEditDialog({ open, onOpenChange, widgets, onSave }: Das
   const [editedWidgets, setEditedWidgets] = useState<DashboardWidget[]>(widgets)
   const [initialWidgets, setInitialWidgets] = useState<DashboardWidget[]>(JSON.parse(JSON.stringify(widgets))) // Deep copy for comparison
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null)
-  const [overId, setOverId] = useState<UniqueIdentifier | null>(null)
+  const [, setOverId] = useState<UniqueIdentifier | null>(null)
 
   // Reset state when dialog opens
   useEffect(() => {

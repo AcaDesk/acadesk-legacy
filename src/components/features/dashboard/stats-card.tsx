@@ -26,7 +26,7 @@ export function StatsCard({
   icon: Icon,
   trend,
   description,
-  index,
+  index: _index,
   href,
   variant = "default",
 }: StatsCardProps) {

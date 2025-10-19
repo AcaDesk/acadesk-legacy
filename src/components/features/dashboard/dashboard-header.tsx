@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
-import { RefreshCw, Save, X, Plus, Edit3, Search, Settings2, Layout, LayoutGrid, LayoutList, Focus, Eye } from 'lucide-react';
+import { RefreshCw, Save, X, Plus, Search, Settings2, Layout, LayoutGrid, LayoutList, Focus, Eye } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,

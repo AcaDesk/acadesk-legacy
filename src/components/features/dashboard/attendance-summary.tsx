@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
-import { Users, UserCheck, UserX, Clock } from "lucide-react"
+import { UserCheck, UserX, Clock } from "lucide-react"
 import Link from "next/link"
 import type { TodaySession } from "@/hooks/use-dashboard-data"
 
