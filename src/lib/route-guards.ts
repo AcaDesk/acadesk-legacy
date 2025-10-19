@@ -26,7 +26,7 @@ export const PUBLIC_PATHS = [
  */
 export function isPublicPath(pathname: string): boolean {
   // 정확히 일치하는 경로 확인
-  if (PUBLIC_PATHS.includes(pathname as any)) {
+  if ((PUBLIC_PATHS as readonly string[]).includes(pathname)) {
     return true
   }
 
