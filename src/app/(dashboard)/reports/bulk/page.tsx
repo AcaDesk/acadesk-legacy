@@ -1,9 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ReportGenerator } from '@/services/report.service'
+import { ReportGenerator } from '@/application/use-cases/report/ReportGeneratorService'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -69,6 +68,7 @@ export default function BulkReportsPage() {
 
   useEffect(() => {
     filterStudents()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClass, classes])
 
   async function loadData() {

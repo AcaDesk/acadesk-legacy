@@ -19,7 +19,7 @@ import {
 import { Search, Eye, Download, Send, Plus, FileText, ChevronRight } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
-import type { ReportData } from '@/services/report.service'
+import type { ReportData } from '@/application/use-cases/report/ReportGeneratorService'
 import Link from 'next/link'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
