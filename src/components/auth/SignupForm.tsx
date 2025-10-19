@@ -13,9 +13,9 @@ import { Label } from "@/components/ui/label"
 import { Eye, EyeOff } from "lucide-react"
 import { motion } from "framer-motion"
 import { useToast } from "@/hooks/use-toast"
-import { TermsCheckbox, type TermsCheckboxValues } from "@/components/auth/TermsCheckbox"
+import { TermsCheckbox } from "@/components/auth/TermsCheckbox"
 import type { OAuthProvider } from "@/types/auth.types"
-import { getAuthErrorMessage, SIGNUP_SUCCESS_MESSAGE, GENERIC_ERROR_MESSAGE } from "@/lib/auth-messages"
+import { getAuthErrorMessage, GENERIC_ERROR_MESSAGE } from "@/lib/auth/messages"
 import { createSignUpUseCase, createSignInWithOAuthUseCase } from "@/application/factories/authUseCaseFactory.client"
 
 // 비밀번호 강도 계산
@@ -143,7 +143,7 @@ export default function SignupForm({
       })
 
       router.push("/auth/verify-email?email=" + encodeURIComponent(data.email))
-    } catch (error) {
+    } catch {
       toast({
         title: GENERIC_ERROR_MESSAGE.title,
         description: GENERIC_ERROR_MESSAGE.description,

@@ -8,7 +8,7 @@
 
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { authStageService } from '@/services/auth/auth-stage.service'
+import { authStageService } from '@/infrastructure/auth/auth-stage.service'
 import { AuthStageError, getAuthStageErrorMessage } from '@/lib/auth/auth-errors'
 import { inviteTokenStore } from '@/lib/auth/invite-token-store'
 import { useToast } from './use-toast'

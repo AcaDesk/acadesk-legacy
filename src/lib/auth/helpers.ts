@@ -6,8 +6,8 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { AuthenticationError, DatabaseError } from './error-types'
-import { logError } from './error-handlers'
+import { AuthenticationError, DatabaseError } from '@/lib/error-types'
+import { logError } from '@/lib/error-handlers'
 
 /**
  * 현재 인증된 사용자 정보 조회

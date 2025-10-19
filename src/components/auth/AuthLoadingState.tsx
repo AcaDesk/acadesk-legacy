@@ -26,13 +26,6 @@ interface AuthLoadingStateProps {
   totalSteps?: number
 }
 
-const DEFAULT_STEPS = {
-  profile: { label: '프로필 생성', order: 1 },
-  verification: { label: '계정 확인', order: 2 },
-  setup: { label: '초기 설정', order: 3 },
-  complete: { label: '완료', order: 4 },
-}
-
 export function AuthLoadingState({
   stage,
   message = '잠시만 기다려주세요...',
