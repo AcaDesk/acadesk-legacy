@@ -55,13 +55,13 @@ interface ExtendedStudent {
 
 interface StudentGuardianInfo {
   guardians?: {
-    users?: {
-      name?: string
-      phone?: string | null
-      email?: string | null
-    } | null
+    name?: string
+    phone?: string | null
+    email?: string | null
     relationship?: string | null
   } | null
+  relation?: string | null
+  is_primary_contact?: boolean
 }
 
 export function InfoTab() {
@@ -234,24 +234,6 @@ export function InfoTab() {
                   </div>
                 </div>
               )}
-
-              {student.emergency_contact ? (
-                <div className="flex items-start gap-3">
-                  <Phone className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-muted-foreground">비상 연락처</p>
-                    <p className="font-medium break-all">{student.emergency_contact}</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-start gap-3">
-                  <Phone className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-muted-foreground">비상 연락처</p>
-                    <p className="text-sm text-muted-foreground">정보 없음</p>
-                  </div>
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>
@@ -409,25 +391,28 @@ export function InfoTab() {
                 <div key={index} className="p-4 rounded-lg border space-y-3">
                   <div className="flex items-center gap-2">
                     <Users className="h-4 w-4 text-muted-foreground" />
-                    <p className="font-medium">{sg.guardians?.users?.name || '이름 없음'}</p>
-                    {sg.guardians?.relationship && (
+                    <p className="font-medium">{sg.guardians?.name || '이름 없음'}</p>
+                    {sg.is_primary_contact && (
+                      <Badge variant="default" className="text-xs">주</Badge>
+                    )}
+                    {(sg.relation || sg.guardians?.relationship) && (
                       <Badge variant="outline" className="text-xs">
-                        {sg.guardians.relationship}
+                        {sg.relation || sg.guardians?.relationship}
                       </Badge>
                     )}
                   </div>
 
                   <div className="space-y-2 text-sm">
-                    {sg.guardians?.users?.phone && (
+                    {sg.guardians?.phone && (
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <Phone className="h-3 w-3 shrink-0" />
-                        <span className="break-all">{sg.guardians.users.phone}</span>
+                        <span className="break-all">{sg.guardians.phone}</span>
                       </div>
                     )}
-                    {sg.guardians?.users?.email && (
+                    {sg.guardians?.email && (
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <Mail className="h-3 w-3 shrink-0" />
-                        <span className="break-all">{sg.guardians.users.email}</span>
+                        <span className="break-all">{sg.guardians.email}</span>
                       </div>
                     )}
                   </div>
