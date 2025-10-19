@@ -68,8 +68,6 @@ const studentSchema = z.object({
 
   // 연락 정보
   email: z.string().email('올바른 이메일 형식이 아닙니다').optional().or(z.literal('')),
-  phone: z.string().optional(),
-  emergencyContact: z.string().min(1, '비상 연락처를 입력해주세요'),
 
   // 학습 정보
   grade: z.string().min(1, '학년을 선택해주세요'),
@@ -136,8 +134,6 @@ export function AddStudentDialog({ open, onOpenChange, onSuccess }: AddStudentDi
       studentPhone: '',
       profileImage: '',
       email: '',
-      phone: '',
-      emergencyContact: '',
       grade: '',
       school: '',
       enrollmentDate: new Date(),
@@ -172,9 +168,7 @@ export function AddStudentDialog({ open, onOpenChange, onSuccess }: AddStudentDi
   const selectedSchool = watch('school') || ''
   const birthDate = watch('birthDate')
   const enrollmentDate = watch('enrollmentDate')
-  const phoneValue = watch('phone')
   const studentPhoneValue = watch('studentPhone')
-  const emergencyContactValue = watch('emergencyContact')
   const guardianMode = watch('guardianMode')
   const existingGuardianId = watch('existingGuardianId')
 
@@ -279,15 +273,6 @@ export function AddStudentDialog({ open, onOpenChange, onSuccess }: AddStudentDi
 
   // Auto-format phone numbers
   useEffect(() => {
-    if (phoneValue) {
-      const formatted = formatPhoneNumber(phoneValue)
-      if (formatted !== phoneValue) {
-        setValue('phone', formatted)
-      }
-    }
-  }, [phoneValue, setValue])
-
-  useEffect(() => {
     if (studentPhoneValue) {
       const formatted = formatPhoneNumber(studentPhoneValue)
       if (formatted !== studentPhoneValue) {
@@ -295,15 +280,6 @@ export function AddStudentDialog({ open, onOpenChange, onSuccess }: AddStudentDi
       }
     }
   }, [studentPhoneValue, setValue])
-
-  useEffect(() => {
-    if (emergencyContactValue) {
-      const formatted = formatPhoneNumber(emergencyContactValue)
-      if (formatted !== emergencyContactValue) {
-        setValue('emergencyContact', formatted)
-      }
-    }
-  }, [emergencyContactValue, setValue])
 
   async function loadSchools() {
     try {
@@ -327,24 +303,20 @@ export function AddStudentDialog({ open, onOpenChange, onSuccess }: AddStudentDi
     if (!currentUser) return
 
     try {
-      // TODO: Replace with actual query when database is ready
       const { data, error } = await supabase
         .from('guardians')
         .select(`
           id,
-          users!inner (
-            name,
-            phone
-          ),
+          name,
+          phone,
           student_guardians (
             relation,
             students (
-              users (
-                name
-              )
+              name
             )
           )
         `)
+        .eq('tenant_id', currentUser.tenantId)
         .is('deleted_at', null)
 
       if (error) throw error
@@ -352,23 +324,25 @@ export function AddStudentDialog({ open, onOpenChange, onSuccess }: AddStudentDi
       // Transform data to match Guardian interface
       interface GuardianData {
         id: string
-        users?: { name?: string; phone?: string }[] | null
+        name: string
+        phone?: string | null
         student_guardians?: Array<{
           relation: string
-          students: { users: { name: string } | null } | null
+          students: { name: string } | null
         }>
       }
 
       const transformedGuardians: Guardian[] = (data || []).map((g) => {
         const guardianData = g as unknown as GuardianData
-        const usersArray = guardianData.users
-        const user = Array.isArray(usersArray) ? usersArray[0] : null
 
         return {
           id: guardianData.id,
-          name: user?.name || '',
-          phone: user?.phone || '',
-          student_guardians: guardianData.student_guardians || [],
+          name: guardianData.name,
+          phone: guardianData.phone || '',
+          student_guardians: guardianData.student_guardians?.map(sg => ({
+            relation: sg.relation,
+            students: sg.students ? { users: { name: sg.students.name } } : null
+          })) || [],
         }
       })
 
@@ -460,7 +434,6 @@ export function AddStudentDialog({ open, onOpenChange, onSuccess }: AddStudentDi
           tenant_id: currentUser.tenantId,
           email: data.email || null,
           name: data.name,
-          phone: data.phone || null,
           role_code: 'student',
         })
         .select()
@@ -492,6 +465,7 @@ export function AddStudentDialog({ open, onOpenChange, onSuccess }: AddStudentDi
           tenant_id: currentUser.tenantId,
           user_id: userId,
           student_code: studentCode,
+          name: data.name,
           birth_date: data.birthDate ? format(data.birthDate, 'yyyy-MM-dd') : null,
           gender: data.gender || null,
           student_phone: data.studentPhone || null,
@@ -499,7 +473,6 @@ export function AddStudentDialog({ open, onOpenChange, onSuccess }: AddStudentDi
           grade: data.grade,
           school: data.school || null,
           enrollment_date: data.enrollmentDate ? format(data.enrollmentDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
-          emergency_contact: data.emergencyContact,
           notes: data.notes || null,
           commute_method: data.commuteMethod || null,
           marketing_source: data.marketingSource || null,
@@ -512,28 +485,17 @@ export function AddStudentDialog({ open, onOpenChange, onSuccess }: AddStudentDi
 
       // 3. Handle guardian creation or linking
       if (data.guardianMode === 'new' && data.guardian) {
-        // Create new guardian
-        const { data: guardianUser, error: guardianUserError } = await supabase
-          .from('users')
-          .insert({
-            tenant_id: currentUser.tenantId,
-            name: data.guardian.name,
-            phone: data.guardian.phone,
-            email: data.guardian.email || null,
-            address: data.guardian.address || null,
-            role_code: 'guardian',
-          })
-          .select()
-          .single()
-
-        if (guardianUserError) throw guardianUserError
-
+        // Create new guardian directly
         const { data: newGuardian, error: guardianError } = await supabase
           .from('guardians')
           .insert({
             tenant_id: currentUser.tenantId,
-            user_id: guardianUser.id,
+            name: data.guardian.name,
+            phone: data.guardian.phone || null,
+            email: data.guardian.email || null,
+            relationship: data.guardian.relation || null,
             occupation: data.guardian.occupation || null,
+            address: data.guardian.address || null,
           })
           .select()
           .single()
@@ -547,7 +509,11 @@ export function AddStudentDialog({ open, onOpenChange, onSuccess }: AddStudentDi
             tenant_id: currentUser.tenantId,
             guardian_id: newGuardian.id,
             student_id: newStudent.id,
-            is_primary: true,
+            relation: data.guardian.relation || null,
+            is_primary_contact: true,
+            receives_notifications: true,
+            receives_billing: false,
+            can_pickup: true,
           })
 
         if (linkError) throw linkError
@@ -564,7 +530,11 @@ export function AddStudentDialog({ open, onOpenChange, onSuccess }: AddStudentDi
             tenant_id: currentUser.tenantId,
             guardian_id: data.existingGuardianId,
             student_id: newStudent.id,
-            is_primary: true,
+            relation: data.guardianRelation || null,
+            is_primary_contact: true,
+            receives_notifications: true,
+            receives_billing: false,
+            can_pickup: true,
           })
 
         if (linkError) throw linkError
@@ -833,30 +803,6 @@ export function AddStudentDialog({ open, onOpenChange, onSuccess }: AddStudentDi
           <div className="space-y-4 border-t pt-6">
             <h3 className="text-lg font-semibold">📝 기타 행정 정보</h3>
             <p className="text-sm text-muted-foreground">학원의 원활한 운영과 학생의 안전을 위한 추가 정보입니다.</p>
-
-            <div className="grid gap-6 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="phone">보호자 연락처</Label>
-                <Input
-                  id="phone"
-                  placeholder="010-0000-0000"
-                  {...register('phone')}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="emergencyContact">비상 연락처 *</Label>
-                <Input
-                  id="emergencyContact"
-                  placeholder="010-0000-0000"
-                  {...register('emergencyContact')}
-                />
-                {errors.emergencyContact && (
-                  <p className="text-sm text-destructive">{errors.emergencyContact.message}</p>
-                )}
-                <p className="text-xs text-muted-foreground">주 보호자와 연락이 닿지 않을 경우를 대비</p>
-              </div>
-            </div>
 
             <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-2">
