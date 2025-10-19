@@ -235,7 +235,7 @@ export const authStageService = {
         return { data: null, error: authError }
       }
 
-      return { data: response.data, error: null }
+      return { data: response.data as { tenant_id: string } | null, error: null }
     } catch (err) {
       console.error('[authStageService] ownerStartSetup error:', err)
       const authError = parseRpcError(err, 'owner_setup')

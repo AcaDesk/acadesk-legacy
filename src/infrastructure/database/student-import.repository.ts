@@ -1,0 +1,81 @@
+/**
+ * StudentImportRepository
+ * 학생 Import 관련 데이터 접근 구현체
+ */
+
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type {
+  IStudentImportRepository,
+  ImportConfirmResult,
+} from '@/domain/repositories/IStudentImportRepository'
+import type { StudentImportItem } from '@/domain/entities/StudentImport'
+import { StudentImportPreview } from '@/domain/value-objects/StudentImportPreview'
+import { DatabaseError } from '@/lib/error-types'
+
+export class StudentImportRepository implements IStudentImportRepository {
+  constructor(private readonly supabase: SupabaseClient) {}
+
+  /**
+   * Import 미리보기 (RPC 호출)
+   */
+  async preview(items: StudentImportItem[]): Promise<StudentImportPreview> {
+    try {
+      const jsonItems = items.map((item) => item.toJSON())
+
+      const { data, error } = await this.supabase.rpc('preview_student_import', {
+        _items: jsonItems,
+      })
+
+      if (error) {
+        console.error('[StudentImportRepository.preview] RPC error:', error)
+        throw new DatabaseError('미리보기를 가져올 수 없습니다')
+      }
+
+      if (!data) {
+        throw new DatabaseError('미리보기 데이터가 없습니다')
+      }
+
+      return StudentImportPreview.fromRPCResult(data)
+    } catch (err) {
+      if (err instanceof DatabaseError) {
+        throw err
+      }
+      console.error('[StudentImportRepository.preview] Unexpected error:', err)
+      throw new DatabaseError('미리보기 중 오류가 발생했습니다')
+    }
+  }
+
+  /**
+   * Import 확정 실행 (RPC 호출)
+   */
+  async confirm(
+    items: StudentImportItem[],
+    onDuplicate: 'skip' | 'update' = 'skip'
+  ): Promise<ImportConfirmResult> {
+    try {
+      const jsonItems = items.map((item) => item.toJSON())
+
+      const { data, error } = await this.supabase.rpc('confirm_student_import', {
+        _items: jsonItems,
+        _on_duplicate: onDuplicate,
+      })
+
+      if (error) {
+        console.error('[StudentImportRepository.confirm] RPC error:', error)
+        throw new DatabaseError('Import 실행에 실패했습니다')
+      }
+
+      if (!data) {
+        throw new DatabaseError('Import 결과 데이터가 없습니다')
+      }
+
+      return data as ImportConfirmResult
+    } catch (err) {
+      if (err instanceof DatabaseError) {
+        throw err
+      }
+      console.error('[StudentImportRepository.confirm] Unexpected error:', err)
+      throw new DatabaseError('Import 실행 중 오류가 발생했습니다')
+    }
+  }
+}
