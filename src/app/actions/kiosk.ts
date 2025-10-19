@@ -95,6 +95,7 @@ export async function authenticateKioskPin(
     }
 
     // kiosk_pin 필드 제거 후 반환
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { kiosk_pin: _, ...studentData } = student
 
     return {

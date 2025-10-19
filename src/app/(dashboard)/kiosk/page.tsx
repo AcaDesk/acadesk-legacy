@@ -14,7 +14,7 @@ import { motion, AnimatePresence } from 'motion/react'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
-import { getKioskSession, clearKioskSession } from '@/services/kiosk/kiosk.service'
+import { getKioskSession, clearKioskSession } from '@/lib/kiosk-session'
 import { getStudentTodosForToday, toggleTodoComplete, type StudentTodo } from '@/app/actions/kiosk'
 
 export default function KioskPage() {
