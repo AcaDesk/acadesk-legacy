@@ -18,7 +18,6 @@ import { createClient } from '@/lib/supabase/client'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { GRADES } from '@/lib/constants'
 import type { Student } from './student-table-improved'
-import { createDeleteStudentUseCase } from '@/application/factories/studentUseCaseFactory.client'
 
 type BulkAction = 'delete' | 'grade' | 'class' | 'export'
 
@@ -77,10 +76,19 @@ export function BulkActionsDialog({
 
     setLoading(true)
     try {
-      const deleteStudentUseCase = createDeleteStudentUseCase()
+      const studentIds = selectedStudents.map(s => s.id)
 
-      for (const student of selectedStudents) {
-        await deleteStudentUseCase.execute(student.id)
+      // Use RPC function for bulk delete
+      const { data, error } = await supabase.rpc('bulk_soft_delete_students', {
+        _student_ids: studentIds
+      })
+
+      if (error) throw error
+
+      // Check RPC response
+      const response = data as { ok: boolean; code?: string; message?: string }
+      if (!response?.ok) {
+        throw new Error(response?.message || '일괄 삭제에 실패했습니다.')
       }
 
       toast({
@@ -112,12 +120,24 @@ export function BulkActionsDialog({
 
     setLoading(true)
     try {
-      const { error } = await supabase
-        .from('students')
-        .update({ grade: selectedGrade })
-        .in('id', selectedStudents.map(s => s.id))
+      // Prepare updates for RPC function
+      const updates = selectedStudents.map(student => ({
+        id: student.id,
+        grade: selectedGrade,
+      }))
+
+      // Use RPC function for bulk update
+      const { data, error } = await supabase.rpc('bulk_update_students', {
+        _updates: updates
+      })
 
       if (error) throw error
+
+      // Check RPC response
+      const response = data as { ok: boolean; code?: string; message?: string }
+      if (!response?.ok) {
+        throw new Error(response?.message || '일괄 학년 변경에 실패했습니다.')
+      }
 
       toast({
         title: '일괄 학년 변경 완료',
