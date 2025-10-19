@@ -17,8 +17,9 @@ import { PageWrapper } from "@/components/layout/page-wrapper"
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
-import { createTodosForStudents, getTenantIdFromStudent, type CreateTodoInput } from '@/services/todo-management.service'
+import { createCreateTodosForStudentsUseCase } from '@/application/factories/todoUseCaseFactory.client'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { useCurrentUser } from '@/hooks/use-current-user'
 
 interface Student {
   id: string
@@ -51,25 +52,61 @@ export default function NewTodoPage() {
   })
   const [loading, setLoading] = useState(false)
   const [selectAll, setSelectAll] = useState(false)
+  const [tenantId, setTenantId] = useState<string | null>(null)
 
   const router = useRouter()
   const { toast } = useToast()
   const supabase = createClient()
+  const { user: currentUser } = useCurrentUser()
 
   useEffect(() => {
-    loadStudents()
+    if (currentUser) {
+      loadTenantId()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [currentUser])
+
+  useEffect(() => {
+    if (tenantId) {
+      loadStudents()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenantId])
 
   useEffect(() => {
     setFormData((prev) => ({ ...prev, student_ids: selectedStudents }))
   }, [selectedStudents])
 
+  async function loadTenantId() {
+    if (!currentUser) return
+
+    try {
+      const { data } = await supabase
+        .from('users')
+        .select('tenant_id')
+        .eq('id', currentUser.id)
+        .single()
+
+      if (data?.tenant_id) {
+        setTenantId(data.tenant_id)
+      }
+    } catch (error) {
+      toast({
+        title: '초기화 오류',
+        description: getErrorMessage(error),
+        variant: 'destructive',
+      })
+    }
+  }
+
   async function loadStudents() {
+    if (!tenantId) return
+
     try {
       const { data, error } = await supabase
         .from('students')
         .select('id, student_code, users(name)')
+        .eq('tenant_id', tenantId)
         .is('deleted_at', null)
         .order('student_code')
 
@@ -104,24 +141,40 @@ export default function NewTodoPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+
+    if (!tenantId) {
+      toast({
+        title: '초기화 필요',
+        description: '테넌트 정보를 불러오지 못했습니다.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (selectedStudents.length === 0) {
+      toast({
+        title: '학생 선택 필요',
+        description: '최소 한 명의 학생을 선택해주세요.',
+        variant: 'destructive',
+      })
+      return
+    }
+
     setLoading(true)
 
     try {
-      // Get tenant_id from first student
-      const tenantId = await getTenantIdFromStudent(supabase, selectedStudents[0])
-
-      // Prepare input for service
-      const input: CreateTodoInput = {
+      const createTodosUseCase = createCreateTodosForStudentsUseCase()
+      const result = await createTodosUseCase.execute({
+        tenantId,
+        studentIds: selectedStudents,
         title: formData.title,
-        description: formData.description,
-        subject: formData.subject,
-        due_date: formData.due_date,
+        description: formData.description || undefined,
+        subject: formData.subject || undefined,
+        dueDate: new Date(formData.due_date),
         priority: formData.priority as 'low' | 'normal' | 'high' | 'urgent',
-        student_ids: selectedStudents,
-      }
+      })
 
-      // Create TODOs for all selected students
-      const result = await createTodosForStudents(supabase, tenantId, input)
+      if (result.error) throw result.error
 
       toast({
         title: 'TODO 생성 완료',

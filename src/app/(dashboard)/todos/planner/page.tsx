@@ -23,8 +23,9 @@ import {
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
-import { StudentRepository } from '@/services/data/student.repository'
-import { TodoRepository } from '@/services/data/todo.repository'
+import { createGetStudentsUseCase } from '@/application/factories/studentUseCaseFactory.client'
+import { createGetTodoTemplatesUseCase } from '@/application/factories/todoTemplateUseCaseFactory.client'
+import { createCreateTodosForStudentsUseCase } from '@/application/factories/todoUseCaseFactory.client'
 import { getErrorMessage } from '@/lib/error-handlers'
 
 interface Student {
@@ -96,16 +97,22 @@ export default function WeeklyPlannerPage() {
   const { toast } = useToast()
   const supabase = createClient()
   const { user: currentUser } = useCurrentUser()
-  const studentRepo = new StudentRepository(supabase)
-  const todoRepo = new TodoRepository(supabase)
+  const [tenantId, setTenantId] = useState<string | null>(null)
 
   useEffect(() => {
     if (currentUser) {
+      loadTenantId()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser])
+
+  useEffect(() => {
+    if (tenantId) {
       loadStudents()
       loadTemplates()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser])
+  }, [tenantId])
 
   // Filter and paginate students
   useEffect(() => {
@@ -126,12 +133,49 @@ export default function WeeklyPlannerPage() {
     setCurrentPage(1)
   }, [students, searchTerm])
 
-  async function loadStudents() {
+  async function loadTenantId() {
     if (!currentUser) return
 
     try {
-      const data = await studentRepo.search('', currentUser.tenantId)
-      setStudents(data as unknown as Student[])
+      const { data } = await supabase
+        .from('users')
+        .select('tenant_id')
+        .eq('id', currentUser.id)
+        .single()
+
+      if (data?.tenant_id) {
+        setTenantId(data.tenant_id)
+      }
+    } catch (error) {
+      toast({
+        title: '초기화 오류',
+        description: getErrorMessage(error),
+        variant: 'destructive',
+      })
+    }
+  }
+
+  async function loadStudents() {
+    if (!tenantId) return
+
+    try {
+      const getStudentsUseCase = createGetStudentsUseCase()
+      const { students: studentList, error } = await getStudentsUseCase.execute({
+        tenantId,
+      })
+
+      if (error) throw error
+
+      // Use Case에서 반환하는 Student 엔티티를 UI 타입으로 변환
+      const mappedStudents = studentList.map(student => ({
+        id: student.id,
+        student_code: student.studentCode.toString(),
+        users: {
+          name: student.name,
+        },
+      }))
+
+      setStudents(mappedStudents)
     } catch (error: unknown) {
       toast({
         title: '학생 목록 로드 실패',
@@ -142,18 +186,26 @@ export default function WeeklyPlannerPage() {
   }
 
   async function loadTemplates() {
-    if (!currentUser) return
+    if (!tenantId) return
 
     try {
-      const { data, error } = await supabase
-        .from('todo_templates')
-        .select('*')
-        .eq('tenant_id', currentUser.tenantId)
-        .eq('active', true)
-        .order('subject, title')
+      const getTemplatesUseCase = createGetTodoTemplatesUseCase()
+      const { templates: templateList, error } = await getTemplatesUseCase.execute({
+        tenantId,
+      })
 
       if (error) throw error
-      setTemplates(data || [])
+
+      // Use Case에서 반환하는 TodoTemplate 엔티티를 UI 타입으로 변환
+      const mappedTemplates = templateList.map(template => ({
+        id: template.id,
+        title: template.title,
+        subject: template.subject,
+        estimated_duration_minutes: template.estimatedDurationMinutes,
+        priority: template.priority.getValue(),
+      }))
+
+      setTemplates(mappedTemplates)
     } catch (error: unknown) {
       toast({
         title: '템플릿 로드 실패',
@@ -266,7 +318,7 @@ export default function WeeklyPlannerPage() {
     })
   }
 
-  async function loadRecommendedTemplates(studentId: string, _dayOfWeek: number) {
+  async function loadRecommendedTemplates(studentId: string) {
     if (!currentUser) return
 
     try {
@@ -303,7 +355,7 @@ export default function WeeklyPlannerPage() {
       } else {
         setRecommendedTemplates([])
       }
-    } catch (_error) {
+    } catch {
       // Silent failure for recommended templates
       setRecommendedTemplates([])
     }
@@ -337,7 +389,7 @@ export default function WeeklyPlannerPage() {
   }
 
   async function publishWeeklyPlan() {
-    if (!currentUser) return
+    if (!tenantId) return
     if (plannedTodos.length === 0) {
       toast({
         title: '과제 없음',
@@ -357,23 +409,38 @@ export default function WeeklyPlannerPage() {
       const monday = new Date(today.setDate(diff))
       monday.setHours(0, 0, 0, 0)
 
-      // Convert planned todos to actual student_todos
-      const todosToInsert = plannedTodos.map(pt => {
-        // Calculate due date based on day of week
+      const createTodoUseCase = createCreateTodosForStudentsUseCase()
+
+      // Group todos by date and content to batch create
+      const groupedTodos = new Map<string, { studentIds: string[], todo: PlannedTodo, dueDate: Date }>()
+
+      plannedTodos.forEach(pt => {
         const dueDate = new Date(monday)
         dueDate.setDate(monday.getDate() + pt.dayOfWeek)
 
-        return {
-          tenant_id: currentUser.tenantId,
-          student_id: pt.studentId,
-          title: pt.title,
-          subject: pt.subject,
-          due_date: dueDate.toISOString().split('T')[0],
-          priority: pt.priority,
+        const key = `${pt.title}-${pt.subject}-${pt.priority}-${dueDate.toISOString().split('T')[0]}`
+
+        if (!groupedTodos.has(key)) {
+          groupedTodos.set(key, {
+            studentIds: [],
+            todo: pt,
+            dueDate,
+          })
         }
+        groupedTodos.get(key)!.studentIds.push(pt.studentId)
       })
 
-      await todoRepo.createBulk(todosToInsert)
+      // Create todos for each group
+      for (const group of groupedTodos.values()) {
+        await createTodoUseCase.execute({
+          tenantId,
+          studentIds: group.studentIds,
+          title: group.todo.title,
+          subject: group.todo.subject,
+          dueDate: group.dueDate,
+          priority: group.todo.priority as 'low' | 'normal' | 'high' | 'urgent',
+        })
+      }
 
       toast({
         title: '주간 과제 게시 완료',
@@ -497,7 +564,7 @@ export default function WeeklyPlannerPage() {
         title: '과제 추가',
         description: `${template.title}이(가) 추가되었습니다.`,
       })
-    } catch (_error) {
+    } catch {
       // Silent failure for drag & drop errors
     }
   }

@@ -5,7 +5,7 @@
  */
 
 import type { Todo } from '../entities/Todo'
-import type { Priority, PriorityLevel } from '../value-objects/Priority'
+import type { PriorityLevel } from '../value-objects/Priority'
 
 export interface TodoFilters {
   studentId?: string

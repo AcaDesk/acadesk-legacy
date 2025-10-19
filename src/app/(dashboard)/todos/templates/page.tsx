@@ -59,8 +59,11 @@ import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { DAYS_OF_WEEK } from '@/lib/constants'
-import { StudentRepository } from '@/services/data/student.repository'
-import { TodoRepository } from '@/services/data/todo.repository'
+import { createGetStudentsUseCase } from '@/application/factories/studentUseCaseFactory.client'
+import {
+  createGetTodoTemplatesUseCase,
+} from '@/application/factories/todoTemplateUseCaseFactory.client'
+import { createCreateTodosForStudentsUseCase } from '@/application/factories/todoUseCaseFactory.client'
 import { getErrorMessage } from '@/lib/error-handlers'
 
 interface TodoTemplate {
@@ -98,33 +101,77 @@ export default function TodoTemplatesPage() {
   const router = useRouter()
   const supabase = createClient()
   const { user: currentUser } = useCurrentUser()
-  const studentRepo = new StudentRepository(supabase)
-  const todoRepo = new TodoRepository(supabase)
+  const [tenantId, setTenantId] = useState<string | null>(null)
 
   useEffect(() => {
-    loadTemplates()
+    if (currentUser) {
+      loadTenantId()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [currentUser])
+
+  useEffect(() => {
+    if (tenantId) {
+      loadTemplates()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenantId])
 
   useEffect(() => {
     filterTemplates()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, templates, statusFilter, priorityFilter, dayFilter])
 
+  async function loadTenantId() {
+    if (!currentUser) return
+
+    try {
+      const { data } = await supabase
+        .from('users')
+        .select('tenant_id')
+        .eq('id', currentUser.id)
+        .single()
+
+      if (data?.tenant_id) {
+        setTenantId(data.tenant_id)
+      }
+    } catch (error) {
+      toast({
+        title: '초기화 오류',
+        description: getErrorMessage(error),
+        variant: 'destructive',
+      })
+    }
+  }
+
   async function loadTemplates() {
+    if (!tenantId) return
+
     try {
       setLoading(true)
 
-      const { data, error } = await supabase
-        .from('todo_templates')
-        .select('*')
-        .order('active', { ascending: false })
-        .order('priority', { ascending: false })
-        .order('title')
+      const getTemplatesUseCase = createGetTodoTemplatesUseCase()
+      const { templates: templateList, error } = await getTemplatesUseCase.execute({
+        tenantId,
+        includeInactive: true, // 비활성 템플릿도 포함
+      })
 
       if (error) throw error
-      setTemplates(data)
-      setFilteredTemplates(data)
+
+      // Use Case에서 반환하는 TodoTemplate 엔티티를 UI 타입으로 변환
+      const mapped = templateList.map(template => ({
+        id: template.id,
+        title: template.title,
+        description: template.description,
+        subject: template.subject,
+        day_of_week: null, // TodoTemplate 엔티티에는 day_of_week가 없음
+        estimated_duration_minutes: template.estimatedDurationMinutes,
+        priority: template.priority.getValue(),
+        active: template.active,
+      }))
+
+      setTemplates(mapped)
+      setFilteredTemplates(mapped)
     } catch (error) {
       toast({
         title: '데이터 로드 오류',
@@ -237,7 +284,7 @@ export default function TodoTemplatesPage() {
   }
 
   async function handleGenerateTodos(template: TodoTemplate) {
-    if (!currentUser) return
+    if (!tenantId) return
 
     if (!confirm(`전체 학생에게 "${template.title}" 과제를 배정하시겠습니까?`)) {
       return
@@ -245,9 +292,14 @@ export default function TodoTemplatesPage() {
 
     try {
       // Get all active students
-      const students = await studentRepo.search('', currentUser.tenantId)
+      const getStudentsUseCase = createGetStudentsUseCase()
+      const { students: studentList, error: studentsError } = await getStudentsUseCase.execute({
+        tenantId,
+      })
 
-      if (!students || students.length === 0) {
+      if (studentsError) throw studentsError
+
+      if (!studentList || studentList.length === 0) {
         toast({
           title: '학생 없음',
           description: '등록된 학생이 없습니다.',
@@ -263,21 +315,23 @@ export default function TodoTemplatesPage() {
       const dueDate = new Date(today)
       dueDate.setDate(today.getDate() + (daysUntilTarget === 0 ? 7 : daysUntilTarget))
 
-      const todosToCreate = students.map(student => ({
-        tenant_id: currentUser.tenantId,
-        student_id: student.id,
+      // Create todos using Use Case
+      const createTodosUseCase = createCreateTodosForStudentsUseCase()
+      const { error: createError } = await createTodosUseCase.execute({
+        tenantId,
+        studentIds: studentList.map(s => s.id),
         title: template.title,
         description: template.description || undefined,
         subject: template.subject || undefined,
-        due_date: dueDate.toISOString().split('T')[0],
-        priority: template.priority || 'normal',
-      }))
+        dueDate,
+        priority: (template.priority || 'normal') as 'low' | 'normal' | 'high' | 'urgent',
+      })
 
-      await todoRepo.createBulk(todosToCreate)
+      if (createError) throw createError
 
       toast({
         title: '과제 생성 완료',
-        description: `${students.length}명의 학생에게 "${template.title}" 과제가 배정되었습니다.`,
+        description: `${studentList.length}명의 학생에게 "${template.title}" 과제가 배정되었습니다.`,
       })
 
       router.push('/todos')

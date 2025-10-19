@@ -4,7 +4,7 @@
  */
 
 import { createClient } from '@/lib/supabase/client'
-import { SupabaseTodoTemplateRepository } from '@/infrastructure/database/SupabaseTodoTemplateRepository'
+import { TodoTemplateRepository } from '@/infrastructure/database/todo-template.repository'
 import { GetTodoTemplatesUseCase } from '../use-cases/todo-template/GetTodoTemplatesUseCase'
 import { CreateTodoTemplateUseCase } from '../use-cases/todo-template/CreateTodoTemplateUseCase'
 import { UpdateTodoTemplateUseCase } from '../use-cases/todo-template/UpdateTodoTemplateUseCase'
@@ -15,7 +15,7 @@ import { DeleteTodoTemplateUseCase } from '../use-cases/todo-template/DeleteTodo
  */
 function createTodoTemplateRepository() {
   const supabase = createClient()
-  return new SupabaseTodoTemplateRepository(supabase)
+  return new TodoTemplateRepository(supabase)
 }
 
 /**

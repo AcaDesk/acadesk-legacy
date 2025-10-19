@@ -25,8 +25,11 @@ import { Label } from '@/components/ui/label'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
-import { TodoRepository, type StudentTodoWithStudent } from '@/services/data/todo.repository'
-import { verifyTodos, rejectTodo as rejectTodoService } from '@/services/todo-management.service'
+import type { StudentTodoWithStudent } from '@/types/todo.types'
+import {
+  createVerifyTodosUseCase,
+  createRejectTodoUseCase,
+} from '@/application/factories/todoUseCaseFactory.client'
 import { getErrorMessage } from '@/lib/error-handlers'
 
 export default function VerifyTodosPage() {
@@ -39,25 +42,74 @@ export default function VerifyTodosPage() {
   const [currentTodo, setCurrentTodo] = useState<StudentTodoWithStudent | null>(null)
   const [feedback, setFeedback] = useState('')
   const [loading, setLoading] = useState(false)
+  const [tenantId, setTenantId] = useState<string | null>(null)
 
   const { toast } = useToast()
   const supabase = createClient()
   const { user: currentUser } = useCurrentUser()
-  const todoRepo = new TodoRepository(supabase)
 
   useEffect(() => {
     if (currentUser) {
-      loadPendingTodos()
+      loadTenantId()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser])
 
-  async function loadPendingTodos() {
+  useEffect(() => {
+    if (tenantId) {
+      loadPendingTodos()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenantId])
+
+  async function loadTenantId() {
     if (!currentUser) return
 
     try {
+      const { data } = await supabase
+        .from('users')
+        .select('tenant_id')
+        .eq('id', currentUser.id)
+        .single()
+
+      if (data?.tenant_id) {
+        setTenantId(data.tenant_id)
+      }
+    } catch (error) {
+      toast({
+        title: '초기화 오류',
+        description: getErrorMessage(error),
+        variant: 'destructive',
+      })
+    }
+  }
+
+  async function loadPendingTodos() {
+    if (!tenantId) return
+
+    try {
       // Load todos that are completed but not verified
-      const data = await todoRepo.findAll({ status: 'completed' })
-      setPendingTodos(data)
+      // Using direct Supabase query for complex join (presentation concern)
+      const { data, error } = await supabase
+        .from('todos')
+        .select(`
+          *,
+          students (
+            id,
+            student_code,
+            users (
+              name
+            )
+          )
+        `)
+        .eq('tenant_id', tenantId)
+        .not('completed_at', 'is', null)
+        .is('verified_at', null)
+        .is('deleted_at', null)
+        .order('completed_at', { ascending: false })
+
+      if (error) throw error
+      setPendingTodos(data as StudentTodoWithStudent[])
     } catch (error) {
       toast({
         title: '로딩 오류',
@@ -86,7 +138,7 @@ export default function VerifyTodosPage() {
   }
 
   async function verifySelectedTodos() {
-    if (!currentUser) return
+    if (!currentUser || !tenantId) return
     if (selectedTodos.size === 0) {
       toast({
         title: '선택 필요',
@@ -99,12 +151,27 @@ export default function VerifyTodosPage() {
     setLoading(true)
 
     try {
-      await verifyTodos(supabase, Array.from(selectedTodos), currentUser.id)
-
-      toast({
-        title: '검증 완료',
-        description: `${selectedTodos.size}개의 과제가 검증되었습니다.`,
+      const verifyTodosUseCase = createVerifyTodosUseCase()
+      const result = await verifyTodosUseCase.execute({
+        todoIds: Array.from(selectedTodos),
+        verifiedBy: currentUser.id,
+        tenantId,
       })
+
+      if (result.error) throw result.error
+
+      if (result.failedTodoIds.length > 0) {
+        toast({
+          title: '일부 검증 실패',
+          description: `${result.verifiedCount}개 검증 완료, ${result.failedTodoIds.length}개 실패`,
+          variant: 'destructive',
+        })
+      } else {
+        toast({
+          title: '검증 완료',
+          description: `${result.verifiedCount}개의 과제가 검증되었습니다.`,
+        })
+      }
 
       // Reload list and clear selection
       setSelectedTodos(new Set())
@@ -146,7 +213,7 @@ export default function VerifyTodosPage() {
   }
 
   async function rejectTodo() {
-    if (!currentTodoId || !feedback.trim()) {
+    if (!currentUser || !tenantId || !currentTodoId || !feedback.trim()) {
       toast({
         title: '피드백 필요',
         description: '반려 사유를 입력해주세요.',
@@ -158,7 +225,13 @@ export default function VerifyTodosPage() {
     setLoading(true)
 
     try {
-      await rejectTodoService(supabase, currentTodoId, feedback)
+      const rejectTodoUseCase = createRejectTodoUseCase()
+      await rejectTodoUseCase.execute({
+        todoId: currentTodoId,
+        rejectedBy: currentUser.id,
+        rejectionReason: feedback,
+        tenantId,
+      })
 
       toast({
         title: '과제 반려',
@@ -256,7 +329,7 @@ export default function VerifyTodosPage() {
                           <div>
                             <p className="font-medium">{todo.title}</p>
                             <div className="flex gap-2 mt-1 text-sm text-muted-foreground">
-                              <span>{todo.students?.users?.name || '이름 없음'}</span>
+                              <span>{(todo.students?.users && !Array.isArray(todo.students.users) ? todo.students.users.name : '이름 없음')}</span>
                               {todo.subject && (
                                 <>
                                   <span>•</span>
@@ -362,7 +435,7 @@ export default function VerifyTodosPage() {
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div>
                       <span className="text-muted-foreground">이름:</span>{' '}
-                      <span className="font-medium">{currentTodo.students?.users?.name || '이름 없음'}</span>
+                      <span className="font-medium">{(currentTodo.students?.users && !Array.isArray(currentTodo.students.users) ? currentTodo.students.users.name : '이름 없음')}</span>
                     </div>
                     <div>
                       <span className="text-muted-foreground">학번:</span>{' '}
@@ -460,10 +533,18 @@ export default function VerifyTodosPage() {
                   </Button>
                   <Button
                     onClick={async () => {
-                      if (currentUser && currentTodo) {
+                      if (currentUser && currentTodo && tenantId) {
                         setLoading(true)
                         try {
-                          await verifyTodos(supabase, [currentTodo.id], currentUser.id)
+                          const verifyTodosUseCase = createVerifyTodosUseCase()
+                          const result = await verifyTodosUseCase.execute({
+                            todoIds: [currentTodo.id],
+                            verifiedBy: currentUser.id,
+                            tenantId,
+                          })
+
+                          if (result.error) throw result.error
+
                           toast({
                             title: '검증 완료',
                             description: '과제가 검증되었습니다.',

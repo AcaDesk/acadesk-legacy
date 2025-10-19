@@ -4,20 +4,21 @@
  */
 
 import { createClient } from '@/lib/supabase/server'
-import { SupabaseTodoRepository } from '@/infrastructure/database/SupabaseTodoRepository'
+import { TodoRepository } from '@/infrastructure/database/todo.repository'
 import { CreateTodoUseCase } from '../use-cases/todo/CreateTodoUseCase'
 import { UpdateTodoUseCase } from '../use-cases/todo/UpdateTodoUseCase'
 import { CompleteTodoUseCase } from '../use-cases/todo/CompleteTodoUseCase'
 import { VerifyTodoUseCase } from '../use-cases/todo/VerifyTodoUseCase'
 import { DeleteTodoUseCase } from '../use-cases/todo/DeleteTodoUseCase'
 import { GetTodoUseCase } from '../use-cases/todo/GetTodoUseCase'
+import { GetTodosUseCase } from '../use-cases/todo/GetTodosUseCase'
 
 /**
  * TODO 리포지토리 생성 (서버 사이드)
  */
 async function createTodoRepository() {
   const supabase = await createClient()
-  return new SupabaseTodoRepository(supabase)
+  return new TodoRepository(supabase)
 }
 
 /**
@@ -66,4 +67,12 @@ export async function createDeleteTodoUseCase() {
 export async function createGetTodoUseCase() {
   const repository = await createTodoRepository()
   return new GetTodoUseCase(repository)
+}
+
+/**
+ * GetTodos 유스케이스 생성 (여러 TODO 조회)
+ */
+export async function createGetTodosUseCase() {
+  const repository = await createTodoRepository()
+  return new GetTodosUseCase(repository)
 }
