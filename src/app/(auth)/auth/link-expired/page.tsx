@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { AlertCircle, Mail, RefreshCw, ArrowRight } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
-import { LINK_EXPIRED_MESSAGES, EMAIL_RESEND_SUCCESS_MESSAGE, GENERIC_ERROR_MESSAGE, RATE_LIMIT_MESSAGES, getAuthErrorMessage } from "@/lib/auth-messages"
+import { LINK_EXPIRED_MESSAGES, EMAIL_RESEND_SUCCESS_MESSAGE, GENERIC_ERROR_MESSAGE, RATE_LIMIT_MESSAGES, getAuthErrorMessage } from "@/lib/auth/messages"
 
 function LinkExpiredContent() {
   const searchParams = useSearchParams()
@@ -52,6 +52,7 @@ function LinkExpiredContent() {
     }, 1000)
 
     return () => clearInterval(intervalId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // 에러 타입에 따른 메시지 선택
@@ -133,7 +134,7 @@ function LinkExpiredContent() {
 
       // 이메일 인증 페이지로 리디렉트
       router.push(`/auth/verify-email?email=${encodeURIComponent(email)}`)
-    } catch (error) {
+    } catch {
       toast({
         title: GENERIC_ERROR_MESSAGE.title,
         description: GENERIC_ERROR_MESSAGE.description,
@@ -201,7 +202,7 @@ function LinkExpiredContent() {
 
       // 비밀번호 찾기 페이지로 리디렉트
       router.push("/auth/forgot-password")
-    } catch (error) {
+    } catch {
       toast({
         title: GENERIC_ERROR_MESSAGE.title,
         description: GENERIC_ERROR_MESSAGE.description,

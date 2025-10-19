@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Eye, EyeOff } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import type { OAuthProvider } from "@/types/auth.types"
-import { getAuthErrorMessage, LOGIN_SUCCESS_MESSAGE, GENERIC_ERROR_MESSAGE } from "@/lib/auth-messages"
+import { getAuthErrorMessage, LOGIN_SUCCESS_MESSAGE, GENERIC_ERROR_MESSAGE } from "@/lib/auth/messages"
 import { isFeatureActive } from "@/lib/features.config"
 import { routeAfterLogin } from "@/lib/auth/route-after-login"
 import { inviteTokenStore } from "@/lib/auth/invite-token-store"
@@ -94,7 +94,7 @@ export function LoginForm({
       // 초대 토큰 확인 (있으면 전달)
       const inviteToken = inviteTokenStore.get()
       await routeAfterLogin(router, inviteToken ?? undefined)
-    } catch (error) {
+    } catch {
       toast({
         title: GENERIC_ERROR_MESSAGE.title,
         description: GENERIC_ERROR_MESSAGE.description,

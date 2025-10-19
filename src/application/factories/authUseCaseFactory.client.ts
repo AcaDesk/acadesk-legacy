@@ -4,8 +4,8 @@
  */
 
 import { createClient } from '@/lib/supabase/client'
-import { SupabaseAuthRepository } from '@/infrastructure/database/SupabaseAuthRepository'
-import { SupabaseOnboardingRepository } from '@/infrastructure/database/SupabaseOnboardingRepository'
+import { AuthRepository } from '@/infrastructure/database/auth.repository'
+import { OnboardingRepository } from '@/infrastructure/database/onboarding.repository'
 import {
   SignUpUseCase,
   SignInUseCase,
@@ -23,7 +23,7 @@ import {
  */
 export function createSignUpUseCase() {
   const supabase = createClient()
-  const authRepository = new SupabaseAuthRepository(supabase)
+  const authRepository = new AuthRepository(supabase)
   return new SignUpUseCase(authRepository)
 }
 
@@ -32,7 +32,7 @@ export function createSignUpUseCase() {
  */
 export function createSignInUseCase() {
   const supabase = createClient()
-  const authRepository = new SupabaseAuthRepository(supabase)
+  const authRepository = new AuthRepository(supabase)
   return new SignInUseCase(authRepository)
 }
 
@@ -41,7 +41,7 @@ export function createSignInUseCase() {
  */
 export function createSignOutUseCase() {
   const supabase = createClient()
-  const authRepository = new SupabaseAuthRepository(supabase)
+  const authRepository = new AuthRepository(supabase)
   return new SignOutUseCase(authRepository)
 }
 
@@ -50,7 +50,7 @@ export function createSignOutUseCase() {
  */
 export function createSignInWithOAuthUseCase() {
   const supabase = createClient()
-  const authRepository = new SupabaseAuthRepository(supabase)
+  const authRepository = new AuthRepository(supabase)
   return new SignInWithOAuthUseCase(authRepository)
 }
 
@@ -59,7 +59,7 @@ export function createSignInWithOAuthUseCase() {
  */
 export function createResetPasswordUseCase() {
   const supabase = createClient()
-  const authRepository = new SupabaseAuthRepository(supabase)
+  const authRepository = new AuthRepository(supabase)
   return new ResetPasswordUseCase(authRepository)
 }
 
@@ -68,7 +68,7 @@ export function createResetPasswordUseCase() {
  */
 export function createUpdatePasswordUseCase() {
   const supabase = createClient()
-  const authRepository = new SupabaseAuthRepository(supabase)
+  const authRepository = new AuthRepository(supabase)
   return new UpdatePasswordUseCase(authRepository)
 }
 
@@ -77,7 +77,7 @@ export function createUpdatePasswordUseCase() {
  */
 export function createCompleteOwnerOnboardingUseCase() {
   const supabase = createClient()
-  const onboardingRepository = new SupabaseOnboardingRepository(supabase)
+  const onboardingRepository = new OnboardingRepository(supabase)
   return new CompleteOwnerOnboardingUseCase(onboardingRepository)
 }
 
@@ -86,7 +86,7 @@ export function createCompleteOwnerOnboardingUseCase() {
  */
 export function createCompleteAcademySetupUseCase() {
   const supabase = createClient()
-  const onboardingRepository = new SupabaseOnboardingRepository(supabase)
+  const onboardingRepository = new OnboardingRepository(supabase)
   return new CompleteAcademySetupUseCase(onboardingRepository)
 }
 
@@ -95,6 +95,6 @@ export function createCompleteAcademySetupUseCase() {
  */
 export function createGetOnboardingStateUseCase() {
   const supabase = createClient()
-  const onboardingRepository = new SupabaseOnboardingRepository(supabase)
+  const onboardingRepository = new OnboardingRepository(supabase)
   return new GetOnboardingStateUseCase(onboardingRepository)
 }

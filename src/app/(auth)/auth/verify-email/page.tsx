@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Mail, CheckCircle, RefreshCw, Loader2 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
-import { getAuthErrorMessage, EMAIL_RESEND_SUCCESS_MESSAGE, GENERIC_ERROR_MESSAGE, RATE_LIMIT_MESSAGES } from "@/lib/auth-messages"
+import { getAuthErrorMessage, EMAIL_RESEND_SUCCESS_MESSAGE, GENERIC_ERROR_MESSAGE, RATE_LIMIT_MESSAGES } from "@/lib/auth/messages"
 import { routeAfterLogin } from "@/lib/auth/route-after-login"
 import { inviteTokenStore } from "@/lib/auth/invite-token-store"
 
@@ -50,12 +50,11 @@ function VerifyEmailContent() {
     }, 1000)
 
     return () => clearInterval(intervalId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // 자동으로 인증 상태 확인 (3초마다)
   useEffect(() => {
-    let intervalId: NodeJS.Timeout
-
     const checkAuthStatus = async () => {
       try {
         const { data: { user }, error } = await supabase.auth.getUser()
@@ -87,7 +86,7 @@ function VerifyEmailContent() {
     checkAuthStatus()
 
     // 3초마다 반복 체크
-    intervalId = setInterval(checkAuthStatus, 3000)
+    const intervalId = setInterval(checkAuthStatus, 3000)
 
     // 컴포넌트 언마운트 시 인터벌 정리
     return () => {
@@ -144,7 +143,7 @@ function VerifyEmailContent() {
         title: EMAIL_RESEND_SUCCESS_MESSAGE.title,
         description: EMAIL_RESEND_SUCCESS_MESSAGE.description,
       })
-    } catch (error) {
+    } catch {
       toast({
         title: GENERIC_ERROR_MESSAGE.title,
         description: GENERIC_ERROR_MESSAGE.description,
