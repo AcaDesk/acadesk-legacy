@@ -15,6 +15,8 @@ export const guardianFormSchema = z.object({
   email: z.string().email('올바른 이메일 형식이 아닙니다').optional().or(z.literal('')),
   phone: z.string().min(1, '연락처를 입력해주세요'),
   relationship: z.string().min(1, '관계를 선택해주세요'),
+  occupation: z.string().optional().or(z.literal('')),
+  address: z.string().optional().or(z.literal('')),
 })
 
 export type GuardianFormValues = z.infer<typeof guardianFormSchema>
