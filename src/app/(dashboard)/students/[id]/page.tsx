@@ -10,8 +10,8 @@
 
 import { notFound } from 'next/navigation'
 import { StudentDetailClient } from './StudentDetailClient'
-import { getStudentDetailData } from '@/services/student-detail.service'
-import { getCurrentTenantId } from '@/lib/auth-helpers'
+import { GetStudentDetailDataUseCase } from '@/application/use-cases/student/GetStudentDetailDataUseCase'
+import { getCurrentTenantId } from '@/lib/auth/helpers'
 import { logError } from '@/lib/error-handlers'
 import { NotFoundError } from '@/lib/error-types'
 
@@ -30,7 +30,8 @@ export default async function StudentDetailPage({ params }: PageProps) {
 
   try {
     // 서버에서 모든 데이터를 병렬로 페칭
-    const data = await getStudentDetailData(id)
+    const useCase = new GetStudentDetailDataUseCase()
+    const data = await useCase.execute(id)
 
     // Client Component에 완성된 데이터 전달
     return <StudentDetailClient initialData={data} />

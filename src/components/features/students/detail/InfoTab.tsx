@@ -20,7 +20,7 @@ import {
 } from 'lucide-react'
 import { format as formatDate, differenceInYears } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { useStudentDetail } from '@/contexts/studentDetailContext'
+import { useStudentDetail } from '@/hooks/use-student-detail'
 import { StudentBasicInfo } from './StudentBasicInfo'
 import { StudentSiblingsCard } from './StudentSiblingsCard'
 

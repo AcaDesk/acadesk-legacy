@@ -675,7 +675,7 @@ export function AddStudentDialog({ open, onOpenChange, onSuccess }: AddStudentDi
             <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="gender">성별</Label>
-                <Select onValueChange={(value) => setValue('gender', value as 'male' | 'female' | 'other')} value={watch('gender') || undefined}>
+                <Select onValueChange={(value) => setValue('gender', value as 'male' | 'female' | 'other')} value={watch('gender') || ''}>
                   <SelectTrigger id="gender">
                     <SelectValue placeholder="성별 선택" />
                   </SelectTrigger>
@@ -861,7 +861,7 @@ export function AddStudentDialog({ open, onOpenChange, onSuccess }: AddStudentDi
             <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="commuteMethod">등원 방법</Label>
-                <Select onValueChange={(value) => setValue('commuteMethod', value)} value={watch('commuteMethod') || undefined}>
+                <Select onValueChange={(value) => setValue('commuteMethod', value)} value={watch('commuteMethod') || ''}>
                   <SelectTrigger id="commuteMethod">
                     <SelectValue placeholder="등원 방법 선택" />
                   </SelectTrigger>
@@ -878,7 +878,7 @@ export function AddStudentDialog({ open, onOpenChange, onSuccess }: AddStudentDi
 
               <div className="space-y-2">
                 <Label htmlFor="marketingSource">마케팅 경로</Label>
-                <Select onValueChange={(value) => setValue('marketingSource', value)} value={watch('marketingSource') || undefined}>
+                <Select onValueChange={(value) => setValue('marketingSource', value)} value={watch('marketingSource') || ''}>
                   <SelectTrigger id="marketingSource">
                     <SelectValue placeholder="마케팅 경로 선택" />
                   </SelectTrigger>
@@ -901,6 +901,7 @@ export function AddStudentDialog({ open, onOpenChange, onSuccess }: AddStudentDi
                 id="email"
                 type="email"
                 placeholder="student@example.com"
+                autoComplete="email"
                 {...register('email')}
               />
               {errors.email && (

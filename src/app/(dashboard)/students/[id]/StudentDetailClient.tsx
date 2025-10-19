@@ -16,7 +16,7 @@ import { LearningStatusTab } from '@/components/features/students/detail/Learnin
 import { ActivityTab } from '@/components/features/students/detail/ActivityTab'
 import { ConsultationTab } from '@/components/features/students/detail/ConsultationTab'
 import { ManageClassesDialog } from '@/components/features/students/manage-classes-dialog'
-import { StudentDetailProvider } from '@/contexts/studentDetailContext'
+import { StudentDetailProvider } from '@/hooks/use-student-detail'
 import type { StudentDetailData, Consultation } from '@/types/studentDetail.types'
 
 interface StudentDetailClientProps {

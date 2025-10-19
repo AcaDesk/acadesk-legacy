@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { BookOpen, GraduationCap, Target } from 'lucide-react'
 import { ClassEnrollmentsList } from '@/components/features/students/detail/ClassEnrollmentsList'
 import { ClassProgressCard } from '@/components/features/students/detail/ClassProgressCard'
-import { useStudentDetail } from '@/contexts/studentDetailContext'
+import { useStudentDetail } from '@/hooks/use-student-detail'
 
 const containerVariants = {
   hidden: { opacity: 0 },

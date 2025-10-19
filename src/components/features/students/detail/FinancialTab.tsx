@@ -6,7 +6,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { format as formatDate } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { CreditCard, CheckCircle, AlertCircle, Clock } from 'lucide-react'
-import { useStudentDetail } from '@/contexts/studentDetailContext'
+import { useStudentDetail } from '@/hooks/use-student-detail'
 import { EmptyState } from '@/components/ui/empty-state'
 
 export function FinancialTab() {

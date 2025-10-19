@@ -15,10 +15,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { createClient } from '@/lib/supabase/client'
-import { StudentRepository } from '@/services/data/student.repository'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { GRADES } from '@/lib/constants'
 import type { Student } from './student-table-improved'
+import { createDeleteStudentUseCase } from '@/application/factories/studentUseCaseFactory.client'
 
 type BulkAction = 'delete' | 'grade' | 'class' | 'export'
 
@@ -43,7 +43,6 @@ export function BulkActionsDialog({
 
   const { toast } = useToast()
   const supabase = createClient()
-  const studentRepo = new StudentRepository(supabase)
 
   // Load classes when dialog opens
   useEffect(() => {
@@ -78,8 +77,10 @@ export function BulkActionsDialog({
 
     setLoading(true)
     try {
+      const deleteStudentUseCase = createDeleteStudentUseCase()
+
       for (const student of selectedStudents) {
-        await studentRepo.delete(student.id)
+        await deleteStudentUseCase.execute(student.id)
       }
 
       toast({

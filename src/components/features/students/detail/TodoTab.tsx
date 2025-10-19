@@ -25,7 +25,7 @@ import {
   Target,
   AlertCircle,
 } from 'lucide-react'
-import { useStudentDetail } from '@/contexts/studentDetailContext'
+import { useStudentDetail } from '@/hooks/use-student-detail'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/hooks/use-toast'
 

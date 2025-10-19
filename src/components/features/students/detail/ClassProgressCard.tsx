@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { BookOpen, TrendingUp } from 'lucide-react'
+import { BookOpen } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { format as formatDate } from 'date-fns'
 import { ko } from 'date-fns/locale'
@@ -25,7 +25,7 @@ interface ClassProgressCardProps {
 }
 
 export function ClassProgressCard({
-  studentId,
+  studentId: _studentId,
   classId,
   className,
 }: ClassProgressCardProps) {

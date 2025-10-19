@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import { format as formatDate } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { useStudentDetail } from '@/contexts/studentDetailContext'
+import { useStudentDetail } from '@/hooks/use-student-detail'
 import { StudentPointsWidget } from './StudentPointsWidget'
 import { ClassEnrollmentsList } from './ClassEnrollmentsList'
 

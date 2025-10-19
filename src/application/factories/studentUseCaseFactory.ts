@@ -4,7 +4,7 @@
  */
 
 import { createClient } from '@/lib/supabase/server'
-import { SupabaseStudentRepository } from '@/infrastructure/database/SupabaseStudentRepository'
+import { StudentRepository } from '@/infrastructure/database/student.repository'
 import { CreateStudentUseCase } from '../use-cases/student/CreateStudentUseCase'
 import { UpdateStudentUseCase } from '../use-cases/student/UpdateStudentUseCase'
 import { DeleteStudentUseCase } from '../use-cases/student/DeleteStudentUseCase'
@@ -16,7 +16,7 @@ import { WithdrawStudentUseCase } from '../use-cases/student/WithdrawStudentUseC
  */
 async function createStudentRepository() {
   const supabase = await createClient()
-  return new SupabaseStudentRepository(supabase)
+  return new StudentRepository(supabase)
 }
 
 /**

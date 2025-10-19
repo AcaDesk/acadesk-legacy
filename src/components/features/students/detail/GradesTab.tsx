@@ -10,7 +10,7 @@ import { ko } from 'date-fns/locale'
 import { TrendingUp, TrendingDown, Minus, Plus, BarChart3, LineChart as LineChartIcon } from 'lucide-react'
 import { GradesLineChart } from '@/components/features/charts/grades-line-chart'
 import { SubjectBarChart } from '@/components/features/charts/subject-bar-chart'
-import { useStudentDetail } from '@/contexts/studentDetailContext'
+import { useStudentDetail } from '@/hooks/use-student-detail'
 
 const containerVariants = {
   hidden: { opacity: 0 },

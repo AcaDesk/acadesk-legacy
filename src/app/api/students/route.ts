@@ -4,7 +4,7 @@ import {
   createGetStudentUseCase,
   createCreateStudentUseCase
 } from '@/application/factories/studentUseCaseFactory'
-import { handleError } from '@/lib/errors'
+import { handleApiError } from '@/lib/error-handlers'
 import * as z from 'zod'
 
 const createStudentSchema = z.object({
@@ -69,11 +69,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(result)
   } catch (error) {
-    const errorResponse = handleError(error)
-    return NextResponse.json(
-      { error: errorResponse.message, code: errorResponse.code },
-      { status: errorResponse.statusCode }
-    )
+    return handleApiError(error)
   }
 }
 
@@ -124,10 +120,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const errorResponse = handleError(error)
-    return NextResponse.json(
-      { error: errorResponse.message, code: errorResponse.code },
-      { status: errorResponse.statusCode }
-    )
+    return handleApiError(error)
   }
 }

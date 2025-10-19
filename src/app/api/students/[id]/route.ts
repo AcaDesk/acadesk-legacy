@@ -5,7 +5,7 @@ import {
   createUpdateStudentUseCase,
   createDeleteStudentUseCase,
 } from '@/application/factories/studentUseCaseFactory'
-import { handleError } from '@/lib/errors'
+import { handleApiError } from '@/lib/error-handlers'
 import * as z from 'zod'
 
 const updateStudentSchema = z.object({
@@ -49,11 +49,7 @@ export async function GET(
 
     return NextResponse.json(student.toDTO())
   } catch (error) {
-    const errorResponse = handleError(error)
-    return NextResponse.json(
-      { error: errorResponse.message, code: errorResponse.code },
-      { status: errorResponse.statusCode }
-    )
+    return handleApiError(error)
   }
 }
 
@@ -97,11 +93,7 @@ export async function PATCH(
       )
     }
 
-    const errorResponse = handleError(error)
-    return NextResponse.json(
-      { error: errorResponse.message, code: errorResponse.code },
-      { status: errorResponse.statusCode }
-    )
+    return handleApiError(error)
   }
 }
 
@@ -131,10 +123,6 @@ export async function DELETE(
 
     return NextResponse.json({ message: 'Student deleted successfully' })
   } catch (error) {
-    const errorResponse = handleError(error)
-    return NextResponse.json(
-      { error: errorResponse.message, code: errorResponse.code },
-      { status: errorResponse.statusCode }
-    )
+    return handleApiError(error)
   }
 }
