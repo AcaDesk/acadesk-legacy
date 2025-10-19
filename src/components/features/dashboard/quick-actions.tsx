@@ -109,7 +109,7 @@ const AVAILABLE_ACTIONS = [
     id: 'new-student',
     label: '학생 등록',
     icon: UserPlus,
-    href: '/students/new',
+    href: '/students',
     color: 'accent' as ActionColor, // 강조 - 가장 중요한 기능
     category: '학생 관리',
   },
