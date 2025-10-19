@@ -26,7 +26,7 @@ import {
   ListTodo,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import type { StudentTodoWithStudent } from '@/services/data/todo.repository'
+import type { StudentTodoWithStudent } from '@/types/todo.types'
 import { verifyTodoAction, deleteTodoAction } from './actions'
 
 interface TodosClientProps {

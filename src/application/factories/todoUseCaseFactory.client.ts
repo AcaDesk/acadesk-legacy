@@ -4,7 +4,7 @@
  */
 
 import { createClient } from '@/lib/supabase/client'
-import { SupabaseTodoRepository } from '@/infrastructure/database/SupabaseTodoRepository'
+import { TodoRepository } from '@/infrastructure/database/todo.repository'
 import { CreateTodoUseCase } from '../use-cases/todo/CreateTodoUseCase'
 import { CreateTodosForStudentsUseCase } from '../use-cases/todo/CreateTodosForStudentsUseCase'
 import { UpdateTodoUseCase } from '../use-cases/todo/UpdateTodoUseCase'
@@ -21,7 +21,7 @@ import { GetTodosUseCase } from '../use-cases/todo/GetTodosUseCase'
  */
 function createTodoRepository() {
   const supabase = createClient()
-  return new SupabaseTodoRepository(supabase)
+  return new TodoRepository(supabase)
 }
 
 /**

@@ -4,8 +4,10 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PageHeader } from '@/components/ui/page-header'
 import { Plus, FileText, Calendar, CheckCircle2, User } from 'lucide-react'
-import { getTodos } from '@/services/todo-list.service'
+import { createClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/auth/helpers'
 import { TodosClient } from './todos-client'
+import type { StudentTodoWithStudent } from '@/types/todo.types'
 
 /**
  * TODO 관리 페이지 (Server Component)
@@ -14,7 +16,29 @@ import { TodosClient } from './todos-client'
  */
 export default async function TodosPage() {
   // Server-side data fetching
-  const todos = await getTodos()
+  const tenantId = await getCurrentTenantId()
+  const supabase = await createClient()
+
+  const { data: todos, error } = await supabase
+    .from('student_todos')
+    .select(`
+      *,
+      students!inner (
+        id,
+        student_code,
+        users!inner (
+          name
+        )
+      )
+    `)
+    .eq('tenant_id', tenantId)
+    .order('due_date', { ascending: true })
+
+  if (error) {
+    console.error('Error fetching todos:', error)
+  }
+
+  const todosWithStudent = (todos || []) as unknown as StudentTodoWithStudent[]
 
   return (
     <div className="space-y-6">
@@ -121,7 +145,7 @@ export default async function TodosPage() {
           </div>
         }
       >
-        <TodosClient initialTodos={todos} />
+        <TodosClient initialTodos={todosWithStudent} />
       </Suspense>
     </div>
   )
