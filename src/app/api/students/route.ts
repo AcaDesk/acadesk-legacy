@@ -17,7 +17,6 @@ const createStudentSchema = z.object({
   grade: z.string().optional(),
   school: z.string().optional(),
   enrollmentDate: z.string().optional().transform(val => val ? new Date(val) : new Date()),
-  emergencyContact: z.string().optional(),
   notes: z.string().optional(),
   commuteMethod: z.string().optional(),
   marketingSource: z.string().optional(),
@@ -76,6 +75,9 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/students
  * Create a new student
+ *
+ * @deprecated This endpoint is no longer used. Use the AddStudentDialog component instead,
+ * which provides a better UX with guardian management and handles student creation directly.
  */
 export async function POST(request: NextRequest) {
   try {
