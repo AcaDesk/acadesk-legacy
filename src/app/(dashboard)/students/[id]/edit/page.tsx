@@ -15,7 +15,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
-import { ChevronRight } from 'lucide-react'
 import { GRADES } from '@/lib/constants'
 import { getErrorMessage } from '@/lib/error-handlers'
 
@@ -218,25 +217,6 @@ export default function EditStudentPage() {
   return (
     <PageWrapper>
       <div className="space-y-6">
-        {/* Breadcrumbs */}
-        <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-          <button
-            onClick={() => router.push('/students')}
-            className="hover:text-foreground transition-colors"
-          >
-            학생 관리
-          </button>
-          <ChevronRight className="h-4 w-4" />
-          <button
-            onClick={() => router.push(`/students/${student.id}`)}
-            className="hover:text-foreground transition-colors"
-          >
-            {student.users?.name || '학생'}
-          </button>
-          <ChevronRight className="h-4 w-4" />
-          <span className="text-foreground font-medium">수정</span>
-        </nav>
-
         {/* Header */}
         <div>
           <h1 className="text-3xl font-bold">학생 정보 수정</h1>
