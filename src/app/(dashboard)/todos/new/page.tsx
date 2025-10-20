@@ -11,7 +11,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
-import { ChevronRight } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { FEATURES } from '@/lib/features.config'
@@ -207,18 +206,6 @@ export default function NewTodoPage() {
   return (
     <PageWrapper>
       <div className="space-y-6">
-        {/* Breadcrumbs */}
-        <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-          <button
-            onClick={() => router.push('/todos')}
-            className="hover:text-foreground transition-colors"
-          >
-            TODO 관리
-          </button>
-          <ChevronRight className="h-4 w-4" />
-          <span className="text-foreground font-medium">새 TODO</span>
-        </nav>
-
         {/* Header */}
         <div>
           <h1 className="text-3xl font-bold">TODO 생성</h1>
