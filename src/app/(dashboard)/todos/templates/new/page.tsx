@@ -26,7 +26,6 @@ import {
   Zap,
   CheckCircle2,
   Info,
-  ChevronRight,
   Bold,
   Italic,
   Link as LinkIcon,
@@ -229,25 +228,6 @@ export default function NewTodoTemplatePage() {
   return (
     <PageWrapper>
       <div className="space-y-6 max-w-4xl mx-auto">
-        {/* Breadcrumbs */}
-        <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-          <button
-            onClick={() => router.push('/todos')}
-            className="hover:text-foreground transition-colors"
-          >
-            TODO 관리
-          </button>
-          <ChevronRight className="h-4 w-4" />
-          <button
-            onClick={() => router.push('/todos/templates')}
-            className="hover:text-foreground transition-colors"
-          >
-            과제 템플릿
-          </button>
-          <ChevronRight className="h-4 w-4" />
-          <span className="text-foreground font-medium">새 템플릿</span>
-        </nav>
-
         {/* Header */}
         <div>
           <h1 className="text-3xl font-bold tracking-tight">과제 템플릿 등록</h1>
