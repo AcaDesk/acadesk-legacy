@@ -31,7 +31,7 @@ export default async function StaffPage() {
     .single()
 
   // 원장만 접근 가능
-  if (!userData || userData.role_code !== "admin") {
+  if (!userData || userData.role_code !== "owner") {
     return (
       <PageWrapper>
         <div className="flex h-[50vh] items-center justify-center">
