@@ -1,12 +1,13 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PageHeader } from '@/components/ui/page-header'
-import { Plus, FileText, Calendar, CheckCircle2, User } from 'lucide-react'
+import { Calendar, CheckCircle2, User } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentTenantId } from '@/lib/auth/helpers'
 import { TodosClient } from './todos-client'
+import { TodoPageActions } from '@/components/features/todos/todo-page-actions'
+import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/page-error-boundary'
 import type { StudentTodoWithStudent } from '@/types/todo.types'
 
 /**
@@ -41,31 +42,18 @@ export default async function TodosPage() {
   const todosWithStudent = (todos || []) as unknown as StudentTodoWithStudent[]
 
   return (
-    <div className="space-y-6">
+    <PageErrorBoundary pageName="TODO 관리">
+      <div className="space-y-6">
       {/* Header */}
       <section
         aria-label="페이지 헤더"
         className="animate-in fade-in-50 slide-in-from-top-2 duration-500"
+        style={{ animationDelay: '50ms' }}
       >
         <PageHeader
           title="TODO 관리"
           description="학생별 과제 및 TODO를 관리합니다"
-          action={
-            <div className="flex gap-2">
-              <Link href="/todos/templates">
-                <Button variant="outline">
-                  <FileText className="h-4 w-4 mr-2" />
-                  템플릿 관리
-                </Button>
-              </Link>
-              <Link href="/todos/new">
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  TODO 생성
-                </Button>
-              </Link>
-            </div>
-          }
+          action={<TodoPageActions />}
         />
       </section>
 
@@ -135,18 +123,21 @@ export default async function TodosPage() {
       </section>
 
       {/* Client Component - Stats, Filtering, and Interactions */}
-      <Suspense
-        fallback={
-          <div className="space-y-6">
-            <div className="animate-pulse">
-              <div className="h-24 bg-muted rounded-lg mb-4" />
-              <div className="h-96 bg-muted rounded-lg" />
+      <SectionErrorBoundary sectionName="TODO 목록">
+        <Suspense
+          fallback={
+            <div className="space-y-6">
+              <div className="animate-pulse">
+                <div className="h-24 bg-muted rounded-lg mb-4" />
+                <div className="h-96 bg-muted rounded-lg" />
+              </div>
             </div>
-          </div>
-        }
-      >
-        <TodosClient initialTodos={todosWithStudent} />
-      </Suspense>
+          }
+        >
+          <TodosClient initialTodos={todosWithStudent} />
+        </Suspense>
+      </SectionErrorBoundary>
     </div>
+    </PageErrorBoundary>
   )
 }
