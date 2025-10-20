@@ -227,7 +227,7 @@ export default function WeeklyPlannerPage() {
     setDialogOpen(true)
 
     // Load recommended templates based on student's schedule
-    await loadRecommendedTemplates(studentId, dayOfWeek)
+    await loadRecommendedTemplates(studentId)
   }
 
   function toggleCellSelection(studentId: string, dayOfWeek: number) {
