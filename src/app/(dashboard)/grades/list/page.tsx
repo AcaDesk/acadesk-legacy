@@ -19,6 +19,7 @@ import {
 import { Search, TrendingUp, TrendingDown, Minus, Plus, ChevronRight } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
+import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/page-error-boundary'
 import { GradesLineChart } from '@/components/features/charts/grades-line-chart'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
@@ -293,10 +294,11 @@ export default function GradesListPage() {
   }
 
   return (
-    <PageWrapper>
-      <div className="space-y-6">
-        {/* Breadcrumbs */}
-        <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+    <PageErrorBoundary pageName="성적 조회">
+      <PageWrapper>
+        <div className="space-y-6">
+          {/* Breadcrumbs */}
+          <nav className="flex items-center gap-2 text-sm text-muted-foreground">
           <button
             onClick={() => router.push('/grades')}
             className="hover:text-foreground transition-colors"
@@ -351,49 +353,53 @@ export default function GradesListPage() {
         {/* Statistics Cards */}
         {selectedStudent !== 'all' && (
           <>
-            <div className="grid gap-4 md:grid-cols-3">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardDescription>평균 점수</CardDescription>
-                  <CardTitle className="text-3xl">
-                    {studentStats.average}%
-                  </CardTitle>
-                </CardHeader>
-              </Card>
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardDescription>총 시험 횟수</CardDescription>
-                  <CardTitle className="text-3xl">
-                    {studentStats.total}회
-                  </CardTitle>
-                </CardHeader>
-              </Card>
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardDescription>재시험 횟수</CardDescription>
-                  <CardTitle className="text-3xl">
-                    {studentStats.retests}회
-                  </CardTitle>
-                </CardHeader>
-              </Card>
-            </div>
+            <SectionErrorBoundary sectionName="학생 통계">
+              <div className="grid gap-4 md:grid-cols-3">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardDescription>평균 점수</CardDescription>
+                    <CardTitle className="text-3xl">
+                      {studentStats.average}%
+                    </CardTitle>
+                  </CardHeader>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardDescription>총 시험 횟수</CardDescription>
+                    <CardTitle className="text-3xl">
+                      {studentStats.total}회
+                    </CardTitle>
+                  </CardHeader>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardDescription>재시험 횟수</CardDescription>
+                    <CardTitle className="text-3xl">
+                      {studentStats.retests}회
+                    </CardTitle>
+                  </CardHeader>
+                </Card>
+              </div>
+            </SectionErrorBoundary>
 
             {/* Student Grade Charts */}
             {scores.length > 0 && (
-              <GradesLineChart
-                data={scores
-                  .filter(s => !s.is_retest)
-                  .slice(0, 10)
-                  .reverse()
-                  .map(score => ({
-                    examName: score.exams?.[0]?.name || '시험',
-                    score: score.percentage,
-                    date: score.exams?.[0]?.exam_date,
-                  }))}
-                title="성적 추이"
-                description="최근 시험별 점수 변화"
-                showClassAverage={false}
-              />
+              <SectionErrorBoundary sectionName="성적 추이 차트">
+                <GradesLineChart
+                  data={scores
+                    .filter(s => !s.is_retest)
+                    .slice(0, 10)
+                    .reverse()
+                    .map(score => ({
+                      examName: score.exams?.[0]?.name || '시험',
+                      score: score.percentage,
+                      date: score.exams?.[0]?.exam_date,
+                    }))}
+                  title="성적 추이"
+                  description="최근 시험별 점수 변화"
+                  showClassAverage={false}
+                />
+              </SectionErrorBoundary>
             )}
           </>
         )}
@@ -428,7 +434,7 @@ export default function GradesListPage() {
                   </TableHeader>
                   <TableBody>
                     {scores.map((score, index) => {
-                      const trend = getScoreTrend(score, index)
+                      const trend = getScoreTrend()
                       return (
                         <TableRow key={score.id}>
                           <TableCell>
@@ -553,5 +559,6 @@ export default function GradesListPage() {
         </Card>
       </div>
     </PageWrapper>
+    </PageErrorBoundary>
   )
 }
