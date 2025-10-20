@@ -11,7 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
+import { RoleGuard } from '@/components/auth/role-guard'
 import { PageWrapper } from "@/components/layout/page-wrapper"
+import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/page-error-boundary'
 import { PAGE_LAYOUT, GRID_LAYOUTS, TEXT_STYLES, CARD_STYLES } from '@/lib/constants'
 import { ArrowRight, List, Users } from 'lucide-react'
 import Link from 'next/link'
@@ -35,10 +37,16 @@ interface Exam {
   total_questions: number
 }
 
+interface ExamCategory {
+  code: string
+  label: string
+}
+
 export default function GradesPage() {
   // All Hooks must be called before any early returns
   const [students, setStudents] = useState<Student[]>([])
   const [exams, setExams] = useState<Exam[]>([])
+  const [categories, setCategories] = useState<ExamCategory[]>([])
   const [selectedStudent, setSelectedStudent] = useState<string>('')
   const [selectedExam, setSelectedExam] = useState<string>('')
   const [correctAnswers, setCorrectAnswers] = useState<string>('')
@@ -189,16 +197,17 @@ export default function GradesPage() {
   }
 
   return (
-    <PageWrapper>
-      <div className={PAGE_LAYOUT.SECTION_SPACING}>
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <h1 className={TEXT_STYLES.PAGE_TITLE}>성적 입력</h1>
-          <p className={TEXT_STYLES.PAGE_DESCRIPTION}>시험 성적을 입력하고 관리합니다</p>
-        </motion.div>
+    <PageErrorBoundary pageName="성적 입력">
+      <PageWrapper>
+        <div className={PAGE_LAYOUT.SECTION_SPACING}>
+          {/* Header */}
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <h1 className={TEXT_STYLES.PAGE_TITLE}>성적 입력</h1>
+            <p className={TEXT_STYLES.PAGE_DESCRIPTION}>시험 성적을 입력하고 관리합니다</p>
+          </motion.div>
 
         {/* Quick Actions */}
         <motion.div
@@ -251,20 +260,22 @@ export default function GradesPage() {
           </Link>
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <Card>
-            <CardHeader>
-              <CardTitle>개별 학생 성적 입력</CardTitle>
-              <CardDescription>
-                특정 학생의 성적을 개별적으로 입력하려면 아래 폼을 사용하세요
-              </CardDescription>
-            </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
+        <RoleGuard allowedRoles={['owner', 'instructor']}>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <SectionErrorBoundary sectionName="성적 입력 폼">
+              <Card>
+                <CardHeader>
+                  <CardTitle>개별 학생 성적 입력</CardTitle>
+                  <CardDescription>
+                    특정 학생의 성적을 개별적으로 입력하려면 아래 폼을 사용하세요
+                  </CardDescription>
+                </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSubmit} className="space-y-6">
               {/* Student and Exam Selection */}
               <div className="grid gap-6 md:grid-cols-2">
                 <div className="space-y-2">
@@ -367,7 +378,9 @@ export default function GradesPage() {
             </form>
           </CardContent>
         </Card>
-        </motion.div>
+            </SectionErrorBoundary>
+          </motion.div>
+        </RoleGuard>
 
         {/* Quick Guide */}
         <motion.div
@@ -413,5 +426,6 @@ export default function GradesPage() {
         </motion.div>
       </div>
     </PageWrapper>
+    </PageErrorBoundary>
   )
 }
