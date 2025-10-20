@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { ChevronLeft, ChevronRight, User, Settings, LogOut, Menu, Loader2 } from "lucide-react"
 import { AppNav } from "@/components/layout/app-nav"
+import { Breadcrumbs } from "@/components/layout/breadcrumbs"
 import { HelpMenu } from "@/components/layout/help-menu"
 import { NotificationPopover } from "@/components/layout/notification-popover"
 import { ThemeToggle } from "@/components/layout/theme-toggle"
@@ -303,6 +304,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
         {/* 메인 - 페이지 컨텐츠만 전환 */}
         <main className="flex-1 overflow-y-auto overflow-x-hidden bg-background p-4 md:p-6">
+          <Breadcrumbs />
           {children}
         </main>
       </div>
