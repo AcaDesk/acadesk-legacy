@@ -52,8 +52,7 @@ import {
   BookOpen,
   Sparkles,
   Power,
-  PowerOff,
-  ChevronRight
+  PowerOff
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
@@ -403,18 +402,6 @@ export default function TodoTemplatesPage() {
   return (
     <PageWrapper>
       <div className="space-y-6">
-        {/* Breadcrumbs */}
-        <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-          <button
-            onClick={() => router.push('/todos')}
-            className="hover:text-foreground transition-colors"
-          >
-            TODO 관리
-          </button>
-          <ChevronRight className="h-4 w-4" />
-          <span className="text-foreground font-medium">과제 템플릿</span>
-        </nav>
-
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
