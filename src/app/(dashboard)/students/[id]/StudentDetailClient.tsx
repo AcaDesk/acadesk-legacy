@@ -17,6 +17,7 @@ import { ActivityTab } from '@/components/features/students/detail/ActivityTab'
 import { ConsultationTab } from '@/components/features/students/detail/ConsultationTab'
 import { ManageClassesDialog } from '@/components/features/students/manage-classes-dialog'
 import { StudentDetailProvider } from '@/hooks/use-student-detail'
+import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/page-error-boundary'
 import type { StudentDetailData, Consultation } from '@/types/studentDetail.types'
 
 interface StudentDetailClientProps {
@@ -41,13 +42,14 @@ export function StudentDetailClient({
   }
 
   return (
-    <StudentDetailProvider
-      value={{
-        ...initialData,
-        onRefresh: handleDataRefresh,
-      }}
-    >
-      <PageWrapper>
+    <PageErrorBoundary pageName="학생 상세">
+      <StudentDetailProvider
+        value={{
+          ...initialData,
+          onRefresh: handleDataRefresh,
+        }}
+      >
+        <PageWrapper>
         <motion.div
           className="space-y-6"
           initial={{ opacity: 0 }}
@@ -78,43 +80,61 @@ export function StudentDetailClient({
             </TabsList>
 
             <TabsContent value="overview" className="mt-0">
-              <OverviewTab />
+              <SectionErrorBoundary sectionName="개요 탭">
+                <OverviewTab />
+              </SectionErrorBoundary>
             </TabsContent>
 
             <TabsContent value="info" className="mt-0">
-              <InfoTab />
+              <SectionErrorBoundary sectionName="상세정보 탭">
+                <InfoTab />
+              </SectionErrorBoundary>
             </TabsContent>
 
             <TabsContent value="grades" className="mt-0">
-              <GradesTab />
+              <SectionErrorBoundary sectionName="성적 탭">
+                <GradesTab />
+              </SectionErrorBoundary>
             </TabsContent>
 
             <TabsContent value="schedule" className="mt-0">
-              <ScheduleTab />
+              <SectionErrorBoundary sectionName="시간표 탭">
+                <ScheduleTab />
+              </SectionErrorBoundary>
             </TabsContent>
 
             <TabsContent value="attendance" className="mt-0">
-              <AttendanceTab />
+              <SectionErrorBoundary sectionName="출석 탭">
+                <AttendanceTab />
+              </SectionErrorBoundary>
             </TabsContent>
 
             <TabsContent value="todos" className="mt-0">
-              <TodoTab />
+              <SectionErrorBoundary sectionName="TODO 탭">
+                <TodoTab />
+              </SectionErrorBoundary>
             </TabsContent>
 
             <TabsContent value="learning" className="mt-0">
-              <LearningStatusTab />
+              <SectionErrorBoundary sectionName="학습 탭">
+                <LearningStatusTab />
+              </SectionErrorBoundary>
             </TabsContent>
 
             <TabsContent value="consultations" className="mt-0">
-              <ConsultationTab
-                studentId={student.id}
-                consultations={consultations}
-                onConsultationAdded={handleConsultationAdded}
-              />
+              <SectionErrorBoundary sectionName="상담 탭">
+                <ConsultationTab
+                  studentId={student.id}
+                  consultations={consultations}
+                  onConsultationAdded={handleConsultationAdded}
+                />
+              </SectionErrorBoundary>
             </TabsContent>
 
             <TabsContent value="activity" className="mt-0">
-              <ActivityTab studentId={student.id} />
+              <SectionErrorBoundary sectionName="활동 탭">
+                <ActivityTab studentId={student.id} />
+              </SectionErrorBoundary>
             </TabsContent>
           </Tabs>
 
@@ -135,6 +155,7 @@ export function StudentDetailClient({
         />
         </motion.div>
       </PageWrapper>
-    </StudentDetailProvider>
+      </StudentDetailProvider>
+    </PageErrorBoundary>
   )
 }
