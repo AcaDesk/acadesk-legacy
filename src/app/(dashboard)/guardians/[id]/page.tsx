@@ -9,7 +9,9 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Edit, Phone, Mail, Users as UsersIcon, UserCircle, ChevronRight } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { RoleGuard } from '@/components/auth/role-guard'
 import { PageWrapper } from "@/components/layout/page-wrapper"
+import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/page-error-boundary'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
@@ -136,17 +138,18 @@ export default function GuardianDetailPage() {
   }
 
   return (
-    <PageWrapper>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="space-y-4">
-          <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-            <button onClick={() => router.push('/guardians')} className="hover:text-foreground transition-colors">
-              보호자 관리
-            </button>
-            <ChevronRight className="h-4 w-4" />
-            <span className="text-foreground font-medium">{guardian.users?.[0]?.name || '이름 없음'}</span>
-          </nav>
+    <PageErrorBoundary pageName="보호자 상세">
+      <PageWrapper>
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="space-y-4">
+            <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+              <button onClick={() => router.push('/guardians')} className="hover:text-foreground transition-colors">
+                보호자 관리
+              </button>
+              <ChevronRight className="h-4 w-4" />
+              <span className="text-foreground font-medium">{guardian.users?.[0]?.name || '이름 없음'}</span>
+            </nav>
 
           <div className="flex items-center justify-between">
             <div>
@@ -155,56 +158,60 @@ export default function GuardianDetailPage() {
                 {guardian.relationship ? `${guardian.relationship} · ` : ''}보호자
               </p>
             </div>
-            <Button onClick={() => router.push(`/guardians/${guardian.id}/edit`)}>
-              <Edit className="h-4 w-4 mr-2" />
-              수정
-            </Button>
+            <RoleGuard allowedRoles={['owner', 'instructor']}>
+              <Button onClick={() => router.push(`/guardians/${guardian.id}/edit`)}>
+                <Edit className="h-4 w-4 mr-2" />
+                수정
+              </Button>
+            </RoleGuard>
           </div>
         </div>
 
         {/* Basic Info Cards */}
-        <div className="grid gap-6 md:grid-cols-2">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">연락처 정보</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {guardian.users?.[0]?.phone && (
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{guardian.users[0].phone}</span>
-                  </div>
-                )}
-                {guardian.users?.[0]?.email && (
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{guardian.users[0].email}</span>
-                  </div>
-                )}
-                {!guardian.users?.[0]?.phone && !guardian.users?.[0]?.email && (
-                  <p className="text-sm text-muted-foreground">연락처 정보 없음</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+        <SectionErrorBoundary sectionName="기본 정보">
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium">연락처 정보</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {guardian.users?.[0]?.phone && (
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">{guardian.users[0].phone}</span>
+                    </div>
+                  )}
+                  {guardian.users?.[0]?.email && (
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">{guardian.users[0].email}</span>
+                    </div>
+                  )}
+                  {!guardian.users?.[0]?.phone && !guardian.users?.[0]?.email && (
+                    <p className="text-sm text-muted-foreground">연락처 정보 없음</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">관계 정보</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2">
-                <UserCircle className="h-4 w-4 text-muted-foreground" />
-                {guardian.relationship ? (
-                  <Badge variant="outline">{guardian.relationship}</Badge>
-                ) : (
-                  <span className="text-sm text-muted-foreground">관계 정보 없음</span>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium">관계 정보</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2">
+                  <UserCircle className="h-4 w-4 text-muted-foreground" />
+                  {guardian.relationship ? (
+                    <Badge variant="outline">{guardian.relationship}</Badge>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">관계 정보 없음</span>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </SectionErrorBoundary>
 
         {/* Tabs */}
         <Tabs defaultValue="students" className="space-y-4">
@@ -214,60 +221,63 @@ export default function GuardianDetailPage() {
 
           {/* Students Tab */}
           <TabsContent value="students">
-            <Card>
-              <CardHeader>
-                <CardTitle>연결된 학생 목록</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {guardian.student_guardians && guardian.student_guardians.length > 0 ? (
-                  <div className="space-y-3">
-                    {guardian.student_guardians.map((sg, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center justify-between border-b pb-3 last:border-0"
-                      >
-                        <div className="flex items-center gap-4">
-                          <UsersIcon className="h-4 w-4 text-muted-foreground" />
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <div className="font-medium">
-                                {sg.students?.[0]?.users?.[0]?.name || '이름 없음'}
+            <SectionErrorBoundary sectionName="연결된 학생">
+              <Card>
+                <CardHeader>
+                  <CardTitle>연결된 학생 목록</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {guardian.student_guardians && guardian.student_guardians.length > 0 ? (
+                    <div className="space-y-3">
+                      {guardian.student_guardians.map((sg, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between border-b pb-3 last:border-0"
+                        >
+                          <div className="flex items-center gap-4">
+                            <UsersIcon className="h-4 w-4 text-muted-foreground" />
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <div className="font-medium">
+                                  {sg.students?.[0]?.users?.[0]?.name || '이름 없음'}
+                                </div>
+                                {sg.is_primary && (
+                                  <Badge variant="default" className="text-xs">
+                                    주 보호자
+                                  </Badge>
+                                )}
                               </div>
-                              {sg.is_primary && (
-                                <Badge variant="default" className="text-xs">
-                                  주 보호자
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              {sg.students?.[0]?.student_code || '학번 없음'}
-                              {sg.students?.[0]?.grade && ` · ${sg.students[0].grade}`}
+                              <div className="text-sm text-muted-foreground">
+                                {sg.students?.[0]?.student_code || '학번 없음'}
+                                {sg.students?.[0]?.grade && ` · ${sg.students[0].grade}`}
+                              </div>
                             </div>
                           </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              sg.students?.[0]?.id && router.push(`/students/${sg.students[0].id}`)
+                            }
+                          >
+                            학생 상세
+                          </Button>
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            sg.students?.[0]?.id && router.push(`/students/${sg.students[0].id}`)
-                          }
-                        >
-                          학생 상세
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <UsersIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p className="text-sm text-muted-foreground">연결된 학생이 없습니다.</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <UsersIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p className="text-sm text-muted-foreground">연결된 학생이 없습니다.</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </SectionErrorBoundary>
           </TabsContent>
         </Tabs>
       </div>
     </PageWrapper>
+    </PageErrorBoundary>
   )
 }
