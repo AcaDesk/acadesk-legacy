@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { PageWrapper } from "@/components/layout/page-wrapper"
+import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/page-error-boundary'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
@@ -31,6 +32,10 @@ export default function PaymentsPage() {
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false)
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string>('')
   const [, setRefreshKey] = useState(0)
+  const [selectedMonth] = useState(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  })
 
   const handlePaymentSuccess = () => {
     setRefreshKey(prev => prev + 1)
@@ -66,16 +71,17 @@ export default function PaymentsPage() {
   }
 
   return (
-    <PageWrapper>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">학원비 관리</h1>
-            <p className="text-muted-foreground">
-              월별 청구, 수납 현황 및 미납 관리를 한 곳에서 처리하세요
-            </p>
-          </div>
+    <PageErrorBoundary pageName="학원비 관리">
+      <PageWrapper>
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold">학원비 관리</h1>
+              <p className="text-muted-foreground">
+                월별 청구, 수납 현황 및 미납 관리를 한 곳에서 처리하세요
+              </p>
+            </div>
           {stats.unpaidCount > 0 && (
             <Button onClick={() => setReminderDialogOpen(true)}>
               <Bell className="h-4 w-4 mr-2" />
@@ -85,7 +91,8 @@ export default function PaymentsPage() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <SectionErrorBoundary sectionName="재무 통계">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
@@ -154,6 +161,7 @@ export default function PaymentsPage() {
             </CardContent>
           </Card>
         </div>
+        </SectionErrorBoundary>
 
         {/* Tabs */}
         <Tabs defaultValue="dashboard" className="space-y-4">
@@ -173,42 +181,45 @@ export default function PaymentsPage() {
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>수납 현황 대시보드</CardTitle>
-                <CardDescription>
-                  학생별 청구 내역 및 납부 상태를 확인하고 수납 처리를 진행하세요
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <PaymentList
-                  month={selectedMonth}
-                  onPaymentClick={(invoiceId) => {
-                    setSelectedInvoiceId(invoiceId)
-                    setPaymentDialogOpen(true)
-                  }}
-                />
-              </CardContent>
-            </Card>
+            <SectionErrorBoundary sectionName="수납 현황">
+              <Card>
+                <CardHeader>
+                  <CardTitle>수납 현황 대시보드</CardTitle>
+                  <CardDescription>
+                    학생별 청구 내역 및 납부 상태를 확인하고 수납 처리를 진행하세요
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <PaymentList
+                    month={selectedMonth}
+                    onPaymentClick={(invoiceId) => {
+                      setSelectedInvoiceId(invoiceId)
+                      setPaymentDialogOpen(true)
+                    }}
+                  />
+                </CardContent>
+              </Card>
+            </SectionErrorBoundary>
           </TabsContent>
 
           <TabsContent value="billing" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>월별 청구서 생성</CardTitle>
-                    <CardDescription>
-                      매월 초, 수강 중인 학생들에게 학원비를 일괄 청구하세요
-                    </CardDescription>
+            <SectionErrorBoundary sectionName="월별 청구">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>월별 청구서 생성</CardTitle>
+                      <CardDescription>
+                        매월 초, 수강 중인 학생들에게 학원비를 일괄 청구하세요
+                      </CardDescription>
+                    </div>
+                    <Button onClick={() => setCreateInvoicesDialogOpen(true)}>
+                      <FileText className="h-4 w-4 mr-2" />
+                      청구서 생성
+                    </Button>
                   </div>
-                  <Button onClick={() => setCreateInvoicesDialogOpen(true)}>
-                    <FileText className="h-4 w-4 mr-2" />
-                    청구서 생성
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
+                </CardHeader>
+                <CardContent>
                 <div className="space-y-4">
                   <div className="grid gap-4 md:grid-cols-3">
                     <div className="border rounded-lg p-4">
@@ -252,20 +263,23 @@ export default function PaymentsPage() {
                 </div>
               </CardContent>
             </Card>
+            </SectionErrorBoundary>
           </TabsContent>
 
           <TabsContent value="history" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>수납 내역</CardTitle>
-                <CardDescription>
-                  모든 수납 기록을 조회하고 영수증을 발급하세요
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <PaymentHistoryList month={selectedMonth} />
-              </CardContent>
-            </Card>
+            <SectionErrorBoundary sectionName="수납 내역">
+              <Card>
+                <CardHeader>
+                  <CardTitle>수납 내역</CardTitle>
+                  <CardDescription>
+                    모든 수납 기록을 조회하고 영수증을 발급하세요
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <PaymentHistoryList month={selectedMonth} />
+                </CardContent>
+              </Card>
+            </SectionErrorBoundary>
           </TabsContent>
         </Tabs>
 
@@ -304,5 +318,6 @@ export default function PaymentsPage() {
         />
       </div>
     </PageWrapper>
+    </PageErrorBoundary>
   )
 }
