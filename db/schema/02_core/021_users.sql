@@ -2,7 +2,7 @@
 create table if not exists public.users (
   id                       uuid primary key default uuid_generate_v4(),
   tenant_id                uuid references public.tenants (id),
-  email                    citext not null,
+  email                    citext,
   name                     text not null,
   phone                    text,
   role_code                text references public.ref_roles (code),
@@ -32,6 +32,11 @@ drop index if exists idx_users_email;
 create unique index if not exists uq_users_email_active
   on public.users (email)
   where deleted_at is null;
+
+drop index if exists uq_users_email_active;
+create unique index if not exists uq_users_email_active
+  on public.users (email)
+  where deleted_at is null and email is not null; 
 
 create index if not exists idx_users_tenant_role on public.users (tenant_id, role_code) where deleted_at is null;
 create index if not exists idx_users_approval    on public.users (approval_status)       where deleted_at is null;
