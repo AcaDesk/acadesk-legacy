@@ -57,12 +57,34 @@ export default function PendingPage() {
 
   // 자동 상태 확인
   useEffect(() => {
+    // 주기적 폴링
     const interval = setInterval(() => {
       handleRefresh(true) // silent mode
     }, AUTO_REFRESH_INTERVAL)
 
-    return () => clearInterval(interval)
-  }, [])
+    // 탭 활성화/포커스 시 재조회 (승인은 보통 외부에서 일어남)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && !isRefreshing) {
+        handleRefresh(true)
+      }
+    }
+
+    // 윈도우 포커스 시에도 재조회
+    const handleFocus = () => {
+      if (!isRefreshing) {
+        handleRefresh(true)
+      }
+    }
+
+    window.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [isRefreshing])
 
   // 로그아웃
   const handleLogout = async () => {
