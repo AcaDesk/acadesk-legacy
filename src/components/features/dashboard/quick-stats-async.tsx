@@ -3,8 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Users, TrendingUp, TrendingDown, Sparkles } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import { ErrorBoundary } from 'react-error-boundary'
-import { ErrorFallback } from '@/components/ui/error-fallback'
+import { WidgetErrorBoundary } from '@/components/features/dashboard/widget-error-boundary'
 import { WidgetSkeleton } from '@/components/ui/widget-skeleton'
 
 /**
@@ -161,20 +160,10 @@ async function QuickStatsContent() {
  */
 export function QuickStatsAsync() {
   return (
-    <ErrorBoundary
-      fallbackRender={({ error, resetErrorBoundary }) => (
-        <ErrorFallback
-          error={error}
-          resetErrorBoundary={resetErrorBoundary}
-          variant="default"
-          title="통계 로딩 실패"
-          description="학생 통계를 불러오는 중 문제가 발생했습니다."
-        />
-      )}
-    >
+    <WidgetErrorBoundary widgetId="quick-stats" widgetTitle="빠른 통계">
       <Suspense fallback={<WidgetSkeleton variant="stats" />}>
         <QuickStatsContent />
       </Suspense>
-    </ErrorBoundary>
+    </WidgetErrorBoundary>
   )
 }

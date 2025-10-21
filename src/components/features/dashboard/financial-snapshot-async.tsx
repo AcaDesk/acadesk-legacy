@@ -4,8 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { DollarSign, TrendingUp, TrendingDown, AlertCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import { ErrorBoundary } from 'react-error-boundary'
-import { ErrorFallback } from '@/components/ui/error-fallback'
+import { WidgetErrorBoundary } from '@/components/features/dashboard/widget-error-boundary'
 import { WidgetSkeleton } from '@/components/ui/widget-skeleton'
 
 /**
@@ -176,20 +175,10 @@ async function FinancialSnapshotContent() {
  */
 export function FinancialSnapshotAsync() {
   return (
-    <ErrorBoundary
-      fallbackRender={({ error, resetErrorBoundary }) => (
-        <ErrorFallback
-          error={error}
-          resetErrorBoundary={resetErrorBoundary}
-          variant="default"
-          title="재무 현황 로딩 실패"
-          description="재무 데이터를 불러오는 중 문제가 발생했습니다."
-        />
-      )}
-    >
+    <WidgetErrorBoundary widgetId="financial-snapshot" widgetTitle="재무 현황">
       <Suspense fallback={<WidgetSkeleton variant="default" />}>
         <FinancialSnapshotContent />
       </Suspense>
-    </ErrorBoundary>
+    </WidgetErrorBoundary>
   )
 }

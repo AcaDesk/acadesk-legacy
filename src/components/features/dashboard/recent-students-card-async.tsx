@@ -11,8 +11,7 @@ import {
   CalendarDays,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import { ErrorBoundary } from 'react-error-boundary'
-import { ErrorFallback } from '@/components/ui/error-fallback'
+import { WidgetErrorBoundary } from '@/components/features/dashboard/widget-error-boundary'
 import { WidgetSkeleton } from '@/components/ui/widget-skeleton'
 
 /**
@@ -213,20 +212,10 @@ async function RecentStudentsCardContent({ maxDisplay = 5 }: { maxDisplay?: numb
  */
 export function RecentStudentsCardAsync({ maxDisplay = 5 }: { maxDisplay?: number }) {
   return (
-    <ErrorBoundary
-      fallbackRender={({ error, resetErrorBoundary }) => (
-        <ErrorFallback
-          error={error}
-          resetErrorBoundary={resetErrorBoundary}
-          variant="default"
-          title="학생 목록 로딩 실패"
-          description="최근 등록 학생 목록을 불러오는 중 문제가 발생했습니다."
-        />
-      )}
-    >
+    <WidgetErrorBoundary widgetId="recent-students" widgetTitle="최근 등록 학생">
       <Suspense fallback={<WidgetSkeleton variant="list" />}>
         <RecentStudentsCardContent maxDisplay={maxDisplay} />
       </Suspense>
-    </ErrorBoundary>
+    </WidgetErrorBoundary>
   )
 }
