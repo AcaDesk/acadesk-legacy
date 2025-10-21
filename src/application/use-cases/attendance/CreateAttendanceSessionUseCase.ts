@@ -3,11 +3,13 @@
  * 출석 세션 생성 유스케이스 - Application Layer
  */
 
-import { AttendanceRepository, type CreateSessionInput } from '@/infrastructure/database/attendance.repository'
+import type { AttendanceRepository, CreateSessionInput } from '@/infrastructure/database/attendance.repository'
 import { ValidationError } from '@/lib/error-types'
 import { createSessionSchema } from '@/types/attendance'
 
 export class CreateAttendanceSessionUseCase {
+  constructor(private attendanceRepository: AttendanceRepository) {}
+
   async execute(tenantId: string, input: CreateSessionInput) {
     if (!tenantId) {
       throw new ValidationError('Tenant ID는 필수입니다')
@@ -26,6 +28,6 @@ export class CreateAttendanceSessionUseCase {
     }
 
     // Create session
-    return await AttendanceRepository.createSession(tenantId, validated)
+    return await this.attendanceRepository.createSession(tenantId, validated)
   }
 }

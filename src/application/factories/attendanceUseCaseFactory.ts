@@ -1,8 +1,11 @@
 /**
- * Attendance Use Case Factory
+ * Attendance Use Case Factory (Server-side)
  * 출석 관련 Use Case들의 의존성 주입을 담당
  */
 
+import type { DataSourceConfig } from '@/lib/data-source-provider'
+import { createServerDataSource } from '@/lib/data-source-provider'
+import { AttendanceRepository } from '@/infrastructure/database/attendance.repository'
 import { GetAttendanceSessionsUseCase } from '@/application/use-cases/attendance/GetAttendanceSessionsUseCase'
 import { GetAttendanceSessionUseCase } from '@/application/use-cases/attendance/GetAttendanceSessionUseCase'
 import { CreateAttendanceSessionUseCase } from '@/application/use-cases/attendance/CreateAttendanceSessionUseCase'
@@ -13,57 +16,74 @@ import { BulkUpsertAttendanceUseCase } from '@/application/use-cases/attendance/
 import { GetStudentAttendanceStatsUseCase } from '@/application/use-cases/attendance/GetStudentAttendanceStatsUseCase'
 
 /**
+ * 출석 리포지토리 생성 (서버 사이드)
+ * @param config - DataSource 설정 (테스트 시 Mock 주입 가능)
+ */
+async function createAttendanceRepository(config?: DataSourceConfig) {
+  const dataSource = await createServerDataSource(config)
+  return new AttendanceRepository(dataSource)
+}
+
+/**
  * Get Attendance Sessions Use Case
  */
-export function createGetAttendanceSessionsUseCase() {
-  return new GetAttendanceSessionsUseCase()
+export async function createGetAttendanceSessionsUseCase(config?: DataSourceConfig) {
+  const repository = await createAttendanceRepository(config)
+  return new GetAttendanceSessionsUseCase(repository)
 }
 
 /**
  * Get Attendance Session Use Case
  */
-export function createGetAttendanceSessionUseCase() {
-  return new GetAttendanceSessionUseCase()
+export async function createGetAttendanceSessionUseCase(config?: DataSourceConfig) {
+  const repository = await createAttendanceRepository(config)
+  return new GetAttendanceSessionUseCase(repository)
 }
 
 /**
  * Create Attendance Session Use Case
  */
-export function createCreateAttendanceSessionUseCase() {
-  return new CreateAttendanceSessionUseCase()
+export async function createCreateAttendanceSessionUseCase(config?: DataSourceConfig) {
+  const repository = await createAttendanceRepository(config)
+  return new CreateAttendanceSessionUseCase(repository)
 }
 
 /**
  * Update Attendance Session Status Use Case
  */
-export function createUpdateAttendanceSessionStatusUseCase() {
-  return new UpdateAttendanceSessionStatusUseCase()
+export async function createUpdateAttendanceSessionStatusUseCase(config?: DataSourceConfig) {
+  const repository = await createAttendanceRepository(config)
+  return new UpdateAttendanceSessionStatusUseCase(repository)
 }
 
 /**
  * Delete Attendance Session Use Case
  */
-export function createDeleteAttendanceSessionUseCase() {
-  return new DeleteAttendanceSessionUseCase()
+export async function createDeleteAttendanceSessionUseCase(config?: DataSourceConfig) {
+  const repository = await createAttendanceRepository(config)
+  return new DeleteAttendanceSessionUseCase(repository)
 }
 
 /**
  * Upsert Attendance Use Case
  */
-export function createUpsertAttendanceUseCase() {
-  return new UpsertAttendanceUseCase()
+export async function createUpsertAttendanceUseCase(config?: DataSourceConfig) {
+  const repository = await createAttendanceRepository(config)
+  return new UpsertAttendanceUseCase(repository)
 }
 
 /**
  * Bulk Upsert Attendance Use Case
  */
-export function createBulkUpsertAttendanceUseCase() {
-  return new BulkUpsertAttendanceUseCase()
+export async function createBulkUpsertAttendanceUseCase(config?: DataSourceConfig) {
+  const repository = await createAttendanceRepository(config)
+  return new BulkUpsertAttendanceUseCase(repository)
 }
 
 /**
  * Get Student Attendance Stats Use Case
  */
-export function createGetStudentAttendanceStatsUseCase() {
-  return new GetStudentAttendanceStatsUseCase()
+export async function createGetStudentAttendanceStatsUseCase(config?: DataSourceConfig) {
+  const repository = await createAttendanceRepository(config)
+  return new GetStudentAttendanceStatsUseCase(repository)
 }
