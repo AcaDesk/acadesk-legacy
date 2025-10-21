@@ -41,10 +41,18 @@ test-results/
 # -------------------------
 # Environment / Secrets
 # -------------------------
+# Ignore all environment files
 .env
-.env.*           # ignore all env variants (.env.local, .env.production, etc.)
-!.env.example    # allow example env file to be committed
+.env.*
+
+# Allow template files to be committed (no actual secrets)
+!.env.example
+!.env.staging      # Template for staging deployment
+!.env.production   # Template for production deployment
+
+# Explicitly ignore local env files with actual values
 .env.local
+.env.*.local
 
 # -------------------------
 # Logs / Debug
