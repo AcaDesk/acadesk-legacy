@@ -31,8 +31,11 @@ export default async function AttendanceSessionPage({
     redirect('/auth/login');
   }
 
+  // Create repository instance
+  const attendanceRepo = new AttendanceRepository(supabase);
+
   // Get session details
-  const session = await AttendanceRepository.getSessionById(id);
+  const session = await attendanceRepo.getSessionById(id);
 
   if (!session) {
     redirect('/attendance');
@@ -87,7 +90,7 @@ export default async function AttendanceSessionPage({
   }
 
   // Get existing attendance records for this session
-  const existingRecords = await AttendanceRepository.getAttendanceBySession(id);
+  const existingRecords = await attendanceRepo.getAttendanceBySession(id);
 
   return (
     <div className="container mx-auto py-8 px-4">

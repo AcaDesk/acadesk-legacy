@@ -21,7 +21,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const useCase = createGetAttendanceSessionUseCase();
+    const useCase = await createGetAttendanceSessionUseCase();
     const session = await useCase.execute(id);
 
     return NextResponse.json(session);
@@ -52,7 +52,7 @@ export async function PATCH(
     const body = await request.json();
     const { status, actual_start_at, actual_end_at } = body;
 
-    const useCase = createUpdateAttendanceSessionStatusUseCase();
+    const useCase = await createUpdateAttendanceSessionStatusUseCase();
     const session = await useCase.execute(id, status, actual_start_at, actual_end_at);
 
     return NextResponse.json(session);
@@ -80,7 +80,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const useCase = createDeleteAttendanceSessionUseCase();
+    const useCase = await createDeleteAttendanceSessionUseCase();
     await useCase.execute(id);
 
     return NextResponse.json({ success: true });

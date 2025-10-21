@@ -86,7 +86,7 @@ export default async function AttendancePage() {
     const today = new Date().toISOString().split('T')[0];
 
     // Get recent sessions
-    const useCase = createGetAttendanceSessionsUseCase();
+    const useCase = await createGetAttendanceSessionsUseCase();
     const sessions = await useCase.execute(userData.tenant_id, {
       startDate: today,
     });
