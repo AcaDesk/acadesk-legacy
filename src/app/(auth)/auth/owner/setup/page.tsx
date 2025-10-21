@@ -4,7 +4,7 @@
  * 원장 학원 설정 마법사
  * - 학원명, 주소, 연락처 입력
  * - finish_owner_academy_setup() RPC 호출
- * - 성공 시 /app/dashboard로 이동
+ * - 성공 시 /dashboard로 이동
  */
 
 'use client'
