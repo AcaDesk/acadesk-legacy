@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get('end_date') || undefined;
     const status = searchParams.get('status') || undefined;
 
-    const useCase = createGetAttendanceSessionsUseCase();
+    const useCase = await createGetAttendanceSessionsUseCase();
     const sessions = await useCase.execute(userData.tenant_id, {
       classId,
       startDate,
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    const useCase = createCreateAttendanceSessionUseCase();
+    const useCase = await createCreateAttendanceSessionUseCase();
     const session = await useCase.execute(userData.tenant_id, body);
 
     return NextResponse.json(session, { status: 201 });

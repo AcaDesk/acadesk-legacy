@@ -28,14 +28,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const attendanceRepo = new AttendanceRepository(supabase);
     let records;
 
     if (sessionId) {
-      records = await AttendanceRepository.getAttendanceBySession(sessionId);
+      records = await attendanceRepo.getAttendanceBySession(sessionId);
     } else if (studentId) {
       const startDate = searchParams.get('start_date') || undefined;
       const endDate = searchParams.get('end_date') || undefined;
-      records = await AttendanceRepository.getAttendanceByStudent(studentId, {
+      records = await attendanceRepo.getAttendanceByStudent(studentId, {
         startDate,
         endDate,
       });
@@ -87,7 +88,7 @@ export async function POST(request: NextRequest) {
     // Check if it's bulk update or single update
     if (body.attendances && Array.isArray(body.attendances)) {
       // Bulk update
-      const useCase = createBulkUpsertAttendanceUseCase();
+      const useCase = await createBulkUpsertAttendanceUseCase();
       const records = await useCase.execute(userData.tenant_id, body);
       return NextResponse.json(records, { status: 201 });
     } else {
@@ -101,7 +102,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const useCase = createUpsertAttendanceUseCase();
+      const useCase = await createUpsertAttendanceUseCase();
       const record = await useCase.execute(
         userData.tenant_id,
         session_id,
