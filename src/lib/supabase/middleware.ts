@@ -72,8 +72,7 @@ export async function updateSession(request: NextRequest) {
     // 이메일 인증 확인
     if (
       !user.email_confirmed_at &&
-      pathname !== "/auth/verify-email" &&
-      !pathname.startsWith("/auth/logout")
+      pathname !== "/auth/verify-email"
     ) {
       const url = request.nextUrl.clone()
       url.pathname = "/auth/verify-email"

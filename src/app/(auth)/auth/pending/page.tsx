@@ -18,6 +18,7 @@ import { routeAfterLogin } from '@/lib/auth/route-after-login'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
+import { useLogout } from '@/hooks/use-logout'
 import { inviteTokenStore } from '@/lib/auth/invite-token-store'
 
 const AUTO_REFRESH_INTERVAL = 10000 // 10초마다 자동 확인
@@ -28,8 +29,24 @@ export default function PendingPage() {
   const supabase = createClient()
 
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [lastChecked, setLastChecked] = useState<Date>(new Date())
+
+  // 로그아웃 훅 사용
+  const { logout, isLoading: isLoggingOut } = useLogout({
+    onSuccess: () => {
+      toast({
+        title: '로그아웃 완료',
+        description: '안전하게 로그아웃되었습니다.',
+      })
+    },
+    onError: (error) => {
+      toast({
+        title: '로그아웃 실패',
+        description: '잠시 후 다시 시도해주세요.',
+        variant: 'destructive',
+      })
+    },
+  })
 
   // 상태 재확인
   const handleRefresh = async (silent = false) => {
@@ -86,30 +103,6 @@ export default function PendingPage() {
     }
   }, [isRefreshing])
 
-  // 로그아웃
-  const handleLogout = async () => {
-    try {
-      setIsLoggingOut(true)
-
-      await supabase.auth.signOut()
-
-      toast({
-        title: '로그아웃 완료',
-        description: '안전하게 로그아웃되었습니다.',
-      })
-
-      router.push('/auth/login')
-    } catch (err) {
-      console.error('[Pending] Logout error:', err)
-      toast({
-        title: '로그아웃 실패',
-        description: '잠시 후 다시 시도해주세요.',
-        variant: 'destructive',
-      })
-    } finally {
-      setIsLoggingOut(false)
-    }
-  }
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4 bg-background">
@@ -159,7 +152,7 @@ export default function PendingPage() {
               </Button>
 
               <Button
-                onClick={handleLogout}
+                onClick={logout}
                 variant="outline"
                 size="lg"
                 className="w-full"
