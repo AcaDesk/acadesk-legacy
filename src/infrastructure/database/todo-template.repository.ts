@@ -4,16 +4,28 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { IDataSource } from '@/domain/data-sources/IDataSource'
 import type { ITodoTemplateRepository } from '@/domain/repositories/ITodoTemplateRepository'
 import { TodoTemplate } from '@/domain/entities/TodoTemplate'
 import { Priority } from '@/domain/value-objects/Priority'
 import { DatabaseError } from '@/lib/error-types'
+import { SupabaseDataSource } from '../data-sources/SupabaseDataSource'
 
 export class TodoTemplateRepository implements ITodoTemplateRepository {
-  constructor(private supabase: SupabaseClient) {}
+  private dataSource: IDataSource
+
+  constructor(client: IDataSource | SupabaseClient) {
+    this.dataSource = this.isDataSource(client)
+      ? client
+      : new SupabaseDataSource(client)
+  }
+
+  private isDataSource(client: any): client is IDataSource {
+    return typeof client.from === 'function' && typeof client.rpc === 'function'
+  }
 
   async findById(id: string): Promise<TodoTemplate | null> {
-    const { data, error } = await this.supabase
+    const { data, error } = await this.dataSource
       .from('todo_templates')
       .select('*')
       .eq('id', id)
@@ -29,7 +41,7 @@ export class TodoTemplateRepository implements ITodoTemplateRepository {
   }
 
   async findAllActive(tenantId: string): Promise<TodoTemplate[]> {
-    const { data, error } = await this.supabase
+    const { data, error } = await this.dataSource
       .from('todo_templates')
       .select('*')
       .eq('tenant_id', tenantId)
@@ -41,11 +53,11 @@ export class TodoTemplateRepository implements ITodoTemplateRepository {
       throw new DatabaseError('템플릿 목록을 조회할 수 없습니다', error)
     }
 
-    return (data || []).map(this.mapToDomain)
+    return (data as any[] || []).map((row: any) => this.mapToDomain(row))
   }
 
   async findAll(tenantId: string): Promise<TodoTemplate[]> {
-    const { data, error } = await this.supabase
+    const { data, error } = await this.dataSource
       .from('todo_templates')
       .select('*')
       .eq('tenant_id', tenantId)
@@ -56,11 +68,11 @@ export class TodoTemplateRepository implements ITodoTemplateRepository {
       throw new DatabaseError('템플릿 목록을 조회할 수 없습니다', error)
     }
 
-    return (data || []).map(this.mapToDomain)
+    return (data as any[] || []).map((row: any) => this.mapToDomain(row))
   }
 
   async findBySubject(tenantId: string, subject: string): Promise<TodoTemplate[]> {
-    const { data, error } = await this.supabase
+    const { data, error } = await this.dataSource
       .from('todo_templates')
       .select('*')
       .eq('tenant_id', tenantId)
@@ -72,13 +84,13 @@ export class TodoTemplateRepository implements ITodoTemplateRepository {
       throw new DatabaseError('과목별 템플릿을 조회할 수 없습니다', error)
     }
 
-    return (data || []).map(this.mapToDomain)
+    return (data as any[] || []).map((row: any) => this.mapToDomain(row))
   }
 
   async save(template: TodoTemplate): Promise<TodoTemplate> {
     const data = template.toPersistence()
 
-    const { data: saved, error } = await this.supabase
+    const { data: saved, error } = await this.dataSource
       .from('todo_templates')
       .upsert(data)
       .select()
@@ -93,7 +105,7 @@ export class TodoTemplateRepository implements ITodoTemplateRepository {
 
   async delete(id: string): Promise<void> {
     // 소프트 삭제: active = false로 업데이트
-    const { error } = await this.supabase
+    const { error } = await this.dataSource
       .from('todo_templates')
       .update({ active: false, updated_at: new Date().toISOString() })
       .eq('id', id)

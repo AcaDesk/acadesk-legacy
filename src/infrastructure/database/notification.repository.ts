@@ -5,8 +5,10 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { IDataSource } from '@/domain/data-sources/IDataSource'
 import { DatabaseError } from '@/lib/error-types'
 import { logError } from '@/lib/error-handlers'
+import { SupabaseDataSource } from '../data-sources/SupabaseDataSource'
 
 // ==================== Types ====================
 
@@ -45,14 +47,24 @@ export interface NotificationFilters {
 // ==================== Repository ====================
 
 export class NotificationRepository {
-  constructor(private supabase: SupabaseClient) {}
+  private dataSource: IDataSource
+
+  constructor(client: IDataSource | SupabaseClient) {
+    this.dataSource = this.isDataSource(client)
+      ? client
+      : new SupabaseDataSource(client)
+  }
+
+  private isDataSource(client: any): client is IDataSource {
+    return typeof client.from === 'function' && typeof client.rpc === 'function'
+  }
 
   /**
    * 사용자의 알림 목록 조회
    */
   async findAll(filters: NotificationFilters, limit: number = 50): Promise<InAppNotification[]> {
     try {
-      let query = this.supabase
+      let query = this.dataSource
         .from('in_app_notifications')
         .select('*')
         .order('created_at', { ascending: false })
@@ -94,7 +106,7 @@ export class NotificationRepository {
    */
   async countUnread(userId: string): Promise<number> {
     try {
-      const { count, error } = await this.supabase
+      const { count, error } = await this.dataSource
         .from('in_app_notifications')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', userId)
@@ -122,7 +134,7 @@ export class NotificationRepository {
    */
   async create(tenantId: string, input: CreateNotificationInput): Promise<InAppNotification> {
     try {
-      const { data, error } = await this.supabase
+      const { data, error } = await this.dataSource
         .from('in_app_notifications')
         .insert({
           tenant_id: tenantId,
@@ -159,7 +171,7 @@ export class NotificationRepository {
    */
   async markAsRead(notificationId: string): Promise<InAppNotification> {
     try {
-      const { data, error } = await this.supabase
+      const { data, error } = await this.dataSource
         .from('in_app_notifications')
         .update({
           is_read: true,
@@ -191,7 +203,7 @@ export class NotificationRepository {
    */
   async markMultipleAsRead(notificationIds: string[]): Promise<void> {
     try {
-      const { error } = await this.supabase
+      const { error } = await this.dataSource
         .from('in_app_notifications')
         .update({
           is_read: true,
@@ -219,7 +231,7 @@ export class NotificationRepository {
    */
   async markAllAsRead(userId: string): Promise<void> {
     try {
-      const { error } = await this.supabase
+      const { error } = await this.dataSource
         .from('in_app_notifications')
         .update({
           is_read: true,
@@ -248,7 +260,7 @@ export class NotificationRepository {
    */
   async delete(notificationId: string): Promise<void> {
     try {
-      const { error } = await this.supabase
+      const { error } = await this.dataSource
         .from('in_app_notifications')
         .delete()
         .eq('id', notificationId)
@@ -276,7 +288,7 @@ export class NotificationRepository {
       const cutoffDate = new Date()
       cutoffDate.setDate(cutoffDate.getDate() - daysOld)
 
-      const { data, error } = await this.supabase
+      const { data, error } = await this.dataSource
         .from('in_app_notifications')
         .delete()
         .eq('user_id', userId)
@@ -294,7 +306,7 @@ export class NotificationRepository {
         throw new DatabaseError('오래된 알림을 삭제할 수 없습니다', error)
       }
 
-      return data?.length || 0
+      return (data as any[] || []).length
     } catch (error) {
       if (error instanceof DatabaseError) throw error
       logError(error, { repository: 'NotificationRepository', method: 'deleteOldReadNotifications' })

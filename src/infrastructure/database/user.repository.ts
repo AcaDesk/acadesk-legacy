@@ -4,9 +4,11 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { IDataSource } from '@/domain/data-sources/IDataSource'
 import type { IUserRepository } from '@/domain/repositories/IUserRepository'
 import { User, type CreateUserProps, type UserRole, type ApprovalStatus } from '@/domain/entities/User'
 import { Email } from '@/domain/value-objects/Email'
+import { SupabaseDataSource } from '../data-sources/SupabaseDataSource'
 
 interface UserRow {
   id: string
@@ -30,13 +32,23 @@ interface UserRow {
 }
 
 export class UserRepository implements IUserRepository {
-  constructor(private readonly supabase: SupabaseClient) {}
+  private dataSource: IDataSource
+
+  constructor(client: IDataSource | SupabaseClient) {
+    this.dataSource = this.isDataSource(client)
+      ? client
+      : new SupabaseDataSource(client)
+  }
+
+  private isDataSource(client: any): client is IDataSource {
+    return typeof client.from === 'function' && typeof client.rpc === 'function'
+  }
 
   /**
    * Find user by ID
    */
   async findById(id: string): Promise<User | null> {
-    const { data, error } = await this.supabase
+    const { data, error } = await this.dataSource
       .from('users')
       .select('*')
       .eq('id', id)
@@ -54,7 +66,7 @@ export class UserRepository implements IUserRepository {
    * Find user by email
    */
   async findByEmail(email: Email): Promise<User | null> {
-    const { data, error } = await this.supabase
+    const { data, error } = await this.dataSource
       .from('users')
       .select('*')
       .eq('email', email.getValue())
@@ -72,7 +84,7 @@ export class UserRepository implements IUserRepository {
    * Find users by tenant ID
    */
   async findByTenantId(tenantId: string): Promise<User[]> {
-    const { data, error } = await this.supabase
+    const { data, error } = await this.dataSource
       .from('users')
       .select('*')
       .eq('tenant_id', tenantId)
@@ -84,14 +96,14 @@ export class UserRepository implements IUserRepository {
       return []
     }
 
-    return data.map((row) => this.mapToEntity(row as UserRow))
+    return (data as any[] || []).map((row: any) => this.mapToEntity(row as UserRow))
   }
 
   /**
    * Find pending users by tenant ID (for owner approval)
    */
   async findPendingByTenantId(tenantId: string): Promise<User[]> {
-    const { data, error } = await this.supabase
+    const { data, error } = await this.dataSource
       .from('users')
       .select('*')
       .eq('tenant_id', tenantId)
@@ -103,7 +115,7 @@ export class UserRepository implements IUserRepository {
       return []
     }
 
-    return data.map((row) => this.mapToEntity(row as UserRow))
+    return (data as any[] || []).map((row: any) => this.mapToEntity(row as UserRow))
   }
 
   /**
@@ -112,7 +124,7 @@ export class UserRepository implements IUserRepository {
   async save(user: User): Promise<User> {
     const row = this.mapToRow(user)
 
-    const { data, error } = await this.supabase
+    const { data, error } = await this.dataSource
       .from('users')
       .upsert(row)
       .select()
@@ -131,7 +143,7 @@ export class UserRepository implements IUserRepository {
   async update(user: User): Promise<User> {
     const row = this.mapToRow(user)
 
-    const { data, error } = await this.supabase
+    const { data, error } = await this.dataSource
       .from('users')
       .update(row)
       .eq('id', user.getId())
@@ -149,7 +161,7 @@ export class UserRepository implements IUserRepository {
    * Delete user (soft delete)
    */
   async delete(id: string): Promise<void> {
-    const { error } = await this.supabase
+    const { error } = await this.dataSource
       .from('users')
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', id)
@@ -163,7 +175,7 @@ export class UserRepository implements IUserRepository {
    * Check if email exists
    */
   async existsByEmail(email: Email): Promise<boolean> {
-    const { data, error } = await this.supabase
+    const { data, error } = await this.dataSource
       .from('users')
       .select('id')
       .eq('email', email.getValue())

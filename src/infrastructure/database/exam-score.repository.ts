@@ -1,21 +1,33 @@
 /**
- * Supabase ExamScore Repository Implementation
- * 시험 성적 리포지토리의 Supabase 구현 - 인프라 레이어
+ * ExamScore Repository Implementation
+ * 시험 성적 리포지토리 구현 - 인프라 레이어
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { IDataSource } from '@/domain/data-sources/IDataSource'
 import type { IExamScoreRepository, ExamScoreFilters, ExamScoreStats } from '@/domain/repositories/IExamScoreRepository'
 import { ExamScore } from '@/domain/entities/ExamScore'
 import { Score } from '@/domain/value-objects/Score'
 import { DatabaseError, NotFoundError } from '@/lib/error-types'
 import { logError } from '@/lib/error-handlers'
+import { SupabaseDataSource } from '../data-sources/SupabaseDataSource'
 
 export class ExamScoreRepository implements IExamScoreRepository {
-  constructor(private supabase: SupabaseClient) {}
+  private dataSource: IDataSource
+
+  constructor(client: IDataSource | SupabaseClient) {
+    this.dataSource = this.isDataSource(client)
+      ? client
+      : new SupabaseDataSource(client)
+  }
+
+  private isDataSource(client: any): client is IDataSource {
+    return typeof client.from === 'function' && typeof client.rpc === 'function'
+  }
 
   async findById(id: string): Promise<ExamScore | null> {
     try {
-      const { data, error } = await this.supabase
+      const { data, error } = await this.dataSource
         .from('exam_scores')
         .select('*')
         .eq('id', id)
@@ -44,7 +56,7 @@ export class ExamScoreRepository implements IExamScoreRepository {
 
   async findByExamId(examId: string, filters?: ExamScoreFilters): Promise<ExamScore[]> {
     try {
-      let query = this.supabase
+      let query = this.dataSource
         .from('exam_scores')
         .select('*')
         .eq('exam_id', examId)
@@ -69,7 +81,7 @@ export class ExamScoreRepository implements IExamScoreRepository {
         throw new DatabaseError('시험 성적을 조회할 수 없습니다', error)
       }
 
-      return (data || []).map(row => this.mapToDomain(row))
+      return (data as any[] || []).map((row: any) => this.mapToDomain(row))
     } catch (error) {
       if (error instanceof DatabaseError) throw error
       logError(error, { repository: 'ExamScoreRepository', method: 'findByExamId' })
@@ -79,7 +91,7 @@ export class ExamScoreRepository implements IExamScoreRepository {
 
   async findByStudentId(studentId: string): Promise<ExamScore[]> {
     try {
-      const { data, error } = await this.supabase
+      const { data, error } = await this.dataSource
         .from('exam_scores')
         .select('*')
         .eq('student_id', studentId)
@@ -91,7 +103,7 @@ export class ExamScoreRepository implements IExamScoreRepository {
         throw new DatabaseError('학생 성적을 조회할 수 없습니다', error)
       }
 
-      return (data || []).map(row => this.mapToDomain(row))
+      return (data as any[] || []).map((row: any) => this.mapToDomain(row))
     } catch (error) {
       if (error instanceof DatabaseError) throw error
       logError(error, { repository: 'ExamScoreRepository', method: 'findByStudentId' })
@@ -101,7 +113,7 @@ export class ExamScoreRepository implements IExamScoreRepository {
 
   async findAll(tenantId: string, filters?: ExamScoreFilters, limit: number = 100): Promise<ExamScore[]> {
     try {
-      let query = this.supabase
+      let query = this.dataSource
         .from('exam_scores')
         .select('*')
         .eq('tenant_id', tenantId)
@@ -124,7 +136,7 @@ export class ExamScoreRepository implements IExamScoreRepository {
         throw new DatabaseError('성적 목록을 조회할 수 없습니다', error)
       }
 
-      return (data || []).map(row => this.mapToDomain(row))
+      return (data as any[] || []).map((row: any) => this.mapToDomain(row))
     } catch (error) {
       if (error instanceof DatabaseError) throw error
       logError(error, { repository: 'ExamScoreRepository', method: 'findAll' })
@@ -134,7 +146,7 @@ export class ExamScoreRepository implements IExamScoreRepository {
 
   async findByExamAndStudent(examId: string, studentId: string): Promise<ExamScore | null> {
     try {
-      const { data, error } = await this.supabase
+      const { data, error } = await this.dataSource
         .from('exam_scores')
         .select('*')
         .eq('exam_id', examId)
@@ -159,7 +171,7 @@ export class ExamScoreRepository implements IExamScoreRepository {
     try {
       const data = examScore.toPersistence()
 
-      const { data: savedData, error } = await this.supabase
+      const { data: savedData, error } = await this.dataSource
         .from('exam_scores')
         .upsert(data)
         .select()
@@ -182,7 +194,7 @@ export class ExamScoreRepository implements IExamScoreRepository {
     try {
       const data = examScores.map(score => score.toPersistence())
 
-      const { data: savedData, error } = await this.supabase
+      const { data: savedData, error } = await this.dataSource
         .from('exam_scores')
         .upsert(data)
         .select()
@@ -192,7 +204,7 @@ export class ExamScoreRepository implements IExamScoreRepository {
         throw new DatabaseError('성적을 일괄 저장할 수 없습니다', error)
       }
 
-      return (savedData || []).map(row => this.mapToDomain(row))
+      return (savedData as any[] || []).map((row: any) => this.mapToDomain(row))
     } catch (error) {
       if (error instanceof DatabaseError) throw error
       logError(error, { repository: 'ExamScoreRepository', method: 'saveBulk' })
@@ -202,7 +214,7 @@ export class ExamScoreRepository implements IExamScoreRepository {
 
   async delete(id: string): Promise<void> {
     try {
-      const { error } = await this.supabase
+      const { error } = await this.dataSource
         .from('exam_scores')
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', id)
@@ -240,7 +252,7 @@ export class ExamScoreRepository implements IExamScoreRepository {
 
   async findLowPerformers(examId: string, threshold: number): Promise<ExamScore[]> {
     try {
-      const { data, error } = await this.supabase
+      const { data, error } = await this.dataSource
         .from('exam_scores')
         .select('*')
         .eq('exam_id', examId)
@@ -253,7 +265,7 @@ export class ExamScoreRepository implements IExamScoreRepository {
         throw new DatabaseError('저성취자를 조회할 수 없습니다', error)
       }
 
-      return (data || []).map(row => this.mapToDomain(row))
+      return (data as any[] || []).map((row: any) => this.mapToDomain(row))
     } catch (error) {
       if (error instanceof DatabaseError) throw error
       logError(error, { repository: 'ExamScoreRepository', method: 'findLowPerformers' })

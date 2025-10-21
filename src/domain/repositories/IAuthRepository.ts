@@ -43,7 +43,7 @@ export interface IAuthRepository {
    * Sign in with OAuth provider
    */
   signInWithOAuth(provider: OAuthProvider): Promise<{
-    data: { url: string } | null
+    data: { url: string | null } | null
     error: AuthError | null
   }>
 

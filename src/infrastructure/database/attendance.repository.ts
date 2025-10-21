@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server';
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { IDataSource } from '@/domain/data-sources/IDataSource'
 import type {
   AttendanceSession,
   Attendance,
@@ -7,6 +8,7 @@ import type {
   AttendanceSessionWithClass,
   AttendanceWithStudent,
 } from '@/types/attendance';
+import { SupabaseDataSource } from '../data-sources/SupabaseDataSource'
 
 // Re-export types for use-cases
 export type {
@@ -16,12 +18,23 @@ export type {
 } from '@/types/attendance';
 
 export class AttendanceRepository {
+  private dataSource: IDataSource
+
+  constructor(client: IDataSource | SupabaseClient) {
+    this.dataSource = this.isDataSource(client)
+      ? client
+      : new SupabaseDataSource(client)
+  }
+
+  private isDataSource(client: any): client is IDataSource {
+    return typeof client.from === 'function' && typeof client.rpc === 'function'
+  }
   // ==================== Attendance Sessions ====================
 
   /**
    * Get all attendance sessions for a tenant
    */
-  static async getSessionsByTenant(
+  async getSessionsByTenant(
     tenantId: string,
     options?: {
       classId?: string;
@@ -30,9 +43,9 @@ export class AttendanceRepository {
       status?: string;
     }
   ): Promise<AttendanceSessionWithClass[]> {
-    const supabase = await createClient();
+    // Using this.dataSource
 
-    let query = supabase
+    let query = this.dataSource
       .from('attendance_sessions')
       .select(
         `
@@ -66,18 +79,18 @@ export class AttendanceRepository {
     const { data, error } = await query;
 
     if (error) throw error;
-    return data || [];
+    return (data as any[] || []) as AttendanceSessionWithClass[];
   }
 
   /**
    * Get attendance session by ID
    */
-  static async getSessionById(
+  async getSessionById(
     sessionId: string
   ): Promise<AttendanceSessionWithClass | null> {
-    const supabase = await createClient();
+    // Using this.dataSource
 
-    const { data, error } = await supabase
+    const { data, error } = await this.dataSource
       .from('attendance_sessions')
       .select(
         `
@@ -101,13 +114,13 @@ export class AttendanceRepository {
   /**
    * Create a new attendance session
    */
-  static async createSession(
+  async createSession(
     tenantId: string,
     input: CreateSessionInput
   ): Promise<AttendanceSession> {
-    const supabase = await createClient();
+    // Using this.dataSource
 
-    const { data, error } = await supabase
+    const { data, error } = await this.dataSource
       .from('attendance_sessions')
       .insert({
         tenant_id: tenantId,
@@ -132,20 +145,20 @@ export class AttendanceRepository {
   /**
    * Update attendance session status
    */
-  static async updateSessionStatus(
+  async updateSessionStatus(
     sessionId: string,
     status: string,
     actualStartAt?: string,
     actualEndAt?: string
   ): Promise<AttendanceSession> {
-    const supabase = await createClient();
+    // Using this.dataSource
 
     const updateData: Record<string, unknown> = { status };
 
     if (actualStartAt) updateData.actual_start_at = actualStartAt;
     if (actualEndAt) updateData.actual_end_at = actualEndAt;
 
-    const { data, error } = await supabase
+    const { data, error } = await this.dataSource
       .from('attendance_sessions')
       .update(updateData)
       .eq('id', sessionId)
@@ -163,10 +176,10 @@ export class AttendanceRepository {
   /**
    * Delete attendance session
    */
-  static async deleteSession(sessionId: string): Promise<void> {
-    const supabase = await createClient();
+  async deleteSession(sessionId: string): Promise<void> {
+    // Using this.dataSource
 
-    const { error } = await supabase
+    const { error } = await this.dataSource
       .from('attendance_sessions')
       .delete()
       .eq('id', sessionId);
@@ -179,12 +192,12 @@ export class AttendanceRepository {
   /**
    * Get attendance records for a session
    */
-  static async getAttendanceBySession(
+  async getAttendanceBySession(
     sessionId: string
   ): Promise<AttendanceWithStudent[]> {
-    const supabase = await createClient();
+    // Using this.dataSource
 
-    const { data, error } = await supabase
+    const { data, error } = await this.dataSource
       .from('attendance')
       .select(
         `
@@ -200,22 +213,22 @@ export class AttendanceRepository {
       .order('created_at', { ascending: true });
 
     if (error) throw error;
-    return data || [];
+    return (data as any[] || []) as AttendanceWithStudent[];
   }
 
   /**
    * Get attendance records for a student
    */
-  static async getAttendanceByStudent(
+  async getAttendanceByStudent(
     studentId: string,
     options?: {
       startDate?: string;
       endDate?: string;
     }
   ): Promise<Attendance[]> {
-    const supabase = await createClient();
+    // Using this.dataSource
 
-    let query = supabase
+    let query = this.dataSource
       .from('attendance')
       .select('*')
       .eq('student_id', studentId)
@@ -223,7 +236,7 @@ export class AttendanceRepository {
 
     if (options?.startDate || options?.endDate) {
       // Join with sessions to filter by date
-      query = supabase
+      query = this.dataSource
         .from('attendance')
         .select(
           `
@@ -247,21 +260,21 @@ export class AttendanceRepository {
     const { data, error } = await query;
 
     if (error) throw error;
-    return data || [];
+    return (data as any[] || []) as Attendance[];
   }
 
   /**
    * Create or update attendance record
    */
-  static async upsertAttendance(
+  async upsertAttendance(
     tenantId: string,
     sessionId: string,
     studentId: string,
     input: UpdateAttendanceInput
   ): Promise<Attendance> {
-    const supabase = await createClient();
+    // Using this.dataSource
 
-    const { data, error } = await supabase
+    const { data, error } = await this.dataSource
       .from('attendance')
       .upsert(
         {
@@ -291,7 +304,7 @@ export class AttendanceRepository {
   /**
    * Bulk create/update attendance records
    */
-  static async bulkUpsertAttendance(
+  async bulkUpsertAttendance(
     tenantId: string,
     sessionId: string,
     attendances: Array<{
@@ -301,7 +314,7 @@ export class AttendanceRepository {
       notes?: string;
     }>
   ): Promise<Attendance[]> {
-    const supabase = await createClient();
+    // Using this.dataSource
 
     const records = attendances.map((att) => ({
       tenant_id: tenantId,
@@ -312,7 +325,7 @@ export class AttendanceRepository {
       notes: att.notes,
     }));
 
-    const { data, error } = await supabase
+    const { data, error } = await this.dataSource
       .from('attendance')
       .upsert(records, {
         onConflict: 'session_id,student_id',
@@ -320,16 +333,16 @@ export class AttendanceRepository {
       .select();
 
     if (error) throw error;
-    return data || [];
+    return (data as any[] || []) as Attendance[];
   }
 
   /**
    * Delete attendance record
    */
-  static async deleteAttendance(attendanceId: string): Promise<void> {
-    const supabase = await createClient();
+  async deleteAttendance(attendanceId: string): Promise<void> {
+    // Using this.dataSource
 
-    const { error } = await supabase
+    const { error } = await this.dataSource
       .from('attendance')
       .delete()
       .eq('id', attendanceId);
@@ -342,7 +355,7 @@ export class AttendanceRepository {
   /**
    * Get attendance statistics for a student
    */
-  static async getStudentAttendanceStats(
+  async getStudentAttendanceStats(
     studentId: string,
     startDate?: string,
     endDate?: string
@@ -354,12 +367,12 @@ export class AttendanceRepository {
     excused: number;
     attendance_rate: number;
   }> {
-    const supabase = await createClient();
+    // Using this.dataSource
 
     let data, error;
 
     if (startDate || endDate) {
-      let dateQuery = supabase
+      let dateQuery = this.dataSource
         .from('attendance')
         .select(
           `
@@ -383,7 +396,7 @@ export class AttendanceRepository {
       data = result.data;
       error = result.error;
     } else {
-      const result = await supabase
+      const result = await this.dataSource
         .from('attendance')
         .select('status')
         .eq('student_id', studentId);
@@ -393,12 +406,14 @@ export class AttendanceRepository {
 
     if (error) throw error;
 
+    const attendanceData = (data || []) as Array<{ status: string }>;
+
     const stats = {
-      total: data?.length || 0,
-      present: data?.filter((a) => a.status === 'present').length || 0,
-      late: data?.filter((a) => a.status === 'late').length || 0,
-      absent: data?.filter((a) => a.status === 'absent').length || 0,
-      excused: data?.filter((a) => a.status === 'excused').length || 0,
+      total: attendanceData.length,
+      present: attendanceData.filter((a) => a.status === 'present').length,
+      late: attendanceData.filter((a) => a.status === 'late').length,
+      absent: attendanceData.filter((a) => a.status === 'absent').length,
+      excused: attendanceData.filter((a) => a.status === 'excused').length,
       attendance_rate: 0,
     };
 

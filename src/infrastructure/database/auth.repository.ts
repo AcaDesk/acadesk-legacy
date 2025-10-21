@@ -4,6 +4,7 @@
  */
 
 import type { SupabaseClient, User as SupabaseUser, AuthError } from '@supabase/supabase-js'
+import type { IDataSource } from '@/domain/data-sources/IDataSource'
 import type {
   IAuthRepository,
   SignUpData,
@@ -13,9 +14,20 @@ import type {
 } from '@/domain/repositories/IAuthRepository'
 import type { Email } from '@/domain/value-objects/Email'
 import type { Password } from '@/domain/value-objects/Password'
+import { SupabaseDataSource } from '../data-sources/SupabaseDataSource'
 
 export class AuthRepository implements IAuthRepository {
-  constructor(private readonly supabase: SupabaseClient) {}
+  private dataSource: IDataSource
+
+  constructor(client: IDataSource | SupabaseClient) {
+    this.dataSource = this.isDataSource(client)
+      ? client
+      : new SupabaseDataSource(client)
+  }
+
+  private isDataSource(client: any): client is IDataSource {
+    return typeof client.from === 'function' && typeof client.rpc === 'function'
+  }
 
   /**
    * Sign up with email and password
@@ -23,7 +35,11 @@ export class AuthRepository implements IAuthRepository {
   async signUp(data: SignUpData): Promise<AuthResult> {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : '')
 
-    const { data: authData, error } = await this.supabase.auth.signUp({
+    if (!this.dataSource.auth) {
+      throw new Error('Auth not available')
+    }
+
+    const { data: authData, error } = await this.dataSource.auth.signUp({
       email: data.email.getValue(),
       password: data.password.getValue(),
       options: {
@@ -34,17 +50,17 @@ export class AuthRepository implements IAuthRepository {
     if (error) {
       return {
         user: null,
-        error: this.enhanceError(error),
+        error: this.enhanceError(error as AuthError),
       }
     }
 
     // 이메일 확인이 완료된 경우 프로필 생성
-    if (authData.user && authData.user.email_confirmed_at) {
+    if (authData?.user && authData.user.email_confirmed_at) {
       await this.createUserProfile()
     }
 
     return {
-      user: authData.user,
+      user: authData?.user || null,
       error: null,
     }
   }
@@ -53,7 +69,11 @@ export class AuthRepository implements IAuthRepository {
    * Sign in with email and password
    */
   async signIn(data: SignInData): Promise<AuthResult> {
-    const { data: authData, error } = await this.supabase.auth.signInWithPassword({
+    if (!this.dataSource.auth) {
+      throw new Error('Auth not available')
+    }
+
+    const { data: authData, error } = await this.dataSource.auth.signInWithPassword({
       email: data.email.getValue(),
       password: data.password.getValue(),
     })
@@ -61,12 +81,12 @@ export class AuthRepository implements IAuthRepository {
     if (error) {
       return {
         user: null,
-        error: this.enhanceError(error),
+        error: this.enhanceError(error as AuthError),
       }
     }
 
     return {
-      user: authData.user,
+      user: authData?.user || null,
       error: null,
     }
   }
@@ -75,12 +95,16 @@ export class AuthRepository implements IAuthRepository {
    * Sign in with OAuth provider
    */
   async signInWithOAuth(provider: OAuthProvider): Promise<{
-    data: { url: string } | null
+    data: { url: string | null } | null
     error: AuthError | null
   }> {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : '')
 
-    const { data, error } = await this.supabase.auth.signInWithOAuth({
+    if (!this.dataSource.auth) {
+      throw new Error('Auth not available')
+    }
+
+    const { data, error } = await this.dataSource.auth.signInWithOAuth({
       provider,
       options: {
         redirectTo: `${appUrl}/auth/callback`,
@@ -90,12 +114,12 @@ export class AuthRepository implements IAuthRepository {
     if (error) {
       return {
         data: null,
-        error: this.enhanceError(error),
+        error: this.enhanceError(error as AuthError),
       }
     }
 
     return {
-      data: data as { url: string },
+      data: data as { url: string | null },
       error: null,
     }
   }
@@ -104,10 +128,14 @@ export class AuthRepository implements IAuthRepository {
    * Sign out
    */
   async signOut(): Promise<{ error: AuthError | null }> {
-    const { error } = await this.supabase.auth.signOut()
+    if (!this.dataSource.auth) {
+      throw new Error('Auth not available')
+    }
+
+    const { error } = await this.dataSource.auth.signOut()
 
     if (error) {
-      return { error: this.enhanceError(error) }
+      return { error: this.enhanceError(error as AuthError) }
     }
 
     return { error: null }
@@ -117,10 +145,12 @@ export class AuthRepository implements IAuthRepository {
    * Get current authenticated user
    */
   async getCurrentUser(): Promise<SupabaseUser | null> {
-    const {
-      data: { user },
-    } = await this.supabase.auth.getUser()
-    return user
+    if (!this.dataSource.auth) {
+      throw new Error('Auth not available')
+    }
+
+    const { data } = await this.dataSource.auth.getUser()
+    return data?.user || null
   }
 
   /**
@@ -129,12 +159,16 @@ export class AuthRepository implements IAuthRepository {
   async sendPasswordResetEmail(email: Email): Promise<{ error: AuthError | null }> {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : '')
 
-    const { error } = await this.supabase.auth.resetPasswordForEmail(email.getValue(), {
+    if (!this.dataSource.auth) {
+      throw new Error('Auth not available')
+    }
+
+    const { error } = await this.dataSource.auth.resetPasswordForEmail(email.getValue(), {
       redirectTo: `${appUrl}/auth/reset-password`,
     })
 
     if (error) {
-      return { error: this.enhanceError(error) }
+      return { error: this.enhanceError(error as AuthError) }
     }
 
     return { error: null }
@@ -144,12 +178,16 @@ export class AuthRepository implements IAuthRepository {
    * Update password
    */
   async updatePassword(newPassword: Password): Promise<{ error: AuthError | null }> {
-    const { error } = await this.supabase.auth.updateUser({
+    if (!this.dataSource.auth) {
+      throw new Error('Auth not available')
+    }
+
+    const { error } = await this.dataSource.auth.updateUser({
       password: newPassword.getValue(),
     })
 
     if (error) {
-      return { error: this.enhanceError(error) }
+      return { error: this.enhanceError(error as AuthError) }
     }
 
     return { error: null }
@@ -159,7 +197,7 @@ export class AuthRepository implements IAuthRepository {
    * Create user profile after sign up
    */
   async createUserProfile(): Promise<{ success: boolean; error?: string }> {
-    const { data, error } = await this.supabase.rpc('create_user_profile')
+    const { data, error } = await this.dataSource.rpc('create_user_profile')
 
     if (error) {
       console.error('Failed to create user profile:', error)
