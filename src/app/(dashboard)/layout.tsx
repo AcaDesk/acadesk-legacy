@@ -12,6 +12,7 @@ import { NotificationPopover } from "@/components/layout/notification-popover"
 import { ThemeToggle } from "@/components/layout/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { useCurrentUser } from "@/hooks/use-current-user"
+import { useLogout } from "@/hooks/use-logout"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -90,9 +91,13 @@ const DesktopSidebar = memo(function DesktopSidebar({
 const Header = memo(function Header({
   onMenuClick,
   showMenuButton = false,
+  onLogout,
+  isLoggingOut = false,
 }: {
   onMenuClick?: () => void
   showMenuButton?: boolean
+  onLogout?: () => void
+  isLoggingOut?: boolean
 }) {
   return (
     <header className="flex h-16 items-center justify-between border-b bg-card px-4 md:px-6">
@@ -148,14 +153,23 @@ const Header = memo(function Header({
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <form action="/auth/logout" method="POST" className="w-full">
-              <DropdownMenuItem asChild>
-                <button type="submit" className="w-full cursor-pointer">
+            <DropdownMenuItem
+              onClick={onLogout}
+              disabled={isLoggingOut}
+              className="cursor-pointer"
+            >
+              {isLoggingOut ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <span>로그아웃 중...</span>
+                </>
+              ) : (
+                <>
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>로그아웃</span>
-                </button>
-              </DropdownMenuItem>
-            </form>
+                </>
+              )}
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -170,6 +184,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   // 현재 사용자 정보 조회 (안전하게 - 에러 던지지 않음)
   const { user, loading } = useCurrentUser()
+
+  // 로그아웃 처리
+  const { logout, isLoading: isLoggingOut } = useLogout()
 
   // 태블릿 이상 여부 감지 (768px 이상에서 사이드바 표시)
   const isDesktop = useMediaQuery("(min-width: 768px)")
@@ -241,11 +258,21 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               문제가 지속되면 관리자에게 문의하세요.
             </p>
           </div>
-          <form action="/auth/logout" method="POST">
-            <Button type="submit" variant="outline" className="w-full">
-              로그아웃
-            </Button>
-          </form>
+          <Button
+            onClick={logout}
+            disabled={isLoggingOut}
+            variant="outline"
+            className="w-full"
+          >
+            {isLoggingOut ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                로그아웃 중...
+              </>
+            ) : (
+              '로그아웃'
+            )}
+          </Button>
         </div>
       </div>
     )
@@ -300,6 +327,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <Header
           onMenuClick={toggleMobileMenu}
           showMenuButton={!isDesktop}
+          onLogout={logout}
+          isLoggingOut={isLoggingOut}
         />
 
         {/* 메인 - 페이지 컨텐츠만 전환 */}
