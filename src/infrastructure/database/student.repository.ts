@@ -4,18 +4,35 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { IDataSource } from '@/domain/data-sources/IDataSource'
 import type { IStudentRepository, FindStudentOptions, StudentFilters } from '@/domain/repositories/IStudentRepository'
 import { Student } from '@/domain/entities/Student'
 import { StudentCode } from '@/domain/value-objects/StudentCode'
 import { DatabaseError, NotFoundError } from '@/lib/error-types'
 import { logError } from '@/lib/error-handlers'
+import { SupabaseDataSource } from '../data-sources/SupabaseDataSource'
 
 export class StudentRepository implements IStudentRepository {
-  constructor(private supabase: SupabaseClient) {}
+  private dataSource: IDataSource
+
+  /**
+   * Constructor
+   * @param client - IDataSource 또는 SupabaseClient (하위 호환성)
+   */
+  constructor(client: IDataSource | SupabaseClient) {
+    // IDataSource 타입 체크 (duck typing)
+    this.dataSource = this.isDataSource(client)
+      ? client
+      : new SupabaseDataSource(client)
+  }
+
+  private isDataSource(client: any): client is IDataSource {
+    return typeof client.from === 'function' && typeof client.rpc === 'function'
+  }
 
   async findById(id: string, options?: FindStudentOptions): Promise<Student | null> {
     try {
-      let query = this.supabase
+      let query = this.dataSource
         .from('students')
         .select('*')
         .eq('id', id)
@@ -53,7 +70,7 @@ export class StudentRepository implements IStudentRepository {
 
   async findByStudentCode(code: StudentCode, tenantId: string): Promise<Student | null> {
     try {
-      const { data, error } = await this.supabase
+      const { data, error } = await this.dataSource
         .from('students')
         .select('*')
         .eq('tenant_id', tenantId)
@@ -76,7 +93,7 @@ export class StudentRepository implements IStudentRepository {
 
   async findAll(tenantId: string, filters?: StudentFilters, options?: FindStudentOptions): Promise<Student[]> {
     try {
-      let query = this.supabase
+      let query = this.dataSource
         .from('students')
         .select('*')
         .eq('tenant_id', tenantId)
@@ -108,7 +125,7 @@ export class StudentRepository implements IStudentRepository {
         throw new DatabaseError('학생 목록을 조회할 수 없습니다', error)
       }
 
-      return (data || []).map(row => this.mapToDomain(row))
+      return (data as any[] || []).map((row: any) => this.mapToDomain(row))
     } catch (error) {
       if (error instanceof DatabaseError) throw error
       logError(error, { repository: 'SupabaseStudentRepository', method: 'findAll' })
@@ -118,7 +135,7 @@ export class StudentRepository implements IStudentRepository {
 
   async search(query: string, tenantId: string, limit: number = 20): Promise<Student[]> {
     try {
-      const { data, error } = await this.supabase
+      const { data, error } = await this.dataSource
         .from('students')
         .select('*')
         .eq('tenant_id', tenantId)
@@ -131,7 +148,7 @@ export class StudentRepository implements IStudentRepository {
         throw new DatabaseError('학생을 검색할 수 없습니다', error)
       }
 
-      return (data || []).map(row => this.mapToDomain(row))
+      return (data as any[] || []).map((row: any) => this.mapToDomain(row))
     } catch (error) {
       if (error instanceof DatabaseError) throw error
       logError(error, { repository: 'StudentRepository', method: 'search' })
@@ -143,7 +160,7 @@ export class StudentRepository implements IStudentRepository {
     try {
       const data = student.toPersistence()
 
-      const { data: savedData, error } = await this.supabase
+      const { data: savedData, error } = await this.dataSource
         .from('students')
         .upsert(data)
         .select()
@@ -164,7 +181,7 @@ export class StudentRepository implements IStudentRepository {
 
   async delete(id: string): Promise<void> {
     try {
-      const { error } = await this.supabase
+      const { error } = await this.dataSource
         .from('students')
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', id)
@@ -182,7 +199,7 @@ export class StudentRepository implements IStudentRepository {
 
   async countByGrade(tenantId: string): Promise<Record<string, number>> {
     try {
-      const { data, error } = await this.supabase
+      const { data, error } = await this.dataSource
         .from('students')
         .select('grade')
         .eq('tenant_id', tenantId)
@@ -194,7 +211,8 @@ export class StudentRepository implements IStudentRepository {
       }
 
       const counts: Record<string, number> = {}
-      data.forEach((student) => {
+      const students = (data as any[] || [])
+      students.forEach((student: any) => {
         const grade = student.grade || 'unknown'
         counts[grade] = (counts[grade] || 0) + 1
       })
@@ -209,7 +227,7 @@ export class StudentRepository implements IStudentRepository {
 
   async countBySchool(tenantId: string): Promise<Record<string, number>> {
     try {
-      const { data, error } = await this.supabase
+      const { data, error } = await this.dataSource
         .from('students')
         .select('school')
         .eq('tenant_id', tenantId)
@@ -221,7 +239,7 @@ export class StudentRepository implements IStudentRepository {
       }
 
       const counts: Record<string, number> = {}
-      data.forEach((student) => {
+      const schools = (data as any[] || []); schools.forEach((student: any) => {
         const school = student.school || 'unknown'
         counts[school] = (counts[school] || 0) + 1
       })
@@ -236,7 +254,7 @@ export class StudentRepository implements IStudentRepository {
 
   async findUniqueGrades(tenantId: string): Promise<string[]> {
     try {
-      const { data, error } = await this.supabase
+      const { data, error } = await this.dataSource
         .from('students')
         .select('grade')
         .eq('tenant_id', tenantId)
@@ -248,7 +266,8 @@ export class StudentRepository implements IStudentRepository {
         throw new DatabaseError('학년 목록을 조회할 수 없습니다', error)
       }
 
-      const uniqueGrades = Array.from(new Set(data.map(s => s.grade).filter(Boolean))) as string[]
+      const students = (data as any[] || [])
+      const uniqueGrades = Array.from(new Set(students.map((s: any) => s.grade).filter(Boolean))) as string[]
       return uniqueGrades.sort()
     } catch (error) {
       if (error instanceof DatabaseError) throw error
@@ -259,7 +278,7 @@ export class StudentRepository implements IStudentRepository {
 
   async findUniqueSchools(tenantId: string): Promise<string[]> {
     try {
-      const { data, error } = await this.supabase
+      const { data, error } = await this.dataSource
         .from('students')
         .select('school')
         .eq('tenant_id', tenantId)
@@ -271,7 +290,8 @@ export class StudentRepository implements IStudentRepository {
         throw new DatabaseError('학교 목록을 조회할 수 없습니다', error)
       }
 
-      const uniqueSchools = Array.from(new Set(data.map(s => s.school).filter(Boolean))) as string[]
+      const students = (data as any[] || [])
+      const uniqueSchools = Array.from(new Set(students.map((s: any) => s.school).filter(Boolean))) as string[]
       return uniqueSchools.sort()
     } catch (error) {
       if (error instanceof DatabaseError) throw error

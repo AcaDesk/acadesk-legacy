@@ -1,21 +1,33 @@
 /**
- * Supabase Todo Repository Implementation
- * TODO 리포지토리의 Supabase 구현 - 인프라 레이어
+ * Todo Repository Implementation
+ * TODO 리포지토리 구현 - 인프라 레이어
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { IDataSource } from '@/domain/data-sources/IDataSource'
 import type { ITodoRepository, TodoFilters, TodoStats } from '@/domain/repositories/ITodoRepository'
 import { Todo } from '@/domain/entities/Todo'
 import { Priority } from '@/domain/value-objects/Priority'
 import { DatabaseError, NotFoundError } from '@/lib/error-types'
 import { logError } from '@/lib/error-handlers'
+import { SupabaseDataSource } from '../data-sources/SupabaseDataSource'
 
 export class TodoRepository implements ITodoRepository {
-  constructor(private supabase: SupabaseClient) {}
+  private dataSource: IDataSource
+
+  constructor(client: IDataSource | SupabaseClient) {
+    this.dataSource = this.isDataSource(client)
+      ? client
+      : new SupabaseDataSource(client)
+  }
+
+  private isDataSource(client: any): client is IDataSource {
+    return typeof client.from === 'function' && typeof client.rpc === 'function'
+  }
 
   async findById(id: string): Promise<Todo | null> {
     try {
-      const { data, error } = await this.supabase
+      const { data, error } = await this.dataSource
         .from('student_todos')
         .select('*')
         .eq('id', id)
@@ -44,7 +56,7 @@ export class TodoRepository implements ITodoRepository {
 
   async findByStudentId(studentId: string, includeCompleted: boolean = true): Promise<Todo[]> {
     try {
-      let query = this.supabase
+      let query = this.dataSource
         .from('student_todos')
         .select('*')
         .eq('student_id', studentId)
@@ -61,7 +73,7 @@ export class TodoRepository implements ITodoRepository {
         throw new DatabaseError('학생 TODO를 조회할 수 없습니다', error)
       }
 
-      return (data || []).map(row => this.mapToDomain(row))
+      return (data as any[] || []).map((row: any) => this.mapToDomain(row))
     } catch (error) {
       if (error instanceof DatabaseError) throw error
       logError(error, { repository: 'TodoRepository', method: 'findByStudentId' })
@@ -71,7 +83,7 @@ export class TodoRepository implements ITodoRepository {
 
   async findAll(tenantId: string, filters?: TodoFilters, limit: number = 100): Promise<Todo[]> {
     try {
-      let query = this.supabase
+      let query = this.dataSource
         .from('student_todos')
         .select('*')
         .eq('tenant_id', tenantId)
@@ -113,7 +125,7 @@ export class TodoRepository implements ITodoRepository {
         throw new DatabaseError('TODO 목록을 조회할 수 없습니다', error)
       }
 
-      return (data || []).map(row => this.mapToDomain(row))
+      return (data as any[] || []).map((row: any) => this.mapToDomain(row))
     } catch (error) {
       if (error instanceof DatabaseError) throw error
       logError(error, { repository: 'TodoRepository', method: 'findAll' })
@@ -127,7 +139,7 @@ export class TodoRepository implements ITodoRepository {
       const futureDate = new Date()
       futureDate.setDate(today.getDate() + days)
 
-      const { data, error } = await this.supabase
+      const { data, error } = await this.dataSource
         .from('student_todos')
         .select('*')
         .eq('student_id', studentId)
@@ -141,7 +153,7 @@ export class TodoRepository implements ITodoRepository {
         throw new DatabaseError('임박한 TODO를 조회할 수 없습니다', error)
       }
 
-      return (data || []).map(row => this.mapToDomain(row))
+      return (data as any[] || []).map((row: any) => this.mapToDomain(row))
     } catch (error) {
       if (error instanceof DatabaseError) throw error
       logError(error, { repository: 'TodoRepository', method: 'findUpcoming' })
@@ -153,7 +165,7 @@ export class TodoRepository implements ITodoRepository {
     try {
       const today = new Date().toISOString().split('T')[0]
 
-      const { data, error } = await this.supabase
+      const { data, error } = await this.dataSource
         .from('student_todos')
         .select('*')
         .eq('student_id', studentId)
@@ -166,7 +178,7 @@ export class TodoRepository implements ITodoRepository {
         throw new DatabaseError('연체 TODO를 조회할 수 없습니다', error)
       }
 
-      return (data || []).map(row => this.mapToDomain(row))
+      return (data as any[] || []).map((row: any) => this.mapToDomain(row))
     } catch (error) {
       if (error instanceof DatabaseError) throw error
       logError(error, { repository: 'TodoRepository', method: 'findOverdue' })
@@ -178,7 +190,7 @@ export class TodoRepository implements ITodoRepository {
     try {
       const data = todo.toPersistence()
 
-      const { data: savedData, error } = await this.supabase
+      const { data: savedData, error } = await this.dataSource
         .from('student_todos')
         .upsert(data)
         .select()
@@ -201,7 +213,7 @@ export class TodoRepository implements ITodoRepository {
     try {
       const data = todos.map(todo => todo.toPersistence())
 
-      const { data: savedData, error } = await this.supabase
+      const { data: savedData, error } = await this.dataSource
         .from('student_todos')
         .upsert(data)
         .select()
@@ -211,7 +223,7 @@ export class TodoRepository implements ITodoRepository {
         throw new DatabaseError('TODO를 일괄 저장할 수 없습니다', error)
       }
 
-      return (savedData || []).map(row => this.mapToDomain(row))
+      return (savedData as any[] || []).map((row: any) => this.mapToDomain(row))
     } catch (error) {
       if (error instanceof DatabaseError) throw error
       logError(error, { repository: 'TodoRepository', method: 'saveBulk' })
@@ -221,7 +233,7 @@ export class TodoRepository implements ITodoRepository {
 
   async delete(id: string): Promise<void> {
     try {
-      const { error } = await this.supabase
+      const { error } = await this.dataSource
         .from('student_todos')
         .delete()
         .eq('id', id)
@@ -239,7 +251,7 @@ export class TodoRepository implements ITodoRepository {
 
   async getStats(filters?: { studentId?: string; tenantId?: string }): Promise<TodoStats> {
     try {
-      let query = this.supabase
+      let query = this.dataSource
         .from('student_todos')
         .select('completed_at, verified_at, due_date')
 
@@ -258,15 +270,15 @@ export class TodoRepository implements ITodoRepository {
         throw new DatabaseError('TODO 통계를 조회할 수 없습니다', error)
       }
 
-      const todos = data || []
+      const todos = (data as any[] || [])
       const today = new Date().toISOString().split('T')[0]
 
       return {
         total: todos.length,
-        pending: todos.filter(t => !t.completed_at).length,
-        completed: todos.filter(t => t.completed_at && !t.verified_at).length,
-        verified: todos.filter(t => t.verified_at).length,
-        overdue: todos.filter(t => !t.completed_at && t.due_date < today).length,
+        pending: todos.filter((t: any) => !t.completed_at).length,
+        completed: todos.filter((t: any) => t.completed_at && !t.verified_at).length,
+        verified: todos.filter((t: any) => t.verified_at).length,
+        overdue: todos.filter((t: any) => !t.completed_at && t.due_date < today).length,
       }
     } catch (error) {
       if (error instanceof DatabaseError) throw error
@@ -277,7 +289,7 @@ export class TodoRepository implements ITodoRepository {
 
   async getCompletionRate(studentId: string, dateFrom?: Date, dateTo?: Date): Promise<number> {
     try {
-      let query = this.supabase
+      let query = this.dataSource
         .from('student_todos')
         .select('completed_at')
         .eq('student_id', studentId)
@@ -297,10 +309,11 @@ export class TodoRepository implements ITodoRepository {
         throw new DatabaseError('완료율을 조회할 수 없습니다', error)
       }
 
-      if (!data || data.length === 0) return 0
+      const todos = (data as any[] || [])
+      if (todos.length === 0) return 0
 
-      const completedCount = data.filter(t => t.completed_at).length
-      return Math.round((completedCount / data.length) * 100)
+      const completedCount = todos.filter((t: any) => t.completed_at).length
+      return Math.round((completedCount / todos.length) * 100)
     } catch (error) {
       if (error instanceof DatabaseError) throw error
       logError(error, { repository: 'TodoRepository', method: 'getCompletionRate' })

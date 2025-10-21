@@ -4,6 +4,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { IDataSource } from '@/domain/data-sources/IDataSource'
 import type {
   IStudentImportRepository,
   ImportConfirmResult,
@@ -11,9 +12,20 @@ import type {
 import type { StudentImportItem } from '@/domain/entities/StudentImport'
 import { StudentImportPreview } from '@/domain/value-objects/StudentImportPreview'
 import { DatabaseError } from '@/lib/error-types'
+import { SupabaseDataSource } from '../data-sources/SupabaseDataSource'
 
 export class StudentImportRepository implements IStudentImportRepository {
-  constructor(private readonly supabase: SupabaseClient) {}
+  private dataSource: IDataSource
+
+  constructor(client: IDataSource | SupabaseClient) {
+    this.dataSource = this.isDataSource(client)
+      ? client
+      : new SupabaseDataSource(client)
+  }
+
+  private isDataSource(client: any): client is IDataSource {
+    return typeof client.from === 'function' && typeof client.rpc === 'function'
+  }
 
   /**
    * Import 미리보기 (RPC 호출)
@@ -22,9 +34,10 @@ export class StudentImportRepository implements IStudentImportRepository {
     try {
       const jsonItems = items.map((item) => item.toJSON())
 
-      const { data, error } = await this.supabase.rpc('preview_student_import', {
+      const result = await this.dataSource.rpc('preview_student_import', {
         _items: jsonItems,
       })
+      const { data, error } = result as { data: any; error: Error | null }
 
       if (error) {
         console.error('[StudentImportRepository.preview] RPC error:', error)
@@ -55,10 +68,11 @@ export class StudentImportRepository implements IStudentImportRepository {
     try {
       const jsonItems = items.map((item) => item.toJSON())
 
-      const { data, error } = await this.supabase.rpc('confirm_student_import', {
+      const result = await this.dataSource.rpc('confirm_student_import', {
         _items: jsonItems,
         _on_duplicate: onDuplicate,
       })
+      const { data, error } = result as { data: any; error: Error | null }
 
       if (error) {
         console.error('[StudentImportRepository.confirm] RPC error:', error)

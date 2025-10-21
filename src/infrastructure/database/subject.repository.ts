@@ -5,9 +5,11 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { IDataSource } from '@/domain/data-sources/IDataSource'
 import { DatabaseError, NotFoundError } from '@/lib/error-types'
 import { logError } from '@/lib/error-handlers'
 import type { Subject, SubjectStatistics } from '@/types/subject'
+import { SupabaseDataSource } from '../data-sources/SupabaseDataSource'
 
 // ==================== Types ====================
 
@@ -32,14 +34,24 @@ export interface UpdateSubjectInput {
 // ==================== Repository ====================
 
 export class SubjectRepository {
-  constructor(private supabase: SupabaseClient) {}
+  private dataSource: IDataSource
+
+  constructor(client: IDataSource | SupabaseClient) {
+    this.dataSource = this.isDataSource(client)
+      ? client
+      : new SupabaseDataSource(client)
+  }
+
+  private isDataSource(client: any): client is IDataSource {
+    return typeof client.from === 'function' && typeof client.rpc === 'function'
+  }
 
   /**
    * Subject ID로 조회
    */
   async findById(subjectId: string): Promise<Subject | null> {
     try {
-      const { data, error } = await this.supabase
+      const { data, error } = await this.dataSource
         .from('subjects')
         .select('*')
         .eq('id', subjectId)
@@ -81,7 +93,7 @@ export class SubjectRepository {
    */
   async findAll(): Promise<Subject[]> {
     try {
-      const { data, error } = await this.supabase
+      const { data, error } = await this.dataSource
         .from('subjects')
         .select('*')
         .is('deleted_at', null)
@@ -109,7 +121,7 @@ export class SubjectRepository {
    */
   async findActive(): Promise<Subject[]> {
     try {
-      const { data, error } = await this.supabase
+      const { data, error } = await this.dataSource
         .from('subjects')
         .select('*')
         .is('deleted_at', null)
@@ -138,7 +150,7 @@ export class SubjectRepository {
    */
   async findAllWithStatistics(): Promise<SubjectStatistics[]> {
     try {
-      const { data, error } = await this.supabase
+      const { data, error } = await this.dataSource
         .from('subject_statistics')
         .select('*')
         .order('sort_order', { ascending: true })
@@ -164,7 +176,7 @@ export class SubjectRepository {
    */
   async create(input: CreateSubjectInput): Promise<Subject> {
     try {
-      const { data, error } = await this.supabase
+      const { data, error } = await this.dataSource
         .from('subjects')
         .insert({
           name: input.name,
@@ -218,7 +230,7 @@ export class SubjectRepository {
       if (input.active !== undefined) updateData.active = input.active
       if (input.sort_order !== undefined) updateData.sort_order = input.sort_order
 
-      const { data, error } = await this.supabase
+      const { data, error } = await this.dataSource
         .from('subjects')
         .update(updateData)
         .eq('id', subjectId)
@@ -248,7 +260,7 @@ export class SubjectRepository {
    */
   async delete(subjectId: string): Promise<void> {
     try {
-      const { error } = await this.supabase
+      const { error } = await this.dataSource
         .from('subjects')
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', subjectId)

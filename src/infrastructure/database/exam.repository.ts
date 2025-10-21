@@ -1,20 +1,32 @@
 /**
- * Supabase Exam Repository Implementation
- * 시험 리포지토리의 Supabase 구현 - 인프라 레이어
+ * Exam Repository Implementation
+ * 시험 리포지토리 구현 - 인프라 레이어
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { IDataSource } from '@/domain/data-sources/IDataSource'
 import type { IExamRepository, ExamFilters } from '@/domain/repositories/IExamRepository'
 import { Exam } from '@/domain/entities/Exam'
 import { DatabaseError, NotFoundError } from '@/lib/error-types'
 import { logError } from '@/lib/error-handlers'
+import { SupabaseDataSource } from '../data-sources/SupabaseDataSource'
 
 export class ExamRepository implements IExamRepository {
-  constructor(private supabase: SupabaseClient) {}
+  private dataSource: IDataSource
+
+  constructor(client: IDataSource | SupabaseClient) {
+    this.dataSource = this.isDataSource(client)
+      ? client
+      : new SupabaseDataSource(client)
+  }
+
+  private isDataSource(client: any): client is IDataSource {
+    return typeof client.from === 'function' && typeof client.rpc === 'function'
+  }
 
   async findById(id: string): Promise<Exam | null> {
     try {
-      const { data, error } = await this.supabase
+      const { data, error } = await this.dataSource
         .from('exams')
         .select('*')
         .eq('id', id)
@@ -43,7 +55,7 @@ export class ExamRepository implements IExamRepository {
 
   async findAll(tenantId: string, filters?: ExamFilters): Promise<Exam[]> {
     try {
-      let query = this.supabase
+      let query = this.dataSource
         .from('exams')
         .select('*')
         .eq('tenant_id', tenantId)
@@ -65,7 +77,7 @@ export class ExamRepository implements IExamRepository {
         throw new DatabaseError('시험 목록을 조회할 수 없습니다', error)
       }
 
-      return (data || []).map(row => this.mapToDomain(row))
+      return (data as any[] || []).map((row: any) => this.mapToDomain(row))
     } catch (error) {
       if (error instanceof DatabaseError) throw error
       logError(error, { repository: 'ExamRepository', method: 'findAll' })
@@ -75,7 +87,7 @@ export class ExamRepository implements IExamRepository {
 
   async findByClassId(classId: string): Promise<Exam[]> {
     try {
-      const { data, error } = await this.supabase
+      const { data, error } = await this.dataSource
         .from('exams')
         .select('*')
         .eq('class_id', classId)
@@ -87,7 +99,7 @@ export class ExamRepository implements IExamRepository {
         throw new DatabaseError('클래스 시험을 조회할 수 없습니다', error)
       }
 
-      return (data || []).map(row => this.mapToDomain(row))
+      return (data as any[] || []).map((row: any) => this.mapToDomain(row))
     } catch (error) {
       if (error instanceof DatabaseError) throw error
       logError(error, { repository: 'ExamRepository', method: 'findByClassId' })
@@ -97,7 +109,7 @@ export class ExamRepository implements IExamRepository {
 
   async findByCategoryCode(tenantId: string, categoryCode: string): Promise<Exam[]> {
     try {
-      const { data, error } = await this.supabase
+      const { data, error } = await this.dataSource
         .from('exams')
         .select('*')
         .eq('tenant_id', tenantId)
@@ -110,7 +122,7 @@ export class ExamRepository implements IExamRepository {
         throw new DatabaseError('카테고리별 시험을 조회할 수 없습니다', error)
       }
 
-      return (data || []).map(row => this.mapToDomain(row))
+      return (data as any[] || []).map((row: any) => this.mapToDomain(row))
     } catch (error) {
       if (error instanceof DatabaseError) throw error
       logError(error, { repository: 'ExamRepository', method: 'findByCategoryCode' })
@@ -124,7 +136,7 @@ export class ExamRepository implements IExamRepository {
       const futureDate = new Date()
       futureDate.setDate(today.getDate() + days)
 
-      const { data, error } = await this.supabase
+      const { data, error } = await this.dataSource
         .from('exams')
         .select('*')
         .eq('tenant_id', tenantId)
@@ -138,7 +150,7 @@ export class ExamRepository implements IExamRepository {
         throw new DatabaseError('임박한 시험을 조회할 수 없습니다', error)
       }
 
-      return (data || []).map(row => this.mapToDomain(row))
+      return (data as any[] || []).map((row: any) => this.mapToDomain(row))
     } catch (error) {
       if (error instanceof DatabaseError) throw error
       logError(error, { repository: 'ExamRepository', method: 'findUpcoming' })
@@ -150,7 +162,7 @@ export class ExamRepository implements IExamRepository {
     try {
       const today = new Date()
 
-      const { data, error } = await this.supabase
+      const { data, error } = await this.dataSource
         .from('exams')
         .select('*')
         .eq('tenant_id', tenantId)
@@ -164,7 +176,7 @@ export class ExamRepository implements IExamRepository {
         throw new DatabaseError('지난 시험을 조회할 수 없습니다', error)
       }
 
-      return (data || []).map(row => this.mapToDomain(row))
+      return (data as any[] || []).map((row: any) => this.mapToDomain(row))
     } catch (error) {
       if (error instanceof DatabaseError) throw error
       logError(error, { repository: 'ExamRepository', method: 'findPast' })
@@ -176,7 +188,7 @@ export class ExamRepository implements IExamRepository {
     try {
       const data = exam.toPersistence()
 
-      const { data: savedData, error } = await this.supabase
+      const { data: savedData, error } = await this.dataSource
         .from('exams')
         .upsert(data)
         .select()
@@ -197,7 +209,7 @@ export class ExamRepository implements IExamRepository {
 
   async delete(id: string): Promise<void> {
     try {
-      const { error } = await this.supabase
+      const { error } = await this.dataSource
         .from('exams')
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', id)
@@ -215,7 +227,7 @@ export class ExamRepository implements IExamRepository {
 
   async findUniqueCategories(tenantId: string): Promise<string[]> {
     try {
-      const { data, error } = await this.supabase
+      const { data, error } = await this.dataSource
         .from('exams')
         .select('category_code')
         .eq('tenant_id', tenantId)
@@ -226,7 +238,8 @@ export class ExamRepository implements IExamRepository {
         throw new DatabaseError('카테고리 목록을 조회할 수 없습니다', error)
       }
 
-      const uniqueCategories = Array.from(new Set(data.map(d => d.category_code).filter(Boolean))) as string[]
+      const exams = (data as any[] || [])
+      const uniqueCategories = Array.from(new Set(exams.map((d: any) => d.category_code).filter(Boolean))) as string[]
       return uniqueCategories.sort()
     } catch (error) {
       if (error instanceof DatabaseError) throw error

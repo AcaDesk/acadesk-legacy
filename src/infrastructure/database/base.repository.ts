@@ -3,18 +3,35 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { IDataSource } from '@/domain/data-sources/IDataSource'
 import type { QueryParams, PaginatedResponse, UUID } from '@/types/common'
 import { QueryBuilder } from '@/lib/query-builder'
 import { NotFoundError, DatabaseError } from '@/lib/error-types'
+import { SupabaseDataSource } from '../data-sources/SupabaseDataSource'
 
 export abstract class BaseRepository<T extends Record<string, unknown>> {
   protected queryBuilder: QueryBuilder<T>
+  protected dataSource: IDataSource
 
+  /**
+   * Constructor
+   * @param client - IDataSource 또는 SupabaseClient (하위 호환성)
+   * @param tableName - 테이블 이름
+   */
   constructor(
-    protected supabase: SupabaseClient,
+    client: IDataSource | SupabaseClient,
     protected tableName: string
   ) {
-    this.queryBuilder = new QueryBuilder<T>(supabase, tableName)
+    // IDataSource 타입 체크 (duck typing)
+    this.dataSource = this.isDataSource(client)
+      ? client
+      : new SupabaseDataSource(client)
+
+    this.queryBuilder = new QueryBuilder<T>(this.dataSource, tableName)
+  }
+
+  private isDataSource(client: any): client is IDataSource {
+    return typeof client.from === 'function' && typeof client.rpc === 'function'
   }
 
   /**

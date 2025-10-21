@@ -7,11 +7,13 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { IDataSource } from '@/domain/data-sources/IDataSource'
 import type { IInvitationRepository } from '@/domain/repositories/IInvitationRepository'
 import { Invitation, type CreateInvitationProps } from '@/domain/entities/Invitation'
 import { InvitationToken } from '@/domain/value-objects/InvitationToken'
 import { Email } from '@/domain/value-objects/Email'
 import type { UserRole } from '@/domain/entities/User'
+import { SupabaseDataSource } from '../data-sources/SupabaseDataSource'
 
 interface InvitationRow {
   id: string
@@ -36,13 +38,23 @@ interface InvitationRow {
  * 초대 기능 구현 시 활성화
  */
 export class InvitationRepository implements IInvitationRepository {
-  constructor(private readonly supabase: SupabaseClient) {}
+  private dataSource: IDataSource
+
+  constructor(client: IDataSource | SupabaseClient) {
+    this.dataSource = this.isDataSource(client)
+      ? client
+      : new SupabaseDataSource(client)
+  }
+
+  private isDataSource(client: any): client is IDataSource {
+    return typeof client.from === 'function' && typeof client.rpc === 'function'
+  }
 
   /**
    * Find invitation by ID
    */
   async findById(id: string): Promise<Invitation | null> {
-    const { data, error } = await this.supabase
+    const { data, error } = await this.dataSource
       .from('invitations')
       .select('*')
       .eq('id', id)
@@ -60,7 +72,7 @@ export class InvitationRepository implements IInvitationRepository {
    * Find invitation by token
    */
   async findByToken(token: InvitationToken): Promise<Invitation | null> {
-    const { data, error } = await this.supabase
+    const { data, error } = await this.dataSource
       .from('invitations')
       .select('*')
       .eq('token', token.getValue())
@@ -78,7 +90,7 @@ export class InvitationRepository implements IInvitationRepository {
    * Find invitations by tenant ID
    */
   async findByTenantId(tenantId: string): Promise<Invitation[]> {
-    const { data, error } = await this.supabase
+    const { data, error } = await this.dataSource
       .from('invitations')
       .select('*')
       .eq('tenant_id', tenantId)
@@ -89,14 +101,14 @@ export class InvitationRepository implements IInvitationRepository {
       return []
     }
 
-    return data.map((row) => this.mapToEntity(row as InvitationRow))
+    return (data as any[] || []).map((row: any) => this.mapToEntity(row as InvitationRow))
   }
 
   /**
    * Find invitations by email
    */
   async findByEmail(email: Email): Promise<Invitation[]> {
-    const { data, error } = await this.supabase
+    const { data, error } = await this.dataSource
       .from('invitations')
       .select('*')
       .eq('email', email.getValue())
@@ -107,7 +119,7 @@ export class InvitationRepository implements IInvitationRepository {
       return []
     }
 
-    return data.map((row) => this.mapToEntity(row as InvitationRow))
+    return (data as any[] || []).map((row: any) => this.mapToEntity(row as InvitationRow))
   }
 
   /**
@@ -119,9 +131,10 @@ export class InvitationRepository implements IInvitationRepository {
     error?: string
   }> {
     // RPC 함수를 사용하여 검증
-    const { data, error } = await this.supabase
+    const result = await this.dataSource
       .rpc('validate_invitation_token', { _token: token.getValue() })
-      .single()
+
+    const { data, error } = result as { data: any; error: Error | null }
 
     if (error || !data) {
       return {
@@ -181,7 +194,7 @@ export class InvitationRepository implements IInvitationRepository {
   async save(invitation: Invitation): Promise<Invitation> {
     const row = this.mapToRow(invitation)
 
-    const { data, error } = await this.supabase
+    const { data, error } = await this.dataSource
       .from('invitations')
       .upsert(row)
       .select()
@@ -200,7 +213,7 @@ export class InvitationRepository implements IInvitationRepository {
   async update(invitation: Invitation): Promise<Invitation> {
     const row = this.mapToRow(invitation)
 
-    const { data, error } = await this.supabase
+    const { data, error } = await this.dataSource
       .from('invitations')
       .update(row)
       .eq('id', invitation.getId())
@@ -218,7 +231,7 @@ export class InvitationRepository implements IInvitationRepository {
    * Delete invitation (soft delete)
    */
   async delete(id: string): Promise<void> {
-    const { error } = await this.supabase
+    const { error } = await this.dataSource
       .from('invitations')
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', id)
@@ -258,7 +271,7 @@ export class InvitationRepository implements IInvitationRepository {
    * Expire old invitations (batch operation)
    */
   async expireOldInvitations(): Promise<number> {
-    const { data, error } = await this.supabase
+    const { data, error } = await this.dataSource
       .from('invitations')
       .update({ status: 'expired', updated_at: new Date().toISOString() })
       .eq('status', 'pending')
@@ -271,7 +284,7 @@ export class InvitationRepository implements IInvitationRepository {
       return 0
     }
 
-    return data?.length ?? 0
+    return (data as any[] || []).length
   }
 
   /**

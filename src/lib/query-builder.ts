@@ -1,15 +1,33 @@
 /**
- * Query builder utilities for Supabase
+ * Query builder utilities for database abstraction
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { IDataSource } from '@/domain/data-sources/IDataSource'
 import type { QueryParams, PaginationMeta } from '@/types/common'
+import { SupabaseDataSource } from '@/infrastructure/data-sources/SupabaseDataSource'
 
 export class QueryBuilder<T> {
+  private dataSource: IDataSource
+
+  /**
+   * Constructor
+   * @param client - IDataSource 또는 SupabaseClient (하위 호환성)
+   * @param tableName - 테이블 이름
+   */
   constructor(
-    private supabase: SupabaseClient,
+    client: IDataSource | SupabaseClient,
     private tableName: string
-  ) {}
+  ) {
+    // IDataSource 타입 체크 (duck typing)
+    this.dataSource = this.isDataSource(client)
+      ? client
+      : new SupabaseDataSource(client)
+  }
+
+  private isDataSource(client: any): client is IDataSource {
+    return typeof client.from === 'function' && typeof client.rpc === 'function'
+  }
 
   /**
    * Build a paginated query with filters and sorting
@@ -32,7 +50,7 @@ export class QueryBuilder<T> {
     const to = from + limit - 1
 
     // Start query
-    let query = this.supabase.from(this.tableName).select('*', { count: 'exact' })
+    let query = this.dataSource.from(this.tableName).select('*', { count: 'exact' }) as any
 
     // Apply search if provided
     if (search) {
@@ -84,7 +102,7 @@ export class QueryBuilder<T> {
    * Find a single record by ID
    */
   async findById(id: string): Promise<T | null> {
-    const { data, error } = await this.supabase
+    const { data, error } = await this.dataSource
       .from(this.tableName)
       .select('*')
       .eq('id', id)
@@ -102,7 +120,7 @@ export class QueryBuilder<T> {
    * Find records by field
    */
   async findBy(field: string, value: unknown): Promise<T[]> {
-    const { data, error } = await this.supabase
+    const { data, error } = await this.dataSource
       .from(this.tableName)
       .select('*')
       .eq(field, value)
@@ -119,7 +137,7 @@ export class QueryBuilder<T> {
    * Create a new record
    */
   async create(record: Partial<T>): Promise<T> {
-    const { data, error } = await this.supabase
+    const { data, error } = await this.dataSource
       .from(this.tableName)
       .insert(record)
       .select()
@@ -140,7 +158,7 @@ export class QueryBuilder<T> {
    * Update a record
    */
   async update(id: string, updates: Partial<T>): Promise<T> {
-    const { data, error } = await this.supabase
+    const { data, error } = await this.dataSource
       .from(this.tableName)
       .update(updates)
       .eq('id', id)
@@ -163,7 +181,7 @@ export class QueryBuilder<T> {
    * Soft delete a record
    */
   async softDelete(id: string): Promise<void> {
-    const { error } = await this.supabase
+    const { error } = await this.dataSource
       .from(this.tableName)
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', id)
@@ -177,7 +195,7 @@ export class QueryBuilder<T> {
    * Hard delete a record
    */
   async delete(id: string): Promise<void> {
-    const { error } = await this.supabase.from(this.tableName).delete().eq('id', id)
+    const { error } = await this.dataSource.from(this.tableName).delete().eq('id', id)
 
     if (error) {
       throw error
@@ -188,10 +206,10 @@ export class QueryBuilder<T> {
    * Count records
    */
   async count(filters?: Record<string, unknown>): Promise<number> {
-    let query = this.supabase
+    let query = this.dataSource
       .from(this.tableName)
       .select('*', { count: 'exact', head: true })
-      .is('deleted_at', null)
+      .is('deleted_at', null) as any
 
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
@@ -201,7 +219,8 @@ export class QueryBuilder<T> {
       })
     }
 
-    const { count, error } = await query
+    const result = await query
+    const { count, error } = result as { count?: number | null; error: Error | null }
 
     if (error) {
       throw error
