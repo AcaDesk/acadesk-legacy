@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { DashboardHeader } from "@/components/features/dashboard/dashboard-header"
-import { DashboardEditDialog } from "@/components/features/dashboard/dashboard-edit-dialog"
 import { DashboardWidgetWrapper, DashboardWidgetSkeleton } from "@/components/features/dashboard/dashboard-widget-wrapper"
 import { WelcomeBanner } from "@/components/features/dashboard/welcome-banner"
 import { DEFAULT_WIDGETS, type DashboardWidget, isWidgetAvailable, LAYOUT_PRESETS, type DashboardPreset, type DashboardWidgetId } from "@/types/dashboard"
@@ -11,17 +10,34 @@ import { renderWidgetContent } from "./widget-factory"
 import { WidgetErrorBoundary } from "@/components/features/dashboard/widget-error-boundary"
 import { DASHBOARD_LAYOUT, shouldShowSection, getVisibleWidgetsInSection } from "./dashboard-layout-config"
 import { cn } from "@/lib/utils"
-import { useToast } from "@/hooks/use-toast"
+import {
+  DndContext,
+  DragEndEvent,
+  DragStartEvent,
+  DragOverlay,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+} from "@dnd-kit/core"
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  arrayMove,
+  sortableKeyboardCoordinates,
+} from "@dnd-kit/sortable"
 
 export function DashboardClient({ data: initialData }: { data: DashboardData }) {
   const { data, isRefetching, refetch } = useDashboardData(initialData)
   const { stats, recentStudents, todaySessions, birthdayStudents, scheduledConsultations, studentAlerts, financialData, classStatus, parentsToContact, calendarEvents, activityLogs } = data || initialData
-  const { toast } = useToast()
 
   const [widgets, setWidgets] = useState<DashboardWidget[]>(DEFAULT_WIDGETS)
   const [isLoading, setIsLoading] = useState(true)
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [tempWidgets, setTempWidgets] = useState<DashboardWidget[]>([])
   const [isSaving, setIsSaving] = useState(false)
+  const [activeId, setActiveId] = useState<string | null>(null)
 
   // Memoized computed values
   const attendanceRate = useMemo(() => {
@@ -43,14 +59,34 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
     })
   }, [todaySessions])
 
+  const hasChanges = useMemo(() => {
+    if (!isEditMode) return false
+    if (tempWidgets.length !== widgets.length) return true
+    return tempWidgets.some((tempWidget) => {
+      const widget = widgets.find(w => w.id === tempWidget.id)
+      if (!widget) return true
+      return tempWidget.visible !== widget.visible || tempWidget.order !== widget.order
+    })
+  }, [tempWidgets, widgets, isEditMode])
+
   // Visible widget IDs set for quick lookup
   const visibleWidgetIds = useMemo(() => {
+    const currentWidgets = isEditMode ? tempWidgets : widgets
     return new Set(
-      widgets
+      currentWidgets
         .filter(w => w.visible)
         .map(w => w.id)
     )
-  }, [widgets])
+  }, [isEditMode, tempWidgets, widgets])
+
+  // Hidden widgets for header
+  const hiddenWidgets = useMemo(() => {
+    return isEditMode
+      ? tempWidgets
+          .filter(w => !w.visible)
+          .map(w => ({ id: w.id, name: w.title || w.name || w.id }))
+      : []
+  }, [isEditMode, tempWidgets])
 
   // Load user preferences
   useEffect(() => {
@@ -89,16 +125,39 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
     loadPreferences()
   }, [])
 
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
+
   // Handlers
   const handleManualRefresh = useCallback(() => {
     refetch()
   }, [refetch])
 
-  const handleOpenEditDialog = useCallback(() => {
-    setIsEditDialogOpen(true)
+  const handleEnterEditMode = useCallback(() => {
+    const widgetsWithNames = widgets.map(widget => ({
+      ...widget,
+      name: widget.name || widget.title || widget.id
+    }))
+    setTempWidgets(widgetsWithNames)
+    setIsEditMode(true)
+  }, [widgets])
+
+  const handleCancelEdit = useCallback(() => {
+    setTempWidgets([])
+    setIsEditMode(false)
   }, [])
 
-  const handleSaveWidgets = useCallback(async (updatedWidgets: DashboardWidget[]) => {
+  const handleSaveChanges = useCallback(async () => {
+    if (!hasChanges) return
     setIsSaving(true)
 
     try {
@@ -106,7 +165,7 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          preferences: { widgets: updatedWidgets },
+          preferences: { widgets: tempWidgets },
         }),
       })
 
@@ -114,29 +173,80 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
         throw new Error('Failed to save preferences')
       }
 
-      setWidgets(updatedWidgets)
-      setIsEditDialogOpen(false)
-
-      toast({
-        title: '대시보드 설정 저장 완료',
-        description: '변경사항이 성공적으로 저장되었습니다.',
-      })
+      setWidgets(tempWidgets)
+      setTempWidgets([])
+      setIsEditMode(false)
     } catch (error) {
       console.error('Failed to save preferences:', error)
-      toast({
-        title: '저장 실패',
-        description: '대시보드 설정 저장에 실패했습니다. 다시 시도해주세요.',
-        variant: 'destructive',
-      })
     } finally {
       setIsSaving(false)
     }
-  }, [toast])
+  }, [hasChanges, tempWidgets])
+
+  const handleToggleWidget = useCallback((widgetId: string) => {
+    setTempWidgets(prev => prev.map(widget =>
+      widget.id === widgetId ? { ...widget, visible: !widget.visible } : widget
+    ))
+  }, [])
+
+  const handleShowWidget = useCallback((widgetId: string) => {
+    setTempWidgets(prev => prev.map(widget =>
+      widget.id === widgetId ? { ...widget, visible: true } : widget
+    ))
+  }, [])
+
+  const handleApplyPreset = useCallback((presetName: DashboardPreset) => {
+    const preset = LAYOUT_PRESETS[presetName]
+    if (!preset) return
+
+    const updatedWidgets = DEFAULT_WIDGETS.map(defaultWidget => {
+      const presetWidget = preset.widgets.find(w => w.id === defaultWidget.id)
+      if (presetWidget) {
+        return {
+          ...defaultWidget,
+          ...presetWidget,
+          name: defaultWidget.name,
+          requiredFeatures: defaultWidget.requiredFeatures
+        }
+      }
+      return {
+        ...defaultWidget,
+        visible: false,
+      }
+    })
+
+    setTempWidgets(updatedWidgets)
+  }, [])
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveId(event.active.id as string)
+  }, [])
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event
+    setActiveId(null)
+
+    if (!over || active.id === over.id) return
+
+    setTempWidgets((widgets) => {
+      const oldIndex = widgets.findIndex(w => w.id === active.id)
+      const newIndex = widgets.findIndex(w => w.id === over.id)
+
+      const newWidgets = arrayMove(widgets, oldIndex, newIndex)
+
+      // Update order values
+      return newWidgets.map((widget, index) => ({
+        ...widget,
+        order: index
+      }))
+    })
+  }, [])
 
 
   // Render individual widget
   const renderWidget = useCallback((widgetId: DashboardWidgetId) => {
-    const widget = widgets.find(w => w.id === widgetId)
+    const currentWidgets = isEditMode ? tempWidgets : widgets
+    const widget = currentWidgets.find(w => w.id === widgetId)
     if (!widget || !widget.visible) return null
 
     const content = renderWidgetContent({
@@ -156,12 +266,12 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
       parentsToContact: parentsToContact || [],
       calendarEvents: calendarEvents || [],
       activityLogs: activityLogs || [],
-      isEditMode: false,
+      isEditMode,
     })
 
     if (!content) return null
 
-    return (
+    const wrappedContent = (
       <WidgetErrorBoundary
         widgetId={widgetId}
         widgetTitle={widget.title || widget.name}
@@ -169,7 +279,24 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
         {content}
       </WidgetErrorBoundary>
     )
+
+    if (isEditMode) {
+      return (
+        <DashboardWidgetWrapper
+          widgetId={widgetId}
+          isEditMode={true}
+          onHide={() => handleToggleWidget(widgetId)}
+          disablePadding={widgetId.startsWith('kpi-')}
+        >
+          {wrappedContent}
+        </DashboardWidgetWrapper>
+      )
+    }
+
+    return wrappedContent
   }, [
+    isEditMode,
+    tempWidgets,
     widgets,
     stats,
     attendanceRate,
@@ -186,6 +313,7 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
     parentsToContact,
     calendarEvents,
     activityLogs,
+    handleToggleWidget
   ])
 
   // Render layout section
@@ -199,9 +327,18 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
       return (
         <div
           key={`section-${sectionIndex}`}
-          className="animate-in fade-in-50 slide-in-from-bottom-2 duration-500"
+          className={cn(
+            "animate-in fade-in-50 slide-in-from-bottom-2 duration-500",
+            isEditMode && "bg-accent/30 border-2 border-dashed border-primary/50 rounded-lg p-4"
+          )}
           style={{ animationDelay: `${animationDelay}ms` }}
         >
+          {isEditMode && (
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-muted-foreground">KPI 카드 영역</h3>
+              <p className="text-xs text-muted-foreground">개별 카드를 숨기거나 표시할 수 있습니다</p>
+            </div>
+          )}
           <div className={section.className}>
             {visibleWidgets.map(widgetId => (
               <div key={widgetId}>
@@ -246,7 +383,7 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
         ))}
       </div>
     )
-  }, [visibleWidgetIds, renderWidget])
+  }, [isEditMode, visibleWidgetIds, renderWidget])
 
   return (
     <div className="space-y-6" role="main" aria-labelledby="dashboard-title">
@@ -262,10 +399,17 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
       <DashboardHeader
         title="대시보드"
         description="학원 운영 현황을 한눈에 확인하세요"
-        isEditMode={false}
-        onToggleEditMode={handleOpenEditDialog}
+        isEditMode={isEditMode}
+        onToggleEditMode={handleEnterEditMode}
+        onSave={handleSaveChanges}
+        onCancel={handleCancelEdit}
         onRefresh={handleManualRefresh}
+        hiddenWidgets={hiddenWidgets}
+        onAddWidget={handleShowWidget}
+        onApplyPreset={handleApplyPreset}
         isLoading={isRefetching}
+        isSaving={isSaving}
+        hasChanges={hasChanges}
       />
 
       {isLoading ? (
@@ -276,20 +420,31 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
           <DashboardWidgetSkeleton variant="list" />
         </div>
       ) : (
-        <div className="space-y-6">
-          {DASHBOARD_LAYOUT.map((section, index) =>
-            shouldShowSection(section, visibleWidgetIds) && renderSection(section, index)
-          )}
-        </div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={isEditMode ? tempWidgets.map(w => w.id) : widgets.map(w => w.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="space-y-6">
+              {DASHBOARD_LAYOUT.map((section, index) =>
+                shouldShowSection(section, visibleWidgetIds) && renderSection(section, index)
+              )}
+            </div>
+          </SortableContext>
+          <DragOverlay>
+            {activeId ? (
+              <div className="opacity-50">
+                {renderWidget(activeId as DashboardWidgetId)}
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       )}
-
-      {/* Dashboard Edit Dialog */}
-      <DashboardEditDialog
-        open={isEditDialogOpen}
-        onOpenChange={setIsEditDialogOpen}
-        widgets={widgets}
-        onSave={handleSaveWidgets}
-      />
     </div>
   )
 }
