@@ -10,11 +10,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Development
 ```bash
-pnpm dev              # Run development server with Turbopack
+pnpm dev              # Run development server with Turbopack (local env)
+pnpm dev:staging      # Run with staging environment variables
+pnpm dev:production   # Run with production environment variables
 pnpm build            # Build for production with Turbopack
+pnpm build:staging    # Build with staging environment variables
+pnpm build:production # Build with production environment variables
 pnpm start            # Start production server
 pnpm lint             # Run ESLint
 pnpm type-check       # Run TypeScript compiler check
+pnpm env:validate     # Validate environment variables
 ```
 
 ### Testing
@@ -81,11 +86,16 @@ src/
 │   │   ├── Priority.ts     # Priority value object
 │   │   ├── Email.ts        # Email value object
 │   │   └── Score.ts        # Score value object
+│   ├── data-sources/       # DataSource interfaces (DIP)
+│   │   └── IDataSource.ts  # Database abstraction interface
 │   └── repositories/       # Repository interfaces (DIP)
 │       ├── IStudentRepository.ts
 │       └── ITodoRepository.ts
 │
 ├── infrastructure/         # Infrastructure Layer
+│   ├── data-sources/       # DataSource implementations
+│   │   ├── SupabaseDataSource.ts   # Supabase wrapper
+│   │   └── MockDataSource.ts       # Test mock
 │   ├── database/           # Concrete repository implementations
 │   │   ├── student.repository.ts
 │   │   ├── attendance.repository.ts
@@ -125,37 +135,42 @@ src/
 
 #### 1. **Use Case Pattern with Dependency Injection**
 
-All business logic is encapsulated in Use Cases, instantiated via Factory functions:
+All business logic is encapsulated in Use Cases, instantiated via Factory functions with DataSource abstraction:
 
 ```typescript
 // Server-side factory (src/application/factories/studentUseCaseFactory.ts)
-export async function createCreateStudentUseCase() {
-  const supabase = await createClient()
-  const repository = new StudentRepository(supabase)
+import { createServerDataSource } from '@/lib/data-source-provider'
+
+export async function createCreateStudentUseCase(config?: DataSourceConfig) {
+  const dataSource = await createServerDataSource(config)
+  const repository = new StudentRepository(dataSource)
   return new CreateStudentUseCase(repository)
 }
 
 // Client-side factory (src/application/factories/studentUseCaseFactory.client.ts)
-export function createGetStudentsUseCase() {
-  const supabase = createClient()
-  const repository = new StudentRepository(supabase)
+import { createClientDataSource } from '@/lib/data-source-provider'
+
+export function createGetStudentsUseCase(config?: DataSourceConfig) {
+  const dataSource = createClientDataSource(config)
+  const repository = new StudentRepository(dataSource)
   return new GetStudentsUseCase(repository)
 }
 
-// Usage in Server Component or API route
+// Usage in Production
 const useCase = await createCreateStudentUseCase()
 const result = await useCase.execute(studentData)
 
-// Usage in Client Component
-const useCase = createGetStudentsUseCase()
-const students = await useCase.execute()
+// Usage in Tests (with Mock)
+const useCase = await createCreateStudentUseCase({ forceMock: true })
+const result = await useCase.execute(testData)
 ```
 
 **Key Points:**
-- Server factories are async (await createClient from server.ts)
-- Client factories are sync (createClient from client.ts)
-- Factories handle all dependency wiring
+- Server factories are async (await createServerDataSource)
+- Client factories are sync (createClientDataSource)
+- Factories handle all dependency wiring including DataSource
 - Use Cases are never instantiated directly in components
+- Tests can inject MockDataSource via config parameter
 
 #### 2. **Domain Entities with Business Logic**
 
@@ -188,7 +203,46 @@ export class Todo {
 - Repositories (Infrastructure Layer)
 - API routes (Presentation Layer)
 
-#### 3. **Repository Pattern with Interface Segregation**
+#### 3. **DataSource Abstraction for Testability**
+
+DataSource 추상화 계층으로 Supabase에 대한 강한 결합을 제거하고 테스트 가능성을 향상:
+
+```typescript
+// Domain interface (src/domain/data-sources/IDataSource.ts)
+export interface IDataSource {
+  from<T>(table: string): IQueryBuilder<T>
+  rpc<T>(fn: string, params?: object): Promise<{ data: T | null; error: Error | null }>
+}
+
+// Infrastructure implementations
+// 1. Production (src/infrastructure/data-sources/SupabaseDataSource.ts)
+export class SupabaseDataSource implements IDataSource {
+  constructor(private client: SupabaseClient) {}
+  // Supabase 클라이언트를 래핑
+}
+
+// 2. Testing (src/infrastructure/data-sources/MockDataSource.ts)
+export class MockDataSource implements IDataSource {
+  private store: Map<string, Map<string, any>> = new Map()
+  // In-memory 테스트 데이터
+  seed(table: string, data: any[]): void { ... }
+}
+
+// Usage in Tests
+const mockDataSource = createMockDataSource()
+mockDataSource.seed('students', [testData])
+const useCase = createGetStudentsUseCase({ customDataSource: mockDataSource })
+```
+
+**Key Benefits:**
+- Mock DataSource로 네트워크 없이 유닛 테스트 작성 가능
+- 환경별(local/staging/production) 쉬운 전환
+- 필요시 다른 데이터베이스로 교체 가능 (PostgreSQL, MySQL 등)
+- Repository는 IDataSource만 의존 (Dependency Inversion)
+
+**더 자세한 내용:** `docs/DATASOURCE_ABSTRACTION.md` 참조
+
+#### 4. **Repository Pattern with Interface Segregation**
 
 Repositories implement domain interfaces for dependency inversion:
 
@@ -201,21 +255,28 @@ export interface IStudentRepository {
 
 // Infrastructure implementation (src/infrastructure/database/student.repository.ts)
 export class StudentRepository implements IStudentRepository {
-  constructor(private supabase: SupabaseClient) {}
+  private dataSource: IDataSource
+
+  // IDataSource 또는 SupabaseClient 모두 받을 수 있음 (하위 호환성)
+  constructor(client: IDataSource | SupabaseClient) {
+    this.dataSource = this.isDataSource(client)
+      ? client
+      : new SupabaseDataSource(client)
+  }
 
   async findById(id: string): Promise<Student | null> {
-    const { data } = await this.supabase
+    const { data } = await this.dataSource
       .from('students')
       .select('*')
       .eq('id', id)
-      .single()
+      .maybeSingle()
 
     return data ? Student.fromDatabase(data) : null
   }
 }
 ```
 
-#### 4. **Multi-tenant Security (RLS)**
+#### 5. **Multi-tenant Security (RLS)**
 
 All database access is automatically scoped by tenant:
 
@@ -232,28 +293,28 @@ ON students FOR SELECT
 USING (tenant_id = get_current_tenant_id());
 ```
 
-#### 5. **Server/Client Separation**
+#### 6. **Server/Client Separation**
 
-Critical distinction between server and client Supabase clients:
+Critical distinction between server and client DataSource providers:
 
 ```typescript
 // Server-side (Server Components, API routes, Server Actions)
-import { createClient } from '@/lib/supabase/server'
-const supabase = await createClient() // Async, uses cookies()
+import { createServerDataSource } from '@/lib/data-source-provider'
+const dataSource = await createServerDataSource() // Async, uses cookies()
 
 // Client-side (Client Components)
-import { createClient } from '@/lib/supabase/client'
-const supabase = createClient() // Sync, uses browser storage
+import { createClientDataSource } from '@/lib/data-source-provider'
+const dataSource = createClientDataSource() // Sync, uses browser storage
 ```
 
 **Rules:**
-- Server Components: Use server client, direct Supabase calls
+- Server Components: Use server factory with await
 - Client Components: Use client factory, React Query for caching
-- API routes: Use server client
-- Server Actions: Use server client
-- Middleware: Use middleware.ts helper
+- API routes: Use server factory
+- Server Actions: Use server factory
+- Tests: Inject MockDataSource via config parameter
 
-#### 6. **Component Organization**
+#### 7. **Component Organization**
 
 ```
 components/
@@ -273,7 +334,7 @@ components/
 - Extract reusable patterns to `components/ui`
 - Feature components should use Use Cases, not direct DB calls
 
-#### 7. **Custom Hooks Location**
+#### 8. **Custom Hooks Location**
 
 All custom hooks and context providers belong in `src/hooks/`:
 
@@ -605,8 +666,10 @@ export default async function DashboardPage() {
 
 ## Important Files
 
-- `docs/error-and-loading-strategy.md` - **NEW** - Error handling strategy
-- `docs/ASYNC_WIDGETS_GUIDE.md` - **NEW** - Async widgets quick start
+- `docs/DATASOURCE_ABSTRACTION.md` - **NEW** - DataSource abstraction and testing guide
+- `docs/DEPLOYMENT_GUIDE.md` - Complete deployment guide for Local/Staging/Production
+- `docs/error-and-loading-strategy.md` - Error handling strategy
+- `docs/ASYNC_WIDGETS_GUIDE.md` - Async widgets quick start
 - `internal/tech/Architecture.md` - System architecture and deployment
 - `internal/tech/ERD.md` - Database schema design principles
 - `internal/tech/CodeGuideline.md` - Detailed coding standards (Korean)
@@ -614,3 +677,4 @@ export default async function DashboardPage() {
 - `components.json` - shadcn/ui configuration
 - `vitest.config.ts` - Test configuration
 - `playwright.config.ts` - E2E test configuration
+- `src/lib/env.ts` - Type-safe environment variables validation
