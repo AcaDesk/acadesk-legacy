@@ -58,13 +58,13 @@ export async function routeAfterLogin(
 
     const { code, next_url } = response.stage || {}
 
-    console.log(`[routeAfterLogin] Auth stage: ${code}, next_url: ${next_url || '/app/dashboard'}`)
+    console.log(`[routeAfterLogin] Auth stage: ${code}, next_url: ${next_url || '/dashboard'}`)
 
     // 상태별 라우팅
     if (next_url) {
       router.push(next_url)
     } else if (code === 'READY') {
-      router.push('/app/dashboard')
+      router.push('/dashboard')
     } else {
       // 예상치 못한 상태
       console.warn(`[routeAfterLogin] Unexpected stage code: ${code}`)

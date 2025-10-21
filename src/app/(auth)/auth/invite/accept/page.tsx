@@ -4,7 +4,7 @@
  * 직원 초대 수락 페이지
  * - URL 쿼리에서 token 추출 → localStorage 저장
  * - accept_staff_invite() RPC 호출
- * - 성공 시 /app/dashboard로 이동
+ * - 성공 시 /dashboard로 이동
  */
 
 'use client'

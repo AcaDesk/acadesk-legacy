@@ -97,7 +97,7 @@ export function useAuthStage(options: UseAuthStageOptions = {}) {
         }
 
         const { next_url } = stageData.stage || {}
-        router.push(next_url || '/app/dashboard')
+        router.push(next_url || '/dashboard')
       }
 
       return true
@@ -167,7 +167,7 @@ export function useAuthStage(options: UseAuthStageOptions = {}) {
         // 자동 라우팅
         if (autoRoute) {
           setTimeout(() => {
-            router.push('/app/dashboard')
+            router.push('/dashboard')
           }, 1000)
         }
 
@@ -239,7 +239,7 @@ export function useAuthStage(options: UseAuthStageOptions = {}) {
         // 자동 라우팅
         if (autoRoute) {
           setTimeout(() => {
-            router.push('/app/dashboard')
+            router.push('/dashboard')
           }, 1500)
         }
 
@@ -275,13 +275,13 @@ export function useAuthStage(options: UseAuthStageOptions = {}) {
 
         const { code, next_url } = data.stage || {}
 
-        console.log(`[useAuthStage] Auth stage: ${code}, next_url: ${next_url || '/app/dashboard'}`)
+        console.log(`[useAuthStage] Auth stage: ${code}, next_url: ${next_url || '/dashboard'}`)
 
         // 상태별 라우팅
         if (next_url) {
           router.push(next_url)
         } else if (code === 'READY') {
-          router.push('/app/dashboard')
+          router.push('/dashboard')
         } else {
           // 예상치 못한 상태
           console.warn(`[useAuthStage] Unexpected stage code: ${code}`)
