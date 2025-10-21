@@ -13,6 +13,9 @@ export const metadata: Metadata = {
   description: "수업별 출석 세션을 생성하고 학생들의 출석 현황을 관리합니다. 실시간 출석 체크, 지각/결석 기록, 출석률 통계를 확인하세요.",
 }
 
+// Force dynamic rendering (uses cookies for authentication)
+export const dynamic = 'force-dynamic'
+
 export default async function AttendancePage() {
   // 피처 플래그 상태 체크
   const featureStatus = FEATURES.attendanceManagement;
