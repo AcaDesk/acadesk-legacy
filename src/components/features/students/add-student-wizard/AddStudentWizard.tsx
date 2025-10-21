@@ -178,123 +178,101 @@ export function AddStudentWizard({ open, onOpenChange, onSuccess }: AddStudentWi
 
     setLoading(true)
     try {
-      // 1. Create user record
-      const { data: newUser, error: userError } = await supabase
-        .from('users')
-        .insert({
-          tenant_id: currentUser.tenantId,
-          email: data.email || null,
-          name: data.name,
-          role_code: 'student',
-        })
-        .select()
-        .single()
-
-      if (userError) throw userError
-
-      // 2. Generate student code
-      const studentCode = `STU-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
-
-      // 3. Hash PIN if provided
+      // Hash PIN if provided
       let hashedPin: string | null = null
       if (data.kioskPin && data.kioskPin.trim().length === 4) {
         hashedPin = await hashKioskPin(data.kioskPin)
       }
 
-      // 4. Create student record
-      const { data: newStudent, error: studentError } = await supabase
-        .from('students')
-        .insert({
-          tenant_id: currentUser.tenantId,
-          user_id: newUser.id,
-          student_code: studentCode,
-          name: data.name,
-          birth_date: data.birthDate ? format(data.birthDate, 'yyyy-MM-dd') : null,
-          gender: data.gender || null,
-          student_phone: data.studentPhone || null,
-          profile_image_url: data.profileImage || null,
-          grade: data.grade,
-          school: data.school || null,
-          enrollment_date: data.enrollmentDate ? format(data.enrollmentDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
-          notes: data.notes || null,
-          commute_method: data.commuteMethod || null,
-          marketing_source: data.marketingSource || null,
-          kiosk_pin: hashedPin,
-        })
-        .select()
-        .single()
+      // Prepare student data
+      const studentData = {
+        name: data.name,
+        birth_date: data.birthDate ? format(data.birthDate, 'yyyy-MM-dd') : null,
+        grade: data.grade,
+        school: data.school || null,
+        gender: data.gender || null,
+        email: data.email || null,
+        student_phone: data.studentPhone || null,
+        profile_image_url: data.profileImage || null,
+        enrollment_date: data.enrollmentDate ? format(data.enrollmentDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+        notes: data.notes || null,
+        commute_method: data.commuteMethod || null,
+        marketing_source: data.marketingSource || null,
+        kiosk_pin: hashedPin,
+      }
 
-      if (studentError) throw studentError
+      // Prepare guardian data and mode
+      let guardianData = null
+      let guardianMode = 'skip'
 
-      // 5. Handle guardian
       if (data.guardianMode === GUARDIAN_MODES.NEW && data.guardian) {
-        const { data: newGuardian, error: guardianError } = await supabase
-          .from('guardians')
-          .insert({
-            tenant_id: currentUser.tenantId,
-            name: data.guardian.name,
-            phone: data.guardian.phone || null,
-            email: data.guardian.email || null,
-            relationship: data.guardian.relationship || null,
-            occupation: data.guardian.occupation || null,
-            address: data.guardian.address || null,
-          })
-          .select()
-          .single()
+        guardianMode = 'new'
+        guardianData = {
+          name: data.guardian.name,
+          phone: data.guardian.phone || null,
+          email: data.guardian.email || null,
+          relationship: data.guardian.relationship || null,
+          occupation: data.guardian.occupation || null,
+          address: data.guardian.address || null,
+          is_primary_contact: true,
+          receives_notifications: true,
+          receives_billing: false,
+          can_pickup: true,
+        }
+      } else if (data.guardianMode === GUARDIAN_MODES.EXISTING && data.existingGuardianId) {
+        guardianMode = 'existing'
+        guardianData = {
+          id: data.existingGuardianId,
+          is_primary_contact: true,
+          receives_notifications: true,
+          receives_billing: false,
+          can_pickup: true,
+        }
+      }
 
-        if (guardianError) throw guardianError
+      // Call RPC function
+      const { data: result, error: rpcError } = await supabase.rpc('create_student_complete', {
+        _student: studentData,
+        _guardian: guardianData,
+        _guardian_mode: guardianMode,
+      })
 
-        // Link guardian to student
-        const { error: linkError } = await supabase
-          .from('student_guardians')
-          .insert({
-            tenant_id: currentUser.tenantId,
-            guardian_id: newGuardian.id,
-            student_id: newStudent.id,
-            relation: data.guardian.relationship || null,
-            is_primary_contact: true,
-            receives_notifications: true,
-            receives_billing: false,
-            can_pickup: true,
-          })
+      if (rpcError) {
+        throw rpcError
+      }
 
-        if (linkError) throw linkError
+      // Check RPC response format
+      if (!result || typeof result !== 'object') {
+        throw new Error('서버 응답이 올바르지 않습니다.')
+      }
 
+      // Handle RPC result
+      if ('ok' in result && !result.ok) {
+        // Error response from RPC
+        const errorCode = result.code || 'unknown_error'
+        const errorMessage = result.message || '학생을 추가하는 중 오류가 발생했습니다.'
+        throw new Error(`[${errorCode}] ${errorMessage}`)
+      }
+
+      // Success response
+      const responseData = result.data || result
+
+      // Show success message based on guardian mode
+      if (guardianMode === 'new' && data.guardian) {
         toast({
           title: '학생 및 학부모 추가 완료',
           description: `${data.name} 학생과 ${data.guardian.name} 학부모가 추가되었습니다.`,
         })
-      } else if (data.guardianMode === GUARDIAN_MODES.EXISTING && data.existingGuardianId) {
-        const { error: linkError } = await supabase
-          .from('student_guardians')
-          .insert({
-            tenant_id: currentUser.tenantId,
-            guardian_id: data.existingGuardianId,
-            student_id: newStudent.id,
-            relation: null,
-            is_primary_contact: true,
-            receives_notifications: true,
-            receives_billing: false,
-            can_pickup: true,
-          })
-
-        if (linkError) throw linkError
-
+      } else if (guardianMode === 'existing') {
         toast({
           title: '학생 추가 및 학부모 연결 완료',
           description: `${data.name} 학생이 추가되고 기존 학부모와 연결되었습니다.`,
         })
-      } else if (data.guardianMode === GUARDIAN_MODES.SKIP) {
-        // SKIP 모드: 학생만 추가
-        toast({
-          title: '학생 추가 완료',
-          description: `${data.name} 학생이 추가되었습니다. 학부모는 나중에 추가할 수 있습니다.`,
-        })
       } else {
-        // 기타 모드
+        const studentCode = responseData.student_code || ''
         toast({
           title: '학생 추가 완료',
-          description: `${data.name} 학생이 추가되었습니다. (학생 코드: ${studentCode})`,
+          description: `${data.name} 학생이 추가되었습니다.${studentCode ? ` (학생 코드: ${studentCode})` : ''}`,
         })
       }
 
@@ -312,7 +290,9 @@ export function AddStudentWizard({ open, onOpenChange, onSuccess }: AddStudentWi
       // 상세한 오류 처리
       let errorMessage = '학생을 추가하는 중 오류가 발생했습니다.'
 
-      if (error && typeof error === 'object' && 'code' in error) {
+      if (error instanceof Error) {
+        errorMessage = error.message
+      } else if (error && typeof error === 'object' && 'code' in error) {
         const pgError = error as PostgrestError
 
         switch (pgError.code) {
@@ -355,8 +335,6 @@ export function AddStudentWizard({ open, onOpenChange, onSuccess }: AddStudentWi
               errorMessage = `데이터베이스 오류: ${pgError.message}`
             }
         }
-      } else if (error instanceof Error) {
-        errorMessage = error.message
       }
 
       toast({
