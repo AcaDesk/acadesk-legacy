@@ -170,10 +170,19 @@ do $$ begin
   -- get_auth_stage / owner_start_setup 등 이름이 다르면 아래를 바꿔주세요.
   do $inner2$
   begin
+    -- get_auth_stage: 파라미터 유무에 따라 각각 처리
     if exists (
       select 1 from pg_proc p
       join pg_namespace n on n.oid = p.pronamespace
       where n.nspname = 'public' and p.proname = 'get_auth_stage'
+        and pg_get_function_identity_arguments(p.oid) in ('text', 'text DEFAULT NULL')
+    ) then
+      grant execute on function public.get_auth_stage(text) to authenticated;
+    elsif exists (
+      select 1 from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public' and p.proname = 'get_auth_stage'
+        and pg_get_function_identity_arguments(p.oid) = ''
     ) then
       grant execute on function public.get_auth_stage() to authenticated;
     end if;
