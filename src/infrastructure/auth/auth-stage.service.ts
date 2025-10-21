@@ -121,7 +121,8 @@ export const authStageService = {
 
   /**
    * 원장 설정 완료 (OWNER_SETUP_REQUIRED → READY)
-   * 멱등성 보장: 이미 완료되어 있으면 성공 반환
+   * 멱등성 보장: tenant가 없으면 생성, 있으면 업데이트
+   * owner_setup_upsert 함수 사용 (tenant 생성 + 설정 업데이트를 한 번에 처리)
    */
   async ownerFinishSetup(params: AcademySetupParams): Promise<{
     data: RpcResponse | null
@@ -130,31 +131,49 @@ export const authStageService = {
     const supabase = createClient()
 
     try {
-      const { data, error } = await supabase.rpc('finish_owner_academy_setup', {
+      // 1. 현재 사용자 정보 가져오기 (owner_name 용)
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        const authError = parseRpcError(new Error('인증되지 않은 사용자입니다.'), 'owner_setup')
+        return { data: null, error: authError }
+      }
+
+      const { data: userData } = await supabase
+        .from('users')
+        .select('name, email')
+        .eq('id', user.id)
+        .single()
+
+      const ownerName = userData?.name || userData?.email || '원장님'
+
+      // 2. owner_setup_upsert 호출 (tenant 자동 생성 + 설정)
+      const { data, error } = await supabase.rpc('owner_setup_upsert', {
+        _owner_name: ownerName,
         _academy_name: params.academyName,
         _timezone: params.timezone ?? 'Asia/Seoul',
         _settings: params.settings ?? {},
       })
 
       if (error) {
-        console.error('[authStageService] finish_owner_academy_setup RPC error:', error)
+        console.error('[authStageService] owner_setup_upsert RPC error:', error)
         const authError = parseRpcError(error, 'owner_setup')
         errorReporter.captureAuthStageError(authError, { method: 'ownerFinishSetup', academyName: params.academyName })
         return { data: null, error: authError }
       }
 
-      const response = data as RpcResponse
+      const response = data as { success: boolean; error?: string }
 
-      if (!response?.ok) {
+      if (!response?.success) {
         const authError = parseRpcError(
-          new Error(response?.message || '학원 설정에 실패했습니다.'),
+          new Error(response?.error || '학원 설정에 실패했습니다.'),
           'owner_setup'
         )
         errorReporter.captureAuthStageError(authError, { method: 'ownerFinishSetup', academyName: params.academyName })
         return { data: null, error: authError }
       }
 
-      return { data: response, error: null }
+      // Response format 변환 (RpcResponse 형식으로)
+      return { data: { ok: true }, error: null }
     } catch (err) {
       console.error('[authStageService] ownerFinishSetup error:', err)
       const authError = parseRpcError(err, 'owner_setup')

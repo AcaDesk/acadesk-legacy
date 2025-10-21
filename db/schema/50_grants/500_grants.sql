@@ -121,6 +121,8 @@ do $$ begin
   grant execute on function public.bulk_restore_students(uuid[]) to authenticated;
   grant execute on function public.preview_student_import(jsonb) to authenticated;
   grant execute on function public.confirm_student_import(jsonb, text) to authenticated;
+  grant execute on function public.owner_setup_upsert(text, text, text, jsonb) to authenticated;
+  grant execute on function public.approve_owner(uuid) to authenticated;
 end $$;
 
 -- ============================================================

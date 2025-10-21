@@ -73,7 +73,27 @@ export async function POST(req: Request) {
     }
 
     if (action === 'approve') {
-      // 사용자 승인 처리
+      // 1. Tenant 생성 (owner인 경우)
+      const { data: newTenant, error: tenantError } = await supabase
+        .from('tenants')
+        .insert({
+          name: `${targetUser.name || targetUser.email}의 학원`,
+          slug: `academy-${Date.now()}`, // 임시 slug (나중에 owner/setup에서 변경 가능)
+          timezone: 'Asia/Seoul',
+          settings: {},
+        })
+        .select('id')
+        .single()
+
+      if (tenantError || !newTenant) {
+        console.error('Tenant 생성 오류:', tenantError)
+        return NextResponse.json(
+          { success: false, error: 'Tenant 생성 중 오류가 발생했습니다.' },
+          { status: 500 }
+        )
+      }
+
+      // 2. 사용자 승인 처리 (tenant_id 포함)
       const { error: updateError } = await supabase
         .from('users')
         .update({
@@ -81,11 +101,14 @@ export async function POST(req: Request) {
           approved_at: new Date().toISOString(),
           approved_by: user.id,
           role_code: 'owner', // 승인과 동시에 원장 권한 부여
+          tenant_id: newTenant.id, // ⭐ tenant 연결
         })
         .eq('id', userId)
 
       if (updateError) {
         console.error('사용자 승인 오류:', updateError)
+        // Rollback tenant creation
+        await supabase.from('tenants').delete().eq('id', newTenant.id)
         return NextResponse.json(
           { success: false, error: '승인 처리 중 오류가 발생했습니다.' },
           { status: 500 }
