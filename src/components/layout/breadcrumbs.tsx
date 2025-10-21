@@ -35,8 +35,8 @@ export function Breadcrumbs() {
       const breadcrumbItems: BreadcrumbItem[] = []
       const pathSegments = pathname.split('/').filter(Boolean)
 
-      // 홈 링크 추가
-      breadcrumbItems.push({ label: '홈', href: '/' })
+      // 홈 링크 추가 (대시보드로 이동)
+      breadcrumbItems.push({ label: '홈', href: '/dashboard' })
 
       // 각 세그먼트에 대해 브래드크럼 아이템 생성
       let currentPath = ''
