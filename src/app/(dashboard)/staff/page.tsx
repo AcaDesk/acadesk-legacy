@@ -3,6 +3,9 @@ import { createClient } from "@/lib/supabase/server"
 import { StaffManagementClient } from "./staff-management-client"
 import { PageWrapper } from "@/components/layout/page-wrapper"
 
+// Force dynamic rendering (uses cookies for authentication)
+export const dynamic = 'force-dynamic'
+
 export default async function StaffPage() {
   const supabase = await createClient()
 
