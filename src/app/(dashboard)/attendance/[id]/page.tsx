@@ -3,6 +3,9 @@ import { createClient } from '@/lib/supabase/server';
 import { AttendanceRepository } from '@/infrastructure/database/attendance.repository';
 import { AttendanceCheckPage } from '@/components/features/attendance/AttendanceCheckPage';
 
+// Force dynamic rendering (uses cookies for authentication)
+export const dynamic = 'force-dynamic'
+
 export default async function AttendanceSessionPage({
   params,
 }: {
