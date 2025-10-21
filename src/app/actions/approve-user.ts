@@ -37,13 +37,26 @@ export async function approveUser(userId: string): Promise<ApproveUserResult> {
       return { success: false, error: '승인 권한이 없습니다.' }
     }
 
+    // 승인 대상 사용자 정보 조회
+    const { data: targetUser, error: targetUserError } = await supabase
+      .from('users')
+      .select('email, name')
+      .eq('id', userId)
+      .single()
+
+    if (targetUserError || !targetUser) {
+      return { success: false, error: '승인 대상 사용자를 찾을 수 없습니다.' }
+    }
+
     // 사용자 승인 처리
+    // role_code를 'owner'로 설정해야 get_auth_stage가 제대로 작동함
     const { error: updateError } = await supabase
       .from('users')
       .update({
         approval_status: 'approved',
         approved_at: new Date().toISOString(),
         approved_by: user.id,
+        role_code: 'owner', // 승인과 동시에 원장 권한 부여
       })
       .eq('id', userId)
 
