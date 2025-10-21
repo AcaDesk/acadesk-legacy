@@ -1,8 +1,7 @@
 import { Suspense } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { WidgetSkeleton } from '@/components/ui/widget-skeleton'
-import { ErrorBoundary } from 'react-error-boundary'
-import { ErrorFallback } from '@/components/ui/error-fallback'
+import { WidgetErrorBoundary } from '@/components/features/dashboard/widget-error-boundary'
 import { Users, TrendingUp, Clock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 
@@ -140,38 +139,18 @@ export function AsyncWidgetDemo() {
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* 위젯 1: 학생 통계 */}
-        <ErrorBoundary
-          fallbackRender={({ error, resetErrorBoundary }) => (
-            <ErrorFallback
-              error={error}
-              resetErrorBoundary={resetErrorBoundary}
-              variant="default"
-              title="위젯 로딩 실패"
-              description="학생 통계를 불러오는 중 문제가 발생했습니다."
-            />
-          )}
-        >
+        <WidgetErrorBoundary widgetId="student-stats" widgetTitle="학생 통계">
           <Suspense fallback={<WidgetSkeleton variant="stats" />}>
             <StudentStatsWidget />
           </Suspense>
-        </ErrorBoundary>
+        </WidgetErrorBoundary>
 
         {/* 위젯 2: 최근 활동 */}
-        <ErrorBoundary
-          fallbackRender={({ error, resetErrorBoundary }) => (
-            <ErrorFallback
-              error={error}
-              resetErrorBoundary={resetErrorBoundary}
-              variant="default"
-              title="위젯 로딩 실패"
-              description="최근 활동을 불러오는 중 문제가 발생했습니다."
-            />
-          )}
-        >
+        <WidgetErrorBoundary widgetId="recent-activity" widgetTitle="최근 활동">
           <Suspense fallback={<WidgetSkeleton variant="list" />}>
             <RecentActivityWidget />
           </Suspense>
-        </ErrorBoundary>
+        </WidgetErrorBoundary>
       </div>
 
       {/* 사용 예제 설명 */}
