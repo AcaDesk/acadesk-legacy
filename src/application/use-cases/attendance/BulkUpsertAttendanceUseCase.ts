@@ -3,11 +3,13 @@
  * 출석 기록 대량 생성/업데이트 유스케이스 - Application Layer
  */
 
-import { AttendanceRepository, type BulkAttendanceInput } from '@/infrastructure/database/attendance.repository'
+import type { AttendanceRepository, BulkAttendanceInput } from '@/infrastructure/database/attendance.repository'
 import { ValidationError } from '@/lib/error-types'
 import { bulkAttendanceSchema } from '@/types/attendance'
 
 export class BulkUpsertAttendanceUseCase {
+  constructor(private attendanceRepository: AttendanceRepository) {}
+
   async execute(tenantId: string, input: BulkAttendanceInput) {
     if (!tenantId) {
       throw new ValidationError('Tenant ID는 필수입니다')
@@ -30,7 +32,7 @@ export class BulkUpsertAttendanceUseCase {
       return att
     })
 
-    return await AttendanceRepository.bulkUpsertAttendance(
+    return await this.attendanceRepository.bulkUpsertAttendance(
       tenantId,
       validated.session_id,
       attendances

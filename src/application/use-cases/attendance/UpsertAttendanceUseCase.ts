@@ -3,11 +3,13 @@
  * 출석 기록 생성/업데이트 유스케이스 - Application Layer
  */
 
-import { AttendanceRepository, type UpdateAttendanceInput } from '@/infrastructure/database/attendance.repository'
+import type { AttendanceRepository, UpdateAttendanceInput } from '@/infrastructure/database/attendance.repository'
 import { ValidationError } from '@/lib/error-types'
 import { updateAttendanceSchema } from '@/types/attendance'
 
 export class UpsertAttendanceUseCase {
+  constructor(private attendanceRepository: AttendanceRepository) {}
+
   async execute(
     tenantId: string,
     sessionId: string,
@@ -29,7 +31,7 @@ export class UpsertAttendanceUseCase {
       validated.check_in_at = new Date().toISOString()
     }
 
-    return await AttendanceRepository.upsertAttendance(
+    return await this.attendanceRepository.upsertAttendance(
       tenantId,
       sessionId,
       studentId,

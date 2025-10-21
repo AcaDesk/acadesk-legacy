@@ -3,7 +3,8 @@
  * 학생 유스케이스 팩토리 - 클라이언트 컴포넌트용
  */
 
-import { createClient } from '@/lib/supabase/client'
+import type { DataSourceConfig } from '@/lib/data-source-provider'
+import { createClientDataSource } from '@/lib/data-source-provider'
 import { StudentRepository } from '@/infrastructure/database/student.repository'
 import { CreateStudentUseCase } from '../use-cases/student/CreateStudentUseCase'
 import { UpdateStudentUseCase } from '../use-cases/student/UpdateStudentUseCase'
@@ -16,72 +17,81 @@ import { WithdrawStudentUseCase } from '../use-cases/student/WithdrawStudentUseC
 
 /**
  * 학생 리포지토리 생성 (클라이언트 사이드)
+ * @param config - DataSource 설정 (테스트 시 Mock 주입 가능)
  */
-function createStudentRepository() {
-  const supabase = createClient()
-  return new StudentRepository(supabase)
+function createStudentRepository(config?: DataSourceConfig) {
+  const dataSource = createClientDataSource(config)
+  return new StudentRepository(dataSource)
 }
 
 /**
  * CreateStudent 유스케이스 생성
+ * @param config - DataSource 설정 (테스트 시 Mock 주입)
  */
-export function createCreateStudentUseCase() {
-  const repository = createStudentRepository()
+export function createCreateStudentUseCase(config?: DataSourceConfig) {
+  const repository = createStudentRepository(config)
   return new CreateStudentUseCase(repository)
 }
 
 /**
  * UpdateStudent 유스케이스 생성
+ * @param config - DataSource 설정 (테스트 시 Mock 주입)
  */
-export function createUpdateStudentUseCase() {
-  const repository = createStudentRepository()
+export function createUpdateStudentUseCase(config?: DataSourceConfig) {
+  const repository = createStudentRepository(config)
   return new UpdateStudentUseCase(repository)
 }
 
 /**
  * DeleteStudent 유스케이스 생성
+ * @param config - DataSource 설정 (테스트 시 Mock 주입)
  */
-export function createDeleteStudentUseCase() {
-  const repository = createStudentRepository()
+export function createDeleteStudentUseCase(config?: DataSourceConfig) {
+  const repository = createStudentRepository(config)
   return new DeleteStudentUseCase(repository)
 }
 
 /**
  * GetStudent 유스케이스 생성
+ * @param config - DataSource 설정 (테스트 시 Mock 주입)
  */
-export function createGetStudentUseCase() {
-  const repository = createStudentRepository()
+export function createGetStudentUseCase(config?: DataSourceConfig) {
+  const repository = createStudentRepository(config)
   return new GetStudentUseCase(repository)
 }
 
 /**
  * WithdrawStudent 유스케이스 생성
+ * @param config - DataSource 설정 (테스트 시 Mock 주입)
  */
-export function createWithdrawStudentUseCase() {
-  const repository = createStudentRepository()
+export function createWithdrawStudentUseCase(config?: DataSourceConfig) {
+  const repository = createStudentRepository(config)
   return new WithdrawStudentUseCase(repository)
 }
 
 /**
  * GetStudents 유스케이스 생성
+ * @param config - DataSource 설정 (테스트 시 Mock 주입)
  */
-export function createGetStudentsUseCase() {
-  const repository = createStudentRepository()
+export function createGetStudentsUseCase(config?: DataSourceConfig) {
+  const repository = createStudentRepository(config)
   return new GetStudentsUseCase(repository)
 }
 
 /**
  * GetUniqueGrades 유스케이스 생성
+ * @param config - DataSource 설정 (테스트 시 Mock 주입)
  */
-export function createGetUniqueGradesUseCase() {
-  const repository = createStudentRepository()
+export function createGetUniqueGradesUseCase(config?: DataSourceConfig) {
+  const repository = createStudentRepository(config)
   return new GetUniqueGradesUseCase(repository)
 }
 
 /**
  * GetUniqueSchools 유스케이스 생성
+ * @param config - DataSource 설정 (테스트 시 Mock 주입)
  */
-export function createGetUniqueSchoolsUseCase() {
-  const repository = createStudentRepository()
+export function createGetUniqueSchoolsUseCase(config?: DataSourceConfig) {
+  const repository = createStudentRepository(config)
   return new GetUniqueSchoolsUseCase(repository)
 }

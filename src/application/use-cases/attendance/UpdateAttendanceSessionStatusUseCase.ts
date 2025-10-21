@@ -3,10 +3,12 @@
  * 출석 세션 상태 업데이트 유스케이스 - Application Layer
  */
 
-import { AttendanceRepository } from '@/infrastructure/database/attendance.repository'
+import type { AttendanceRepository } from '@/infrastructure/database/attendance.repository'
 import { ValidationError } from '@/lib/error-types'
 
 export class UpdateAttendanceSessionStatusUseCase {
+  constructor(private attendanceRepository: AttendanceRepository) {}
+
   async execute(
     sessionId: string,
     status: string,
@@ -32,7 +34,7 @@ export class UpdateAttendanceSessionStatusUseCase {
       }
     }
 
-    return await AttendanceRepository.updateSessionStatus(
+    return await this.attendanceRepository.updateSessionStatus(
       sessionId,
       status,
       actualStartAt,
