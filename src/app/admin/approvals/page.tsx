@@ -2,6 +2,9 @@ import { Suspense } from "react"
 import { createClient } from "@/lib/supabase/server"
 import { ApprovalManagementClient } from "./approval-management-client"
 
+// Force dynamic rendering (uses cookies for authentication)
+export const dynamic = 'force-dynamic'
+
 export default async function ApprovalsPage() {
   const supabase = await createClient()
 

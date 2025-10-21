@@ -11,6 +11,9 @@ import { QuickStatsAsync } from '@/components/features/dashboard/quick-stats-asy
 import { AsyncWidgetDemo } from '@/components/features/dashboard/async-widget-example'
 import type { Metadata } from 'next'
 
+// Force dynamic rendering (async widgets may use cookies)
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: '대시보드 데모 - 비동기 위젯',
   description: 'React Suspense와 Error Boundary를 활용한 세분화된 에러 처리 및 로딩 상태 데모',

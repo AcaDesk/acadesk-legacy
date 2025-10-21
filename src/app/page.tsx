@@ -4,6 +4,9 @@ import { HeroSection } from "@/components/landing/HeroSection"
 import { PreRegistrationSection } from "@/components/landing/PreRegistrationSection"
 import { FeaturesSection } from "@/components/landing/FeaturesSection"
 
+// Force dynamic rendering (uses cookies for user authentication check)
+export const dynamic = 'force-dynamic'
+
 export default async function HomePage() {
   const supabase = await createClient()
 

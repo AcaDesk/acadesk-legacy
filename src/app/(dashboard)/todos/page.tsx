@@ -10,6 +10,9 @@ import { TodoPageActions } from '@/components/features/todos/todo-page-actions'
 import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/page-error-boundary'
 import type { StudentTodoWithStudent } from '@/types/todo.types'
 
+// Force dynamic rendering (uses cookies for authentication)
+export const dynamic = 'force-dynamic'
+
 /**
  * TODO 관리 페이지 (Server Component)
  * - 서버에서 데이터 페칭 및 통계 계산
