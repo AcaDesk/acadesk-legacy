@@ -134,14 +134,20 @@ export function StudentList() {
 
       // TODO: 출결 데이터는 추후 RPC 함수나 뷰를 통해 최적화하여 조회
       // 임시로 빈 배열로 설정
-      const studentsWithAttendance = (data || []).map(student => ({
-        ...student,
-        users: Array.isArray(student.users) ? student.users[0] || null : student.users,
-        class_enrollments: student.class_enrollments?.map(enrollment => ({
-          classes: Array.isArray(enrollment.classes) ? enrollment.classes[0] || null : enrollment.classes
-        })) || [],
-        recentAttendance: []
-      }))
+      const studentsWithAttendance = (data || []).map(student => {
+        // Preserve student.id explicitly to prevent any potential override
+        const studentId = student.id
+
+        return {
+          ...student,
+          id: studentId, // Explicitly preserve student.id
+          users: Array.isArray(student.users) ? student.users[0] || null : student.users,
+          class_enrollments: student.class_enrollments?.map(enrollment => ({
+            classes: Array.isArray(enrollment.classes) ? enrollment.classes[0] || null : enrollment.classes
+          })) || [],
+          recentAttendance: []
+        }
+      })
 
       setStudents(studentsWithAttendance as Student[])
     } catch (error) {
