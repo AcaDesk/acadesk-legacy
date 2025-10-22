@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -17,16 +16,10 @@ import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { createCreateTodosForStudentsUseCase } from '@/application/factories/todoUseCaseFactory.client'
+import { createGetStudentsUseCase } from '@/application/factories/studentUseCaseFactory.client'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { useCurrentUser } from '@/hooks/use-current-user'
-
-interface Student {
-  id: string
-  student_code: string
-  users: {
-    name: string
-  }[] | null
-}
+import type { Student } from '@/domain/entities/Student'
 
 interface TodoFormData {
   title: string
@@ -51,19 +44,13 @@ export default function NewTodoPage() {
   })
   const [loading, setLoading] = useState(false)
   const [selectAll, setSelectAll] = useState(false)
-  const [tenantId, setTenantId] = useState<string | null>(null)
 
   const router = useRouter()
   const { toast } = useToast()
-  const supabase = createClient()
   const { user: currentUser } = useCurrentUser()
 
-  useEffect(() => {
-    if (currentUser) {
-      loadTenantId()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser])
+  // tenantId는 currentUser에서 직접 가져옴
+  const tenantId = currentUser?.tenantId
 
   useEffect(() => {
     if (tenantId) {
@@ -76,46 +63,24 @@ export default function NewTodoPage() {
     setFormData((prev) => ({ ...prev, student_ids: selectedStudents }))
   }, [selectedStudents])
 
-  async function loadTenantId() {
-    if (!currentUser) return
-
-    try {
-      const { data } = await supabase
-        .from('users')
-        .select('tenant_id')
-        .eq('id', currentUser.id)
-        .single()
-
-      if (data?.tenant_id) {
-        setTenantId(data.tenant_id)
-      }
-    } catch (error) {
-      toast({
-        title: '초기화 오류',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    }
-  }
-
   async function loadStudents() {
     if (!tenantId) return
 
     try {
-      const { data, error } = await supabase
-        .from('students')
-        .select('id, student_code, users(name)')
-        .eq('tenant_id', tenantId)
-        .is('deleted_at', null)
-        .order('student_code')
+      const getStudentsUseCase = createGetStudentsUseCase()
+      const { students: studentEntities, error } = await getStudentsUseCase.execute({
+        tenantId,
+        includeDeleted: false,
+        includeWithdrawn: false,
+      })
 
       if (error) throw error
-      setStudents(data || [])
+      setStudents(studentEntities)
     } catch (error) {
       console.error('Error loading students:', error)
       toast({
         title: '데이터 로드 오류',
-        description: '학생 목록을 불러오는 중 오류가 발생했습니다.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       })
     }
@@ -339,10 +304,10 @@ export default function NewTodoPage() {
                       />
                       <div>
                         <div className="font-medium">
-                          {student.users?.[0]?.name || 'Unknown'}
+                          {student.name}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          {student.student_code}
+                          {student.studentCode.getValue()}
                         </div>
                       </div>
                     </label>
