@@ -5,7 +5,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { IDataSource } from '@/domain/data-sources/IDataSource'
-import type { ITodoRepository, TodoFilters, TodoStats } from '@/domain/repositories/ITodoRepository'
+import type { ITodoRepository, TodoFilters, TodoStats, TodoWithStudent } from '@/domain/repositories/ITodoRepository'
 import { Todo } from '@/domain/entities/Todo'
 import { Priority } from '@/domain/value-objects/Priority'
 import { DatabaseError, NotFoundError } from '@/lib/error-types'
@@ -81,6 +81,28 @@ export class TodoRepository implements ITodoRepository {
     }
   }
 
+  async findByStudentIdForDate(studentId: string, date: string): Promise<Todo[]> {
+    try {
+      const { data, error } = await this.dataSource
+        .from('student_todos')
+        .select('*')
+        .eq('student_id', studentId)
+        .eq('due_date', date)
+        .order('created_at', { ascending: true })
+
+      if (error) {
+        logError(error, { repository: 'TodoRepository', method: 'findByStudentIdForDate' })
+        throw new DatabaseError('학생 TODO를 조회할 수 없습니다', error)
+      }
+
+      return (data as any[] || []).map((row: any) => this.mapToDomain(row))
+    } catch (error) {
+      if (error instanceof DatabaseError) throw error
+      logError(error, { repository: 'TodoRepository', method: 'findByStudentIdForDate' })
+      throw new DatabaseError('학생 TODO를 조회할 수 없습니다')
+    }
+  }
+
   async findAll(tenantId: string, filters?: TodoFilters, limit: number = 100): Promise<Todo[]> {
     try {
       let query = this.dataSource
@@ -129,6 +151,86 @@ export class TodoRepository implements ITodoRepository {
     } catch (error) {
       if (error instanceof DatabaseError) throw error
       logError(error, { repository: 'TodoRepository', method: 'findAll' })
+      throw new DatabaseError('TODO 목록을 조회할 수 없습니다')
+    }
+  }
+
+  async findAllWithStudent(tenantId: string, filters?: TodoFilters, limit: number = 100): Promise<TodoWithStudent[]> {
+    try {
+      // Note: IDataSource는 조인 조회를 직접 지원하지 않으므로
+      // SupabaseDataSource의 경우 내부 client를 사용해야 함
+      // 이는 Infrastructure layer의 구현 세부사항
+      const client = (this.dataSource as any).client as SupabaseClient
+
+      if (!client) {
+        throw new DatabaseError('Supabase client를 사용할 수 없습니다')
+      }
+
+      let query = client
+        .from('student_todos')
+        .select(`
+          *,
+          students!inner (
+            id,
+            student_code,
+            users!inner (
+              name
+            )
+          )
+        `)
+        .eq('tenant_id', tenantId)
+        .order('due_date', { ascending: false })
+        .limit(limit)
+
+      // Apply filters (same as findAll)
+      if (filters?.studentId) {
+        query = query.eq('student_id', filters.studentId)
+      }
+
+      if (filters?.status === 'pending') {
+        query = query.is('completed_at', null)
+      } else if (filters?.status === 'completed') {
+        query = query.not('completed_at', 'is', null).is('verified_at', null)
+      } else if (filters?.status === 'verified') {
+        query = query.not('verified_at', 'is', null)
+      }
+
+      if (filters?.priority) {
+        query = query.eq('priority', filters.priority)
+      }
+
+      if (filters?.subject) {
+        query = query.eq('subject', filters.subject)
+      }
+
+      if (filters?.dueDateFrom) {
+        query = query.gte('due_date', filters.dueDateFrom.toISOString().split('T')[0])
+      }
+
+      if (filters?.dueDateTo) {
+        query = query.lte('due_date', filters.dueDateTo.toISOString().split('T')[0])
+      }
+
+      const { data, error } = await query
+
+      if (error) {
+        logError(error, { repository: 'TodoRepository', method: 'findAllWithStudent' })
+        throw new DatabaseError('TODO 목록을 조회할 수 없습니다', error)
+      }
+
+      return (data as any[] || []).map((row: any) => ({
+        todo: this.mapToDomain(row),
+        student: {
+          id: row.students.id,
+          studentCode: row.students.student_code,
+          name: Array.isArray(row.students.users)
+            ? row.students.users[0]?.name || 'Unknown'
+            : row.students.users?.name || 'Unknown',
+        },
+      }))
+    } catch (error) {
+      if (error instanceof DatabaseError) throw error
+      logError(error, { repository: 'TodoRepository', method: 'findAllWithStudent' })
       throw new DatabaseError('TODO 목록을 조회할 수 없습니다')
     }
   }
