@@ -94,6 +94,10 @@ export class Todo {
     return this.props.verifiedAt
   }
 
+  get notes(): string | null {
+    return this.props.notes
+  }
+
   get isCompleted(): boolean {
     return this.props.completedAt !== null
   }
