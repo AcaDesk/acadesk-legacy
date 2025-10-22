@@ -91,6 +91,30 @@ export class StudentRepository implements IStudentRepository {
     }
   }
 
+  async findByStudentCodeForKiosk(studentCode: string, tenantId: string): Promise<Student | null> {
+    try {
+      const { data, error } = await this.dataSource
+        .from('students')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('student_code', studentCode.toUpperCase())
+        .is('deleted_at', null)
+        .maybeSingle()
+
+      if (error) {
+        logError(error, { repository: 'StudentRepository', method: 'findByStudentCodeForKiosk' })
+        throw new DatabaseError('학생 코드로 조회할 수 없습니다', error)
+      }
+
+      // kiosk_pin을 포함하여 반환 (Use Case에서 검증)
+      return data ? this.mapToDomain(data) : null
+    } catch (error) {
+      if (error instanceof DatabaseError) throw error
+      logError(error, { repository: 'StudentRepository', method: 'findByStudentCodeForKiosk' })
+      throw new DatabaseError('학생 코드로 조회할 수 없습니다')
+    }
+  }
+
   async findAll(tenantId: string, filters?: StudentFilters, options?: FindStudentOptions): Promise<Student[]> {
     try {
       let query = this.dataSource
