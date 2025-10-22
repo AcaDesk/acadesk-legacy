@@ -24,6 +24,18 @@ export interface TodoStats {
   overdue: number
 }
 
+/**
+ * 학생 정보가 포함된 TODO (조인 조회용)
+ */
+export interface TodoWithStudent {
+  todo: Todo
+  student: {
+    id: string
+    studentCode: string
+    name: string
+  }
+}
+
 export interface ITodoRepository {
   /**
    * ID로 TODO 조회
@@ -41,9 +53,22 @@ export interface ITodoRepository {
   findByStudentId(studentId: string, includeCompleted?: boolean): Promise<Todo[]>
 
   /**
+   * 학생의 특정 날짜 TODO 조회 (키오스크용)
+   * @param studentId 학생 ID
+   * @param date 조회할 날짜 (YYYY-MM-DD 형식)
+   */
+  findByStudentIdForDate(studentId: string, date: string): Promise<Todo[]>
+
+  /**
    * 테넌트의 모든 TODO 조회 (필터 적용 가능)
    */
   findAll(tenantId: string, filters?: TodoFilters, limit?: number): Promise<Todo[]>
+
+  /**
+   * 테넌트의 모든 TODO 조회 with 학생 정보 (조인)
+   * UI에서 학생 이름, 학번 등이 필요한 경우 사용
+   */
+  findAllWithStudent(tenantId: string, filters?: TodoFilters, limit?: number): Promise<TodoWithStudent[]>
 
   /**
    * 기한이 임박한 TODO 조회 (D-3 이내)
