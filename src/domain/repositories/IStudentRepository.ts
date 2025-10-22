@@ -35,6 +35,12 @@ export interface IStudentRepository {
   findByStudentCode(code: StudentCode, tenantId: string): Promise<Student | null>
 
   /**
+   * 학생 코드로 조회 (키오스크 PIN 포함)
+   * 키오스크 인증 시 사용 - kiosk_pin 필드 포함하여 반환
+   */
+  findByStudentCodeForKiosk(studentCode: string, tenantId: string): Promise<Student | null>
+
+  /**
    * 테넌트의 모든 학생 조회
    */
   findAll(tenantId: string, filters?: StudentFilters, options?: FindStudentOptions): Promise<Student[]>
