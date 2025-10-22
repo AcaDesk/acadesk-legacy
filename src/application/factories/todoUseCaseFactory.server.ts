@@ -15,6 +15,7 @@ import { RejectTodoUseCase } from '../use-cases/todo/RejectTodoUseCase'
 import { DeleteTodoUseCase } from '../use-cases/todo/DeleteTodoUseCase'
 import { GetTodoUseCase } from '../use-cases/todo/GetTodoUseCase'
 import { GetTodosUseCase } from '../use-cases/todo/GetTodosUseCase'
+import { GetTodosWithStudentUseCase } from '../use-cases/todo/GetTodosWithStudentUseCase'
 
 /**
  * TODO 리포지토리 생성 (서버 사이드)
@@ -102,4 +103,12 @@ export async function createRejectTodoUseCase() {
 export async function createGetTodosUseCase() {
   const repository = await createTodoRepository()
   return new GetTodosUseCase(repository)
+}
+
+/**
+ * GetTodosWithStudent 유스케이스 생성 (학생 정보 포함 조회)
+ */
+export async function createGetTodosWithStudentUseCase() {
+  const repository = await createTodoRepository()
+  return new GetTodosWithStudentUseCase(repository)
 }
