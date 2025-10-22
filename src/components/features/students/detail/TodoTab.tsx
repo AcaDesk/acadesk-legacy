@@ -26,8 +26,9 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import { useStudentDetail } from '@/hooks/use-student-detail'
-import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/hooks/use-toast'
+import { createCompleteTodoUseCase } from '@/application/factories/todoUseCaseFactory.client'
+import { getErrorMessage } from '@/lib/error-handlers'
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -59,7 +60,6 @@ export function TodoTab() {
   const router = useRouter()
   const { toast } = useToast()
   const { student, recentTodos, onRefresh } = useStudentDetail()
-  const supabase = createClient()
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all')
 
   // 필터링된 TODO 목록
@@ -84,14 +84,15 @@ export function TodoTab() {
   // TODO 완료/미완료 토글
   const handleToggleTodo = async (todoId: string, currentStatus: boolean) => {
     try {
-      const { error } = await supabase
-        .from('student_todos')
-        .update({
-          completed_at: currentStatus ? null : new Date().toISOString(),
-        })
-        .eq('id', todoId)
+      const completeTodoUseCase = createCompleteTodoUseCase()
 
-      if (error) throw error
+      if (currentStatus) {
+        // 완료 취소
+        await completeTodoUseCase.uncomplete(todoId)
+      } else {
+        // 완료 처리
+        await completeTodoUseCase.execute(todoId)
+      }
 
       toast({
         title: currentStatus ? 'TODO 미완료 처리' : 'TODO 완료',
@@ -103,7 +104,7 @@ export function TodoTab() {
       console.error('Error toggling todo:', error)
       toast({
         title: '오류',
-        description: 'TODO 상태 변경 중 오류가 발생했습니다.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       })
     }
