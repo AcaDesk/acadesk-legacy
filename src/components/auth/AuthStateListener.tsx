@@ -17,9 +17,10 @@ import { inviteTokenStore } from '@/lib/auth/invite-token-store'
 export function AuthStateListener() {
   const router = useRouter()
   const pathname = usePathname()
-  const supabase = createClient()
 
   useEffect(() => {
+    const supabase = createClient()
+
     const { data: subscription } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('[AuthStateListener] Auth event:', event)
@@ -28,6 +29,7 @@ export function AuthStateListener() {
         if (event === 'SIGNED_IN' && session) {
           // 이미 인증 관련 페이지에 있으면 routeAfterLogin 실행
           // (로그인, 인증 페이지에서만)
+          // bootstrap, pending 페이지는 자체 라우팅 로직이 있으므로 제외
           const isAuthPage =
             pathname.startsWith('/auth/login') ||
             pathname.startsWith('/auth/verify-email') ||
@@ -45,7 +47,7 @@ export function AuthStateListener() {
     return () => {
       subscription.subscription.unsubscribe()
     }
-  }, [router, pathname, supabase.auth])
+  }, [router, pathname])
 
   return null
 }
