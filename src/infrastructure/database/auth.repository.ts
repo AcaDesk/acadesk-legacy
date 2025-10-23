@@ -54,10 +54,8 @@ export class AuthRepository implements IAuthRepository {
       }
     }
 
-    // 이메일 확인이 완료된 경우 프로필 생성
-    if (authData?.user && authData.user.email_confirmed_at) {
-      await this.createUserProfile()
-    }
+    // ✅ 프로필 생성은 Server Action (createUserProfileServer)에서 처리
+    // Repository는 auth만 담당하고, 프로필 생성은 application layer에서 관리
 
     return {
       user: authData?.user || null,
@@ -191,26 +189,6 @@ export class AuthRepository implements IAuthRepository {
     }
 
     return { error: null }
-  }
-
-  /**
-   * Create user profile after sign up
-   */
-  async createUserProfile(): Promise<{ success: boolean; error?: string }> {
-    const { data, error } = await this.dataSource.rpc('create_user_profile')
-
-    if (error) {
-      console.error('Failed to create user profile:', error)
-      return { success: false, error: error.message }
-    }
-
-    const result = data as { success: boolean; error?: string }
-
-    if (!result?.success) {
-      return { success: false, error: result?.error || '프로필 생성에 실패했습니다.' }
-    }
-
-    return { success: true }
   }
 
   /**

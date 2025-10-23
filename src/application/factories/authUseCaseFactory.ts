@@ -1,11 +1,15 @@
 /**
  * Auth Use Case Factory (Server-side)
  * Server Components 및 API Routes에서 사용
+ *
+ * ⚠️ Onboarding 관련 use case는 Server Action으로 대체됨
+ * - createCompleteOwnerOnboardingUseCase → completeOwnerOnboarding (Server Action)
+ * - createCompleteAcademySetupUseCase → completeOwnerOnboarding (Server Action)
+ * - createGetOnboardingStateUseCase → checkOnboardingStage (Server Action)
  */
 
 import { createClient } from '@/lib/supabase/server'
 import { AuthRepository } from '@/infrastructure/database/auth.repository'
-import { OnboardingRepository } from '@/infrastructure/database/onboarding.repository'
 import {
   SignUpUseCase,
   SignInUseCase,
@@ -13,9 +17,6 @@ import {
   SignInWithOAuthUseCase,
   ResetPasswordUseCase,
   UpdatePasswordUseCase,
-  CompleteOwnerOnboardingUseCase,
-  CompleteAcademySetupUseCase,
-  GetOnboardingStateUseCase,
 } from '@/application/use-cases/auth'
 
 /**
@@ -70,31 +71,4 @@ export async function createUpdatePasswordUseCase() {
   const supabase = await createClient()
   const authRepository = new AuthRepository(supabase)
   return new UpdatePasswordUseCase(authRepository)
-}
-
-/**
- * Create CompleteOwnerOnboardingUseCase (server-side)
- */
-export async function createCompleteOwnerOnboardingUseCase() {
-  const supabase = await createClient()
-  const onboardingRepository = new OnboardingRepository(supabase)
-  return new CompleteOwnerOnboardingUseCase(onboardingRepository)
-}
-
-/**
- * Create CompleteAcademySetupUseCase (server-side)
- */
-export async function createCompleteAcademySetupUseCase() {
-  const supabase = await createClient()
-  const onboardingRepository = new OnboardingRepository(supabase)
-  return new CompleteAcademySetupUseCase(onboardingRepository)
-}
-
-/**
- * Create GetOnboardingStateUseCase (server-side)
- */
-export async function createGetOnboardingStateUseCase() {
-  const supabase = await createClient()
-  const onboardingRepository = new OnboardingRepository(supabase)
-  return new GetOnboardingStateUseCase(onboardingRepository)
 }

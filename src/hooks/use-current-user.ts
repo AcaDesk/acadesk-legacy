@@ -77,34 +77,6 @@ export function useCurrentUser(): UseCurrentUserResult {
           name: userData.name ?? '',
           roleCode: userData.role_code,
           tenantId: userData.tenant_id,
-          onboarding_completed: userData.onboarding_completed ?? false,
-                approvalStatus: retryData.approval_status ?? 'pending',
-              }
-            }
-          } catch (rpcError) {
-            console.warn('useCurrentUser: Failed to create user profile', rpcError)
-          }
-
-          // 프로필 생성 실패해도 최소 정보 반환 (온보딩에서 처리)
-          console.log('useCurrentUser: Returning minimal user data')
-          return {
-            id: authUser.id,
-            email: authUser.email ?? '',
-            name: authUser.user_metadata?.name ?? authUser.email?.split('@')[0] ?? 'User',
-            roleCode: null,
-            tenantId: null,
-            onboardingCompleted: false,
-            approvalStatus: 'pending',
-          }
-        }
-
-        // 4. 정상적으로 조회됨 - snake_case → camelCase 변환
-        return {
-          id: userData.id,
-          email: userData.email ?? '',
-          name: userData.name ?? '',
-          roleCode: userData.role_code,
-          tenantId: userData.tenant_id,
           onboardingCompleted: userData.onboarding_completed ?? false,
           approvalStatus: userData.approval_status ?? 'pending',
         }

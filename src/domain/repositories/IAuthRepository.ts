@@ -66,9 +66,4 @@ export interface IAuthRepository {
    * Update password
    */
   updatePassword(newPassword: Password): Promise<{ error: AuthError | null }>
-
-  /**
-   * Create user profile after sign up
-   */
-  createUserProfile(): Promise<{ success: boolean; error?: string }>
 }

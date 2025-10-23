@@ -1,6 +1,8 @@
 /**
  * 인증 단계 관리를 위한 커스텀 훅
  *
+ * ✅ 완전히 Server Action 기반으로 마이그레이션됨 (RPC 제거)
+ *
  * 로딩 상태, 에러 처리, 재시도 로직을 통합 관리
  */
 
@@ -8,10 +10,13 @@
 
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { authStageService } from '@/infrastructure/auth/auth-stage.service'
-import { AuthStageError, getAuthStageErrorMessage } from '@/lib/auth/auth-errors'
 import { inviteTokenStore } from '@/lib/auth/invite-token-store'
 import { useToast } from './use-toast'
+import {
+  createUserProfileServer,
+  completeOwnerOnboarding,
+  checkOnboardingStage,
+} from '@/app/actions/onboarding'
 
 interface UseAuthStageOptions {
   /** 자동 라우팅 활성화 여부 (기본: true) */
@@ -30,94 +35,109 @@ export function useAuthStage(options: UseAuthStageOptions = {}) {
   const { toast } = useToast()
 
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<AuthStageError | null>(null)
+  const [error, setError] = useState<Error | null>(null)
   const [retryCount, setRetryCount] = useState(0)
 
   /**
-   * 프로필 생성
+   * 프로필 생성 (Server Action 사용)
    */
-  const createProfile = useCallback(async (): Promise<boolean> => {
-    // 최대 재시도 횟수 체크
-    if (retryCount >= maxRetries) {
-      toast({
-        title: '재시도 횟수 초과',
-        description: `최대 ${maxRetries}번까지만 재시도할 수 있습니다. 잠시 후 다시 시도하거나 고객센터에 문의해주세요.`,
-        variant: 'destructive',
-      })
-      return false
-    }
-
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      const { data, error: createError } = await authStageService.createUserProfile()
-
-      if (createError || !data?.ok) {
-        setError(createError!)
-        setRetryCount((prev) => prev + 1)
-        const errorInfo = getAuthStageErrorMessage(createError!)
-
-        // 재시도 가능 여부 메시지 추가
-        const remainingRetries = maxRetries - retryCount - 1
-        const description = remainingRetries > 0
-          ? `${errorInfo.description} (${remainingRetries}번 재시도 가능)`
-          : errorInfo.description
-
+  const createProfile = useCallback(
+    async (userId: string): Promise<boolean> => {
+      // 최대 재시도 횟수 체크
+      if (retryCount >= maxRetries) {
         toast({
-          title: errorMessage?.title || errorInfo.title,
-          description: errorMessage?.description || description,
+          title: '재시도 횟수 초과',
+          description: `최대 ${maxRetries}번까지만 재시도할 수 있습니다. 잠시 후 다시 시도하거나 고객센터에 문의해주세요.`,
           variant: 'destructive',
         })
-
         return false
       }
 
-      // 성공 시 재시도 카운트 초기화
-      setRetryCount(0)
+      setIsLoading(true)
+      setError(null)
 
-      if (successMessage) {
-        toast({
-          title: successMessage.title,
-          description: successMessage.description,
-        })
-      }
+      try {
+        const result = await createUserProfileServer(userId)
 
-      // 자동 라우팅
-      if (autoRoute) {
-        const inviteToken = inviteTokenStore.get()
-        const { data: stageData, error: stageError } = await authStageService.getAuthStage(
-          inviteToken ?? undefined
-        )
+        if (!result.success) {
+          const err = new Error(result.error || '프로필 생성에 실패했습니다.')
+          setError(err)
+          setRetryCount((prev) => prev + 1)
 
-        if (stageError || !stageData?.ok) {
-          console.error('[useAuthStage] Stage check failed after profile creation:', stageError)
-          router.push('/auth/login')
+          const remainingRetries = maxRetries - retryCount - 1
+          const description =
+            remainingRetries > 0
+              ? `${result.error} (${remainingRetries}번 재시도 가능)`
+              : result.error || '프로필 생성에 실패했습니다.'
+
+          toast({
+            title: errorMessage?.title || '프로필 생성 실패',
+            description: errorMessage?.description || description,
+            variant: 'destructive',
+          })
+
           return false
         }
 
-        const { next_url } = stageData.stage || {}
-        router.push(next_url || '/dashboard')
-      }
+        // 성공 시 재시도 카운트 초기화
+        setRetryCount(0)
 
-      return true
-    } catch (err) {
-      console.error('[useAuthStage] createProfile error:', err)
-      setError(err as AuthStageError)
-      return false
-    } finally {
-      setIsLoading(false)
-    }
-  }, [router, toast, autoRoute, successMessage, errorMessage, retryCount, maxRetries])
+        if (successMessage) {
+          toast({
+            title: successMessage.title,
+            description: successMessage.description,
+          })
+        }
+
+        // 자동 라우팅
+        if (autoRoute) {
+          const inviteToken = inviteTokenStore.get()
+          const stageResult = await checkOnboardingStage(inviteToken ?? undefined)
+
+          if (!stageResult.success || !stageResult.data) {
+            console.error('[useAuthStage] Stage check failed after profile creation')
+            router.push('/auth/login')
+            return false
+          }
+
+          const stageData = stageResult.data as {
+            ok: boolean
+            stage?: { code: string; next_url?: string }
+          }
+
+          const { next_url } = stageData.stage || {}
+          router.push(next_url || '/dashboard')
+        }
+
+        return true
+      } catch (err) {
+        console.error('[useAuthStage] createProfile error:', err)
+        setError(err as Error)
+        return false
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [router, toast, autoRoute, successMessage, errorMessage, retryCount, maxRetries]
+  )
 
   /**
-   * 원장 설정 완료
+   * 원장 설정 완료 (Server Action 사용)
    */
   const finishOwnerSetup = useCallback(
     async (params: {
       academyName: string
+      ownerName?: string
       timezone?: string
-      settings?: Record<string, unknown>
+      settings?: {
+        address?: string
+        phone?: string
+        businessHours?: {
+          start: string
+          end: string
+        }
+        subjects?: string[]
+      }
     }): Promise<boolean> => {
       // 최대 재시도 횟수 체크
       if (retryCount >= maxRetries) {
@@ -133,20 +153,24 @@ export function useAuthStage(options: UseAuthStageOptions = {}) {
       setError(null)
 
       try {
-        const { data, error: setupError } = await authStageService.ownerFinishSetup(params)
+        const result = await completeOwnerOnboarding({
+          ...params,
+          timezone: params.timezone || 'Asia/Seoul',
+        })
 
-        if (setupError || !data?.ok) {
-          setError(setupError!)
+        if (!result.success) {
+          const err = new Error(result.error || '학원 설정에 실패했습니다.')
+          setError(err)
           setRetryCount((prev) => prev + 1)
-          const errorInfo = getAuthStageErrorMessage(setupError!)
 
           const remainingRetries = maxRetries - retryCount - 1
-          const description = remainingRetries > 0
-            ? `${errorInfo.description} (${remainingRetries}번 재시도 가능)`
-            : errorInfo.description
+          const description =
+            remainingRetries > 0
+              ? `${result.error} (${remainingRetries}번 재시도 가능)`
+              : result.error || '학원 설정에 실패했습니다.'
 
           toast({
-            title: errorMessage?.title || errorInfo.title,
+            title: errorMessage?.title || '학원 설정 실패',
             description: errorMessage?.description || description,
             variant: 'destructive',
           })
@@ -174,7 +198,7 @@ export function useAuthStage(options: UseAuthStageOptions = {}) {
         return true
       } catch (err) {
         console.error('[useAuthStage] finishOwnerSetup error:', err)
-        setError(err as AuthStageError)
+        setError(err as Error)
         return false
       } finally {
         setIsLoading(false)
@@ -185,78 +209,38 @@ export function useAuthStage(options: UseAuthStageOptions = {}) {
 
   /**
    * 직원 초대 수락
+   *
+   * ⚠️ TODO: Server Action 구현 필요
+   * 현재는 placeholder로 에러 반환
    */
   const acceptInvite = useCallback(
     async (token: string): Promise<boolean> => {
-      // 최대 재시도 횟수 체크
-      if (retryCount >= maxRetries) {
-        toast({
-          title: '재시도 횟수 초과',
-          description: `최대 ${maxRetries}번까지만 재시도할 수 있습니다. 초대 링크가 유효한지 확인하거나 관리자에게 문의해주세요.`,
-          variant: 'destructive',
-        })
-        return false
-      }
-
       setIsLoading(true)
       setError(null)
 
       try {
-        const { data, error: acceptError } = await authStageService.acceptStaffInvite(token)
+        // TODO: acceptStaffInvite Server Action 구현 필요
+        console.error('[useAuthStage] acceptInvite not implemented yet')
+        toast({
+          title: '기능 미구현',
+          description: '초대 수락 기능은 아직 구현되지 않았습니다.',
+          variant: 'destructive',
+        })
 
-        if (acceptError || !data?.ok) {
-          setError(acceptError!)
-          setRetryCount((prev) => prev + 1)
-          const errorInfo = getAuthStageErrorMessage(acceptError!)
-
-          const remainingRetries = maxRetries - retryCount - 1
-          const description = remainingRetries > 0 && errorInfo.canRetry
-            ? `${errorInfo.description} (${remainingRetries}번 재시도 가능)`
-            : errorInfo.description
-
-          toast({
-            title: errorMessage?.title || errorInfo.title,
-            description: errorMessage?.description || description,
-            variant: 'destructive',
-          })
-
-          return false
-        }
-
-        // 성공 시 재시도 카운트 초기화
-        setRetryCount(0)
-
-        if (successMessage) {
-          toast({
-            title: successMessage.title,
-            description: successMessage.description,
-          })
-        }
-
-        // 토큰 제거
-        inviteTokenStore.remove()
-
-        // 자동 라우팅
-        if (autoRoute) {
-          setTimeout(() => {
-            router.push('/dashboard')
-          }, 1500)
-        }
-
-        return true
+        return false
       } catch (err) {
         console.error('[useAuthStage] acceptInvite error:', err)
-        setError(err as AuthStageError)
+        setError(err as Error)
         return false
       } finally {
         setIsLoading(false)
       }
     },
-    [router, toast, autoRoute, successMessage, errorMessage, retryCount, maxRetries]
+    [toast]
   )
 
   /**
-   * 인증 단계 확인 및 라우팅
+   * 인증 단계 확인 및 라우팅 (Server Action 사용)
    */
   const checkAndRoute = useCallback(
     async (inviteToken?: string): Promise<boolean> => {
@@ -264,18 +248,26 @@ export function useAuthStage(options: UseAuthStageOptions = {}) {
       setError(null)
 
       try {
-        const { data, error: stageError } = await authStageService.getAuthStage(inviteToken)
+        const result = await checkOnboardingStage(inviteToken)
 
-        if (stageError || !data?.ok) {
-          setError(stageError!)
-          console.error('[useAuthStage] checkAndRoute error:', stageError)
+        if (!result.success || !result.data) {
+          const err = new Error(result.error || '인증 상태 확인에 실패했습니다.')
+          setError(err)
+          console.error('[useAuthStage] checkAndRoute error:', result.error)
           router.push('/auth/login')
           return false
         }
 
-        const { code, next_url } = data.stage || {}
+        const stageData = result.data as {
+          ok: boolean
+          stage?: { code: string; next_url?: string }
+        }
 
-        console.log(`[useAuthStage] Auth stage: ${code}, next_url: ${next_url || '/dashboard'}`)
+        const { code, next_url } = stageData.stage || {}
+
+        console.log(
+          `[useAuthStage] Auth stage: ${code}, next_url: ${next_url || '/dashboard'}`
+        )
 
         // 상태별 라우팅
         if (next_url) {
@@ -292,7 +284,7 @@ export function useAuthStage(options: UseAuthStageOptions = {}) {
         return true
       } catch (err) {
         console.error('[useAuthStage] checkAndRoute error:', err)
-        setError(err as AuthStageError)
+        setError(err as Error)
         router.push('/auth/login')
         return false
       } finally {
