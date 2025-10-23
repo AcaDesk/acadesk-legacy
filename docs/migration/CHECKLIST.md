@@ -20,7 +20,7 @@
 
 ---
 
-## 🧪 Phase 2: 테스트 및 검증 (필수)
+## 🧪 Phase 2: 테스트 및 검증 (다음 단계)
 
 ### 로컬 환경 설정
 - [ ] Supabase 로컬 인스턴스 시작
@@ -36,7 +36,8 @@
   ```
 
 ### 기능 테스트 (Manual)
-#### TODO 템플릿
+
+#### TODO 템플릿 (Phase 1)
 - [ ] 템플릿 생성 (필수 필드만)
 - [ ] 템플릿 생성 (모든 필드)
 - [ ] 템플릿 수정
@@ -44,7 +45,7 @@
 - [ ] 템플릿 삭제
 - [ ] 권한 없는 사용자 차단 확인
 
-#### 학생 관리
+#### 학생 관리 (Phase 1)
 - [ ] 학생 생성 (보호자 신규 등록)
 - [ ] 학생 생성 (보호자 기존 선택)
 - [ ] 학생 생성 (보호자 건너뛰기)
@@ -52,7 +53,7 @@
 - [ ] 학생 삭제 (소프트 삭제 확인)
 - [ ] 중복 학생 코드 처리 확인
 
-#### TODO 플래너
+#### TODO 플래너 (Phase 1)
 - [ ] 단일 학생에게 TODO 추가
 - [ ] 여러 학생에게 TODO 일괄 추가 (템플릿 사용)
 - [ ] 여러 학생에게 TODO 일괄 추가 (수동 입력)
@@ -60,20 +61,43 @@
 - [ ] 주간 과제 게시 (20명 이상)
 - [ ] 계획 복사 기능
 
-#### TODO 검증
+#### TODO 검증 (Phase 1)
 - [ ] 단일 TODO 검증
 - [ ] 일괄 TODO 검증 (10개 이상)
 - [ ] TODO 반려 (피드백 포함)
 - [ ] 완료되지 않은 TODO 검증 차단 확인
 - [ ] 이미 검증된 TODO 재검증 차단 확인
 
+#### 상담 기록 (Phase 3) ✅ 마이그레이션 완료
+- [ ] 상담 기록 생성
+- [ ] 상담 유형 선택 (대면/전화/화상/기타)
+- [ ] 상담 내용 저장
+- [ ] 권한 검증 (instructor 이상)
+
+#### 출석 관리 (Phase 3) ✅ 마이그레이션 완료
+- [ ] 출석 세션 생성
+- [ ] 학생별 출석 체크 (출석/지각/결석/결석계)
+- [ ] 출석 일괄 저장
+- [ ] 출석 세션 삭제
+
+#### 성적 관리 (Phase 3) ✅ 마이그레이션 완료
+- [ ] 개별 성적 입력
+- [ ] 일괄 성적 입력 (클래스 단위)
+- [ ] 점수 자동 계산 확인
+- [ ] 성적 삭제
+
+#### 보호자 관리 (Phase 3) ✅ 마이그레이션 완료
+- [ ] 보호자 생성 (users + guardians + student_guardians)
+- [ ] 학생과 보호자 연결
+- [ ] 보호자 정보 수정
+- [ ] 보호자 삭제 (소프트 삭제)
+
 ### 성능 테스트
-- [ ] 대량 TODO 생성 (100개+)
-  - 예상 시간: 5초 이내
-- [ ] 일괄 검증 (50개+)
-  - 예상 시간: 3초 이내
-- [ ] 템플릿 목록 로딩 (100개+)
-  - 예상 시간: 1초 이내
+- [ ] 대량 TODO 생성 (100개+) - 예상: 5초 이내
+- [ ] 일괄 검증 (50개+) - 예상: 3초 이내
+- [ ] 템플릿 목록 로딩 (100개+) - 예상: 1초 이내
+- [ ] 일괄 출석 저장 (50명+) - 예상: 3초 이내
+- [ ] 일괄 성적 입력 (30명+) - 예상: 2초 이내
 
 ### 에러 핸들링 테스트
 - [ ] 네트워크 끊김 시나리오
@@ -84,32 +108,57 @@
 
 ---
 
-## 🔧 Phase 3: 남은 기능 전환 (선택)
+## 🔧 Phase 3: 남은 기능 전환 (완료)
 
-### 우선순위 High (1-2일)
-- [ ] **상담 기록** (`ConsultationTab.tsx`)
-  - [ ] Server Action 생성 (`src/app/actions/consultations.ts`)
-  - [ ] ConsultationTab 컴포넌트 수정
-  - [ ] 테스트
+### 우선순위 High ✅
+- [x] **상담 기록** (`ConsultationTab.tsx`)
+  - [x] Server Action 생성 (`src/app/actions/consultations.ts`)
+  - [x] ConsultationTab 컴포넌트 수정
+  - [x] TypeScript 타입 체크 통과
 
-### 우선순위 Medium (3-5일)
-- [ ] **출석 관리** (`attendance/`)
-  - [ ] Server Action 생성 (`src/app/actions/attendance.ts`)
-  - [ ] 출석 페이지 수정
-  - [ ] RPC → pg 트랜잭션 전환 고려
+### 우선순위 Medium ✅
+- [x] **출석 관리** (`attendance/`)
+  - [x] Server Action 생성 (`src/app/actions/attendance.ts`)
+    - `createAttendanceSession` - 출석 세션 생성
+    - `bulkUpsertAttendance` - 출석 일괄 기록
+    - `deleteAttendanceSession` - 세션 삭제
+  - [x] 출석 페이지 수정
+    - `AttendanceList.tsx` - API Route → Server Action
+    - `attendance-check-dialog.tsx` - Use Case → Server Action
+  - [x] TypeScript 타입 체크 통과
 
-- [ ] **성적 관리** (`grades/`)
-  - [ ] Server Action 생성 (`src/app/actions/grades.ts`)
-  - [ ] 성적 입력 페이지 수정
-  - [ ] Bulk entry 트랜잭션 처리
+- [x] **성적 관리** (`grades/`)
+  - [x] Server Action 생성 (`src/app/actions/grades.ts`)
+    - `createExamScore` - 개별 성적 입력
+    - `bulkUpsertExamScores` - 일괄 성적 입력
+    - `deleteExamScore` - 성적 삭제
+  - [x] 성적 입력 페이지 수정
+    - `grades/page.tsx` - 개별 성적 입력
+    - `grades/exams/[examId]/bulk-entry/page.tsx` - 일괄 성적 입력
+  - [x] TypeScript 타입 체크 통과
 
-- [ ] **결제/청구** (`payments/`)
-  - [ ] Server Action 생성 (`src/app/actions/payments.ts`)
-  - [ ] 청구서 생성 다이얼로그 수정
-  - [ ] 결제 처리 다이얼로그 수정
+- [~] **결제/청구** (`payments/`) - ⏭️ 스킵
+  - 실제 구현 없음 (Mock 데이터만 사용)
+  - 추후 구현 필요
 
-### 우선순위 Low (필요시)
-- [ ] **보호자 관리** (`guardians/`)
+### 우선순위 Low ✅
+- [x] **보호자 관리** (`guardians/`)
+  - [x] Server Action 생성 (`src/app/actions/guardians.ts`)
+    - `createGuardian` - 보호자 생성 (users + guardians + student_guardians 트랜잭션)
+    - `updateGuardian` - 보호자 정보 수정
+    - `deleteGuardian` - 보호자 삭제
+  - [x] `guardians/new/page.tsx` 수정
+  - [x] TypeScript 타입 체크 통과
+
+### 추가 완료 항목 (2025-10-23)
+- [x] **학생 상세 조회** (`students/[id]/page.tsx`)
+  - [x] Server Action 생성 (`src/app/actions/students.ts`)
+    - `getStudentDetail` - 학생 상세 정보 + 관련 데이터 조회 (성적, TODO, 상담, 출석, 청구서)
+  - [x] 학생 상세 페이지 수정 (Use Case → Server Action)
+  - [x] TypeScript 타입 체크 통과
+  - [x] **문제 해결**: 무한 로딩 스피너 문제 수정
+
+### 미완료 항목 (필요시 진행)
 - [ ] **리포트 관리** (`reports/`)
 - [ ] **도서 대출** (`library/`)
 - [ ] **캘린더** (`calendar/`)
@@ -244,12 +293,25 @@
 
 ## 🎯 현재 진행 상황
 
-**완료**: Phase 1 (MVP 핵심 기능 전환) ✅
+**완료**:
+- ✅ Phase 1 (MVP 핵심 기능 전환)
+- ✅ Phase 3 (추가 기능 전환 - 상담/출석/성적/보호자)
+
 **다음 단계**: Phase 2 (테스트 및 검증) 🔄
+
+**마이그레이션 완료 현황**:
+- ✅ TODO 템플릿 관리 (`todo-templates.ts`)
+- ✅ 학생 관리 (`students.ts`) - CUD + **학생 상세 조회** (2025-10-23 추가)
+- ✅ TODO 관리 (`todos.ts`)
+- ✅ 상담 기록 (`consultations.ts`)
+- ✅ 출석 관리 (`attendance.ts`)
+- ✅ 성적 관리 (`grades.ts`)
+- ✅ 보호자 관리 (`guardians.ts`)
+- ⏭️ 결제/청구 (스킵 - Mock 데이터만)
+
 **예상 소요 시간**:
-- Phase 2: 2-3시간 (필수)
-- Phase 3: 1-5일 (선택)
-- Phase 4: 2-3일 (권장)
+- Phase 2: 2-4시간 (필수) - 모든 마이그레이션된 기능 테스트
+- Phase 4: 2-3일 (권장) - 보안 강화
 
 ---
 
@@ -287,5 +349,63 @@ git push --force origin main
 
 ---
 
-**마지막 업데이트**: 2025-10-23
+## 📝 마이그레이션 상세
+
+### 생성된 Server Actions
+
+#### `src/app/actions/consultations.ts`
+- `createConsultation` - 상담 기록 생성
+  - 권한: instructor 이상
+  - 검증: Zod 스키마
+  - 캐시 무효화: `/students/[id]`
+
+#### `src/app/actions/attendance.ts`
+- `createAttendanceSession` - 출석 세션 생성
+- `bulkUpsertAttendance` - 출석 일괄 기록/수정
+- `deleteAttendanceSession` - 출석 세션 삭제
+  - 권한: staff (owner, instructor, assistant)
+  - 트랜잭션: upsert 사용 (session_id + student_id)
+  - 캐시 무효화: `/attendance`, `/attendance/[id]`
+
+#### `src/app/actions/grades.ts`
+- `createExamScore` - 개별 성적 입력
+- `bulkUpsertExamScores` - 일괄 성적 입력/수정
+- `deleteExamScore` - 성적 삭제
+  - 권한: staff
+  - 트랜잭션: upsert 사용 (exam_id + student_id)
+  - 캐시 무효화: `/grades`, `/grades/exams/[id]`
+
+#### `src/app/actions/guardians.ts`
+- `createGuardian` - 보호자 생성
+  - 트랜잭션: users → guardians → student_guardians
+- `updateGuardian` - 보호자 정보 수정
+  - 트랜잭션: users + guardians
+- `deleteGuardian` - 보호자 삭제 (Soft Delete)
+  - 트랜잭션: users + guardians
+  - 권한: staff
+  - 캐시 무효화: `/guardians`, `/guardians/[id]`
+
+### 수정된 클라이언트 컴포넌트
+
+1. **ConsultationTab.tsx**
+   - `supabase.from().insert()` → `createConsultation()`
+
+2. **AttendanceList.tsx**
+   - `fetch('/api/attendance/sessions')` → `createAttendanceSession()`
+
+3. **attendance-check-dialog.tsx**
+   - `Use Case.execute()` → `bulkUpsertAttendance()`
+
+4. **grades/page.tsx**
+   - `supabase.from().insert()` → `createExamScore()`
+
+5. **grades/exams/[examId]/bulk-entry/page.tsx**
+   - `supabase.from().upsert()` → `bulkUpsertExamScores()`
+
+6. **guardians/new/page.tsx**
+   - 다중 테이블 insert → `createGuardian()`
+
+---
+
+**마지막 업데이트**: 2025-10-23 (Phase 3 완료)
 **다음 리뷰**: Phase 2 완료 후
