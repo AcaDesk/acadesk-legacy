@@ -10,12 +10,6 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
-import { SupabaseDataSource } from '@infra/db/datasource/SupabaseDataSource'
-import { TodoRepository } from '@infra/db/repositories/todo.repository'
-import { CreateTodosForStudentsUseCase } from '@core/application/use-cases/todo/CreateTodosForStudentsUseCase'
-import { VerifyTodosUseCase } from '@core/application/use-cases/todo/VerifyTodosUseCase'
-import { RejectTodoUseCase } from '@core/application/use-cases/todo/RejectTodoUseCase'
-import { CompleteTodoUseCase } from '@core/application/use-cases/todo/CompleteTodoUseCase'
 import { getErrorMessage } from '@/lib/error-handlers'
 
 // ============================================================================
@@ -56,33 +50,39 @@ export async function createTodosForStudents(
 ) {
   try {
     // 1. Verify authentication and get tenant
-    const { tenantId, userId } = await verifyStaff()
+    const { tenantId } = await verifyStaff()
 
     // 2. Validate input
     const validated = createTodosForStudentsSchema.parse(input)
 
-    // 3. Create service_role client and repository
-    const serviceClient = createServiceRoleClient()
-    const dataSource = new SupabaseDataSource(serviceClient)
-    const todoRepository = new TodoRepository(dataSource)
+    // 3. Create service_role client
+    const supabase = await createServiceRoleClient()
 
-    // 4. Create Use Case with service_role repository
-    const useCase = new CreateTodosForStudentsUseCase(todoRepository)
-
-    // 5. Execute Use Case
-    const result = await useCase.execute({
-      tenantId,
-      studentIds: validated.studentIds,
-      title: validated.title,
-      description: validated.description,
-      subject: validated.subject,
-      dueDate: new Date(validated.dueDate),
+    // 4. Create TODOs for each student
+    const todoRecords = validated.studentIds.map((studentId) => ({
+      tenant_id: tenantId,
+      student_id: studentId,
+      title: validated.title.trim(),
+      description: validated.description?.trim() || null,
+      subject: validated.subject?.trim() || null,
+      due_date: validated.dueDate,
       priority: validated.priority,
-      estimatedDurationMinutes: validated.estimatedDurationMinutes,
-    })
+      estimated_duration_minutes: validated.estimatedDurationMinutes || null,
+      completed_at: null,
+      verified_at: null,
+      rejected_at: null,
+      rejection_reason: null,
+      notes: null,
+    }))
 
-    if (result.error) {
-      throw result.error
+    // 5. Bulk insert
+    const { data: createdTodos, error: insertError } = await supabase
+      .from('todos')
+      .insert(todoRecords)
+      .select('id')
+
+    if (insertError) {
+      throw insertError
     }
 
     // 6. Revalidate pages
@@ -92,8 +92,8 @@ export async function createTodosForStudents(
     return {
       success: true,
       data: {
-        todoCount: result.todoCount,
-        todoIds: result.todoIds,
+        todoCount: createdTodos?.length || 0,
+        todoIds: createdTodos?.map((t) => t.id) || [],
       },
       error: null,
     }
@@ -121,35 +121,65 @@ export async function verifyTodos(input: z.infer<typeof verifyTodosSchema>) {
     // 2. Validate input
     const validated = verifyTodosSchema.parse(input)
 
-    // 3. Create service_role client and repository
-    const serviceClient = createServiceRoleClient()
-    const dataSource = new SupabaseDataSource(serviceClient)
-    const todoRepository = new TodoRepository(dataSource)
+    // 3. Create service_role client
+    const supabase = await createServiceRoleClient()
 
-    // 4. Create Use Case with service_role repository
-    const useCase = new VerifyTodosUseCase(todoRepository)
+    // 4. Fetch TODOs to verify eligibility
+    const { data: todos, error: fetchError } = await supabase
+      .from('student_todos')
+      .select('id, completed_at, verified_at')
+      .in('id', validated.todoIds)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
 
-    // 5. Execute Use Case
-    const result = await useCase.execute({
-      todoIds: validated.todoIds,
-      verifiedBy: userId,
-      tenantId,
-    })
-
-    if (result.error) {
-      throw result.error
+    if (fetchError) {
+      throw fetchError
     }
 
-    // 6. Revalidate pages
+    // 5. Filter eligible TODOs (completed but not verified)
+    const eligibleTodoIds: string[] = []
+    const failedTodoIds: { id: string; reason: string }[] = []
+
+    validated.todoIds.forEach((todoId) => {
+      const todo = todos?.find((t) => t.id === todoId)
+
+      if (!todo) {
+        failedTodoIds.push({ id: todoId, reason: 'TODO를 찾을 수 없습니다' })
+      } else if (!todo.completed_at) {
+        failedTodoIds.push({ id: todoId, reason: '완료되지 않은 TODO는 검증할 수 없습니다' })
+      } else if (todo.verified_at) {
+        failedTodoIds.push({ id: todoId, reason: '이미 검증된 TODO입니다' })
+      } else {
+        eligibleTodoIds.push(todoId)
+      }
+    })
+
+    // 6. Bulk update eligible TODOs
+    if (eligibleTodoIds.length > 0) {
+      const { error: updateError } = await supabase
+        .from('student_todos')
+        .update({
+          verified_at: new Date().toISOString(),
+          verified_by: userId,
+          updated_at: new Date().toISOString(),
+        })
+        .in('id', eligibleTodoIds)
+
+      if (updateError) {
+        throw updateError
+      }
+    }
+
+    // 7. Revalidate pages
     revalidatePath('/todos/verify')
     revalidatePath('/dashboard')
 
     return {
       success: true,
       data: {
-        verifiedCount: result.verifiedCount,
-        verifiedTodoIds: result.verifiedTodoIds,
-        failedTodoIds: result.failedTodoIds,
+        verifiedCount: eligibleTodoIds.length,
+        verifiedTodoIds: eligibleTodoIds,
+        failedTodoIds,
       },
       error: null,
     }
@@ -177,30 +207,72 @@ export async function rejectTodo(input: z.infer<typeof rejectTodoSchema>) {
     // 2. Validate input
     const validated = rejectTodoSchema.parse(input)
 
-    // 3. Create service_role client and repository
-    const serviceClient = createServiceRoleClient()
-    const dataSource = new SupabaseDataSource(serviceClient)
-    const todoRepository = new TodoRepository(dataSource)
+    // 3. Create service_role client
+    const supabase = await createServiceRoleClient()
 
-    // 4. Create Use Case with service_role repository
-    const useCase = new RejectTodoUseCase(todoRepository)
+    // 4. Fetch TODO to verify eligibility
+    const { data: todo, error: fetchError } = await supabase
+      .from('student_todos')
+      .select('id, completed_at, verified_at, notes')
+      .eq('id', validated.todoId)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .maybeSingle()
 
-    // 5. Execute Use Case
-    const rejectedTodo = await useCase.execute({
-      todoId: validated.todoId,
-      rejectedBy: userId,
-      rejectionReason: validated.rejectionReason,
-      tenantId,
-    })
+    if (fetchError || !todo) {
+      return {
+        success: false,
+        data: null,
+        error: 'TODO를 찾을 수 없습니다',
+      }
+    }
 
-    // 6. Revalidate pages
+    // 5. Validate state
+    if (!todo.completed_at) {
+      return {
+        success: false,
+        data: null,
+        error: '완료되지 않은 TODO는 반려할 수 없습니다',
+      }
+    }
+
+    if (todo.verified_at) {
+      return {
+        success: false,
+        data: null,
+        error: '이미 검증된 TODO는 반려할 수 없습니다',
+      }
+    }
+
+    // 6. Build rejection note
+    const rejectionNote = validated.rejectionReason
+      ? `[반려 사유] ${validated.rejectionReason} (반려자: ${userId}, 반려일: ${new Date().toISOString()})`
+      : `[반려됨] 다시 완료해주세요 (반려자: ${userId}, 반려일: ${new Date().toISOString()})`
+
+    // 7. Update TODO: uncomplete and add rejection note
+    const { data: updatedTodo, error: updateError } = await supabase
+      .from('student_todos')
+      .update({
+        completed_at: null,
+        notes: rejectionNote,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', validated.todoId)
+      .select()
+      .single()
+
+    if (updateError) {
+      throw updateError
+    }
+
+    // 8. Revalidate pages
     revalidatePath('/todos/verify')
     revalidatePath('/dashboard')
 
     return {
       success: true,
       data: {
-        todo: rejectedTodo.toDTO(),
+        todo: updatedTodo,
       },
       error: null,
     }
@@ -225,22 +297,37 @@ export async function deleteTodo(todoId: string) {
     // 1. Verify authentication and get tenant
     const { tenantId } = await verifyStaff()
 
-    // 2. Create service_role client and repository
-    const serviceClient = createServiceRoleClient()
-    const dataSource = new SupabaseDataSource(serviceClient)
-    const todoRepository = new TodoRepository(dataSource)
+    // 2. Create service_role client
+    const supabase = await createServiceRoleClient()
 
-    // 3. Verify TODO belongs to tenant and delete
-    const existingTodo = await todoRepository.findById(todoId, tenantId)
-    if (!existingTodo) {
+    // 3. Verify TODO exists and belongs to tenant
+    const { data: existingTodo, error: fetchError } = await supabase
+      .from('student_todos')
+      .select('id')
+      .eq('id', todoId)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (fetchError || !existingTodo) {
       return {
         success: false,
         error: 'TODO를 찾을 수 없습니다',
       }
     }
 
-    // 4. Delete with service_role
-    await todoRepository.delete(todoId, tenantId)
+    // 4. Soft delete with service_role
+    const { error: deleteError } = await supabase
+      .from('student_todos')
+      .update({
+        deleted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', todoId)
+
+    if (deleteError) {
+      throw deleteError
+    }
 
     // 5. Revalidate pages
     revalidatePath('/todos/planner')
@@ -358,18 +445,51 @@ export async function completeTodo(todoId: string) {
       }
     }
 
-    // 3. Create service_role client and repository
-    const serviceClient = createServiceRoleClient()
-    const dataSource = new SupabaseDataSource(serviceClient)
-    const todoRepository = new TodoRepository(dataSource)
+    // 3. Create service_role client
+    const supabase = await createServiceRoleClient()
 
-    // 4. Create Use Case with service_role repository
-    const useCase = new CompleteTodoUseCase(todoRepository)
+    // 4. Fetch TODO to verify state
+    const { data: todo, error: fetchError } = await supabase
+      .from('student_todos')
+      .select('id, completed_at')
+      .eq('id', todoId)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .maybeSingle()
 
-    // 5. Execute Use Case
-    const completedTodo = await useCase.execute(todoId, tenantId)
+    if (fetchError || !todo) {
+      return {
+        success: false,
+        data: null,
+        error: 'TODO를 찾을 수 없습니다',
+      }
+    }
 
-    // 6. Revalidate pages
+    // 5. Check if already completed
+    if (todo.completed_at) {
+      return {
+        success: false,
+        data: null,
+        error: '이미 완료된 TODO입니다',
+      }
+    }
+
+    // 6. Update TODO: mark as complete
+    const { data: updatedTodo, error: updateError } = await supabase
+      .from('student_todos')
+      .update({
+        completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', todoId)
+      .select()
+      .single()
+
+    if (updateError) {
+      throw updateError
+    }
+
+    // 7. Revalidate pages
     revalidatePath('/todos')
     revalidatePath('/students/[id]', 'page')
     revalidatePath('/dashboard')
@@ -377,7 +497,7 @@ export async function completeTodo(todoId: string) {
     return {
       success: true,
       data: {
-        todo: completedTodo.toDTO(),
+        todo: updatedTodo,
       },
       error: null,
     }
@@ -410,18 +530,60 @@ export async function uncompleteTodo(todoId: string) {
       }
     }
 
-    // 3. Create service_role client and repository
-    const serviceClient = createServiceRoleClient()
-    const dataSource = new SupabaseDataSource(serviceClient)
-    const todoRepository = new TodoRepository(dataSource)
+    // 3. Create service_role client
+    const supabase = await createServiceRoleClient()
 
-    // 4. Create Use Case with service_role repository
-    const useCase = new CompleteTodoUseCase(todoRepository)
+    // 4. Fetch TODO to verify state
+    const { data: todo, error: fetchError } = await supabase
+      .from('student_todos')
+      .select('id, completed_at, verified_at')
+      .eq('id', todoId)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .maybeSingle()
 
-    // 5. Execute Use Case
-    const uncompletedTodo = await useCase.uncomplete(todoId, tenantId)
+    if (fetchError || !todo) {
+      return {
+        success: false,
+        data: null,
+        error: 'TODO를 찾을 수 없습니다',
+      }
+    }
 
-    // 6. Revalidate pages
+    // 5. Check if not completed
+    if (!todo.completed_at) {
+      return {
+        success: false,
+        data: null,
+        error: '완료되지 않은 TODO입니다',
+      }
+    }
+
+    // 6. Check if verified
+    if (todo.verified_at) {
+      return {
+        success: false,
+        data: null,
+        error: '검증된 TODO는 완료 취소할 수 없습니다',
+      }
+    }
+
+    // 7. Update TODO: mark as incomplete
+    const { data: updatedTodo, error: updateError } = await supabase
+      .from('student_todos')
+      .update({
+        completed_at: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', todoId)
+      .select()
+      .single()
+
+    if (updateError) {
+      throw updateError
+    }
+
+    // 8. Revalidate pages
     revalidatePath('/todos')
     revalidatePath('/students/[id]', 'page')
     revalidatePath('/dashboard')
@@ -429,7 +591,7 @@ export async function uncompleteTodo(todoId: string) {
     return {
       success: true,
       data: {
-        todo: uncompletedTodo.toDTO(),
+        todo: updatedTodo,
       },
       error: null,
     }
