@@ -3,47 +3,14 @@ import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
 import { PageHeader } from '@ui/page-header'
 import { Calendar, CheckCircle2, User } from 'lucide-react'
-import { getCurrentTenantId } from '@/lib/auth/helpers'
 import { TodosClient } from './todos-client'
 import { TodoPageActions } from '@/components/features/todos/todo-page-actions'
 import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/page-error-boundary'
-import { createGetTodosWithStudentUseCase } from '@core/application/factories/todoUseCaseFactory.server'
+import { getTodosWithStudent } from '@/app/actions/todos'
 import type { StudentTodoWithStudent } from '@/core/types/todo.types'
-import type { TodoWithStudent } from '@core/domain/repositories/ITodoRepository'
 
 // Force dynamic rendering (uses cookies for authentication)
 export const dynamic = 'force-dynamic'
-
-/**
- * Domain 엔티티를 Presentation Layer 타입으로 변환
- * (Domain -> Presentation Layer 경계)
- */
-function mapToPresentation(todoWithStudent: TodoWithStudent): StudentTodoWithStudent {
-  const { todo, student } = todoWithStudent
-  return {
-    id: todo.id,
-    tenant_id: todo.tenantId,
-    student_id: todo.studentId,
-    title: todo.title,
-    description: todo.description,
-    subject: todo.subject,
-    due_date: todo.dueDate.toISOString().split('T')[0],
-    due_day_of_week: todo.dueDate.getDay(),
-    priority: todo.priority.getValue(),
-    completed_at: todo.completedAt?.toISOString() || null,
-    verified_at: todo.verifiedAt?.toISOString() || null,
-    verified_by: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    students: {
-      id: student.id,
-      student_code: student.studentCode,
-      users: {
-        name: student.name,
-      },
-    },
-  } as StudentTodoWithStudent
-}
 
 /**
  * TODO 관리 페이지 (Server Component)
@@ -51,20 +18,14 @@ function mapToPresentation(todoWithStudent: TodoWithStudent): StudentTodoWithStu
  * - 클라이언트 컴포넌트에 데이터 전달하여 필터링/인터랙션 처리
  */
 export default async function TodosPage() {
-  // Server-side data fetching using Use Case
-  const { tenantId } = await getCurrentTenantId()
+  // Server-side data fetching using Server Action
+  const result = await getTodosWithStudent()
 
-  const getTodosWithStudentUseCase = await createGetTodosWithStudentUseCase()
-  const { todos: domainTodos, error } = await getTodosWithStudentUseCase.execute({
-    tenantId,
-  })
-
-  if (error) {
-    console.error('Error fetching todos:', error)
+  if (!result.success || !result.data) {
+    console.error('Error fetching todos:', result.error)
   }
 
-  // Domain -> Presentation Layer 변환
-  const todosWithStudent = domainTodos.map(mapToPresentation)
+  const todosWithStudent = (result.data || []) as StudentTodoWithStudent[]
 
   return (
     <PageErrorBoundary pageName="TODO 관리">

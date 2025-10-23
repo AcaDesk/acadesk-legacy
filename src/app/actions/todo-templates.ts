@@ -44,6 +44,44 @@ const updateTodoTemplateSchema = z.object({
 // ============================================================================
 
 /**
+ * Get all TODO templates for current tenant
+ *
+ * @returns List of templates or error
+ */
+export async function getTodoTemplates() {
+  try {
+    // 1. Verify authentication and get tenant
+    const { tenantId } = await verifyStaff()
+
+    // 2. Create service_role client for query
+    const supabase = await createServiceRoleClient()
+
+    // 3. Query templates
+    const { data, error } = await supabase
+      .from('todo_templates')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .order('title', { ascending: true })
+
+    if (error) throw error
+
+    return {
+      success: true,
+      data: data || [],
+      error: null,
+    }
+  } catch (error) {
+    console.error('[getTodoTemplates] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
  * Create a new TODO template
  *
  * @param input - Template data

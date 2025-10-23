@@ -15,11 +15,10 @@ import { PageWrapper } from "@/components/layout/page-wrapper"
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
-import { createCreateTodosForStudentsUseCase } from '@core/application/factories/todoUseCaseFactory.client'
-import { createGetStudentsUseCase } from '@core/application/factories/studentUseCaseFactory.client'
+import { createTodosForStudents } from '@/app/actions/todos'
+import { getStudents } from '@/app/actions/students'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { useCurrentUser } from '@/hooks/use-current-user'
-import type { Student } from '@core/domain/entities/Student'
 
 interface TodoFormData {
   title: string
@@ -28,6 +27,12 @@ interface TodoFormData {
   due_date: string
   priority: string
   student_ids: string[]
+}
+
+interface Student {
+  id: string
+  student_code: string
+  name: string
 }
 
 export default function NewTodoPage() {
@@ -67,15 +72,20 @@ export default function NewTodoPage() {
     if (!tenantId) return
 
     try {
-      const getStudentsUseCase = createGetStudentsUseCase()
-      const { students: studentEntities, error } = await getStudentsUseCase.execute({
-        tenantId,
-        includeDeleted: false,
-        includeWithdrawn: false,
-      })
+      const result = await getStudents()
 
-      if (error) throw error
-      setStudents(studentEntities)
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '학생 목록을 불러올 수 없습니다')
+      }
+
+      // Map to simpler format for this page
+      const mappedStudents = result.data.map(s => ({
+        id: s.id,
+        student_code: s.student_code,
+        name: s.name,
+      }))
+
+      setStudents(mappedStudents)
     } catch (error) {
       console.error('Error loading students:', error)
       toast({
@@ -127,22 +137,22 @@ export default function NewTodoPage() {
     setLoading(true)
 
     try {
-      const createTodosUseCase = createCreateTodosForStudentsUseCase()
-      const result = await createTodosUseCase.execute({
-        tenantId,
+      const result = await createTodosForStudents({
         studentIds: selectedStudents,
         title: formData.title,
         description: formData.description || undefined,
         subject: formData.subject || undefined,
-        dueDate: new Date(formData.due_date),
+        dueDate: new Date(formData.due_date).toISOString(),
         priority: formData.priority as 'low' | 'normal' | 'high' | 'urgent',
       })
 
-      if (result.error) throw result.error
+      if (!result.success) {
+        throw new Error(result.error || 'TODO 생성 실패')
+      }
 
       toast({
         title: 'TODO 생성 완료',
-        description: `${result.todoCount}명의 학생에게 TODO가 생성되었습니다.`,
+        description: `${selectedStudents.length}명의 학생에게 TODO가 생성되었습니다.`,
       })
 
       router.push('/todos')
