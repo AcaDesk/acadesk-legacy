@@ -16,8 +16,8 @@ import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { Loader2 } from 'lucide-react'
-import { createGetActiveClassesUseCase } from '@core/application/factories/classUseCaseFactory.client'
-import { createUpdateStudentClassEnrollmentsUseCase } from '@core/application/factories/studentUseCaseFactory.client'
+import { getActiveClasses } from '@/app/actions/classes'
+import { updateStudentClassEnrollments } from '@/app/actions/students'
 
 interface Class {
   id: string
@@ -60,18 +60,14 @@ export function ManageClassesDialog({
     try {
       setLoading(true)
 
-      // Use Case를 통한 활성 클래스 로드
-      const useCase = createGetActiveClassesUseCase()
-      const activeClasses = await useCase.execute()
+      // Server Action을 통한 활성 클래스 로드
+      const result = await getActiveClasses()
 
-      // Convert to Class format with subject field
-      const classesWithSubject = activeClasses.map(cls => ({
-        ...cls,
-        subject: null, // Subject field not available in ActiveClassDTO
-        active: true,
-      }))
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '수업 목록을 불러올 수 없습니다')
+      }
 
-      setClasses(classesWithSubject)
+      setClasses(result.data)
     } catch (error) {
       toast({
         title: '데이터 로드 오류',
@@ -96,15 +92,15 @@ export function ManageClassesDialog({
 
     setSaving(true)
     try {
-      // Use Case를 통한 수업 등록 업데이트
-      const useCase = createUpdateStudentClassEnrollmentsUseCase()
-      const { success, error } = await useCase.execute({
-        tenantId: currentUser.tenantId,
+      // Server Action을 통한 수업 등록 업데이트
+      const result = await updateStudentClassEnrollments(
         studentId,
-        classIds: selectedClassIds,
-      })
+        selectedClassIds
+      )
 
-      if (error) throw error
+      if (!result.success) {
+        throw new Error(result.error || '수업 배정 실패')
+      }
 
       toast({
         title: '수업 배정 완료',

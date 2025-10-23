@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { createGetClassesWithDetailsUseCase } from '@core/application/factories/classUseCaseFactory.client'
+import { getClassesWithDetails } from '@/app/actions/classes'
 import { motion } from 'framer-motion'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
@@ -91,11 +91,14 @@ export default function ClassesPage() {
     try {
       setLoading(true)
 
-      // Use Case를 통해 실제 데이터 로드
-      const useCase = createGetClassesWithDetailsUseCase()
-      const data = await useCase.execute()
+      // Server Action을 통해 데이터 로드
+      const result = await getClassesWithDetails()
 
-      setClasses(data)
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '수업 목록을 불러올 수 없습니다')
+      }
+
+      setClasses(result.data)
     } catch (error) {
       console.error('Error loading classes:', error)
       toast({

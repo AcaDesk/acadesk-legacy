@@ -58,11 +58,9 @@ import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { DAYS_OF_WEEK } from '@/lib/constants'
-import { createGetStudentsUseCase } from '@core/application/factories/studentUseCaseFactory.client'
-import {
-  createGetTodoTemplatesUseCase,
-} from '@core/application/factories/todoTemplateUseCaseFactory.client'
-import { createCreateTodosForStudentsUseCase } from '@core/application/factories/todoUseCaseFactory.client'
+import { getStudents } from '@/app/actions/students'
+import { getTodoTemplates } from '@/app/actions/todo-templates'
+import { createTodosForStudents } from '@/app/actions/todos'
 import { getErrorMessage } from '@/lib/error-handlers'
 
 interface TodoTemplate {
@@ -149,23 +147,21 @@ export default function TodoTemplatesPage() {
     try {
       setLoading(true)
 
-      const getTemplatesUseCase = createGetTodoTemplatesUseCase()
-      const { templates: templateList, error } = await getTemplatesUseCase.execute({
-        tenantId,
-        includeInactive: true, // 비활성 템플릿도 포함
-      })
+      const result = await getTodoTemplates()
 
-      if (error) throw error
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '템플릿 목록을 불러올 수 없습니다')
+      }
 
-      // Use Case에서 반환하는 TodoTemplate 엔티티를 UI 타입으로 변환
-      const mapped = templateList.map(template => ({
+      // Server Action에서 반환하는 데이터를 UI 타입으로 매핑
+      const mapped = result.data.map(template => ({
         id: template.id,
         title: template.title,
         description: template.description,
         subject: template.subject,
-        day_of_week: null, // TodoTemplate 엔티티에는 day_of_week가 없음
-        estimated_duration_minutes: template.estimatedDurationMinutes,
-        priority: template.priority.getValue(),
+        day_of_week: template.day_of_week,
+        estimated_duration_minutes: template.estimated_duration_minutes,
+        priority: template.priority,
         active: template.active,
       }))
 
@@ -293,14 +289,13 @@ export default function TodoTemplatesPage() {
 
     try {
       // Get all active students
-      const getStudentsUseCase = createGetStudentsUseCase()
-      const { students: studentList, error: studentsError } = await getStudentsUseCase.execute({
-        tenantId,
-      })
+      const studentsResult = await getStudents()
 
-      if (studentsError) throw studentsError
+      if (!studentsResult.success || !studentsResult.data) {
+        throw new Error(studentsResult.error || '학생 목록을 불러올 수 없습니다')
+      }
 
-      if (!studentList || studentList.length === 0) {
+      if (!studentsResult.data || studentsResult.data.length === 0) {
         toast({
           title: '학생 없음',
           description: '등록된 학생이 없습니다.',
@@ -316,23 +311,23 @@ export default function TodoTemplatesPage() {
       const dueDate = new Date(today)
       dueDate.setDate(today.getDate() + (daysUntilTarget === 0 ? 7 : daysUntilTarget))
 
-      // Create todos using Use Case
-      const createTodosUseCase = createCreateTodosForStudentsUseCase()
-      const { error: createError } = await createTodosUseCase.execute({
-        tenantId,
-        studentIds: studentList.map(s => s.id),
+      // Create todos using Server Action
+      const createResult = await createTodosForStudents({
+        studentIds: studentsResult.data.map(s => s.id),
         title: template.title,
         description: template.description || undefined,
         subject: template.subject || undefined,
-        dueDate,
+        dueDate: dueDate.toISOString(),
         priority: (template.priority || 'normal') as 'low' | 'normal' | 'high' | 'urgent',
       })
 
-      if (createError) throw createError
+      if (!createResult.success) {
+        throw new Error(createResult.error || 'TODO 생성 실패')
+      }
 
       toast({
         title: '과제 생성 완료',
-        description: `${studentList.length}명의 학생에게 "${template.title}" 과제가 배정되었습니다.`,
+        description: `${studentsResult.data.length}명의 학생에게 "${template.title}" 과제가 배정되었습니다.`,
       })
 
       router.push('/todos')

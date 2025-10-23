@@ -317,7 +317,7 @@ export default function NewTodoPage() {
                           {student.name}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          {student.studentCode.getValue()}
+                          {student.student_code}
                         </div>
                       </div>
                     </label>

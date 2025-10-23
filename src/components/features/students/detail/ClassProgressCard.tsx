@@ -7,7 +7,7 @@ import { Skeleton } from '@ui/skeleton'
 import { BookOpen } from 'lucide-react'
 import { format as formatDate } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { createGetRecentClassSessionsUseCase } from '@core/application/factories/classUseCaseFactory.client'
+import { getRecentClassSessions } from '@/app/actions/classes'
 
 interface ClassSession {
   id: string
@@ -40,9 +40,11 @@ export function ClassProgressCard({
   async function loadClassSessions() {
     try {
       setLoading(true)
-      const useCase = createGetRecentClassSessionsUseCase()
-      const classSessions = await useCase.execute(classId, 5)
-      setSessions(classSessions)
+      const result = await getRecentClassSessions(classId, 5)
+      
+      if (result.success && result.data) {
+        setSessions(result.data)
+      }
     } catch (error) {
       console.error('Error loading class sessions:', error)
     } finally {
