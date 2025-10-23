@@ -10,7 +10,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Loader2, AlertCircle, UserPlus } from 'lucide-react'
 import { AuthLoadingState } from '@/components/auth/AuthLoadingState'
 import { Button } from '@ui/button'
@@ -18,13 +18,30 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/c
 import { createUserProfileServer, checkOnboardingStage } from '@/app/actions/onboarding'
 import { createClient } from '@/lib/supabase/client'
 import { inviteTokenStore } from '@/lib/auth/invite-token-store'
+import { useToast } from '@/hooks/use-toast'
 
 export default function BootstrapPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const { toast } = useToast()
   const [progress, setProgress] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [hasAttempted, setHasAttempted] = useState(false)
+
+  // URL 파라미터에서 메시지 읽고 토스트 표시
+  useEffect(() => {
+    const message = searchParams.get('message')
+    const from = searchParams.get('from')
+
+    if (message) {
+      toast({
+        title: from === 'dashboard' ? '프로필 설정이 필요합니다' : '계정 설정',
+        description: decodeURIComponent(message),
+        variant: 'default',
+      })
+    }
+  }, [searchParams, toast])
 
   // 프로그레스 시뮬레이션
   useEffect(() => {

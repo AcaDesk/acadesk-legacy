@@ -2,8 +2,10 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
-import { Loader2 } from 'lucide-react'
 import { Button } from '@ui/button'
+
+// Edge 런타임 방지 - service_role은 Node.js에서만 작동
+export const runtime = 'nodejs'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -13,8 +15,8 @@ interface DashboardLayoutProps {
  * Dashboard Layout (Server Component)
  *
  * ✅ 역할:
- * - 인증 체크 (SSR에서 즉시 리다이렉트)
- * - 온보딩 상태 체크
+ * - 인증 체크 (세션만 일반 클라이언트로)
+ * - 모든 DB 쿼리는 service_role로 (RLS 우회)
  * - Tenant 정보 확인
  * - 사용자 정보 조회
  *
@@ -23,13 +25,13 @@ interface DashboardLayoutProps {
  * - 클라이언트 애니메이션
  *
  * 무한 루프 방지:
- * - users 조회는 service_role로 (RLS 우회)
- * - 프로필 없으면 /auth/bootstrap으로 (login이 아님)
+ * - DB 조회 실패 시 에러 화면 렌더 (redirect 금지)
+ * - 모든 DB 쿼리는 service_role로만
  */
 export default async function DashboardLayout({ children }: DashboardLayoutProps) {
   const supabase = await createClient()
 
-  // 1. 인증 체크 (SSR에서 바로 리다이렉트 - 깜빡임 없음)
+  // 1. 세션 확인만 일반 클라이언트로 (DB 쿼리 아님)
   const {
     data: { user },
     error: authError,
@@ -42,14 +44,11 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
   // 2. 이메일 인증 체크
   const emailConfirmed = user.email_confirmed_at ?? (user as any).confirmed_at
   if (!emailConfirmed) {
-    const searchParams = new URLSearchParams()
-    if (user.email) {
-      searchParams.set('email', user.email)
-    }
-    redirect(`/auth/verify-email?${searchParams.toString()}`)
+    const q = user.email ? `?email=${encodeURIComponent(user.email)}` : ''
+    redirect(`/auth/verify-email${q}`)
   }
 
-  // 3. 사용자 프로필 조회 (service_role로 RLS 우회 - 무한 루프 방지)
+  // 3. 모든 DB 조회는 service_role로만 (RLS 우회)
   const admin = createServiceRoleClient()
   const { data: userData, error: userError } = await admin
     .from('users')
@@ -57,10 +56,24 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
     .eq('id', user.id)
     .maybeSingle()
 
-  if (userError || !userData) {
-    console.error('[DashboardLayout] Error fetching user data:', userError)
-    // 프로필 없음 - 부트스트랩으로 리다이렉트 (login으로 보내면 무한 루프)
-    redirect('/auth/bootstrap')
+  // 4. DB 조회 에러 → pending 페이지로 (에러 안내)
+  if (userError) {
+    console.error('[DashboardLayout] Error fetching user data:', {
+      error: userError,
+      userId: user.id,
+      errorCode: (userError as any)?.code,
+    })
+    const errorCode = (userError as any)?.code || 'unknown'
+    const errorMessage = userError.message || '프로필 조회 중 오류가 발생했습니다'
+    redirect(`/auth/pending?error=profile_query_failed&code=${errorCode}&message=${encodeURIComponent(errorMessage)}`)
+  }
+
+  // 5. 프로필 없음 → 부트스트랩 페이지로 (프로필 생성)
+  if (!userData) {
+    console.warn('[DashboardLayout] User profile not found, redirecting to bootstrap:', {
+      userId: user.id,
+    })
+    redirect('/auth/bootstrap?from=dashboard&message=' + encodeURIComponent('프로필 정보를 생성해주세요'))
   }
 
   // 4. Tenant 체크 - tenant_id 없으면 안내 화면

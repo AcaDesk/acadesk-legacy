@@ -12,6 +12,7 @@
  * 무한 루프 방지:
  * - 로그인 O + 이메일 미인증 → children 렌더 (리다이렉트 금지)
  * - 로그인 O + 이메일 인증 완료 → 온보딩 체크 후 리다이렉트
+ * - 온보딩 체크 실패 시 redirect 대신 auth UI 렌더 (루프 방지)
  */
 
 import Link from 'next/link'
@@ -19,6 +20,9 @@ import { redirect } from 'next/navigation'
 import { GraduationCap } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { checkOnboardingStage } from '@/app/actions/onboarding'
+
+// Edge 런타임 방지 - checkOnboardingStage가 service_role 사용
+export const runtime = 'nodejs'
 
 /**
  * Auth 페이지 공통 UI 프레임
@@ -71,23 +75,25 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
 
   const stageResult = await checkOnboardingStage()
 
-  if (stageResult.success && stageResult.data) {
-    const stageData = stageResult.data as {
-      ok: boolean
-      stage?: { code: string; next_url?: string }
-    }
-
-    const { code: stageCode, next_url: nextUrl } = stageData.stage || {}
-
-    const redirectUrl =
-      nextUrl ||
-      (stageCode === 'READY' ? '/dashboard' : '/auth/pending')
-
-    console.log('[AuthLayout] Redirecting confirmed user to:', redirectUrl)
-    redirect(redirectUrl)
-  } else {
-    // 온보딩 상태 확인 실패 시 기본적으로 대시보드로
-    console.warn('[AuthLayout] Onboarding stage check failed, redirecting to dashboard')
-    redirect('/dashboard')
+  // 온보딩 체크 실패 시 pending 페이지로 (에러 메시지와 함께)
+  if (!stageResult.success || !stageResult.data) {
+    console.warn('[AuthLayout] Onboarding stage check failed, redirecting to pending:', {
+      error: stageResult.error,
+    })
+    redirect('/auth/pending?error=onboarding_check_failed&message=' + encodeURIComponent(stageResult.error || '온보딩 상태 확인에 실패했습니다'))
   }
+
+  const stageData = stageResult.data as {
+    ok: boolean
+    stage?: { code: string; next_url?: string }
+  }
+
+  const { code: stageCode, next_url: nextUrl } = stageData.stage || {}
+
+  const redirectUrl =
+    nextUrl ||
+    (stageCode === 'READY' ? '/dashboard' : '/auth/pending')
+
+  console.log('[AuthLayout] Redirecting confirmed user to:', redirectUrl)
+  redirect(redirectUrl)
 }

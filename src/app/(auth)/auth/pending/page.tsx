@@ -11,7 +11,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Loader2, Clock, LogOut, RefreshCw, HelpCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { routeAfterLogin } from '@/lib/auth/route-after-login'
@@ -25,11 +25,38 @@ const AUTO_REFRESH_INTERVAL = 10000 // 10초마다 자동 확인
 
 export default function PendingPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
   const supabase = createClient()
 
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastChecked, setLastChecked] = useState<Date>(new Date())
+  const [hasShownErrorToast, setHasShownErrorToast] = useState(false)
+
+  // URL 파라미터에서 에러 메시지 읽고 토스트 표시
+  useEffect(() => {
+    if (hasShownErrorToast) return
+
+    const error = searchParams.get('error')
+    const message = searchParams.get('message')
+    const code = searchParams.get('code')
+
+    if (error || message) {
+      const errorTitles: Record<string, string> = {
+        'profile_query_failed': '프로필 조회 실패',
+        'onboarding_check_failed': '온보딩 상태 확인 실패',
+        'profile_creation_failed': '프로필 생성 실패',
+      }
+
+      toast({
+        title: errorTitles[error || ''] || '오류가 발생했습니다',
+        description: message ? decodeURIComponent(message) : `데이터베이스 오류가 발생했습니다.${code ? ` (코드: ${code})` : ''}`,
+        variant: 'destructive',
+      })
+
+      setHasShownErrorToast(true)
+    }
+  }, [searchParams, toast, hasShownErrorToast])
 
   // 로그아웃 훅 사용
   const { logout, isLoading: isLoggingOut } = useLogout({
