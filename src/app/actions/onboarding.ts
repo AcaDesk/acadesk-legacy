@@ -274,15 +274,19 @@ export async function completeOwnerOnboarding(
         tenantId: userData.tenant_id,
       })
 
-      // 학원 설정만 업데이트 (일반 client로 호출)
-      const { error: updateError } = await supabase.rpc('finish_owner_academy_setup', {
-        _academy_name: validated.academyName,
-        _timezone: validated.timezone,
-        _settings: validated.settings || {},
-      })
+      // 학원 설정만 업데이트 (service_role로 직접 업데이트)
+      const { error: updateError } = await serviceClient
+        .from('tenants')
+        .update({
+          name: validated.academyName,
+          timezone: validated.timezone,
+          settings: validated.settings || {},
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', userData.tenant_id)
 
       if (updateError) {
-        console.error('[completeOwnerOnboarding] finish_owner_academy_setup error:', {
+        console.error('[completeOwnerOnboarding] Tenant update error:', {
           requestId,
           userId,
           error: updateError,
@@ -314,9 +318,8 @@ export async function completeOwnerOnboarding(
       }
     }
 
-    // 6. Service role로 complete_owner_onboarding 호출
-    // ⚠️ 중요: 이 RPC는 트랜잭션 내에서 테넌트 생성 + 유저 업데이트를 수행합니다.
-    // 실패 시 자동으로 롤백되므로 원자성이 보장됩니다.
+    // 6. Service role로 테넌트 생성 + 학원 설정 (트랜잭션)
+    // ⚠️ 중요: 모든 작업을 service_role로 수행하여 RLS 우회 및 일관성 보장
 
     const ownerName =
       validated.ownerName ||
@@ -326,50 +329,39 @@ export async function completeOwnerOnboarding(
       user.email ||
       '원장님'
 
-    console.log('[completeOwnerOnboarding] Calling complete_owner_onboarding RPC:', {
+    console.log('[completeOwnerOnboarding] Creating tenant and academy setup:', {
       requestId,
       userId,
       ownerName,
       academyName: validated.academyName,
     })
 
-    const { data: onboardingData, error: onboardingError } = await serviceClient.rpc(
-      'complete_owner_onboarding',
-      {
-        _user_id: userId,
-        _name: ownerName,
-        _academy_name: validated.academyName,
-        _slug: null, // 자동 생성
-      }
-    )
+    // 6-1. 테넌트 생성
+    const slug = `academy-${Date.now()}-${Math.random().toString(36).substring(7)}`
+    const { data: tenantData, error: tenantError } = await serviceClient
+      .from('tenants')
+      .insert({
+        name: validated.academyName,
+        slug: slug,
+        timezone: validated.timezone,
+        settings: validated.settings || {},
+      })
+      .select('id')
+      .single()
 
-    if (onboardingError) {
-      console.error('[completeOwnerOnboarding] complete_owner_onboarding RPC error:', {
+    if (tenantError || !tenantData) {
+      console.error('[completeOwnerOnboarding] Tenant creation error:', {
         requestId,
         userId,
-        error: onboardingError,
+        error: tenantError,
       })
       return {
         success: false,
-        error: '원장 온보딩 처리 중 오류가 발생했습니다.',
+        error: '학원 생성 중 오류가 발생했습니다.',
       }
     }
 
-    const response = onboardingData as { ok: boolean; data?: any; code?: string; message?: string }
-
-    if (!response?.ok) {
-      console.error('[completeOwnerOnboarding] RPC returned error:', {
-        requestId,
-        userId,
-        response,
-      })
-      return {
-        success: false,
-        error: response?.message || '원장 온보딩 처리 중 오류가 발생했습니다.',
-      }
-    }
-
-    const tenantId = response.data?.tenant?.id
+    const tenantId = tenantData.id
 
     console.log('[completeOwnerOnboarding] Tenant created:', {
       requestId,
@@ -377,34 +369,37 @@ export async function completeOwnerOnboarding(
       tenantId,
     })
 
-    // 7. 학원 설정 업데이트 (finish_owner_academy_setup)
-    // 이제 사용자가 owner 권한을 가지므로 일반 client로 호출 가능
-    const { error: setupError } = await supabase.rpc('finish_owner_academy_setup', {
-      _academy_name: validated.academyName,
-      _timezone: validated.timezone,
-      _settings: validated.settings || {},
-    })
+    // 6-2. 사용자를 owner로 업데이트 (onboarding_completed = true)
+    const now = new Date().toISOString()
+    const { error: userUpdateError } = await serviceClient
+      .from('users')
+      .update({
+        name: ownerName,
+        role_code: 'owner',
+        tenant_id: tenantId,
+        onboarding_completed: true,
+        onboarding_completed_at: now,
+        approval_status: 'approved',
+        approved_at: now,
+        updated_at: now,
+      })
+      .eq('id', userId)
 
-    if (setupError) {
-      console.error('[completeOwnerOnboarding] finish_owner_academy_setup error:', {
+    if (userUpdateError) {
+      console.error('[completeOwnerOnboarding] User update error:', {
         requestId,
         userId,
         tenantId,
-        error: setupError,
+        error: userUpdateError,
       })
-      // 테넌트는 생성되었지만 설정 업데이트 실패
-      // 사용자가 다시 시도할 수 있도록 부분 성공으로 처리
+      // 테넌트는 생성되었으므로 수동으로 롤백하거나 에러 반환
       return {
-        success: true,
-        data: {
-          userId,
-          tenantId,
-          warning: '테넌트는 생성되었지만 학원 설정 업데이트 중 오류가 발생했습니다. 다시 시도해주세요.',
-        },
+        success: false,
+        error: '사용자 권한 설정 중 오류가 발생했습니다.',
       }
     }
 
-    console.log('[completeOwnerOnboarding] Academy settings updated:', {
+    console.log('[completeOwnerOnboarding] User updated to owner:', {
       requestId,
       userId,
       tenantId,

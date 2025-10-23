@@ -117,19 +117,11 @@ export default function OwnerSetupPage() {
         return
       }
 
-      // 경고가 있으면 표시
-      if (result.data?.warning) {
-        toast({
-          title: '부분 성공',
-          description: result.data.warning,
-          variant: 'default',
-        })
-      } else {
-        toast({
-          title: '설정 완료',
-          description: '학원 설정이 완료되었습니다. 대시보드로 이동합니다.',
-        })
-      }
+      // 성공 메시지 표시
+      toast({
+        title: '설정 완료',
+        description: '학원 설정이 완료되었습니다. 대시보드로 이동합니다.',
+      })
 
       // 잠시 후 대시보드로 이동
       setTimeout(() => {

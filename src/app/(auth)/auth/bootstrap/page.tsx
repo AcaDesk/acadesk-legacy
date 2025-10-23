@@ -2,7 +2,9 @@
  * Bootstrap Page - NO_PROFILE 상태 처리
  *
  * auth.users는 있지만 public.users 레코드가 없을 때 자동 생성
- * create_user_profile() RPC 호출 → 성공 시 자동 라우팅
+ * createUserProfileServer() Server Action 호출 → 성공 시 자동 라우팅
+ *
+ * ✅ 완전히 server-side + service_role 기반으로 동작
  */
 
 'use client'
@@ -10,34 +12,21 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2, AlertCircle, UserPlus } from 'lucide-react'
-import { useAuthStage } from '@/hooks/use-auth-stage'
-import { getAuthStageErrorMessage } from '@/lib/auth/auth-errors'
 import { AuthLoadingState } from '@/components/auth/AuthLoadingState'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { createUserProfileServer, checkOnboardingStage } from '@/app/actions/onboarding'
+import { createClient } from '@/lib/supabase/client'
+import { inviteTokenStore } from '@/lib/auth/invite-token-store'
 
 export default function BootstrapPage() {
   const router = useRouter()
   const [progress, setProgress] = useState(0)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [hasAttempted, setHasAttempted] = useState(false)
-  const { isLoading, error, createProfile } = useAuthStage({
-    autoRoute: true,
-    successMessage: {
-      title: '프로필 생성 완료',
-      description: '다음 단계로 이동합니다.',
-    },
-  })
 
-  // 마운트 시 한 번만 createProfile 호출
-  useEffect(() => {
-    if (!hasAttempted) {
-      setHasAttempted(true)
-      createProfile()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // 프로그레스 시뮬레이션 (실제로는 RPC 단계별 업데이트 가능)
+  // 프로그레스 시뮬레이션
   useEffect(() => {
     if (!isLoading) return
 
@@ -51,13 +40,81 @@ export default function BootstrapPage() {
     return () => clearInterval(interval)
   }, [isLoading])
 
+  // 마운트 시 한 번만 프로필 생성 시도
+  useEffect(() => {
+    if (hasAttempted) return
+    setHasAttempted(true)
+
+    async function bootstrap() {
+      try {
+        // 1. 현재 사용자 ID 가져오기
+        const supabase = createClient()
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+
+        if (!user) {
+          console.error('[BootstrapPage] No user found')
+          router.push('/auth/login')
+          return
+        }
+
+        const userId = user.id
+        console.log('[BootstrapPage] Creating profile for user:', userId)
+
+        // 2. Server Action으로 프로필 생성 (service_role 사용)
+        const result = await createUserProfileServer(userId)
+
+        if (!result.success) {
+          console.error('[BootstrapPage] Profile creation failed:', result.error)
+          setError(result.error || '프로필 생성에 실패했습니다.')
+          setIsLoading(false)
+          return
+        }
+
+        console.log('[BootstrapPage] Profile created successfully')
+
+        // 3. 온보딩 상태 확인 후 라우팅
+        const inviteToken = inviteTokenStore.get()
+        const stageResult = await checkOnboardingStage(inviteToken || undefined)
+
+        if (!stageResult.success || !stageResult.data) {
+          console.error('[BootstrapPage] Stage check failed:', stageResult.error)
+          router.push('/auth/login?verified=true')
+          return
+        }
+
+        const stage = stageResult.data as any
+        const nextUrl = stage.stage?.next_url
+        const stageCode = stage.stage?.code
+
+        console.log('[BootstrapPage] Routing to:', nextUrl || '/dashboard', 'Stage:', stageCode)
+
+        if (nextUrl) {
+          router.push(nextUrl)
+        } else if (stageCode === 'READY') {
+          router.push('/dashboard')
+        } else {
+          router.push('/auth/login?verified=true')
+        }
+      } catch (err) {
+        console.error('[BootstrapPage] Bootstrap error:', err)
+        setError('알 수 없는 오류가 발생했습니다.')
+        setIsLoading(false)
+      }
+    }
+
+    bootstrap()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // 재시도 핸들러
   const handleRetry = () => {
-    createProfile()
+    setError(null)
+    setIsLoading(true)
+    setProgress(0)
+    setHasAttempted(false)
   }
-
-  // 에러 정보 가져오기
-  const errorInfo = error ? getAuthStageErrorMessage(error) : null
 
   // 로딩 상태
   if (isLoading && !error) {
@@ -74,30 +131,28 @@ export default function BootstrapPage() {
   }
 
   // 에러 상태
-  if (error && errorInfo) {
+  if (error) {
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader>
             <div className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-destructive" />
-              <CardTitle>{errorInfo.title}</CardTitle>
+              <CardTitle>프로필 생성 실패</CardTitle>
             </div>
-            <CardDescription>{errorInfo.description}</CardDescription>
+            <CardDescription>{error}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {errorInfo.canRetry && (
-              <Button onClick={handleRetry} className="w-full" disabled={isLoading}>
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    처리 중...
-                  </>
-                ) : (
-                  '다시 시도'
-                )}
-              </Button>
-            )}
+            <Button onClick={handleRetry} className="w-full" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  처리 중...
+                </>
+              ) : (
+                '다시 시도'
+              )}
+            </Button>
             <Button
               variant="outline"
               onClick={() => router.push('/auth/login')}
