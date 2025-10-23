@@ -1,4 +1,8 @@
 -- 210_owner_setup_upsert.sql
+-- ⚠️ DEPRECATED: 이 RPC는 더 이상 사용되지 않습니다.
+-- Server Action (src/app/actions/onboarding.ts::completeOwnerOnboarding)으로 대체되었습니다.
+-- 마이그레이션 완료 후 제거 예정.
+--
 -- 테넌트 없으면 complete_owner_onboarding → 있으면 finish_owner_academy_setup 까지 한 번에
 create or replace function public.owner_setup_upsert(
   _owner_name   text,

@@ -18,7 +18,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ArrowLeft, Mail, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { createResetPasswordUseCase } from "@/application/factories/authUseCaseFactory.client"
+import { resetPassword } from "@/app/actions/auth"
+import { GENERIC_ERROR_MESSAGE } from "@/lib/auth/messages"
 
 const forgotPasswordSchema = z.object({
   email: z.string().email("올바른 이메일 형식이 아닙니다."),
@@ -43,13 +44,12 @@ export default function ForgotPasswordPage() {
   const onSubmit = async (data: ForgotPasswordFormValues) => {
     setIsLoading(true)
     try {
-      const resetPasswordUseCase = createResetPasswordUseCase()
-      const { error } = await resetPasswordUseCase.execute({ email: data.email })
+      const result = await resetPassword({ email: data.email })
 
-      if (error) {
+      if (!result.success) {
         toast({
           title: "이메일 전송 실패",
-          description: error.message,
+          description: result.error || GENERIC_ERROR_MESSAGE.description,
           variant: "destructive",
         })
         return
@@ -62,8 +62,8 @@ export default function ForgotPasswordPage() {
       })
     } catch {
       toast({
-        title: "오류가 발생했습니다",
-        description: "다시 시도해주세요.",
+        title: GENERIC_ERROR_MESSAGE.title,
+        description: GENERIC_ERROR_MESSAGE.description,
         variant: "destructive",
       })
     } finally {
