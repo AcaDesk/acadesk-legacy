@@ -170,20 +170,19 @@ export default function NewTodoTemplatePage() {
     setLoading(true)
 
     try {
-      const templateData: unknown = {
-        tenant_id: currentUser.tenantId,
+      // ✅ Use Server Action instead of direct Supabase CUD
+      const { createTodoTemplate } = await import('@/app/actions/todo-templates')
+      const result = await createTodoTemplate({
         title: title.trim(),
-        description: description.trim() || null,
-        subject: subject.trim() || null,
-        day_of_week: dayOfWeek ? parseInt(dayOfWeek) : null,
-        estimated_duration_minutes: estimatedDuration ? parseInt(estimatedDuration) : null,
-        priority,
-        active: true,
+        description: description.trim() || undefined,
+        subject: subject.trim() || undefined,
+        estimatedDurationMinutes: estimatedDuration ? parseInt(estimatedDuration) : undefined,
+        priority: priority as 'low' | 'normal' | 'high' | 'urgent',
+      })
+
+      if (!result.success) {
+        throw new Error(result.error || '템플릿 생성 실패')
       }
-
-      const { error } = await supabase.from('todo_templates').insert(templateData)
-
-      if (error) throw error
 
       toast({
         title: '템플릿 등록 완료',

@@ -10,7 +10,6 @@ import { useCurrentUser } from '@/hooks/use-current-user'
 import { useToast } from '@/hooks/use-toast'
 import { hashKioskPin } from '@/app/actions/kiosk'
 import { GUARDIAN_MODES } from '@/lib/constants'
-import { getErrorMessage } from '@/lib/error-handlers'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { StepIndicator } from './StepIndicator'
@@ -19,7 +18,6 @@ import { Step2_GuardianInfo } from './Step2_GuardianInfo'
 import { Step3_AdditionalInfo } from './Step3_AdditionalInfo'
 import { studentWizardSchema, type StudentWizardFormValues, type StepInfo } from './types'
 import { createGetTenantCodesUseCase } from '@/application/factories/tenantUseCaseFactory.client'
-import { createCreateStudentCompleteUseCase } from '@/application/factories/studentUseCaseFactory.client'
 
 // ============================================================================
 // Props
@@ -225,16 +223,16 @@ export function AddStudentWizard({ open, onOpenChange, onSuccess }: AddStudentWi
         }
       }
 
-      // Call CreateStudentComplete Use Case
-      const useCase = createCreateStudentCompleteUseCase()
-      const { success, data: responseData, error: useCaseError } = await useCase.execute({
+      // ✅ Call Server Action instead of direct UseCase
+      const { createStudentComplete } = await import('@/app/actions/students')
+      const result = await createStudentComplete({
         student: studentData,
         guardian: guardianData,
         guardianMode: guardianMode as 'new' | 'existing' | 'skip',
       })
 
-      if (!success || useCaseError) {
-        throw useCaseError || new Error('학생을 추가하는 중 오류가 발생했습니다.')
+      if (!result.success) {
+        throw new Error(result.error || '학생을 추가하는 중 오류가 발생했습니다.')
       }
 
       // Show success message based on guardian mode
@@ -249,10 +247,9 @@ export function AddStudentWizard({ open, onOpenChange, onSuccess }: AddStudentWi
           description: `${data.name} 학생이 추가되고 기존 학부모와 연결되었습니다.`,
         })
       } else {
-        const studentCode = responseData.student_code || ''
         toast({
           title: '학생 추가 완료',
-          description: `${data.name} 학생이 추가되었습니다.${studentCode ? ` (학생 코드: ${studentCode})` : ''}`,
+          description: `${data.name} 학생이 추가되었습니다.`,
         })
       }
 
