@@ -8,8 +8,8 @@
 
 import React, { Component, ReactNode } from 'react'
 import { AlertCircle, RefreshCw, Home } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@ui/button'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@ui/card'
 import { getErrorMessage, logError } from '@/lib/error-handlers'
 
 interface ErrorBoundaryProps {

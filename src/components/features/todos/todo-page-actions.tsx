@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Button } from '@/components/ui/button'
+import { Button } from '@ui/button'
 import { Plus, FileText } from 'lucide-react'
 import { RoleGuard } from '@/components/auth/role-guard'
 

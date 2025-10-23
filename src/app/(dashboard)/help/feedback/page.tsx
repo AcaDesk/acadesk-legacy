@@ -1,11 +1,11 @@
 'use client'
 
 import { PageWrapper } from '@/components/layout/page-wrapper'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
+import { Button } from '@ui/button'
+import { Input } from '@ui/input'
+import { Textarea } from '@ui/textarea'
+import { Label } from '@ui/label'
 import { MessageSquare, Send, Loader2, ThumbsUp } from 'lucide-react'
 import { useState } from 'react'
 import { useToast } from '@/hooks/use-toast'
@@ -16,7 +16,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
+} from '@ui/select'
 
 export default function FeedbackPage() {
   const [category, setCategory] = useState<string>('')

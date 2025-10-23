@@ -12,7 +12,7 @@ import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
-import type { StudentDetailData } from '@/types/studentDetail.types'
+import type { StudentDetailData } from '@/core/types/studentDetail.types'
 
 // ============================================================================
 // Validation Schemas

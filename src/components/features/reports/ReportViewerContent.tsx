@@ -4,10 +4,10 @@ import { useState } from 'react'
 import Image from 'next/image'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { Card } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
+import { Card } from '@ui/card'
+import { Button } from '@ui/button'
+import { Badge } from '@ui/badge'
+import { Separator } from '@ui/separator'
 import {
   Download,
   TrendingUp,
@@ -18,7 +18,7 @@ import {
   MessageSquare,
   ArrowRight,
 } from 'lucide-react'
-import type { Report } from '@/domain/entities/Report'
+import type { Report } from '@core/domain/entities/Report'
 import { ReportGrowthChart } from './ReportGrowthChart'
 import { getStudentAvatar } from '@/lib/avatar'
 

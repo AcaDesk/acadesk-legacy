@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { WidgetSkeleton } from '@/components/ui/widget-skeleton'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
+import { WidgetSkeleton } from '@ui/widget-skeleton'
 import { WidgetErrorBoundary } from '@/components/features/dashboard/widget-error-boundary'
 import { Users, TrendingUp, Clock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'

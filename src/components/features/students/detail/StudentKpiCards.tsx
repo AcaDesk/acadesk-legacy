@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'motion/react'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent } from '@ui/card'
 import { Target, TrendingUp, CheckCircle } from 'lucide-react'
 
 interface KPIs {

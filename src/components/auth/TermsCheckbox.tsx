@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Checkbox } from "@/components/ui/checkbox"
+import { Checkbox } from "@ui/checkbox"
 import { TermsModal } from "@/components/auth/TermsModal"
 
 export interface TermsCheckboxValues {

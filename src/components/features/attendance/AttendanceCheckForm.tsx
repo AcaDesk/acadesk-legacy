@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { AttendanceStatus } from '@/types/attendance';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
+import { AttendanceStatus } from '@/core/types/attendance';
+import { Button } from '@ui/button';
+import { Textarea } from '@ui/textarea';
 
 interface Student {
   id: string;

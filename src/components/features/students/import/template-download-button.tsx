@@ -4,7 +4,7 @@
  * Excel 템플릿 다운로드 버튼
  */
 
-import { Button } from '@/components/ui/button'
+import { Button } from '@ui/button'
 import { Download } from 'lucide-react'
 import { downloadStudentImportTemplate } from '@/lib/excel-template'
 

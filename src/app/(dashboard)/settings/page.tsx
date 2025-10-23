@@ -2,9 +2,9 @@
 
 // import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
+import { Button } from '@ui/button'
+import { Badge } from '@ui/badge'
 import {
   Settings,
   Building2,
@@ -19,7 +19,7 @@ import {
 import Link from 'next/link'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { PAGE_LAYOUT, GRID_LAYOUTS, TEXT_STYLES, CARD_STYLES } from '@/lib/constants'
-import { Separator } from '@/components/ui/separator'
+import { Separator } from '@ui/separator'
 
 export default function SettingsPage() {
   const settingsSections = [

@@ -1,13 +1,13 @@
 'use client'
 
 import { PageWrapper } from '@/components/layout/page-wrapper'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@ui/accordion'
 import { FileQuestion, Search, Tag } from 'lucide-react'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
+import { Input } from '@ui/input'
+import { Badge } from '@ui/badge'
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
+import { Button } from '@ui/button'
 
 export default function FAQPage() {
   const [searchQuery, setSearchQuery] = useState('')

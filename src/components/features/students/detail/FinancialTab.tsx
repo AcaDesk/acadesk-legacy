@@ -1,13 +1,13 @@
 'use client'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
+import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
+import { Badge } from '@ui/badge'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@ui/accordion'
 import { format as formatDate } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { CreditCard, CheckCircle, AlertCircle, Clock } from 'lucide-react'
 import { useStudentDetail } from '@/hooks/use-student-detail'
-import { EmptyState } from '@/components/ui/empty-state'
+import { EmptyState } from '@ui/empty-state'
 
 export function FinancialTab() {
   const { invoices } = useStudentDetail()

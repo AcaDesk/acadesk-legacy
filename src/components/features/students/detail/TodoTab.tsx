@@ -2,16 +2,16 @@
 
 import { useState } from 'react'
 import { motion } from 'motion/react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
+import { Badge } from '@ui/badge'
+import { Button } from '@ui/button'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
+} from '@ui/select'
 import { useRouter } from 'next/navigation'
 import { format as formatDate, isPast, isToday, isTomorrow, addDays } from 'date-fns'
 import { ko } from 'date-fns/locale'
@@ -27,7 +27,7 @@ import {
 } from 'lucide-react'
 import { useStudentDetail } from '@/hooks/use-student-detail'
 import { useToast } from '@/hooks/use-toast'
-import { createCompleteTodoUseCase } from '@/application/factories/todoUseCaseFactory.client'
+import { createCompleteTodoUseCase } from '@core/application/factories/todoUseCaseFactory.client'
 import { getErrorMessage } from '@/lib/error-handlers'
 
 const containerVariants = {

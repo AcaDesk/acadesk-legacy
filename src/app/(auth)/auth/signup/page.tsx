@@ -1,5 +1,5 @@
 import SignupForm from "@/components/auth/SignupForm"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent } from "@ui/card"
 import { getFeatureStatus } from "@/lib/features.config"
 import { getFeatureStrategy } from "@/lib/feature-strategies"
 

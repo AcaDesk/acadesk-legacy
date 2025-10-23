@@ -1,14 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
+import { Badge } from '@ui/badge'
+import { Button } from '@ui/button'
+import { Skeleton } from '@ui/skeleton'
 import { format as formatDate } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { motion, AnimatePresence } from 'motion/react'
-import { createGetStudentActivityLogsUseCase } from '@/application/factories/studentUseCaseFactory.client'
+import { createGetStudentActivityLogsUseCase } from '@core/application/factories/studentUseCaseFactory.client'
 import {
   GraduationCap,
   CheckCircle,

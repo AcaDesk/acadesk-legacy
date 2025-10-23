@@ -2,9 +2,9 @@
 
 import { motion } from 'motion/react'
 import { useRouter } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
+import { Badge } from '@ui/badge'
+import { Button } from '@ui/button'
 import { format as formatDate } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { TrendingUp, TrendingDown, Minus, Plus, BarChart3, LineChart as LineChartIcon } from 'lucide-react'

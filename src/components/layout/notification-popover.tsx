@@ -7,13 +7,13 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover'
-import { Button } from '@/components/ui/button'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Badge } from '@/components/ui/badge'
+} from '@ui/popover'
+import { Button } from '@ui/button'
+import { ScrollArea } from '@ui/scroll-area'
+import { Badge } from '@ui/badge'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
-import { NotificationRepository, type InAppNotification } from '@/infrastructure/database/notification.repository'
+import { NotificationRepository, type InAppNotification } from '@infra/db/repositories/notification.repository'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { useToast } from '@/hooks/use-toast'
 import { getErrorMessage } from '@/lib/error-handlers'

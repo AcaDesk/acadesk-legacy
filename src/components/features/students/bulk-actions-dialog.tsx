@@ -9,18 +9,18 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Label } from '@/components/ui/label'
+} from '@ui/dialog'
+import { Button } from '@ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
+import { Label } from '@ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { GRADES } from '@/lib/constants'
 import type { Student } from './student-table-improved'
 import {
   createBulkEnrollClassUseCase,
-} from '@/application/factories/studentUseCaseFactory.client'
-import { createGetActiveClassesUseCase } from '@/application/factories/classUseCaseFactory.client'
+} from '@core/application/factories/studentUseCaseFactory.client'
+import { createGetActiveClassesUseCase } from '@core/application/factories/classUseCaseFactory.client'
 
 type BulkAction = 'delete' | 'grade' | 'class' | 'export'
 

@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { ReportGenerator, type ReportData } from '@/application/use-cases/report/ReportGeneratorService'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
+import { ReportGenerator, type ReportData } from '@core/application/use-cases/report/ReportGeneratorService'
+import { Button } from '@ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
+import { Badge } from '@ui/badge'
+import { Separator } from '@ui/separator'
 import { useToast } from '@/hooks/use-toast'
 import { FileText, TrendingUp, TrendingDown, Minus, Download } from 'lucide-react'
 import { PageWrapper } from "@/components/layout/page-wrapper"

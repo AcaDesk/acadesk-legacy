@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Input } from '@/components/ui/input'
+import { Button } from '@ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
+import { Badge } from '@ui/badge'
+import { Checkbox } from '@ui/checkbox'
+import { Input } from '@ui/input'
 import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { PageWrapper } from "@/components/layout/page-wrapper"
@@ -19,13 +19,13 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
+} from '@ui/dialog'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
-import { createGetStudentsUseCase } from '@/application/factories/studentUseCaseFactory.client'
-import { createGetTodoTemplatesUseCase } from '@/application/factories/todoTemplateUseCaseFactory.client'
-import { createCreateTodosForStudentsUseCase } from '@/application/factories/todoUseCaseFactory.client'
+import { createGetStudentsUseCase } from '@core/application/factories/studentUseCaseFactory.client'
+import { createGetTodoTemplatesUseCase } from '@core/application/factories/todoTemplateUseCaseFactory.client'
+import { createCreateTodosForStudentsUseCase } from '@core/application/factories/todoUseCaseFactory.client'
 import { getErrorMessage } from '@/lib/error-handlers'
 
 interface Student {

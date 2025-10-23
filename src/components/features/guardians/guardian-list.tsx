@@ -7,7 +7,7 @@ import { getErrorMessage } from '@/lib/error-handlers'
 import {
   createGetGuardiansWithDetailsUseCase,
   createDeleteGuardianUseCase,
-} from '@/application/factories/guardianUseCaseFactory.client'
+} from '@core/application/factories/guardianUseCaseFactory.client'
 
 export function GuardianList() {
   const [guardians, setGuardians] = useState<Guardian[]>([])

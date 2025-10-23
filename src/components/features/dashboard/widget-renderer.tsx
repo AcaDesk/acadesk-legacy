@@ -11,7 +11,7 @@ import { WeeklyPerformance } from "./weekly-performance"
 import { CalendarWidget } from "./calendar-widget"
 import { StatsCard } from "./stats-card"
 import { Users, GraduationCap, TrendingUp, Calendar, FileText } from "lucide-react"
-import { DashboardWidget } from "@/types/dashboard"
+import { DashboardWidget } from "@/core/types/dashboard"
 import { DashboardData, TodaySession } from "@/hooks/use-dashboard-data"
 
 interface WidgetRendererProps {

@@ -8,7 +8,7 @@
 
 import { notFound } from 'next/navigation'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
-import { Report } from '@/domain/entities/Report'
+import { Report } from '@core/domain/entities/Report'
 import { ReportViewerContent } from '@/components/features/reports/ReportViewerContent'
 
 interface PageProps {

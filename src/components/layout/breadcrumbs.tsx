@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { Breadcrumb, type BreadcrumbItem } from '@/components/ui/breadcrumb'
+import { Breadcrumb, type BreadcrumbItem } from '@ui/breadcrumb'
 import {
   BREADCRUMB_CONFIG,
   matchPathPattern,

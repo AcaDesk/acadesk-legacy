@@ -35,8 +35,8 @@ import {
 import { format, differenceInDays } from 'date-fns'
 import { motion, AnimatePresence } from 'motion/react'
 
-import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
+import { Button } from '@ui/button'
+import { Checkbox } from '@ui/checkbox'
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -45,15 +45,15 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Input } from '@/components/ui/input'
+} from '@ui/dropdown-menu'
+import { Input } from '@ui/input'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
+} from '@ui/select'
 import {
   Table,
   TableBody,
@@ -61,8 +61,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
+} from '@ui/table'
+import { Badge } from '@ui/badge'
 import { getStudentAvatar } from '@/lib/avatar'
 import { cn } from '@/lib/utils'
 import { BulkActionsDialog } from './bulk-actions-dialog'

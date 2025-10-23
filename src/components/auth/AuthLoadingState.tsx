@@ -8,8 +8,8 @@
 
 import { motion } from 'framer-motion'
 import { Loader2, CheckCircle2 } from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
+import { Card, CardContent } from '@ui/card'
+import { Progress } from '@ui/progress'
 
 interface AuthLoadingStateProps {
   /** 현재 단계 이름 */

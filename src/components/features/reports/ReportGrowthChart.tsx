@@ -1,7 +1,7 @@
 'use client'
 
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
-import type { ReportData } from '@/domain/entities/Report'
+import type { ReportData } from '@core/domain/entities/Report'
 
 interface ReportGrowthChartProps {
   chartPoints: NonNullable<ReportData['chartPoints']>

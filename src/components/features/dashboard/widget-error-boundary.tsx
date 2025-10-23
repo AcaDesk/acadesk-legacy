@@ -2,7 +2,7 @@
 
 import { ReactNode } from 'react'
 import { ErrorBoundary } from 'react-error-boundary'
-import { WidgetErrorFallback } from '@/components/ui/error-fallback'
+import { WidgetErrorFallback } from '@ui/error-fallback'
 
 interface Props {
   children: ReactNode

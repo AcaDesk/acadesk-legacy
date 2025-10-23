@@ -10,7 +10,7 @@ import {
   createAuthenticateWithPinUseCase,
   createGetStudentTodosForTodayUseCase,
   createToggleTodoCompleteForKioskUseCase,
-} from '@/application/factories/kioskUseCaseFactory.server'
+} from '@core/application/factories/kioskUseCaseFactory.server'
 
 // Legacy types for backward compatibility
 export interface Student {

@@ -1,10 +1,10 @@
 'use client'
 
 import { PageWrapper } from '@/components/layout/page-wrapper'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@ui/accordion'
 import { BookOpen, Users, Calendar, FileText, ClipboardCheck, Settings, BarChart3, Search } from 'lucide-react'
-import { Input } from '@/components/ui/input'
+import { Input } from '@ui/input'
 import { useState } from 'react'
 
 export default function GuidePage() {
