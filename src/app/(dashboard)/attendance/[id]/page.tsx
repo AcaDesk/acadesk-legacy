@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { AttendanceRepository } from '@infra/db/repositories/attendance.repository';
+import { getAttendanceSessionById, getAttendanceBySession } from '@/app/actions/attendance';
 import { AttendanceCheckPage } from '@/components/features/attendance/AttendanceCheckPage';
 
 // Force dynamic rendering (uses cookies for authentication)
@@ -12,37 +12,16 @@ export default async function AttendanceSessionPage({
   params: { id: string };
 }) {
   const { id } = params;
-  const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Get session details using Server Action
+  const sessionResult = await getAttendanceSessionById(id);
 
-  if (!user) {
-    redirect('/auth/login');
-  }
-
-  // Get user's tenant
-  const { data: userData, error: userError } = await supabase
-    .from('users')
-    .select('tenant_id')
-    .eq('id', user.id)
-    .single();
-
-  if (userError || !userData?.tenant_id) {
-    console.error('Failed to fetch user data:', userError);
-    redirect('/auth/login');
-  }
-
-  // Create repository instance
-  const attendanceRepo = new AttendanceRepository(supabase);
-
-  // Get session details
-  const session = await attendanceRepo.getSessionById(id);
-
-  if (!session) {
+  if (!sessionResult.success || !sessionResult.data) {
     redirect('/attendance');
   }
+
+  const session = sessionResult.data;
+  const supabase = await createClient();
 
   // Get students enrolled in this class
   const { data: enrollments, error: enrollmentError } = await supabase
@@ -92,8 +71,9 @@ export default async function AttendanceSessionPage({
     }>) || [];
   }
 
-  // Get existing attendance records for this session
-  const existingRecords = await attendanceRepo.getAttendanceBySession(id);
+  // Get existing attendance records using Server Action
+  const recordsResult = await getAttendanceBySession(id);
+  const existingRecords = recordsResult.success ? recordsResult.data : [];
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -101,7 +81,6 @@ export default async function AttendanceSessionPage({
         session={session}
         students={students}
         existingRecords={existingRecords}
-        tenantId={userData.tenant_id}
       />
     </div>
   );
