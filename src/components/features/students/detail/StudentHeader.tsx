@@ -44,6 +44,7 @@ import {
   createUpdateStudentProfileImageUseCase,
   createDeleteStudentUseCase,
 } from '@/application/factories/studentUseCaseFactory.client'
+import { SendReportDialog } from './SendReportDialog'
 
 interface StudentHeaderProps {
   student: StudentDetail
@@ -59,6 +60,7 @@ export function StudentHeader({
   const router = useRouter()
   const { toast } = useToast()
   const [profileDialogOpen, setProfileDialogOpen] = useState(false)
+  const [reportDialogOpen, setReportDialogOpen] = useState(false)
 
   const calculateAge = (birthDate: string | null) => {
     if (!birthDate) return null
@@ -107,8 +109,8 @@ export function StudentHeader({
     }
   }
 
-  const handleGenerateReport = () => {
-    router.push(`/reports?student_id=${student.id}`)
+  const handleSendReport = () => {
+    setReportDialogOpen(true)
   }
 
   const handleContactGuardian = () => {
@@ -300,9 +302,9 @@ export function StudentHeader({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={handleGenerateReport}>
-                <FileText className="h-4 w-4 mr-2" />
-                리포트 생성
+              <DropdownMenuItem onClick={handleSendReport}>
+                <Send className="h-4 w-4 mr-2" />
+                리포트 발송
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleContactGuardian}>
                 <MessageSquare className="h-4 w-4 mr-2" />
@@ -339,6 +341,13 @@ export function StudentHeader({
           />
         </DialogContent>
       </Dialog>
+
+      {/* Send Report Dialog */}
+      <SendReportDialog
+        open={reportDialogOpen}
+        onOpenChange={setReportDialogOpen}
+        student={student}
+      />
     </div>
   )
 }

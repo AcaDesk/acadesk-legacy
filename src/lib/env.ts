@@ -52,6 +52,11 @@ const clientEnvSchema = z.object({
  */
 const serverEnvSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+
+  // Aligo SMS/LMS API
+  ALIGO_API_KEY: z.string().optional(),
+  ALIGO_USER_ID: z.string().optional(),
+  ALIGO_SENDER_PHONE: z.string().optional(),
 })
 
 /**
