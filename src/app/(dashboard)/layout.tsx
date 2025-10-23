@@ -42,7 +42,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
   }
 
   // 2. 이메일 인증 체크
-  const emailConfirmed = user.email_confirmed_at ?? (user as any).confirmed_at
+  const emailConfirmed = user.email_confirmed_at ?? (user as { confirmed_at?: string }).confirmed_at
   if (!emailConfirmed) {
     const q = user.email ? `?email=${encodeURIComponent(user.email)}` : ''
     redirect(`/auth/verify-email${q}`)
@@ -58,12 +58,13 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
 
   // 4. DB 조회 에러 → pending 페이지로 (에러 안내)
   if (userError) {
+    const postgrestError = userError as { code?: string; message?: string }
     console.error('[DashboardLayout] Error fetching user data:', {
       error: userError,
       userId: user.id,
-      errorCode: (userError as any)?.code,
+      errorCode: postgrestError.code,
     })
-    const errorCode = (userError as any)?.code || 'unknown'
+    const errorCode = postgrestError.code || 'unknown'
     const errorMessage = userError.message || '프로필 조회 중 오류가 발생했습니다'
     redirect(`/auth/pending?error=profile_query_failed&code=${errorCode}&message=${encodeURIComponent(errorMessage)}`)
   }

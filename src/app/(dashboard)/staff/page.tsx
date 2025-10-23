@@ -1,33 +1,29 @@
 import { Suspense } from "react"
-import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
+import { createServerClient } from "@/lib/supabase/server"
+import { createServiceRoleClient } from "@/lib/supabase/service-role"
 import { StaffManagementClient } from "./staff-management-client"
 import { PageWrapper } from "@/components/layout/page-wrapper"
 
+// Edge 런타임 방지 - service_role은 Node.js에서만 작동
+export const runtime = 'nodejs'
 // Force dynamic rendering (uses cookies for authentication)
 export const dynamic = 'force-dynamic'
 
 export default async function StaffPage() {
-  const supabase = await createClient()
-
-  // 현재 사용자 정보 가져오기
+  // 1. 세션 확인 (일반 클라이언트)
+  const supabase = await createServerClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return (
-      <PageWrapper>
-        <div className="flex h-[50vh] items-center justify-center">
-          <div className="text-center">
-            <h2 className="text-2xl font-semibold">로그인이 필요합니다</h2>
-          </div>
-        </div>
-      </PageWrapper>
-    )
+    redirect('/auth/login')
   }
 
-  // 사용자의 tenant_id와 role 가져오기
-  const { data: userData } = await supabase
+  // 2. 사용자의 tenant_id와 role 가져오기 (service_role - RLS 우회)
+  const admin = createServiceRoleClient()
+  const { data: userData } = await admin
     .from("users")
     .select("tenant_id, role_code")
     .eq("id", user.id)
@@ -49,8 +45,8 @@ export default async function StaffPage() {
     )
   }
 
-  // 직원 목록 가져오기
-  const { data: staffList } = await supabase
+  // 3. 직원 목록 가져오기 (service_role - RLS 우회)
+  const { data: staffList } = await admin
     .from("users")
     .select("id, name, email, role_code, phone, created_at")
     .eq("tenant_id", userData.tenant_id)
@@ -58,7 +54,7 @@ export default async function StaffPage() {
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
 
-  // 초대 목록 가져오기
+  // 4. 초대 목록 가져오기 (일반 클라이언트 - staff_invitations는 RLS 적용)
   const { data: invitations } = await supabase
     .from("staff_invitations")
     .select("*")
