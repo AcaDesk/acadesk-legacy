@@ -17,7 +17,7 @@ import { useCurrentUser } from '@/hooks/use-current-user'
 import { Loader2, Check, Clock, X, FileQuestion } from 'lucide-react'
 import { ATTENDANCE_STATUSES, getAttendanceStatusInfo } from '@/lib/constants'
 import { getErrorMessage } from '@/lib/error-handlers'
-import { createBulkUpsertAttendanceUseCase } from '@/application/factories/attendanceUseCaseFactory.client'
+import { bulkUpsertAttendance } from '@/app/actions/attendance'
 
 interface Student {
   id: string
@@ -103,8 +103,6 @@ export function AttendanceCheckDialog({
   }
 
   const handleSave = async () => {
-    if (!currentUser || !currentUser.tenantId) return
-
     setSaving(true)
     try {
       // Prepare attendance records
@@ -118,12 +116,15 @@ export function AttendanceCheckDialog({
         }
       })
 
-      // Use BulkUpsertAttendanceUseCase
-      const useCase = createBulkUpsertAttendanceUseCase()
-      await useCase.execute(currentUser.tenantId, {
+      // Use Server Action
+      const result = await bulkUpsertAttendance({
         session_id: sessionId,
         attendances,
       })
+
+      if (!result.success) {
+        throw new Error(result.error || '출석 저장 실패')
+      }
 
       toast({
         title: '출석 체크 완료',

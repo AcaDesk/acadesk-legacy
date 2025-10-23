@@ -20,6 +20,7 @@ import {
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
+import { createGuardian } from '@/app/actions/guardians'
 
 interface Student {
   id: string
@@ -67,67 +68,21 @@ export default function NewGuardianPage() {
   }
 
   const onSubmit = async (data: GuardianFormValues) => {
-    if (!currentUser) {
-      toast({
-        title: '인증 오류',
-        description: '로그인 정보를 확인할 수 없습니다.',
-        variant: 'destructive',
-      })
-      return
-    }
-
     setLoading(true)
     try {
+      // Use Server Action
+      const result = await createGuardian({
+        name: data.name,
+        email: data.email || null,
+        phone: data.phone,
+        relationship: data.relationship,
+        occupation: data.occupation || null,
+        address: data.address || null,
+        student_ids: selectedStudents,
+      })
 
-      // 1. users 테이블에 보호자 생성
-      const { data: newUser, error: userCreateError } = await supabase
-        .from('users')
-        .insert({
-          tenant_id: currentUser.tenantId,
-          email: data.email || null,
-          name: data.name,
-          phone: data.phone,
-          role_code: 'guardian',
-        })
-        .select()
-        .maybeSingle()
-
-      if (userCreateError || !newUser) {
-        throw new Error(`사용자 레코드를 생성할 수 없습니다: ${userCreateError?.message}`)
-      }
-
-      // 2. guardians 테이블에 보호자 정보 저장
-      const { data: newGuardian, error: guardianError } = await supabase
-        .from('guardians')
-        .insert({
-          tenant_id: currentUser.tenantId,
-          user_id: newUser.id,
-          relationship: data.relationship,
-        })
-        .select()
-        .maybeSingle()
-
-      if (guardianError || !newGuardian) {
-        throw new Error(`보호자 정보를 생성할 수 없습니다: ${guardianError?.message}`)
-      }
-
-      // 3. 선택된 학생들과 연결
-      if (selectedStudents.length > 0) {
-        const guardianStudentRecords = selectedStudents.map((studentId) => ({
-          tenant_id: currentUser.tenantId,
-          student_id: studentId,
-          guardian_id: newGuardian.id,
-          relation: data.relationship,
-          is_primary: false,
-        }))
-
-        const { error: linkError } = await supabase
-          .from('student_guardians')
-          .insert(guardianStudentRecords)
-
-        if (linkError) {
-          console.warn('학생 연결 오류:', linkError)
-        }
+      if (!result.success) {
+        throw new Error(result.error || '보호자 추가 실패')
       }
 
       toast({

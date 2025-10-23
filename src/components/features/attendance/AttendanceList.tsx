@@ -11,6 +11,7 @@ import type {
   AttendanceSessionWithClass,
   CreateSessionInput,
 } from '@/types/attendance';
+import { createAttendanceSession } from '@/app/actions/attendance';
 
 interface AttendanceListProps {
   initialSessions: AttendanceSessionWithClass[];
@@ -33,20 +34,13 @@ export function AttendanceList({
       setIsCreating(true);
       setError(null);
 
-      const response = await fetch('/api/attendance/sessions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
+      const result = await createAttendanceSession(data);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create session');
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '출석 세션 생성 실패');
       }
 
-      const newSession = await response.json();
+      const newSession = result.data;
 
       // Get class info for the new session
       const sessionClass = classes.find((c) => c.id === newSession.class_id);
@@ -62,7 +56,7 @@ export function AttendanceList({
       setShowCreateForm(false);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create session');
+      setError(err instanceof Error ? err.message : '출석 세션 생성 실패');
     } finally {
       setIsCreating(false);
     }

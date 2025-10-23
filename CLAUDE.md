@@ -666,7 +666,15 @@ export default async function DashboardPage() {
 
 ## Important Files
 
-- `docs/DATASOURCE_ABSTRACTION.md` - **NEW** - DataSource abstraction and testing guide
+### Migration Documentation
+- `docs/migration/INDEX.md` - **Migration documentation index and navigation**
+- `docs/migration/OVERVIEW.md` - Migration overview and current status
+- `docs/migration/CHECKLIST.md` - Phase-by-phase checklist
+- `docs/migration/QUICK_REFERENCE.md` - Server Actions usage guide
+- `docs/migration/phases/` - Detailed documentation for each phase
+
+### Architecture & Development
+- `docs/DATASOURCE_ABSTRACTION.md` - DataSource abstraction and testing guide
 - `docs/DEPLOYMENT_GUIDE.md` - Complete deployment guide for Local/Staging/Production
 - `docs/error-and-loading-strategy.md` - Error handling strategy
 - `docs/ASYNC_WIDGETS_GUIDE.md` - Async widgets quick start
@@ -674,6 +682,8 @@ export default async function DashboardPage() {
 - `internal/tech/ERD.md` - Database schema design principles
 - `internal/tech/CodeGuideline.md` - Detailed coding standards (Korean)
 - `internal/product/PRD.md` - Product requirements and priorities
+
+### Configuration
 - `components.json` - shadcn/ui configuration
 - `vitest.config.ts` - Test configuration
 - `playwright.config.ts` - E2E test configuration

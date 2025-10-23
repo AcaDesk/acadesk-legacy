@@ -28,9 +28,9 @@ import { ko } from 'date-fns/locale'
 import { Calendar as CalendarIcon, Plus, MessageSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
-import { createClient } from '@/lib/supabase/client'
 import { EmptyState } from '@/components/ui/empty-state'
 import type { Consultation } from '@/types/studentDetail.types'
+import { createConsultation } from '@/app/actions/consultations'
 
 interface ConsultationTabProps {
   studentId: string
@@ -44,7 +44,6 @@ export function ConsultationTab({
   onConsultationAdded,
 }: ConsultationTabProps) {
   const { toast } = useToast()
-  const supabase = createClient()
 
   const [consultations, setConsultations] = useState(initialConsultations)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -63,20 +62,18 @@ export function ConsultationTab({
     }
 
     try {
-      const { data, error } = await supabase
-        .from('consultations')
-        .insert({
-          student_id: studentId,
-          consultation_date: formatDate(consultationDate, 'yyyy-MM-dd'),
-          consultation_type: consultationType,
-          content: consultationContent,
-        })
-        .select()
-        .single()
+      const result = await createConsultation({
+        student_id: studentId,
+        consultation_date: formatDate(consultationDate, 'yyyy-MM-dd'),
+        consultation_type: consultationType,
+        content: consultationContent,
+      })
 
-      if (error) throw error
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '상담 기록 생성 실패')
+      }
 
-      const newConsultation = data as Consultation
+      const newConsultation = result.data as Consultation
       setConsultations([newConsultation, ...consultations])
       onConsultationAdded(newConsultation)
       setIsDialogOpen(false)
@@ -92,7 +89,7 @@ export function ConsultationTab({
       console.error('Error saving consultation:', error)
       toast({
         title: '저장 오류',
-        description: '상담 기록을 저장하는 중 오류가 발생했습니다.',
+        description: error instanceof Error ? error.message : '상담 기록을 저장하는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
     }

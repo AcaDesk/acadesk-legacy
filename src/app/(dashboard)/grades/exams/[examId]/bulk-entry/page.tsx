@@ -20,6 +20,7 @@ import { Separator } from '@/components/ui/separator'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
+import { bulkUpsertExamScores } from '@/app/actions/grades'
 
 interface Exam {
   id: string
@@ -149,15 +150,11 @@ export default function BulkGradeEntryPage() {
   }, [examId, supabase, toast])
 
   const handleSave = useCallback(async (silent = false) => {
-    if (!currentUser) return
-
     setSaving(true)
     try {
       const scoresToSave = Array.from(scores.values())
         .filter(score => score.correct && score.total)
         .map(score => ({
-          tenant_id: currentUser.tenantId,
-          exam_id: examId,
           student_id: score.student_id,
           score: parseInt(score.correct),
           total_points: parseInt(score.total),
@@ -174,14 +171,15 @@ export default function BulkGradeEntryPage() {
         return
       }
 
-      const { error } = await supabase
-        .from('exam_scores')
-        .upsert(scoresToSave, {
-          onConflict: 'exam_id,student_id',
-          ignoreDuplicates: false,
-        })
+      // Use Server Action
+      const result = await bulkUpsertExamScores({
+        exam_id: examId,
+        scores: scoresToSave,
+      })
 
-      if (error) throw error
+      if (!result.success) {
+        throw new Error(result.error || '성적 일괄 입력 실패')
+      }
 
       setLastSaved(new Date())
 
@@ -205,7 +203,7 @@ export default function BulkGradeEntryPage() {
     } finally {
       setSaving(false)
     }
-  }, [currentUser, examId, scores, supabase, toast, router])
+  }, [examId, scores, toast, router])
 
   // useEffect must be called before any early returns
   useEffect(() => {

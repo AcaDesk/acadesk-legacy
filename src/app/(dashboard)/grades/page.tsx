@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { RoleGuard } from '@/components/auth/role-guard'
 import { PageWrapper } from "@/components/layout/page-wrapper"
+import { createExamScore } from '@/app/actions/grades'
 import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/page-error-boundary'
 import { PAGE_LAYOUT, GRID_LAYOUTS, TEXT_STYLES, CARD_STYLES } from '@/lib/constants'
 import { ArrowRight, List, Users } from 'lucide-react'
@@ -134,23 +135,8 @@ export default function GradesPage() {
         throw new Error('올바른 점수를 입력해주세요.')
       }
 
-      // Get tenant_id from the selected student
-      const { data: studentData, error: studentError } = await supabase
-        .from('students')
-        .select('tenant_id')
-        .eq('id', selectedStudent)
-        .maybeSingle()
-
-      if (studentError) {
-        console.error('Error fetching student data:', studentError)
-        throw new Error(`학생 정보를 조회할 수 없습니다: ${studentError.message}`)
-      }
-
-      if (!studentData) throw new Error('학생 정보를 찾을 수 없습니다.')
-
-      // Insert exam score
-      const { error } = await supabase.from('exam_scores').insert({
-        tenant_id: studentData.tenant_id,
+      // Use Server Action
+      const result = await createExamScore({
         exam_id: selectedExam,
         student_id: selectedStudent,
         correct_answers: correct,
@@ -160,7 +146,9 @@ export default function GradesPage() {
         retest_count: 0,
       })
 
-      if (error) throw error
+      if (!result.success) {
+        throw new Error(result.error || '성적 입력 실패')
+      }
 
       toast({
         title: '성적 입력 완료',
