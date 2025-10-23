@@ -134,6 +134,10 @@ export interface RecentStudent {
   name: string
   grade: string
   joinedAt: string
+  // Added for recent-students-card widget
+  grade_level?: string
+  guardian_name?: string
+  enrollment_date?: string
 }
 
 export interface TodaySession {
@@ -143,6 +147,9 @@ export interface TodaySession {
   scheduled_end: string
   status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
   instructor_name?: string
+  // Added for attendance-summary widget
+  total_students?: number
+  attendance_count?: number
 }
 
 export interface BirthdayStudent {
@@ -158,6 +165,10 @@ export interface StudentAlert {
   grade: string
   reason: string
   days?: number
+  // Added for student-alerts widget
+  student_id?: string
+  student_name?: string
+  description?: string
 }
 
 export interface ClassStatus {
@@ -167,6 +178,12 @@ export interface ClassStatus {
   capacity: number
   instructor: string
   schedule: string
+  // Added for class-status widget
+  name?: string
+  status?: 'active' | 'inactive' | 'completed'
+  student_count?: number
+  active_students?: number
+  attendance_rate?: number
 }
 
 export interface ScheduledConsultation {
@@ -190,6 +207,9 @@ export interface CalendarEvent {
   title: string
   date: string
   type: 'class' | 'exam' | 'consultation' | 'event'
+  // Added for calendar-widget
+  start_date?: string
+  event_type?: 'class' | 'exam' | 'consultation' | 'event'
 }
 
 export interface ActivityLog {
@@ -201,6 +221,12 @@ export interface ActivityLog {
     users?: {
       name: string
     } | null
+  } | null
+  // Added for recent-activity-feed widget
+  activity_type_code?: string
+  ref_activity_types?: {
+    name: string
+    icon?: string
   } | null
 }
 

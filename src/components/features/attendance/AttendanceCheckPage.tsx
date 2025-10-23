@@ -8,7 +8,7 @@ import { Button } from '@ui/button';
 import { Badge } from '@ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/card';
 import { AttendanceCheckDialog } from './attendance-check-dialog';
-import { ContactGuardianDialog } from './contact-guardian-dialog';
+// import { ContactGuardianDialog } from './contact-guardian-dialog'; // TODO: Re-enable when contact-guardian-dialog is migrated
 import { ClipboardCheck, Clock, Play, CheckCircle2, Send, Users, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getErrorMessage } from '@/lib/error-handlers';
@@ -435,7 +435,8 @@ export function AttendanceCheckPage({
       />
 
       {/* Contact Guardian Dialog */}
-      {selectedStudent && (
+      {/* TODO: Re-enable when contact-guardian-dialog is migrated */}
+      {/* {selectedStudent && (
         <ContactGuardianDialog
           open={contactDialogOpen}
           onOpenChange={setContactDialogOpen}
@@ -446,7 +447,7 @@ export function AttendanceCheckPage({
             router.refresh();
           }}
         />
-      )}
+      )} */}
     </div>
   );
 }
