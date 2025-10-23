@@ -1,10 +1,17 @@
 /**
  * Common Auth Helper Utilities
  *
+ * ⚠️ USES SERVICE_ROLE CLIENT - Bypasses RLS
+ *
  * 페이지에서 반복되는 인증 및 테넌트 확인 로직을 통합
+ *
+ * Strategy:
+ * 1. Authenticate with regular client (session check)
+ * 2. Query database with service_role (bypass RLS)
  */
 
 import { createClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { redirect } from 'next/navigation'
 import { AuthenticationError, DatabaseError } from '@/lib/error-types'
 import { logError } from '@/lib/error-handlers'
@@ -33,11 +40,15 @@ export async function requireAuth() {
 /**
  * 현재 사용자의 tenant_id 조회
  * tenant_id가 없으면 로그인 페이지로 리다이렉트
+ *
+ * ⚠️ Uses service_role for database query to bypass RLS
  */
 export async function getCurrentTenantId() {
   const { supabase, user } = await requireAuth()
 
-  const { data: userData, error } = await supabase
+  // Use service_role to bypass RLS
+  const admin = createServiceRoleClient()
+  const { data: userData, error } = await admin
     .from('users')
     .select('tenant_id, role_code')
     .eq('id', user.id)
@@ -59,11 +70,15 @@ export async function getCurrentTenantId() {
 
 /**
  * 현재 사용자의 전체 정보 조회 (이름 포함)
+ *
+ * ⚠️ Uses service_role for database query to bypass RLS
  */
 export async function getCurrentUserWithProfile() {
   const { supabase, user } = await requireAuth()
 
-  const { data: userData, error } = await supabase
+  // Use service_role to bypass RLS
+  const admin = createServiceRoleClient()
+  const { data: userData, error } = await admin
     .from('users')
     .select('tenant_id, role_code, name, email, phone')
     .eq('id', user.id)

@@ -1,13 +1,20 @@
 /**
  * Permission Verification Utilities
  *
+ * ⚠️ USES SERVICE_ROLE CLIENT - Bypasses RLS
+ *
  * These utilities verify user authentication and permissions in Server Actions and API Routes.
  * They should be called at the beginning of any server-side operation that requires authentication.
+ *
+ * Strategy:
+ * 1. Authenticate with regular client (session check)
+ * 2. Query database with service_role (bypass RLS)
  */
 
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service-role'
 
 /**
  * User context returned after successful authentication
@@ -45,9 +52,8 @@ export interface UserContext {
  * }
  */
 export async function verifyPermission(): Promise<UserContext> {
-  const supabase = await createClient()
-
-  // 1. Check authentication
+  // 1. Check authentication (regular client)
+  const supabase = await createServerClient()
   const {
     data: { user },
     error: authError,
@@ -57,15 +63,20 @@ export async function verifyPermission(): Promise<UserContext> {
     throw new Error('인증이 필요합니다. 다시 로그인해주세요.')
   }
 
-  // 2. Fetch user profile (tenant_id, role_code)
-  const { data: userData, error: userError } = await supabase
+  // 2. Fetch user profile with service_role (bypass RLS)
+  const admin = createServiceRoleClient()
+  const { data: userData, error: userError } = await admin
     .from('users')
     .select('tenant_id, role_code, name, email')
     .eq('id', user.id)
     .maybeSingle()
 
   if (userError) {
-    console.error('[verifyPermission] Error fetching user data:', userError)
+    console.error('[verifyPermission] Error fetching user data:', {
+      userId: user.id,
+      code: (userError as any)?.code,
+      message: userError.message,
+    })
     throw new Error('사용자 정보를 가져오는 중 오류가 발생했습니다.')
   }
 
