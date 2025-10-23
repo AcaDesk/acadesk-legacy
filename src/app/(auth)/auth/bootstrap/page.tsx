@@ -63,10 +63,10 @@ export default function BootstrapPage() {
         console.log('[BootstrapPage] Creating profile for user:', userId)
 
         // 2. Server Action으로 프로필 생성 (service_role 사용)
-        const result = await createUserProfileServer(userId)
-
+        const requestId = crypto.randomUUID()
+        const result = await createUserProfileServer(userId /*, requestId? */)
         if (!result.success) {
-          console.error('[BootstrapPage] Profile creation failed:', result.error)
+          console.error('[BootstrapPage] Profile creation failed:', { requestId, error: result.error })
           setError(result.error || '프로필 생성에 실패했습니다.')
           setIsLoading(false)
           return
