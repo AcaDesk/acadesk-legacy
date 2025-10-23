@@ -1,0 +1,58 @@
+import { notFound } from 'next/navigation'
+import { PageWrapper } from '@/components/layout/page-wrapper'
+import { ExamForm } from '@/components/features/exams/ExamForm'
+import { requireAuth } from '@/lib/auth/helpers'
+import { getExamById } from '@/app/actions/exams'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: '시험 수정',
+  description: '시험 정보를 수정합니다.',
+}
+
+interface PageProps {
+  params: {
+    id: string
+  }
+}
+
+export default async function EditExamPage({ params }: PageProps) {
+  // Verify authentication
+  await requireAuth()
+
+  // Fetch exam data
+  const result = await getExamById(params.id)
+
+  if (!result.success || !result.data) {
+    notFound()
+  }
+
+  const exam = result.data
+
+  // Convert to form default values
+  const defaultValues = {
+    name: exam.name,
+    category_code: exam.category_code || '',
+    exam_type: exam.exam_type || '',
+    exam_date: exam.exam_date || '',
+    class_id: exam.class_id || '',
+    total_questions: exam.total_questions?.toString() || '',
+    passing_score: exam.passing_score?.toString() || '',
+    description: exam.description || '',
+  }
+
+  return (
+    <PageWrapper>
+      <div className="space-y-6">
+        {/* Header */}
+        <div>
+          <h1 className="text-3xl font-bold">시험 수정</h1>
+          <p className="text-muted-foreground">{exam.name}</p>
+        </div>
+
+        {/* Form */}
+        <ExamForm mode="edit" examId={params.id} defaultValues={defaultValues} />
+      </div>
+    </PageWrapper>
+  )
+}
