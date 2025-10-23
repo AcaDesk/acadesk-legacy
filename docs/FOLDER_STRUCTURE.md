@@ -1,286 +1,138 @@
-# 📁 Acadesk Web - 폴더 구조 표준안
-
-> **마이그레이션 전략**: Server-side + service_role 기반의 Supabase 접근 (RLS 우회) + Clean Architecture 유지
-
-**핵심 원칙:**
-- DB 접근은 전부 서버에서
-- 클라이언트는 Server Action을 통해서만 호출
-- Clean Architecture 계층 분리 유지
-
----
-
-## 📂 전체 구조 개요
 
 ```
 src/
-├── app/                     # Next.js App Router
-│   ├── (auth)/              # 인증 관련 페이지 (로그인, 회원가입)
-│   ├── (dashboard)/         # 실제 서비스 화면 (Server Action 기반)
-│   │   ├── students/        # 예: 학생 관리 페이지
-│   │   │   ├── page.tsx              # Server Component (데이터 fetching)
-│   │   │   ├── layout.tsx
-│   │   │   └── StudentListClient.tsx # Client Component (UI only)
-│   │   └── ...
-│   ├── actions/             # ✅ Server Actions (Supabase service_role 접근)
-│   │   ├── auth.ts          # 인증 (회원가입, 로그인, 로그아웃)
-│   │   ├── students.ts      # 학생 관리
-│   │   ├── todos.ts         # TODO 관리
-│   │   ├── reports.ts       # 리포트 생성
-│   │   └── ...
-│   ├── api/                 # (필요 시만 유지) API Route
-│   └── layout.tsx
-│
-├── application/             # ✅ Use Case 계층 (비즈니스 로직)
-│   ├── use-cases/           # 도메인별 유즈케이스
-│   │   ├── student/
-│   │   │   ├── GetStudentsUseCase.ts
-│   │   │   ├── CreateStudentUseCase.ts
-│   │   │   └── UpdateStudentUseCase.ts
-│   │   ├── todo/
-│   │   ├── auth/
-│   │   └── ...
-│   └── factories/           # UseCaseFactory (Server-side only)
-│       ├── studentUseCaseFactory.ts      # Server용 (권장)
-│       ├── todoUseCaseFactory.ts
-│       └── _deprecated/                  # 레거시 client factory
-│           └── authUseCaseFactory.client.ts
-│
-├── domain/                  # ✅ 순수 Domain 계층 (프레임워크 독립적)
-│   ├── entities/            # 엔티티
-│   │   ├── Student.ts
-│   │   ├── User.ts
-│   │   └── Report.ts
-│   ├── repositories/        # 리포지토리 인터페이스
-│   │   ├── IStudentRepository.ts
-│   │   ├── ITodoRepository.ts
-│   │   └── IAuthRepository.ts
-│   ├── value-objects/       # 값 객체
-│   │   ├── StudentCode.ts
-│   │   ├── Email.ts
-│   │   └── Password.ts
-│   └── data-sources/        # DataSource 인터페이스
-│       └── IDataSource.ts
-│
-├── infrastructure/          # ✅ 실제 구현체 계층 (외부 의존성)
-│   ├── database/            # 리포지토리 구현체
-│   │   ├── student.repository.ts
-│   │   ├── todo.repository.ts
-│   │   ├── auth.repository.ts
-│   │   └── base.repository.ts
-│   ├── data-sources/        # DataSource 구현체
-│   │   ├── SupabaseDataSource.ts
-│   │   └── MockDataSource.ts
-│   ├── messaging/           # 외부 메시징 서비스
-│   │   ├── AligoProvider.ts
-│   │   └── MessageProviderFactory.ts
-│   └── pdf/                 # PDF 생성
-│       └── ReportPDFTemplate.tsx
-│
-├── lib/                     # 공통 유틸 / 인프라 설정
+├── app/                      # UI와 라우팅(Next.js App Router)
+│   ├── (auth)/auth/...       # 인증/온보딩 화면들(클라이언트 UI)
+│   ├── (dashboard)/...       # 대시보드/도메인 화면들(대부분 Server Components)
+│   ├── actions/              # ✅ 서버 엔드포인트(Next Server Actions) - 유일한 진입점
+│   │   ├── auth.ts
+│   │   ├── onboarding.ts
+│   │   ├── students.ts
+│   │   ├── reports.ts
+│   │   └── ...               # 각 도메인 별 1~2개로 묶기
+│   ├── layout.tsx
+│   └── page.tsx
+├── core/                     # ✅ 순수 비즈니스(프레임워크 독립)
+│   ├── domain/               # 엔티티/VO/리포지토리 인터페이스
+│   │   ├── entities/
+│   │   ├── value-objects/
+│   │   └── repositories/
+│   ├── application/          # 유스케이스(도메인 서비스/오케스트레이션)
+│   │   └── use-cases/
+│   └── types/                # 공유 타입(선택)
+├── infra/                    # ✅ 외부 의존(구현체)
+│   ├── db/
+│   │   ├── repositories/     # 리포지토리 구현체(= Supabase/Postgres 쿼리)
+│   │   ├── datasource/       # SupabaseDataSource 등
+│   │   └── queries.sql       # (선택) 복잡한 SQL 분리
+│   ├── messaging/            # 문자/이메일 공급자
+│   └── pdf/                  # PDF 생성 등 I/O
+├── lib/                      # 프레임워크 보조 유틸
 │   ├── supabase/
-│   │   ├── service-role.ts  # ✅ service_role client (Server Actions용)
-│   │   ├── server.ts        # SSR safe client (Server Components용)
-│   │   └── client.ts        # Browser client (읽기 전용 권장)
-│   ├── auth/
-│   │   ├── verify-permission.ts # ✅ Server Action에서 권한 검증
-│   │   └── route-after-login.ts
-│   ├── data-source-provider.ts  # ✅ createServerDataSource()
+│   │   ├── server.ts         # supabase server client
+│   │   └── service-role.ts   # service_role client
 │   ├── env.ts
-│   ├── utils.ts
-│   └── error-handlers.ts
-│
-├── components/              # UI Layer (Presentation)
-│   ├── features/            # 기능별 컴포넌트
-│   │   ├── students/
-│   │   │   ├── StudentList.tsx
-│   │   │   ├── AddStudentDialog.tsx
-│   │   │   └── StudentCard.tsx
-│   │   ├── todos/
-│   │   ├── auth/
-│   │   └── ...
-│   ├── ui/                  # 재사용 UI 컴포넌트 (shadcn/ui 등)
-│   │   ├── button.tsx
-│   │   ├── dialog.tsx
-│   │   └── ...
-│   └── layout/              # 공통 레이아웃 컴포넌트
-│       ├── navbar.tsx
-│       ├── sidebar.tsx
-│       └── page-wrapper.tsx
-│
-├── hooks/                   # Custom React Hooks
-│   ├── use-student-detail.tsx
-│   ├── use-toast.ts
-│   └── ...
-│
-└── types/                   # TypeScript 타입 정의
-    ├── database.types.ts    # Supabase 자동생성 타입
-    ├── studentDetail.types.ts
-    └── common.types.ts
+│   ├── error.ts              # 에러/로깅 유틸(단일 파일로 슬림화)
+│   ├── auth/verify-permission.ts
+│   └── utils.ts
+└── ui/                       # ✅ 재사용 가능한 순수 컴포넌트(디자인 시스템)
+    ├── form.tsx
+    ├── table.tsx
+    └── ...
 ```
+핵심 원칙 (이 규칙만 지키면 구조가 망가지지 않음)
+	1.	데이터는 오직 app/actions/**에서 가져온다.
+	•	화면(components/page)은 Server Action 호출만 한다.
+	•	클라이언트에서 직접 Supabase/DB 호출 금지.
+	2.	비즈니스 로직은 core/로 모은다.
+	•	엔티티/VO/리포지토리 인터페이스 → core/domain/**
+	•	유스케이스(워크플로) → core/application/use-cases/**
+	•	유스케이스는 리포지토리 인터페이스에만 의존.
+	3.	외부 연결은 infra/에서만 한다.
+	•	Supabase 쿼리/리포지토리 구현 → infra/db/repositories/**
+	•	service_role, 트랜잭션, 쿼리 최적화도 여기서.
+	4.	Service Role은 서버에서만 생성/사용.
+	•	lib/supabase/service-role.ts 이외 노출 금지.
+	•	RLS 해제 대체로 항상 tenant/user 검증을 actions 또는 infra에서 직접 수행.
+	5.	UI 라이브러리/공용 컴포넌트는 ui/.
+	•	페이지별 복잡한 UI는 app/** 안에 두되, 재사용 가능한 컴포넌트는 ui/로.
 
----
+⸻
 
-## 🧠 계층별 역할 요약
+지금 트리에서 “어디로 무엇을 옮기거나 삭제할지”
+	•	app/actions/** → 유지/핵심 (도메인별 1~2 파일로 슬림화 추천)
+	•	application/use-cases/** → core/application/use-cases/** 로 이동 (이름만 변경)
+	•	domain/** → core/domain/** 로 이동
+	•	infrastructure/database/**.repository.ts → infra/db/repositories/** 로 이동
+	•	infrastructure/data-sources/SupabaseDataSource.ts → infra/db/datasource/SupabaseDataSource.ts
+	•	lib/supabase/** → 유지(server.ts, service-role.ts만 남기고 불필요한 middleware/클라용 삭제)
+	•	components/ui/** → ui/** 로 이동 (진짜 재사용 가능한 것만 남기기)
+	•	components/features/** → 해당 feature의 page 근처(app/(dashboard)/...)에 붙이거나, 재사용 많으면 ui/로 추출
 
-| 계층 | 폴더 | 설명 | 의존 방향 |
-|------|------|------|----------|
-| **Presentation** | `app/`, `components/` | UI + Server Actions. 클라이언트는 DB 접근 없음. | → Application |
-| **Application** | `application/use-cases/` | 비즈니스 로직. Repository를 주입받아 동작. | → Domain |
-| **Domain** | `domain/` | Entity, Repository Interface, Value Objects 등. | 독립적 (의존 없음) |
-| **Infrastructure** | `infrastructure/` | 실제 구현체 (Supabase, Aligo, PDF 등). service_role 기반으로 DB 접근. | → Domain |
-| **Lib** | `lib/` | 환경 설정, Supabase 클라이언트, 인증 유틸. | Infrastructure 지원 |
-| **Types** | `types/` | Supabase 타입 자동생성 파일. | 전역 참조 가능 |
+삭제 권장(이미 앞서 안내한 것과 동일)
+	•	application/factories/*UseCaseFactory.client.ts 전부
+	•	hooks/use-auth-stage.ts (서버에서 단계 판단)
+	•	infrastructure/auth/** (남는 게 없으면 폴더 자체)
+	•	lib/data-source-provider.ts 의 createClientDataSource() (서버만 사용)
+	•	app/api/** 중 Server Actions로 대체된 라우트
 
----
+⸻
 
-## ✅ Server-side 전략에서 중요한 부분
+각 레이어의 책임 예시
+	•	app/actions/students.ts
+	•	verifyPermission()로 사용자/tenant 확인
+	•	const repo = new StudentRepository(new SupabaseDataSource(serviceRoleClient))
+	•	await new GetStudentsUseCase(repo).execute({ tenantId, filters })
+	•	결과 반환(에러는 여기서 사용자 메시지로 변환)
+	•	core/application/use-cases/GetStudentsUseCase.ts
+	•	복잡한 필터 가공·검증
+	•	필요한 여러 리포지토리 호출을 순서/트랜잭션으로 조율
+	•	core/domain/repositories/IStudentRepository.ts
+	•	findAll(tenantId, filters): Student[] 등 인터페이스만 정의
+	•	infra/db/repositories/student.repository.ts
+	•	실제 쿼리 (service_role 사용 시 tenant_id 직접 필터)
+	•	성능 고려한 select 컬럼 제한/인덱스 활용
 
-### 1. DB 접근은 무조건 Server Action or API Route 내부에서만
+⸻
 
-**❌ 잘못된 방법:**
-```typescript
-// ❌ Client Component에서 직접 Repository 호출
-'use client'
-import { createGetStudentsUseCase } from '@/application/factories/studentUseCaseFactory.client'
+폴더 이동 “작업 순서” (실수 안 나게)
+	1.	죽은 코드 먼저 제거
+	•	client 팩토리·레거시 훅·미사용 API 라우트 삭제
+	2.	core/와 infra/ 생성 후 파일 이동
+	•	domain/** → core/domain/**
+	•	application/use-cases/** → core/application/use-cases/**
+	•	infrastructure/database/** → infra/db/repositories/**
+	•	infrastructure/data-sources/** → infra/db/datasource/**
+	3.	import 경로 단일화
+	•	tsconfig paths 추천:
 
-export default function StudentList() {
-  const getStudentsUseCase = createGetStudentsUseCase()
-  const students = await getStudentsUseCase.execute() // ❌ 클라이언트에서 DB 접근
-  return <div>{students.map(...)}</div>
-}
-```
-
-**✅ 올바른 방법:**
-```typescript
-// ✅ Server Action 사용
-'use client'
-import { getStudents } from '@/app/actions/students'
-
-export default function StudentList() {
-  const [students, setStudents] = useState([])
-
-  useEffect(() => {
-    async function loadStudents() {
-      const result = await getStudents() // ✅ Server Action 호출
-      if (result.success) {
-        setStudents(result.data)
-      }
+{
+  "compilerOptions": {
+    "baseUrl": "src",
+    "paths": {
+      "@core/*": ["core/*"],
+      "@infra/*": ["infra/*"],
+      "@app/*": ["app/*"],
+      "@ui/*": ["ui/*"],
+      "@lib/*": ["lib/*"]
     }
-    loadStudents()
-  }, [])
-
-  return <div>{students.map(...)}</div>
-}
-```
-
-### 2. 모든 Repository는 `createServiceRoleClient()` 사용
-
-```typescript
-// src/app/actions/students.ts
-'use server'
-
-import { createServiceRoleClient } from '@/lib/supabase/service-role'
-import { verifyStaff } from '@/lib/auth/verify-permission'
-
-export async function getStudents() {
-  // 1. 권한 검증
-  const { tenantId } = await verifyStaff()
-
-  // 2. service_role client 생성 (RLS 우회)
-  const serviceClient = createServiceRoleClient()
-
-  // 3. DB 접근 (tenant_id 수동 필터링)
-  const { data, error } = await serviceClient
-    .from('students')
-    .select('*')
-    .eq('tenant_id', tenantId) // ⚠️ 반드시 tenant 필터링
-    .is('deleted_at', null)
-
-  if (error) {
-    return { success: false, error: error.message }
   }
-
-  return { success: true, data }
 }
-```
 
-### 3. RLS는 비활성화 가능 (tenant_id 수동 필터링으로 대체)
 
-**현재 전략:**
-- RLS 정책은 유지하되, Server Actions에서는 service_role로 우회
-- **모든 쿼리에서 `tenant_id` 필터링 필수**
-- `verifyStaff()` 등으로 권한 검증 후 tenantId 획득
+	•	모든 파일에서 새 alias 사용하도록 치환
 
-### 4. Domain ~ Application 계층은 Supabase 의존 없이 유지
+	4.	Server Action 외 직접 DB 접근 없애기
+	•	grep으로 createClient() / 클라 DB 접근 제거
 
-**Clean Architecture 원칙:**
-- `domain/` - Supabase import 금지
-- `application/` - Supabase import 금지
-- `infrastructure/` - Supabase 구현체 위치
+⸻
 
-이렇게 하면 나중에 Supabase → AWS RDS / PlanetScale로 교체해도
-**`infrastructure/` 아래 Repository만 교체**하면 됩니다.
+“이 구조로 개발할 때” 체크리스트
+	•	새 기능은 반드시 app/actions/<domain>.ts에 엔드포인트부터 추가
+	•	액션 내부에서 권한/tenant 검증 → 유스케이스 호출
+	•	유스케이스는 오직 인터페이스에 의존
+	•	리포지토리 구현은 infra/에서 service_role + 명시적 필터링
+	•	화면은 액션만 호출. 데이터/권한 판단을 클라에서 하지 않음
+	•	재사용 UI는 ui/, 특정 페이지 전용은 해당 페이지 폴더 근처
 
----
-
-## 📋 파일 명명 규칙
-
-### Server Actions
-- **위치**: `src/app/actions/`
-- **명명**: `{domain}.ts` (예: `students.ts`, `todos.ts`, `auth.ts`)
-- **함수 네이밍**: camelCase, 동사로 시작
-  - `getStudents()`, `createStudent()`, `updateStudent()`, `deleteStudent()`
-
-### Use Cases
-- **위치**: `src/application/use-cases/{domain}/`
-- **명명**: `{Action}{Entity}UseCase.ts`
-  - 예: `GetStudentsUseCase.ts`, `CreateStudentUseCase.ts`
-
-### Repositories
-- **인터페이스**: `src/domain/repositories/I{Entity}Repository.ts`
-  - 예: `IStudentRepository.ts`
-- **구현체**: `src/infrastructure/database/{entity}.repository.ts`
-  - 예: `student.repository.ts`
-
-### Components
-- **Client Component**: `{Name}.tsx` (PascalCase)
-- **Server Component**: `page.tsx`, `layout.tsx`
-
----
-
-## 🔄 마이그레이션 체크리스트
-
-### ✅ 완료된 마이그레이션
-- [x] `auth.ts` - 회원가입, 로그인, 로그아웃
-- [x] `students.ts` - 학생 생성, 수정, 삭제
-- [x] `todos.ts` - TODO 생성, 검증, 반려
-- [x] `attendance.ts` - 출석 관리
-- [x] `grades.ts` - 성적 관리
-- [x] `guardians.ts` - 보호자 관리
-- [x] `consultations.ts` - 상담 기록
-- [x] `reports.ts` - 리포트 생성
-
-### 🔄 진행 중인 마이그레이션
-- [ ] Class 관련 기능
-- [ ] TODO Template 관련 기능
-- [ ] Student Import 관련 기능
-
-### ⏭️ 예정된 마이그레이션
-- [ ] Payment 관련 기능
-- [ ] Calendar 관련 기능
-- [ ] Notification 관련 기능
-
----
-
-## 📚 참고 문서
-
-- [마이그레이션 가이드](./migration/INDEX.md)
-- [Clean Architecture 가이드](../CLAUDE.md)
-- [Server Actions 사용 가이드](./migration/QUICK_REFERENCE.md)
-- [DataSource 추상화 가이드](./DATASOURCE_ABSTRACTION.md)
-
----
-
-**최종 업데이트**: 2025-10-23
-**작성자**: Claude Code
-**버전**: 1.0.0
+⸻
