@@ -229,8 +229,8 @@ export async function deleteTodo(todoId: string) {
     const dataSource = new SupabaseDataSource(serviceClient)
     const todoRepository = new TodoRepository(dataSource)
 
-    // 3. Verify TODO belongs to tenant
-    const existingTodo = await todoRepository.findById(todoId)
+    // 3. Verify TODO belongs to tenant and delete
+    const existingTodo = await todoRepository.findById(todoId, tenantId)
     if (!existingTodo) {
       return {
         success: false,
@@ -238,15 +238,8 @@ export async function deleteTodo(todoId: string) {
       }
     }
 
-    if (existingTodo.tenantId !== tenantId) {
-      return {
-        success: false,
-        error: '권한이 없습니다',
-      }
-    }
-
     // 4. Delete with service_role
-    await todoRepository.delete(todoId)
+    await todoRepository.delete(todoId, tenantId)
 
     // 5. Revalidate pages
     revalidatePath('/todos/planner')

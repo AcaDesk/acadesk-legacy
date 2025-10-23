@@ -19,15 +19,10 @@ export class RejectTodoUseCase {
 
   async execute(input: RejectTodoInput): Promise<Todo> {
     // Find todo
-    const todo = await this.todoRepository.findById(input.todoId)
+    const todo = await this.todoRepository.findById(input.todoId, input.tenantId)
 
     if (!todo) {
       throw new NotFoundError('TODO')
-    }
-
-    // Tenant isolation 체크
-    if (todo.tenantId !== input.tenantId) {
-      throw new ValidationError('권한이 없습니다')
     }
 
     // Validate rejector
@@ -59,6 +54,6 @@ export class RejectTodoUseCase {
     })
 
     // Persist to database
-    return await this.todoRepository.save(rejectedTodo)
+    return await this.todoRepository.save(rejectedTodo, input.tenantId)
   }
 }

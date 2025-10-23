@@ -84,14 +84,23 @@ export function TodoTab() {
   // TODO 완료/미완료 토글
   const handleToggleTodo = async (todoId: string, currentStatus: boolean) => {
     try {
+      if (!student.tenant_id) {
+        toast({
+          title: '오류',
+          description: '테넌트 정보를 찾을 수 없습니다.',
+          variant: 'destructive',
+        })
+        return
+      }
+
       const completeTodoUseCase = createCompleteTodoUseCase()
 
       if (currentStatus) {
         // 완료 취소
-        await completeTodoUseCase.uncomplete(todoId)
+        await completeTodoUseCase.uncomplete(todoId, student.tenant_id)
       } else {
         // 완료 처리
-        await completeTodoUseCase.execute(todoId)
+        await completeTodoUseCase.execute(todoId, student.tenant_id)
       }
 
       toast({

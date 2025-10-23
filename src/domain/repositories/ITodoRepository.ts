@@ -40,24 +40,24 @@ export interface ITodoRepository {
   /**
    * ID로 TODO 조회
    */
-  findById(id: string): Promise<Todo | null>
+  findById(id: string, tenantId: string): Promise<Todo | null>
 
   /**
    * ID로 TODO 조회 (없으면 에러 발생)
    */
-  findByIdOrThrow(id: string): Promise<Todo>
+  findByIdOrThrow(id: string, tenantId: string): Promise<Todo>
 
   /**
    * 학생의 모든 TODO 조회
    */
-  findByStudentId(studentId: string, includeCompleted?: boolean): Promise<Todo[]>
+  findByStudentId(studentId: string, tenantId: string, includeCompleted?: boolean): Promise<Todo[]>
 
   /**
    * 학생의 특정 날짜 TODO 조회 (키오스크용)
    * @param studentId 학생 ID
    * @param date 조회할 날짜 (YYYY-MM-DD 형식)
    */
-  findByStudentIdForDate(studentId: string, date: string): Promise<Todo[]>
+  findByStudentIdForDate(studentId: string, tenantId: string, date: string): Promise<Todo[]>
 
   /**
    * 테넌트의 모든 TODO 조회 (필터 적용 가능)
@@ -73,27 +73,27 @@ export interface ITodoRepository {
   /**
    * 기한이 임박한 TODO 조회 (D-3 이내)
    */
-  findUpcoming(studentId: string, days?: number): Promise<Todo[]>
+  findUpcoming(studentId: string, tenantId: string, days?: number): Promise<Todo[]>
 
   /**
    * 연체된 TODO 조회
    */
-  findOverdue(studentId: string): Promise<Todo[]>
+  findOverdue(studentId: string, tenantId: string): Promise<Todo[]>
 
   /**
    * TODO 저장 (생성 or 업데이트)
    */
-  save(todo: Todo): Promise<Todo>
+  save(todo: Todo, tenantId: string): Promise<Todo>
 
   /**
    * TODO 일괄 저장
    */
-  saveBulk(todos: Todo[]): Promise<Todo[]>
+  saveBulk(todos: Todo[], tenantId: string): Promise<Todo[]>
 
   /**
    * TODO 삭제
    */
-  delete(id: string): Promise<void>
+  delete(id: string, tenantId: string): Promise<void>
 
   /**
    * TODO 통계 조회

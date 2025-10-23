@@ -48,7 +48,6 @@ export class UpdateStudentUseCase {
       profileImageUrl: dto.profileImageUrl,
       grade: dto.grade,
       school: dto.school,
-      emergencyContact: dto.emergencyContact,
       notes: dto.notes,
       commuteMethod: dto.commuteMethod,
       marketingSource: dto.marketingSource,

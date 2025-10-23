@@ -15,6 +15,7 @@ import {
 // Legacy types for backward compatibility
 export interface Student {
   id: string
+  tenant_id: string
   student_code: string
   name: string
   grade: string | null
@@ -57,6 +58,7 @@ export async function authenticateKioskPin(
     // DTO를 Legacy 형식으로 변환
     const student: Student = {
       id: result.student.id,
+      tenant_id: result.student.tenantId,
       student_code: result.student.studentCode,
       name: result.student.name,
       grade: result.student.grade,
@@ -79,13 +81,15 @@ export async function authenticateKioskPin(
 /**
  * 학생의 오늘 TODO 조회
  * @param studentId 학생 ID
+ * @param tenantId 테넌트 ID
  */
 export async function getStudentTodosForToday(
-  studentId: string
+  studentId: string,
+  tenantId: string
 ): Promise<{ success: boolean; todos?: StudentTodo[]; error?: string }> {
   try {
     const useCase = await createGetStudentTodosForTodayUseCase()
-    const result = await useCase.execute(studentId)
+    const result = await useCase.execute(studentId, tenantId)
 
     if (!result.success) {
       return {
@@ -125,16 +129,18 @@ export async function getStudentTodosForToday(
  * TODO 완료 토글
  * @param todoId TODO ID
  * @param studentId 학생 ID (권한 검증용)
+ * @param tenantId 테넌트 ID
  * @param currentStatus 현재 완료 상태
  */
 export async function toggleTodoComplete(
   todoId: string,
   studentId: string,
+  tenantId: string,
   currentStatus: boolean
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const useCase = await createToggleTodoCompleteForKioskUseCase()
-    const result = await useCase.execute(todoId, studentId, currentStatus)
+    const result = await useCase.execute(todoId, studentId, tenantId, currentStatus)
 
     return {
       success: result.success,

@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast"
 import { TermsCheckbox } from "@/components/auth/TermsCheckbox"
 import type { OAuthProvider } from "@/types/auth.types"
 import { getAuthErrorMessage, GENERIC_ERROR_MESSAGE } from "@/lib/auth/messages"
-import { createSignUpUseCase, createSignInWithOAuthUseCase } from "@/application/factories/authUseCaseFactory.client"
+import { signUp, signInWithOAuth } from "@/app/actions/auth"
 
 // 비밀번호 강도 계산
 const calculatePasswordStrength = (password: string): number => {
@@ -98,20 +98,25 @@ export default function SignupForm({
   const handleSocialSignup = async (provider: OAuthProvider) => {
     setIsLoading(true)
     try {
-      const signInWithOAuthUseCase = createSignInWithOAuthUseCase()
-      const { error } = await signInWithOAuthUseCase.execute({ provider })
+      const result = await signInWithOAuth({ provider })
 
-      if (error) {
+      if (!result.success) {
         toast({
-          title: `${provider === "google" ? "구글" : "카카오"} 로그인 실패`,
-          description: getAuthErrorMessage(error),
+          title: `${provider === "google" ? "구글" : "카카오"} 가입 실패`,
+          description: result.error || GENERIC_ERROR_MESSAGE.description,
           variant: "destructive",
         })
+        return
+      }
+
+      // OAuth URL로 리다이렉트
+      if (result.data?.url) {
+        window.location.href = result.data.url
       }
     } catch (error) {
       toast({
-        title: `${provider === "google" ? "구글" : "카카오"} 로그인 오류`,
-        description: getAuthErrorMessage(error as { message?: string }),
+        title: `${provider === "google" ? "구글" : "카카오"} 가입 오류`,
+        description: GENERIC_ERROR_MESSAGE.description,
         variant: "destructive",
       })
     } finally {
@@ -122,16 +127,15 @@ export default function SignupForm({
   const onSubmit = async (data: SignupFormValues) => {
     setIsLoading(true)
     try {
-      const signUpUseCase = createSignUpUseCase()
-      const { error } = await signUpUseCase.execute({
+      const result = await signUp({
         email: data.email,
         password: data.password,
       })
 
-      if (error) {
+      if (!result.success) {
         toast({
           title: "회원가입 실패",
-          description: getAuthErrorMessage(error),
+          description: result.error || GENERIC_ERROR_MESSAGE.description,
           variant: "destructive",
         })
         return

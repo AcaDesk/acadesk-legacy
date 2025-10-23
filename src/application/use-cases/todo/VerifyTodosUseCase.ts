@@ -40,16 +40,10 @@ export class VerifyTodosUseCase {
       // 각 TODO를 조회하고 검증
       for (const todoId of input.todoIds) {
         try {
-          const todo = await this.todoRepository.findById(todoId)
+          const todo = await this.todoRepository.findById(todoId, input.tenantId)
 
           if (!todo) {
             failedTodoIds.push({ id: todoId, reason: 'TODO를 찾을 수 없습니다' })
-            continue
-          }
-
-          // Tenant isolation 체크
-          if (todo.tenantId !== input.tenantId) {
-            failedTodoIds.push({ id: todoId, reason: '권한이 없습니다' })
             continue
           }
 
@@ -78,7 +72,7 @@ export class VerifyTodosUseCase {
 
       // Bulk 저장
       if (verifiedTodos.length > 0) {
-        await this.todoRepository.saveBulk(verifiedTodos)
+        await this.todoRepository.saveBulk(verifiedTodos, input.tenantId)
       }
 
       return {

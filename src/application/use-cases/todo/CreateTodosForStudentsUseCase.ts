@@ -54,7 +54,7 @@ export class CreateTodosForStudentsUseCase {
       )
 
       // Bulk 저장
-      const createdTodos = await this.todoRepository.saveBulk(todos)
+      const createdTodos = await this.todoRepository.saveBulk(todos, input.tenantId)
 
       return {
         todoCount: createdTodos.length,

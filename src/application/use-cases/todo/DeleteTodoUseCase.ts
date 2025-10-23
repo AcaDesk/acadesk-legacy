@@ -9,15 +9,15 @@ import { NotFoundError } from '@/lib/error-types'
 export class DeleteTodoUseCase {
   constructor(private todoRepository: ITodoRepository) {}
 
-  async execute(todoId: string): Promise<void> {
+  async execute(todoId: string, tenantId: string): Promise<void> {
     // Verify todo exists
-    const todo = await this.todoRepository.findById(todoId)
+    const todo = await this.todoRepository.findById(todoId, tenantId)
 
     if (!todo) {
       throw new NotFoundError('TODO')
     }
 
     // Delete using repository
-    await this.todoRepository.delete(todoId)
+    await this.todoRepository.delete(todoId, tenantId)
   }
 }

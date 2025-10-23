@@ -58,6 +58,6 @@ export class CreateTodoUseCase {
     })
 
     // Persist to database
-    return await this.todoRepository.save(todo)
+    return await this.todoRepository.save(todo, dto.tenantId)
   }
 }
