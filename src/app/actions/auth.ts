@@ -81,7 +81,7 @@ function getAuthErrorMessage(error: any): string {
  * 이메일/비밀번호로 회원가입
  *
  * 1. Supabase Auth로 계정 생성 (이메일 인증 필요)
- * 2. 이메일 인증 완료 시 자동으로 프로필 생성 (RPC 함수 통해)
+ * 2. 이메일 인증 완료 시 자동으로 프로필 생성 (Server Action 통해)
  *
  * @param input - 이메일, 비밀번호
  * @returns 성공 여부 및 에러 메시지

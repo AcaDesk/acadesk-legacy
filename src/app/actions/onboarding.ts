@@ -76,8 +76,7 @@ export async function createUserProfileServer(userId: string) {
     // 2. Service role client로 프로필 생성
     const serviceClient = createServiceRoleClient()
 
-    // create_user_profile RPC는 auth.uid()를 사용하므로
-    // 대신 직접 프로필을 생성합니다
+    // 기존 프로필 확인
     const { error: checkError, data: existingUser } = await serviceClient
       .from('users')
       .select('id')
@@ -180,8 +179,8 @@ export async function createUserProfileServer(userId: string) {
  *
  * 워크플로:
  * 1. 현재 사용자 인증 확인 (일반 client)
- * 2. Service role로 complete_owner_onboarding RPC 호출 (테넌트 생성 + 권한 부여)
- * 3. 일반 client로 finish_owner_academy_setup RPC 호출 (학원 설정)
+ * 2. Service role로 사용자 정보 조회 및 검증
+ * 3. Service role로 테넌트 생성 + 사용자 owner 권한 부여
  *
  * @param input - 학원명, 타임존, 설정
  * @returns 성공 여부 및 에러 메시지

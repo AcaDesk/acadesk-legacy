@@ -3,7 +3,7 @@
  *
  * 원장 학원 설정 마법사
  * - 학원명, 주소, 연락처 입력
- * - finish_owner_academy_setup() RPC 호출
+ * - Server Action으로 테넌트 생성 및 설정
  * - 성공 시 /dashboard로 이동
  */
 

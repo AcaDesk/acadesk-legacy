@@ -51,7 +51,7 @@ const clientEnvSchema = z.object({
  * (not prefixed with NEXT_PUBLIC_)
  */
 const serverEnvSchema = z.object({
-  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, 'SUPABASE_SERVICE_ROLE_KEY is required'),
 
   // Aligo SMS/LMS API
   ALIGO_API_KEY: z.string().optional(),
@@ -133,4 +133,11 @@ export function getSupabaseAnonKey(): string {
  */
 export function getAppUrl(): string {
   return env.NEXT_PUBLIC_APP_URL
+}
+
+/**
+ * Get Supabase Service Role Key (server-only)
+ */
+export function getSupabaseServiceRoleKey(): string {
+  return env.SUPABASE_SERVICE_ROLE_KEY
 }
