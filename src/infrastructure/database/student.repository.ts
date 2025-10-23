@@ -233,7 +233,7 @@ export class StudentRepository implements IStudentRepository {
       const { data, error } = await query.order('student_code')
 
       console.log('[StudentRepository] Query 실행 완료', {
-        dataLength: data?.length,
+        dataLength: Array.isArray(data) ? data.length : 0,
         hasError: !!error,
         errorMessage: error?.message
       })
@@ -243,7 +243,8 @@ export class StudentRepository implements IStudentRepository {
         throw new DatabaseError('학생 목록을 조회할 수 없습니다', error)
       }
 
-      return (data as any[] || []).map((row: any) => {
+      const rows = (data as any[] || [])
+      return rows.map((row: any) => {
         const student = this.mapToDomain(row)
 
         // users 데이터 처리 (배열일 수 있음)
