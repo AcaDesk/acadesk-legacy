@@ -284,26 +284,35 @@ function LinkExpiredContent() {
             </motion.div>
           )}
 
-          {/* 스캐너 관련 안내 (중요) */}
+          {/* 스캐너/인앱 웹뷰 관련 안내 (중요) */}
           {errorType === "used" || errorType === "invalid" ? (
             <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20 p-4">
               <div className="flex items-start gap-3">
                 <Mail className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600 dark:text-amber-400" />
                 <div className="space-y-2 text-sm">
                   <p className="font-medium text-amber-900 dark:text-amber-100">
-                    💡 이메일 보안 검사로 인한 문제일 수 있습니다
+                    💡 이메일 보안 검사 또는 앱 내 브라우저 문제일 수 있습니다
                   </p>
                   <p className="text-amber-700 dark:text-amber-300">
-                    Gmail, 네이버, Outlook 등의 이메일 서비스는 보안을 위해 링크를 자동으로 확인합니다.
-                    이 과정에서 인증 링크가 미리 사용되었을 수 있습니다.
+                    Gmail, 네이버, Outlook 등의 이메일 서비스는 보안을 위해 링크를 자동으로 확인하거나,
+                    이메일 앱에서 링크를 열 때 제한된 브라우저를 사용하여 인증이 실패할 수 있습니다.
                   </p>
                   <p className="font-medium text-amber-900 dark:text-amber-100 mt-3">
-                    해결 방법:
+                    해결 방법 (순서대로 시도):
                   </p>
-                  <ul className="ml-4 list-disc space-y-1 text-amber-700 dark:text-amber-300">
-                    <li>아래 버튼을 눌러 새 인증 이메일을 받으세요</li>
-                    <li>또는 이메일 링크를 복사하여 브라우저 주소창에 직접 붙여넣으세요</li>
-                    <li>모바일에서는 이메일 앱 대신 웹 브라우저에서 이메일을 확인해보세요</li>
+                  <ul className="ml-4 list-decimal space-y-2 text-amber-700 dark:text-amber-300">
+                    <li>
+                      <strong>브라우저에서 직접 열기:</strong><br />
+                      이메일 링크를 길게 눌러 복사 → Safari/Chrome 등 브라우저 주소창에 붙여넣기
+                    </li>
+                    <li>
+                      <strong>새 인증 이메일 받기:</strong><br />
+                      아래 버튼을 눌러 새 이메일을 받은 후, 위 방법으로 브라우저에서 열기
+                    </li>
+                    <li>
+                      <strong>PC/데스크톱에서 시도:</strong><br />
+                      모바일에서 계속 실패하면 PC 브라우저에서 이메일을 열어보세요
+                    </li>
                   </ul>
                 </div>
               </div>
