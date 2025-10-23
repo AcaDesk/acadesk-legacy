@@ -33,13 +33,19 @@ export interface StudentWithDetails {
 export interface IStudentRepository {
   /**
    * ID로 학생 조회
+   * @param id 학생 ID
+   * @param tenantId 테넌트 ID (보안: service_role에서 명시적 필터링 필수)
+   * @param options 조회 옵션
    */
-  findById(id: string, options?: FindStudentOptions): Promise<Student | null>
+  findById(id: string, tenantId: string, options?: FindStudentOptions): Promise<Student | null>
 
   /**
    * ID로 학생 조회 (없으면 에러 발생)
+   * @param id 학생 ID
+   * @param tenantId 테넌트 ID (보안: service_role에서 명시적 필터링 필수)
+   * @param options 조회 옵션
    */
-  findByIdOrThrow(id: string, options?: FindStudentOptions): Promise<Student>
+  findByIdOrThrow(id: string, tenantId: string, options?: FindStudentOptions): Promise<Student>
 
   /**
    * 학생 코드로 조회
@@ -69,13 +75,17 @@ export interface IStudentRepository {
 
   /**
    * 학생 저장 (생성 or 업데이트)
+   * @param student 학생 엔티티
+   * @param tenantId 테넌트 ID (보안: student.tenantId와 일치해야 함)
    */
-  save(student: Student): Promise<Student>
+  save(student: Student, tenantId: string): Promise<Student>
 
   /**
    * 학생 삭제 (소프트 삭제)
+   * @param id 학생 ID
+   * @param tenantId 테넌트 ID (보안: service_role에서 명시적 필터링 필수)
    */
-  delete(id: string): Promise<void>
+  delete(id: string, tenantId: string): Promise<void>
 
   /**
    * 학년별 학생 수 조회

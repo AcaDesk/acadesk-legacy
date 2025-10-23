@@ -1,12 +1,16 @@
 /**
  * Data Source Provider
  * 환경에 따라 적절한 DataSource를 반환하는 Provider
+ *
+ * ⚠️ SECURITY NOTICE:
+ * - Server-side는 service_role client 사용 (RLS 우회, 수동 tenant 필터링 필수)
+ * - Client-side 직접 접근은 deprecated (Server Actions 사용 권장)
  */
 
 import type { IDataSource } from '@/domain/data-sources/IDataSource'
 import { SupabaseDataSource } from '@/infrastructure/data-sources/SupabaseDataSource'
 import { MockDataSource } from '@/infrastructure/data-sources/MockDataSource'
-import { createClient as createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { createClient as createBrowserClient } from '@/lib/supabase/client'
 
 /**
@@ -60,18 +64,29 @@ function detectEnvironment(): Environment {
  * 서버 사이드 DataSource Provider
  * Server Components, API Routes, Server Actions에서 사용
  *
+ * ⚠️ CRITICAL: service_role client 사용으로 RLS 우회됨
+ * - 모든 Repository 메서드에서 tenantId 필터링 필수
+ * - 사용 전 반드시 verifyPermission()으로 인증 확인
+ *
  * @example
  * ```typescript
- * // 기본 사용
- * const dataSource = await createServerDataSource()
+ * 'use server'
+ * import { verifyPermission } from '@/lib/auth/verify-permission'
+ *
+ * export async function myServerAction() {
+ *   // 1. 인증 및 tenantId 확인
+ *   const { tenantId } = await verifyPermission()
+ *
+ *   // 2. DataSource 생성 (service_role)
+ *   const dataSource = await createServerDataSource()
+ *   const repository = new StudentRepository(dataSource)
+ *
+ *   // 3. tenantId 명시적 전달 필수
+ *   const students = await repository.findAll(tenantId)
+ * }
  *
  * // 테스트 환경에서 Mock 사용
  * const mockDataSource = await createServerDataSource({ forceMock: true })
- *
- * // 커스텀 DataSource 주입
- * const customDataSource = await createServerDataSource({
- *   customDataSource: myCustomDataSource
- * })
  * ```
  */
 export async function createServerDataSource(
@@ -89,8 +104,8 @@ export async function createServerDataSource(
     return new MockDataSource()
   }
 
-  // 실제 Supabase 클라이언트 생성
-  const supabaseClient = await createServerClient()
+  // ⚠️ service_role client 사용 (RLS 우회)
+  const supabaseClient = createServiceRoleClient()
   return new SupabaseDataSource(supabaseClient)
 }
 
@@ -98,18 +113,32 @@ export async function createServerDataSource(
  * 클라이언트 사이드 DataSource Provider
  * Client Components에서 사용
  *
+ * @deprecated ⚠️ 클라이언트에서 직접 DB 접근은 보안상 권장하지 않습니다.
+ * - 대신 Server Actions를 사용하세요 (app/actions/*.ts)
+ * - Server Actions는 verifyPermission() + service_role로 안전하게 처리됩니다
+ *
  * @example
  * ```typescript
- * // 기본 사용
+ * // ❌ 기존 방식 (deprecated)
  * const dataSource = createClientDataSource()
+ * const repository = new StudentRepository(dataSource)
+ * const students = await repository.findAll()
  *
- * // 테스트 환경에서 Mock 사용
- * const mockDataSource = createClientDataSource({ forceMock: true })
+ * // ✅ 새로운 방식 (권장)
+ * 'use client'
+ * import { getStudents } from '@/app/actions/students'
+ *
+ * const students = await getStudents()
  * ```
  */
 export function createClientDataSource(
   config: DataSourceConfig = {}
 ): IDataSource {
+  console.warn(
+    '[DEPRECATED] createClientDataSource() is deprecated. ' +
+    'Use Server Actions instead for better security and tenant isolation.'
+  )
+
   // 커스텀 DataSource가 주입된 경우 바로 반환
   if (config.customDataSource) {
     return config.customDataSource

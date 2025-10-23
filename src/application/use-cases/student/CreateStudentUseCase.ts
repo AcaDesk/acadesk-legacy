@@ -18,7 +18,6 @@ export interface CreateStudentDTO {
   grade?: string | null
   school?: string | null
   enrollmentDate?: Date
-  emergencyContact?: string | null
   notes?: string | null
   commuteMethod?: string | null
   marketingSource?: string | null
@@ -66,7 +65,6 @@ export class CreateStudentUseCase {
       school: dto.school || null,
       enrollmentDate: dto.enrollmentDate || new Date(),
       withdrawalDate: null,
-      emergencyContact: dto.emergencyContact || null,
       notes: dto.notes || null,
       commuteMethod: dto.commuteMethod || null,
       marketingSource: dto.marketingSource || null,
@@ -74,6 +72,6 @@ export class CreateStudentUseCase {
     })
 
     // Persist to database
-    return await this.studentRepository.save(student)
+    return await this.studentRepository.save(student, dto.tenantId)
   }
 }

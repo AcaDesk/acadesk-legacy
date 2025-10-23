@@ -9,6 +9,7 @@ import { NotFoundError, ValidationError } from '@/lib/error-types'
 
 export interface WithdrawStudentDTO {
   studentId: string
+  tenantId: string
   withdrawalDate?: Date
 }
 
@@ -17,7 +18,7 @@ export class WithdrawStudentUseCase {
 
   async execute(dto: WithdrawStudentDTO): Promise<Student> {
     // Find student
-    const student = await this.studentRepository.findById(dto.studentId)
+    const student = await this.studentRepository.findById(dto.studentId, dto.tenantId)
 
     if (!student) {
       throw new NotFoundError('학생')
@@ -32,6 +33,6 @@ export class WithdrawStudentUseCase {
     const withdrawnStudent = student.withdraw(dto.withdrawalDate)
 
     // Persist to database
-    return await this.studentRepository.save(withdrawnStudent)
+    return await this.studentRepository.save(withdrawnStudent, dto.tenantId)
   }
 }

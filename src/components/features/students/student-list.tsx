@@ -18,10 +18,10 @@ import { getErrorMessage } from '@/lib/error-handlers'
 import {
   createGetUniqueGradesUseCase,
   createGetUniqueSchoolsUseCase,
-  createDeleteStudentUseCase,
   createGetStudentsWithDetailsUseCase,
 } from '@/application/factories/studentUseCaseFactory.client'
 import { createGetActiveClassesUseCase } from '@/application/factories/classUseCaseFactory.client'
+import { deleteStudent } from '@/app/actions/students'
 
 export function StudentList() {
   const [students, setStudents] = useState<Student[]>([])
@@ -242,8 +242,11 @@ export function StudentList() {
     }
 
     try {
-      const deleteStudentUseCase = createDeleteStudentUseCase()
-      await deleteStudentUseCase.execute(id)
+      const result = await deleteStudent(id)
+
+      if (!result.success || result.error) {
+        throw new Error(result.error || '학생 삭제에 실패했습니다')
+      }
 
       toast({
         title: '삭제 완료',

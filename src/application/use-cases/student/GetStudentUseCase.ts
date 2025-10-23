@@ -14,15 +14,15 @@ export class GetStudentUseCase {
   /**
    * ID로 학생 조회
    */
-  async getById(id: string, options?: FindStudentOptions): Promise<Student | null> {
-    return await this.studentRepository.findById(id, options)
+  async getById(id: string, tenantId: string, options?: FindStudentOptions): Promise<Student | null> {
+    return await this.studentRepository.findById(id, tenantId, options)
   }
 
   /**
    * ID로 학생 조회 (없으면 에러)
    */
-  async getByIdOrThrow(id: string, options?: FindStudentOptions): Promise<Student> {
-    const student = await this.studentRepository.findById(id, options)
+  async getByIdOrThrow(id: string, tenantId: string, options?: FindStudentOptions): Promise<Student> {
+    const student = await this.studentRepository.findById(id, tenantId, options)
 
     if (!student) {
       throw new NotFoundError('학생')

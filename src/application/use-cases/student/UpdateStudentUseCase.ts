@@ -9,6 +9,7 @@ import { ValidationError, NotFoundError } from '@/lib/error-types'
 
 export interface UpdateStudentDTO {
   id: string
+  tenantId: string
   name?: string
   birthDate?: Date | null
   gender?: 'male' | 'female' | 'other' | null
@@ -16,7 +17,6 @@ export interface UpdateStudentDTO {
   profileImageUrl?: string | null
   grade?: string | null
   school?: string | null
-  emergencyContact?: string | null
   notes?: string | null
   commuteMethod?: string | null
   marketingSource?: string | null
@@ -28,7 +28,7 @@ export class UpdateStudentUseCase {
 
   async execute(dto: UpdateStudentDTO): Promise<Student> {
     // Find existing student
-    const student = await this.studentRepository.findById(dto.id)
+    const student = await this.studentRepository.findById(dto.id, dto.tenantId)
 
     if (!student) {
       throw new NotFoundError('학생')
@@ -56,6 +56,6 @@ export class UpdateStudentUseCase {
     })
 
     // Persist to database
-    return await this.studentRepository.save(updatedStudent)
+    return await this.studentRepository.save(updatedStudent, dto.tenantId)
   }
 }
