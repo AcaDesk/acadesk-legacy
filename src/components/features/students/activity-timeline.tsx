@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -9,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { format as formatDate } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { motion, AnimatePresence } from 'motion/react'
+import { createGetStudentActivityLogsUseCase } from '@/application/factories/studentUseCaseFactory.client'
 import {
   GraduationCap,
   CheckCircle,
@@ -90,7 +90,6 @@ export function ActivityTimeline({ studentId, limit = 50 }: ActivityTimelineProp
   const [activities, setActivities] = useState<ActivityLog[]>([])
   const [loading, setLoading] = useState(true)
   const [showAll, setShowAll] = useState(false)
-  const supabase = createClient()
 
   useEffect(() => {
     loadActivities()
@@ -100,38 +99,9 @@ export function ActivityTimeline({ studentId, limit = 50 }: ActivityTimelineProp
   async function loadActivities() {
     try {
       setLoading(true)
-      const { data, error } = await supabase
-        .from('student_activity_logs')
-        .select(`
-          id,
-          activity_type,
-          activity_date,
-          title,
-          description,
-          metadata,
-          created_at,
-          ref_activity_types (
-            label,
-            icon,
-            color
-          )
-        `)
-        .eq('student_id', studentId)
-        .is('deleted_at', null)
-        .order('activity_date', { ascending: false })
-        .limit(limit)
-
-      if (error) throw error
-
-      // Transform data to match the expected type
-      const transformedData = (data || []).map(activity => ({
-        ...activity,
-        ref_activity_types: Array.isArray(activity.ref_activity_types)
-          ? activity.ref_activity_types[0] || null
-          : activity.ref_activity_types
-      }))
-
-      setActivities(transformedData as ActivityLog[])
+      const useCase = createGetStudentActivityLogsUseCase()
+      const activityLogs = await useCase.execute(studentId, limit)
+      setActivities(activityLogs)
     } catch (error) {
       console.error('Error loading activities:', error)
     } finally {

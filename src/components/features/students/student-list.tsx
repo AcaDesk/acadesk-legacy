@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Calendar } from '@/components/ui/calendar'
@@ -20,7 +19,9 @@ import {
   createGetUniqueGradesUseCase,
   createGetUniqueSchoolsUseCase,
   createDeleteStudentUseCase,
+  createGetStudentsWithDetailsUseCase,
 } from '@/application/factories/studentUseCaseFactory.client'
+import { createGetActiveClassesUseCase } from '@/application/factories/classUseCaseFactory.client'
 
 export function StudentList() {
   const [students, setStudents] = useState<Student[]>([])
@@ -37,12 +38,13 @@ export function StudentList() {
   const [schools, setSchools] = useState<string[]>([])
   const [tenantId, setTenantId] = useState<string | null>(null)
 
-  const { toast} = useToast()
-  const supabase = createClient()
+  const { toast } = useToast()
 
   // Load tenant ID
   useEffect(() => {
     async function loadTenantId() {
+      const { createClient } = await import('@/lib/supabase/client')
+      const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         const { data } = await supabase
@@ -75,81 +77,50 @@ export function StudentList() {
   }, [selectedGrade, selectedClass, selectedSchool, selectedCommuteMethod, selectedMarketingSource, enrollmentDateFrom, enrollmentDateTo])
 
   async function loadStudents() {
+    if (!tenantId) return
+
     try {
       setLoading(true)
 
-      let query = supabase
-        .from('students')
-        .select(`
-          id,
-          student_code,
-          grade,
-          school,
-          enrollment_date,
-          birth_date,
-          gender,
-          student_phone,
-          profile_image_url,
-          users (
-            name,
-            email,
-            phone
-          ),
-          class_enrollments (
-            classes (
-              name
-            )
-          )
-        `)
-        .is('deleted_at', null)
-
-      if (selectedGrade !== 'all') {
-        query = query.eq('grade', selectedGrade)
-      }
-
-      if (selectedSchool !== 'all') {
-        query = query.eq('school', selectedSchool)
-      }
-
-      if (selectedCommuteMethod !== 'all') {
-        query = query.eq('commute_method', selectedCommuteMethod)
-      }
-
-      if (selectedMarketingSource !== 'all') {
-        query = query.eq('marketing_source', selectedMarketingSource)
-      }
-
-      if (enrollmentDateFrom) {
-        query = query.gte('enrollment_date', format(enrollmentDateFrom, 'yyyy-MM-dd'))
-      }
-      if (enrollmentDateTo) {
-        query = query.lte('enrollment_date', format(enrollmentDateTo, 'yyyy-MM-dd'))
-      }
-
-      query = query.order('student_code')
-
-      const { data, error } = await query
+      // Use Case를 통한 학생 데이터 로드
+      const useCase = createGetStudentsWithDetailsUseCase()
+      const { students: studentsData, error } = await useCase.execute({
+        tenantId,
+        filters: {
+          grade: selectedGrade !== 'all' ? selectedGrade : undefined,
+          school: selectedSchool !== 'all' ? selectedSchool : undefined,
+          commuteMethod: selectedCommuteMethod !== 'all' ? selectedCommuteMethod : undefined,
+          marketingSource: selectedMarketingSource !== 'all' ? selectedMarketingSource : undefined,
+          enrollmentDateFrom: enrollmentDateFrom ? format(enrollmentDateFrom, 'yyyy-MM-dd') : undefined,
+          enrollmentDateTo: enrollmentDateTo ? format(enrollmentDateTo, 'yyyy-MM-dd') : undefined,
+        },
+      })
 
       if (error) throw error
 
-      // TODO: 출결 데이터는 추후 RPC 함수나 뷰를 통해 최적화하여 조회
-      // 임시로 빈 배열로 설정
-      const studentsWithAttendance = (data || []).map(student => {
-        // Preserve student.id explicitly to prevent any potential override
-        const studentId = student.id
+      // StudentWithDetails를 Student 형식으로 변환
+      const formattedStudents = studentsData.map(item => ({
+        id: item.student.id,
+        student_code: item.student.studentCode.getValue(),
+        grade: item.student.grade,
+        school: item.student.school,
+        enrollment_date: item.student.enrollmentDate?.toISOString().split('T')[0] || null,
+        birth_date: item.student.birthDate?.toISOString().split('T')[0] || null,
+        gender: item.student.gender,
+        student_phone: item.student.studentPhone,
+        profile_image_url: item.student.profileImageUrl,
+        users: item.userName ? {
+          name: item.userName,
+          email: item.userEmail,
+          phone: item.userPhone,
+        } : null,
+        class_enrollments: item.classNames.map(name => ({
+          classes: { name }
+        })),
+        recentAttendance: [], // TODO: 추후 RPC 함수나 뷰를 통해 최적화
+      }))
 
-        return {
-          ...student,
-          id: studentId, // Explicitly preserve student.id
-          users: Array.isArray(student.users) ? student.users[0] || null : student.users,
-          class_enrollments: student.class_enrollments?.map(enrollment => ({
-            classes: Array.isArray(enrollment.classes) ? enrollment.classes[0] || null : enrollment.classes
-          })) || [],
-          recentAttendance: []
-        }
-      })
-
-      setStudents(studentsWithAttendance as Student[])
+      setStudents(formattedStudents as Student[])
     } catch (error) {
       toast({
         title: '데이터 로드 오류',
@@ -163,14 +134,10 @@ export function StudentList() {
 
   async function loadClasses() {
     try {
-      const { data, error } = await supabase
-        .from('classes')
-        .select('id, name')
-        .eq('active', true)
-        .order('name')
-
-      if (error) throw error
-      setClasses(data || [])
+      // Use Case를 통한 활성 클래스 로드
+      const useCase = createGetActiveClassesUseCase()
+      const activeClasses = await useCase.execute()
+      setClasses(activeClasses)
     } catch (error) {
       toast({
         title: '수업 목록 로드 실패',

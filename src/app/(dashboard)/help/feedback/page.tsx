@@ -42,20 +42,23 @@ export default function FeedbackPage() {
     setIsSubmitting(true)
 
     try {
-      // TODO: 실제 API 엔드포인트로 피드백 전송
-      const feedbackData = {
-        user_email: currentUser?.email || '',
-        user_name: currentUser?.name || '',
-        category,
-        subject,
-        feedback,
-        timestamp: new Date().toISOString(),
+      // API로 피드백 전송
+      const response = await fetch('/api/support', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ticket_type: 'feedback',
+          category,
+          subject,
+          message: feedback,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || '피드백 전송에 실패했습니다.')
       }
-
-      console.log('피드백:', feedbackData)
-
-      // 성공 시뮬레이션
-      await new Promise(resolve => setTimeout(resolve, 1000))
 
       toast({
         title: '피드백이 전송되었습니다',
@@ -66,10 +69,11 @@ export default function FeedbackPage() {
       setCategory('')
       setSubject('')
       setFeedback('')
-    } catch {
+    } catch (error) {
+      console.error('Feedback submission error:', error)
       toast({
         title: '피드백 전송 실패',
-        description: '잠시 후 다시 시도해주세요.',
+        description: error instanceof Error ? error.message : '잠시 후 다시 시도해주세요.',
         variant: 'destructive',
       })
     } finally {

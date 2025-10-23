@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +11,11 @@ import { AttendanceCheckDialog } from './attendance-check-dialog';
 import { ContactGuardianDialog } from './contact-guardian-dialog';
 import { ClipboardCheck, Clock, Play, CheckCircle2, Send, Users, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { getErrorMessage } from '@/lib/error-handlers';
+import {
+  createUpdateAttendanceSessionStatusUseCase,
+  createBulkNotifyAbsentStudentsUseCase,
+} from '@/application/factories/attendanceUseCaseFactory.client';
 import type {
   AttendanceSessionWithClass,
   AttendanceWithStudent,
@@ -37,7 +41,6 @@ export function AttendanceCheckPage({
 }: AttendanceCheckPageProps) {
   const router = useRouter();
   const { toast } = useToast();
-  const supabase = createClient();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [contactDialogOpen, setContactDialogOpen] = useState(false);
@@ -69,15 +72,13 @@ export function AttendanceCheckPage({
   const handleStartSession = async () => {
     setUpdating(true);
     try {
-      const { error } = await supabase
-        .from('attendance_sessions')
-        .update({
-          status: 'in_progress',
-          actual_start_at: new Date().toISOString()
-        })
-        .eq('id', session.id);
-
-      if (error) throw error;
+      // Use Case를 통한 세션 상태 업데이트
+      const useCase = createUpdateAttendanceSessionStatusUseCase();
+      await useCase.execute(
+        session.id,
+        'in_progress',
+        new Date().toISOString()
+      );
 
       toast({
         title: '수업 시작',
@@ -86,10 +87,9 @@ export function AttendanceCheckPage({
 
       router.refresh();
     } catch (error) {
-      console.error('Error starting session:', error);
       toast({
         title: '오류',
-        description: '수업을 시작하는 중 오류가 발생했습니다.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     } finally {
@@ -100,15 +100,14 @@ export function AttendanceCheckPage({
   const handleCompleteSession = async () => {
     setUpdating(true);
     try {
-      const { error } = await supabase
-        .from('attendance_sessions')
-        .update({
-          status: 'completed',
-          actual_end_at: new Date().toISOString()
-        })
-        .eq('id', session.id);
-
-      if (error) throw error;
+      // Use Case를 통한 세션 상태 업데이트
+      const useCase = createUpdateAttendanceSessionStatusUseCase();
+      await useCase.execute(
+        session.id,
+        'completed',
+        undefined,
+        new Date().toISOString()
+      );
 
       toast({
         title: '수업 종료',
@@ -117,10 +116,9 @@ export function AttendanceCheckPage({
 
       router.refresh();
     } catch (error) {
-      console.error('Error completing session:', error);
       toast({
         title: '오류',
-        description: '수업을 종료하는 중 오류가 발생했습니다.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     } finally {
@@ -151,32 +149,33 @@ export function AttendanceCheckPage({
       description: `${absentStudents.length}명의 보호자에게 알림을 전송하고 있습니다...`,
     });
 
-    // In a real implementation, this would send notifications via SMS/email
-    // For now, we'll just log the notifications
-    let successCount = 0;
-    for (const student of absentStudents) {
-      try {
-        // Log the notification attempt
-        await supabase.from('notification_logs').insert({
-          student_id: student.id,
-          session_id: session.id,
-          notification_type: 'sms',
-          status: 'sent',
-          message: `${student.users?.name || '학생'} 학생이 ${format(new Date(session.session_date), 'M월 d일', { locale: ko })} 수업에 결석했습니다.`,
-          sent_at: new Date().toISOString(),
-        });
-        successCount++;
-      } catch (error) {
-        console.error(`Failed to log notification for student ${student.id}:`, error);
-      }
+    try {
+      // Use Case를 통한 일괄 알림 전송
+      const useCase = createBulkNotifyAbsentStudentsUseCase();
+      const notifications = absentStudents.map(student => ({
+        student_id: student.id,
+        student_name: student.users?.name || '학생',
+        session_id: session.id,
+        session_date: format(new Date(session.session_date), 'M월 d일', { locale: ko }),
+      }));
+
+      const { successCount, error } = await useCase.execute(notifications);
+
+      if (error) throw error;
+
+      toast({
+        title: '전송 완료',
+        description: `${successCount}명의 보호자에게 알림이 전송되었습니다.`,
+      });
+
+      router.refresh();
+    } catch (error) {
+      toast({
+        title: '전송 실패',
+        description: getErrorMessage(error),
+        variant: 'destructive',
+      });
     }
-
-    toast({
-      title: '전송 완료',
-      description: `${successCount}명의 보호자에게 알림이 전송되었습니다.`,
-    });
-
-    router.refresh();
   };
 
   const formatElapsedTime = (seconds: number) => {

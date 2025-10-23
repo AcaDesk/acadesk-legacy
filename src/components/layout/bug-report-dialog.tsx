@@ -54,29 +54,26 @@ export function BugReportDialog({ open, onOpenChange }: BugReportDialogProps) {
     setIsSubmitting(true)
 
     try {
-      // TODO: 실제 API 엔드포인트로 버그 리포트 전송
-      const bugReportData = {
-        user_email: currentUser?.email || '',
-        user_name: currentUser?.name || '',
-        severity,
-        page,
-        description,
-        steps,
-        browser: navigator.userAgent,
-        timestamp: new Date().toISOString(),
+      // API로 버그 리포트 전송
+      const response = await fetch('/api/support', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ticket_type: 'bug_report',
+          subject: `[버그] ${page}`,
+          message: description,
+          severity,
+          page,
+          steps_to_reproduce: steps,
+          browser: navigator.userAgent,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || '버그 리포트 전송에 실패했습니다.')
       }
-
-      console.log('버그 리포트:', bugReportData)
-
-      // 실제 구현 시:
-      // const response = await fetch('/api/support/bug-report', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(bugReportData),
-      // })
-
-      // 성공 시뮬레이션
-      await new Promise(resolve => setTimeout(resolve, 1000))
 
       toast({
         title: '버그 리포트가 접수되었습니다',
@@ -89,10 +86,11 @@ export function BugReportDialog({ open, onOpenChange }: BugReportDialogProps) {
       setDescription('')
       setSteps('')
       onOpenChange(false)
-    } catch {
+    } catch (error) {
+      console.error('Bug report submission error:', error)
       toast({
         title: '리포트 전송 실패',
-        description: '잠시 후 다시 시도해주세요.',
+        description: error instanceof Error ? error.message : '잠시 후 다시 시도해주세요.',
         variant: 'destructive',
       })
     } finally {

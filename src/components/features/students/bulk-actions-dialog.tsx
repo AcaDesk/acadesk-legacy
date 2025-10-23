@@ -14,10 +14,13 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
-import { createClient } from '@/lib/supabase/client'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { GRADES } from '@/lib/constants'
 import type { Student } from './student-table-improved'
+import {
+  createBulkEnrollClassUseCase,
+} from '@/application/factories/studentUseCaseFactory.client'
+import { createGetActiveClassesUseCase } from '@/application/factories/classUseCaseFactory.client'
 
 type BulkAction = 'delete' | 'grade' | 'class' | 'export'
 
@@ -41,7 +44,6 @@ export function BulkActionsDialog({
   const [loading, setLoading] = useState(false)
 
   const { toast } = useToast()
-  const supabase = createClient()
 
   // Load classes when dialog opens
   useEffect(() => {
@@ -52,14 +54,10 @@ export function BulkActionsDialog({
 
   async function loadClasses() {
     try {
-      const { data, error } = await supabase
-        .from('classes')
-        .select('id, name')
-        .eq('active', true)
-        .order('name')
-
-      if (error) throw error
-      setClasses(data || [])
+      // Use Case를 통한 활성 클래스 로드
+      const useCase = createGetActiveClassesUseCase()
+      const activeClasses = await useCase.execute()
+      setClasses(activeClasses)
     } catch (error) {
       toast({
         title: '수업 목록 로드 실패',
@@ -79,6 +77,8 @@ export function BulkActionsDialog({
       const studentIds = selectedStudents.map(s => s.id)
 
       // Use RPC function for bulk delete
+      const { createClient } = await import('@/lib/supabase/client')
+      const supabase = createClient()
       const { data, error } = await supabase.rpc('bulk_soft_delete_students', {
         _student_ids: studentIds
       })
@@ -127,6 +127,8 @@ export function BulkActionsDialog({
       }))
 
       // Use RPC function for bulk update
+      const { createClient } = await import('@/lib/supabase/client')
+      const supabase = createClient()
       const { data, error } = await supabase.rpc('bulk_update_students', {
         _updates: updates
       })
@@ -168,17 +170,13 @@ export function BulkActionsDialog({
 
     setLoading(true)
     try {
-      // Insert class enrollments for all selected students
-      const enrollments = selectedStudents.map(student => ({
-        class_id: selectedClass,
-        student_id: student.id,
-        status: 'active',
-        enrolled_at: new Date().toISOString(),
-      }))
-
-      const { error } = await supabase
-        .from('class_enrollments')
-        .upsert(enrollments, { onConflict: 'class_id,student_id' })
+      // Use Case를 통한 일괄 수업 배정
+      const useCase = createBulkEnrollClassUseCase()
+      const studentIds = selectedStudents.map(s => s.id)
+      const { success, error } = await useCase.execute({
+        studentIds,
+        classId: selectedClass,
+      })
 
       if (error) throw error
 
