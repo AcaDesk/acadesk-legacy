@@ -208,7 +208,7 @@ export default function VerifyTodosPage() {
     urgent: 'bg-red-500',
   }
 
-  async function rejectTodo() {
+  async function handleRejectTodo() {
     if (!currentUser || !tenantId || !currentTodoId || !feedback.trim()) {
       toast({
         title: '피드백 필요',
@@ -400,7 +400,7 @@ export default function VerifyTodosPage() {
               </Button>
               <Button
                 variant="destructive"
-                onClick={rejectTodo}
+                onClick={handleRejectTodo}
                 disabled={loading || !feedback.trim()}
                 className="gap-2"
               >
@@ -533,14 +533,13 @@ export default function VerifyTodosPage() {
                       if (currentUser && currentTodo && tenantId) {
                         setLoading(true)
                         try {
-                          const verifyTodosUseCase = createVerifyTodosUseCase()
-                          const result = await verifyTodosUseCase.execute({
+                          const result = await verifyTodos({
                             todoIds: [currentTodo.id],
-                            verifiedBy: currentUser.id,
-                            tenantId,
                           })
 
-                          if (result.error) throw result.error
+                          if (!result.success) {
+                            throw new Error(result.error || '검증 실패')
+                          }
 
                           toast({
                             title: '검증 완료',

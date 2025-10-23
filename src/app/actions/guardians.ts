@@ -255,6 +255,95 @@ export async function deleteGuardian(guardianId: string) {
 }
 
 /**
+ * 모든 보호자 목록과 연결된 학생 정보 조회
+ * @returns 보호자 목록 (학생 정보 포함)
+ */
+export async function getGuardiansWithDetails() {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = await createServiceRoleClient()
+
+    // 1. 모든 보호자 조회 (users 정보 포함)
+    const { data: guardians, error: guardiansError } = await supabase
+      .from('guardians')
+      .select(`
+        id,
+        user_id,
+        relationship,
+        users (
+          name,
+          email,
+          phone
+        )
+      `)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+
+    if (guardiansError) throw guardiansError
+
+    // 2. 각 보호자에 대해 연결된 학생 정보 조회
+    const guardiansWithDetails = await Promise.all(
+      (guardians || []).map(async (guardian) => {
+        const { data: studentLinks, error: studentsError } = await supabase
+          .from('student_guardians')
+          .select(`
+            relation,
+            is_primary,
+            students (
+              id,
+              student_code,
+              users (
+                name
+              )
+            )
+          `)
+          .eq('guardian_id', guardian.id)
+          .eq('tenant_id', tenantId)
+
+        if (studentsError) {
+          console.error('[getGuardiansWithDetails] Error loading students:', studentsError)
+        }
+
+        // 타입 안전한 변환
+        // TODO(any): Supabase nested query types are not properly inferred
+        const users = guardian.users as any
+        const students = (studentLinks || []).map((link) => {
+          const student = link.students as any
+          return {
+            id: student?.id || '',
+            studentCode: student?.student_code || '',
+            name: student?.users?.name || '',
+            relation: link.relation || '',
+            isPrimary: link.is_primary || false,
+          }
+        })
+
+        return {
+          guardian: {
+            id: guardian.id,
+            relationship: guardian.relationship,
+          },
+          userName: users?.name || null,
+          userEmail: users?.email || null,
+          userPhone: users?.phone || null,
+          students,
+        }
+      })
+    )
+
+    return { success: true, data: guardiansWithDetails, error: null }
+  } catch (error) {
+    console.error('[getGuardiansWithDetails] Error:', error)
+    return {
+      success: false,
+      data: [],
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
  * 학생의 보호자 목록 조회
  * @param studentId - 학생 ID
  * @returns 보호자 목록

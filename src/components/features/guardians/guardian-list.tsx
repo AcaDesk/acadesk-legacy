@@ -4,55 +4,32 @@ import { useState, useEffect } from 'react'
 import { useToast } from '@/hooks/use-toast'
 import { GuardianTableImproved, type Guardian } from './guardian-table-improved'
 import { getErrorMessage } from '@/lib/error-handlers'
-import {
-  createGetGuardiansWithDetailsUseCase,
-  createDeleteGuardianUseCase,
-} from '@core/application/factories/guardianUseCaseFactory.client'
+import { getGuardiansWithDetails, deleteGuardian } from '@/app/actions/guardians'
 
 export function GuardianList() {
   const [guardians, setGuardians] = useState<Guardian[]>([])
   const [loading, setLoading] = useState(true)
-  const [tenantId, setTenantId] = useState<string | null>(null)
 
   const { toast } = useToast()
 
-  // Load tenant ID via server API (service_role)
   useEffect(() => {
-    async function loadTenantId() {
-      try {
-        const res = await fetch('/api/auth/tenant', { cache: 'no-store' })
-        if (!res.ok) return
-        const { tenantId } = (await res.json()) as { tenantId?: string }
-        if (tenantId) setTenantId(tenantId)
-      } catch (e) {
-        console.warn('Failed to load tenantId')
-      }
-    }
-    loadTenantId()
+    loadGuardians()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  useEffect(() => {
-    if (tenantId) {
-      loadGuardians()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantId])
-
   async function loadGuardians() {
-    if (!tenantId) return
-
     try {
       setLoading(true)
 
-      // Use Case를 통한 보호자 데이터 로드
-      const useCase = createGetGuardiansWithDetailsUseCase()
-      const { guardians: guardiansData, error } = await useCase.execute({ tenantId })
+      // Server Action을 통한 보호자 데이터 로드
+      const result = await getGuardiansWithDetails()
 
-      if (error) throw error
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '보호자 목록을 불러올 수 없습니다')
+      }
 
       // GuardianWithDetails를 Guardian 형식으로 변환
-      const formattedGuardians: Guardian[] = guardiansData.map((item) => ({
+      const formattedGuardians: Guardian[] = result.data.map((item) => ({
         id: item.guardian.id,
         relationship: item.guardian.relationship,
         users: item.userName
@@ -93,9 +70,12 @@ export function GuardianList() {
     }
 
     try {
-      // Use Case를 통한 보호자 삭제
-      const useCase = createDeleteGuardianUseCase()
-      await useCase.execute(id)
+      // Server Action을 통한 보호자 삭제
+      const result = await deleteGuardian(id)
+
+      if (!result.success) {
+        throw new Error(result.error || '보호자 삭제 실패')
+      }
 
       toast({
         title: '삭제 완료',

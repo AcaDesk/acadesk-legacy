@@ -8,7 +8,7 @@ import { Skeleton } from '@ui/skeleton'
 import { format as formatDate } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { motion, AnimatePresence } from 'motion/react'
-import { createGetStudentActivityLogsUseCase } from '@core/application/factories/studentUseCaseFactory.client'
+import { getStudentActivityLogs } from '@/app/actions/students'
 import {
   GraduationCap,
   CheckCircle,
@@ -99,9 +99,11 @@ export function ActivityTimeline({ studentId, limit = 50 }: ActivityTimelineProp
   async function loadActivities() {
     try {
       setLoading(true)
-      const useCase = createGetStudentActivityLogsUseCase()
-      const activityLogs = await useCase.execute(studentId, limit)
-      setActivities(activityLogs)
+      const result = await getStudentActivityLogs(studentId, limit)
+      
+      if (result.success && result.data) {
+        setActivities(result.data)
+      }
     } catch (error) {
       console.error('Error loading activities:', error)
     } finally {

@@ -1281,3 +1281,139 @@ export async function getStudentPointHistory(studentId: string, limit = 20) {
     }
   }
 }
+
+/**
+ * Get student activity logs
+ *
+ * @param studentId - Student ID
+ * @param limit - Number of logs to return (default: 50)
+ * @returns List of activity logs or error
+ */
+export async function getStudentActivityLogs(studentId: string, limit = 50) {
+  try {
+    // 1. Verify authentication and get tenant
+    const { tenantId } = await verifyStaff()
+
+    // 2. Create service_role client
+    const supabase = await createServiceRoleClient()
+
+    // 3. Query activity logs with activity type information
+    const { data, error } = await supabase
+      .from('student_activity_logs')
+      .select(`
+        *,
+        ref_activity_types (
+          label,
+          icon,
+          color
+        )
+      `)
+      .eq('student_id', studentId)
+      .eq('tenant_id', tenantId)
+      .order('activity_date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(limit)
+
+    if (error) throw error
+
+    return {
+      success: true,
+      data: data || [],
+      error: null,
+    }
+  } catch (error) {
+    console.error('[getStudentActivityLogs] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * Update student class enrollments
+ * Replaces all current enrollments with the new set
+ *
+ * @param studentId - Student ID
+ * @param classIds - Array of class IDs to enroll in
+ * @returns Success status or error
+ */
+export async function updateStudentClassEnrollments(
+  studentId: string,
+  classIds: string[]
+) {
+  try {
+    // 1. Verify authentication and get tenant
+    const { tenantId, userId } = await verifyStaff()
+
+    // 2. Create service_role client
+    const supabase = await createServiceRoleClient()
+
+    // 3. First, get current enrollments
+    const { data: currentEnrollments, error: fetchError } = await supabase
+      .from('class_enrollments')
+      .select('id, class_id')
+      .eq('student_id', studentId)
+      .eq('tenant_id', tenantId)
+
+    if (fetchError) throw fetchError
+
+    const currentClassIds = (currentEnrollments || []).map(e => e.class_id)
+
+    // 4. Determine what to add and what to remove
+    const toAdd = classIds.filter(id => !currentClassIds.includes(id))
+    const toRemove = currentEnrollments
+      ?.filter(e => !classIds.includes(e.class_id))
+      .map(e => e.id) || []
+
+    // 5. Add new enrollments
+    if (toAdd.length > 0) {
+      const newEnrollments = toAdd.map(classId => ({
+        tenant_id: tenantId,
+        student_id: studentId,
+        class_id: classId,
+        status: 'active',
+        enrolled_at: new Date().toISOString(),
+        enrolled_by: userId,
+      }))
+
+      const { error: insertError } = await supabase
+        .from('class_enrollments')
+        .insert(newEnrollments)
+
+      if (insertError) throw insertError
+    }
+
+    // 6. Soft delete removed enrollments
+    if (toRemove.length > 0) {
+      const { error: deleteError } = await supabase
+        .from('class_enrollments')
+        .update({
+          status: 'withdrawn',
+          withdrawn_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .in('id', toRemove)
+
+      if (deleteError) throw deleteError
+    }
+
+    // 7. Revalidate pages
+    revalidatePath(`/students/${studentId}`)
+    revalidatePath('/students')
+
+    return {
+      success: true,
+      data: null,
+      error: null,
+    }
+  } catch (error) {
+    console.error('[updateStudentClassEnrollments] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
