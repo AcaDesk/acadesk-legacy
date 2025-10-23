@@ -10,7 +10,8 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { logout as logoutAction } from '@/app/actions/logout'
+import { useRouter } from 'next/navigation'
+import { signOut } from '@/app/actions/auth'
 import { inviteTokenStore } from '@/lib/auth/invite-token-store'
 
 interface UseLogoutOptions {
@@ -25,6 +26,7 @@ interface UseLogoutOptions {
 export function useLogout(options: UseLogoutOptions = {}) {
   const { onBeforeLogout, onSuccess, onError } = options
   const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter()
 
   const logout = useCallback(async () => {
     try {
@@ -43,13 +45,23 @@ export function useLogout(options: UseLogoutOptions = {}) {
 
       console.log('[useLogout] Client-side cleanup completed')
 
+      // Server Action 호출
+      const result = await signOut()
+
+      if (!result.success) {
+        throw new Error(result.error || '로그아웃에 실패했습니다')
+      }
+
       // 성공 콜백 실행
       if (onSuccess) {
         onSuccess()
       }
 
-      // Server Action 호출 (리다이렉트 발생)
-      await logoutAction()
+      console.log('[useLogout] Logout successful, redirecting to /auth/login')
+
+      // 로그인 페이지로 리다이렉트
+      router.push('/auth/login')
+      router.refresh()
     } catch (error) {
       console.error('[useLogout] Logout error:', error)
       setIsLoading(false)
@@ -59,14 +71,10 @@ export function useLogout(options: UseLogoutOptions = {}) {
         onError(error)
       }
 
-      // Server Action의 redirect가 에러로 처리될 수 있으므로
-      // redirect 에러는 무시하고 진행
-      if (error instanceof Error && error.message.includes('NEXT_REDIRECT')) {
-        // Next.js redirect는 정상 동작
-        return
-      }
+      // 에러가 발생해도 로그인 페이지로 이동 (세션이 이미 만료되었을 수 있음)
+      router.push('/auth/login')
     }
-  }, [onBeforeLogout, onSuccess, onError])
+  }, [onBeforeLogout, onSuccess, onError, router])
 
   return {
     logout,

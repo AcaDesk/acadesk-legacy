@@ -18,7 +18,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { KeyRound, Eye, EyeOff, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { createUpdatePasswordUseCase } from "@/application/factories/authUseCaseFactory.client"
+import { updatePassword } from "@/app/actions/auth"
+import { GENERIC_ERROR_MESSAGE } from "@/lib/auth/messages"
 
 const resetPasswordSchema = z
   .object({
@@ -82,13 +83,12 @@ export default function ResetPasswordPage() {
   const onSubmit = async (data: ResetPasswordFormValues) => {
     setIsLoading(true)
     try {
-      const updatePasswordUseCase = createUpdatePasswordUseCase()
-      const { error } = await updatePasswordUseCase.execute({ newPassword: data.password })
+      const result = await updatePassword({ newPassword: data.password })
 
-      if (error) {
+      if (!result.success) {
         toast({
           title: "비밀번호 변경 실패",
-          description: error.message,
+          description: result.error || GENERIC_ERROR_MESSAGE.description,
           variant: "destructive",
         })
         return
@@ -102,8 +102,8 @@ export default function ResetPasswordPage() {
       router.push("/auth/login")
     } catch {
       toast({
-        title: "오류가 발생했습니다",
-        description: "다시 시도해주세요.",
+        title: GENERIC_ERROR_MESSAGE.title,
+        description: GENERIC_ERROR_MESSAGE.description,
         variant: "destructive",
       })
     } finally {

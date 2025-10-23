@@ -666,6 +666,10 @@ export default async function DashboardPage() {
 
 ## Important Files
 
+### Folder Structure & Migration
+- `docs/FOLDER_STRUCTURE.md` - **📁 폴더 구조 표준안 (필독!)**
+- `docs/migration/MIGRATION_ROADMAP.md` - **🗺️ 마이그레이션 로드맵 및 진행 상황**
+
 ### Migration Documentation
 - `docs/migration/INDEX.md` - **Migration documentation index and navigation**
 - `docs/migration/OVERVIEW.md` - Migration overview and current status
