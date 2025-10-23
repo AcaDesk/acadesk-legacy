@@ -13,7 +13,7 @@ import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
-import { createUserProfileServer } from './onboarding'
+import { createUserProfileServer, checkOnboardingStage } from './onboarding'
 
 // ============================================================================
 // Validation Schemas
@@ -489,6 +489,188 @@ export async function sendMagicLink(email: string) {
     return {
       success: false,
       error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * 인증 콜백 처리 (Server Action)
+ *
+ * 완전한 server-side + service_role 기반 인증 콜백 처리
+ * 이메일 인증 링크 클릭 후 코드 교환 및 프로필 생성
+ *
+ * @param code - 인증 코드
+ * @param type - 인증 타입 (signup, magiclink 등)
+ * @returns 성공 여부, 다음 URL, 에러 메시지
+ */
+export async function handleAuthCallback(code: string, type: string = 'signup') {
+  const requestId = crypto.randomUUID()
+
+  try {
+    console.log('[handleAuthCallback] Request started:', { requestId, type, hasCode: !!code })
+
+    // 1. code 파라미터 검증
+    if (!code) {
+      console.error('[handleAuthCallback] Missing code parameter:', { requestId })
+      return {
+        success: false,
+        error: '인증 코드가 없습니다.',
+        nextUrl: '/auth/login',
+      }
+    }
+
+    // 2. 서버에서 세션 교환
+    const supabase = await createServerClient()
+    const { data: sessionData, error: exchangeErr } = await supabase.auth.exchangeCodeForSession(
+      code
+    )
+
+    if (exchangeErr) {
+      console.error('[handleAuthCallback] Session exchange failed:', {
+        requestId,
+        message: exchangeErr.message,
+        status: exchangeErr.status,
+        code: exchangeErr.code,
+        name: exchangeErr.name,
+      })
+
+      // 에러 타입 분류
+      let errorType = 'unknown'
+      const m = exchangeErr.message?.toLowerCase() || ''
+      const c = exchangeErr.code?.toLowerCase() || ''
+
+      if (m.includes('expired') || c.includes('expired')) errorType = 'expired'
+      else if (m.includes('already') || m.includes('used') || c.includes('consumed'))
+        errorType = 'used'
+      else if (m.includes('invalid') || c.includes('invalid') || m.includes('not found'))
+        errorType = 'invalid'
+
+      return {
+        success: false,
+        error: getAuthErrorMessage(exchangeErr),
+        nextUrl: `/auth/link-expired?type=${type}&error=${errorType}`,
+      }
+    }
+
+    console.log('[handleAuthCallback] Session exchange success:', { requestId })
+
+    // 3. 현재 사용자 정보 가져오기
+    const user = sessionData?.user
+    if (!user) {
+      console.error('[handleAuthCallback] No user after session exchange:', { requestId })
+      return {
+        success: false,
+        error: '사용자 정보를 가져올 수 없습니다.',
+        nextUrl: '/auth/login',
+      }
+    }
+
+    const userId = user.id
+    const userEmail = user.email || ''
+
+    console.log('[handleAuthCallback] User retrieved:', { requestId, userId, email: userEmail })
+
+    // 4. 이메일 인증 확인
+    const emailConfirmedAt = user.email_confirmed_at ?? (user as any).confirmed_at
+
+    if (!emailConfirmedAt) {
+      console.warn('[handleAuthCallback] Email not confirmed yet:', { requestId, userId })
+      return {
+        success: false,
+        error: '이메일 인증이 필요합니다.',
+        nextUrl: `/auth/verify-email?email=${encodeURIComponent(userEmail)}`,
+      }
+    }
+
+    // 5. 프로필 생성 (service_role 사용)
+    console.log('[handleAuthCallback] Creating user profile:', { requestId, userId })
+    const profileResult = await createUserProfileServer(userId)
+
+    if (!profileResult.success) {
+      console.error('[handleAuthCallback] Profile creation failed:', {
+        requestId,
+        userId,
+        error: profileResult.error,
+      })
+      return {
+        success: false,
+        error: profileResult.error || '프로필 생성에 실패했습니다.',
+        nextUrl: '/auth/pending?error=profile_creation_failed',
+      }
+    }
+
+    console.log('[handleAuthCallback] Profile created/verified:', { requestId, userId })
+
+    // 6. 온보딩 상태 확인 및 라우팅 (service_role 사용)
+    const stageResult = await checkOnboardingStage()
+
+    if (!stageResult.success || !stageResult.data) {
+      console.error('[handleAuthCallback] checkOnboardingStage failed:', {
+        requestId,
+        userId,
+        error: stageResult.error,
+      })
+      return {
+        success: false,
+        error: stageResult.error || '온보딩 상태 확인에 실패했습니다.',
+        nextUrl: `/auth/login?verified=true&email=${encodeURIComponent(userEmail)}`,
+      }
+    }
+
+    const stageData = stageResult.data as {
+      ok: boolean
+      stage?: { code: string; next_url?: string }
+    }
+
+    if (!stageData?.ok || !stageData.stage) {
+      console.error('[handleAuthCallback] Invalid stage data:', {
+        requestId,
+        userId,
+        stageData,
+      })
+      return {
+        success: false,
+        error: '온보딩 상태가 올바르지 않습니다.',
+        nextUrl: `/auth/login?verified=true&email=${encodeURIComponent(userEmail)}`,
+      }
+    }
+
+    const { code: stageCode, next_url: nextUrl } = stageData.stage
+
+    console.log('[handleAuthCallback] Auth stage determined:', {
+      requestId,
+      userId,
+      stageCode,
+      nextUrl: nextUrl || 'none',
+    })
+
+    // 7. 온보딩 상태에 따라 다음 URL 결정
+    let redirectUrl: string
+    if (nextUrl) {
+      redirectUrl = nextUrl
+    } else if (stageCode === 'READY') {
+      redirectUrl = '/dashboard'
+    } else {
+      redirectUrl = `/auth/login?verified=true&email=${encodeURIComponent(userEmail)}`
+    }
+
+    console.log('[handleAuthCallback] Success, redirecting to:', { requestId, redirectUrl })
+
+    return {
+      success: true,
+      nextUrl: redirectUrl,
+      userId,
+      email: userEmail,
+    }
+  } catch (error) {
+    console.error('[handleAuthCallback] Unexpected error:', {
+      requestId,
+      error: error instanceof Error ? error.message : String(error),
+    })
+    return {
+      success: false,
+      error: getErrorMessage(error),
+      nextUrl: '/auth/login',
     }
   }
 }
