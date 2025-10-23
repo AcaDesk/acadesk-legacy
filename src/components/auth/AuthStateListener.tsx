@@ -11,7 +11,7 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-export function AuthStateListener({ children }: { children: React.ReactNode }) {
+export function AuthStateListener() {
   const router = useRouter()
 
   useEffect(() => {
@@ -33,5 +33,5 @@ export function AuthStateListener({ children }: { children: React.ReactNode }) {
     }
   }, [router])
 
-  return <>{children}</>
+  return null
 }

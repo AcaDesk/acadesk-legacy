@@ -17,7 +17,7 @@ import { Step1_StudentInfo } from './Step1_StudentInfo'
 import { Step2_GuardianInfo } from './Step2_GuardianInfo'
 import { Step3_AdditionalInfo } from './Step3_AdditionalInfo'
 import { studentWizardSchema, type StudentWizardFormValues, type StepInfo } from './types'
-import { createGetTenantCodesUseCase } from '@core/application/factories/tenantUseCaseFactory.client'
+import { getTenantCodes } from '@/app/actions/tenant'
 
 // ============================================================================
 // Props
@@ -91,12 +91,15 @@ export function AddStudentWizard({ open, onOpenChange, onSuccess }: AddStudentWi
 
   async function loadSchools() {
     try {
-      const useCase = createGetTenantCodesUseCase()
-      const codes = await useCase.execute('school')
+      const result = await getTenantCodes('school')
+
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '학교 목록 조회 실패')
+      }
 
       // 데이터가 있으면 사용, 없으면 기본 학교 목록 사용
-      if (codes.length > 0) {
-        setSchools(codes)
+      if (result.data.length > 0) {
+        setSchools(result.data)
       } else {
         // tenant_codes 테이블이 비어있거나 없는 경우 기본 목록 사용
         const { DEFAULT_SCHOOLS } = await import('@/lib/constants')
@@ -195,7 +198,28 @@ export function AddStudentWizard({ open, onOpenChange, onSuccess }: AddStudentWi
       }
 
       // Prepare guardian data and mode
-      let guardianData = null
+      type NewGuardianData = {
+        name: string
+        phone: string | null
+        email: string | null
+        relationship: string | null
+        occupation: string | null
+        address: string | null
+        is_primary_contact: boolean
+        receives_notifications: boolean
+        receives_billing: boolean
+        can_pickup: boolean
+      }
+
+      type ExistingGuardianData = {
+        id: string
+        is_primary_contact: boolean
+        receives_notifications: boolean
+        receives_billing: boolean
+        can_pickup: boolean
+      }
+
+      let guardianData: NewGuardianData | ExistingGuardianData | null = null
       let guardianMode = 'skip'
 
       if (data.guardianMode === GUARDIAN_MODES.NEW && data.guardian) {

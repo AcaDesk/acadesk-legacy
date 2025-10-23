@@ -253,3 +253,161 @@ export async function deleteGuardian(guardianId: string) {
     }
   }
 }
+
+/**
+ * 학생의 보호자 목록 조회
+ * @param studentId - 학생 ID
+ * @returns 보호자 목록
+ */
+export async function getStudentGuardians(studentId: string) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = await createServiceRoleClient()
+
+    const { data, error } = await supabase
+      .from('student_guardians')
+      .select('*, guardians(*, users(*))')
+      .eq('student_id', studentId)
+      .eq('tenant_id', tenantId)
+      .is('guardians.deleted_at', null)
+
+    if (error) throw error
+
+    return { success: true, data }
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error), data: [] }
+  }
+}
+
+/**
+ * 연결 가능한 보호자 목록 조회 (이미 연결되지 않은 보호자)
+ * @param studentId - 학생 ID
+ * @returns 보호자 목록
+ */
+export async function getAvailableGuardians(studentId: string) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = await createServiceRoleClient()
+
+    // 이미 연결된 보호자 ID 목록
+    const { data: linkedGuardians } = await supabase
+      .from('student_guardians')
+      .select('guardian_id')
+      .eq('student_id', studentId)
+      .eq('tenant_id', tenantId)
+
+    const linkedIds = linkedGuardians?.map(g => g.guardian_id) || []
+
+    // 연결되지 않은 보호자 조회
+    const query = supabase
+      .from('guardians')
+      .select('*, users(*)')
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+
+    if (linkedIds.length > 0) {
+      query.not('id', 'in', `(${linkedIds.join(',')})`)
+    }
+
+    const { data, error } = await query
+
+    if (error) throw error
+
+    return { success: true, data }
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error), data: [] }
+  }
+}
+
+/**
+ * 보호자를 학생에게 연결
+ * @param studentId - 학생 ID
+ * @param guardianId - 보호자 ID
+ * @param relationship - 관계
+ * @returns 성공 여부
+ */
+export async function linkGuardianToStudent(
+  studentId: string,
+  guardianId: string,
+  relationship: string
+) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = await createServiceRoleClient()
+
+    const { error } = await supabase
+      .from('student_guardians')
+      .insert({
+        tenant_id: tenantId,
+        student_id: studentId,
+        guardian_id: guardianId,
+        relation: relationship,
+        is_primary: false,
+      })
+
+    if (error) throw error
+
+    revalidatePath(`/students/${studentId}`)
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) }
+  }
+}
+
+/**
+ * 보호자와 학생 연결 해제
+ * @param studentId - 학생 ID
+ * @param guardianId - 보호자 ID
+ * @returns 성공 여부
+ */
+export async function unlinkGuardianFromStudent(
+  studentId: string,
+  guardianId: string
+) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = await createServiceRoleClient()
+
+    const { error } = await supabase
+      .from('student_guardians')
+      .delete()
+      .eq('student_id', studentId)
+      .eq('guardian_id', guardianId)
+      .eq('tenant_id', tenantId)
+
+    if (error) throw error
+
+    revalidatePath(`/students/${studentId}`)
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) }
+  }
+}
+
+/**
+ * 보호자 검색 (이름, 전화번호, 이메일)
+ * @param query - 검색어
+ * @param limit - 결과 제한 수 (기본 10)
+ * @returns 보호자 목록
+ */
+export async function searchGuardians(query: string, limit: number = 10) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = await createServiceRoleClient()
+
+    // guardians와 users 조인하여 검색
+    const { data, error } = await supabase
+      .from('guardians')
+      .select('*, users(*)')
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .or(`users.name.ilike.%${query}%,users.phone.ilike.%${query}%,users.email.ilike.%${query}%`)
+      .limit(limit)
+
+    if (error) throw error
+
+    return { success: true, data: data || [] }
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error), data: [] }
+  }
+}

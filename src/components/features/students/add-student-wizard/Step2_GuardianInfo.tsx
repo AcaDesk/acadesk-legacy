@@ -12,7 +12,7 @@ import { Alert, AlertDescription } from '@ui/alert'
 import { cn } from '@/lib/utils'
 import { GUARDIAN_RELATIONSHIPS } from '@/lib/constants'
 import type { StudentWizardFormValues, Guardian } from './types'
-import { createSearchGuardiansUseCase } from '@core/application/factories/guardianUseCaseFactory.client'
+import { searchGuardians as searchGuardiansAction } from '@/app/actions/guardians'
 
 // ============================================================================
 // Guardian State Management with useReducer
@@ -120,13 +120,19 @@ export function Step2_GuardianInfo() {
 
     dispatch({ type: 'SET_SEARCHING', payload: true })
     try {
-      const useCase = createSearchGuardiansUseCase()
-      const results = await useCase.execute(currentUser.tenantId, query, 10)
+      const result = await searchGuardiansAction(query, 10)
+
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '보호자 검색 실패')
+      }
 
       // Convert to Guardian type (phone must be string, not null)
-      const guardians = results.map(r => ({
-        ...r,
-        phone: r.phone || '',
+      const guardians = result.data.map((g: any) => ({
+        id: g.id,
+        name: g.users?.name || '',
+        phone: g.users?.phone || '',
+        email: g.users?.email || null,
+        relationship: g.relationship || '',
       }))
 
       dispatch({ type: 'SET_RESULTS', payload: guardians })

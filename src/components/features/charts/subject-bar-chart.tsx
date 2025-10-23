@@ -79,7 +79,7 @@ export function SubjectBarChart({
     const minSubject = data.find((d) => d.score === min)?.subject
 
     // Average change from previous
-    let avgChange = null
+    let avgChange: number | null = null
     if (comparison === 'previous') {
       const validScores = data.filter((item) => item.previousScore !== undefined)
       if (validScores.length > 0) {
@@ -92,7 +92,7 @@ export function SubjectBarChart({
     }
 
     // Comparison with class average
-    let classComparison = null
+    let classComparison: number | null = null
     if (comparison === 'class') {
       const validScores = data.filter((item) => item.classAverage !== undefined)
       if (validScores.length > 0) {
@@ -231,12 +231,12 @@ export function SubjectBarChart({
             {stats.avgChange > 0 ? (
               <>
                 <TrendingUp className="h-4 w-4 text-foreground" />
-                <span>이전 대비 평균 {stats.avgChange.toFixed(1)}점 상승</span>
+                <span>이전 대비 평균 {stats.avgChange!.toFixed(1)}점 상승</span>
               </>
             ) : stats.avgChange < 0 ? (
               <>
                 <TrendingDown className="h-4 w-4 text-muted-foreground" />
-                <span>이전 대비 평균 {Math.abs(stats.avgChange).toFixed(1)}점 하락</span>
+                <span>이전 대비 평균 {Math.abs(stats.avgChange!).toFixed(1)}점 하락</span>
               </>
             ) : (
               <>
@@ -251,12 +251,12 @@ export function SubjectBarChart({
             {stats.classComparison > 0 ? (
               <>
                 <TrendingUp className="h-4 w-4 text-foreground" />
-                <span>반 평균보다 평균 {stats.classComparison.toFixed(1)}점 높음</span>
+                <span>반 평균보다 평균 {stats.classComparison!.toFixed(1)}점 높음</span>
               </>
             ) : stats.classComparison < 0 ? (
               <>
                 <TrendingDown className="h-4 w-4 text-muted-foreground" />
-                <span>반 평균보다 평균 {Math.abs(stats.classComparison).toFixed(1)}점 낮음</span>
+                <span>반 평균보다 평균 {Math.abs(stats.classComparison!).toFixed(1)}점 낮음</span>
               </>
             ) : (
               <>

@@ -34,6 +34,13 @@ interface ClassEnrollment {
   } | null
 }
 
+interface AlertItem {
+  type: string
+  icon: React.ComponentType<any>
+  title: string
+  description: string
+}
+
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
@@ -103,7 +110,7 @@ export function OverviewTab() {
     .slice(0, 8)
 
   // 주의 필요 항목
-  const alerts = []
+  const alerts: AlertItem[] = []
 
   // 미완료 과제
   const incompleteTodos = recentTodos.filter((t) => !t.completed_at)

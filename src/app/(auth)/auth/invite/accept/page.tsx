@@ -82,7 +82,7 @@ function InviteAcceptContent() {
   }
 
   // 에러 정보 가져오기
-  const errorInfo = error ? getAuthStageErrorMessage(error) : null
+  const errorInfo = error ? getAuthStageErrorMessage(new Error(error)) : null
 
   // 로딩 상태
   if (isLoading && !error) {

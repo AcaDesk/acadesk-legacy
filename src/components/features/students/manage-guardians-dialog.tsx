@@ -9,12 +9,12 @@ import { Label } from '@ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
 import { getErrorMessage } from '@/lib/error-handlers'
 import {
-  createGetStudentGuardiansUseCase,
-  createGetAvailableGuardiansUseCase,
-  createCreateAndLinkGuardianUseCase,
-  createLinkGuardianToStudentUseCase,
-  createUnlinkGuardianFromStudentUseCase,
-} from '@core/application/factories/guardianUseCaseFactory.client'
+  getStudentGuardians,
+  getAvailableGuardians,
+  linkGuardianToStudent,
+  unlinkGuardianFromStudent,
+  createGuardian,
+} from '@/app/actions/guardians'
 import {
   Dialog,
   DialogContent,
@@ -104,25 +104,28 @@ export function ManageGuardiansDialog({
     if (!currentUser || !currentUser.tenantId) return
 
     try {
-      // Use Case를 통한 학생의 보호자 목록 조회
-      const useCase = createGetStudentGuardiansUseCase()
-      const guardians = await useCase.execute(currentUser.tenantId, studentId)
+      // Server Action을 통한 학생의 보호자 목록 조회
+      const result = await getStudentGuardians(studentId)
+
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '보호자 목록 조회 실패')
+      }
 
       // Transform to GuardianWithUser format
-      const guardiansWithUser: GuardianWithUser[] = guardians.map((g) => ({
-        id: g.id,
-        user_id: g.user_id,
-        name: g.name,
-        phone: g.phone,
-        email: g.email,
-        relationship: g.relationship,
-        address: g.address,
-        occupation: g.occupation,
-        relation: g.relation,
-        is_primary_contact: g.is_primary_contact,
-        receives_notifications: g.receives_notifications,
-        receives_billing: g.receives_billing,
-        can_pickup: g.can_pickup,
+      const guardiansWithUser: GuardianWithUser[] = result.data.map((sg: any) => ({
+        id: sg.guardians?.id || '',
+        user_id: sg.guardians?.user_id || '',
+        name: sg.guardians?.users?.name || '',
+        phone: sg.guardians?.users?.phone || '',
+        email: sg.guardians?.users?.email || null,
+        relationship: sg.guardians?.relationship || '',
+        address: sg.guardians?.users?.address || null,
+        occupation: sg.guardians?.users?.occupation || null,
+        relation: sg.relation,
+        is_primary_contact: sg.is_primary || false,
+        receives_notifications: true,
+        receives_billing: true,
+        can_pickup: true,
       }))
 
       setLinkedGuardians(guardiansWithUser)
@@ -139,9 +142,19 @@ export function ManageGuardiansDialog({
     if (!currentUser || !currentUser.tenantId) return
 
     try {
-      // Use Case를 통한 사용 가능한 보호자 목록 조회
-      const useCase = createGetAvailableGuardiansUseCase()
-      const available = await useCase.execute(currentUser.tenantId, studentId)
+      // Server Action을 통한 사용 가능한 보호자 목록 조회
+      const result = await getAvailableGuardians(studentId)
+
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '보호자 목록 조회 실패')
+      }
+
+      // Transform to simple format for dropdown
+      const available = result.data.map((g: any) => ({
+        id: g.id,
+        name: g.users?.name || '',
+        phone: g.users?.phone || '',
+      }))
 
       setAvailableGuardians(available)
     } catch (error) {
@@ -165,23 +178,20 @@ export function ManageGuardiansDialog({
 
     setLoading(true)
     try {
-      // Use Case를 통한 보호자 생성 및 연결
-      const useCase = createCreateAndLinkGuardianUseCase()
-      const { success, error } = await useCase.execute({
-        tenantId: currentUser.tenantId,
-        studentId,
-        guardianData: {
-          name: data.name,
-          phone: data.phone || null,
-          email: data.email || null,
-          relationship: data.relationship || null,
-          occupation: data.occupation || null,
-          address: data.address || null,
-        },
-        isPrimaryContact: linkedGuardians.length === 0,
+      // Server Action을 통한 보호자 생성 및 연결
+      const result = await createGuardian({
+        name: data.name,
+        phone: data.phone || '',
+        email: data.email || null,
+        relationship: data.relationship || '',
+        occupation: data.occupation || null,
+        address: data.address || null,
+        student_ids: [studentId], // 자동으로 학생과 연결
       })
 
-      if (error) throw error
+      if (!result.success) {
+        throw new Error(result.error || '보호자 추가 실패')
+      }
 
       toast({
         title: '학부모 추가 완료',
@@ -214,17 +224,16 @@ export function ManageGuardiansDialog({
 
     setLoading(true)
     try {
-      // Use Case를 통한 보호자 연결
-      const useCase = createLinkGuardianToStudentUseCase()
-      const { success, error } = await useCase.execute({
-        tenantId: currentUser.tenantId,
+      // Server Action을 통한 보호자 연결
+      const result = await linkGuardianToStudent(
         studentId,
-        guardianId: data.guardianId,
-        relationship: data.relationship || '',
-        isPrimaryContact: linkedGuardians.length === 0,
-      })
+        data.guardianId,
+        data.relationship
+      )
 
-      if (error) throw error
+      if (!result.success) {
+        throw new Error(result.error || '보호자 연결 실패')
+      }
 
       const guardianName = availableGuardians.find(g => g.id === data.guardianId)?.name
 
@@ -257,15 +266,12 @@ export function ManageGuardiansDialog({
 
     setLoading(true)
     try {
-      // Use Case를 통한 보호자 연결 해제
-      const useCase = createUnlinkGuardianFromStudentUseCase()
-      const { success, error } = await useCase.execute({
-        tenantId: currentUser.tenantId,
-        studentId,
-        guardianId,
-      })
+      // Server Action을 통한 보호자 연결 해제
+      const result = await unlinkGuardianFromStudent(studentId, guardianId)
 
-      if (error) throw error
+      if (!result.success) {
+        throw new Error(result.error || '연결 해제 실패')
+      }
 
       toast({
         title: '연결 해제 완료',
