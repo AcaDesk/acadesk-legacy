@@ -32,30 +32,67 @@ export function StudentList() {
   const [selectedMarketingSource, setSelectedMarketingSource] = useState<string>('all')
   const [enrollmentDateFrom, setEnrollmentDateFrom] = useState<Date | undefined>()
   const [enrollmentDateTo, setEnrollmentDateTo] = useState<Date | undefined>()
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [classes, setClasses] = useState<Array<{ id: string; name: string }>>([])
   const [grades, setGrades] = useState<string[]>([])
   const [schools, setSchools] = useState<string[]>([])
   const [tenantId, setTenantId] = useState<string | null>(null)
+  const [initError, setInitError] = useState<string | null>(null)
 
   const { toast } = useToast()
 
   // Load tenant ID
   useEffect(() => {
     async function loadTenantId() {
-      const { createClient } = await import('@/lib/supabase/client')
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data } = await supabase
+      try {
+        console.log('[StudentList] tenantId 로딩 시작')
+        const { createClient } = await import('@/lib/supabase/client')
+        const supabase = createClient()
+
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+        if (authError) {
+          console.error('[StudentList] 인증 에러:', authError)
+          setInitError('로그인 정보를 불러올 수 없습니다.')
+          setLoading(false)
+          return
+        }
+
+        if (!user) {
+          console.error('[StudentList] 사용자 정보 없음')
+          setInitError('로그인이 필요합니다.')
+          setLoading(false)
+          return
+        }
+
+        console.log('[StudentList] 사용자 ID:', user.id)
+
+        const { data, error } = await supabase
           .from('users')
           .select('tenant_id')
           .eq('id', user.id)
           .single()
 
-        if (data?.tenant_id) {
-          setTenantId(data.tenant_id)
+        if (error) {
+          console.error('[StudentList] tenantId 조회 에러:', error)
+          setInitError('사용자 정보를 불러올 수 없습니다.')
+          setLoading(false)
+          return
         }
+
+        if (!data?.tenant_id) {
+          console.error('[StudentList] tenantId가 없음:', data)
+          setInitError('테넌트 정보가 없습니다.')
+          setLoading(false)
+          return
+        }
+
+        console.log('[StudentList] tenantId 로딩 완료:', data.tenant_id)
+        setTenantId(data.tenant_id)
+      } catch (error) {
+        console.error('[StudentList] tenantId 로딩 중 예외 발생:', error)
+        setInitError('초기화 중 오류가 발생했습니다.')
+        setLoading(false)
       }
     }
     loadTenantId()
@@ -231,6 +268,22 @@ export function StudentList() {
         )
       )
     : students
+
+  // 초기화 에러가 있을 경우 에러 메시지 표시
+  if (initError) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-center p-8 border border-destructive/20 bg-destructive/10 rounded-lg">
+          <div className="text-center">
+            <p className="text-destructive font-medium mb-2">{initError}</p>
+            <p className="text-sm text-muted-foreground">
+              페이지를 새로고침하거나 다시 로그인해주세요.
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4">

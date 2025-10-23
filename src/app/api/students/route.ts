@@ -2,26 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import {
   createGetStudentUseCase,
-  createCreateStudentUseCase
 } from '@/application/factories/studentUseCaseFactory'
 import { handleApiError } from '@/lib/error-handlers'
-import * as z from 'zod'
-
-const createStudentSchema = z.object({
-  tenantId: z.string().uuid(),
-  name: z.string().min(2),
-  birthDate: z.string().optional().transform(val => val ? new Date(val) : null),
-  gender: z.enum(['male', 'female', 'other']).optional(),
-  studentPhone: z.string().optional(),
-  profileImageUrl: z.string().optional(),
-  grade: z.string().optional(),
-  school: z.string().optional(),
-  enrollmentDate: z.string().optional().transform(val => val ? new Date(val) : new Date()),
-  notes: z.string().optional(),
-  commuteMethod: z.string().optional(),
-  marketingSource: z.string().optional(),
-  kioskPin: z.string().optional(),
-})
 
 /**
  * GET /api/students
@@ -74,54 +56,8 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/students
- * Create a new student
  *
- * @deprecated This endpoint is no longer used. Use the AddStudentDialog component instead,
- * which provides a better UX with guardian management and handles student creation directly.
+ * REMOVED: This endpoint has been replaced by Server Actions.
+ * Use createStudent() from @/app/actions/students instead.
+ * See: src/app/actions/students.ts
  */
-export async function POST(request: NextRequest) {
-  try {
-    const supabase = await createClient()
-
-    // Check authentication
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Get tenant ID from user metadata
-    const { data: userData } = await supabase
-      .from('users')
-      .select('tenant_id')
-      .eq('id', user.id)
-      .single()
-
-    if (!userData?.tenant_id) {
-      return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
-    }
-
-    // Parse and validate request body
-    const body = await request.json()
-    const validated = createStudentSchema.parse({
-      ...body,
-      tenantId: userData.tenant_id,
-    })
-
-    const useCase = await createCreateStudentUseCase()
-    const student = await useCase.execute(validated)
-
-    return NextResponse.json(student.toDTO(), { status: 201 })
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation failed', details: error.issues },
-        { status: 400 }
-      )
-    }
-
-    return handleApiError(error)
-  }
-}
