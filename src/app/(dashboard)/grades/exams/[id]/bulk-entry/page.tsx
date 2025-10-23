@@ -48,7 +48,7 @@ interface ScoreEntry {
 export default function BulkGradeEntryPage() {
   // All Hooks must be called before any early returns
   const params = useParams()
-  const examId = params.examId as string
+  const examId = params.id as string
   const router = useRouter()
   const { toast } = useToast()
   const supabase = createClient()
