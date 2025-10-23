@@ -5,7 +5,7 @@
  * 보기 모드와 편집 모드에서 동일한 레이아웃을 사용합니다.
  */
 
-import { type DashboardWidgetId } from "@/types/dashboard"
+import { type DashboardWidgetId } from "@/core/types/dashboard"
 
 export type LayoutSectionType = 'kpi-grid' | 'two-column' | 'full-width'
 

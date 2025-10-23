@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Input } from '@ui/input'
+import { Badge } from '@ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
 import {
   Table,
   TableBody,
@@ -12,7 +12,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
+} from '@ui/table'
 import { Search, CreditCard, Building2, Banknote, Download } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useServerPagination } from '@/hooks/use-pagination'
@@ -24,9 +24,9 @@ import {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
-} from '@/components/ui/pagination'
-import { Button } from '@/components/ui/button'
-import type { PaymentMethod } from '@/types/payment'
+} from '@ui/pagination'
+import { Button } from '@ui/button'
+import type { PaymentMethod } from '@/core/types/payment'
 import { ReceiptDialog } from './receipt-dialog'
 
 interface PaymentHistoryItem {

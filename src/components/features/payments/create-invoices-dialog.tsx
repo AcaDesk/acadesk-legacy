@@ -5,10 +5,10 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
+import { Button } from '@ui/button'
+import { Input } from '@ui/input'
+import { Label } from '@ui/label'
+import { Checkbox } from '@ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -16,7 +16,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
+} from '@ui/dialog'
 import {
   Table,
   TableBody,
@@ -24,11 +24,11 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
+} from '@ui/table'
 import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { FileText, AlertCircle, Loader2 } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
+import { Badge } from '@ui/badge'
 
 const createInvoicesSchema = z.object({
   billing_month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, '올바른 월 형식이 아닙니다'),

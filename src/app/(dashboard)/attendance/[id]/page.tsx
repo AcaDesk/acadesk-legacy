@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { AttendanceRepository } from '@/infrastructure/database/attendance.repository';
+import { AttendanceRepository } from '@infra/db/repositories/attendance.repository';
 import { AttendanceCheckPage } from '@/components/features/attendance/AttendanceCheckPage';
 
 // Force dynamic rendering (uses cookies for authentication)

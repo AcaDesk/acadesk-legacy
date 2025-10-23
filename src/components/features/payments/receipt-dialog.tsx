@@ -8,9 +8,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
+} from '@ui/dialog'
+import { Button } from '@ui/button'
+import { Separator } from '@ui/separator'
 import { Download, Printer, Mail } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 

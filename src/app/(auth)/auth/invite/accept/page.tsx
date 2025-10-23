@@ -16,8 +16,8 @@ import { useAuthStage } from '@/hooks/use-auth-stage'
 import { getAuthStageErrorMessage } from '@/lib/auth/auth-errors'
 import { inviteTokenStore } from '@/lib/auth/invite-token-store'
 import { AuthLoadingState } from '@/components/auth/AuthLoadingState'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 
 function InviteAcceptContent() {
   const router = useRouter()

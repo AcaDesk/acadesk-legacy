@@ -13,8 +13,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+} from '@ui/dialog'
+import { Button } from '@ui/button'
 import {
   Form,
   FormControl,
@@ -23,28 +23,28 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form'
+} from '@ui/form'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { Calendar } from '@/components/ui/calendar'
+} from '@ui/select'
+import { Input } from '@ui/input'
+import { Textarea } from '@ui/textarea'
+import { Calendar } from '@ui/calendar'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover'
+} from '@ui/popover'
 import { useToast } from '@/hooks/use-toast'
 import { CalendarIcon, Loader2, Send, Eye } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { generateAndSendReport } from '@/app/actions/reports'
 import { getErrorMessage } from '@/lib/error-handlers'
-import type { StudentDetail } from '@/types/studentDetail.types'
+import type { StudentDetail } from '@/core/types/studentDetail.types'
 
 const reportSchema = z.object({
   startDate: z.date({

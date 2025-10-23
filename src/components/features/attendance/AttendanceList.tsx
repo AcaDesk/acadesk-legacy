@@ -4,13 +4,13 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Button } from '@ui/button';
+import { Badge } from '@ui/badge';
 import { AttendanceSessionForm } from './AttendanceSessionForm';
 import type {
   AttendanceSessionWithClass,
   CreateSessionInput,
-} from '@/types/attendance';
+} from '@/core/types/attendance';
 import { createAttendanceSession } from '@/app/actions/attendance';
 
 interface AttendanceListProps {

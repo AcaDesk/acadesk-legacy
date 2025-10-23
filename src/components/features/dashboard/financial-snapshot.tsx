@@ -1,7 +1,7 @@
 "use client"
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@ui/card"
+import { Badge } from "@ui/badge"
 import Link from "next/link"
 import { DollarSign, TrendingUp, TrendingDown, AlertCircle } from "lucide-react"
 

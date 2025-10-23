@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { PageWrapper } from '@/components/layout/page-wrapper'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@ui/button'
+import { Input } from '@ui/input'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import {
   Dialog,
   DialogContent,
@@ -13,7 +13,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
+} from '@ui/dialog'
 import {
   Form,
   FormControl,
@@ -22,9 +22,9 @@ import {
   FormLabel,
   FormMessage,
   FormDescription,
-} from '@/components/ui/form'
-import { Textarea } from '@/components/ui/textarea'
-import { Switch } from '@/components/ui/switch'
+} from '@ui/form'
+import { Textarea } from '@ui/textarea'
+import { Switch } from '@ui/switch'
 import {
   Table,
   TableBody,
@@ -32,8 +32,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
+} from '@ui/table'
+import { Badge } from '@ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -45,12 +45,12 @@ import {
   Trash2,
   Loader2,
 } from 'lucide-react'
-import type { Subject, SubjectStatistics } from '@/types/subject'
-import { DEFAULT_SUBJECT_COLORS } from '@/types/subject'
+import type { Subject, SubjectStatistics } from '@/core/types/subject'
+import { DEFAULT_SUBJECT_COLORS } from '@/core/types/subject'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
-import { SubjectRepository } from '@/infrastructure/database/subject.repository'
+import { SubjectRepository } from '@infra/db/repositories/subject.repository'
 import { getErrorMessage } from '@/lib/error-handlers'
 
 const subjectFormSchema = z.object({

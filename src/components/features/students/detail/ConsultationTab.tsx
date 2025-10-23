@@ -1,18 +1,18 @@
 'use client'
 
 import { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
+import { Button } from '@ui/button'
+import { Badge } from '@ui/badge'
+import { Textarea } from '@ui/textarea'
+import { Label } from '@ui/label'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
+} from '@ui/select'
 import {
   Dialog,
   DialogContent,
@@ -20,16 +20,16 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@/components/ui/dialog'
-import { Calendar } from '@/components/ui/calendar'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+} from '@ui/dialog'
+import { Calendar } from '@ui/calendar'
+import { Popover, PopoverContent, PopoverTrigger } from '@ui/popover'
 import { format as formatDate } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { Calendar as CalendarIcon, Plus, MessageSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
-import { EmptyState } from '@/components/ui/empty-state'
-import type { Consultation } from '@/types/studentDetail.types'
+import { EmptyState } from '@ui/empty-state'
+import type { Consultation } from '@/core/types/studentDetail.types'
 import { createConsultation } from '@/app/actions/consultations'
 
 interface ConsultationTabProps {

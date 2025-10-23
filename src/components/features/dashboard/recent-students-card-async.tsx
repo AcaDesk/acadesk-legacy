@@ -1,8 +1,8 @@
 import { Suspense } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
+import { Badge } from '@ui/badge'
+import { Button } from '@ui/button'
+import { Avatar, AvatarFallback } from '@ui/avatar'
 import Link from 'next/link'
 import {
   ArrowRight,
@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { WidgetErrorBoundary } from '@/components/features/dashboard/widget-error-boundary'
-import { WidgetSkeleton } from '@/components/ui/widget-skeleton'
+import { WidgetSkeleton } from '@ui/widget-skeleton'
 
 /**
  * 비동기 최근 등록 학생 카드 (Server Component)

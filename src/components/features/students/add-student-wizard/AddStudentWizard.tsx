@@ -10,14 +10,14 @@ import { useCurrentUser } from '@/hooks/use-current-user'
 import { useToast } from '@/hooks/use-toast'
 import { hashKioskPin } from '@/app/actions/kiosk'
 import { GUARDIAN_MODES } from '@/lib/constants'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@ui/dialog'
+import { Button } from '@ui/button'
 import { StepIndicator } from './StepIndicator'
 import { Step1_StudentInfo } from './Step1_StudentInfo'
 import { Step2_GuardianInfo } from './Step2_GuardianInfo'
 import { Step3_AdditionalInfo } from './Step3_AdditionalInfo'
 import { studentWizardSchema, type StudentWizardFormValues, type StepInfo } from './types'
-import { createGetTenantCodesUseCase } from '@/application/factories/tenantUseCaseFactory.client'
+import { createGetTenantCodesUseCase } from '@core/application/factories/tenantUseCaseFactory.client'
 
 // ============================================================================
 // Props

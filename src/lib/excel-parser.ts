@@ -7,8 +7,8 @@ import * as XLSX from 'xlsx'
 import type {
   StudentImportData,
   GuardianImportData,
-} from '@/domain/entities/StudentImport'
-import { StudentImportItem } from '@/domain/entities/StudentImport'
+} from '@core/domain/entities/StudentImport'
+import { StudentImportItem } from '@core/domain/entities/StudentImport'
 
 /**
  * 필수 헤더 목록

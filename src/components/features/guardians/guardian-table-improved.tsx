@@ -23,8 +23,8 @@ import {
 } from '@tabler/icons-react'
 import { Eye, Edit, Trash2, Search, X } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Button } from '@ui/button'
+import { Input } from '@ui/input'
 import {
   Table,
   TableBody,
@@ -32,15 +32,15 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
+} from '@ui/table'
+import { Badge } from '@ui/badge'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
+} from '@ui/select'
 import { cn } from '@/lib/utils'
 
 export interface Guardian {

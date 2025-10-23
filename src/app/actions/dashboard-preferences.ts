@@ -11,7 +11,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { verifyPermission } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
-import type { DashboardPreferences } from '@/types/dashboard'
+import type { DashboardPreferences } from '@/core/types/dashboard'
 
 // ============================================================================
 // Types & Validation Schemas

@@ -2,7 +2,7 @@
 
 import { ReactNode } from 'react'
 import { ErrorBoundary } from 'react-error-boundary'
-import { ErrorFallback } from '@/components/ui/error-fallback'
+import { ErrorFallback } from '@ui/error-fallback'
 import { PageWrapper } from './page-wrapper'
 
 interface PageErrorBoundaryProps {

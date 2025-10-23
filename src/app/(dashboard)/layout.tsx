@@ -10,7 +10,7 @@ import { Breadcrumbs } from "@/components/layout/breadcrumbs"
 import { HelpMenu } from "@/components/layout/help-menu"
 import { NotificationPopover } from "@/components/layout/notification-popover"
 import { ThemeToggle } from "@/components/layout/theme-toggle"
-import { Button } from "@/components/ui/button"
+import { Button } from "@ui/button"
 import { useCurrentUser } from "@/hooks/use-current-user"
 import { useLogout } from "@/hooks/use-logout"
 import {
@@ -20,13 +20,13 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@ui/dropdown-menu"
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
-} from "@/components/ui/sheet"
+} from "@ui/sheet"
 import { useMediaQuery } from "@/hooks/use-media-query"
 
 interface DashboardLayoutProps {

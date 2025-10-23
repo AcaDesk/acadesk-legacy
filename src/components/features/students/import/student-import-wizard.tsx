@@ -5,17 +5,17 @@
  */
 
 import { useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
+import { Alert, AlertDescription, AlertTitle } from '@ui/alert'
+import { Button } from '@ui/button'
 import { InfoIcon, CheckCircle } from 'lucide-react'
 import { TemplateDownloadButton } from './template-download-button'
 import { FileUpload } from './file-upload'
 import { ImportPreview } from './import-preview'
 import { parseExcelFile, validateImportItems, validateExcelHeaders, downloadErrorReport } from '@/lib/excel-parser'
-import { createPreviewStudentImportUseCase, createConfirmStudentImportUseCase } from '@/application/factories/studentImportUseCaseFactory.client'
-import type { StudentImportItem } from '@/domain/entities/StudentImport'
-import type { StudentImportPreview } from '@/domain/value-objects/StudentImportPreview'
+import { createPreviewStudentImportUseCase, createConfirmStudentImportUseCase } from '@core/application/factories/studentImportUseCaseFactory.client'
+import type { StudentImportItem } from '@core/domain/entities/StudentImport'
+import type { StudentImportPreview } from '@core/domain/value-objects/StudentImportPreview'
 
 type Step = 'upload' | 'preview' | 'complete'
 

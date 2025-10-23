@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
+import { Badge } from '@ui/badge'
+import { Skeleton } from '@ui/skeleton'
 import { Users, ExternalLink } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { differenceInYears } from 'date-fns'

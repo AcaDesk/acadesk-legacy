@@ -8,10 +8,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
+} from '@ui/dialog'
+import { Button } from '@ui/button'
+import { Textarea } from '@ui/textarea'
+import { Badge } from '@ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { Loader2, Check, Clock, X, FileQuestion } from 'lucide-react'

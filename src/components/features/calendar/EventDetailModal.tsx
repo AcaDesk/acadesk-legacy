@@ -8,10 +8,10 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
+} from '@ui/dialog'
+import { Badge } from '@ui/badge'
+import { Button } from '@ui/button'
+import { Separator } from '@ui/separator'
 import {
   Calendar,
   Clock,
@@ -22,8 +22,8 @@ import {
   Edit,
   Trash2,
 } from 'lucide-react'
-import type { CalendarEvent, EventType } from '@/types/calendar'
-import { EVENT_TYPE_CONFIG } from '@/types/calendar'
+import type { CalendarEvent, EventType } from '@/core/types/calendar'
+import { EVENT_TYPE_CONFIG } from '@/core/types/calendar'
 
 interface EventDetailModalProps {
   event: CalendarEvent | null

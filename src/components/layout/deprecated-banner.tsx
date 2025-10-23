@@ -1,7 +1,7 @@
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription, AlertTitle } from "@ui/alert"
+import { Badge } from "@ui/badge"
 import { AlertOctagon, Calendar, ArrowRight } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Button } from "@ui/button"
 import Link from "next/link"
 
 interface DeprecatedBannerProps {

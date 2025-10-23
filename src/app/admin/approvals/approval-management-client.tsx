@@ -9,8 +9,8 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+} from "@ui/card"
+import { Button } from "@ui/button"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,8 +20,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { Badge } from "@/components/ui/badge"
+} from "@ui/alert-dialog"
+import { Badge } from "@ui/badge"
 import {
   Table,
   TableBody,
@@ -29,8 +29,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+} from "@ui/table"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs"
 import { CheckCircle, XCircle, Clock, User, Building2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { approveUser, rejectUser } from "@/app/actions/approve-user"

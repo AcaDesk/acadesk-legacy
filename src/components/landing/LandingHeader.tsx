@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { GraduationCap } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Button } from "@ui/button"
 import { User } from "@supabase/supabase-js"
 
 interface LandingHeaderProps {

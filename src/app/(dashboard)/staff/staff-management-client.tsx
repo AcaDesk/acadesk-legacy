@@ -9,8 +9,8 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+} from "@ui/card"
+import { Button } from "@ui/button"
 import {
   Dialog,
   DialogContent,
@@ -19,17 +19,17 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+} from "@ui/dialog"
+import { Input } from "@ui/input"
+import { Label } from "@ui/label"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
+} from "@ui/select"
+import { Badge } from "@ui/badge"
 import {
   Table,
   TableBody,
@@ -37,8 +37,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+} from "@ui/table"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs"
 import { UserPlus, Copy } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { inviteStaff } from "@/app/actions/invitations"

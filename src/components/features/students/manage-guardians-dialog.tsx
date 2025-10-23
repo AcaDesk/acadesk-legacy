@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Button } from '@ui/button'
+import { Label } from '@ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
 import { getErrorMessage } from '@/lib/error-handlers'
 import {
   createGetStudentGuardiansUseCase,
@@ -14,7 +14,7 @@ import {
   createCreateAndLinkGuardianUseCase,
   createLinkGuardianToStudentUseCase,
   createUnlinkGuardianFromStudentUseCase,
-} from '@/application/factories/guardianUseCaseFactory.client'
+} from '@core/application/factories/guardianUseCaseFactory.client'
 import {
   Dialog,
   DialogContent,
@@ -22,7 +22,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
+} from '@ui/dialog'
 import {
   Command,
   CommandEmpty,
@@ -30,12 +30,12 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from '@/components/ui/command'
+} from '@ui/command'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover'
+} from '@ui/popover'
 import {
   Table,
   TableBody,
@@ -43,14 +43,14 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
+} from '@ui/table'
 import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { Users, UserPlus, Check, ChevronsUpDown, Trash2, Loader2 } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Badge } from '@ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@ui/tabs'
 import { GuardianFormStandalone, type GuardianFormValues } from '@/components/features/guardians/guardian-form'
-import type { GuardianRelation, GuardianWithUser } from '@/types/guardian'
+import type { GuardianRelation, GuardianWithUser } from '@/core/types/guardian'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'motion/react'
 

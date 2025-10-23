@@ -3,10 +3,10 @@
 import { useState } from 'react'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/page-error-boundary'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Button } from '@/components/ui/button'
-// import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@ui/tabs'
+import { Button } from '@ui/button'
+// import { Badge } from '@ui/badge'
 import {
   CreditCard,
   Clock,

@@ -1,13 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
+import { Badge } from '@ui/badge'
+import { Skeleton } from '@ui/skeleton'
 import { BookOpen } from 'lucide-react'
 import { format as formatDate } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { createGetRecentClassSessionsUseCase } from '@/application/factories/classUseCaseFactory.client'
+import { createGetRecentClassSessionsUseCase } from '@core/application/factories/classUseCaseFactory.client'
 
 interface ClassSession {
   id: string

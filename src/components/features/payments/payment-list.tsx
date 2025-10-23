@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Button } from '@ui/button'
+import { Input } from '@ui/input'
+import { Badge } from '@ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
 import {
   Table,
   TableBody,
@@ -14,7 +14,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
+} from '@ui/table'
 import { Search, CreditCard, AlertCircle, CheckCircle, Clock, DollarSign } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useServerPagination } from '@/hooks/use-pagination'
@@ -26,8 +26,8 @@ import {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
-} from '@/components/ui/pagination'
-import type { InvoiceStatus } from '@/types/payment'
+} from '@ui/pagination'
+import type { InvoiceStatus } from '@/core/types/payment'
 
 interface InvoiceListItem {
   id: string

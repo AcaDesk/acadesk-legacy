@@ -1,11 +1,11 @@
 import { Suspense } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
+import { Badge } from '@ui/badge'
 import Link from 'next/link'
 import { DollarSign, TrendingUp, TrendingDown, AlertCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { WidgetErrorBoundary } from '@/components/features/dashboard/widget-error-boundary'
-import { WidgetSkeleton } from '@/components/ui/widget-skeleton'
+import { WidgetSkeleton } from '@ui/widget-skeleton'
 
 /**
  * 비동기 재무 현황 위젯 (Server Component)

@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { createGetClassesWithDetailsUseCase } from '@/application/factories/classUseCaseFactory.client'
+import { createGetClassesWithDetailsUseCase } from '@core/application/factories/classUseCaseFactory.client'
 import { motion } from 'framer-motion'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
+import { Button } from '@ui/button'
+import { Badge } from '@ui/badge'
 import {
   GraduationCap,
   Plus,
@@ -31,14 +31,14 @@ import {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
-} from '@/components/ui/pagination'
+} from '@ui/pagination'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Input } from '@/components/ui/input'
+} from '@ui/dropdown-menu'
+import { Input } from '@ui/input'
 
 interface ClassData {
   id: string

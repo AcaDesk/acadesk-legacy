@@ -4,8 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { motion } from 'motion/react'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Badge } from '@ui/badge'
+import { Button } from '@ui/button'
 import { getErrorMessage } from '@/lib/error-handlers'
 import {
   DropdownMenu,
@@ -13,15 +13,15 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+} from '@ui/dropdown-menu'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { ProfileImageUpload } from '@/components/ui/profile-image-upload'
+} from '@ui/dialog'
+import { ProfileImageUpload } from '@ui/profile-image-upload'
 import {
   ChevronRight,
   Edit,
@@ -39,7 +39,7 @@ import { getStudentAvatar } from '@/lib/avatar'
 import { differenceInYears } from 'date-fns'
 import { useToast } from '@/hooks/use-toast'
 import { RoleGuard } from '@/components/auth/role-guard'
-import type { StudentDetail } from '@/types/studentDetail.types'
+import type { StudentDetail } from '@/core/types/studentDetail.types'
 import { updateStudent, deleteStudent } from '@/app/actions/students'
 import { SendReportDialog } from './SendReportDialog'
 

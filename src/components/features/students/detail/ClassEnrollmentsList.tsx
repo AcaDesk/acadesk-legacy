@@ -1,9 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
+import { Badge } from '@ui/badge'
+import { Button } from '@ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,7 +11,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+} from '@ui/dropdown-menu'
 import {
   Dialog,
   DialogContent,
@@ -19,18 +19,18 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
+} from '@ui/dialog'
+import { Label } from '@ui/label'
+import { Textarea } from '@ui/textarea'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import { Calendar } from '@/components/ui/calendar'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+} from '@ui/select'
+import { Calendar } from '@ui/calendar'
+import { Popover, PopoverContent, PopoverTrigger } from '@ui/popover'
 import { BookOpen, MoreVertical, Calendar as CalendarIcon } from 'lucide-react'
 import { format as formatDate } from 'date-fns'
 import { ko } from 'date-fns/locale'

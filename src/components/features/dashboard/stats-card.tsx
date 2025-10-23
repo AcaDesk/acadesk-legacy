@@ -1,8 +1,8 @@
 "use client"
 
 import { TrendingUp, TrendingDown, type LucideIcon } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "@ui/card"
+import { Badge } from "@ui/badge"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 

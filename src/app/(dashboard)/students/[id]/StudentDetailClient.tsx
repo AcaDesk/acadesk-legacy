@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'motion/react'
 import { PageWrapper } from '@/components/layout/page-wrapper'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@ui/tabs'
 import { StudentHeader } from '@/components/features/students/detail/StudentHeader'
 import { OverviewTab } from '@/components/features/students/detail/OverviewTab'
 import { InfoTab } from '@/components/features/students/detail/InfoTab'
@@ -18,7 +18,7 @@ import { ConsultationTab } from '@/components/features/students/detail/Consultat
 import { ManageClassesDialog } from '@/components/features/students/manage-classes-dialog'
 import { StudentDetailProvider } from '@/hooks/use-student-detail'
 import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/page-error-boundary'
-import type { StudentDetailData, Consultation } from '@/types/studentDetail.types'
+import type { StudentDetailData, Consultation } from '@/core/types/studentDetail.types'
 
 interface StudentDetailClientProps {
   initialData: StudentDetailData

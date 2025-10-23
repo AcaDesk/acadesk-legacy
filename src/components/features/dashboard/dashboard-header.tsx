@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Input } from '@/components/ui/input';
+import { Button } from '@ui/button';
+import { Badge } from '@ui/badge';
+import { Separator } from '@ui/separator';
+import { Input } from '@ui/input';
 import { RefreshCw, Save, X, Plus, Search, Settings2, Layout, LayoutGrid, LayoutList, Focus, Eye } from 'lucide-react';
 import {
   DropdownMenu,
@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
   DropdownMenuLabel,
-} from '@/components/ui/dropdown-menu';
+} from '@ui/dropdown-menu';
 import {
   Dialog,
   DialogContent,
@@ -22,11 +22,11 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
+} from '@ui/dialog';
+import { ScrollArea } from '@ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { pageHeader } from '@/lib/design-system';
-import { LAYOUT_PRESETS, type DashboardPreset } from '@/types/dashboard';
+import { LAYOUT_PRESETS, type DashboardPreset } from '@/core/types/dashboard';
 
 interface DashboardHeaderProps {
   title: string;

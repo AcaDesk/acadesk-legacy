@@ -1,14 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Calendar } from '@/components/ui/calendar'
+import { Button } from '@ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
+import { Calendar } from '@ui/calendar'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover'
+} from '@ui/popover'
 import { Calendar as CalendarIcon, X } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { format } from 'date-fns'
@@ -19,8 +19,8 @@ import {
   createGetUniqueGradesUseCase,
   createGetUniqueSchoolsUseCase,
   createGetStudentsWithDetailsUseCase,
-} from '@/application/factories/studentUseCaseFactory.client'
-import { createGetActiveClassesUseCase } from '@/application/factories/classUseCaseFactory.client'
+} from '@core/application/factories/studentUseCaseFactory.client'
+import { createGetActiveClassesUseCase } from '@core/application/factories/classUseCaseFactory.client'
 import { deleteStudent } from '@/app/actions/students'
 
 export function StudentList() {

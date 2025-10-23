@@ -14,14 +14,14 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2, Mail, ShieldCheck } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Button } from '@ui/button'
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card'
+} from '@ui/card'
 import { handleAuthCallback } from '@/app/actions/auth'
 import { useToast } from '@/hooks/use-toast'
 

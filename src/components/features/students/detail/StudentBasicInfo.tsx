@@ -1,6 +1,6 @@
 'use client'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
 import {
   GraduationCap,
   Phone,
@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import { format as formatDate } from 'date-fns'
 import { getGuardianRelationshipLabel } from '@/lib/constants'
-import type { StudentDetail } from '@/types/studentDetail.types'
+import type { StudentDetail } from '@/core/types/studentDetail.types'
 
 // Extended student type with optional fields
 interface ExtendedStudentDetail extends StudentDetail {

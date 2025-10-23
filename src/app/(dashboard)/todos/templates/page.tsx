@@ -3,11 +3,11 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
+import { Button } from '@ui/button'
+import { Input } from '@ui/input'
+import { Badge } from '@ui/badge'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
+import { Separator } from '@ui/separator'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkBreaks from 'remark-breaks'
@@ -20,21 +20,21 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
+} from '@ui/select'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+} from '@ui/dropdown-menu'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
+} from '@ui/dialog'
 import {
   Plus,
   Edit,
@@ -58,11 +58,11 @@ import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { DAYS_OF_WEEK } from '@/lib/constants'
-import { createGetStudentsUseCase } from '@/application/factories/studentUseCaseFactory.client'
+import { createGetStudentsUseCase } from '@core/application/factories/studentUseCaseFactory.client'
 import {
   createGetTodoTemplatesUseCase,
-} from '@/application/factories/todoTemplateUseCaseFactory.client'
-import { createCreateTodosForStudentsUseCase } from '@/application/factories/todoUseCaseFactory.client'
+} from '@core/application/factories/todoTemplateUseCaseFactory.client'
+import { createCreateTodosForStudentsUseCase } from '@core/application/factories/todoUseCaseFactory.client'
 import { getErrorMessage } from '@/lib/error-handlers'
 
 interface TodoTemplate {

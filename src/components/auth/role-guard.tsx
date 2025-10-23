@@ -2,8 +2,8 @@
 
 import { ReactNode } from 'react'
 import { useCurrentUser } from '@/hooks/use-current-user'
-import type { RoleCode } from '@/types/role'
-import { Skeleton } from '@/components/ui/skeleton'
+import type { RoleCode } from '@/core/types/role'
+import { Skeleton } from '@ui/skeleton'
 
 interface RoleGuardProps {
   /**

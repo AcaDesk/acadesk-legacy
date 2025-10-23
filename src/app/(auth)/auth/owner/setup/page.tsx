@@ -21,10 +21,10 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+} from '@ui/card'
+import { Button } from '@ui/button'
+import { Input } from '@ui/input'
+import { Label } from '@ui/label'
 import { GraduationCap, CheckCircle, Loader2 } from 'lucide-react'
 import { AuthLoadingState } from '@/components/auth/AuthLoadingState'
 import { completeOwnerOnboarding } from '@/app/actions/onboarding'

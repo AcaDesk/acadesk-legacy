@@ -5,21 +5,21 @@
  */
 
 import { useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
+import { Badge } from '@ui/badge'
+import { Button } from '@ui/button'
+import { RadioGroup, RadioGroupItem } from '@ui/radio-group'
+import { Label } from '@ui/label'
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from '@/components/ui/accordion'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+} from '@ui/accordion'
+import { Alert, AlertDescription, AlertTitle } from '@ui/alert'
 import { CheckCircle, AlertCircle, XCircle } from 'lucide-react'
-import type { StudentImportPreview } from '@/domain/value-objects/StudentImportPreview'
-import type { StudentImportItem } from '@/domain/entities/StudentImport'
+import type { StudentImportPreview } from '@core/domain/value-objects/StudentImportPreview'
+import type { StudentImportItem } from '@core/domain/entities/StudentImport'
 
 interface ImportPreviewProps {
   preview: StudentImportPreview

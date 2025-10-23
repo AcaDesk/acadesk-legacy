@@ -3,8 +3,8 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { Plus } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/page-error-boundary'
 import { GuardianList } from '@/components/features/guardians/guardian-list'

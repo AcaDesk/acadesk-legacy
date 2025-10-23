@@ -6,12 +6,12 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card'
+} from '@ui/card'
 import {
   ChartConfig,
   ChartContainer,
   ChartTooltip,
-} from '@/components/ui/chart'
+} from '@ui/chart'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell } from 'recharts'
 
 export interface StudentCompletionData {

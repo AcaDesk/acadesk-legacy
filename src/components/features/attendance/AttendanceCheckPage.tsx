@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@ui/button';
+import { Badge } from '@ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@ui/card';
 import { AttendanceCheckDialog } from './attendance-check-dialog';
 import { ContactGuardianDialog } from './contact-guardian-dialog';
 import { ClipboardCheck, Clock, Play, CheckCircle2, Send, Users, ChevronRight } from 'lucide-react';
@@ -15,11 +15,11 @@ import { getErrorMessage } from '@/lib/error-handlers';
 import {
   createUpdateAttendanceSessionStatusUseCase,
   createBulkNotifyAbsentStudentsUseCase,
-} from '@/application/factories/attendanceUseCaseFactory.client';
+} from '@core/application/factories/attendanceUseCaseFactory.client';
 import type {
   AttendanceSessionWithClass,
   AttendanceWithStudent,
-} from '@/types/attendance';
+} from '@/core/types/attendance';
 
 interface AttendanceCheckPageProps {
   session: AttendanceSessionWithClass;

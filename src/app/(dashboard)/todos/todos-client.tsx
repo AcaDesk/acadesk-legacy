@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useTransition } from 'react'
 import Link from 'next/link'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Input } from '@/components/ui/input'
-import { EmptyState } from '@/components/ui/empty-state'
+import { Button } from '@ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
+import { Badge } from '@ui/badge'
+import { Tabs, TabsList, TabsTrigger } from '@ui/tabs'
+import { Input } from '@ui/input'
+import { EmptyState } from '@ui/empty-state'
 import {
   Table,
   TableBody,
@@ -15,7 +15,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
+} from '@ui/table'
 import {
   Plus,
   CheckCircle2,
@@ -26,7 +26,7 @@ import {
   ListTodo,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import type { StudentTodoWithStudent } from '@/types/todo.types'
+import type { StudentTodoWithStudent } from '@/core/types/todo.types'
 import { verifyTodoAction, deleteTodoAction } from './actions'
 
 interface TodosClientProps {

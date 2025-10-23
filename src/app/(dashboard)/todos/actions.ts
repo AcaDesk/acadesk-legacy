@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import {
   createVerifyTodoUseCase,
   createDeleteTodoUseCase,
-} from '@/application/factories/todoUseCaseFactory.server'
+} from '@core/application/factories/todoUseCaseFactory.server'
 
 /**
  * TODO 검증 Server Action

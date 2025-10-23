@@ -8,10 +8,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
+} from '@ui/dialog'
+import { Button } from '@ui/button'
+import { Textarea } from '@ui/textarea'
+import { Badge } from '@ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { Loader2, Phone, MessageSquare, Mail, User } from 'lucide-react'
@@ -19,7 +19,7 @@ import { getErrorMessage } from '@/lib/error-handlers'
 import {
   createGetGuardiansForContactUseCase,
   createLogGuardianContactUseCase,
-} from '@/application/factories/guardianUseCaseFactory.client'
+} from '@core/application/factories/guardianUseCaseFactory.client'
 
 interface Guardian {
   id: string

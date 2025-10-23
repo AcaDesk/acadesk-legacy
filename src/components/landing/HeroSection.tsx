@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import { ArrowRight, Sparkles, Clock } from "lucide-react"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
+import { Button } from "@ui/button"
 
 // 출시일: 현재로부터 7일 후
 const LAUNCH_DATE = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)

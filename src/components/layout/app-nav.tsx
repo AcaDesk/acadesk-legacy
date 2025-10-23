@@ -27,18 +27,18 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { isFeatureAvailable, type FeatureKey } from "@/lib/features.config"
-import { Separator } from "@/components/ui/separator"
+import { Separator } from "@ui/separator"
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@/components/ui/accordion"
+} from "@ui/accordion"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover"
+} from "@ui/popover"
 
 // 네비게이션 아이템 타입
 interface NavItem {

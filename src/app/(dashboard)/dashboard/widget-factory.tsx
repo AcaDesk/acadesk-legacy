@@ -12,7 +12,7 @@ import { CalendarWidget } from "@/components/features/dashboard/calendar-widget"
 import { QuickActions } from "@/components/features/dashboard/quick-actions"
 import { QuickStats } from "@/components/features/dashboard/quick-stats"
 import { RecentActivityFeed } from "@/components/features/dashboard/recent-activity-feed"
-import type { DashboardWidgetId } from "@/types/dashboard"
+import type { DashboardWidgetId } from "@/core/types/dashboard"
 import type {
   RecentStudent,
   TodaySession,
