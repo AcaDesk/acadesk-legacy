@@ -413,12 +413,12 @@ export async function bulkNotifyAbsentStudents(
 
     for (const notification of notifications) {
       try {
-        // 학생의 보호자 찾기
+        // 학생의 보호자 찾기 (FK 힌트 사용)
         const { data: guardians, error: guardianError } = await supabase
           .from('student_guardians')
           .select(`
             guardian_id,
-            guardians (
+            guardians!student_guardians_guardian_id_fkey (
               user_id,
               users (
                 id,
