@@ -12,11 +12,6 @@ import {
   createToggleTodoCompleteForKioskUseCase,
 } from '@/application/factories/kioskUseCaseFactory.server'
 
-// DTO types export
-export type { StudentDTO, AuthResult } from '@/application/use-cases/kiosk/AuthenticateWithPinUseCase.server'
-export type { TodoDTO, TodosResult } from '@/application/use-cases/kiosk/GetStudentTodosForTodayUseCase'
-export type { ToggleResult } from '@/application/use-cases/kiosk/ToggleTodoCompleteForKioskUseCase'
-
 // Legacy types for backward compatibility
 export interface Student {
   id: string
