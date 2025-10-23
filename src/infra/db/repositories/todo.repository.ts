@@ -10,7 +10,7 @@ import { Todo } from '@core/domain/entities/Todo'
 import { Priority } from '@core/domain/value-objects/Priority'
 import { DatabaseError, NotFoundError } from '@/lib/error-types'
 import { logError } from '@/lib/error-handlers'
-import { SupabaseDataSource } from '../data-sources/SupabaseDataSource'
+import { SupabaseDataSource } from '../datasource/SupabaseDataSource'
 
 export class TodoRepository implements ITodoRepository {
   private dataSource: IDataSource

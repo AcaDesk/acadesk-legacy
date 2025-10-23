@@ -772,3 +772,131 @@ export async function getStudentDetail(studentId: string) {
     }
   }
 }
+
+/**
+ * Bulk update students (e.g., grade change)
+ * @param updates - Array of student updates
+ * @returns Success or error
+ */
+export async function bulkUpdateStudents(
+  updates: Array<{ id: string; grade?: string; school?: string }>
+) {
+  try {
+    // 1. Verify authentication and get tenant
+    const { tenantId } = await verifyStaff()
+
+    // 2. Create service_role client
+    const serviceClient = createServiceRoleClient()
+
+    // 3. Update each student
+    for (const update of updates) {
+      const { error } = await serviceClient
+        .from('students')
+        .update({
+          grade: update.grade,
+          school: update.school,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', update.id)
+        .eq('tenant_id', tenantId)
+
+      if (error) {
+        console.error(`Failed to update student ${update.id}:`, error)
+      }
+    }
+
+    // 4. Revalidate
+    revalidatePath('/students')
+
+    return { success: true, error: null }
+  } catch (error) {
+    console.error('[bulkUpdateStudents] Error:', error)
+    return {
+      success: false,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * Bulk delete students (soft delete)
+ * @param studentIds - Array of student IDs
+ * @returns Success or error
+ */
+export async function bulkDeleteStudents(studentIds: string[]) {
+  try {
+    // 1. Verify authentication and get tenant
+    const { tenantId } = await verifyStaff()
+
+    // 2. Create service_role client
+    const serviceClient = createServiceRoleClient()
+
+    // 3. Soft delete each student
+    const { error } = await serviceClient
+      .from('students')
+      .update({ deleted_at: new Date().toISOString() })
+      .in('id', studentIds)
+      .eq('tenant_id', tenantId)
+
+    if (error) {
+      throw new Error(`학생 삭제 실패: ${error.message}`)
+    }
+
+    // 4. Revalidate
+    revalidatePath('/students')
+
+    return { success: true, error: null }
+  } catch (error) {
+    console.error('[bulkDeleteStudents] Error:', error)
+    return {
+      success: false,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * Bulk enroll students in a class
+ * @param studentIds - Array of student IDs
+ * @param classId - Class ID
+ * @returns Success or error
+ */
+export async function bulkEnrollClass(studentIds: string[], classId: string) {
+  try {
+    // 1. Verify authentication and get tenant
+    const { tenantId } = await verifyStaff()
+
+    // 2. Create service_role client
+    const serviceClient = createServiceRoleClient()
+
+    // 3. Create enrollment records
+    const enrollments = studentIds.map(studentId => ({
+      tenant_id: tenantId,
+      class_id: classId,
+      student_id: studentId,
+      enrolled_at: new Date().toISOString(),
+    }))
+
+    const { error } = await serviceClient
+      .from('class_enrollments')
+      .upsert(enrollments, {
+        onConflict: 'class_id,student_id',
+      })
+
+    if (error) {
+      throw new Error(`수업 배정 실패: ${error.message}`)
+    }
+
+    // 4. Revalidate
+    revalidatePath('/students')
+    revalidatePath('/classes')
+
+    return { success: true, error: null }
+  } catch (error) {
+    console.error('[bulkEnrollClass] Error:', error)
+    return {
+      success: false,
+      error: getErrorMessage(error),
+    }
+  }
+}

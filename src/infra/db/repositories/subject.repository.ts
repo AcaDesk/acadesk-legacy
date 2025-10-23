@@ -9,7 +9,7 @@ import type { IDataSource } from '@core/domain/data-sources/IDataSource'
 import { DatabaseError, NotFoundError } from '@/lib/error-types'
 import { logError } from '@/lib/error-handlers'
 import type { Subject, SubjectStatistics } from '@/core/types/subject'
-import { SupabaseDataSource } from '../data-sources/SupabaseDataSource'
+import { SupabaseDataSource } from '../datasource/SupabaseDataSource'
 
 // ==================== Types ====================
 

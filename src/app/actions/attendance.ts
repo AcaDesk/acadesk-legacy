@@ -180,3 +180,147 @@ export async function deleteAttendanceSession(sessionId: string) {
     }
   }
 }
+
+/**
+ * 출석 세션 상태 업데이트
+ * @param sessionId - 세션 ID
+ * @param status - 새 상태 (scheduled, in_progress, completed, cancelled)
+ * @param actualStartAt - 실제 시작 시간 (선택)
+ * @param actualEndAt - 실제 종료 시간 (선택)
+ * @returns 성공 여부
+ */
+export async function updateAttendanceSessionStatus(
+  sessionId: string,
+  status: string,
+  actualStartAt?: string,
+  actualEndAt?: string
+) {
+  try {
+    // 1. 권한 검증 (staff)
+    const { tenantId } = await verifyStaff()
+
+    // 2. Service Role 클라이언트로 DB 작업
+    const supabase = await createServiceRoleClient()
+
+    const updateData: Record<string, unknown> = {
+      status,
+      updated_at: new Date().toISOString(),
+    }
+
+    if (actualStartAt) {
+      updateData.actual_start_at = actualStartAt
+    }
+    if (actualEndAt) {
+      updateData.actual_end_at = actualEndAt
+    }
+
+    const { error } = await supabase
+      .from('attendance_sessions')
+      .update(updateData)
+      .eq('id', sessionId)
+      .eq('tenant_id', tenantId)
+
+    if (error) {
+      throw new Error(`세션 상태 업데이트 실패: ${error.message}`)
+    }
+
+    // 3. 캐시 무효화
+    revalidatePath(`/attendance/${sessionId}`)
+    revalidatePath('/attendance')
+
+    return { success: true }
+  } catch (error) {
+    console.error('updateAttendanceSessionStatus error:', error)
+    return {
+      success: false,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * 결석 학생 보호자에게 일괄 알림 전송
+ * @param notifications - 알림 데이터 배열
+ * @returns 전송 성공 개수
+ */
+export async function bulkNotifyAbsentStudents(
+  notifications: Array<{
+    student_id: string
+    student_name: string
+    session_id: string
+    session_date: string
+  }>
+) {
+  try {
+    // 1. 권한 검증 (staff)
+    const { tenantId } = await verifyStaff()
+
+    // 2. Service Role 클라이언트로 DB 작업
+    const supabase = await createServiceRoleClient()
+
+    // 각 학생의 보호자 정보를 가져와서 알림 생성
+    let successCount = 0
+
+    for (const notification of notifications) {
+      try {
+        // 학생의 보호자 찾기
+        const { data: guardians, error: guardianError } = await supabase
+          .from('student_guardians')
+          .select(`
+            guardian_id,
+            guardians (
+              user_id,
+              users (
+                id,
+                name,
+                phone
+              )
+            )
+          `)
+          .eq('student_id', notification.student_id)
+          .eq('tenant_id', tenantId)
+          .limit(1)
+
+        if (guardianError || !guardians || guardians.length === 0) {
+          console.warn(`No guardians found for student ${notification.student_id}`)
+          continue
+        }
+
+        // 알림 생성 (notifications 테이블에 저장)
+        const { error: notificationError } = await supabase
+          .from('notifications')
+          .insert({
+            tenant_id: tenantId,
+            user_id: (guardians[0].guardians as any).user_id,
+            type: 'attendance_alert',
+            title: '결석 알림',
+            message: `${notification.student_name} 학생이 ${notification.session_date} 수업에 결석했습니다.`,
+            metadata: {
+              student_id: notification.student_id,
+              session_id: notification.session_id,
+              session_date: notification.session_date,
+            },
+          })
+
+        if (!notificationError) {
+          successCount++
+        }
+      } catch (err) {
+        console.error(`Failed to notify for student ${notification.student_id}:`, err)
+        // 개별 실패는 무시하고 계속 진행
+      }
+    }
+
+    // 3. 캐시 무효화
+    revalidatePath('/attendance')
+
+    return { success: true, successCount }
+  } catch (error) {
+    console.error('bulkNotifyAbsentStudents error:', error)
+    return {
+      success: false,
+      error: getErrorMessage(error),
+      successCount: 0,
+    }
+  }
+}

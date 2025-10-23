@@ -13,9 +13,9 @@ import { ClipboardCheck, Clock, Play, CheckCircle2, Send, Users, ChevronRight } 
 import { useToast } from '@/hooks/use-toast';
 import { getErrorMessage } from '@/lib/error-handlers';
 import {
-  createUpdateAttendanceSessionStatusUseCase,
-  createBulkNotifyAbsentStudentsUseCase,
-} from '@core/application/factories/attendanceUseCaseFactory.client';
+  updateAttendanceSessionStatus,
+  bulkNotifyAbsentStudents,
+} from '@/app/actions/attendance';
 import type {
   AttendanceSessionWithClass,
   AttendanceWithStudent,
@@ -72,13 +72,16 @@ export function AttendanceCheckPage({
   const handleStartSession = async () => {
     setUpdating(true);
     try {
-      // Use Case를 통한 세션 상태 업데이트
-      const useCase = createUpdateAttendanceSessionStatusUseCase();
-      await useCase.execute(
+      // Server Action을 통한 세션 상태 업데이트
+      const result = await updateAttendanceSessionStatus(
         session.id,
         'in_progress',
         new Date().toISOString()
       );
+
+      if (!result.success) {
+        throw new Error(result.error || '수업 시작 중 오류가 발생했습니다.');
+      }
 
       toast({
         title: '수업 시작',
@@ -100,14 +103,17 @@ export function AttendanceCheckPage({
   const handleCompleteSession = async () => {
     setUpdating(true);
     try {
-      // Use Case를 통한 세션 상태 업데이트
-      const useCase = createUpdateAttendanceSessionStatusUseCase();
-      await useCase.execute(
+      // Server Action을 통한 세션 상태 업데이트
+      const result = await updateAttendanceSessionStatus(
         session.id,
         'completed',
         undefined,
         new Date().toISOString()
       );
+
+      if (!result.success) {
+        throw new Error(result.error || '수업 종료 중 오류가 발생했습니다.');
+      }
 
       toast({
         title: '수업 종료',
@@ -150,8 +156,7 @@ export function AttendanceCheckPage({
     });
 
     try {
-      // Use Case를 통한 일괄 알림 전송
-      const useCase = createBulkNotifyAbsentStudentsUseCase();
+      // Server Action을 통한 일괄 알림 전송
       const notifications = absentStudents.map(student => ({
         student_id: student.id,
         student_name: student.users?.name || '학생',
@@ -159,13 +164,15 @@ export function AttendanceCheckPage({
         session_date: format(new Date(session.session_date), 'M월 d일', { locale: ko }),
       }));
 
-      const { successCount, error } = await useCase.execute(notifications);
+      const result = await bulkNotifyAbsentStudents(notifications);
 
-      if (error) throw error;
+      if (!result.success) {
+        throw new Error(result.error || '알림 전송 중 오류가 발생했습니다.');
+      }
 
       toast({
         title: '전송 완료',
-        description: `${successCount}명의 보호자에게 알림이 전송되었습니다.`,
+        description: `${result.successCount}명의 보호자에게 알림이 전송되었습니다.`,
       });
 
       router.refresh();

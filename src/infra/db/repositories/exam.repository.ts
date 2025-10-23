@@ -9,7 +9,7 @@ import type { IExamRepository, ExamFilters } from '@core/domain/repositories/IEx
 import { Exam } from '@core/domain/entities/Exam'
 import { DatabaseError, NotFoundError } from '@/lib/error-types'
 import { logError } from '@/lib/error-handlers'
-import { SupabaseDataSource } from '../data-sources/SupabaseDataSource'
+import { SupabaseDataSource } from '../datasource/SupabaseDataSource'
 
 export class ExamRepository implements IExamRepository {
   private dataSource: IDataSource

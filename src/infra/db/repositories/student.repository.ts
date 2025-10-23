@@ -10,7 +10,7 @@ import { Student } from '@core/domain/entities/Student'
 import { StudentCode } from '@core/domain/value-objects/StudentCode'
 import { DatabaseError, NotFoundError } from '@/lib/error-types'
 import { logError } from '@/lib/error-handlers'
-import { SupabaseDataSource } from '../data-sources/SupabaseDataSource'
+import { SupabaseDataSource } from '../datasource/SupabaseDataSource'
 
 export class StudentRepository implements IStudentRepository {
   private dataSource: IDataSource

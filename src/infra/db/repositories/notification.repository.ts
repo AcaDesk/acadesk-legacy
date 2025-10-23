@@ -8,7 +8,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { IDataSource } from '@core/domain/data-sources/IDataSource'
 import { DatabaseError } from '@/lib/error-types'
 import { logError } from '@/lib/error-handlers'
-import { SupabaseDataSource } from '../data-sources/SupabaseDataSource'
+import { SupabaseDataSource } from '../datasource/SupabaseDataSource'
 
 // ==================== Types ====================
 

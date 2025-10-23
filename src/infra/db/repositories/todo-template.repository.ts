@@ -9,7 +9,7 @@ import type { ITodoTemplateRepository } from '@core/domain/repositories/ITodoTem
 import { TodoTemplate } from '@core/domain/entities/TodoTemplate'
 import { Priority } from '@core/domain/value-objects/Priority'
 import { DatabaseError } from '@/lib/error-types'
-import { SupabaseDataSource } from '../data-sources/SupabaseDataSource'
+import { SupabaseDataSource } from '../datasource/SupabaseDataSource'
 
 export class TodoTemplateRepository implements ITodoTemplateRepository {
   private dataSource: IDataSource

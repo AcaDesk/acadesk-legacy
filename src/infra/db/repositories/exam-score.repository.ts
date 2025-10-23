@@ -10,7 +10,7 @@ import { ExamScore } from '@core/domain/entities/ExamScore'
 import { Score } from '@core/domain/value-objects/Score'
 import { DatabaseError, NotFoundError } from '@/lib/error-types'
 import { logError } from '@/lib/error-handlers'
-import { SupabaseDataSource } from '../data-sources/SupabaseDataSource'
+import { SupabaseDataSource } from '../datasource/SupabaseDataSource'
 
 export class ExamScoreRepository implements IExamScoreRepository {
   private dataSource: IDataSource
