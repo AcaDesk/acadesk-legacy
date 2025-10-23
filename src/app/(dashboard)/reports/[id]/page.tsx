@@ -202,10 +202,10 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
 
   return (
     <PageWrapper>
-      <div className="max-w-5xl mx-auto space-y-6">
+      <div ref={contentRef} className="max-w-5xl mx-auto space-y-6">
         {/* Header */}
         <div className="space-y-4">
-          <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+          <nav className="flex items-center gap-2 text-sm text-muted-foreground print:hidden">
             <Link href="/reports" className="hover:text-foreground transition-colors">
               리포트 관리
             </Link>
@@ -222,7 +222,7 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
                 {formatPeriod(report.period_start, report.period_end)}
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 print:hidden">
               <Button variant="outline" onClick={handlePrint}>
                 <Download className="h-4 w-4 mr-2" />
                 PDF 다운로드
@@ -425,6 +425,36 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
           </CardContent>
         </Card>
       </div>
+
+      {/* Print Styles */}
+      <style jsx global>{`
+        @media print {
+          @page {
+            size: A4;
+            margin: 20mm;
+          }
+
+          body {
+            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;
+          }
+
+          .print\\:hidden {
+            display: none !important;
+          }
+
+          /* 페이지 브레이크 방지 */
+          .space-y-6 > * {
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
+
+          /* 카드 간격 조정 */
+          .space-y-6 {
+            gap: 1rem;
+          }
+        }
+      `}</style>
     </PageWrapper>
   )
 }
