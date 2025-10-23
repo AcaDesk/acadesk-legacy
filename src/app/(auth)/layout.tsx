@@ -4,14 +4,14 @@
  * 인증 관련 페이지(/auth/*)의 레이아웃
  *
  * ✅ 역할:
- * - 이미 로그인된 사용자는 서버에서 바로 리다이렉트
+ * - 이메일 인증 완료 + 로그인된 사용자만 리다이렉트
+ * - 이메일 미인증 사용자는 인증 페이지 사용 가능
  * - 온보딩 상태에 따라 적절한 페이지로 이동
  * - 인증 페이지 공통 UI 제공 (로고, 배경)
  *
- * 이렇게 하면:
- * - "로그인했는데 로그인 페이지가 그대로" 문제 해결
- * - 세션 갱신 타이밍 이슈 방지
- * - 깔끔한 UX
+ * 무한 루프 방지:
+ * - 로그인 O + 이메일 미인증 → children 렌더 (리다이렉트 금지)
+ * - 로그인 O + 이메일 인증 완료 → 온보딩 체크 후 리다이렉트
  */
 
 import Link from 'next/link'
@@ -20,43 +20,10 @@ import { GraduationCap } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { checkOnboardingStage } from '@/app/actions/onboarding'
 
-export default async function AuthLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient()
-
-  // 1. 현재 사용자 세션 확인
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-
-  // 2. 로그인되어 있으면 온보딩 상태 확인 후 적절한 곳으로 리다이렉트
-  if (!authError && user) {
-    console.log('[AuthLayout] User is logged in, checking onboarding stage')
-
-    const stageResult = await checkOnboardingStage()
-
-    if (stageResult.success && stageResult.data) {
-      const stageData = stageResult.data as {
-        ok: boolean
-        stage?: { code: string; next_url?: string }
-      }
-
-      const { code: stageCode, next_url: nextUrl } = stageData.stage || {}
-
-      const redirectUrl =
-        nextUrl ||
-        (stageCode === 'READY' ? '/dashboard' : '/auth/pending')
-
-      console.log('[AuthLayout] Redirecting logged-in user to:', redirectUrl)
-      redirect(redirectUrl)
-    } else {
-      // 온보딩 상태 확인 실패 시 기본적으로 대시보드로
-      console.warn('[AuthLayout] Onboarding stage check failed, redirecting to dashboard')
-      redirect('/dashboard')
-    }
-  }
-
-  // 3. 로그인되어 있지 않으면 인증 페이지 표시 (공통 UI)
+/**
+ * Auth 페이지 공통 UI 프레임
+ */
+function AuthFrame({ children }: { children: React.ReactNode }) {
   return (
     <div className="h-screen overflow-y-auto bg-muted/40 py-8 px-4">
       <div className="w-full max-w-lg mx-auto space-y-8">
@@ -76,4 +43,51 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
       </div>
     </div>
   )
+}
+
+export default async function AuthLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await createClient()
+
+  // 1. 현재 사용자 세션 확인
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+
+  // 2. 로그인 X → 그냥 auth UI 렌더
+  if (authError || !user) {
+    return <AuthFrame>{children}</AuthFrame>
+  }
+
+  // 3. 로그인 O + 이메일 미인증 → auth 흐름(verify-email 등) 보여줘야 함 (리다이렉트 금지)
+  const emailConfirmed = user.email_confirmed_at ?? (user as any).confirmed_at
+  if (!emailConfirmed) {
+    console.log('[AuthLayout] User logged in but email not confirmed, showing auth pages')
+    return <AuthFrame>{children}</AuthFrame>
+  }
+
+  // 4. 이메일 인증 완료 → 온보딩 단계 따라 이동
+  console.log('[AuthLayout] User logged in with confirmed email, checking onboarding stage')
+
+  const stageResult = await checkOnboardingStage()
+
+  if (stageResult.success && stageResult.data) {
+    const stageData = stageResult.data as {
+      ok: boolean
+      stage?: { code: string; next_url?: string }
+    }
+
+    const { code: stageCode, next_url: nextUrl } = stageData.stage || {}
+
+    const redirectUrl =
+      nextUrl ||
+      (stageCode === 'READY' ? '/dashboard' : '/auth/pending')
+
+    console.log('[AuthLayout] Redirecting confirmed user to:', redirectUrl)
+    redirect(redirectUrl)
+  } else {
+    // 온보딩 상태 확인 실패 시 기본적으로 대시보드로
+    console.warn('[AuthLayout] Onboarding stage check failed, redirecting to dashboard')
+    redirect('/dashboard')
+  }
 }
