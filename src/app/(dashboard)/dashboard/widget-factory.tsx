@@ -12,8 +12,8 @@ import { CalendarWidget } from "@/components/features/dashboard/calendar-widget"
 import { QuickActions } from "@/components/features/dashboard/quick-actions"
 import { QuickStats } from "@/components/features/dashboard/quick-stats"
 import { RecentActivityFeed } from "@/components/features/dashboard/recent-activity-feed"
-import type { DashboardWidgetId } from "@/core/types/dashboard"
 import type {
+  DashboardWidgetId,
   RecentStudent,
   TodaySession,
   BirthdayStudent,
@@ -23,23 +23,9 @@ import type {
   ParentToContact,
   CalendarEvent,
   ActivityLog,
-} from "@/hooks/use-dashboard-data"
-
-export interface DashboardStats {
-  totalStudents: number
-  activeClasses: number
-  todayAttendance: number
-  pendingTodos: number
-  totalReports: number
-  unsentReports: number
-}
-
-export interface FinancialData {
-  currentMonthRevenue: number
-  previousMonthRevenue: number
-  unpaidTotal: number
-  unpaidCount: number
-}
+  DashboardStats,
+  FinancialData,
+} from "@/core/types/dashboard"
 
 export interface WidgetFactoryProps {
   widgetId: DashboardWidgetId

@@ -1,8 +1,8 @@
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { DashboardClient } from './dashboard-client'
-import { getCurrentTenantId } from '@/lib/auth/helpers'
-import { logError } from '@/lib/error-handlers'
+import { getDashboardData } from '@/app/actions/dashboard'
 import type { Metadata } from 'next'
+import type { DashboardData } from '@/core/types/dashboard'
 
 export const metadata: Metadata = {
   title: "대시보드",
@@ -10,76 +10,40 @@ export const metadata: Metadata = {
 }
 
 export default async function DashboardPage() {
-  // 인증 확인 및 tenant_id 조회 (getCurrentTenantId는 자체적으로 인증을 확인하고 리다이렉트)
-  const { supabase } = await getCurrentTenantId()
+  // Fetch all dashboard data via Server Action (service_role based, bypasses RLS)
+  const result = await getDashboardData()
 
-  const today = new Date().toISOString().split('T')[0]
-
-  // Single RPC call to fetch all dashboard data
-  const { data, error } = await supabase.rpc('get_dashboard_data', {
-    today_param: today
-  })
-
-  if (error) {
-    logError(error, {
-      page: 'dashboard',
-      rpc: 'get_dashboard_data',
-      today_param: today,
-    })
-  }
-
-  // Fetch recent activity logs
-  const { data: activityLogs, error: activityError } = await supabase
-    .from('student_activity_logs')
-    .select(`
-      id,
-      activity_type,
-      description,
-      created_at,
-      students (
-        users (
-          name
-        )
-      )
-    `)
-    .order('created_at', { ascending: false })
-    .limit(20)
-
-  if (activityError) {
-    logError(activityError, {
-      page: 'dashboard',
-      query: 'student_activity_logs',
-    })
-  }
-
-  const dashboardData = data || {
-    stats: {
-      totalStudents: 0,
-      activeClasses: 0,
-      todayAttendance: 0,
-      pendingTodos: 0,
-      totalReports: 0,
-      unsentReports: 0,
-    },
-    recentStudents: [],
-    todaySessions: [],
-    birthdayStudents: [],
-    scheduledConsultations: [],
-    studentAlerts: {
-      longAbsence: [],
-      pendingAssignments: [],
-    },
-    financialData: {
-      currentMonthRevenue: 0,
-      previousMonthRevenue: 0,
-      unpaidTotal: 0,
-      unpaidCount: 0,
-    },
-    classStatus: [],
-    parentsToContact: [],
-    calendarEvents: [],
-    activityLogs: activityLogs || [],
-  }
+  // Fallback to empty data if error
+  const dashboardData: DashboardData = result.success && result.data
+    ? result.data
+    : {
+        stats: {
+          totalStudents: 0,
+          activeClasses: 0,
+          todayAttendance: 0,
+          pendingTodos: 0,
+          totalReports: 0,
+          unsentReports: 0,
+        },
+        recentStudents: [],
+        todaySessions: [],
+        birthdayStudents: [],
+        scheduledConsultations: [],
+        studentAlerts: {
+          longAbsence: [],
+          pendingAssignments: [],
+        },
+        financialData: {
+          currentMonthRevenue: 0,
+          previousMonthRevenue: 0,
+          unpaidTotal: 0,
+          unpaidCount: 0,
+        },
+        classStatus: [],
+        parentsToContact: [],
+        calendarEvents: [],
+        activityLogs: [],
+      }
 
   return (
     <PageWrapper>

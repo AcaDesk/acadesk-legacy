@@ -4,7 +4,7 @@
 
 ---
 
-## 📊 현재 상태 (2025-10-23 업데이트)
+## 📊 현재 상태 (2025-10-23 최종 업데이트)
 
 ### ✅ 완료된 마이그레이션
 
@@ -21,13 +21,13 @@
 | 리포트 | `actions/reports.ts` | ✅ 완료 | 2025-10-22 |
 | 승인 | `actions/approve-user.ts` | ✅ 완료 | 2025-10-22 |
 | 초대 | `actions/invitations.ts` | ✅ 완료 | 2025-10-22 |
-| 대시보드 | `actions/dashboard-preferences.ts` | ✅ 완료 | 2025-10-22 |
+| 대시보드 | `actions/dashboard-preferences.ts` | ✅ 완료 (조회+저장) | 2025-10-23 |
 | 키오스크 | `actions/kiosk.ts` | ✅ 완료 | 2025-10-22 |
 | 로그아웃 | `actions/logout.ts` | ✅ 완료 | 2025-10-21 |
 
 **진행률**: 14/20 도메인 완료 (70%)
 
-### 🎉 오늘 완료된 추가 작업 (2025-10-23)
+### 🎉 최근 완료된 추가 작업 (2025-10-23)
 
 1. **Phase 7: TODO 완료 기능** ✅
    - `completeTodo()`, `uncompleteTodo()` Server Actions 추가
@@ -44,6 +44,39 @@
 4. **인프라 수정** ✅
    - SupabaseDataSource import 경로 수정 (12개 repository 파일)
    - `../data-sources/` → `../datasource/` 경로 통일
+
+5. **Phase 13: 대시보드 완전 마이그레이션** ✅
+   - **Server Actions 추가**:
+     - `getDashboardPreferences()` - 사용자 설정 조회
+     - `getDashboardData()` - 모든 대시보드 데이터 조회
+   - **RPC 제거**: `get_dashboard_data` RPC 호출 완전 제거
+   - **RLS 우회**: service_role 기반으로 모든 데이터 조회
+   - `dashboard-client.tsx` 리팩토링:
+     - `useDashboardData` hook 제거
+     - API route 호출 → Server Action 전환
+     - `router.refresh()` 기반 수동 새로고침
+   - `page.tsx` 리팩토링:
+     - RPC 호출 제거
+     - RLS 기반 쿼리 제거
+     - Server Action으로 완전 전환
+   - `core/types/dashboard.ts`에 DashboardData 타입 추가
+   - 타입 통합 (중복 제거)
+
+6. **Phase 14: 학생 관리 완전 마이그레이션** ✅
+   - **Server Actions 추가**:
+     - `getStudents(filters)` - 필터링 포함 학생 목록 조회
+     - `getStudentFilterOptions()` - 필터 옵션 조회 (grades, schools, classes)
+   - **Client Factory 제거**:
+     - `createGetStudentsWithDetailsUseCase` 제거
+     - `createGetActiveClassesUseCase` 제거
+     - `createGetUniqueGradesUseCase` 제거
+     - `createGetUniqueSchoolsUseCase` 제거
+   - **RLS 제거**: tenant_id 직접 조회 제거 (Server Action에서 자동 처리)
+   - `student-list.tsx` 리팩토링:
+     - Use Case 호출 → Server Action 호출로 전환
+     - tenant_id 로직 제거 (100줄 → 직접 Server Action 호출)
+     - 모든 DB 접근을 service_role 기반으로 전환
+   - 학생 상세 페이지는 이미 Server Action 사용 중 (유지)
 
 ---
 

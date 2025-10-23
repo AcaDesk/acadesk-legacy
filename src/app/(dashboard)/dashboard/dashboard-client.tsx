@@ -1,16 +1,16 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, useTransition } from "react"
+import { useRouter } from "next/navigation"
 import { DashboardHeader } from "@/components/features/dashboard/dashboard-header"
 import { DashboardWidgetWrapper, DashboardWidgetSkeleton } from "@/components/features/dashboard/dashboard-widget-wrapper"
 import { WelcomeBanner } from "@/components/features/dashboard/welcome-banner"
-import { DEFAULT_WIDGETS, type DashboardWidget, isWidgetAvailable, LAYOUT_PRESETS, type DashboardPreset, type DashboardWidgetId } from "@/core/types/dashboard"
-import { useDashboardData, type DashboardData, type TodaySession } from "@/hooks/use-dashboard-data"
+import { DEFAULT_WIDGETS, type DashboardWidget, isWidgetAvailable, LAYOUT_PRESETS, type DashboardPreset, type DashboardWidgetId, type DashboardData, type TodaySession } from "@/core/types/dashboard"
 import { renderWidgetContent } from "./widget-factory"
 import { WidgetErrorBoundary } from "@/components/features/dashboard/widget-error-boundary"
 import { DASHBOARD_LAYOUT, shouldShowSection, getVisibleWidgetsInSection } from "./dashboard-layout-config"
 import { cn } from "@/lib/utils"
-import { saveDashboardPreferences } from "@/app/actions/dashboard-preferences"
+import { saveDashboardPreferences, getDashboardPreferences } from "@/app/actions/dashboard-preferences"
 import {
   DndContext,
   DragEndEvent,
@@ -30,8 +30,9 @@ import {
 } from "@dnd-kit/sortable"
 
 export function DashboardClient({ data: initialData }: { data: DashboardData }) {
-  const { data, isRefetching, refetch } = useDashboardData(initialData)
-  const { stats, recentStudents, todaySessions, birthdayStudents, scheduledConsultations, studentAlerts, financialData, classStatus, parentsToContact, calendarEvents, activityLogs } = data || initialData
+  const router = useRouter()
+  const [isPending, startTransition] = useTransition()
+  const { stats, recentStudents, todaySessions, birthdayStudents, scheduledConsultations, studentAlerts, financialData, classStatus, parentsToContact, calendarEvents, activityLogs } = initialData
 
   const [widgets, setWidgets] = useState<DashboardWidget[]>(DEFAULT_WIDGETS)
   const [isLoading, setIsLoading] = useState(true)
@@ -93,29 +94,26 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
   useEffect(() => {
     const loadPreferences = async () => {
       try {
-        const response = await fetch('/api/dashboard/preferences')
-        if (response.ok) {
-          const { preferences } = await response.json()
-          if (preferences?.widgets) {
-            const widgetsWithNames = preferences.widgets
-              .filter((widget: DashboardWidget) => {
-                const defaultWidget = DEFAULT_WIDGETS.find(w => w.id === widget.id)
-                if (!defaultWidget) return false
-                return isWidgetAvailable({
-                  ...widget,
-                  requiredFeatures: defaultWidget.requiredFeatures
-                })
+        const result = await getDashboardPreferences()
+        if (result.success && result.preferences?.widgets) {
+          const widgetsWithNames = result.preferences.widgets
+            .filter((widget: DashboardWidget) => {
+              const defaultWidget = DEFAULT_WIDGETS.find(w => w.id === widget.id)
+              if (!defaultWidget) return false
+              return isWidgetAvailable({
+                ...widget,
+                requiredFeatures: defaultWidget.requiredFeatures
               })
-              .map((widget: DashboardWidget) => {
-                const defaultWidget = DEFAULT_WIDGETS.find(w => w.id === widget.id)
-                return {
-                  ...widget,
-                  name: widget.name || defaultWidget?.name || widget.title || widget.id,
-                  requiredFeatures: defaultWidget?.requiredFeatures
-                }
-              })
-            setWidgets(widgetsWithNames)
-          }
+            })
+            .map((widget: DashboardWidget) => {
+              const defaultWidget = DEFAULT_WIDGETS.find(w => w.id === widget.id)
+              return {
+                ...widget,
+                name: widget.name || defaultWidget?.name || widget.title || widget.id,
+                requiredFeatures: defaultWidget?.requiredFeatures
+              }
+            })
+          setWidgets(widgetsWithNames)
         }
       } catch (error) {
         console.error('Failed to load preferences:', error)
@@ -140,8 +138,10 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
 
   // Handlers
   const handleManualRefresh = useCallback(() => {
-    refetch()
-  }, [refetch])
+    startTransition(() => {
+      router.refresh()
+    })
+  }, [router])
 
   const handleEnterEditMode = useCallback(() => {
     const widgetsWithNames = widgets.map(widget => ({
@@ -402,7 +402,7 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
         hiddenWidgets={hiddenWidgets}
         onAddWidget={handleShowWidget}
         onApplyPreset={handleApplyPreset}
-        isLoading={isRefetching}
+        isLoading={isPending}
         isSaving={isSaving}
         hasChanges={hasChanges}
       />

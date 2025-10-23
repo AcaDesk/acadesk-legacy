@@ -109,6 +109,122 @@ export const DEFAULT_WIDGETS = getDefaultWidgets()
 /**
  * Layout presets for quick dashboard configurations
  */
+// ============================================================================
+// Dashboard Data Types
+// ============================================================================
+
+export interface DashboardStats {
+  totalStudents: number
+  activeClasses: number
+  todayAttendance: number
+  pendingTodos: number
+  totalReports: number
+  unsentReports: number
+}
+
+export interface FinancialData {
+  currentMonthRevenue: number
+  previousMonthRevenue: number
+  unpaidTotal: number
+  unpaidCount: number
+}
+
+export interface RecentStudent {
+  id: string
+  name: string
+  grade: string
+  joinedAt: string
+}
+
+export interface TodaySession {
+  id: string
+  class_name: string
+  scheduled_start: string
+  scheduled_end: string
+  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
+  instructor_name?: string
+}
+
+export interface BirthdayStudent {
+  id: string
+  name: string
+  birthday: string
+  grade: string
+}
+
+export interface StudentAlert {
+  id: string
+  name: string
+  grade: string
+  reason: string
+  days?: number
+}
+
+export interface ClassStatus {
+  id: string
+  class_name: string
+  enrolled: number
+  capacity: number
+  instructor: string
+  schedule: string
+}
+
+export interface ScheduledConsultation {
+  id: string
+  parent_name: string
+  student_name: string
+  scheduled_at: string
+  topic: string
+}
+
+export interface ParentToContact {
+  id: string
+  parent_name: string
+  student_name: string
+  reason: string
+  priority: 'high' | 'medium' | 'low'
+}
+
+export interface CalendarEvent {
+  id: string
+  title: string
+  date: string
+  type: 'class' | 'exam' | 'consultation' | 'event'
+}
+
+export interface ActivityLog {
+  id: string
+  activity_type: string
+  description: string
+  created_at: string
+  students?: {
+    users?: {
+      name: string
+    } | null
+  } | null
+}
+
+export interface DashboardData {
+  stats: DashboardStats
+  recentStudents: RecentStudent[]
+  todaySessions: TodaySession[]
+  birthdayStudents: BirthdayStudent[]
+  scheduledConsultations: ScheduledConsultation[]
+  studentAlerts: {
+    longAbsence: StudentAlert[]
+    pendingAssignments: StudentAlert[]
+  }
+  financialData?: FinancialData
+  classStatus: ClassStatus[]
+  parentsToContact: ParentToContact[]
+  calendarEvents: CalendarEvent[]
+  activityLogs: ActivityLog[]
+}
+
+// ============================================================================
+// Layout Presets
+// ============================================================================
+
 export const LAYOUT_PRESETS: Record<DashboardPreset, LayoutPreset> = {
   default: {
     name: '기본 레이아웃',
