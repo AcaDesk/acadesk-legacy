@@ -175,6 +175,8 @@ export class StudentRepository implements IStudentRepository {
 
   async findAllWithDetails(tenantId: string, filters?: StudentFilters, options?: FindStudentOptions): Promise<import('@/domain/repositories/IStudentRepository').StudentWithDetails[]> {
     try {
+      console.log('[StudentRepository] findAllWithDetails 시작', { tenantId, filters, options })
+
       let query = this.dataSource
         .from('students')
         .select(`
@@ -229,6 +231,12 @@ export class StudentRepository implements IStudentRepository {
       }
 
       const { data, error } = await query.order('student_code')
+
+      console.log('[StudentRepository] Query 실행 완료', {
+        dataLength: data?.length,
+        hasError: !!error,
+        errorMessage: error?.message
+      })
 
       if (error) {
         logError(error, { repository: 'StudentRepository', method: 'findAllWithDetails' })
