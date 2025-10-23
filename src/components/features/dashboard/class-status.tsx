@@ -25,11 +25,13 @@ export function ClassStatus({ classes }: ClassStatusProps) {
   )
   const totalPages = Math.ceil(classes.length / itemsPerPage)
 
-  const getStatusColor = (status: 'active' | 'inactive') => {
+  const getStatusColor = (status: 'active' | 'inactive' | 'completed') => {
+    if (status === 'completed') return 'secondary'
     return status === 'active' ? 'default' : 'secondary'
   }
 
-  const getStatusLabel = (status: 'active' | 'inactive') => {
+  const getStatusLabel = (status: 'active' | 'inactive' | 'completed') => {
+    if (status === 'completed') return '완료'
     return status === 'active' ? '활성' : '비활성'
   }
 
@@ -58,9 +60,11 @@ export function ClassStatus({ classes }: ClassStatusProps) {
       <CardContent>
         <div className="space-y-4">
           {paginatedClasses.map((classInfo) => {
-            const enrollmentStatus = getEnrollmentStatus(classInfo.student_count, classInfo.active_students)
-            const activeRate = classInfo.student_count > 0
-              ? (classInfo.active_students / classInfo.student_count) * 100
+            const studentCount = classInfo.student_count ?? 0
+            const activeStudents = classInfo.active_students ?? 0
+            const enrollmentStatus = getEnrollmentStatus(studentCount, activeStudents)
+            const activeRate = studentCount > 0
+              ? (activeStudents / studentCount) * 100
               : 0
 
             return (
@@ -72,8 +76,8 @@ export function ClassStatus({ classes }: ClassStatusProps) {
                         <Users className="h-4 w-4 text-muted-foreground" />
                         <span className="font-medium">{classInfo.name}</span>
                       </div>
-                      <Badge variant={getStatusColor(classInfo.status)}>
-                        {getStatusLabel(classInfo.status)}
+                      <Badge variant={getStatusColor(classInfo.status ?? 'active')}>
+                        {getStatusLabel(classInfo.status ?? 'active')}
                       </Badge>
                     </div>
 
@@ -81,7 +85,7 @@ export function ClassStatus({ classes }: ClassStatusProps) {
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">활동 학생</span>
                         <span className="font-medium">
-                          {classInfo.active_students} / {classInfo.student_count}명
+                          {activeStudents} / {studentCount}명
                         </span>
                       </div>
                       <Progress value={activeRate} className="h-2" />

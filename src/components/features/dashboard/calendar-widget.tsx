@@ -37,8 +37,15 @@ export function CalendarWidget({ events = [] }: CalendarWidgetProps) {
   // Calculate total cells needed (always show 6 weeks = 42 days)
   const totalCells = 42
 
+  // Define calendar day type
+  type CalendarDay = {
+    date: number
+    month: 'prev' | 'current' | 'next'
+    fullDate: Date
+  }
+
   // Generate calendar days
-  const calendarDays = []
+  const calendarDays: CalendarDay[] = []
 
   // Add days from previous month
   const prevMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
@@ -100,24 +107,29 @@ export function CalendarWidget({ events = [] }: CalendarWidgetProps) {
 
   const getEventsForDate = (date: Date) => {
     return events.filter(event => {
-      const eventDate = new Date(event.start_date)
+      const dateStr = event.start_date || event.date
+      if (!dateStr) return false
+      const eventDate = new Date(dateStr)
       return eventDate.getDate() === date.getDate() &&
         eventDate.getMonth() === date.getMonth() &&
         eventDate.getFullYear() === date.getFullYear()
     })
   }
 
-  const getEventTypeColor = (type: string) => {
+  const getEventTypeColor = (eventType?: string) => {
+    const type = eventType || 'other'
     switch (type) {
       case 'class': return 'bg-blue-500'
       case 'consultation': return 'bg-green-500'
       case 'exam': return 'bg-red-500'
+      case 'event':
       case 'other': return 'bg-purple-500'
       default: return 'bg-gray-500'
     }
   }
 
-  const getEventTypeIcon = (type: string) => {
+  const getEventTypeIcon = (eventType?: string) => {
+    const type = eventType || 'other'
     switch (type) {
       case 'class': return <GraduationCap className="h-3 w-3" />
       case 'consultation': return <Users className="h-3 w-3" />
@@ -222,7 +234,7 @@ export function CalendarWidget({ events = [] }: CalendarWidgetProps) {
                           key={i}
                           className={cn(
                             "h-1 w-1 rounded-full",
-                            getEventTypeColor(event.event_type)
+                            getEventTypeColor(event.event_type || event.type)
                           )}
                         />
                       ))}
@@ -246,14 +258,14 @@ export function CalendarWidget({ events = [] }: CalendarWidgetProps) {
                 <div key={event.id} className="flex items-center gap-2 text-sm">
                   <div className={cn(
                     "h-6 w-6 rounded flex items-center justify-center text-white",
-                    getEventTypeColor(event.event_type)
+                    getEventTypeColor(event.event_type || event.type)
                   )}>
-                    {getEventTypeIcon(event.event_type)}
+                    {getEventTypeIcon(event.event_type || event.type)}
                   </div>
                   <div className="flex-1">
                     <span className="font-medium">{event.title}</span>
                     <span className="text-muted-foreground ml-2">
-                      {new Date(event.start_date).toLocaleTimeString('ko-KR', {
+                      {new Date(event.start_date || event.date).toLocaleTimeString('ko-KR', {
                         hour: '2-digit',
                         minute: '2-digit'
                       })}
@@ -277,14 +289,14 @@ export function CalendarWidget({ events = [] }: CalendarWidgetProps) {
                 <div key={event.id} className="flex items-center gap-2 text-sm">
                   <div className={cn(
                     "h-6 w-6 rounded flex items-center justify-center text-white",
-                    getEventTypeColor(event.event_type)
+                    getEventTypeColor(event.event_type || event.type)
                   )}>
-                    {getEventTypeIcon(event.event_type)}
+                    {getEventTypeIcon(event.event_type || event.type)}
                   </div>
                   <div className="flex-1">
                     <span className="font-medium">{event.title}</span>
                     <span className="text-muted-foreground ml-2">
-                      {new Date(event.start_date).toLocaleTimeString('ko-KR', {
+                      {new Date(event.start_date || event.date).toLocaleTimeString('ko-KR', {
                         hour: '2-digit',
                         minute: '2-digit'
                       })}

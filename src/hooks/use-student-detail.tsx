@@ -2,37 +2,31 @@
  * useStudentDetail Hook & Context
  *
  * Provides student detail data across student detail page tabs
- * TODO: Migrate to use Server Actions instead of client-side queries
+ * ✅ Migrated to use Server Actions
  */
 
 'use client'
 
 import { createContext, useContext, ReactNode } from 'react'
-
-export interface StudentDetail {
-  id: string
-  studentCode: string
-  name: string
-  birthDate?: string
-  gender?: string
-  grade?: string
-  school?: string
-  phone?: string
-  profileImageUrl?: string
-  enrollmentDate?: string
-  withdrawalDate?: string
-  emergencyContact?: string
-  notes?: string
-  commuteMethod?: string
-  marketingSource?: string
-  tenantId: string
-  userId?: string
-  createdAt: string
-  updatedAt: string
-}
+import type {
+  StudentDetail,
+  ExamScore,
+  StudentTodo,
+  Consultation,
+  AttendanceRecord,
+  Invoice,
+  KPIs,
+} from '@/core/types/studentDetail.types'
 
 interface StudentDetailContextValue {
   student: StudentDetail
+  recentScores: ExamScore[]
+  classAverages: Record<string, number>
+  recentTodos: StudentTodo[]
+  consultations: Consultation[]
+  attendanceRecords: AttendanceRecord[]
+  invoices: Invoice[]
+  kpis: KPIs
   refreshStudent: () => Promise<void>
   onRefresh?: () => void  // Backward compatibility
 }
