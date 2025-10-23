@@ -156,12 +156,21 @@ export function parseRpcError(
 
 /**
  * AuthStageError를 사용자 친화적인 메시지로 변환
+ * 일반 Error도 처리 가능
  */
-export function getAuthStageErrorMessage(error: AuthStageError): {
+export function getAuthStageErrorMessage(error: AuthStageError | Error): {
   title: string
   description: string
   canRetry: boolean
 } {
+  // 일반 Error인 경우 기본 메시지 반환
+  if (!(error instanceof AuthStageError)) {
+    return {
+      title: '오류가 발생했습니다',
+      description: error.message || '일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+      canRetry: true,
+    }
+  }
   switch (error.code) {
     case AuthStageErrorCode.PROFILE_CREATION_FAILED:
       return {

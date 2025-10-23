@@ -583,48 +583,14 @@ export async function checkOnboardingStage(inviteToken?: string) {
 }
 
 /**
- * 온보딩 상태 조회 (get_onboarding_state RPC)
+ * 온보딩 상태 조회
  *
- * 현재 사용자의 온보딩 완료 여부, 역할, 테넌트, 승인 상태를 확인합니다.
+ * ⚠️ DEPRECATED: checkOnboardingStage()를 사용하세요
+ * 이 함수는 하위 호환성을 위해 유지되며, 내부적으로 checkOnboardingStage()를 호출합니다.
  *
  * @returns 온보딩 상태
  */
 export async function getOnboardingState() {
-  try {
-    const supabase = await createServerClient()
-
-    const { data, error } = await supabase.rpc('get_onboarding_state')
-
-    if (error) {
-      console.error('[getOnboardingState] RPC error:', error)
-      return {
-        success: false,
-        error: '온보딩 상태 조회 중 오류가 발생했습니다.',
-        data: null,
-      }
-    }
-
-    const response = data as { ok: boolean; data?: any; code?: string; message?: string }
-
-    if (!response?.ok) {
-      console.error('[getOnboardingState] RPC returned error:', response)
-      return {
-        success: false,
-        error: response?.message || '온보딩 상태 조회 중 오류가 발생했습니다.',
-        data: null,
-      }
-    }
-
-    return {
-      success: true,
-      data: response.data,
-    }
-  } catch (error) {
-    console.error('[getOnboardingState] Error:', error)
-    return {
-      success: false,
-      error: getErrorMessage(error),
-      data: null,
-    }
-  }
+  // checkOnboardingStage로 대체
+  return checkOnboardingStage()
 }

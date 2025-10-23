@@ -13,6 +13,7 @@ import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { createUserProfileServer } from './onboarding'
 
 // ============================================================================
 // Validation Schemas
@@ -113,14 +114,13 @@ export async function signUp(input: z.infer<typeof signUpSchema>) {
       }
     }
 
-    // 5. 이메일 인증이 완료된 경우 프로필 생성
+    // 5. 이메일 인증이 완료된 경우 프로필 생성 (Server Action 사용)
     // (보통은 이메일 확인 후 callback에서 처리하지만, 즉시 확인된 경우 여기서 처리)
     if (data?.user && data.user.email_confirmed_at) {
-      const serviceClient = createServiceRoleClient()
-      const { error: profileError } = await serviceClient.rpc('create_user_profile')
+      const profileResult = await createUserProfileServer(data.user.id)
 
-      if (profileError) {
-        console.error('Failed to create user profile:', profileError)
+      if (!profileResult.success) {
+        console.error('Failed to create user profile:', profileResult.error)
         // 프로필 생성 실패해도 회원가입은 성공으로 처리 (나중에 재시도 가능)
       }
     }

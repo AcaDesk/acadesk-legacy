@@ -22,8 +22,7 @@ import { Loader2, Mail, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { createClient } from '@/lib/supabase/client'
-import { authStageService } from '@/infrastructure/auth/auth-stage.service'
-import { createUserProfileServer } from '@/app/actions/onboarding'
+import { createUserProfileServer, checkOnboardingStage } from '@/app/actions/onboarding'
 
 /**
  * Supabase 인증 에러를 분석하여 적절한 에러 타입을 반환
@@ -143,17 +142,33 @@ function CallbackPageContent() {
         return
       }
 
-      // ✅ Step 5: 온보딩 상태 확인 후 적절한 페이지로 리다이렉트
+      // ✅ Step 5: 온보딩 상태 확인 후 적절한 페이지로 리다이렉트 (Server Action 사용)
       try {
-        const { data: stageData, error: stageError } = await authStageService.getAuthStage()
+        const stageResult = await checkOnboardingStage()
 
-        if (stageError || !stageData?.ok || !stageData.stage) {
-          console.error('[auth/callback] get_auth_stage failed:', {
+        if (!stageResult.success || !stageResult.data) {
+          console.error('[auth/callback] checkOnboardingStage failed:', {
             requestId,
             userId,
-            error: stageError,
+            error: stageResult.error,
           })
           // Stage 확인 실패 시 로그인 페이지로 (클라이언트에서 다시 확인)
+          const params = new URLSearchParams({ verified: 'true' })
+          if (userEmail) {
+            params.set('email', userEmail)
+          }
+          router.replace(`/auth/login?${params.toString()}`)
+          return
+        }
+
+        const stageData = stageResult.data as { ok: boolean; stage?: { code: string; next_url?: string } }
+
+        if (!stageData?.ok || !stageData.stage) {
+          console.error('[auth/callback] Invalid stage data:', {
+            requestId,
+            userId,
+            stageData,
+          })
           const params = new URLSearchParams({ verified: 'true' })
           if (userEmail) {
             params.set('email', userEmail)

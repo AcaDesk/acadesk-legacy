@@ -48,12 +48,12 @@ export default function PendingPage() {
     },
   })
 
-  // 상태 재확인
+  // 상태 재확인 (Server Action 사용)
   const handleRefresh = async (silent = false) => {
     try {
       setIsRefreshing(true)
 
-      // get_auth_stage 재호출하여 상태 확인
+      // checkOnboardingStage Server Action 호출하여 상태 확인
       const inviteToken = inviteTokenStore.get()
       await routeAfterLogin(router, inviteToken ?? undefined)
 
