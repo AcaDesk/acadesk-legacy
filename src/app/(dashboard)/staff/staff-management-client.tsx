@@ -41,6 +41,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { UserPlus, Copy } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { inviteStaff } from "@/app/actions/invitations"
 
 interface StaffMember {
   id: string
@@ -89,22 +90,15 @@ export function StaffManagementClient({
 
     setIsSubmitting(true)
     try {
-      const response = await fetch('/api/invitations', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: inviteEmail,
-          roleCode: inviteRole,
-        }),
+      const result = await inviteStaff({
+        email: inviteEmail,
+        roleCode: inviteRole,
       })
 
-      if (!response.ok) {
-        const error = await response.json()
+      if (!result.success) {
         toast({
           title: "초대 실패",
-          description: error || "초대를 생성할 수 없습니다.",
+          description: result.error || "초대를 생성할 수 없습니다.",
           variant: "destructive",
         })
         return
@@ -119,7 +113,8 @@ export function StaffManagementClient({
       setInviteRole("instructor")
       setIsInviteDialogOpen(false)
       router.refresh()
-    } catch {
+    } catch (error) {
+      console.error('초대 처리 오류:', error)
       toast({
         title: "오류",
         description: "알 수 없는 오류가 발생했습니다.",
