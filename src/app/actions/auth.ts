@@ -437,3 +437,58 @@ export async function getCurrentUser() {
     }
   }
 }
+
+/**
+ * 매직링크 로그인 (OTP) 발송
+ *
+ * 이메일로 매직링크를 발송합니다.
+ * - 이미 인증된 사용자: 로그인 링크 발송
+ * - 미인증 사용자: 가입 인증 링크 발송
+ *
+ * @param email - 이메일 주소
+ * @returns 성공 여부 및 에러 메시지
+ */
+export async function sendMagicLink(email: string) {
+  try {
+    // 이메일 형식 검증
+    const emailSchema = z.string().email('올바른 이메일 형식이 아닙니다.')
+    const validated = emailSchema.parse(email)
+
+    // Server 클라이언트로 매직링크 발송
+    const supabase = await createServerClient()
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+
+    const { error } = await supabase.auth.signInWithOtp({
+      email: validated,
+      options: {
+        emailRedirectTo: `${appUrl}/auth/callback?type=magiclink`,
+      },
+    })
+
+    if (error) {
+      console.error('[sendMagicLink] Error:', error)
+      return {
+        success: false,
+        error: getAuthErrorMessage(error),
+      }
+    }
+
+    return {
+      success: true,
+    }
+  } catch (error) {
+    console.error('[sendMagicLink] Exception:', error)
+
+    if (error instanceof z.ZodError) {
+      return {
+        success: false,
+        error: error.issues[0].message,
+      }
+    }
+
+    return {
+      success: false,
+      error: getErrorMessage(error),
+    }
+  }
+}
