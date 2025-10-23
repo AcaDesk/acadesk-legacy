@@ -15,6 +15,7 @@ import { TodoRepository } from '@infra/db/repositories/todo.repository'
 import { CreateTodosForStudentsUseCase } from '@core/application/use-cases/todo/CreateTodosForStudentsUseCase'
 import { VerifyTodosUseCase } from '@core/application/use-cases/todo/VerifyTodosUseCase'
 import { RejectTodoUseCase } from '@core/application/use-cases/todo/RejectTodoUseCase'
+import { CompleteTodoUseCase } from '@core/application/use-cases/todo/CompleteTodoUseCase'
 import { getErrorMessage } from '@/lib/error-handlers'
 
 // ============================================================================
@@ -333,6 +334,110 @@ export async function updateTodo(
     console.error('[updateTodo] Error:', error)
     return {
       success: false,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * Complete a TODO (mark as done)
+ *
+ * @param todoId - TODO ID
+ * @returns Success or error
+ */
+export async function completeTodo(todoId: string) {
+  try {
+    // 1. Verify authentication and get tenant
+    const { tenantId } = await verifyStaff()
+
+    // 2. Validate input
+    if (!todoId) {
+      return {
+        success: false,
+        error: 'TODO ID는 필수입니다',
+      }
+    }
+
+    // 3. Create service_role client and repository
+    const serviceClient = createServiceRoleClient()
+    const dataSource = new SupabaseDataSource(serviceClient)
+    const todoRepository = new TodoRepository(dataSource)
+
+    // 4. Create Use Case with service_role repository
+    const useCase = new CompleteTodoUseCase(todoRepository)
+
+    // 5. Execute Use Case
+    const completedTodo = await useCase.execute(todoId, tenantId)
+
+    // 6. Revalidate pages
+    revalidatePath('/todos')
+    revalidatePath('/students/[id]', 'page')
+    revalidatePath('/dashboard')
+
+    return {
+      success: true,
+      data: {
+        todo: completedTodo.toDTO(),
+      },
+      error: null,
+    }
+  } catch (error) {
+    console.error('[completeTodo] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * Uncomplete a TODO (mark as not done)
+ *
+ * @param todoId - TODO ID
+ * @returns Success or error
+ */
+export async function uncompleteTodo(todoId: string) {
+  try {
+    // 1. Verify authentication and get tenant
+    const { tenantId } = await verifyStaff()
+
+    // 2. Validate input
+    if (!todoId) {
+      return {
+        success: false,
+        error: 'TODO ID는 필수입니다',
+      }
+    }
+
+    // 3. Create service_role client and repository
+    const serviceClient = createServiceRoleClient()
+    const dataSource = new SupabaseDataSource(serviceClient)
+    const todoRepository = new TodoRepository(dataSource)
+
+    // 4. Create Use Case with service_role repository
+    const useCase = new CompleteTodoUseCase(todoRepository)
+
+    // 5. Execute Use Case
+    const uncompletedTodo = await useCase.uncomplete(todoId, tenantId)
+
+    // 6. Revalidate pages
+    revalidatePath('/todos')
+    revalidatePath('/students/[id]', 'page')
+    revalidatePath('/dashboard')
+
+    return {
+      success: true,
+      data: {
+        todo: uncompletedTodo.toDTO(),
+      },
+      error: null,
+    }
+  } catch (error) {
+    console.error('[uncompleteTodo] Error:', error)
+    return {
+      success: false,
+      data: null,
       error: getErrorMessage(error),
     }
   }
