@@ -12,10 +12,10 @@ import { GradesTab } from '@/components/features/students/detail/GradesTab'
 import { ScheduleTab } from '@/components/features/students/detail/ScheduleTab'
 import { AttendanceTab } from '@/components/features/students/detail/AttendanceTab'
 import { TodoTab } from '@/components/features/students/detail/TodoTab'
-import { LearningStatusTab } from '@/components/features/students/detail/LearningStatusTab'
-import { ActivityTab } from '@/components/features/students/detail/ActivityTab'
+// import { LearningStatusTab } from '@/components/features/students/detail/LearningStatusTab' // TODO: Re-enable when migrated
+// import { ActivityTab } from '@/components/features/students/detail/ActivityTab' // TODO: Re-enable when migrated
 import { ConsultationTab } from '@/components/features/students/detail/ConsultationTab'
-import { ManageClassesDialog } from '@/components/features/students/manage-classes-dialog'
+// import { ManageClassesDialog } from '@/components/features/students/manage-classes-dialog' // TODO: Re-enable when migrated
 import { StudentDetailProvider } from '@/hooks/use-student-detail'
 import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/page-error-boundary'
 import type { StudentDetailData, Consultation } from '@/core/types/studentDetail.types'
@@ -115,11 +115,12 @@ export function StudentDetailClient({
               </SectionErrorBoundary>
             </TabsContent>
 
-            <TabsContent value="learning" className="mt-0">
+            {/* TODO: Re-enable when migrated */}
+            {/* <TabsContent value="learning" className="mt-0">
               <SectionErrorBoundary sectionName="학습 탭">
                 <LearningStatusTab />
               </SectionErrorBoundary>
-            </TabsContent>
+            </TabsContent> */}
 
             <TabsContent value="consultations" className="mt-0">
               <SectionErrorBoundary sectionName="상담 탭">
@@ -131,15 +132,17 @@ export function StudentDetailClient({
               </SectionErrorBoundary>
             </TabsContent>
 
-            <TabsContent value="activity" className="mt-0">
+            {/* TODO: Re-enable when migrated */}
+            {/* <TabsContent value="activity" className="mt-0">
               <SectionErrorBoundary sectionName="활동 탭">
                 <ActivityTab studentId={student.id} />
               </SectionErrorBoundary>
-            </TabsContent>
+            </TabsContent> */}
           </Tabs>
 
         {/* Dialogs */}
-        <ManageClassesDialog
+        {/* TODO: Re-enable when migrated */}
+        {/* <ManageClassesDialog
           open={classDialogOpen}
           onOpenChange={setClassDialogOpen}
           studentId={student.id}
@@ -152,7 +155,7 @@ export function StudentDetailClient({
             setClassDialogOpen(false)
             handleDataRefresh() // 서버 컴포넌트 다시 실행하여 최신 데이터 로드
           }}
-        />
+        /> */}
         </motion.div>
       </PageWrapper>
       </StudentDetailProvider>

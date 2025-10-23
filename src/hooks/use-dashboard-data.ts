@@ -19,6 +19,8 @@ export type {
   CalendarEvent,
   ClassStatus,
   DashboardData,
+  ScheduledConsultation,
+  ParentToContact,
 } from '@/core/types/dashboard'
 
 import type { DashboardData } from '@/core/types/dashboard'

@@ -10,10 +10,10 @@ import { getStudentPointBalance, getStudentPointHistory } from '@/app/actions/st
 
 export async function GET(
   _req: Request,
-  { params }: { params: { studentId: string } }
+  { params }: { params: Promise<{ studentId: string }> }
 ) {
   try {
-    const { studentId } = params
+    const { studentId } = await params
     if (!studentId) {
       return NextResponse.json({ error: 'studentId is required' }, { status: 400 })
     }
