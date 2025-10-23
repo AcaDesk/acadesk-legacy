@@ -162,10 +162,26 @@ export async function signUp(input: z.infer<typeof signUpSchema>) {
  * @param input - 이메일, 비밀번호
  * @returns 성공 여부 및 에러 메시지
  */
-export async function signIn(input: z.infer<typeof signInSchema>) {
+/**
+ * 이메일/비밀번호 로그인
+ *
+ * ⚠️ 중요: 성공 시 서버에서 바로 redirect()를 호출합니다
+ *
+ * 1. Supabase Auth로 로그인
+ * 2. 온보딩 상태 확인
+ * 3. 적절한 페이지로 리다이렉트
+ *
+ * @param input - 이메일, 비밀번호
+ * @returns 에러 발생 시에만 반환 (성공 시 redirect로 인해 반환 안 됨)
+ */
+export async function signIn(input: z.infer<typeof signInSchema>): Promise<{ success: false; error: string } | never> {
+  const requestId = crypto.randomUUID()
+
   try {
     // 1. Validate input
     const validated = signInSchema.parse(input)
+
+    console.log('[signIn] Login attempt:', { requestId, email: validated.email })
 
     // 2. Create server client
     const supabase = await createServerClient()
@@ -177,25 +193,63 @@ export async function signIn(input: z.infer<typeof signInSchema>) {
     })
 
     if (error) {
-      console.error('Sign in error:', error)
+      console.error('[signIn] Auth error:', { requestId, error })
       return {
         success: false,
         error: getAuthErrorMessage(error),
       }
     }
 
-    // 4. Revalidate paths to update UI
-    revalidatePath('/', 'layout')
-
-    return {
-      success: true,
-      data: {
-        userId: data.user?.id,
-        email: data.user?.email,
-      },
+    if (!data.user) {
+      console.error('[signIn] No user in response:', { requestId })
+      return {
+        success: false,
+        error: '로그인에 실패했습니다.',
+      }
     }
+
+    console.log('[signIn] Login successful:', { requestId })
+
+    // 4. 온보딩 상태 확인
+    const stageResult = await checkOnboardingStage()
+
+    if (!stageResult.success || !stageResult.data) {
+      console.error('[signIn] Onboarding stage check failed:', {
+        requestId,
+        error: stageResult.error,
+      })
+      // 상태 확인 실패해도 대시보드로 보냄
+      revalidatePath('/', 'layout')
+      redirect('/dashboard')
+    }
+
+    const stageData = stageResult.data as {
+      ok: boolean
+      stage?: { code: string; next_url?: string }
+    }
+
+    const { code: stageCode, next_url: nextUrl } = stageData.stage || {}
+
+    // 5. 적절한 페이지로 리다이렉트
+    const redirectUrl =
+      nextUrl ||
+      (stageCode === 'READY' ? '/dashboard' : `/auth/onboarding`)
+
+    console.log('[signIn] Redirecting to:', { requestId, redirectUrl, stageCode })
+
+    // 6. Revalidate and redirect
+    revalidatePath('/', 'layout')
+    redirect(redirectUrl)
   } catch (error) {
-    console.error('Sign in error:', error)
+    // redirect()는 NEXT_REDIRECT 에러를 throw하므로 정상 케이스
+    if (error && typeof error === 'object' && 'digest' in error && String(error.digest).startsWith('NEXT_REDIRECT')) {
+      throw error // redirect() 에러는 그대로 전파
+    }
+
+    console.error('[signIn] Unexpected error:', {
+      requestId,
+      message: error instanceof Error ? error.message : String(error),
+    })
 
     if (error instanceof z.ZodError) {
       return {

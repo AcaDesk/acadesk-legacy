@@ -27,7 +27,7 @@ import {
 } from "@ui/sheet"
 import { useMediaQuery } from "@/hooks/use-media-query"
 
-interface DashboardLayoutClientProps {
+interface DashboardShellProps {
   children: React.ReactNode
   userName?: string
   userEmail?: string
@@ -182,16 +182,19 @@ const Header = memo(function Header({
 })
 
 /**
- * Dashboard Layout Client Component
+ * Dashboard Shell Component
  *
- * UI 상태만 관리 (사이드바 토글, 모바일 메뉴 등)
- * 인증/권한은 서버 컴포넌트에서 처리
+ * ✅ 역할: UI 상태만 관리 (사이드바 토글, 모바일 메뉴, 애니메이션)
+ * ❌ 하지 않음: 인증/권한 체크 (서버 레이아웃에서 처리)
+ *
+ * 이 컴포넌트는 순수 UI 로직만 담당하며,
+ * 서버 컴포넌트 (dashboard/layout.tsx)가 이미 인증을 완료한 후 호출됩니다.
  */
-export function DashboardLayoutClient({
+export function DashboardShell({
   children,
   userName,
   userEmail
-}: DashboardLayoutClientProps) {
+}: DashboardShellProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
