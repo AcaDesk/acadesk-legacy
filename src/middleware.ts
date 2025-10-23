@@ -14,7 +14,7 @@
  */
 
 import type { NextRequest } from 'next/server'
-import { updateSession } from '@/lib/supabase/middleware'
+import { updateSession } from '@/lib/supabase/supabase-session'
 
 export async function middleware(request: NextRequest) {
   // Supabase 세션 최신화 (쿠키 refresh)
