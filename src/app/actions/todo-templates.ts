@@ -1,8 +1,7 @@
 /**
- * TODO Template Server Actions
+ * TODO Template Management Server Actions
  *
- * 모든 TODO 템플릿 CUD 작업은 이 Server Action을 통해 service_role로 실행됩니다.
- * 클라이언트에서 직접 Supabase CUD를 사용하지 않습니다.
+ * TODO 템플릿 관리의 모든 CUD 작업은 이 Server Action을 통해 service_role로 실행됩니다.
  */
 
 'use server'
@@ -11,10 +10,6 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
-import { SupabaseDataSource } from '@infra/db/datasource/SupabaseDataSource'
-import { TodoTemplateRepository } from '@infra/db/repositories/todo-template.repository'
-import { TodoTemplate } from '@core/domain/entities/TodoTemplate'
-import { Priority } from '@core/domain/value-objects/Priority'
 import { getErrorMessage } from '@/lib/error-handlers'
 
 // ============================================================================
@@ -22,18 +17,21 @@ import { getErrorMessage } from '@/lib/error-handlers'
 // ============================================================================
 
 const createTodoTemplateSchema = z.object({
-  title: z.string().min(1, '제목은 필수입니다'),
+  title: z.string().min(1, '과제명은 필수입니다'),
   description: z.string().optional(),
   subject: z.string().optional(),
+  dayOfWeek: z.number().int().min(0).max(6).optional(),
   estimatedDurationMinutes: z.number().int().positive().optional(),
   priority: z.enum(['low', 'normal', 'high', 'urgent']).default('normal'),
+  active: z.boolean().optional(),
 })
 
 const updateTodoTemplateSchema = z.object({
   id: z.string().uuid(),
-  title: z.string().min(1, '제목은 필수입니다').optional(),
-  description: z.string().optional().nullable(),
-  subject: z.string().optional().nullable(),
+  title: z.string().min(1, '과제명은 필수입니다').optional(),
+  description: z.string().optional(),
+  subject: z.string().optional(),
+  dayOfWeek: z.number().int().min(0).max(6).optional().nullable(),
   estimatedDurationMinutes: z.number().int().positive().optional().nullable(),
   priority: z.enum(['low', 'normal', 'high', 'urgent']).optional(),
   active: z.boolean().optional(),
@@ -44,16 +42,16 @@ const updateTodoTemplateSchema = z.object({
 // ============================================================================
 
 /**
- * Get all TODO templates for current tenant
+ * Get all TODO templates
  *
- * @returns List of templates or error
+ * @returns Template list or error
  */
 export async function getTodoTemplates() {
   try {
     // 1. Verify authentication and get tenant
     const { tenantId } = await verifyStaff()
 
-    // 2. Create service_role client for query
+    // 2. Create service_role client
     const supabase = await createServiceRoleClient()
 
     // 3. Query templates
@@ -62,9 +60,11 @@ export async function getTodoTemplates() {
       .select('*')
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
-      .order('title', { ascending: true })
+      .order('created_at', { ascending: false })
 
-    if (error) throw error
+    if (error) {
+      throw error
+    }
 
     return {
       success: true,
@@ -73,6 +73,52 @@ export async function getTodoTemplates() {
     }
   } catch (error) {
     console.error('[getTodoTemplates] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * Get a single TODO template by ID
+ *
+ * @param id - Template ID
+ * @returns Template or error
+ */
+export async function getTodoTemplateById(id: string) {
+  try {
+    // 1. Verify authentication and get tenant
+    const { tenantId } = await verifyStaff()
+
+    // 2. Create service_role client
+    const supabase = await createServiceRoleClient()
+
+    // 3. Query template
+    const { data, error } = await supabase
+      .from('todo_templates')
+      .select('*')
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .single()
+
+    if (error) {
+      throw error
+    }
+
+    if (!data) {
+      throw new Error('템플릿을 찾을 수 없습니다')
+    }
+
+    return {
+      success: true,
+      data,
+      error: null,
+    }
+  } catch (error) {
+    console.error('[getTodoTemplateById] Error:', error)
     return {
       success: false,
       data: null,
@@ -91,36 +137,41 @@ export async function createTodoTemplate(
   input: z.infer<typeof createTodoTemplateSchema>
 ) {
   try {
-    // 1. Verify authentication and get tenant
-    const { tenantId } = await verifyStaff()
-
-    // 2. Validate input
+    // 1. Validate input
     const validated = createTodoTemplateSchema.parse(input)
 
-    // 3. Create service_role client and repository
-    const serviceClient = createServiceRoleClient()
-    const dataSource = new SupabaseDataSource(serviceClient)
-    const repository = new TodoTemplateRepository(dataSource)
+    // 2. Verify authentication and get tenant
+    const { tenantId } = await verifyStaff()
 
-    // 4. Create entity
-    const template = TodoTemplate.create({
-      tenantId,
-      title: validated.title,
-      description: validated.description ?? null,
-      subject: validated.subject ?? null,
-      estimatedDurationMinutes: validated.estimatedDurationMinutes ?? null,
-      priority: Priority.fromString(validated.priority),
-    })
+    // 3. Create service_role client
+    const supabase = await createServiceRoleClient()
 
-    // 5. Save with service_role (bypasses RLS)
-    const savedTemplate = await repository.save(template)
+    // 4. Insert template
+    const { data, error } = await supabase
+      .from('todo_templates')
+      .insert({
+        tenant_id: tenantId,
+        title: validated.title,
+        description: validated.description || null,
+        subject: validated.subject || null,
+        day_of_week: validated.dayOfWeek ?? null,
+        estimated_duration_minutes: validated.estimatedDurationMinutes ?? null,
+        priority: validated.priority,
+        active: validated.active ?? true, // Default to true
+      })
+      .select()
+      .single()
 
-    // 6. Revalidate pages
+    if (error) {
+      throw error
+    }
+
+    // 5. Revalidate
     revalidatePath('/todos/templates')
 
     return {
       success: true,
-      data: savedTemplate.toDTO(),
+      data,
       error: null,
     }
   } catch (error) {
@@ -134,79 +185,124 @@ export async function createTodoTemplate(
 }
 
 /**
- * Update an existing TODO template
+ * Update a TODO template
  *
- * @param input - Template update data
+ * @param input - Template data with ID
  * @returns Updated template or error
  */
 export async function updateTodoTemplate(
   input: z.infer<typeof updateTodoTemplateSchema>
 ) {
   try {
-    // 1. Verify authentication and get tenant
-    const { tenantId } = await verifyStaff()
-
-    // 2. Validate input
+    // 1. Validate input
     const validated = updateTodoTemplateSchema.parse(input)
 
-    // 3. Create service_role client and repository
-    const serviceClient = createServiceRoleClient()
-    const dataSource = new SupabaseDataSource(serviceClient)
-    const repository = new TodoTemplateRepository(dataSource)
+    // 2. Verify authentication and get tenant
+    const { tenantId } = await verifyStaff()
 
-    // 4. Fetch existing template
-    const existingTemplate = await repository.findById(validated.id)
-    if (!existingTemplate) {
-      return {
-        success: false,
-        data: null,
-        error: '템플릿을 찾을 수 없습니다',
-      }
+    // 3. Create service_role client
+    const supabase = await createServiceRoleClient()
+
+    // 4. Prepare update data (only include fields that were provided)
+    const updateData: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
     }
 
-    // 5. Verify tenant ownership
-    if (existingTemplate.tenantId !== tenantId) {
-      return {
-        success: false,
-        data: null,
-        error: '권한이 없습니다',
-      }
+    if (validated.title !== undefined) {
+      updateData.title = validated.title
+    }
+    if (validated.description !== undefined) {
+      updateData.description = validated.description || null
+    }
+    if (validated.subject !== undefined) {
+      updateData.subject = validated.subject || null
+    }
+    if (validated.dayOfWeek !== undefined) {
+      updateData.day_of_week = validated.dayOfWeek
+    }
+    if (validated.estimatedDurationMinutes !== undefined) {
+      updateData.estimated_duration_minutes = validated.estimatedDurationMinutes
+    }
+    if (validated.priority !== undefined) {
+      updateData.priority = validated.priority
+    }
+    if (validated.active !== undefined) {
+      updateData.active = validated.active
     }
 
-    // 6. Update entity
-    const updatedTemplate = TodoTemplate.fromDatabase({
-      id: existingTemplate.id,
-      tenantId: existingTemplate.tenantId,
-      title: validated.title ?? existingTemplate.title,
-      description: validated.description !== undefined ? validated.description : existingTemplate.description,
-      subject: validated.subject !== undefined ? validated.subject : existingTemplate.subject,
-      estimatedDurationMinutes:
-        validated.estimatedDurationMinutes !== undefined
-          ? validated.estimatedDurationMinutes
-          : existingTemplate.estimatedDurationMinutes,
-      priority:
-        validated.priority
-          ? Priority.fromString(validated.priority)
-          : existingTemplate.priority,
-      active: validated.active ?? existingTemplate.active,
-      createdAt: existingTemplate.createdAt,
-      updatedAt: new Date(),
-    })
+    // 5. Update template
+    const { data, error } = await supabase
+      .from('todo_templates')
+      .update(updateData)
+      .eq('id', validated.id)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .select()
+      .single()
 
-    // 7. Save with service_role
-    const savedTemplate = await repository.save(updatedTemplate)
+    if (error) {
+      throw error
+    }
 
-    // 8. Revalidate pages
+    if (!data) {
+      throw new Error('템플릿을 찾을 수 없습니다')
+    }
+
+    // 6. Revalidate
     revalidatePath('/todos/templates')
-    revalidatePath('/todos/planner')
+    revalidatePath(`/todos/templates/${validated.id}/edit`)
 
     return {
       success: true,
-      data: savedTemplate.toDTO(),
+      data,
       error: null,
     }
   } catch (error) {
     console.error('[updateTodoTemplate] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * Delete a TODO template (soft delete)
+ *
+ * @param id - Template ID
+ * @returns Success or error
+ */
+export async function deleteTodoTemplate(id: string) {
+  try {
+    // 1. Verify authentication and get tenant
+    const { tenantId } = await verifyStaff()
+
+    // 2. Create service_role client
+    const supabase = await createServiceRoleClient()
+
+    // 3. Soft delete (set deleted_at timestamp)
+    const { error } = await supabase
+      .from('todo_templates')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+
+    if (error) {
+      throw error
+    }
+
+    // 4. Revalidate
+    revalidatePath('/todos/templates')
+
+    return {
+      success: true,
+      data: null,
+      error: null,
+    }
+  } catch (error) {
+    console.error('[deleteTodoTemplate] Error:', error)
     return {
       success: false,
       data: null,
@@ -226,54 +322,49 @@ export async function toggleTodoTemplateActive(id: string) {
     // 1. Verify authentication and get tenant
     const { tenantId } = await verifyStaff()
 
-    // 2. Create service_role client and repository
-    const serviceClient = createServiceRoleClient()
-    const dataSource = new SupabaseDataSource(serviceClient)
-    const repository = new TodoTemplateRepository(dataSource)
+    // 2. Create service_role client
+    const supabase = await createServiceRoleClient()
 
-    // 3. Fetch existing template
-    const existingTemplate = await repository.findById(id)
-    if (!existingTemplate) {
-      return {
-        success: false,
-        data: null,
-        error: '템플릿을 찾을 수 없습니다',
-      }
+    // 3. Get current status
+    const { data: current, error: fetchError } = await supabase
+      .from('todo_templates')
+      .select('active')
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .single()
+
+    if (fetchError) {
+      throw fetchError
     }
 
-    // 4. Verify tenant ownership
-    if (existingTemplate.tenantId !== tenantId) {
-      return {
-        success: false,
-        data: null,
-        error: '권한이 없습니다',
-      }
+    if (!current) {
+      throw new Error('템플릿을 찾을 수 없습니다')
     }
 
-    // 5. Toggle active status
-    const updatedTemplate = TodoTemplate.fromDatabase({
-      id: existingTemplate.id,
-      tenantId: existingTemplate.tenantId,
-      title: existingTemplate.title,
-      description: existingTemplate.description,
-      subject: existingTemplate.subject,
-      estimatedDurationMinutes: existingTemplate.estimatedDurationMinutes,
-      priority: existingTemplate.priority,
-      active: !existingTemplate.active,
-      createdAt: existingTemplate.createdAt,
-      updatedAt: new Date(),
-    })
+    // 4. Toggle active status
+    const { data, error } = await supabase
+      .from('todo_templates')
+      .update({
+        active: !current.active,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .select()
+      .single()
 
-    // 6. Save with service_role
-    const savedTemplate = await repository.save(updatedTemplate)
+    if (error) {
+      throw error
+    }
 
-    // 7. Revalidate pages
+    // 5. Revalidate
     revalidatePath('/todos/templates')
-    revalidatePath('/todos/planner')
 
     return {
       success: true,
-      data: savedTemplate.toDTO(),
+      data,
       error: null,
     }
   } catch (error) {
@@ -281,121 +372,6 @@ export async function toggleTodoTemplateActive(id: string) {
     return {
       success: false,
       data: null,
-      error: getErrorMessage(error),
-    }
-  }
-}
-
-/**
- * Delete a TODO template (soft delete - sets active to false)
- *
- * @param id - Template ID
- * @returns Success or error
- */
-export async function deleteTodoTemplate(id: string) {
-  try {
-    // 1. Verify authentication and get tenant
-    const { tenantId } = await verifyStaff()
-
-    // 2. Create service_role client and repository
-    const serviceClient = createServiceRoleClient()
-    const dataSource = new SupabaseDataSource(serviceClient)
-    const repository = new TodoTemplateRepository(dataSource)
-
-    // 3. Fetch existing template
-    const existingTemplate = await repository.findById(id)
-    if (!existingTemplate) {
-      return {
-        success: false,
-        error: '템플릿을 찾을 수 없습니다',
-      }
-    }
-
-    // 4. Verify tenant ownership
-    if (existingTemplate.tenantId !== tenantId) {
-      return {
-        success: false,
-        error: '권한이 없습니다',
-      }
-    }
-
-    // 5. Delete (soft delete via repository)
-    await repository.delete(id)
-
-    // 6. Revalidate pages
-    revalidatePath('/todos/templates')
-    revalidatePath('/todos/planner')
-
-    return {
-      success: true,
-      error: null,
-    }
-  } catch (error) {
-    console.error('[deleteTodoTemplate] Error:', error)
-    return {
-      success: false,
-      error: getErrorMessage(error),
-    }
-  }
-}
-
-/**
- * Hard delete a TODO template (permanent deletion)
- *
- * ⚠️ Only for owner role, removes record from database permanently
- *
- * @param id - Template ID
- * @returns Success or error
- */
-export async function hardDeleteTodoTemplate(id: string) {
-  try {
-    // 1. Verify owner role (only owners can hard delete)
-    const { tenantId } = await verifyStaff()
-
-    // 2. Create service_role client
-    const serviceClient = createServiceRoleClient()
-    const dataSource = new SupabaseDataSource(serviceClient)
-    const repository = new TodoTemplateRepository(dataSource)
-
-    // 3. Fetch existing template
-    const existingTemplate = await repository.findById(id)
-    if (!existingTemplate) {
-      return {
-        success: false,
-        error: '템플릿을 찾을 수 없습니다',
-      }
-    }
-
-    // 4. Verify tenant ownership
-    if (existingTemplate.tenantId !== tenantId) {
-      return {
-        success: false,
-        error: '권한이 없습니다',
-      }
-    }
-
-    // 5. Hard delete (direct database operation)
-    const { error } = await serviceClient
-      .from('todo_templates')
-      .delete()
-      .eq('id', id)
-
-    if (error) {
-      throw error
-    }
-
-    // 6. Revalidate pages
-    revalidatePath('/todos/templates')
-    revalidatePath('/todos/planner')
-
-    return {
-      success: true,
-      error: null,
-    }
-  } catch (error) {
-    console.error('[hardDeleteTodoTemplate] Error:', error)
-    return {
-      success: false,
       error: getErrorMessage(error),
     }
   }
