@@ -12,15 +12,41 @@ function classifyAuthError(error: { message?: string; code?: string }): string {
   if (m.includes("expired") || c.includes("expired")) return "expired"
   if (m.includes("already") || m.includes("used") || c.includes("consumed")) return "used"
   if (m.includes("invalid") || c.includes("invalid") || m.includes("not found")) return "invalid"
+  if (m.includes("rate limit") || m.includes("too many")) return "rate_limit"
+  if (m.includes("provider") || c.includes("provider")) return "provider_error"
 
   return "unknown"
 }
 
+/**
+ * 온보딩 상태 기반 리다이렉트 URL 계산
+ */
+function getRedirectUrl(origin: string, stageCode?: string, nextUrl?: string, userEmail?: string): string {
+  // 1. next_url이 명시적으로 있으면 우선
+  if (nextUrl) {
+    return `${origin}${nextUrl}`
+  }
+
+  // 2. READY 상태면 대시보드로
+  if (stageCode === 'READY') {
+    return `${origin}/dashboard`
+  }
+
+  // 3. 기타 상태는 로그인 페이지로 (클라이언트에서 다시 라우팅)
+  const params = new URLSearchParams({ verified: 'true' })
+  if (userEmail) {
+    params.set('email', userEmail)
+  }
+  return `${origin}/auth/login?${params.toString()}`
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url)
+  const requestId = crypto.randomUUID()
 
   // 🔍 로깅: 콜백 진입 (스캐너 감지용)
-  console.log("[auth/callback] hit:", {
+  console.log("[auth/callback] Request started:", {
+    requestId,
     fullUrl: url.toString(),
     params: Object.fromEntries(url.searchParams),
     timestamp: new Date().toISOString(),
@@ -31,7 +57,7 @@ export async function GET(request: Request) {
   const origin = url.origin
 
   if (!code) {
-    console.warn("[auth/callback] missing code param")
+    console.warn("[auth/callback] Missing code param", { requestId })
     return NextResponse.redirect(`${origin}/auth/login`)
   }
 
@@ -40,18 +66,18 @@ export async function GET(request: Request) {
 
   if (exchangeErr) {
     // 🔍 로깅: 교환 실패 (스캐너가 먼저 호출했는지 확인)
-    console.error("[auth/callback] exchange error:", {
+    console.error("[auth/callback] Session exchange failed:", {
+      requestId,
       message: exchangeErr.message,
       status: exchangeErr.status,
       code: exchangeErr.code,
       name: exchangeErr.name,
-      fullError: exchangeErr,
     })
     const errType = classifyAuthError(exchangeErr)
     return NextResponse.redirect(`${origin}/auth/link-expired?type=${type}&error=${errType}`)
   }
 
-  console.log("[auth/callback] exchange success")
+  console.log("[auth/callback] Session exchange success", { requestId })
 
   // 세션 교환 성공 → 현재 사용자
   const {
@@ -59,24 +85,47 @@ export async function GET(request: Request) {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    console.error("[auth/callback] No user after session exchange")
+    console.error("[auth/callback] No user after session exchange", { requestId })
     return NextResponse.redirect(`${origin}/auth/login`)
+  }
+
+  const userId = user.id
+  const userEmail = user.email || ""
+
+  console.log("[auth/callback] User retrieved:", { requestId, userId, email: userEmail })
+
+  // ✅ 이메일 인증 확인
+  // Supabase v2: email_confirmed_at (v1에선 confirmed_at)
+  const emailConfirmedAt = user.email_confirmed_at ?? (user as any).confirmed_at
+
+  if (!emailConfirmedAt) {
+    console.warn("[auth/callback] Email not confirmed yet", { requestId, userId })
+    // 이메일 인증이 안 되어 있으면 verify-email 페이지로
+    return NextResponse.redirect(`${origin}/auth/verify-email?email=${encodeURIComponent(userEmail)}`)
   }
 
   // ✅ 자동 프로필 생성 (SERVICE ROLE)
   // 이메일 인증 직후 프로필이 없으면 생성합니다.
   try {
-    const profileResult = await createUserProfileServer(user.id)
+    const profileResult = await createUserProfileServer(userId)
 
     if (!profileResult.success) {
-      console.error("[auth/callback] Profile creation failed:", profileResult.error)
+      console.error("[auth/callback] Profile creation failed:", {
+        requestId,
+        userId,
+        error: profileResult.error,
+      })
       // 프로필 생성 실패 시 재시도 페이지로
       return NextResponse.redirect(`${origin}/auth/pending?error=profile_creation_failed`)
     }
 
-    console.log(`[auth/callback] Profile created/verified for user ${user.id}`)
+    console.log("[auth/callback] Profile created/verified:", { requestId, userId })
   } catch (error) {
-    console.error("[auth/callback] Profile creation error:", error)
+    console.error("[auth/callback] Profile creation exception:", {
+      requestId,
+      userId,
+      error: error instanceof Error ? error.message : String(error),
+    })
     // 에러가 발생해도 사용자를 pending 페이지로 보내서 수동 재시도 가능하게 함
     return NextResponse.redirect(`${origin}/auth/pending?error=profile_creation_error`)
   }
@@ -88,37 +137,51 @@ export async function GET(request: Request) {
     })
 
     if (stageError) {
-      console.error("[auth/callback] get_auth_stage error:", stageError)
+      console.error("[auth/callback] get_auth_stage RPC failed:", {
+        requestId,
+        userId,
+        error: stageError,
+      })
       // Stage 확인 실패 시 로그인 페이지로 (클라이언트에서 다시 확인)
-      return NextResponse.redirect(`${origin}/auth/login?verified=true&email=${encodeURIComponent(user.email || "")}`)
+      const fallbackUrl = getRedirectUrl(origin, undefined, undefined, userEmail)
+      return NextResponse.redirect(fallbackUrl)
     }
 
     const response = stageData as { ok: boolean; stage?: { code: string; next_url?: string } }
 
     if (!response?.ok || !response.stage) {
-      console.warn("[auth/callback] Invalid stage response:", response)
-      return NextResponse.redirect(`${origin}/auth/login?verified=true&email=${encodeURIComponent(user.email || "")}`)
+      console.warn("[auth/callback] Invalid stage response:", {
+        requestId,
+        userId,
+        response,
+      })
+      const fallbackUrl = getRedirectUrl(origin, undefined, undefined, userEmail)
+      return NextResponse.redirect(fallbackUrl)
     }
 
     const { code: stageCode, next_url: nextUrl } = response.stage
 
-    console.log(`[auth/callback] User stage: ${stageCode}, next_url: ${nextUrl || 'none'}`)
+    console.log("[auth/callback] Auth stage determined:", {
+      requestId,
+      userId,
+      stageCode,
+      nextUrl: nextUrl || 'none',
+    })
 
     // 온보딩 상태에 따라 리다이렉트
-    if (nextUrl) {
-      return NextResponse.redirect(`${origin}${nextUrl}`)
-    }
+    const redirectUrl = getRedirectUrl(origin, stageCode, nextUrl, userEmail)
 
-    // READY 상태면 대시보드로
-    if (stageCode === 'READY') {
-      return NextResponse.redirect(`${origin}/dashboard`)
-    }
+    console.log("[auth/callback] Redirecting to:", { requestId, userId, redirectUrl })
 
-    // 기타 상태는 로그인 페이지로 (클라이언트 라우팅에 맡김)
-    return NextResponse.redirect(`${origin}/auth/login?verified=true&email=${encodeURIComponent(user.email || "")}`)
+    return NextResponse.redirect(redirectUrl)
   } catch (error) {
-    console.error("[auth/callback] Stage check error:", error)
+    console.error("[auth/callback] Stage check exception:", {
+      requestId,
+      userId,
+      error: error instanceof Error ? error.message : String(error),
+    })
     // 에러 발생 시 로그인 페이지로
-    return NextResponse.redirect(`${origin}/auth/login?verified=true&email=${encodeURIComponent(user.email || "")}`)
+    const fallbackUrl = getRedirectUrl(origin, undefined, undefined, userEmail)
+    return NextResponse.redirect(fallbackUrl)
   }
 }
