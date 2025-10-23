@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
@@ -52,8 +52,11 @@ const PRIORITY_OPTIONS = [
   { value: 'low', label: '낮음', icon: Info, color: 'text-gray-600', bgColor: 'bg-gray-50' },
 ]
 
-export default function NewTodoTemplatePage() {
+export default function EditTodoTemplatePage() {
   // All Hooks must be called before any early returns
+  const params = useParams()
+  const templateId = params.id as string
+
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [subject, setSubject] = useState('')
@@ -61,12 +64,51 @@ export default function NewTodoTemplatePage() {
   const [estimatedDuration, setEstimatedDuration] = useState('')
   const [priority, setPriority] = useState('normal')
   const [loading, setLoading] = useState(false)
+  const [loadingTemplate, setLoadingTemplate] = useState(true)
   const [textareaRef, setTextareaRef] = useState<HTMLTextAreaElement | null>(null)
 
   const { toast } = useToast()
   const router = useRouter()
   const supabase = createClient()
   const { user: currentUser, loading: userLoading } = useCurrentUser()
+
+  // Load template data
+  useEffect(() => {
+    async function loadTemplate() {
+      if (!templateId) return
+
+      try {
+        setLoadingTemplate(true)
+
+        const { getTodoTemplateById } = await import('@/app/actions/todo-templates')
+        const result = await getTodoTemplateById(templateId)
+
+        if (!result.success || !result.data) {
+          throw new Error(result.error || '템플릿을 불러올 수 없습니다')
+        }
+
+        const template = result.data
+        setTitle(template.title)
+        setDescription(template.description || '')
+        setSubject(template.subject || '')
+        setDayOfWeek(template.day_of_week !== null ? template.day_of_week.toString() : '')
+        setEstimatedDuration(template.estimated_duration_minutes?.toString() || '')
+        setPriority(template.priority || 'normal')
+      } catch (error) {
+        toast({
+          title: '로드 오류',
+          description: getErrorMessage(error),
+          variant: 'destructive',
+        })
+        router.push('/todos/templates')
+      } finally {
+        setLoadingTemplate(false)
+      }
+    }
+
+    loadTemplate()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templateId])
 
   // Markdown formatting functions
   const wrapSelection = (before: string, after: string) => {
@@ -171,29 +213,30 @@ export default function NewTodoTemplatePage() {
 
     try {
       // ✅ Use Server Action instead of direct Supabase CUD
-      const { createTodoTemplate } = await import('@/app/actions/todo-templates')
-      const result = await createTodoTemplate({
+      const { updateTodoTemplate } = await import('@/app/actions/todo-templates')
+      const result = await updateTodoTemplate({
+        id: templateId,
         title: title.trim(),
         description: description.trim() || undefined,
         subject: subject.trim() || undefined,
-        dayOfWeek: dayOfWeek ? parseInt(dayOfWeek) : undefined,
-        estimatedDurationMinutes: estimatedDuration ? parseInt(estimatedDuration) : undefined,
+        dayOfWeek: dayOfWeek ? parseInt(dayOfWeek) : null,
+        estimatedDurationMinutes: estimatedDuration ? parseInt(estimatedDuration) : null,
         priority: priority as 'low' | 'normal' | 'high' | 'urgent',
       })
 
       if (!result.success) {
-        throw new Error(result.error || '템플릿 생성 실패')
+        throw new Error(result.error || '템플릿 수정 실패')
       }
 
       toast({
-        title: '템플릿 등록 완료',
-        description: `${title} 템플릿이 등록되었습니다.`,
+        title: '템플릿 수정 완료',
+        description: `${title} 템플릿이 수정되었습니다.`,
       })
 
       router.push('/todos/templates')
     } catch (error) {
       toast({
-        title: '등록 오류',
+        title: '수정 오류',
         description: getErrorMessage(error),
         variant: 'destructive',
       })
@@ -208,14 +251,14 @@ export default function NewTodoTemplatePage() {
   const featureStatus = FEATURES.todoManagement;
 
   if (featureStatus === 'inactive') {
-    return <ComingSoon featureName="과제 템플릿 등록" description="반복적으로 배정할 과제를 템플릿으로 등록하고 자동으로 학생들에게 배정할 수 있는 기능을 준비하고 있습니다." />;
+    return <ComingSoon featureName="과제 템플릿 수정" description="반복적으로 배정할 과제를 템플릿으로 수정하고 자동으로 학생들에게 배정할 수 있는 기능을 준비하고 있습니다." />;
   }
 
   if (featureStatus === 'maintenance') {
-    return <Maintenance featureName="과제 템플릿 등록" reason="템플릿 시스템 업데이트가 진행 중입니다." />;
+    return <Maintenance featureName="과제 템플릿 수정" reason="템플릿 시스템 업데이트가 진행 중입니다." />;
   }
 
-  if (userLoading) {
+  if (userLoading || loadingTemplate) {
     return (
       <PageWrapper>
         <div className="flex items-center justify-center h-64">
@@ -230,9 +273,9 @@ export default function NewTodoTemplatePage() {
       <div className="space-y-6 max-w-4xl mx-auto">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">과제 템플릿 등록</h1>
+          <h1 className="text-3xl font-bold tracking-tight">과제 템플릿 수정</h1>
           <p className="text-muted-foreground mt-1">
-            반복적으로 배정할 과제 템플릿을 등록하고 자동화하세요
+            과제 템플릿 정보를 수정하세요
           </p>
         </div>
 
@@ -506,12 +549,12 @@ export default function NewTodoTemplatePage() {
                   {loading ? (
                     <>
                       <Repeat className="h-4 w-4 mr-2 animate-spin" />
-                      등록 중...
+                      수정 중...
                     </>
                   ) : (
                     <>
                       <CheckCircle2 className="h-4 w-4 mr-2" />
-                      템플릿 등록
+                      템플릿 수정
                     </>
                   )}
                 </Button>
