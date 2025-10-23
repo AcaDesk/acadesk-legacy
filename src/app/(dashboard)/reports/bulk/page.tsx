@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { ReportGenerator } from '@core/application/use-cases/report/ReportGeneratorService'
+import { generateMonthlyReport, saveReport } from '@/app/actions/reports'
 import { Button } from '@ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
@@ -56,7 +56,6 @@ export default function BulkReportsPage() {
   const { toast } = useToast()
   // const router = useRouter()
   const supabase = createClient()
-  const reportGenerator = new ReportGenerator()
 
   const years = [2024, 2025, 2026]
   const months = Array.from({ length: 12 }, (_, i) => i + 1)
@@ -188,14 +187,22 @@ export default function BulkReportsPage() {
 
         try {
           // Generate report
-          const data = await reportGenerator.generateMonthlyReport(
+          const result = await generateMonthlyReport(
             student.id,
             selectedYear,
             selectedMonth
           )
 
+          if (!result.success || !result.data) {
+            throw new Error(result.error || '리포트 생성 실패')
+          }
+
           // Save report
-          await reportGenerator.saveReport(data, reportType)
+          const saveResult = await saveReport(result.data, reportType)
+
+          if (!saveResult.success) {
+            throw new Error(saveResult.error || '리포트 저장 실패')
+          }
 
           // Auto-send if enabled
           if (autoSend && student.users?.email) {

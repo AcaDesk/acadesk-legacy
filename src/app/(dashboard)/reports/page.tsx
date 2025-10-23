@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { ReportGenerator, type ReportData } from '@core/application/use-cases/report/ReportGeneratorService'
+import { generateMonthlyReport, saveReport, getStudentsForReport } from '@/app/actions/reports'
+import type { ReportData } from '@/core/types/report.types'
 import { Button } from '@ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
@@ -36,8 +36,6 @@ export default function ReportsPage() {
   const [generating, setGenerating] = useState(false)
 
   const { toast } = useToast()
-  const supabase = createClient()
-  const reportGenerator = new ReportGenerator()
 
   const years = [2024, 2025, 2026]
   const months = Array.from({ length: 12 }, (_, i) => i + 1)
@@ -49,14 +47,13 @@ export default function ReportsPage() {
 
   async function loadStudents() {
     try {
-      const { data, error } = await supabase
-        .from('students')
-        .select('id, student_code, users(name)')
-        .is('deleted_at', null)
-        .order('student_code')
+      const result = await getStudentsForReport()
 
-      if (error) throw error
-      setStudents(data as unknown as Student[])
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '학생 목록 조회 실패')
+      }
+
+      setStudents(result.data as unknown as Student[])
     } catch (error) {
       console.error('Error loading students:', error)
       toast({
@@ -79,20 +76,29 @@ export default function ReportsPage() {
 
     setGenerating(true)
     try {
-      const data = await reportGenerator.generateMonthlyReport(
+      // Generate report
+      const result = await generateMonthlyReport(
         selectedStudent,
         selectedYear,
         selectedMonth
       )
 
-      setReportData(data)
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '리포트 생성 실패')
+      }
 
-      // 리포트를 데이터베이스에 저장
-      await reportGenerator.saveReport(data, 'monthly')
+      setReportData(result.data)
+
+      // Save report to database
+      const saveResult = await saveReport(result.data, 'monthly')
+
+      if (!saveResult.success) {
+        console.warn('리포트 저장 실패:', saveResult.error)
+      }
 
       toast({
         title: '리포트 생성 완료',
-        description: `${data.student.name}의 ${selectedYear}년 ${selectedMonth}월 리포트가 생성되었습니다.`,
+        description: `${result.data.student.name}의 ${selectedYear}년 ${selectedMonth}월 리포트가 생성되었습니다.`,
       })
     } catch (error: unknown) {
       console.error('Error generating report:', error)
