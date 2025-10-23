@@ -13,6 +13,13 @@
 
 'use server'
 
+// ⚠️ CRITICAL: Node 런타임 확인 필요
+// Service role 키는 Edge 런타임에서 문제가 발생할 수 있음
+// 런타임 설정은 'use server' 파일에서 불가능하므로,
+// 호출하는 페이지/레이아웃에서 설정해야 함:
+// export const runtime = 'nodejs'
+// export const dynamic = 'force-dynamic'
+
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
@@ -76,40 +83,21 @@ export async function createUserProfileServer(userId: string) {
     // 2. Service role client로 프로필 생성
     const serviceClient = createServiceRoleClient()
 
-    // 기존 프로필 확인
-    const { error: checkError, data: existingUser } = await serviceClient
-      .from('users')
-      .select('id')
-      .eq('id', userId)
-      .maybeSingle()
-
-    if (checkError) {
-      console.error('[createUserProfileServer] Check error:', { requestId, userId, error: checkError })
-      return {
-        success: false,
-        error: '프로필 확인 중 오류가 발생했습니다.',
-      }
-    }
-
-    // 이미 프로필이 있으면 성공 반환 (멱등성)
-    if (existingUser) {
-      console.log('[createUserProfileServer] Profile already exists:', { requestId, userId })
-      return {
-        success: true,
-        data: { message: '이미 프로필이 존재합니다.' },
-      }
-    }
-
     // 3. auth.users에서 이메일 가져오기
     const { data: authUser, error: authError } = await serviceClient.auth.admin.getUserById(
       userId
     )
 
     if (authError || !authUser.user) {
-      console.error('[createUserProfileServer] Auth user not found:', { requestId, userId, error: authError })
+      console.error('[createUserProfileServer] Auth user not found:', {
+        requestId,
+        userId,
+        code: (authError as any)?.code,
+        message: authError?.message,
+      })
       return {
         success: false,
-        error: '인증 사용자를 찾을 수 없습니다.',
+        error: `인증 사용자 조회 실패: ${(authError as any)?.code ?? ''} ${authError?.message ?? ''}`,
       }
     }
 
@@ -118,38 +106,37 @@ export async function createUserProfileServer(userId: string) {
 
     console.log('[createUserProfileServer] Creating profile:', { requestId, userId, email, name })
 
-    // 4. 프로필 생성 (타임스탬프 명시)
+    // 4. 프로필 생성 (Upsert로 멱등성 보장)
     const now = new Date().toISOString()
-    const { error: insertError } = await serviceClient.from('users').insert({
-      id: userId,
-      email: email,
-      name: name,
-      role_code: null,
-      tenant_id: null,
-      onboarding_completed: false,
-      approval_status: 'pending',
-      created_at: now,
-      updated_at: now,
-    })
+    const { error: upsertError } = await serviceClient
+      .from('users')
+      .upsert(
+        {
+          id: userId,
+          email: email,
+          name: name,
+          role_code: null,
+          tenant_id: null,
+          onboarding_completed: false,
+          approval_status: 'pending',
+          created_at: now,
+          updated_at: now,
+        },
+        { onConflict: 'id', ignoreDuplicates: false }
+      )
 
-    if (insertError) {
-      console.error('[createUserProfileServer] Insert error:', { requestId, userId, error: insertError })
-
-      // 이미 존재하는 경우 (race condition) 성공으로 처리
-      if (insertError.code === '23505') {
-        console.log('[createUserProfileServer] Profile created by concurrent request (race condition):', {
-          requestId,
-          userId,
-        })
-        return {
-          success: true,
-          data: { message: '프로필이 생성되었습니다.' },
-        }
-      }
-
+    if (upsertError) {
+      console.error('[createUserProfileServer] Upsert error:', {
+        requestId,
+        userId,
+        code: (upsertError as any)?.code,
+        message: upsertError.message,
+        details: (upsertError as any)?.details,
+        hint: (upsertError as any)?.hint,
+      })
       return {
         success: false,
-        error: '프로필 생성 중 오류가 발생했습니다.',
+        error: `프로필 생성 실패: ${(upsertError as any)?.code ?? ''} ${upsertError.message}`,
       }
     }
 
@@ -485,8 +472,27 @@ export async function checkOnboardingStage(inviteToken?: string) {
       .eq('id', userId)
       .maybeSingle()
 
+    // 진짜 쿼리 에러 vs 데이터 없음 구분
+    if (userError) {
+      console.error('[checkOnboardingStage] users select error:', {
+        requestId,
+        userId,
+        code: (userError as any)?.code,
+        message: userError.message,
+        details: (userError as any)?.details,
+      })
+      // PGRST116은 "no rows returned" - 이건 NO_PROFILE로 처리
+      if ((userError as any)?.code !== 'PGRST116') {
+        return {
+          success: false,
+          error: `프로필 조회 실패: ${(userError as any)?.code ?? ''} ${userError.message}`,
+          data: null,
+        }
+      }
+    }
+
     // Stage 1: NO_PROFILE (user doesn't exist in users table)
-    if (userError || !userData) {
+    if (!userData) {
       console.log('[checkOnboardingStage] NO_PROFILE stage:', { requestId, userId })
       return {
         success: true,
