@@ -8,7 +8,7 @@ import type {
   AttendanceSessionWithClass,
   AttendanceWithStudent,
 } from '@/core/types/attendance';
-import { SupabaseDataSource } from '../data-sources/SupabaseDataSource'
+import { SupabaseDataSource } from '../datasource/SupabaseDataSource'
 
 // Re-export types for use-cases
 export type {

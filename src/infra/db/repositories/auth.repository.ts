@@ -14,7 +14,7 @@ import type {
 } from '@core/domain/repositories/IAuthRepository'
 import type { Email } from '@core/domain/value-objects/Email'
 import type { Password } from '@core/domain/value-objects/Password'
-import { SupabaseDataSource } from '../data-sources/SupabaseDataSource'
+import { SupabaseDataSource } from '../datasource/SupabaseDataSource'
 
 export class AuthRepository implements IAuthRepository {
   private dataSource: IDataSource

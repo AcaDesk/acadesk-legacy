@@ -12,7 +12,7 @@ import type {
 import type { StudentImportItem } from '@core/domain/entities/StudentImport'
 import { StudentImportPreview } from '@core/domain/value-objects/StudentImportPreview'
 import { DatabaseError } from '@/lib/error-types'
-import { SupabaseDataSource } from '../data-sources/SupabaseDataSource'
+import { SupabaseDataSource } from '../datasource/SupabaseDataSource'
 
 export class StudentImportRepository implements IStudentImportRepository {
   private dataSource: IDataSource

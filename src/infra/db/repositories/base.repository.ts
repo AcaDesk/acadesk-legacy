@@ -7,7 +7,7 @@ import type { IDataSource } from '@core/domain/data-sources/IDataSource'
 import type { QueryParams, PaginatedResponse, UUID } from '@/core/types/common'
 import { QueryBuilder } from '@/lib/query-builder'
 import { NotFoundError, DatabaseError } from '@/lib/error-types'
-import { SupabaseDataSource } from '../data-sources/SupabaseDataSource'
+import { SupabaseDataSource } from '../datasource/SupabaseDataSource'
 
 export abstract class BaseRepository<T extends Record<string, unknown>> {
   protected queryBuilder: QueryBuilder<T>

@@ -27,7 +27,7 @@ import {
 } from 'lucide-react'
 import { useStudentDetail } from '@/hooks/use-student-detail'
 import { useToast } from '@/hooks/use-toast'
-import { createCompleteTodoUseCase } from '@core/application/factories/todoUseCaseFactory.client'
+import { completeTodo, uncompleteTodo } from '@/app/actions/todos'
 import { getErrorMessage } from '@/lib/error-handlers'
 
 const containerVariants = {
@@ -84,23 +84,22 @@ export function TodoTab() {
   // TODO 완료/미완료 토글
   const handleToggleTodo = async (todoId: string, currentStatus: boolean) => {
     try {
-      if (!student.tenant_id) {
+      let result
+      if (currentStatus) {
+        // 완료 취소
+        result = await uncompleteTodo(todoId)
+      } else {
+        // 완료 처리
+        result = await completeTodo(todoId)
+      }
+
+      if (!result.success) {
         toast({
           title: '오류',
-          description: '테넌트 정보를 찾을 수 없습니다.',
+          description: result.error || 'TODO 처리 중 오류가 발생했습니다.',
           variant: 'destructive',
         })
         return
-      }
-
-      const completeTodoUseCase = createCompleteTodoUseCase()
-
-      if (currentStatus) {
-        // 완료 취소
-        await completeTodoUseCase.uncomplete(todoId, student.tenant_id)
-      } else {
-        // 완료 처리
-        await completeTodoUseCase.execute(todoId, student.tenant_id)
       }
 
       toast({

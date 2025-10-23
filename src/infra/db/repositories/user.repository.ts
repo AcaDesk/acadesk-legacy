@@ -8,7 +8,7 @@ import type { IDataSource } from '@core/domain/data-sources/IDataSource'
 import type { IUserRepository } from '@core/domain/repositories/IUserRepository'
 import { User, type CreateUserProps, type UserRole, type ApprovalStatus } from '@core/domain/entities/User'
 import { Email } from '@core/domain/value-objects/Email'
-import { SupabaseDataSource } from '../data-sources/SupabaseDataSource'
+import { SupabaseDataSource } from '../datasource/SupabaseDataSource'
 
 interface UserRow {
   id: string
