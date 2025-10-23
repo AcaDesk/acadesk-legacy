@@ -7,6 +7,9 @@ export async function updateSession(request: NextRequest) {
   if (pathname === "/auth/callback") return NextResponse.next({ request }) // 콜백은 완전 우회
 
   let response = NextResponse.next({ request })
+
+  // pathname을 커스텀 헤더로 추가 (AuthLayout에서 사용)
+  response.headers.set('x-pathname', pathname)
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -16,6 +19,7 @@ export async function updateSession(request: NextRequest) {
         setAll: (cookies) => {
           cookies.forEach(({ name, value }) => request.cookies.set(name, value))
           response = NextResponse.next({ request })
+          response.headers.set('x-pathname', pathname) // pathname 헤더 유지
           cookies.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
           )
@@ -33,7 +37,9 @@ export async function updateSession(request: NextRequest) {
   if (!user && pathname !== "/auth/login") {
     const url = request.nextUrl.clone()
     url.pathname = "/auth/login"
-    return NextResponse.redirect(url)
+    const redirectResponse = NextResponse.redirect(url)
+    redirectResponse.headers.set('x-pathname', pathname)
+    return redirectResponse
   }
 
   // 로그인 상태면 통과 (이메일/온보딩은 서버 레이아웃에서)

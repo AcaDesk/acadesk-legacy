@@ -17,6 +17,7 @@
 
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import { GraduationCap } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { checkOnboardingStage } from '@/app/actions/onboarding'
@@ -51,6 +52,10 @@ function AuthFrame({ children }: { children: React.ReactNode }) {
 
 export default async function AuthLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
+
+  // 0. 현재 경로 확인 (무한 루프 방지용)
+  const headersList = await headers()
+  const pathname = headersList.get('x-pathname') || ''
 
   // 1. 현재 사용자 세션 확인
   const {
@@ -93,6 +98,12 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
   const redirectUrl =
     nextUrl ||
     (stageCode === 'READY' ? '/dashboard' : '/auth/pending')
+
+  // 5. 무한 루프 방지: 현재 경로와 리다이렉트할 경로가 같으면 children 렌더
+  if (pathname === redirectUrl || pathname.startsWith(redirectUrl + '?')) {
+    console.log('[AuthLayout] Already on target page, rendering children:', pathname)
+    return <AuthFrame>{children}</AuthFrame>
+  }
 
   console.log('[AuthLayout] Redirecting confirmed user to:', redirectUrl)
   redirect(redirectUrl)
