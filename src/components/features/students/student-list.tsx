@@ -77,13 +77,19 @@ export function StudentList() {
   }, [selectedGrade, selectedClass, selectedSchool, selectedCommuteMethod, selectedMarketingSource, enrollmentDateFrom, enrollmentDateTo])
 
   async function loadStudents() {
-    if (!tenantId) return
+    if (!tenantId) {
+      console.log('[StudentList] tenantId가 없어 조회를 건너뜁니다')
+      return
+    }
 
     try {
       setLoading(true)
+      console.log('[StudentList] 학생 데이터 로드 시작', { tenantId })
 
       // Use Case를 통한 학생 데이터 로드
       const useCase = createGetStudentsWithDetailsUseCase()
+      console.log('[StudentList] Use Case 생성 완료, execute 호출 시작')
+
       const { students: studentsData, error } = await useCase.execute({
         tenantId,
         filters: {
@@ -94,6 +100,11 @@ export function StudentList() {
           enrollmentDateFrom: enrollmentDateFrom ? format(enrollmentDateFrom, 'yyyy-MM-dd') : undefined,
           enrollmentDateTo: enrollmentDateTo ? format(enrollmentDateTo, 'yyyy-MM-dd') : undefined,
         },
+      })
+
+      console.log('[StudentList] Use Case 실행 완료', {
+        studentCount: studentsData.length,
+        hasError: !!error
       })
 
       if (error) throw error
@@ -120,14 +131,17 @@ export function StudentList() {
         recentAttendance: [], // TODO: 추후 RPC 함수나 뷰를 통해 최적화
       }))
 
+      console.log('[StudentList] 학생 데이터 변환 완료', { count: formattedStudents.length })
       setStudents(formattedStudents as Student[])
     } catch (error) {
+      console.error('[StudentList] 학생 데이터 로드 실패:', error)
       toast({
         title: '데이터 로드 오류',
         description: getErrorMessage(error),
         variant: 'destructive',
       })
     } finally {
+      console.log('[StudentList] 로딩 상태 종료')
       setLoading(false)
     }
   }
