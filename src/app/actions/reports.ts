@@ -162,7 +162,7 @@ export async function sendReport(input: z.infer<typeof sendReportSchema>) {
  * @returns Success or error
  */
 export async function generateAndSendReport(
-  input: z.infer<typeof generateReportSchema> & z.infer<typeof sendReportSchema>
+  input: z.infer<typeof generateReportSchema> & Omit<z.infer<typeof sendReportSchema>, 'reportId'>
 ) {
   try {
     // 1. Generate report
