@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { useReactToPrint } from 'react-to-print'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
@@ -44,6 +45,17 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
   const { toast } = useToast()
   const router = useRouter()
   const supabase = createClient()
+  const contentRef = useRef<HTMLDivElement>(null)
+
+  const handlePrint = useReactToPrint({
+    contentRef,
+    documentTitle: report
+      ? `${report.students?.users?.name}_${new Date(report.period_start).getFullYear()}년_${new Date(report.period_start).getMonth() + 1}월_리포트`
+      : 'report',
+    onAfterPrint: () => {
+      console.log('[ReportDetailPage] Print completed')
+    },
+  })
 
   useEffect(() => {
     loadReport()
@@ -102,16 +114,20 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
 
     setSending(true)
     try {
-      const { error } = await supabase
-        .from('reports')
-        .update({ sent_at: new Date().toISOString() })
-        .eq('id', params.id)
+      // Dynamic import to avoid bundling server action in client
+      const { sendReportToAllGuardians } = await import('@/app/actions/reports')
 
-      if (error) throw error
+      const result = await sendReportToAllGuardians(params.id)
+
+      if (!result.success) {
+        throw new Error(result.error || '리포트 전송에 실패했습니다')
+      }
+
+      const { successCount, failCount } = result.data!
 
       toast({
         title: '전송 완료',
-        description: `${studentName} 학생의 보호자에게 리포트가 전송되었습니다.`,
+        description: `${studentName} 학생의 보호자 ${successCount}명에게 리포트가 전송되었습니다.${failCount > 0 ? ` (${failCount}명 실패)` : ''}`,
       })
 
       loadReport()
@@ -119,7 +135,7 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
       console.error('Error sending report:', error)
       toast({
         title: '전송 오류',
-        description: '리포트를 전송하는 중 오류가 발생했습니다.',
+        description: error instanceof Error ? error.message : '리포트를 전송하는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
     } finally {
@@ -207,7 +223,7 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
               </p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline">
+              <Button variant="outline" onClick={handlePrint}>
                 <Download className="h-4 w-4 mr-2" />
                 PDF 다운로드
               </Button>
