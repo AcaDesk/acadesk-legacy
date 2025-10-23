@@ -40,31 +40,80 @@ export default function CallbackWaitPage({ code, type }: CallbackWaitPageProps) 
   const { toast } = useToast()
   const [isProcessing, setIsProcessing] = useState(false)
 
-  // 사용자가 버튼 클릭 시 Server Action 호출
+  // 사용자가 버튼 클릭 시 PKCE flow 완료
   const handleContinue = async () => {
     setIsProcessing(true)
 
     try {
-      // Server Action 호출
-      // handleAuthCallback은 이제 redirect()를 직접 호출하므로
-      // 성공 시 이 함수는 리턴되지 않고 redirect가 발생합니다
-      await handleAuthCallback(code, type)
+      const supabase = createClient()
 
-      // 이 코드는 redirect가 실패했을 때만 실행됩니다 (드문 경우)
-      console.warn('[CallbackWaitPage] handleAuthCallback returned without redirect')
-      router.push('/dashboard')
-    } catch (error) {
-      // redirect()는 NEXT_REDIRECT 에러를 throw하므로 이것은 정상 동작입니다
-      // 다른 에러만 처리합니다
-      if (error && typeof error === 'object' && 'digest' in error) {
-        const digest = String((error as { digest: unknown }).digest)
-        if (digest.startsWith('NEXT_REDIRECT')) {
-          // redirect 에러는 재throw하여 Next.js가 처리하도록 함
-          throw error
+      // 1. 클라이언트에서 code 교환 (PKCE code_verifier 접근 가능)
+      console.log('[CallbackWaitPage] Exchanging code for session (client-side)')
+      const { data: sessionData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+
+      if (exchangeError) {
+        console.error('[CallbackWaitPage] Code exchange failed:', exchangeError)
+
+        // 에러 타입 분류
+        const errorMessage = (exchangeError.message || '').toLowerCase()
+        const errorCode = (exchangeError.code || '').toLowerCase()
+
+        let errorType = 'unknown'
+        if (errorMessage.includes('expired') || errorCode.includes('expired')) {
+          errorType = 'expired'
+        } else if (
+          errorMessage.includes('already') ||
+          errorMessage.includes('used') ||
+          errorCode.includes('consumed')
+        ) {
+          errorType = 'used'
+        } else if (
+          errorMessage.includes('invalid') ||
+          errorCode.includes('invalid') ||
+          errorMessage.includes('not found')
+        ) {
+          errorType = 'invalid'
         }
+
+        toast({
+          title: '인증 실패',
+          description: exchangeError.message || '코드 교환에 실패했습니다.',
+          variant: 'destructive',
+        })
+
+        router.push(`/auth/link-expired?type=${type}&error=${errorType}`)
+        return
       }
 
-      // 그 외 실제 에러 처리
+      if (!sessionData?.user) {
+        console.error('[CallbackWaitPage] No user after code exchange')
+        toast({
+          title: '인증 실패',
+          description: '세션 생성에 실패했습니다.',
+          variant: 'destructive',
+        })
+        router.push('/auth/login')
+        return
+      }
+
+      console.log('[CallbackWaitPage] Code exchange successful, running post-auth setup')
+
+      // 2. 서버에서 후처리 (프로필 생성, 온보딩 판정)
+      const result = await postAuthSetup()
+
+      if (!result.success) {
+        console.error('[CallbackWaitPage] Post-auth setup failed:', result.error)
+        toast({
+          title: '설정 실패',
+          description: result.error || '계정 설정에 실패했습니다.',
+          variant: 'destructive',
+        })
+      }
+
+      // 3. 리다이렉트 (성공/실패 관계없이 nextUrl로 이동)
+      console.log('[CallbackWaitPage] Redirecting to:', result.nextUrl)
+      router.push(result.nextUrl)
+    } catch (error) {
       console.error('[CallbackWaitPage] Unexpected error:', error)
       toast({
         title: '인증 오류',
