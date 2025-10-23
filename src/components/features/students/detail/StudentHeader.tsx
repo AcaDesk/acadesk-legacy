@@ -105,7 +105,13 @@ export function StudentHeader({
   }
 
   const handleSendReport = () => {
-    setReportDialogOpen(true)
+    // DISABLED: Report feature migration pending
+    // setReportDialogOpen(true)
+    toast({
+      title: '기능 준비 중',
+      description: '보고서 전송 기능은 현재 마이그레이션 작업 중입니다.',
+      variant: 'default',
+    })
   }
 
   const handleContactGuardian = () => {
@@ -341,11 +347,13 @@ export function StudentHeader({
       </Dialog>
 
       {/* Send Report Dialog */}
+      {/* DISABLED: Report feature migration pending
       <SendReportDialog
         open={reportDialogOpen}
         onOpenChange={setReportDialogOpen}
         student={student}
       />
+      */}
     </div>
   )
 }
