@@ -200,6 +200,7 @@ export async function createStudentComplete(
       .insert({
         user_id: studentUserData.id,
         tenant_id: tenantId,
+        name: validated.student.name,
         student_code: studentCode,
         grade: validated.student.grade,
         school: validated.student.school || null,
