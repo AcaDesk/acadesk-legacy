@@ -75,75 +75,96 @@ export function renderWidgetContent({
 }: WidgetFactoryProps): React.ReactNode {
   switch (widgetId) {
     // KPI Widgets
-    case 'kpi-total-students':
+    case 'kpi-total-students': {
+      const newStudentsThisMonth = stats.previousMonthStudents
+        ? stats.totalStudents - stats.previousMonthStudents
+        : 0
       return (
         <StatsCard
           title="전체 학생"
           value={stats.totalStudents}
           icon={Users}
           description="이번 달 신규 등록"
-          trend={{ value: 5, isPositive: true }}
+          trend={{ value: newStudentsThisMonth, isPositive: newStudentsThisMonth > 0 }}
           index={0}
           href="/students"
           variant="default"
         />
       )
+    }
 
-    case 'kpi-active-students':
+    case 'kpi-active-students': {
+      const attendanceChange = stats.previousWeekAttendance
+        ? stats.todayAttendance - stats.previousWeekAttendance
+        : 0
       return (
         <StatsCard
           title="활동 학생"
           value={stats.todayAttendance}
           icon={Target}
           description="지난주 대비"
-          trend={{ value: 3, isPositive: true }}
+          trend={{ value: attendanceChange, isPositive: attendanceChange >= 0 }}
           index={1}
           href="/students"
           variant="success"
         />
       )
+    }
 
-    case 'kpi-attendance-rate':
+    case 'kpi-attendance-rate': {
+      const prevWeekRate = stats.previousWeekAttendance && stats.totalStudents > 0
+        ? Math.round((stats.previousWeekAttendance / stats.totalStudents) * 100)
+        : 0
+      const rateChange = attendanceRate - prevWeekRate
       return (
         <StatsCard
           title="출석률"
           value={`${attendanceRate}%`}
           icon={Calendar}
           description="지난주 대비"
-          trend={{ value: 2, isPositive: true }}
+          trend={{ value: rateChange, isPositive: rateChange >= 0 }}
           index={2}
           variant="success"
           href="/attendance"
         />
       )
+    }
 
-    case 'kpi-average-score':
+    case 'kpi-average-score': {
+      const scoreChange = stats.previousMonthAvgScore
+        ? averageScore - stats.previousMonthAvgScore
+        : 0
       return (
         <StatsCard
           title="평균 성적"
-          value={`${averageScore}점`}
+          value={averageScore > 0 ? `${averageScore}점` : '데이터 없음'}
           icon={Trophy}
           description="지난 달 대비"
-          trend={{ value: 3, isPositive: true }}
+          trend={{ value: scoreChange, isPositive: scoreChange >= 0 }}
           index={3}
           href="/grades"
           variant="primary"
         />
       )
+    }
 
-    case 'kpi-completion-rate':
+    case 'kpi-completion-rate': {
+      const completionChange = stats.previousWeekCompletionRate
+        ? completionRate - stats.previousWeekCompletionRate
+        : 0
       return (
         <StatsCard
           title="과제 완료율"
           value={`${completionRate}%`}
           icon={BookOpen}
           description="지난주 대비"
-          trend={{ value: completionRate >= 90 ? 4 : -1, isPositive: completionRate >= 90 }}
+          trend={{ value: completionChange, isPositive: completionChange >= 0 }}
           index={4}
           variant={completionRate >= 90 ? "success" : "warning"}
           href="/todos"
         />
       )
+    }
 
     case 'kpi-monthly-revenue':
       return financialData?.currentMonthRevenue ? (

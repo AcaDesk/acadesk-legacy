@@ -48,8 +48,8 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
       : 0
   }, [stats.totalStudents, stats.todayAttendance])
 
-  const averageScore = useMemo(() => 87, []) // Mock
-  const completionRate = useMemo(() => 89, []) // Mock
+  const averageScore = useMemo(() => stats.averageScore, [stats.averageScore])
+  const completionRate = useMemo(() => stats.completionRate, [stats.completionRate])
 
   const upcomingSessions = useMemo(() => {
     return todaySessions.filter((s: TodaySession) => {

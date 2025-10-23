@@ -40,6 +40,8 @@ export default async function DashboardPage() {
           pendingTodos: 0,
           totalReports: 0,
           unsentReports: 0,
+          averageScore: 0,
+          completionRate: 0,
         },
         recentStudents: [],
         todaySessions: [],
