@@ -63,30 +63,21 @@ export function useCurrentUser(): UseCurrentUserResult {
           .eq('id', authUser.id)
           .maybeSingle()
 
-        // 3. users 레코드가 없거나 에러 → 프로필 생성 시도
+        // 3. users 레코드가 없거나 에러 → null 반환 (프로필 생성은 Server Action에서)
+        // ✅ 클라이언트에서 RPC 호출하지 않음
         if (userError || !userData) {
-          console.warn('useCurrentUser: User record not found, attempting to create profile')
+          console.warn('useCurrentUser: User record not found, user should be redirected to /auth/bootstrap')
+          return null
+        }
 
-          // create_user_profile RPC 호출 (조용히 시도)
-          try {
-            await supabase.rpc('create_user_profile')
-
-            // 다시 한 번 조회 시도
-            const { data: retryData } = await supabase
-              .from('users')
-              .select('id, email, name, role_code, tenant_id, onboarding_completed, approval_status')
-              .eq('id', authUser.id)
-              .maybeSingle()
-
-            if (retryData) {
-              // snake_case → camelCase 변환
-              return {
-                id: retryData.id,
-                email: retryData.email ?? '',
-                name: retryData.name ?? '',
-                roleCode: retryData.role_code,
-                tenantId: retryData.tenant_id,
-                onboardingCompleted: retryData.onboarding_completed ?? false,
+        // 4. snake_case → camelCase 변환
+        return {
+          id: userData.id,
+          email: userData.email ?? '',
+          name: userData.name ?? '',
+          roleCode: userData.role_code,
+          tenantId: userData.tenant_id,
+          onboarding_completed: userData.onboarding_completed ?? false,
                 approvalStatus: retryData.approval_status ?? 'pending',
               }
             }

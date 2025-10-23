@@ -444,34 +444,136 @@ export async function completeOwnerOnboarding(
 /**
  * 온보딩 상태 확인
  *
- * get_auth_stage RPC 호출하여 현재 사용자의 온보딩 단계를 확인합니다.
+ * ✅ 완전히 service_role 기반으로 구현 (RPC 제거)
+ *
+ * 현재 사용자의 온보딩 단계를 확인하여 다음 페이지를 결정합니다:
+ * - NO_PROFILE → /auth/bootstrap
+ * - MEMBER_INVITED → /auth/invite/accept?token={token}
+ * - PENDING_OWNER_REVIEW → /auth/pending
+ * - OWNER_SETUP_REQUIRED → /auth/owner/setup
+ * - READY → 대시보드 접근 가능
  *
  * @param inviteToken - 초대 토큰 (선택)
  * @returns 온보딩 상태
  */
 export async function checkOnboardingStage(inviteToken?: string) {
+  const requestId = crypto.randomUUID()
+
   try {
+    // 1. Get current user
     const supabase = await createServerClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
 
-    const { data, error } = await supabase.rpc('get_auth_stage', {
-      p_invite_token: inviteToken || null,
-    })
-
-    if (error) {
-      console.error('[checkOnboardingStage] RPC error:', error)
+    if (authError || !user) {
+      console.error('[checkOnboardingStage] Auth error:', { requestId, error: authError })
       return {
         success: false,
-        error: '온보딩 상태 확인 중 오류가 발생했습니다.',
+        error: '인증되지 않은 사용자입니다.',
         data: null,
       }
     }
 
+    const userId = user.id
+
+    // 2. Check user profile with service_role
+    const serviceClient = createServiceRoleClient()
+    const { data: userData, error: userError } = await serviceClient
+      .from('users')
+      .select('id, tenant_id, role_code, approval_status, onboarding_completed')
+      .eq('id', userId)
+      .maybeSingle()
+
+    // Stage 1: NO_PROFILE (user doesn't exist in users table)
+    if (userError || !userData) {
+      console.log('[checkOnboardingStage] NO_PROFILE stage:', { requestId, userId })
+      return {
+        success: true,
+        data: {
+          ok: true,
+          stage: {
+            code: 'NO_PROFILE',
+            next_url: '/auth/bootstrap',
+          },
+        },
+      }
+    }
+
+    // Stage 2: MEMBER_INVITED (has invite token and not yet accepted)
+    if (inviteToken) {
+      const { data: inviteData } = await serviceClient
+        .from('invites')
+        .select('id, tenant_id, email, expires_at')
+        .eq('token', inviteToken)
+        .maybeSingle()
+
+      if (inviteData && new Date(inviteData.expires_at) > new Date()) {
+        console.log('[checkOnboardingStage] MEMBER_INVITED stage:', { requestId, userId, inviteToken })
+        return {
+          success: true,
+          data: {
+            ok: true,
+            stage: {
+              code: 'MEMBER_INVITED',
+              next_url: `/auth/invite/accept?token=${inviteToken}`,
+            },
+          },
+        }
+      }
+    }
+
+    // Stage 3: PENDING_OWNER_REVIEW (pending approval, no role)
+    if (userData.approval_status === 'pending' && !userData.role_code) {
+      console.log('[checkOnboardingStage] PENDING_OWNER_REVIEW stage:', { requestId, userId })
+      return {
+        success: true,
+        data: {
+          ok: true,
+          stage: {
+            code: 'PENDING_OWNER_REVIEW',
+            next_url: '/auth/pending',
+          },
+        },
+      }
+    }
+
+    // Stage 4: OWNER_SETUP_REQUIRED (owner but onboarding incomplete)
+    if (userData.role_code === 'owner' && !userData.onboarding_completed) {
+      console.log('[checkOnboardingStage] OWNER_SETUP_REQUIRED stage:', { requestId, userId })
+      return {
+        success: true,
+        data: {
+          ok: true,
+          stage: {
+            code: 'OWNER_SETUP_REQUIRED',
+            next_url: '/auth/owner/setup',
+          },
+        },
+      }
+    }
+
+    // Stage 5: READY (all checks passed)
+    console.log('[checkOnboardingStage] READY stage:', {
+      requestId,
+      userId,
+      roleCode: userData.role_code,
+      tenantId: userData.tenant_id,
+    })
+
     return {
       success: true,
-      data,
+      data: {
+        ok: true,
+        stage: {
+          code: 'READY',
+          next_url: null,
+        },
+      },
     }
   } catch (error) {
-    console.error('[checkOnboardingStage] Error:', error)
+    console.error('[checkOnboardingStage] Error:', { requestId, error })
     return {
       success: false,
       error: getErrorMessage(error),

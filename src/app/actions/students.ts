@@ -66,13 +66,18 @@ const createStudentCompleteSchema = z.object({
 // ============================================================================
 
 /**
- * Create a student with optional guardian (uses create_student_complete RPC)
+ * Create a student with optional guardian (pure service_role implementation)
  *
  * This action:
  * 1. Verifies user authentication and tenant
- * 2. Calls create_student_complete RPC with service_role
- * 3. Handles three guardian modes: new, existing, skip
+ * 2. Creates student record with service_role (bypasses RLS)
+ * 3. Handles three guardian modes:
+ *    - 'new': Creates new guardian + user + links to student
+ *    - 'existing': Links existing guardian to student
+ *    - 'skip': Creates student only
  * 4. Returns student_id and guardian_id
+ *
+ * ✅ Fully server-side + service_role based (no RPC)
  *
  * @param input - Student and guardian data
  * @returns Created student/guardian IDs or error
@@ -90,31 +95,175 @@ export async function createStudentComplete(
     // 3. Create service_role client
     const serviceClient = createServiceRoleClient()
 
-    // 4. Call RPC with service_role (bypasses RLS)
-    const { data, error } = await serviceClient.rpc('create_student_complete', {
-      _student: validated.student as any,
-      _guardian: validated.guardian as any,
-      _guardian_mode: validated.guardianMode,
-    })
+    let guardianId: string | null = null
+    let studentId: string | null = null
 
-    if (error) {
-      console.error('[createStudentComplete] RPC error:', error)
-      throw new Error(error.message || '학생 생성에 실패했습니다')
+    // 4. Handle guardian creation/linking based on mode
+    if (validated.guardianMode === 'new' && validated.guardian && 'name' in validated.guardian) {
+      // Mode: Create new guardian
+      const guardianData = validated.guardian
+
+      // 4-1. Create user record for guardian
+      const guardianEmail = guardianData.email || null
+      const guardianPhone = guardianData.phone || null
+
+      const { data: userData, error: userError } = await serviceClient
+        .from('users')
+        .insert({
+          tenant_id: tenantId,
+          email: guardianEmail,
+          phone: guardianPhone,
+          name: guardianData.name,
+          role_code: 'parent',
+          approval_status: 'approved',
+          onboarding_completed: true,
+          onboarding_completed_at: new Date().toISOString(),
+        })
+        .select('id')
+        .single()
+
+      if (userError || !userData) {
+        throw new Error('보호자 사용자 생성에 실패했습니다: ' + userError?.message)
+      }
+
+      // 4-2. Create guardian record
+      const { data: guardianRecord, error: guardianError } = await serviceClient
+        .from('guardians')
+        .insert({
+          user_id: userData.id,
+          tenant_id: tenantId,
+          relationship: guardianData.relationship || null,
+          occupation: guardianData.occupation || null,
+          address: guardianData.address || null,
+        })
+        .select('id')
+        .single()
+
+      if (guardianError || !guardianRecord) {
+        throw new Error('보호자 정보 생성에 실패했습니다: ' + guardianError?.message)
+      }
+
+      guardianId = guardianRecord.id
+    } else if (validated.guardianMode === 'existing' && validated.guardian && 'id' in validated.guardian) {
+      // Mode: Use existing guardian
+      guardianId = validated.guardian.id
+
+      // Verify guardian belongs to tenant
+      const { data: existingGuardian, error: guardianCheckError } = await serviceClient
+        .from('guardians')
+        .select('id, tenant_id')
+        .eq('id', guardianId)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+
+      if (guardianCheckError || !existingGuardian) {
+        throw new Error('보호자를 찾을 수 없습니다')
+      }
+    }
+    // Mode: 'skip' - guardianId remains null
+
+    // 5. Generate unique student_code
+    const studentCodePrefix = `STU${new Date().getFullYear().toString().slice(-2)}`
+    const randomSuffix = Math.floor(Math.random() * 100000)
+      .toString()
+      .padStart(5, '0')
+    const studentCode = `${studentCodePrefix}-${randomSuffix}`
+
+    // 6. Create user record for student
+    const studentEmail = validated.student.email || null
+    const studentPhone = validated.student.student_phone || null
+
+    const { data: studentUserData, error: studentUserError } = await serviceClient
+      .from('users')
+      .insert({
+        tenant_id: tenantId,
+        email: studentEmail,
+        phone: studentPhone,
+        name: validated.student.name,
+        role_code: 'student',
+        approval_status: 'approved',
+        onboarding_completed: true,
+        onboarding_completed_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single()
+
+    if (studentUserError || !studentUserData) {
+      throw new Error('학생 사용자 생성에 실패했습니다: ' + studentUserError?.message)
     }
 
-    if (!data) {
-      throw new Error('학생 생성 결과를 받지 못했습니다')
+    // 7. Create student record
+    const { data: studentRecord, error: studentError } = await serviceClient
+      .from('students')
+      .insert({
+        user_id: studentUserData.id,
+        tenant_id: tenantId,
+        student_code: studentCode,
+        grade: validated.student.grade,
+        school: validated.student.school || null,
+        birth_date: validated.student.birth_date || null,
+        gender: validated.student.gender || null,
+        student_phone: studentPhone,
+        profile_image_url: validated.student.profile_image_url || null,
+        enrollment_date: validated.student.enrollment_date || new Date().toISOString().split('T')[0],
+        notes: validated.student.notes || null,
+        commute_method: validated.student.commute_method || null,
+        marketing_source: validated.student.marketing_source || null,
+        kiosk_pin: validated.student.kiosk_pin || null,
+      })
+      .select('id')
+      .single()
+
+    if (studentError || !studentRecord) {
+      throw new Error('학생 정보 생성에 실패했습니다: ' + studentError?.message)
     }
 
-    // 5. Revalidate pages
+    studentId = studentRecord.id
+
+    // 8. Link guardian to student (if guardian exists)
+    if (guardianId && studentId) {
+      const guardianLinkData =
+        validated.guardianMode === 'existing' && validated.guardian && 'id' in validated.guardian
+          ? {
+              student_id: studentId,
+              guardian_id: guardianId,
+              is_primary_contact: validated.guardian.is_primary_contact ?? true,
+              receives_notifications: validated.guardian.receives_notifications ?? true,
+              receives_billing: validated.guardian.receives_billing ?? false,
+              can_pickup: validated.guardian.can_pickup ?? true,
+            }
+          : validated.guardianMode === 'new' && validated.guardian && 'name' in validated.guardian
+          ? {
+              student_id: studentId,
+              guardian_id: guardianId,
+              is_primary_contact: validated.guardian.is_primary_contact ?? true,
+              receives_notifications: validated.guardian.receives_notifications ?? true,
+              receives_billing: validated.guardian.receives_billing ?? false,
+              can_pickup: validated.guardian.can_pickup ?? true,
+            }
+          : null
+
+      if (guardianLinkData) {
+        const { error: linkError } = await serviceClient
+          .from('student_guardians')
+          .insert(guardianLinkData)
+
+        if (linkError) {
+          console.warn('[createStudentComplete] Failed to link guardian:', linkError)
+          // Don't throw - student is created, just log the warning
+        }
+      }
+    }
+
+    // 9. Revalidate pages
     revalidatePath('/students')
     revalidatePath('/dashboard')
 
     return {
       success: true,
       data: {
-        studentId: data.student_id,
-        guardianId: data.guardian_id,
+        studentId: studentId!,
+        guardianId: guardianId,
       },
       error: null,
     }
