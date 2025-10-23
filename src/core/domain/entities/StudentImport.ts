@@ -3,12 +3,17 @@
  * 엑셀 파일을 통한 학생 일괄 등록 도메인 엔티티
  */
 
+/**
+ * guardians 테이블 구조에 맞춘 보호자 정보
+ * (student_guardians 연결 정보는 일괄 등록 시 기본값 사용)
+ */
 export interface GuardianImportData {
-  emergency_phone: string
+  name: string
+  phone?: string
+  email?: string
   relationship?: string
-  is_primary?: boolean
-  can_pickup?: boolean
-  can_view_reports?: boolean
+  occupation?: string
+  address?: string
 }
 
 export interface StudentImportData {
@@ -71,11 +76,13 @@ export class StudentImportItem {
       }
     }
 
-    // 보호자 연락처 검증
-    if (this.props.guardians.length > 0) {
+    // 보호자 정보 검증 (최소 1명 필수)
+    if (this.props.guardians.length === 0) {
+      errors.push('최소 1명의 보호자 정보는 필수입니다')
+    } else {
       this.props.guardians.forEach((guardian, index) => {
-        if (!guardian.emergency_phone?.trim()) {
-          errors.push(`보호자 ${index + 1}의 연락처는 필수입니다`)
+        if (!guardian.name?.trim()) {
+          errors.push(`보호자 ${index + 1}의 이름은 필수입니다`)
         }
       })
     }
