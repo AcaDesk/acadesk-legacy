@@ -41,7 +41,7 @@ import { useToast } from '@/hooks/use-toast'
 import { RoleGuard } from '@/components/auth/role-guard'
 import type { StudentDetail } from '@/core/types/studentDetail.types'
 import { updateStudent, deleteStudent } from '@/app/actions/students'
-import { SendReportDialog } from './SendReportDialog'
+// import { SendReportDialog } from './SendReportDialog' // DISABLED: Report feature migration pending
 
 interface StudentHeaderProps {
   student: StudentDetail
@@ -57,7 +57,7 @@ export function StudentHeader({
   const router = useRouter()
   const { toast } = useToast()
   const [profileDialogOpen, setProfileDialogOpen] = useState(false)
-  const [reportDialogOpen, setReportDialogOpen] = useState(false)
+  // const [reportDialogOpen, setReportDialogOpen] = useState(false) // DISABLED: Report feature migration pending
 
   const calculateAge = (birthDate: string | null) => {
     if (!birthDate) return null

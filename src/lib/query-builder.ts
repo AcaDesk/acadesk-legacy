@@ -6,7 +6,7 @@
  */
 
 import type { IDataSource } from '@/core/domain/data-sources/IDataSource'
-import type { PaginatedResponse, UUID } from '@/core/types/common'
+import type { PaginatedResponse, UUID, QueryParams } from '@/core/types/common'
 
 export class QueryBuilder<T> {
   constructor(
@@ -15,7 +15,7 @@ export class QueryBuilder<T> {
   ) {}
 
   // Stub methods - TODO: Implement properly
-  async paginate(page: number, perPage: number): Promise<PaginatedResponse<T>> {
+  async paginate(params?: QueryParams): Promise<PaginatedResponse<T>> {
     throw new Error('QueryBuilder.paginate not implemented')
   }
 
@@ -23,7 +23,7 @@ export class QueryBuilder<T> {
     throw new Error('QueryBuilder.findById not implemented')
   }
 
-  async findBy(filters: Partial<T>): Promise<T[]> {
+  async findBy(field: string, value: unknown): Promise<T[]> {
     throw new Error('QueryBuilder.findBy not implemented')
   }
 
@@ -43,7 +43,7 @@ export class QueryBuilder<T> {
     throw new Error('QueryBuilder.delete not implemented')
   }
 
-  async count(filters?: Partial<T>): Promise<number> {
+  async count(filters?: Record<string, unknown>): Promise<number> {
     throw new Error('QueryBuilder.count not implemented')
   }
 }
