@@ -133,6 +133,7 @@ export async function createStudentComplete(
         .insert({
           user_id: userData.id,
           tenant_id: tenantId,
+          name: guardianData.name,
           relationship: guardianData.relationship || null,
           occupation: guardianData.occupation || null,
           address: guardianData.address || null,
