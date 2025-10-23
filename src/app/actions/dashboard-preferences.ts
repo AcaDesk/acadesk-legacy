@@ -1,7 +1,7 @@
 /**
  * Dashboard Preferences Server Actions
  *
- * service_role 기반으로 대시보드 설정을 저장합니다.
+ * service_role 기반으로 대시보드 설정을 저장하고 조회합니다.
  * RLS를 우회하여 users 테이블에 직접 접근합니다.
  */
 
@@ -20,7 +20,7 @@ import type { DashboardPreferences } from '@/core/types/dashboard'
 export interface PreferencesResult {
   success: boolean
   error?: string
-  preferences?: DashboardPreferences
+  preferences?: DashboardPreferences | null
 }
 
 const saveDashboardPreferencesSchema = z.object({
@@ -30,6 +30,50 @@ const saveDashboardPreferencesSchema = z.object({
 // ============================================================================
 // Server Actions
 // ============================================================================
+
+/**
+ * 대시보드 설정 조회
+ *
+ * This action:
+ * 1. Verifies user authentication
+ * 2. Uses service_role to read users table (bypasses RLS)
+ * 3. Returns dashboard preferences or null if not found
+ */
+export async function getDashboardPreferences(): Promise<PreferencesResult> {
+  try {
+    // 1. Verify authentication
+    const { userId } = await verifyPermission()
+
+    // 2. Create service_role client (bypasses RLS)
+    const supabase = createServiceRoleClient()
+
+    // 3. Get preferences
+    const { data, error } = await supabase
+      .from('users')
+      .select('preferences')
+      .eq('id', userId)
+      .single()
+
+    if (error) {
+      console.error('[getDashboardPreferences] Error:', error)
+      return { success: false, error: '설정을 가져오는 중 오류가 발생했습니다.' }
+    }
+
+    const dashboardPreferences = data?.preferences?.dashboard || null
+
+    return {
+      success: true,
+      preferences: dashboardPreferences
+    }
+  } catch (error) {
+    console.error('[getDashboardPreferences] Error:', error)
+    if (error instanceof Error) {
+      return { success: false, error: error.message }
+    }
+    return { success: false, error: '설정 조회 중 오류가 발생했습니다.' }
+  }
+}
+
 
 /**
  * 대시보드 설정 저장
