@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@ui/button'
@@ -21,7 +22,9 @@ interface DashboardLayoutProps {
  * - UI 상태 관리 (사이드바, 모바일 메뉴 등)
  * - 클라이언트 애니메이션
  *
- * UI 상태는 DashboardLayoutClient로 위임
+ * 무한 루프 방지:
+ * - users 조회는 service_role로 (RLS 우회)
+ * - 프로필 없으면 /auth/bootstrap으로 (login이 아님)
  */
 export default async function DashboardLayout({ children }: DashboardLayoutProps) {
   const supabase = await createClient()
@@ -37,7 +40,8 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
   }
 
   // 2. 이메일 인증 체크
-  if (!user.email_confirmed_at) {
+  const emailConfirmed = user.email_confirmed_at ?? (user as any).confirmed_at
+  if (!emailConfirmed) {
     const searchParams = new URLSearchParams()
     if (user.email) {
       searchParams.set('email', user.email)
@@ -45,8 +49,9 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
     redirect(`/auth/verify-email?${searchParams.toString()}`)
   }
 
-  // 3. 사용자 프로필 조회 (tenant_id, role, onboarding)
-  const { data: userData, error: userError } = await supabase
+  // 3. 사용자 프로필 조회 (service_role로 RLS 우회 - 무한 루프 방지)
+  const admin = createServiceRoleClient()
+  const { data: userData, error: userError } = await admin
     .from('users')
     .select('tenant_id, role_code, name, email, phone')
     .eq('id', user.id)
@@ -54,8 +59,8 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
 
   if (userError || !userData) {
     console.error('[DashboardLayout] Error fetching user data:', userError)
-    // 프로필 없음 - 로그인으로 리다이렉트 (재인증 필요)
-    redirect('/auth/login')
+    // 프로필 없음 - 부트스트랩으로 리다이렉트 (login으로 보내면 무한 루프)
+    redirect('/auth/bootstrap')
   }
 
   // 4. Tenant 체크 - tenant_id 없으면 안내 화면

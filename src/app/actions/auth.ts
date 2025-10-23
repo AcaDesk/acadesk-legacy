@@ -697,7 +697,7 @@ export async function handleAuthCallback(code: string, type: string = 'signup'):
 }
 
 /**
- * 인증 후 후처리 (Post-Auth Setup)
+ * 인증 후 후처리 (Post-Auth Setup) - Server-Side Redirect
  *
  * ⚠️ 중요: 이 함수는 클라이언트에서 exchangeCodeForSession을 완료한 후 호출됩니다.
  * PKCE flow: 코드 교환은 클라이언트에서, 프로필 생성/온보딩은 서버에서 분리
@@ -708,15 +708,11 @@ export async function handleAuthCallback(code: string, type: string = 'signup'):
  * 1. 현재 세션에서 사용자 정보 가져오기
  * 2. 프로필 생성 (멱등성 보장)
  * 3. 온보딩 단계 확인
- * 4. 적절한 리다이렉션 URL 반환
+ * 4. 서버에서 직접 리다이렉트 (쿠키 타이밍 레이스 방지)
  *
- * @returns 성공 여부, 에러 메시지, 리다이렉트 URL
+ * @throws {Error} NEXT_REDIRECT - redirect()가 throw하는 특수 에러
  */
-export async function postAuthSetup(): Promise<{
-  success: boolean
-  error?: string
-  nextUrl: string
-}> {
+export async function postAuthSetup(): Promise<never> {
   const requestId = crypto.randomUUID()
 
   try {
@@ -731,11 +727,7 @@ export async function postAuthSetup(): Promise<{
 
     if (userError || !user) {
       console.error('[postAuthSetup] No session found:', { requestId, error: userError })
-      return {
-        success: false,
-        error: '세션이 없습니다. 다시 로그인해주세요.',
-        nextUrl: '/auth/login',
-      }
+      redirect('/auth/login')
     }
 
     const userId = user.id
@@ -747,11 +739,7 @@ export async function postAuthSetup(): Promise<{
     const emailConfirmedAt = user.email_confirmed_at ?? (user as any).confirmed_at
     if (!emailConfirmedAt) {
       console.warn('[postAuthSetup] Email not confirmed yet:', { requestId })
-      return {
-        success: false,
-        error: '이메일 인증이 필요합니다.',
-        nextUrl: `/auth/verify-email?email=${encodeURIComponent(userEmail)}`,
-      }
+      redirect(`/auth/verify-email?email=${encodeURIComponent(userEmail)}`)
     }
 
     // 3. 프로필 생성 (멱등성 보장 - 이미 있으면 스킵)
@@ -763,11 +751,7 @@ export async function postAuthSetup(): Promise<{
         requestId,
         error: profileResult.error,
       })
-      return {
-        success: false,
-        error: profileResult.error || '프로필 생성에 실패했습니다.',
-        nextUrl: '/auth/pending?error=profile_creation_failed',
-      }
+      redirect('/auth/pending?error=profile_creation_failed')
     }
 
     // 4. 온보딩 단계 확인
@@ -778,11 +762,7 @@ export async function postAuthSetup(): Promise<{
         requestId,
         error: stageResult.error,
       })
-      return {
-        success: false,
-        error: stageResult.error || '온보딩 상태 확인에 실패했습니다.',
-        nextUrl: `/auth/login?verified=true&email=${encodeURIComponent(userEmail)}`,
-      }
+      redirect(`/auth/login?verified=true&email=${encodeURIComponent(userEmail)}`)
     }
 
     const stageData = stageResult.data as {
@@ -792,11 +772,7 @@ export async function postAuthSetup(): Promise<{
 
     if (!stageData?.ok || !stageData.stage) {
       console.error('[postAuthSetup] Invalid stage data:', { requestId })
-      return {
-        success: false,
-        error: '온보딩 상태 데이터가 올바르지 않습니다.',
-        nextUrl: `/auth/login?verified=true&email=${encodeURIComponent(userEmail)}`,
-      }
+      redirect(`/auth/login?verified=true&email=${encodeURIComponent(userEmail)}`)
     }
 
     const { code: stageCode, next_url: nextUrl } = stageData.stage
@@ -807,29 +783,30 @@ export async function postAuthSetup(): Promise<{
       hasNextUrl: !!nextUrl,
     })
 
-    // 5. 적절한 리다이렉션 URL 결정
+    // 5. 캐시 무효화
+    revalidatePath('/', 'layout')
+
+    // 6. 서버에서 직접 리다이렉트 (쿠키-리다이렉트 타이밍 레이스 방지)
     const redirectUrl =
       nextUrl ||
       (stageCode === 'READY' ? '/dashboard' : `/auth/login?verified=true&email=${encodeURIComponent(userEmail)}`)
 
-    console.log('[postAuthSetup] Post-auth setup complete:', {
+    console.log('[postAuthSetup] Redirecting to:', {
       requestId,
       redirectUrl,
     })
 
-    return {
-      success: true,
-      nextUrl: redirectUrl,
-    }
+    redirect(redirectUrl)
   } catch (error) {
+    // redirect()는 NEXT_REDIRECT 에러를 throw하므로 정상 케이스
+    if (error && typeof error === 'object' && 'digest' in error && String(error.digest).startsWith('NEXT_REDIRECT')) {
+      throw error // redirect() 에러는 그대로 전파
+    }
+
     console.error('[postAuthSetup] Unexpected error:', {
       requestId,
       message: error instanceof Error ? error.message : String(error),
     })
-    return {
-      success: false,
-      error: getErrorMessage(error),
-      nextUrl: '/auth/login',
-    }
+    redirect('/auth/login')
   }
 }

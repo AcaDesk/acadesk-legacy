@@ -98,23 +98,18 @@ export default function CallbackWaitPage({ code, type }: CallbackWaitPageProps) 
 
       console.log('[CallbackWaitPage] Code exchange successful, running post-auth setup')
 
-      // 2. 서버에서 후처리 (프로필 생성, 온보딩 판정)
-      const result = await postAuthSetup()
+      // 2. 서버에서 후처리 및 리다이렉트 (쿠키 타이밍 레이스 방지)
+      // postAuthSetup()은 redirect()를 throw하므로 여기서 프로세스 종료
+      await postAuthSetup()
 
-      if (!result.success) {
-        console.error('[CallbackWaitPage] Post-auth setup failed:', result.error)
-        toast({
-          title: '설정 실패',
-          description: result.error || '계정 설정에 실패했습니다.',
-          variant: 'destructive',
-        })
-      }
-
-      // 3. 리다이렉트 (성공/실패 관계없이 nextUrl로 이동)
-      console.log('[CallbackWaitPage] Redirecting to:', result.nextUrl)
-      router.push(result.nextUrl)
+      // 이 라인은 실행되지 않음 (redirect가 throw되므로)
+      // 만약 여기 도달하면 뭔가 잘못된 것
     } catch (error) {
+      // NEXT_REDIRECT 에러는 정상적인 리다이렉트이므로 무시하지 않고 전파
+      // (서버 액션에서 이미 처리됨)
       console.error('[CallbackWaitPage] Unexpected error:', error)
+
+      // 혹시 redirect가 아닌 다른 에러라면 로그인으로
       toast({
         title: '인증 오류',
         description: '인증 처리 중 오류가 발생했습니다. 다시 시도해주세요.',
