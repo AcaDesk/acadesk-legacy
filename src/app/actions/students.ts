@@ -525,7 +525,7 @@ export async function getStudentDetail(studentId: string) {
           email,
           phone
         ),
-        student_guardians (
+        student_guardians!student_guardians_student_id_fkey (
           guardians (
             id,
             relationship,
@@ -954,7 +954,7 @@ export async function getStudents(filters?: {
             name
           )
         ),
-        student_guardians (
+        student_guardians!student_guardians_student_id_fkey (
           guardians (
             id,
             users (
