@@ -17,8 +17,25 @@ export default async function ApprovalsPage() {
     return <div>로그인이 필요합니다.</div>
   }
 
-  // TODO: 실제 환경에서는 슈퍼어드민 권한 체크 필요
-  // 예: user.email이 특정 도메인이거나, user_metadata에 is_super_admin 플래그가 있는지 확인
+  // 슈퍼어드민 권한 체크
+  const { data: userData } = await supabase
+    .from("users")
+    .select("is_super_admin")
+    .eq("id", user.id)
+    .single()
+
+  if (!userData?.is_super_admin) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">접근 권한 없음</h1>
+          <p className="text-muted-foreground">
+            이 페이지는 슈퍼어드민만 접근할 수 있습니다.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   // 승인 대기 중인 사용자 목록 가져오기
   const { data: pendingUsers } = await supabase

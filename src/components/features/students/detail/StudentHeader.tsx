@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { motion } from 'motion/react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { getErrorMessage } from '@/lib/error-handlers'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,9 +38,12 @@ import {
 import { getStudentAvatar } from '@/lib/avatar'
 import { differenceInYears } from 'date-fns'
 import { useToast } from '@/hooks/use-toast'
-import { createClient } from '@/lib/supabase/client'
 import { RoleGuard } from '@/components/auth/role-guard'
 import type { StudentDetail } from '@/types/studentDetail.types'
+import {
+  createUpdateStudentProfileImageUseCase,
+  createDeleteStudentUseCase,
+} from '@/application/factories/studentUseCaseFactory.client'
 
 interface StudentHeaderProps {
   student: StudentDetail
@@ -54,7 +58,6 @@ export function StudentHeader({
 }: StudentHeaderProps) {
   const router = useRouter()
   const { toast } = useToast()
-  const supabase = createClient()
   const [profileDialogOpen, setProfileDialogOpen] = useState(false)
 
   const calculateAge = (birthDate: string | null) => {
@@ -74,12 +77,15 @@ export function StudentHeader({
 
   const handleProfileImageUpdate = async (url: string) => {
     try {
-      const { error } = await supabase
-        .from('students')
-        .update({ profile_image_url: url })
-        .eq('id', student.id)
+      const useCase = createUpdateStudentProfileImageUseCase()
+      const { success, error } = await useCase.execute({
+        studentId: student.id,
+        profileImageUrl: url,
+      })
 
-      if (error) throw error
+      if (!success || error) {
+        throw error || new Error('프로필 이미지 업데이트에 실패했습니다')
+      }
 
       onStudentUpdate({
         ...student,
@@ -93,10 +99,9 @@ export function StudentHeader({
 
       setProfileDialogOpen(false)
     } catch (error) {
-      console.error('Error updating profile image:', error)
       toast({
         title: '업데이트 오류',
-        description: '프로필 사진을 업데이트하는 중 오류가 발생했습니다.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       })
     }
@@ -139,12 +144,8 @@ export function StudentHeader({
       )
     ) {
       try {
-        const { error } = await supabase
-          .from('students')
-          .update({ deleted_at: new Date().toISOString() })
-          .eq('id', student.id)
-
-        if (error) throw error
+        const useCase = createDeleteStudentUseCase()
+        await useCase.execute(student.id)
 
         toast({
           title: '학생 삭제 완료',
@@ -153,10 +154,9 @@ export function StudentHeader({
 
         router.push('/students')
       } catch (error) {
-        console.error('Error deleting student:', error)
         toast({
           title: '삭제 실패',
-          description: '학생 삭제 중 오류가 발생했습니다.',
+          description: getErrorMessage(error),
           variant: 'destructive',
         })
       }

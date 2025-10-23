@@ -30,7 +30,7 @@ interface AuditLogEntry {
 /**
  * 감사 로그 기록
  *
- * 프로덕션 환경에서는 데이터베이스나 외부 로그 서비스로 전송
+ * 프로덕션 환경에서는 데이터베이스에 저장
  * 개발 환경에서는 콘솔 출력
  */
 export function logAuditEvent(entry: Omit<AuditLogEntry, 'timestamp'>): void {
@@ -42,10 +42,13 @@ export function logAuditEvent(entry: Omit<AuditLogEntry, 'timestamp'>): void {
   // 환경에 따라 다른 처리
   const env = process.env.NEXT_PUBLIC_ENV || 'local'
 
-  if (env === 'production') {
-    // TODO: 프로덕션에서는 데이터베이스나 외부 서비스로 전송
-    // 예: Sentry, DataDog, CloudWatch, 또는 Supabase 테이블
-    console.log('[AUDIT]', JSON.stringify(logEntry))
+  if (env === 'production' || env === 'staging') {
+    // 프로덕션/스테이징: 데이터베이스에 저장
+    saveAuditLogToDatabase(logEntry).catch((error) => {
+      // 로그 저장 실패시에도 앱은 계속 동작해야 함
+      console.error('[AUDIT] Failed to save audit log:', error)
+      console.log('[AUDIT] Fallback:', JSON.stringify(logEntry))
+    })
   } else {
     // 개발/로컬에서는 콘솔 출력
     const emoji = logEntry.success ? '✅' : '❌'
@@ -55,6 +58,51 @@ export function logAuditEvent(entry: Omit<AuditLogEntry, 'timestamp'>): void {
       error: logEntry.errorMessage,
       metadata: logEntry.metadata,
     })
+  }
+}
+
+/**
+ * Audit 로그를 데이터베이스에 저장 (내부 함수)
+ * Service Role Key를 사용하여 RLS를 우회하고 직접 삽입
+ */
+async function saveAuditLogToDatabase(entry: AuditLogEntry): Promise<void> {
+  try {
+    // Service role key는 RLS를 우회할 수 있으므로 주의해서 사용
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      throw new Error('Supabase credentials not configured for audit logging')
+    }
+
+    // Service role 클라이언트는 동적 import로 가져옴 (서버 사이드에서만 사용)
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabase = createClient(supabaseUrl, serviceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    })
+
+    const { error } = await supabase.from('audit_logs').insert({
+      tenant_id: entry.tenantId || null,
+      event: entry.event,
+      timestamp: entry.timestamp,
+      student_id: entry.studentId || null,
+      student_code: entry.studentCode || null,
+      ip_address: entry.ipAddress || null,
+      user_agent: entry.userAgent || null,
+      success: entry.success,
+      error_message: entry.errorMessage || null,
+      metadata: entry.metadata || {},
+    })
+
+    if (error) {
+      throw error
+    }
+  } catch (error) {
+    // 로그 저장 실패는 에러를 던져서 상위에서 처리
+    throw new Error(`Failed to save audit log: ${error}`)
   }
 }
 

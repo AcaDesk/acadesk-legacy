@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { createGetClassesWithDetailsUseCase } from '@/application/factories/classUseCaseFactory.client'
 import { motion } from 'framer-motion'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -44,13 +45,39 @@ interface ClassData {
   name: string
   description: string | null
   subject: string | null
-  grade_level: string | null
-  teacher_name: string | null
-  student_count: number
-  schedule: string | null
+  gradeLevel: string | null
+  instructorName: string | null
+  studentCount: number
+  schedule: Record<string, unknown> | null
   room: string | null
-  status: 'active' | 'inactive'
-  created_at: string
+  status: string
+  active: boolean
+  createdAt: string
+}
+
+// Schedule을 한글 문자열로 변환하는 헬퍼 함수
+function formatSchedule(schedule: Record<string, unknown> | null): string {
+  if (!schedule || typeof schedule !== 'object') return '-'
+
+  // schedule 객체가 { day: string, time: string } 형태라고 가정
+  const days = schedule.days as string[] | undefined
+  const time = schedule.time as string | undefined
+
+  if (days && time) {
+    const dayMap: Record<string, string> = {
+      'monday': '월',
+      'tuesday': '화',
+      'wednesday': '수',
+      'thursday': '목',
+      'friday': '금',
+      'saturday': '토',
+      'sunday': '일',
+    }
+    const koreanDays = days.map(d => dayMap[d.toLowerCase()] || d).join('/')
+    return `${koreanDays} ${time}`
+  }
+
+  return JSON.stringify(schedule)
 }
 
 export default function ClassesPage() {
@@ -64,51 +91,11 @@ export default function ClassesPage() {
     try {
       setLoading(true)
 
-      // TODO: 실제 classes 테이블에서 데이터 로드
-      // 현재는 샘플 데이터로 표시
-      const sampleData: ClassData[] = [
-        {
-          id: '1',
-          name: '수학 심화반 A',
-          description: '초등 6학년 수학 심화 과정',
-          subject: '수학',
-          grade_level: '초6',
-          teacher_name: '김선생',
-          student_count: 12,
-          schedule: '월/수/금 17:00-18:30',
-          room: '201호',
-          status: 'active',
-          created_at: new Date().toISOString(),
-        },
-        {
-          id: '2',
-          name: '영어 기초반 B',
-          description: '중등 1학년 영어 기초',
-          subject: '영어',
-          grade_level: '중1',
-          teacher_name: '이선생',
-          student_count: 15,
-          schedule: '화/목 16:00-17:30',
-          room: '202호',
-          status: 'active',
-          created_at: new Date().toISOString(),
-        },
-        {
-          id: '3',
-          name: '국어 독해반',
-          description: '고등 1-2학년 국어 독해',
-          subject: '국어',
-          grade_level: '고1-2',
-          teacher_name: '박선생',
-          student_count: 10,
-          schedule: '월/목 18:00-19:30',
-          room: '301호',
-          status: 'active',
-          created_at: new Date().toISOString(),
-        },
-      ]
+      // Use Case를 통해 실제 데이터 로드
+      const useCase = createGetClassesWithDetailsUseCase()
+      const data = await useCase.execute()
 
-      setClasses(sampleData)
+      setClasses(data)
     } catch (error) {
       console.error('Error loading classes:', error)
       toast({
@@ -129,7 +116,7 @@ export default function ClassesPage() {
   const filteredClasses = classes.filter(cls =>
     cls.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     cls.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    cls.teacher_name?.toLowerCase().includes(searchTerm.toLowerCase())
+    cls.instructorName?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   // Pagination
@@ -147,8 +134,8 @@ export default function ClassesPage() {
     itemsPerPage: 6,
   })
 
-  const activeClasses = filteredClasses.filter(c => c.status === 'active')
-  const totalStudents = activeClasses.reduce((sum, c) => sum + c.student_count, 0)
+  const activeClasses = filteredClasses.filter(c => c.status === 'active' && c.active)
+  const totalStudents = activeClasses.reduce((sum, c) => sum + c.studentCount, 0)
   const avgStudentsPerClass = activeClasses.length > 0
     ? Math.round(totalStudents / activeClasses.length)
     : 0
@@ -334,20 +321,20 @@ export default function ClassesPage() {
                         <div className="flex items-center gap-2">
                           <Users className="h-4 w-4 text-muted-foreground" />
                           <span className="text-muted-foreground">수강생:</span>
-                          <span className="font-medium">{cls.student_count}명</span>
+                          <span className="font-medium">{cls.studentCount}명</span>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2 text-sm">
                         <Clock className="h-4 w-4 text-muted-foreground" />
                         <span className="text-muted-foreground">시간:</span>
-                        <span className="font-medium">{cls.schedule || '-'}</span>
+                        <span className="font-medium">{formatSchedule(cls.schedule)}</span>
                       </div>
 
                       <div className="flex items-center justify-between pt-3 border-t">
                         <div className="text-sm">
                           <span className="text-muted-foreground">강사:</span>
-                          <span className="ml-2 font-medium">{cls.teacher_name || '-'}</span>
+                          <span className="ml-2 font-medium">{cls.instructorName || '-'}</span>
                         </div>
                         <Link href={`/classes/${cls.id}`}>
                           <Button variant="outline" size="sm">

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import {
   Dialog,
   DialogContent,
@@ -16,16 +15,18 @@ import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { Loader2, Phone, MessageSquare, Mail, User } from 'lucide-react'
+import { getErrorMessage } from '@/lib/error-handlers'
+import {
+  createGetGuardiansForContactUseCase,
+  createLogGuardianContactUseCase,
+} from '@/application/factories/guardianUseCaseFactory.client'
 
 interface Guardian {
   id: string
+  name: string
   relationship: string | null
-  users: {
-    id: string
-    name: string
-    email: string | null
-    phone: string | null
-  } | null
+  email: string | null
+  phone: string | null
 }
 
 interface ContactGuardianDialogProps {
@@ -51,7 +52,6 @@ export function ContactGuardianDialog({
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const { toast } = useToast()
-  const supabase = createClient()
   const { user: currentUser } = useCurrentUser()
 
   useEffect(() => {
@@ -66,52 +66,13 @@ export function ContactGuardianDialog({
   async function loadGuardians() {
     try {
       setLoading(true)
-      const { data, error } = await supabase
-        .from('student_guardians')
-        .select(`
-          guardians (
-            id,
-            relationship,
-            users (
-              id,
-              name,
-              email,
-              phone
-            )
-          )
-        `)
-        .eq('student_id', studentId)
-
-      if (error) throw error
-
-      // Extract guardian data from the nested structure
-      interface StudentGuardianJoin {
-        guardians: {
-          id: string
-          relationship: string | null
-          users: {
-            id: string
-            name: string
-            email: string | null
-            phone: string | null
-          }[] | null
-        }[] | null
-      }
-
-      const guardianList = (data as unknown as StudentGuardianJoin[])
-        ?.flatMap((item) => (item.guardians || []).map(g => ({
-          id: g.id,
-          relationship: g.relationship,
-          users: g.users?.[0] || null
-        })))
-        .filter(Boolean) || []
-
+      const useCase = createGetGuardiansForContactUseCase()
+      const guardianList = await useCase.execute(studentId)
       setGuardians(guardianList)
     } catch (error) {
-      console.error('Error loading guardians:', error)
       toast({
         title: '데이터 로드 오류',
-        description: '보호자 정보를 불러오는 중 오류가 발생했습니다.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       })
     } finally {
@@ -120,26 +81,25 @@ export function ContactGuardianDialog({
   }
 
   const handleContactLog = async (guardianId: string, method: string) => {
-    if (!currentUser) return
+    if (!currentUser || !currentUser.tenantId) return
 
     setSaving(true)
     try {
       // Log the contact attempt
-      const { error } = await supabase
-        .from('notification_logs')
-        .insert({
-          tenant_id: currentUser.tenantId,
-          student_id: studentId,
-          guardian_id: guardianId,
-          session_id: sessionId,
-          notification_type: method,
-          status: 'sent',
-          message: `${studentName} 학생의 결석에 대한 연락`,
-          notes: notes || null,
-          sent_at: new Date().toISOString(),
-        })
+      const useCase = createLogGuardianContactUseCase()
+      const { success, error } = await useCase.execute({
+        tenantId: currentUser.tenantId,
+        studentId,
+        guardianId,
+        sessionId,
+        notificationType: method,
+        message: `${studentName} 학생의 결석에 대한 연락`,
+        notes: notes || undefined,
+      })
 
-      if (error) throw error
+      if (!success || error) {
+        throw error || new Error('연락 기록 저장에 실패했습니다')
+      }
 
       toast({
         title: '연락 기록 저장',
@@ -152,10 +112,9 @@ export function ContactGuardianDialog({
 
       onOpenChange(false)
     } catch (error: unknown) {
-      console.error('Error logging contact:', error)
       toast({
         title: '저장 실패',
-        description: error instanceof Error ? error.message : '연락 기록을 저장하는 중 오류가 발생했습니다.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       })
     } finally {
@@ -197,7 +156,7 @@ export function ContactGuardianDialog({
                     </div>
                     <div>
                       <div className="font-semibold">
-                        {guardian.users?.name || '이름 없음'}
+                        {guardian.name}
                       </div>
                       {guardian.relationship && (
                         <Badge variant="outline" className="text-xs mt-1">
@@ -210,23 +169,23 @@ export function ContactGuardianDialog({
 
                 {/* Contact Information */}
                 <div className="space-y-2 mb-4">
-                  {guardian.users?.phone && (
+                  {guardian.phone && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Phone className="h-4 w-4" />
-                      <span>{guardian.users.phone}</span>
+                      <span>{guardian.phone}</span>
                     </div>
                   )}
-                  {guardian.users?.email && (
+                  {guardian.email && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Mail className="h-4 w-4" />
-                      <span>{guardian.users.email}</span>
+                      <span>{guardian.email}</span>
                     </div>
                   )}
                 </div>
 
                 {/* Contact Actions */}
                 <div className="flex gap-2">
-                  {guardian.users?.phone && (
+                  {guardian.phone && (
                     <>
                       <Button
                         variant="outline"
@@ -250,7 +209,7 @@ export function ContactGuardianDialog({
                       </Button>
                     </>
                   )}
-                  {guardian.users?.email && (
+                  {guardian.email && (
                     <Button
                       variant="outline"
                       size="sm"

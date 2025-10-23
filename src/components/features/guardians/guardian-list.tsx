@@ -1,77 +1,91 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/hooks/use-toast'
 import { GuardianTableImproved, type Guardian } from './guardian-table-improved'
+import { getErrorMessage } from '@/lib/error-handlers'
+import {
+  createGetGuardiansWithDetailsUseCase,
+  createDeleteGuardianUseCase,
+} from '@/application/factories/guardianUseCaseFactory.client'
 
 export function GuardianList() {
   const [guardians, setGuardians] = useState<Guardian[]>([])
   const [loading, setLoading] = useState(true)
+  const [tenantId, setTenantId] = useState<string | null>(null)
 
   const { toast } = useToast()
-  const supabase = createClient()
 
+  // Load tenant ID
   useEffect(() => {
-    loadGuardians()
+    async function loadTenantId() {
+      const { createClient } = await import('@/lib/supabase/client')
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data } = await supabase
+          .from('users')
+          .select('tenant_id')
+          .eq('id', user.id)
+          .single()
+
+        if (data?.tenant_id) {
+          setTenantId(data.tenant_id)
+        }
+      }
+    }
+    loadTenantId()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  useEffect(() => {
+    if (tenantId) {
+      loadGuardians()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenantId])
+
   async function loadGuardians() {
+    if (!tenantId) return
+
     try {
       setLoading(true)
-      const { data, error } = await supabase
-        .from('guardians')
-        .select(`
-          id,
-          relationship,
-          users (
-            name,
-            email,
-            phone
-          ),
-          student_guardians (
-            relation,
-            is_primary,
-            students (
-              id,
-              student_code,
-              name
-            )
-          )
-        `)
-        .order('created_at', { ascending: false })
+
+      // Use Case를 통한 보호자 데이터 로드
+      const useCase = createGetGuardiansWithDetailsUseCase()
+      const { guardians: guardiansData, error } = await useCase.execute({ tenantId })
 
       if (error) throw error
 
-      // Map Supabase data to Guardian type (handle array joins)
-      const mappedData: Guardian[] = (data || []).map((item) => ({
-        id: item.id,
-        relationship: item.relationship,
-        users: Array.isArray(item.users) && item.users.length > 0
-          ? item.users[0]
+      // GuardianWithDetails를 Guardian 형식으로 변환
+      const formattedGuardians: Guardian[] = guardiansData.map((item) => ({
+        id: item.guardian.id,
+        relationship: item.guardian.relationship,
+        users: item.userName
+          ? {
+              name: item.userName,
+              email: item.userEmail,
+              phone: item.userPhone,
+            }
           : null,
-        guardian_students: (item.student_guardians || []).map((sg) => ({
-          relationship: sg.relation,
-          is_primary: sg.is_primary,
-          students: Array.isArray(sg.students) && sg.students.length > 0
-            ? {
-                id: sg.students[0].id,
-                student_code: sg.students[0].student_code,
-                users: {
-                  name: sg.students[0].name
-                },
-              }
-            : null,
+        guardian_students: item.students.map((student) => ({
+          relationship: student.relation || '',
+          is_primary: student.isPrimary || false,
+          students: {
+            id: student.id,
+            student_code: student.studentCode,
+            users: {
+              name: student.name,
+            },
+          },
         })),
       }))
 
-      setGuardians(mappedData)
+      setGuardians(formattedGuardians)
     } catch (error) {
-      console.error('Error loading guardians:', error)
       toast({
         title: '데이터 로드 오류',
-        description: '보호자 목록을 불러오는 중 오류가 발생했습니다.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       })
     } finally {
@@ -85,9 +99,9 @@ export function GuardianList() {
     }
 
     try {
-      const { error } = await supabase.from('guardians').delete().eq('id', id)
-
-      if (error) throw error
+      // Use Case를 통한 보호자 삭제
+      const useCase = createDeleteGuardianUseCase()
+      await useCase.execute(id)
 
       toast({
         title: '삭제 완료',
@@ -96,10 +110,9 @@ export function GuardianList() {
 
       loadGuardians()
     } catch (error) {
-      console.error('Error deleting guardian:', error)
       toast({
         title: '삭제 오류',
-        description: '보호자를 삭제하는 중 오류가 발생했습니다.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       })
     }

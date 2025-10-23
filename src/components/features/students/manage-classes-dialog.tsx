@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import {
   Dialog,
   DialogContent,
@@ -15,7 +14,10 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
+import { getErrorMessage } from '@/lib/error-handlers'
 import { Loader2 } from 'lucide-react'
+import { createGetActiveClassesUseCase } from '@/application/factories/classUseCaseFactory.client'
+import { createUpdateStudentClassEnrollmentsUseCase } from '@/application/factories/studentUseCaseFactory.client'
 
 interface Class {
   id: string
@@ -44,7 +46,6 @@ export function ManageClassesDialog({
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const { toast } = useToast()
-  const supabase = createClient()
   const { user: currentUser } = useCurrentUser()
 
   useEffect(() => {
@@ -58,19 +59,23 @@ export function ManageClassesDialog({
   async function loadClasses() {
     try {
       setLoading(true)
-      const { data, error } = await supabase
-        .from('classes')
-        .select('id, name, subject, active')
-        .eq('active', true)
-        .order('name')
 
-      if (error) throw error
-      setClasses(data as Class[])
+      // Use Case를 통한 활성 클래스 로드
+      const useCase = createGetActiveClassesUseCase()
+      const activeClasses = await useCase.execute()
+
+      // Convert to Class format with subject field
+      const classesWithSubject = activeClasses.map(cls => ({
+        ...cls,
+        subject: null, // Subject field not available in ActiveClassDTO
+        active: true,
+      }))
+
+      setClasses(classesWithSubject)
     } catch (error) {
-      console.error('Error loading classes:', error)
       toast({
         title: '데이터 로드 오류',
-        description: '수업 목록을 불러오는 중 오류가 발생했습니다.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       })
     } finally {
@@ -87,36 +92,19 @@ export function ManageClassesDialog({
   }
 
   const handleSave = async () => {
-    if (!currentUser) return
+    if (!currentUser || !currentUser.tenantId) return
 
     setSaving(true)
     try {
-      // Delete all existing enrollments for this student
-      const { error: deleteError } = await supabase
-        .from('class_enrollments')
-        .delete()
-        .eq('student_id', studentId)
+      // Use Case를 통한 수업 등록 업데이트
+      const useCase = createUpdateStudentClassEnrollmentsUseCase()
+      const { success, error } = await useCase.execute({
+        tenantId: currentUser.tenantId,
+        studentId,
+        classIds: selectedClassIds,
+      })
 
-      if (deleteError && deleteError.code !== 'PGRST116') {
-        throw deleteError
-      }
-
-      // Insert new enrollments
-      if (selectedClassIds.length > 0) {
-        const records = selectedClassIds.map((classId) => ({
-          tenant_id: currentUser.tenantId,
-          student_id: studentId,
-          class_id: classId,
-          status: 'active',
-          enrolled_at: new Date().toISOString(),
-        }))
-
-        const { error: insertError } = await supabase
-          .from('class_enrollments')
-          .insert(records)
-
-        if (insertError) throw insertError
-      }
+      if (error) throw error
 
       toast({
         title: '수업 배정 완료',
@@ -126,10 +114,9 @@ export function ManageClassesDialog({
       onSuccess()
       onOpenChange(false)
     } catch (error: unknown) {
-      console.error('Error saving classes:', error)
       toast({
         title: '저장 실패',
-        description: error instanceof Error ? error.message : '수업을 배정하는 중 오류가 발생했습니다.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       })
     } finally {

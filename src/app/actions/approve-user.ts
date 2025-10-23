@@ -26,15 +26,15 @@ export async function approveUser(userId: string): Promise<ApproveUserResult> {
       return { success: false, error: '인증되지 않은 사용자입니다.' }
     }
 
-    // 현재 사용자의 role 확인 (owner만 승인 가능)
+    // 현재 사용자의 슈퍼어드민 권한 확인 (슈퍼어드민만 승인 가능)
     const { data: currentUser, error: userError } = await supabase
       .from('users')
-      .select('role_code')
+      .select('is_super_admin')
       .eq('id', user.id)
       .single()
 
-    if (userError || !currentUser || currentUser.role_code !== 'owner') {
-      return { success: false, error: '승인 권한이 없습니다.' }
+    if (userError || !currentUser || !currentUser.is_super_admin) {
+      return { success: false, error: '승인 권한이 없습니다. 슈퍼어드민만 사용할 수 있습니다.' }
     }
 
     // 승인 대상 사용자 정보 조회
@@ -98,15 +98,15 @@ export async function rejectUser(
       return { success: false, error: '인증되지 않은 사용자입니다.' }
     }
 
-    // 현재 사용자의 role 확인 (owner만 거부 가능)
+    // 현재 사용자의 슈퍼어드민 권한 확인 (슈퍼어드민만 거부 가능)
     const { data: currentUser, error: userError } = await supabase
       .from('users')
-      .select('role_code')
+      .select('is_super_admin')
       .eq('id', user.id)
       .single()
 
-    if (userError || !currentUser || currentUser.role_code !== 'owner') {
-      return { success: false, error: '거부 권한이 없습니다.' }
+    if (userError || !currentUser || !currentUser.is_super_admin) {
+      return { success: false, error: '거부 권한이 없습니다. 슈퍼어드민만 사용할 수 있습니다.' }
     }
 
     // 사용자 거부 처리

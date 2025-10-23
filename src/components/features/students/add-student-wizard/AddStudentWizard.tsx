@@ -5,12 +5,12 @@ import { useForm, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format } from 'date-fns'
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { PostgrestError } from '@supabase/supabase-js'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { useToast } from '@/hooks/use-toast'
 import { hashKioskPin } from '@/app/actions/kiosk'
 import { GUARDIAN_MODES } from '@/lib/constants'
+import { getErrorMessage } from '@/lib/error-handlers'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { StepIndicator } from './StepIndicator'
@@ -18,6 +18,8 @@ import { Step1_StudentInfo } from './Step1_StudentInfo'
 import { Step2_GuardianInfo } from './Step2_GuardianInfo'
 import { Step3_AdditionalInfo } from './Step3_AdditionalInfo'
 import { studentWizardSchema, type StudentWizardFormValues, type StepInfo } from './types'
+import { createGetTenantCodesUseCase } from '@/application/factories/tenantUseCaseFactory.client'
+import { createCreateStudentCompleteUseCase } from '@/application/factories/studentUseCaseFactory.client'
 
 // ============================================================================
 // Props
@@ -39,7 +41,6 @@ export function AddStudentWizard({ open, onOpenChange, onSuccess }: AddStudentWi
   const [schools, setSchools] = useState<string[]>([])
 
   const { toast } = useToast()
-  const supabase = createClient()
   const { user: currentUser } = useCurrentUser()
 
   const steps: StepInfo[] = [
@@ -92,18 +93,12 @@ export function AddStudentWizard({ open, onOpenChange, onSuccess }: AddStudentWi
 
   async function loadSchools() {
     try {
-      const { data, error } = await supabase
-        .from('tenant_codes')
-        .select('code')
-        .eq('code_type', 'school')
-        .eq('is_active', true)
-        .order('sort_order')
-
-      if (error) throw error
+      const useCase = createGetTenantCodesUseCase()
+      const codes = await useCase.execute('school')
 
       // 데이터가 있으면 사용, 없으면 기본 학교 목록 사용
-      if (data && data.length > 0) {
-        setSchools(data.map((item: { code: string }) => item.code))
+      if (codes.length > 0) {
+        setSchools(codes)
       } else {
         // tenant_codes 테이블이 비어있거나 없는 경우 기본 목록 사용
         const { DEFAULT_SCHOOLS } = await import('@/lib/constants')
@@ -230,32 +225,17 @@ export function AddStudentWizard({ open, onOpenChange, onSuccess }: AddStudentWi
         }
       }
 
-      // Call RPC function
-      const { data: result, error: rpcError } = await supabase.rpc('create_student_complete', {
-        _student: studentData,
-        _guardian: guardianData,
-        _guardian_mode: guardianMode,
+      // Call CreateStudentComplete Use Case
+      const useCase = createCreateStudentCompleteUseCase()
+      const { success, data: responseData, error: useCaseError } = await useCase.execute({
+        student: studentData,
+        guardian: guardianData,
+        guardianMode: guardianMode as 'new' | 'existing' | 'skip',
       })
 
-      if (rpcError) {
-        throw rpcError
+      if (!success || useCaseError) {
+        throw useCaseError || new Error('학생을 추가하는 중 오류가 발생했습니다.')
       }
-
-      // Check RPC response format
-      if (!result || typeof result !== 'object') {
-        throw new Error('서버 응답이 올바르지 않습니다.')
-      }
-
-      // Handle RPC result
-      if ('ok' in result && !result.ok) {
-        // Error response from RPC
-        const errorCode = result.code || 'unknown_error'
-        const errorMessage = result.message || '학생을 추가하는 중 오류가 발생했습니다.'
-        throw new Error(`[${errorCode}] ${errorMessage}`)
-      }
-
-      // Success response
-      const responseData = result.data || result
 
       // Show success message based on guardian mode
       if (guardianMode === 'new' && data.guardian) {

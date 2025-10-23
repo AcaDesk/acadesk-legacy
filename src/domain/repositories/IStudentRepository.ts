@@ -16,6 +16,18 @@ export interface StudentFilters {
   grade?: string
   school?: string
   search?: string // 이름 또는 학생 코드 검색
+  commuteMethod?: string
+  marketingSource?: string
+  enrollmentDateFrom?: string // ISO date string (YYYY-MM-DD)
+  enrollmentDateTo?: string // ISO date string (YYYY-MM-DD)
+}
+
+export interface StudentWithDetails {
+  student: Student
+  userName: string | null
+  userEmail: string | null
+  userPhone: string | null
+  classNames: string[] // 수강 중인 클래스 이름 목록
 }
 
 export interface IStudentRepository {
@@ -44,6 +56,11 @@ export interface IStudentRepository {
    * 테넌트의 모든 학생 조회
    */
   findAll(tenantId: string, filters?: StudentFilters, options?: FindStudentOptions): Promise<Student[]>
+
+  /**
+   * 테넌트의 모든 학생 조회 (users 및 class_enrollments 정보 포함)
+   */
+  findAllWithDetails(tenantId: string, filters?: StudentFilters, options?: FindStudentOptions): Promise<StudentWithDetails[]>
 
   /**
    * 학생 검색 (이름, 학생 코드)

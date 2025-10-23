@@ -350,6 +350,28 @@ export class AttendanceRepository {
     if (error) throw error;
   }
 
+  // ==================== Notifications ====================
+
+  /**
+   * Bulk insert notification logs
+   */
+  async bulkInsertNotificationLogs(
+    notifications: Array<{
+      student_id: string
+      session_id: string
+      notification_type: string
+      status: string
+      message: string
+      sent_at: string
+    }>
+  ): Promise<void> {
+    const { error } = await this.dataSource
+      .from('notification_logs')
+      .insert(notifications)
+
+    if (error) throw error
+  }
+
   // ==================== Statistics ====================
 
   /**

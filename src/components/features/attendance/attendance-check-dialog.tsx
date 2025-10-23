@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import {
   Dialog,
   DialogContent,
@@ -17,6 +16,8 @@ import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { Loader2, Check, Clock, X, FileQuestion } from 'lucide-react'
 import { ATTENDANCE_STATUSES, getAttendanceStatusInfo } from '@/lib/constants'
+import { getErrorMessage } from '@/lib/error-handlers'
+import { createBulkUpsertAttendanceUseCase } from '@/application/factories/attendanceUseCaseFactory.client'
 
 interface Student {
   id: string
@@ -57,7 +58,6 @@ export function AttendanceCheckDialog({
   const [records, setRecords] = useState<Map<string, { status: string; notes: string }>>(new Map())
   const [saving, setSaving] = useState(false)
   const { toast } = useToast()
-  const supabase = createClient()
   const { user: currentUser } = useCurrentUser()
 
   // Check if class has started and calculate time since start
@@ -103,32 +103,27 @@ export function AttendanceCheckDialog({
   }
 
   const handleSave = async () => {
-    if (!currentUser) return
+    if (!currentUser || !currentUser.tenantId) return
 
     setSaving(true)
     try {
-      // Prepare records for upsert
-      const recordsToSave = students.map(student => {
+      // Prepare attendance records
+      const attendances = students.map(student => {
         const record = records.get(student.id) || { status: 'present', notes: '' }
         return {
-          tenant_id: currentUser.tenantId,
-          session_id: sessionId,
           student_id: student.id,
-          status: record.status,
-          notes: record.notes || null,
-          checked_at: new Date().toISOString(),
+          status: record.status as 'present' | 'late' | 'absent' | 'excused',
+          check_in_at: new Date().toISOString(),
+          notes: record.notes || undefined,
         }
       })
 
-      // Use upsert to handle both create and update
-      const { error } = await supabase
-        .from('attendance_records')
-        .upsert(recordsToSave, {
-          onConflict: 'session_id,student_id',
-          ignoreDuplicates: false,
-        })
-
-      if (error) throw error
+      // Use BulkUpsertAttendanceUseCase
+      const useCase = createBulkUpsertAttendanceUseCase()
+      await useCase.execute(currentUser.tenantId, {
+        session_id: sessionId,
+        attendances,
+      })
 
       toast({
         title: '출석 체크 완료',
@@ -138,10 +133,9 @@ export function AttendanceCheckDialog({
       onSuccess()
       onOpenChange(false)
     } catch (error: unknown) {
-      console.error('Error saving attendance:', error)
       toast({
         title: '저장 실패',
-        description: error instanceof Error ? error.message : '출석을 저장하는 중 오류가 발생했습니다.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       })
     } finally {

@@ -5,9 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { BookOpen } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { format as formatDate } from 'date-fns'
 import { ko } from 'date-fns/locale'
+import { createGetRecentClassSessionsUseCase } from '@/application/factories/classUseCaseFactory.client'
 
 interface ClassSession {
   id: string
@@ -31,7 +31,6 @@ export function ClassProgressCard({
 }: ClassProgressCardProps) {
   const [sessions, setSessions] = useState<ClassSession[]>([])
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
 
   useEffect(() => {
     loadClassSessions()
@@ -41,16 +40,9 @@ export function ClassProgressCard({
   async function loadClassSessions() {
     try {
       setLoading(true)
-      const { data, error } = await supabase
-        .from('class_sessions')
-        .select('*')
-        .eq('class_id', classId)
-        .order('session_date', { ascending: false })
-        .limit(5)
-
-      if (error) throw error
-
-      setSessions(data || [])
+      const useCase = createGetRecentClassSessionsUseCase()
+      const classSessions = await useCase.execute(classId, 5)
+      setSessions(classSessions)
     } catch (error) {
       console.error('Error loading class sessions:', error)
     } finally {

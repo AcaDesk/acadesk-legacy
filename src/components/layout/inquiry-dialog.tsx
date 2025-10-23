@@ -53,28 +53,23 @@ export function InquiryDialog({ open, onOpenChange }: InquiryDialogProps) {
     setIsSubmitting(true)
 
     try {
-      // TODO: 실제 API 엔드포인트로 문의 전송
-      // 임시로 콘솔에 출력
-      const inquiryData = {
-        user_email: currentUser?.email || '',
-        user_name: currentUser?.name || '',
-        category,
-        subject,
-        message,
-        timestamp: new Date().toISOString(),
+      // API로 문의 전송
+      const response = await fetch('/api/support', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ticket_type: 'inquiry',
+          category,
+          subject,
+          message,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || '문의 접수에 실패했습니다.')
       }
-
-      console.log('문의 내용:', inquiryData)
-
-      // 실제 구현 시:
-      // const response = await fetch('/api/support/inquiry', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(inquiryData),
-      // })
-
-      // 성공 시뮬레이션
-      await new Promise(resolve => setTimeout(resolve, 1000))
 
       toast({
         title: '문의가 접수되었습니다',
@@ -86,10 +81,11 @@ export function InquiryDialog({ open, onOpenChange }: InquiryDialogProps) {
       setSubject('')
       setMessage('')
       onOpenChange(false)
-    } catch {
+    } catch (error) {
+      console.error('Inquiry submission error:', error)
       toast({
         title: '문의 전송 실패',
-        description: '잠시 후 다시 시도해주세요.',
+        description: error instanceof Error ? error.message : '잠시 후 다시 시도해주세요.',
         variant: 'destructive',
       })
     } finally {

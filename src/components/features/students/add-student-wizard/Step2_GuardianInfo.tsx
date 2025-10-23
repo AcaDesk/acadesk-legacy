@@ -1,7 +1,6 @@
 import { useReducer, useEffect, useRef } from 'react'
 import { useFormContext } from 'react-hook-form'
 import { Search, UserPlus, Check, Loader2, X } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { GUARDIAN_MODES } from '@/lib/constants'
 import { Input } from '@/components/ui/input'
@@ -13,6 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { cn } from '@/lib/utils'
 import { GUARDIAN_RELATIONSHIPS } from '@/lib/constants'
 import type { StudentWizardFormValues, Guardian } from './types'
+import { createSearchGuardiansUseCase } from '@/application/factories/guardianUseCaseFactory.client'
 
 // ============================================================================
 // Guardian State Management with useReducer
@@ -94,7 +94,6 @@ export function Step2_GuardianInfo() {
   const [state, dispatch] = useReducer(guardianReducer, initialState)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
-  const supabase = createClient()
   const { user: currentUser } = useCurrentUser()
 
   // 포커스 관리: 컴포넌트가 마운트될 때 검색 필드에 포커스
@@ -117,21 +116,20 @@ export function Step2_GuardianInfo() {
   }, [state.query])
 
   async function searchGuardians(query: string) {
-    if (!currentUser) return
+    if (!currentUser || !currentUser.tenantId) return
 
     dispatch({ type: 'SET_SEARCHING', payload: true })
     try {
-      const { data, error } = await supabase
-        .from('guardians')
-        .select('id, name, phone, email, relationship')
-        .eq('tenant_id', currentUser.tenantId)
-        .is('deleted_at', null)
-        .or(`name.ilike.%${query}%,phone.ilike.%${query}%`)
-        .limit(10)
+      const useCase = createSearchGuardiansUseCase()
+      const results = await useCase.execute(currentUser.tenantId, query, 10)
 
-      if (error) throw error
+      // Convert to Guardian type (phone must be string, not null)
+      const guardians = results.map(r => ({
+        ...r,
+        phone: r.phone || '',
+      }))
 
-      dispatch({ type: 'SET_RESULTS', payload: data || [] })
+      dispatch({ type: 'SET_RESULTS', payload: guardians })
     } catch (error) {
       console.error('Error searching guardians:', error)
       dispatch({ type: 'SET_RESULTS', payload: [] })

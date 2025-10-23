@@ -142,7 +142,23 @@ export class StudentRepository implements IStudentRepository {
         query = query.or(`name.ilike.%${filters.search}%,student_code.ilike.%${filters.search}%`)
       }
 
-      const { data, error } = await query.order('created_at', { ascending: false })
+      if (filters?.commuteMethod) {
+        query = query.eq('commute_method', filters.commuteMethod)
+      }
+
+      if (filters?.marketingSource) {
+        query = query.eq('marketing_source', filters.marketingSource)
+      }
+
+      if (filters?.enrollmentDateFrom) {
+        query = query.gte('enrollment_date', filters.enrollmentDateFrom)
+      }
+
+      if (filters?.enrollmentDateTo) {
+        query = query.lte('enrollment_date', filters.enrollmentDateTo)
+      }
+
+      const { data, error } = await query.order('student_code')
 
       if (error) {
         logError(error, { repository: 'StudentRepository', method: 'findAll' })
@@ -153,6 +169,100 @@ export class StudentRepository implements IStudentRepository {
     } catch (error) {
       if (error instanceof DatabaseError) throw error
       logError(error, { repository: 'SupabaseStudentRepository', method: 'findAll' })
+      throw new DatabaseError('학생 목록을 조회할 수 없습니다')
+    }
+  }
+
+  async findAllWithDetails(tenantId: string, filters?: StudentFilters, options?: FindStudentOptions): Promise<import('@/domain/repositories/IStudentRepository').StudentWithDetails[]> {
+    try {
+      let query = this.dataSource
+        .from('students')
+        .select(`
+          *,
+          users (
+            name,
+            email,
+            phone
+          ),
+          class_enrollments (
+            classes (
+              name
+            )
+          )
+        `)
+        .eq('tenant_id', tenantId)
+
+      if (!options?.includeDeleted) {
+        query = query.is('deleted_at', null)
+      }
+
+      if (!options?.includeWithdrawn) {
+        query = query.is('withdrawal_date', null)
+      }
+
+      if (filters?.grade) {
+        query = query.eq('grade', filters.grade)
+      }
+
+      if (filters?.school) {
+        query = query.eq('school', filters.school)
+      }
+
+      if (filters?.search) {
+        query = query.or(`name.ilike.%${filters.search}%,student_code.ilike.%${filters.search}%`)
+      }
+
+      if (filters?.commuteMethod) {
+        query = query.eq('commute_method', filters.commuteMethod)
+      }
+
+      if (filters?.marketingSource) {
+        query = query.eq('marketing_source', filters.marketingSource)
+      }
+
+      if (filters?.enrollmentDateFrom) {
+        query = query.gte('enrollment_date', filters.enrollmentDateFrom)
+      }
+
+      if (filters?.enrollmentDateTo) {
+        query = query.lte('enrollment_date', filters.enrollmentDateTo)
+      }
+
+      const { data, error } = await query.order('student_code')
+
+      if (error) {
+        logError(error, { repository: 'StudentRepository', method: 'findAllWithDetails' })
+        throw new DatabaseError('학생 목록을 조회할 수 없습니다', error)
+      }
+
+      return (data as any[] || []).map((row: any) => {
+        const student = this.mapToDomain(row)
+
+        // users 데이터 처리 (배열일 수 있음)
+        const users = Array.isArray(row.users) ? row.users[0] : row.users
+        const userName = users?.name || null
+        const userEmail = users?.email || null
+        const userPhone = users?.phone || null
+
+        // class_enrollments 데이터 처리
+        const classNames = (row.class_enrollments || [])
+          .map((enrollment: any) => {
+            const classes = Array.isArray(enrollment.classes) ? enrollment.classes[0] : enrollment.classes
+            return classes?.name
+          })
+          .filter(Boolean) as string[]
+
+        return {
+          student,
+          userName,
+          userEmail,
+          userPhone,
+          classNames,
+        }
+      })
+    } catch (error) {
+      if (error instanceof DatabaseError) throw error
+      logError(error, { repository: 'StudentRepository', method: 'findAllWithDetails' })
       throw new DatabaseError('학생 목록을 조회할 수 없습니다')
     }
   }
