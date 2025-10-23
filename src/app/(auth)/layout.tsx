@@ -64,7 +64,7 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
   }
 
   // 3. 로그인 O + 이메일 미인증 → auth 흐름(verify-email 등) 보여줘야 함 (리다이렉트 금지)
-  const emailConfirmed = user.email_confirmed_at ?? (user as any).confirmed_at
+  const emailConfirmed = user.email_confirmed_at ?? (user as { confirmed_at?: string }).confirmed_at
   if (!emailConfirmed) {
     console.log('[AuthLayout] User logged in but email not confirmed, showing auth pages')
     return <AuthFrame>{children}</AuthFrame>

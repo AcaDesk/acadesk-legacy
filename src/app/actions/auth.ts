@@ -18,7 +18,6 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
-import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { createUserProfileServer, checkOnboardingStage } from './onboarding'
 
@@ -63,7 +62,7 @@ const updatePasswordSchema = z.object({
 /**
  * 에러 메시지를 사용자 친화적인 한국어로 변환
  */
-function getAuthErrorMessage(error: any): string {
+function getAuthErrorMessage(error: unknown): string {
   const errorMap: Record<string, string> = {
     'Invalid login credentials': '이메일 또는 비밀번호가 올바르지 않습니다.',
     'Email not confirmed': '이메일 인증이 필요합니다. 메일함을 확인해주세요.',
@@ -76,7 +75,9 @@ function getAuthErrorMessage(error: any): string {
       '보안을 위해 60초에 한 번만 요청할 수 있습니다.',
   }
 
-  const message = error?.message || error || '알 수 없는 오류가 발생했습니다.'
+  const message = (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string')
+    ? error.message
+    : (typeof error === 'string' ? error : '알 수 없는 오류가 발생했습니다.')
   return errorMap[message] || message
 }
 
@@ -620,7 +621,7 @@ export async function handleAuthCallback(code: string, type: string = 'signup'):
     console.log('[handleAuthCallback] User retrieved:', { requestId })
 
     // 4. 이메일 인증 확인
-    const emailConfirmedAt = user.email_confirmed_at ?? (user as any).confirmed_at
+    const emailConfirmedAt = user.email_confirmed_at ?? (user as { confirmed_at?: string }).confirmed_at
 
     if (!emailConfirmedAt) {
       console.warn('[handleAuthCallback] Email not confirmed yet:', { requestId })
@@ -736,7 +737,7 @@ export async function postAuthSetup(): Promise<never> {
     console.log('[postAuthSetup] User session found:', { requestId })
 
     // 2. 이메일 인증 확인
-    const emailConfirmedAt = user.email_confirmed_at ?? (user as any).confirmed_at
+    const emailConfirmedAt = user.email_confirmed_at ?? (user as { confirmed_at?: string }).confirmed_at
     if (!emailConfirmedAt) {
       console.warn('[postAuthSetup] Email not confirmed yet:', { requestId })
       redirect(`/auth/verify-email?email=${encodeURIComponent(userEmail)}`)
