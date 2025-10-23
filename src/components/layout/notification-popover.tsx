@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { Bell, CheckCheck } from 'lucide-react'
 import {
@@ -12,8 +12,13 @@ import { Button } from '@ui/button'
 import { ScrollArea } from '@ui/scroll-area'
 import { Badge } from '@ui/badge'
 import { cn } from '@/lib/utils'
-import { createClient } from '@/lib/supabase/client'
-import { NotificationRepository, type InAppNotification } from '@infra/db/repositories/notification.repository'
+import {
+  getNotifications,
+  getUnreadNotificationCount,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  type InAppNotification
+} from '@/app/actions/notifications'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { useToast } from '@/hooks/use-toast'
 import { getErrorMessage } from '@/lib/error-handlers'
@@ -28,8 +33,6 @@ export function NotificationPopover() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [loading, setLoading] = useState(false)
 
-  const supabase = createClient()
-  const notificationRepo = useMemo(() => new NotificationRepository(supabase), [supabase])
   const { user: currentUser } = useCurrentUser()
   const { toast } = useToast()
 
@@ -40,14 +43,17 @@ export function NotificationPopover() {
 
     try {
       setLoading(true)
-      const data = await notificationRepo.findAll(
-        { userId: currentUser.id },
-        20 // 최근 20개
-      )
-      setNotifications(data)
 
-      const count = await notificationRepo.countUnread(currentUser.id)
-      setUnreadCount(count)
+      const notificationsResult = await getNotifications(20)
+      const countResult = await getUnreadNotificationCount()
+
+      if (notificationsResult.success && notificationsResult.data) {
+        setNotifications(notificationsResult.data)
+      }
+
+      if (countResult.success && countResult.data !== undefined) {
+        setUnreadCount(countResult.data)
+      }
     } catch (error) {
       // 테이블이 아직 생성되지 않은 경우 무시 (마이그레이션 미적용 시)
       const errorMessage = getErrorMessage(error)
@@ -66,7 +72,7 @@ export function NotificationPopover() {
     } finally {
       setLoading(false)
     }
-  }, [currentUser, notificationRepo, toast])
+  }, [currentUser, toast])
 
   // 컴포넌트 마운트 시 알림 로드
   useEffect(() => {
@@ -79,7 +85,7 @@ export function NotificationPopover() {
   const handleNotificationClick = async (notification: InAppNotification) => {
     if (!notification.is_read) {
       try {
-        await notificationRepo.markAsRead(notification.id)
+        await markNotificationAsRead(notification.id)
         await loadNotifications() // 다시 로드하여 읽음 상태 반영
       } catch {
         // 에러는 무시 (사용자 경험을 방해하지 않음)
@@ -98,7 +104,12 @@ export function NotificationPopover() {
     if (!currentUser) return
 
     try {
-      await notificationRepo.markAllAsRead(currentUser.id)
+      const result = await markAllNotificationsAsRead()
+
+      if (!result.success) {
+        throw new Error(result.error || '읽음 처리 실패')
+      }
+
       await loadNotifications()
       toast({
         title: '모든 알림을 읽음 처리했습니다',

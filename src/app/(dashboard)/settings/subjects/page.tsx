@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { PageWrapper } from '@/components/layout/page-wrapper'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
@@ -45,13 +44,27 @@ import {
   Trash2,
   Loader2,
 } from 'lucide-react'
-import type { Subject, SubjectStatistics } from '@/core/types/subject'
+import type { SubjectStatistics } from '@/app/actions/subjects'
+import {
+  getSubjectsWithStatistics,
+  createSubject,
+  updateSubject,
+  deleteSubject,
+} from '@/app/actions/subjects'
 import { DEFAULT_SUBJECT_COLORS } from '@/core/types/subject'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
-import { SubjectRepository } from '@infra/db/repositories/subject.repository'
 import { getErrorMessage } from '@/lib/error-handlers'
+
+interface Subject {
+  id: string
+  name: string
+  description: string | null
+  code: string | null
+  color: string
+  active: boolean
+}
 
 const subjectFormSchema = z.object({
   name: z.string().min(1, '과목명을 입력해주세요'),
@@ -73,8 +86,6 @@ export default function SubjectsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const { toast } = useToast()
-  const supabase = createClient()
-  const subjectRepo = new SubjectRepository(supabase)
 
   const form = useForm<SubjectFormValues>({
     resolver: zodResolver(subjectFormSchema),
@@ -91,8 +102,13 @@ export default function SubjectsPage() {
   const loadSubjects = async () => {
     try {
       setLoading(true)
-      const data = await subjectRepo.findAllWithStatistics()
-      setSubjects(data)
+      const result = await getSubjectsWithStatistics()
+
+      if (result.success && result.data) {
+        setSubjects(result.data)
+      } else {
+        throw new Error(result.error || '과목 목록을 불러올 수 없습니다')
+      }
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -113,7 +129,7 @@ export default function SubjectsPage() {
   const handleAddSubject = async (data: SubjectFormValues) => {
     setIsSubmitting(true)
     try {
-      await subjectRepo.create({
+      const result = await createSubject({
         name: data.name,
         description: data.description || null,
         code: data.code || null,
@@ -121,6 +137,10 @@ export default function SubjectsPage() {
         active: data.active,
         sort_order: subjects.length,
       })
+
+      if (!result.success) {
+        throw new Error(result.error || '과목 추가 실패')
+      }
 
       await loadSubjects()
       setIsAddModalOpen(false)
@@ -147,13 +167,17 @@ export default function SubjectsPage() {
 
     setIsSubmitting(true)
     try {
-      await subjectRepo.update(editingSubject.id, {
+      const result = await updateSubject(editingSubject.id, {
         name: data.name,
         description: data.description || null,
         code: data.code || null,
         color: data.color,
         active: data.active,
       })
+
+      if (!result.success) {
+        throw new Error(result.error || '과목 수정 실패')
+      }
 
       await loadSubjects()
       setIsEditModalOpen(false)
@@ -182,7 +206,12 @@ export default function SubjectsPage() {
     }
 
     try {
-      await subjectRepo.delete(subject.id)
+      const result = await deleteSubject(subject.id)
+
+      if (!result.success) {
+        throw new Error(result.error || '과목 삭제 실패')
+      }
+
       await loadSubjects()
 
       toast({

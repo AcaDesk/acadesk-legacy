@@ -42,6 +42,89 @@ const bulkUpsertAttendanceSchema = z.object({
 // ============================================================================
 
 /**
+ * 출석 세션 단건 조회
+ * @param sessionId - 세션 ID
+ * @returns 세션 또는 에러
+ */
+export async function getAttendanceSessionById(sessionId: string) {
+  try {
+    // 1. 권한 검증 (staff)
+    const { tenantId } = await verifyStaff()
+
+    // 2. Service Role 클라이언트로 DB 작업
+    const supabase = await createServiceRoleClient()
+
+    // 3. 세션 조회
+    const { data, error } = await supabase
+      .from('attendance_sessions')
+      .select(`
+        *,
+        class:classes(
+          id,
+          name,
+          subject
+        )
+      `)
+      .eq('id', sessionId)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .single()
+
+    if (error) throw error
+
+    return {
+      success: true,
+      data,
+      error: null,
+    }
+  } catch (error) {
+    console.error('[getAttendanceSessionById] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * 특정 세션의 출석 기록 조회
+ * @param sessionId - 세션 ID
+ * @returns 출석 기록 목록 또는 에러
+ */
+export async function getAttendanceBySession(sessionId: string) {
+  try {
+    // 1. 권한 검증 (staff)
+    const { tenantId } = await verifyStaff()
+
+    // 2. Service Role 클라이언트로 DB 작업
+    const supabase = await createServiceRoleClient()
+
+    // 3. 출석 기록 조회
+    const { data, error } = await supabase
+      .from('attendance')
+      .select('*')
+      .eq('session_id', sessionId)
+      .eq('tenant_id', tenantId)
+
+    if (error) throw error
+
+    return {
+      success: true,
+      data: data || [],
+      error: null,
+    }
+  } catch (error) {
+    console.error('[getAttendanceBySession] Error:', error)
+    return {
+      success: false,
+      data: [],
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
  * 출석 세션 목록 조회
  * @param startDate - 시작 날짜 (선택)
  * @param endDate - 종료 날짜 (선택)
