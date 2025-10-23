@@ -24,6 +24,7 @@ import {
   Shapes,
   ChevronRight,
   LibraryBig,
+  Send,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { isFeatureAvailable, type FeatureKey } from "@/lib/features.config"
