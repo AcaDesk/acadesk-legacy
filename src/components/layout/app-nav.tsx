@@ -83,7 +83,16 @@ const navigationGroups: NavGroup[] = [
     title: "학습 관리",
     items: [
       { name: "수업 관리", href: "/classes", icon: GraduationCap, featureFlag: "classManagement" },
-      { name: "성적 입력", href: "/grades", icon: FileText, featureFlag: "gradesManagement" },
+      {
+        name: "성적 관리",
+        href: "/grades",
+        icon: FileText,
+        featureFlag: "gradesManagement",
+        subItems: [
+          { name: "성적 입력", href: "/grades", icon: FileText, featureFlag: "gradesManagement" },
+          { name: "시험 관리", href: "/grades/exams", icon: ClipboardCheck, featureFlag: "gradesManagement" },
+        ]
+      },
       {
         name: "TODO 관리",
         href: "/todos",
