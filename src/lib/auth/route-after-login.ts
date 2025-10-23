@@ -1,7 +1,10 @@
 /**
  * 단일 라우팅 규칙 (Single Routing Rule)
  *
- * 로그인 후 항상 get_auth_stage()를 호출하여 현재 상태에 맞는 페이지로 이동
+ * ✅ 완전히 server-side + service_role 기반으로 변경
+ *
+ * 로그인 후 항상 checkOnboardingStage() Server Action을 호출하여
+ * 현재 상태에 맞는 페이지로 이동
  * - 로그인 성공 직후
  * - 이메일 인증 완료 후
  * - 보호 라우트 진입 전
@@ -10,9 +13,8 @@
 
 'use client'
 
-import { createClient } from '@/lib/supabase/client'
 import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime'
-import { AuthStageError, parseRpcError } from './auth-errors'
+import { checkOnboardingStage } from '@/app/actions/onboarding'
 
 interface AuthStageResponse {
   ok: boolean
@@ -25,35 +27,32 @@ interface AuthStageResponse {
 
 /**
  * 로그인 후 자동 라우팅
+ *
+ * ✅ Server Action 사용 (RPC 호출 제거)
+ *
  * @param router - Next.js App Router 인스턴스
  * @param inviteToken - 초대 토큰 (선택)
- * @throws {AuthStageError} 인증 상태 확인 실패 시
  */
 export async function routeAfterLogin(
   router: AppRouterInstance,
   inviteToken?: string
 ): Promise<void> {
-  const supabase = createClient()
-
   try {
-    // inviteToken을 파라미터로 전달
-    const { data, error } = await supabase.rpc('get_auth_stage', {
-      p_invite_token: inviteToken || null,
-    })
+    // ✅ Server Action 호출 (service_role 기반)
+    const result = await checkOnboardingStage(inviteToken)
 
-    if (error) {
-      console.error('[routeAfterLogin] get_auth_stage RPC error:', error)
-      throw parseRpcError(error, 'auth_stage')
+    if (!result.success || !result.data) {
+      console.error('[routeAfterLogin] checkOnboardingStage failed:', result.error)
+      router.push('/auth/login')
+      return
     }
 
-    const response = data as AuthStageResponse
+    const response = result.data as AuthStageResponse
 
     if (!response?.ok) {
-      console.error('[routeAfterLogin] get_auth_stage returned not ok:', response)
-      throw parseRpcError(
-        new Error(response?.error || '인증 상태를 확인할 수 없습니다.'),
-        'auth_stage'
-      )
+      console.error('[routeAfterLogin] checkOnboardingStage returned not ok:', response)
+      router.push('/auth/login')
+      return
     }
 
     const { code, next_url } = response.stage || {}
@@ -72,14 +71,6 @@ export async function routeAfterLogin(
     }
   } catch (err) {
     console.error('[routeAfterLogin] error:', err)
-    // AuthStageError인 경우 더 구체적인 로깅
-    if (err instanceof AuthStageError) {
-      console.error('[routeAfterLogin] AuthStageError:', {
-        code: err.code,
-        message: err.message,
-        originalError: err.originalError,
-      })
-    }
     // 에러 발생 시 로그인으로 돌아감
     router.push('/auth/login')
   }
@@ -87,32 +78,25 @@ export async function routeAfterLogin(
 
 /**
  * 서버 컴포넌트용: 현재 인증 단계 조회만 (라우팅 없음)
+ *
+ * ✅ Server Action 사용 (RPC 호출 제거)
+ *
  * @param inviteToken - 초대 토큰 (선택)
  * @returns {AuthStageResponse | null} 인증 단계 정보 또는 null
  */
 export async function getAuthStage(inviteToken?: string): Promise<AuthStageResponse | null> {
-  const supabase = createClient()
-
   try {
-    // inviteToken을 파라미터로 전달
-    const { data, error } = await supabase.rpc('get_auth_stage', {
-      p_invite_token: inviteToken || null,
-    })
+    // ✅ Server Action 호출 (service_role 기반)
+    const result = await checkOnboardingStage(inviteToken)
 
-    if (error) {
-      console.error('[getAuthStage] RPC error:', error)
+    if (!result.success || !result.data) {
+      console.error('[getAuthStage] checkOnboardingStage failed:', result.error)
       return null
     }
 
-    return data as AuthStageResponse
+    return result.data as AuthStageResponse
   } catch (err) {
     console.error('[getAuthStage] error:', err)
-    if (err instanceof AuthStageError) {
-      console.error('[getAuthStage] AuthStageError:', {
-        code: err.code,
-        message: err.message,
-      })
-    }
     return null
   }
 }
