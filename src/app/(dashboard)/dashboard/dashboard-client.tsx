@@ -10,6 +10,7 @@ import { renderWidgetContent } from "./widget-factory"
 import { WidgetErrorBoundary } from "@/components/features/dashboard/widget-error-boundary"
 import { DASHBOARD_LAYOUT, shouldShowSection, getVisibleWidgetsInSection } from "./dashboard-layout-config"
 import { cn } from "@/lib/utils"
+import { saveDashboardPreferences } from "@/app/actions/dashboard-preferences"
 import {
   DndContext,
   DragEndEvent,
@@ -161,16 +162,10 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
     setIsSaving(true)
 
     try {
-      const response = await fetch('/api/dashboard/preferences', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          preferences: { widgets: tempWidgets },
-        }),
-      })
+      const result = await saveDashboardPreferences({ widgets: tempWidgets })
 
-      if (!response.ok) {
-        throw new Error('Failed to save preferences')
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to save preferences')
       }
 
       setWidgets(tempWidgets)

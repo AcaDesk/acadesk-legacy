@@ -1,8 +1,17 @@
+/**
+ * POST/DELETE /api/invitations
+ *
+ * REMOVED: POST and DELETE have been replaced by Server Actions.
+ * - Use inviteStaff() from @/app/actions/invitations for POST
+ * - Use cancelInvitation() from @/app/actions/invitations for DELETE
+ * See: src/app/actions/invitations.ts
+ *
+ * GET is still available for reading invitations.
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { InviteStaffUseCase } from '@/application/use-cases/invitation/InviteStaffUseCase';
 import { GetInvitationsUseCase } from '@/application/use-cases/invitation/GetInvitationsUseCase';
-import { CancelInvitationUseCase } from '@/application/use-cases/invitation/CancelInvitationUseCase';
 
 /**
  * GET /api/invitations
@@ -34,76 +43,34 @@ export async function GET() {
 
 /**
  * POST /api/invitations
- * Invite a new staff member
+ * REMOVED - Use Server Action instead
  */
-export async function POST(request: NextRequest) {
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const body = await request.json();
-    const { email, roleCode } = body;
-
-    if (!email || !roleCode) {
-      return NextResponse.json(
-        { error: 'Email and roleCode are required' },
-        { status: 400 }
-      );
-    }
-
-    const useCase = new InviteStaffUseCase();
-    const result = await useCase.execute({ email, roleCode });
-
-    return NextResponse.json(result, { status: 201 });
-  } catch (error) {
-    console.error('Error inviting staff:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to invite staff' },
-      { status: 500 }
-    );
-  }
+export async function POST() {
+  return NextResponse.json(
+    {
+      error: 'This endpoint has been removed. Use Server Actions instead.',
+      migration: {
+        old: 'POST /api/invitations',
+        new: 'inviteStaff() from @/app/actions/invitations'
+      }
+    },
+    { status: 410 } // 410 Gone
+  )
 }
 
 /**
  * DELETE /api/invitations
- * Cancel an invitation
+ * REMOVED - Use Server Action instead
  */
-export async function DELETE(request: NextRequest) {
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const searchParams = request.nextUrl.searchParams;
-    const invitationId = searchParams.get('id');
-
-    if (!invitationId) {
-      return NextResponse.json(
-        { error: 'Invitation ID is required' },
-        { status: 400 }
-      );
-    }
-
-    const useCase = new CancelInvitationUseCase();
-    await useCase.execute(invitationId);
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Error cancelling invitation:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to cancel invitation' },
-      { status: 500 }
-    );
-  }
+export async function DELETE() {
+  return NextResponse.json(
+    {
+      error: 'This endpoint has been removed. Use Server Actions instead.',
+      migration: {
+        old: 'DELETE /api/invitations',
+        new: 'cancelInvitation() from @/app/actions/invitations'
+      }
+    },
+    { status: 410 } // 410 Gone
+  )
 }

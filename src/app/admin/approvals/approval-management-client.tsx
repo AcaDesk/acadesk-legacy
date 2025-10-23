@@ -33,6 +33,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CheckCircle, XCircle, Clock, User, Building2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { approveUser, rejectUser } from "@/app/actions/approve-user"
 
 interface PendingUser {
   id: string
@@ -82,18 +83,9 @@ export function ApprovalManagementClient({
 
     setIsProcessing(true)
     try {
-      const response = await fetch('/api/approve-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: selectedUser.id,
-          action: 'approve',
-        }),
-      })
+      const result = await approveUser(selectedUser.id)
 
-      const result = await response.json()
-
-      if (!response.ok || !result.success) {
+      if (!result.success) {
         toast({
           title: "승인 실패",
           description: result.error || "사용자 승인에 실패했습니다.",
@@ -127,19 +119,12 @@ export function ApprovalManagementClient({
 
     setIsProcessing(true)
     try {
-      const response = await fetch('/api/approve-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: selectedUser.id,
-          action: 'reject',
-          reason: '관리자가 가입을 거부했습니다.',
-        }),
-      })
+      const result = await rejectUser(
+        selectedUser.id,
+        '관리자가 가입을 거부했습니다.'
+      )
 
-      const result = await response.json()
-
-      if (!response.ok || !result.success) {
+      if (!result.success) {
         toast({
           title: "거부 실패",
           description: result.error || "사용자 거부에 실패했습니다.",
