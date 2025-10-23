@@ -187,7 +187,7 @@ export class StudentRepository implements IStudentRepository {
     }
   }
 
-  async findAllWithDetails(tenantId: string, filters?: StudentFilters, options?: FindStudentOptions): Promise<import('@/domain/repositories/IStudentRepository').StudentWithDetails[]> {
+  async findAllWithDetails(tenantId: string, filters?: StudentFilters, options?: FindStudentOptions): Promise<import('@core/domain/repositories/IStudentRepository').StudentWithDetails[]> {
     try {
       console.log('[StudentRepository] findAllWithDetails 시작', { tenantId, filters, options })
 

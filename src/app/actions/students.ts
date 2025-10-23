@@ -10,6 +10,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
+import { verifyStaffPermission } from '@/lib/auth/service-role-helpers'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
 import type { StudentDetailData } from '@/core/types/studentDetail.types'
@@ -1115,6 +1116,164 @@ export async function getStudentFilterOptions() {
     }
   } catch (error) {
     console.error('[getStudentFilterOptions] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+// ============================================================================
+// Student Points Management
+// ============================================================================
+
+/**
+ * 학생 포인트 잔액 조회
+ *
+ * ✅ Service Role 기반 구현 (RPC 대체)
+ *
+ * TODO: 포인트 시스템 구현 시 실제 테이블 쿼리로 변경 필요
+ * 현재는 placeholder 로직 (항상 0 반환)
+ *
+ * @param studentId - 학생 ID
+ * @returns 포인트 잔액 또는 에러
+ */
+export async function getStudentPointBalance(studentId: string) {
+  const requestId = crypto.randomUUID()
+
+  try {
+    console.log('[getStudentPointBalance] Request started:', {
+      requestId,
+      studentId,
+    })
+
+    // 1. Verify permissions
+    const permissionResult = await verifyStaffPermission()
+    if (!permissionResult.success || !permissionResult.data) {
+      return {
+        success: false,
+        data: null,
+        error: permissionResult.error || '권한이 없습니다.',
+      }
+    }
+
+    const { tenant_id } = permissionResult.data
+
+    // 2. Service role로 포인트 조회
+    const serviceClient = createServiceRoleClient()
+
+    // TODO: 실제 구현 시 student_points 테이블에서 조회
+    // const { data: pointsData } = await serviceClient
+    //   .from('student_points')
+    //   .select('points')
+    //   .eq('student_id', studentId)
+    //   .eq('tenant_id', tenant_id)
+    //   .order('created_at', { ascending: false })
+    //   .limit(1)
+    //   .maybeSingle()
+
+    // Placeholder: 항상 0 반환
+    const balance = 0
+
+    console.log('[getStudentPointBalance] Request completed:', {
+      requestId,
+      balance,
+    })
+
+    return {
+      success: true,
+      data: balance,
+      error: null,
+    }
+  } catch (error) {
+    console.error('[getStudentPointBalance] Error:', {
+      requestId,
+      error: error instanceof Error ? error.message : String(error),
+    })
+
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * 학생 포인트 이력 조회
+ *
+ * ✅ Service Role 기반 구현 (RPC 대체)
+ *
+ * TODO: 포인트 시스템 구현 시 실제 테이블 쿼리로 변경 필요
+ * 현재는 placeholder 로직 (빈 배열 반환)
+ *
+ * @param studentId - 학생 ID
+ * @param limit - 조회할 최대 개수 (기본: 20)
+ * @returns 포인트 이력 배열 또는 에러
+ */
+export async function getStudentPointHistory(studentId: string, limit = 20) {
+  const requestId = crypto.randomUUID()
+
+  try {
+    console.log('[getStudentPointHistory] Request started:', {
+      requestId,
+      studentId,
+      limit,
+    })
+
+    // 1. Verify permissions
+    const permissionResult = await verifyStaffPermission()
+    if (!permissionResult.success || !permissionResult.data) {
+      return {
+        success: false,
+        data: null,
+        error: permissionResult.error || '권한이 없습니다.',
+      }
+    }
+
+    const { tenant_id } = permissionResult.data
+
+    // 2. Service role로 포인트 이력 조회
+    const serviceClient = createServiceRoleClient()
+
+    // TODO: 실제 구현 시 student_point_history 테이블에서 조회
+    // const { data: historyData } = await serviceClient
+    //   .from('student_point_history')
+    //   .select(`
+    //     id,
+    //     point_type,
+    //     point_label,
+    //     points,
+    //     reason,
+    //     awarded_date,
+    //     awarded_by_name,
+    //     created_at
+    //   `)
+    //   .eq('student_id', studentId)
+    //   .eq('tenant_id', tenant_id)
+    //   .order('awarded_date', { ascending: false })
+    //   .limit(limit)
+
+    // Placeholder: 빈 배열 반환
+    const history: any[] = []
+
+    console.log('[getStudentPointHistory] Request completed:', {
+      requestId,
+      count: history.length,
+    })
+
+    return {
+      success: true,
+      data: history,
+      error: null,
+    }
+  } catch (error) {
+    console.error('[getStudentPointHistory] Error:', {
+      requestId,
+      error: error instanceof Error ? error.message : String(error),
+    })
+
     return {
       success: false,
       data: null,

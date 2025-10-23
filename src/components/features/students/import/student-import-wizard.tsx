@@ -13,7 +13,7 @@ import { TemplateDownloadButton } from './template-download-button'
 import { FileUpload } from './file-upload'
 import { ImportPreview } from './import-preview'
 import { parseExcelFile, validateImportItems, validateExcelHeaders, downloadErrorReport } from '@/lib/excel-parser'
-import { createPreviewStudentImportUseCase, createConfirmStudentImportUseCase } from '@core/application/factories/studentImportUseCaseFactory.client'
+import { previewStudentImport, confirmStudentImport } from '@/app/actions/student-import'
 import type { StudentImportItem } from '@core/domain/entities/StudentImport'
 import type { StudentImportPreview } from '@core/domain/value-objects/StudentImportPreview'
 
@@ -95,11 +95,32 @@ export function StudentImportWizard() {
       }
 
       // 4. 서버에서 미리보기 (중복 검사)
-      const useCase = createPreviewStudentImportUseCase()
-      const previewResult = await useCase.execute(validation.valid)
+      const jsonItems = validation.valid.map((item) => item.toJSON()) as Array<{
+        student: {
+          name: string
+          birth_date: string
+          grade?: string
+          school?: string
+          student_phone?: string
+          student_code?: string
+          notes?: string
+        }
+        guardians: Array<{
+          emergency_phone: string
+          relationship?: string
+          is_primary?: boolean
+          can_pickup?: boolean
+          can_view_reports?: boolean
+        }>
+      }>
+      const result = await previewStudentImport({ items: jsonItems })
+
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '미리보기를 가져올 수 없습니다')
+      }
 
       setItems(validation.valid)
-      setPreview(previewResult)
+      setPreview(result.data as unknown as StudentImportPreview)
       setStep('preview')
     } catch (err) {
       console.error('파일 처리 오류:', err)
@@ -132,16 +153,33 @@ export function StudentImportWizard() {
     setError(null)
 
     try {
-      const useCase = createConfirmStudentImportUseCase()
-      const confirmResult = await useCase.execute(items, onDuplicate)
+      const jsonItems = items.map((item) => item.toJSON()) as Array<{
+        student: {
+          name: string
+          birth_date: string
+          grade?: string
+          school?: string
+          student_phone?: string
+          student_code?: string
+          notes?: string
+        }
+        guardians: Array<{
+          emergency_phone: string
+          relationship?: string
+          is_primary?: boolean
+          can_pickup?: boolean
+          can_view_reports?: boolean
+        }>
+      }>
+      const result = await confirmStudentImport({ items: jsonItems, onDuplicate })
 
-      if (!confirmResult.success) {
-        throw new Error(confirmResult.message || 'Import에 실패했습니다.')
+      if (!result.success || !result.data) {
+        throw new Error(result.error || 'Import에 실패했습니다.')
       }
 
       setResult({
-        created: confirmResult.summary?.created || 0,
-        updated: confirmResult.summary?.updated || 0,
+        created: result.data.created_count || 0,
+        updated: result.data.updated_count || 0,
       })
       setStep('complete')
     } catch (err) {
