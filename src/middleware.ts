@@ -1,25 +1,29 @@
-import { type NextRequest } from "next/server"
-import { updateSession } from "@/lib/supabase/middleware"
-import { getRouteFeatureStatus } from "@/lib/route-guards"
+/**
+ * Middleware
+ *
+ * ✅ 역할: Supabase 세션 쿠키 refresh만 수행
+ * ❌ 하지 않음: DB 조회, 역할/권한 판별, 전역 리다이렉션
+ *
+ * 리다이렉션·권한 분기는 서버 레이아웃/페이지 + 서버 액션에서 처리
+ *
+ * 이점:
+ * - 캐싱/정적 최적화를 해치지 않음
+ * - 디버깅이 쉬워짐
+ * - 페이지 서버 컴포넌트에서 redirect()로 자연스럽게 라우팅 가능
+ * - service_role 사용 시 그 자리에서 테넌트/역할 재검증
+ */
+
+import type { NextRequest } from 'next/server'
+import { updateSession } from '@/lib/supabase/middleware'
 
 export async function middleware(request: NextRequest) {
-  const pathname = request.nextUrl.pathname
-
-  // 피처 플래그 상태 기반 라우팅
-  const featureStatus = getRouteFeatureStatus(pathname)
-
-  if (featureStatus !== null && featureStatus !== 'active') {
-    // 기능이 'inactive' 또는 'maintenance' 상태인 경우
-    // 페이지 컴포넌트에서 직접 처리하도록 허용 (middleware에서는 차단하지 않음)
-    // 이렇게 하면 페이지 레벨의 ComingSoon/Maintenance 컴포넌트가 제대로 표시됩니다
-  }
-
-  // 세션 업데이트 (기존 로직)
-  return await updateSession(request)
+  // Supabase 세션 최신화 (쿠키 refresh)
+  return updateSession(request)
 }
 
+// 정적 자산/내부 경로는 제외
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|woff|woff2|ttf|eot|pdf)$).*)",
+    '/((?!_next/static|_next/image|favicon.ico|assets/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|txt|xml|woff|woff2|ttf)$).*)',
   ],
 }

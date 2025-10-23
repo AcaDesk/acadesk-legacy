@@ -15,6 +15,7 @@ import {
 import { Award, TrendingUp, TrendingDown, History, Plus } from 'lucide-react'
 import { format as formatDate } from 'date-fns'
 import { ko } from 'date-fns/locale'
+import { getStudentPointBalance, getStudentPointHistory } from '@/app/actions/students'
 
 interface PointHistory {
   id: string
@@ -37,7 +38,6 @@ export function StudentPointsWidget({ studentId }: StudentPointsWidgetProps) {
   const [loading, setLoading] = useState(true)
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false)
   const [addPointDialogOpen, setAddPointDialogOpen] = useState(false)
-  // Fetch from server API (service_role), no direct RPC from client
 
   useEffect(() => {
     loadPointData()
@@ -48,20 +48,22 @@ export function StudentPointsWidget({ studentId }: StudentPointsWidgetProps) {
     try {
       setLoading(true)
 
-      const res = await fetch(`/api/students/${studentId}/points`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        cache: 'no-store',
-      })
+      // Call Server Actions directly
+      const [balanceResult, historyResult] = await Promise.all([
+        getStudentPointBalance(studentId),
+        getStudentPointHistory(studentId, 20),
+      ])
 
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error(body?.error || `Failed to load points (${res.status})`)
+      if (!balanceResult.success) {
+        throw new Error(balanceResult.error || 'Failed to get point balance')
       }
 
-      const payload = (await res.json()) as { balance: number; history: PointHistory[] }
-      setBalance(payload.balance)
-      setHistory(payload.history || [])
+      if (!historyResult.success) {
+        throw new Error(historyResult.error || 'Failed to get point history')
+      }
+
+      setBalance(balanceResult.data ?? 0)
+      setHistory(historyResult.data ?? [])
     } catch (error) {
       console.error('Error loading point data:', error)
       setBalance(0)
