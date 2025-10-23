@@ -286,6 +286,117 @@ export async function getStudentsForReport() {
   }
 }
 
+/**
+ * 리포트 생성 및 발송
+ *
+ * @param params - 리포트 발송 파라미터
+ * @returns Success or error
+ */
+export async function generateAndSendReport(params: {
+  studentId: string
+  startDate: string
+  endDate: string
+  type: 'student_monthly' | 'student_exam'
+  comment?: string
+  channel: 'sms' | 'lms' | 'kakao' | 'email'
+  recipientName: string
+  recipientContact: string
+  academyName: string
+  academyPhone: string
+}): Promise<{ success: boolean; error: string | null }> {
+  try {
+    // 1. Verify authentication and get tenant
+    const { tenantId } = await verifyStaff()
+
+    // 2. Create service_role client
+    const supabase = await createServiceRoleClient()
+
+    // 3. 학생 정보 조회
+    const { data: student, error: studentError } = await supabase
+      .from('students')
+      .select('id, grade, users(name)')
+      .eq('id', params.studentId)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .single()
+
+    if (studentError || !student) {
+      throw new Error('학생을 찾을 수 없습니다.')
+    }
+
+    const typedStudent = student as unknown as StudentDataWithUser
+
+    // 4. 기간별 데이터 수집
+    const attendance = await getAttendanceData(
+      supabase,
+      params.studentId,
+      params.startDate,
+      params.endDate
+    )
+    const homework = await getHomeworkData(
+      supabase,
+      params.studentId,
+      params.startDate,
+      params.endDate
+    )
+
+    // 5. 메시지 생성 (채널에 따라 다른 포맷)
+    const studentName = typedStudent.users?.[0]?.name || '학생'
+    let message = ''
+
+    if (params.channel === 'sms') {
+      // SMS: 90자 이내 초간단 요약
+      message = `[${studentName} 학습 리포트]\n출석 ${attendance.rate}%, 숙제 ${homework.rate}%\n문의: ${params.academyName} ${params.academyPhone}`
+    } else if (params.channel === 'lms') {
+      // LMS: 2000자 이내 상세 리포트
+      message = `[${studentName} 학습 리포트]
+
+📅 기간: ${params.startDate} ~ ${params.endDate}
+🎓 학년: ${student.grade || '-'}
+
+📊 학습 현황
+출석률: ${attendance.rate}% (출석 ${attendance.present}회, 지각 ${attendance.late}회, 결석 ${attendance.absent}회)
+숙제 완료율: ${homework.rate}% (완료 ${homework.completed}/${homework.total}건)
+
+${params.comment ? `💬 종합평가\n${params.comment}\n\n` : ''}문의: ${params.academyName} ${params.academyPhone}`
+    } else {
+      // Email/Kakao: 준비 중
+      throw new Error(`${params.channel} 채널은 준비 중입니다.`)
+    }
+
+    // 6. notification_logs에 기록 (실제 발송은 외부 시스템 연동 필요)
+    const { error: logError } = await supabase.from('notification_logs').insert({
+      tenant_id: tenantId,
+      student_id: params.studentId,
+      session_id: null, // 리포트 발송은 세션과 무관
+      notification_type: params.channel === 'sms' || params.channel === 'lms' ? 'sms' : 'email',
+      status: 'sent',
+      message: `[발송 대상: ${params.recipientName} ${params.recipientContact}] ${message}`,
+      sent_at: new Date().toISOString(),
+    })
+
+    if (logError) {
+      console.error('[generateAndSendReport] Log error:', logError)
+      throw new Error('리포트 발송 기록 저장에 실패했습니다.')
+    }
+
+    // 7. 캐시 무효화
+    revalidatePath(`/students/${params.studentId}`)
+    revalidatePath('/reports')
+
+    return {
+      success: true,
+      error: null,
+    }
+  } catch (error) {
+    console.error('[generateAndSendReport] Error:', error)
+    return {
+      success: false,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
 // ============================================================================
 // Private Helper Functions
 // ============================================================================

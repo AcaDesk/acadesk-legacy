@@ -7,6 +7,13 @@
 
 'use server'
 
+// ⚠️ CRITICAL: Node 런타임 확인 필요
+// Service role 키는 Edge 런타임에서 문제가 발생할 수 있음
+// 런타임 설정은 'use server' 파일에서 불가능하므로,
+// 호출하는 페이지/레이아웃에서 설정해야 함:
+// export const runtime = 'nodejs'
+// export const dynamic = 'force-dynamic'
+
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
@@ -499,11 +506,12 @@ export async function sendMagicLink(email: string) {
  * 완전한 server-side + service_role 기반 인증 콜백 처리
  * 이메일 인증 링크 클릭 후 코드 교환 및 프로필 생성
  *
+ * ⚠️ 중요: 이 함수는 서버에서 redirect()를 직접 호출합니다
+ *
  * @param code - 인증 코드
  * @param type - 인증 타입 (signup, magiclink 등)
- * @returns 성공 여부, 다음 URL, 에러 메시지
  */
-export async function handleAuthCallback(code: string, type: string = 'signup') {
+export async function handleAuthCallback(code: string, type: string = 'signup'): Promise<never> {
   const requestId = crypto.randomUUID()
 
   try {
@@ -512,11 +520,7 @@ export async function handleAuthCallback(code: string, type: string = 'signup') 
     // 1. code 파라미터 검증
     if (!code) {
       console.error('[handleAuthCallback] Missing code parameter:', { requestId })
-      return {
-        success: false,
-        error: '인증 코드가 없습니다.',
-        nextUrl: '/auth/login',
-      }
+      redirect('/auth/login')
     }
 
     // 2. 서버에서 세션 교환
@@ -528,10 +532,9 @@ export async function handleAuthCallback(code: string, type: string = 'signup') 
     if (exchangeErr) {
       console.error('[handleAuthCallback] Session exchange failed:', {
         requestId,
+        code: exchangeErr.code,
         message: exchangeErr.message,
         status: exchangeErr.status,
-        code: exchangeErr.code,
-        name: exchangeErr.name,
       })
 
       // 에러 타입 분류
@@ -545,11 +548,7 @@ export async function handleAuthCallback(code: string, type: string = 'signup') 
       else if (m.includes('invalid') || c.includes('invalid') || m.includes('not found'))
         errorType = 'invalid'
 
-      return {
-        success: false,
-        error: getAuthErrorMessage(exchangeErr),
-        nextUrl: `/auth/link-expired?type=${type}&error=${errorType}`,
-      }
+      redirect(`/auth/link-expired?type=${type}&error=${errorType}`)
     }
 
     console.log('[handleAuthCallback] Session exchange success:', { requestId })
@@ -558,9 +557,129 @@ export async function handleAuthCallback(code: string, type: string = 'signup') 
     const user = sessionData?.user
     if (!user) {
       console.error('[handleAuthCallback] No user after session exchange:', { requestId })
+      redirect('/auth/login')
+    }
+
+    const userId = user.id
+    const userEmail = user.email || ''
+
+    console.log('[handleAuthCallback] User retrieved:', { requestId })
+
+    // 4. 이메일 인증 확인
+    const emailConfirmedAt = user.email_confirmed_at ?? (user as any).confirmed_at
+
+    if (!emailConfirmedAt) {
+      console.warn('[handleAuthCallback] Email not confirmed yet:', { requestId })
+      redirect(`/auth/verify-email?email=${encodeURIComponent(userEmail)}`)
+    }
+
+    // 5. 프로필 생성 (service_role 사용)
+    console.log('[handleAuthCallback] Creating user profile:', { requestId })
+    const profileResult = await createUserProfileServer(userId)
+
+    if (!profileResult.success) {
+      console.error('[handleAuthCallback] Profile creation failed:', {
+        requestId,
+        error: profileResult.error,
+      })
+      redirect('/auth/pending?error=profile_creation_failed')
+    }
+
+    console.log('[handleAuthCallback] Profile created/verified:', { requestId })
+
+    // 6. 온보딩 상태 확인 및 라우팅 (service_role 사용)
+    const stageResult = await checkOnboardingStage()
+
+    if (!stageResult.success || !stageResult.data) {
+      console.error('[handleAuthCallback] checkOnboardingStage failed:', {
+        requestId,
+        error: stageResult.error,
+      })
+      redirect(`/auth/login?verified=true&email=${encodeURIComponent(userEmail)}`)
+    }
+
+    const stageData = stageResult.data as {
+      ok: boolean
+      stage?: { code: string; next_url?: string }
+    }
+
+    if (!stageData?.ok || !stageData.stage) {
+      console.error('[handleAuthCallback] Invalid stage data:', { requestId })
+      redirect(`/auth/login?verified=true&email=${encodeURIComponent(userEmail)}`)
+    }
+
+    const { code: stageCode, next_url: nextUrl } = stageData.stage
+
+    console.log('[handleAuthCallback] Auth stage determined:', {
+      requestId,
+      stageCode,
+      hasNextUrl: !!nextUrl,
+    })
+
+    // 7. Revalidate layout
+    revalidatePath('/', 'layout')
+
+    // 8. 온보딩 상태에 따라 리다이렉트
+    if (nextUrl) {
+      redirect(nextUrl)
+    } else if (stageCode === 'READY') {
+      redirect('/dashboard')
+    } else {
+      redirect(`/auth/login?verified=true&email=${encodeURIComponent(userEmail)}`)
+    }
+  } catch (error) {
+    // redirect()는 NEXT_REDIRECT 에러를 throw하므로 정상 케이스
+    // 그 외의 에러만 로깅
+    if (error && typeof error === 'object' && 'digest' in error && String(error.digest).startsWith('NEXT_REDIRECT')) {
+      throw error // redirect() 에러는 그대로 전파
+    }
+
+    console.error('[handleAuthCallback] Unexpected error:', {
+      requestId,
+      message: error instanceof Error ? error.message : String(error),
+    })
+    redirect('/auth/login')
+  }
+}
+
+/**
+ * 인증 후 후처리 (Post-Auth Setup)
+ *
+ * ⚠️ 중요: 이 함수는 클라이언트에서 exchangeCodeForSession을 완료한 후 호출됩니다.
+ * PKCE flow: 코드 교환은 클라이언트에서, 프로필 생성/온보딩은 서버에서 분리
+ *
+ * 전제조건: 사용자가 이미 세션을 가지고 있어야 함
+ *
+ * 수행 작업:
+ * 1. 현재 세션에서 사용자 정보 가져오기
+ * 2. 프로필 생성 (멱등성 보장)
+ * 3. 온보딩 단계 확인
+ * 4. 적절한 리다이렉션 URL 반환
+ *
+ * @returns 성공 여부, 에러 메시지, 리다이렉트 URL
+ */
+export async function postAuthSetup(): Promise<{
+  success: boolean
+  error?: string
+  nextUrl: string
+}> {
+  const requestId = crypto.randomUUID()
+
+  try {
+    console.log('[postAuthSetup] Starting post-auth setup:', { requestId })
+
+    // 1. 현재 세션에서 사용자 정보 가져오기
+    const supabase = await createServerClient()
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      console.error('[postAuthSetup] No session found:', { requestId, error: userError })
       return {
         success: false,
-        error: '사용자 정보를 가져올 수 없습니다.',
+        error: '세션이 없습니다. 다시 로그인해주세요.',
         nextUrl: '/auth/login',
       }
     }
@@ -568,13 +687,12 @@ export async function handleAuthCallback(code: string, type: string = 'signup') 
     const userId = user.id
     const userEmail = user.email || ''
 
-    console.log('[handleAuthCallback] User retrieved:', { requestId, userId, email: userEmail })
+    console.log('[postAuthSetup] User session found:', { requestId })
 
-    // 4. 이메일 인증 확인
+    // 2. 이메일 인증 확인
     const emailConfirmedAt = user.email_confirmed_at ?? (user as any).confirmed_at
-
     if (!emailConfirmedAt) {
-      console.warn('[handleAuthCallback] Email not confirmed yet:', { requestId, userId })
+      console.warn('[postAuthSetup] Email not confirmed yet:', { requestId })
       return {
         success: false,
         error: '이메일 인증이 필요합니다.',
@@ -582,14 +700,13 @@ export async function handleAuthCallback(code: string, type: string = 'signup') 
       }
     }
 
-    // 5. 프로필 생성 (service_role 사용)
-    console.log('[handleAuthCallback] Creating user profile:', { requestId, userId })
+    // 3. 프로필 생성 (멱등성 보장 - 이미 있으면 스킵)
+    console.log('[postAuthSetup] Creating user profile:', { requestId })
     const profileResult = await createUserProfileServer(userId)
 
     if (!profileResult.success) {
-      console.error('[handleAuthCallback] Profile creation failed:', {
+      console.error('[postAuthSetup] Profile creation failed:', {
         requestId,
-        userId,
         error: profileResult.error,
       })
       return {
@@ -599,15 +716,12 @@ export async function handleAuthCallback(code: string, type: string = 'signup') 
       }
     }
 
-    console.log('[handleAuthCallback] Profile created/verified:', { requestId, userId })
-
-    // 6. 온보딩 상태 확인 및 라우팅 (service_role 사용)
+    // 4. 온보딩 단계 확인
     const stageResult = await checkOnboardingStage()
 
     if (!stageResult.success || !stageResult.data) {
-      console.error('[handleAuthCallback] checkOnboardingStage failed:', {
+      console.error('[postAuthSetup] Onboarding stage check failed:', {
         requestId,
-        userId,
         error: stageResult.error,
       })
       return {
@@ -623,49 +737,40 @@ export async function handleAuthCallback(code: string, type: string = 'signup') 
     }
 
     if (!stageData?.ok || !stageData.stage) {
-      console.error('[handleAuthCallback] Invalid stage data:', {
-        requestId,
-        userId,
-        stageData,
-      })
+      console.error('[postAuthSetup] Invalid stage data:', { requestId })
       return {
         success: false,
-        error: '온보딩 상태가 올바르지 않습니다.',
+        error: '온보딩 상태 데이터가 올바르지 않습니다.',
         nextUrl: `/auth/login?verified=true&email=${encodeURIComponent(userEmail)}`,
       }
     }
 
     const { code: stageCode, next_url: nextUrl } = stageData.stage
 
-    console.log('[handleAuthCallback] Auth stage determined:', {
+    console.log('[postAuthSetup] Auth stage determined:', {
       requestId,
-      userId,
       stageCode,
-      nextUrl: nextUrl || 'none',
+      hasNextUrl: !!nextUrl,
     })
 
-    // 7. 온보딩 상태에 따라 다음 URL 결정
-    let redirectUrl: string
-    if (nextUrl) {
-      redirectUrl = nextUrl
-    } else if (stageCode === 'READY') {
-      redirectUrl = '/dashboard'
-    } else {
-      redirectUrl = `/auth/login?verified=true&email=${encodeURIComponent(userEmail)}`
-    }
+    // 5. 적절한 리다이렉션 URL 결정
+    const redirectUrl =
+      nextUrl ||
+      (stageCode === 'READY' ? '/dashboard' : `/auth/login?verified=true&email=${encodeURIComponent(userEmail)}`)
 
-    console.log('[handleAuthCallback] Success, redirecting to:', { requestId, redirectUrl })
+    console.log('[postAuthSetup] Post-auth setup complete:', {
+      requestId,
+      redirectUrl,
+    })
 
     return {
       success: true,
       nextUrl: redirectUrl,
-      userId,
-      email: userEmail,
     }
   } catch (error) {
-    console.error('[handleAuthCallback] Unexpected error:', {
+    console.error('[postAuthSetup] Unexpected error:', {
       requestId,
-      error: error instanceof Error ? error.message : String(error),
+      message: error instanceof Error ? error.message : String(error),
     })
     return {
       success: false,
