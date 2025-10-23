@@ -24,7 +24,7 @@ export default function StudentsPage() {
 
   return (
     <PageErrorBoundary pageName="학생 관리">
-      <div className="space-y-6">
+      <div className="p-6 lg:p-8 space-y-6">
         {/* Header */}
         <section aria-label="페이지 헤더" className="animate-in fade-in-50 slide-in-from-top-2 duration-500">
           <PageHeader

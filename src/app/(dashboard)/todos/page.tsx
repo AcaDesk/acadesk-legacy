@@ -29,7 +29,7 @@ export default async function TodosPage() {
 
   return (
     <PageErrorBoundary pageName="TODO 관리">
-      <div className="space-y-6">
+      <div className="p-6 lg:p-8 space-y-6">
       {/* Header */}
       <section
         aria-label="페이지 헤더"
