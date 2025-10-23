@@ -153,7 +153,7 @@ export async function getCurrentUserWithTenant(
 
     return {
       success: true,
-      data: userData as UserWithTenant,
+      data: userData as unknown as UserWithTenant,
     }
   } catch (error) {
     console.error('[getCurrentUserWithTenant] Exception:', error)

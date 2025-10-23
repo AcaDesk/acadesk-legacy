@@ -1,13 +1,17 @@
 /**
  * Dashboard Data Server Actions
  *
+ * ✅ Service Role 기반 (RPC 대체 완료)
+ *
  * service_role 기반으로 대시보드 데이터를 조회합니다.
  * RLS를 우회하여 테넌트별 데이터에 직접 접근합니다.
+ *
+ * ⚠️ 모든 쿼리는 tenant_id로 필터링되어야 합니다.
  */
 
 'use server'
 
-import { verifyPermission } from '@/lib/auth/verify-permission'
+import { verifyStaffPermission } from '@/lib/auth/service-role-helpers'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import type { DashboardData } from '@/core/types/dashboard'
 
@@ -28,15 +32,30 @@ export interface DashboardDataResult {
 /**
  * 대시보드 데이터 조회
  *
- * This action:
- * 1. Verifies user authentication and gets tenant_id
+ * ✅ Service Role 기반 구현
+ *
+ * Workflow:
+ * 1. Verifies staff permission and gets tenant_id
  * 2. Uses service_role to query all dashboard data (bypasses RLS)
- * 3. Returns aggregated dashboard data
+ * 3. ⚠️ All queries are filtered by tenant_id for multi-tenant security
+ * 4. Returns aggregated dashboard data
  */
 export async function getDashboardData(): Promise<DashboardDataResult> {
+  const requestId = crypto.randomUUID()
+
   try {
-    // 1. Verify authentication and get tenant_id
-    const { tenantId } = await verifyPermission()
+    console.log('[getDashboardData] Request started:', { requestId })
+
+    // 1. Verify staff permission and get tenant_id
+    const permissionResult = await verifyStaffPermission()
+    if (!permissionResult.success || !permissionResult.data) {
+      return {
+        success: false,
+        error: permissionResult.error || '권한이 없습니다.',
+      }
+    }
+
+    const { tenant_id: tenantId } = permissionResult.data
 
     // 2. Create service_role client (bypasses RLS)
     const supabase = createServiceRoleClient()
@@ -239,12 +258,22 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
       activityLogs,
     }
 
+    console.log('[getDashboardData] Request completed:', {
+      requestId,
+      tenantId,
+      dataKeys: Object.keys(dashboardData),
+    })
+
     return {
       success: true,
       data: dashboardData,
     }
   } catch (error) {
-    console.error('[getDashboardData] Error:', error)
+    console.error('[getDashboardData] Error:', {
+      requestId,
+      error: error instanceof Error ? error.message : String(error),
+    })
+
     if (error instanceof Error) {
       return { success: false, error: error.message }
     }

@@ -1,5 +1,12 @@
+/**
+ * Student Points API Route
+ *
+ * ✅ Migrated to Server Actions
+ * This route now uses Server Actions instead of RPC functions
+ */
+
 import { NextResponse } from 'next/server'
-import { createServiceRoleClient } from '@/lib/supabase/service-role'
+import { getStudentPointBalance, getStudentPointHistory } from '@/app/actions/students'
 
 export async function GET(
   _req: Request,
@@ -11,24 +18,30 @@ export async function GET(
       return NextResponse.json({ error: 'studentId is required' }, { status: 400 })
     }
 
-    const supabase = createServiceRoleClient()
+    // Use Server Actions instead of RPC
+    const [balanceResult, historyResult] = await Promise.all([
+      getStudentPointBalance(studentId),
+      getStudentPointHistory(studentId, 20),
+    ])
 
-    // Temporary: use existing RPCs on the server with service_role
-    // TODO: Replace with direct table queries and business logic without RPC.
-    const [{ data: balance, error: balanceError }, { data: history, error: historyError }] =
-      await Promise.all([
-        supabase.rpc('get_student_point_balance', { p_student_id: studentId }),
-        supabase.rpc('get_student_point_history', { p_student_id: studentId, p_limit: 20 }),
-      ])
-
-    if (balanceError) {
-      throw balanceError
-    }
-    if (historyError) {
-      throw historyError
+    if (!balanceResult.success) {
+      return NextResponse.json(
+        { error: balanceResult.error || 'Failed to get point balance' },
+        { status: 500 }
+      )
     }
 
-    return NextResponse.json({ balance: balance ?? 0, history: history ?? [] })
+    if (!historyResult.success) {
+      return NextResponse.json(
+        { error: historyResult.error || 'Failed to get point history' },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({
+      balance: balanceResult.data ?? 0,
+      history: historyResult.data ?? [],
+    })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Internal Server Error'
     console.error('[GET /api/students/[studentId]/points] Error:', err)
