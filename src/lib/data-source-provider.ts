@@ -110,53 +110,6 @@ export async function createServerDataSource(
 }
 
 /**
- * 클라이언트 사이드 DataSource Provider
- * Client Components에서 사용
- *
- * @deprecated ⚠️ 클라이언트에서 직접 DB 접근은 보안상 권장하지 않습니다.
- * - 대신 Server Actions를 사용하세요 (app/actions/*.ts)
- * - Server Actions는 verifyPermission() + service_role로 안전하게 처리됩니다
- *
- * @example
- * ```typescript
- * // ❌ 기존 방식 (deprecated)
- * const dataSource = createClientDataSource()
- * const repository = new StudentRepository(dataSource)
- * const students = await repository.findAll()
- *
- * // ✅ 새로운 방식 (권장)
- * 'use client'
- * import { getStudents } from '@/app/actions/students'
- *
- * const students = await getStudents()
- * ```
- */
-export function createClientDataSource(
-  config: DataSourceConfig = {}
-): IDataSource {
-  console.warn(
-    '[DEPRECATED] createClientDataSource() is deprecated. ' +
-    'Use Server Actions instead for better security and tenant isolation.'
-  )
-
-  // 커스텀 DataSource가 주입된 경우 바로 반환
-  if (config.customDataSource) {
-    return config.customDataSource
-  }
-
-  const env = config.environment || detectEnvironment()
-
-  // 테스트 환경 또는 forceMock이 true인 경우 MockDataSource 사용
-  if (env === 'test' || config.forceMock) {
-    return new MockDataSource()
-  }
-
-  // 실제 Supabase 클라이언트 생성
-  const supabaseClient = createBrowserClient()
-  return new SupabaseDataSource(supabaseClient)
-}
-
-/**
  * 테스트용 MockDataSource 생성 헬퍼
  *
  * @example

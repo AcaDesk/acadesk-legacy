@@ -9,9 +9,17 @@
  * - 사용자 클릭 시에만 토큰 소비
  * - 스캐너는 JS를 실행하지 않으므로 버튼 클릭 불가
  *
+ * 플로우:
+ * 1. 사용자가 이메일 링크 클릭 → callback 페이지 도착
+ * 2. 사용자가 "이메일 인증 완료하기" 버튼 클릭
+ * 3. exchangeCodeForSession() 실행 (클라이언트)
+ * 4. /auth/bootstrap으로 리다이렉트
+ * 5. bootstrap 페이지에서 프로필 생성 및 온보딩 라우팅
+ *
  * 변경 이력:
  * - 2025-10-23: 서버 라우트 → 클라이언트 페이지 (스캐너 1차 대응)
  * - 2025-10-23: 자동 실행 → 수동 클릭 (스캐너 2차 대응)
+ * - 2025-10-23: 세션 동기화 문제 해결 (callback → bootstrap 리다이렉트)
  */
 
 'use client'
@@ -22,7 +30,6 @@ import { Loader2, Mail, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { createClient } from '@/lib/supabase/client'
-import { createUserProfileServer, checkOnboardingStage } from '@/app/actions/onboarding'
 
 /**
  * Supabase 인증 에러를 분석하여 적절한 에러 타입을 반환
@@ -117,102 +124,11 @@ function CallbackPageContent() {
         return
       }
 
-      // ✅ Step 4: 자동 프로필 생성 (Server Action 사용)
-      try {
-        const profileResult = await createUserProfileServer(userId)
-
-        if (!profileResult.success) {
-          console.error('[auth/callback] Profile creation failed:', {
-            requestId,
-            userId,
-            error: profileResult.error,
-          })
-          router.replace('/auth/pending?error=profile_creation_failed')
-          return
-        }
-
-        console.log('[auth/callback] Profile created/verified:', { requestId, userId })
-      } catch (error) {
-        console.error('[auth/callback] Profile creation exception:', {
-          requestId,
-          userId,
-          error: error instanceof Error ? error.message : String(error),
-        })
-        router.replace('/auth/pending?error=profile_creation_error')
-        return
-      }
-
-      // ✅ Step 5: 온보딩 상태 확인 후 적절한 페이지로 리다이렉트 (Server Action 사용)
-      try {
-        const stageResult = await checkOnboardingStage()
-
-        if (!stageResult.success || !stageResult.data) {
-          console.error('[auth/callback] checkOnboardingStage failed:', {
-            requestId,
-            userId,
-            error: stageResult.error,
-          })
-          // Stage 확인 실패 시 로그인 페이지로 (클라이언트에서 다시 확인)
-          const params = new URLSearchParams({ verified: 'true' })
-          if (userEmail) {
-            params.set('email', userEmail)
-          }
-          router.replace(`/auth/login?${params.toString()}`)
-          return
-        }
-
-        const stageData = stageResult.data as { ok: boolean; stage?: { code: string; next_url?: string } }
-
-        if (!stageData?.ok || !stageData.stage) {
-          console.error('[auth/callback] Invalid stage data:', {
-            requestId,
-            userId,
-            stageData,
-          })
-          const params = new URLSearchParams({ verified: 'true' })
-          if (userEmail) {
-            params.set('email', userEmail)
-          }
-          router.replace(`/auth/login?${params.toString()}`)
-          return
-        }
-
-        const { code: stageCode, next_url: nextUrl } = stageData.stage
-
-        console.log('[auth/callback] Auth stage determined:', {
-          requestId,
-          userId,
-          stageCode,
-          nextUrl: nextUrl || 'none',
-        })
-
-        // 온보딩 상태에 따라 리다이렉트
-        if (nextUrl) {
-          router.replace(nextUrl)
-        } else if (stageCode === 'READY') {
-          router.replace('/dashboard')
-        } else {
-          // 예상치 못한 상태 → 로그인으로
-          const params = new URLSearchParams({ verified: 'true' })
-          if (userEmail) {
-            params.set('email', userEmail)
-          }
-          router.replace(`/auth/login?${params.toString()}`)
-        }
-
-        setStatus('success')
-      } catch (error) {
-        console.error('[auth/callback] Stage check exception:', {
-          requestId,
-          userId,
-          error: error instanceof Error ? error.message : String(error),
-        })
-        const params = new URLSearchParams({ verified: 'true' })
-        if (userEmail) {
-          params.set('email', userEmail)
-        }
-        router.replace(`/auth/login?${params.toString()}`)
-      }
+      // ✅ Step 4: 세션 교환 성공 → bootstrap 페이지로 리다이렉트
+      // bootstrap 페이지에서 서버 세션이 완전히 동기화된 후 프로필 생성 및 라우팅 처리
+      console.log('[auth/callback] Redirecting to bootstrap for profile creation:', { requestId, userId })
+      setStatus('success')
+      router.replace('/auth/bootstrap')
     } catch (error) {
       console.error('[auth/callback] Unexpected error:', {
         requestId,
