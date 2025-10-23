@@ -115,8 +115,8 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
         .order('scheduled_at', { ascending: true })
         .limit(10),
 
-      // Student alerts (placeholder - needs custom logic)
-      Promise.resolve({ data: { longAbsence: [], pendingAssignments: [] } }),
+      // Student alerts - 실제 쿼리
+      fetchStudentAlerts(supabase, tenantId, today),
 
       // Financial data (placeholder - needs payment system)
       Promise.resolve({ data: { currentMonthRevenue: 0, previousMonthRevenue: 0, unpaidTotal: 0, unpaidCount: 0 } }),
@@ -285,7 +285,98 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
 // Helper Functions
 // ============================================================================
 
+async function fetchStudentAlerts(supabase: any, tenantId: string, today: string) {
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+
+  try {
+    // 1. 장기 결석자 - 최근 7일간 출석 기록이 없는 학생
+    const { data: allStudents } = await supabase
+      .from('students')
+      .select('id, users!inner(name), grade')
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+
+    const longAbsence = []
+    if (allStudents && allStudents.length > 0) {
+      for (const student of allStudents) {
+        const { count } = await supabase
+          .from('attendance_records')
+          .select('id', { count: 'exact', head: true })
+          .eq('student_id', student.id)
+          .gte('attendance_date', sevenDaysAgo)
+          .lte('attendance_date', today)
+
+        if (count === 0) {
+          longAbsence.push({
+            id: student.id,
+            name: student.users?.name || 'Unknown',
+            grade: student.grade || '',
+            reason: '최근 7일간 출석 기록 없음',
+            days: 7,
+          })
+        }
+      }
+    }
+
+    // 2. 미완료 과제가 많은 학생 - 미완료 과제 3개 이상
+    const { data: studentsWithPendingTodos } = await supabase
+      .from('student_todos')
+      .select('student_id, students!inner(id, users!inner(name), grade)')
+      .eq('students.tenant_id', tenantId)
+      .is('completed_at', null)
+      .is('verified_at', null)
+      .is('deleted_at', null)
+
+    const pendingAssignmentsMap = new Map<string, { name: string; grade: string; count: number }>()
+
+    if (studentsWithPendingTodos) {
+      studentsWithPendingTodos.forEach((todo: any) => {
+        const studentId = todo.student_id
+        const student = todo.students
+
+        if (!pendingAssignmentsMap.has(studentId)) {
+          pendingAssignmentsMap.set(studentId, {
+            name: student?.users?.name || 'Unknown',
+            grade: student?.grade || '',
+            count: 0,
+          })
+        }
+
+        const current = pendingAssignmentsMap.get(studentId)!
+        current.count++
+      })
+    }
+
+    const pendingAssignments = Array.from(pendingAssignmentsMap.entries())
+      .filter(([, data]) => data.count >= 3)
+      .map(([id, data]) => ({
+        id,
+        name: data.name,
+        grade: data.grade,
+        reason: `미완료 과제 ${data.count}개`,
+      }))
+      .slice(0, 10) // 상위 10명만
+
+    return {
+      longAbsence: longAbsence.slice(0, 10), // 상위 10명만
+      pendingAssignments,
+    }
+  } catch (error) {
+    console.error('[fetchStudentAlerts] Error:', error)
+    return {
+      longAbsence: [],
+      pendingAssignments: [],
+    }
+  }
+}
+
 async function fetchStats(supabase: any, tenantId: string, today: string) {
+  // Date calculations
+  const now = new Date()
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0]
+  const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0]
+  const lastWeekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+
   const [
     studentsCount,
     classesCount,
@@ -293,12 +384,22 @@ async function fetchStats(supabase: any, tenantId: string, today: string) {
     pendingTodosCount,
     reportsCount,
     unsentReportsCount,
+    // New: averageScore calculation
+    avgScoreResult,
+    // New: completionRate calculation
+    completionRateResult,
+    // Trend data
+    previousMonthStudentsCount,
+    previousWeekAttendanceCount,
+    previousMonthAvgScoreResult,
+    previousWeekCompletionRateResult,
   ] = await Promise.allSettled([
     // Total students
     supabase
       .from('students')
       .select('id', { count: 'exact', head: true })
-      .eq('tenant_id', tenantId),
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null),
 
     // Active classes
     supabase
@@ -328,7 +429,87 @@ async function fetchStats(supabase: any, tenantId: string, today: string) {
 
     // Unsent reports (placeholder)
     Promise.resolve({ count: 0 }),
+
+    // Average Score - 최근 30일 exam_scores 평균
+    supabase
+      .from('exam_scores')
+      .select('percentage')
+      .eq('tenant_id', tenantId)
+      .gte('created_at', new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString())
+      .is('deleted_at', null),
+
+    // Completion Rate - 전체 todos의 완료율
+    supabase
+      .from('student_todos')
+      .select('id, completed_at')
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null),
+
+    // Previous month students (for trend)
+    supabase
+      .from('students')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .lte('created_at', lastMonthEnd)
+      .is('deleted_at', null),
+
+    // Previous week attendance (for trend)
+    supabase
+      .from('attendance_records')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .gte('attendance_date', lastWeekStart)
+      .lt('attendance_date', today)
+      .eq('status', 'present'),
+
+    // Previous month average score (for trend)
+    supabase
+      .from('exam_scores')
+      .select('percentage')
+      .eq('tenant_id', tenantId)
+      .gte('created_at', lastMonthStart)
+      .lte('created_at', lastMonthEnd)
+      .is('deleted_at', null),
+
+    // Previous week completion rate (for trend)
+    supabase
+      .from('student_todos')
+      .select('id, completed_at')
+      .eq('tenant_id', tenantId)
+      .gte('created_at', lastWeekStart)
+      .lt('created_at', today)
+      .is('deleted_at', null),
   ])
+
+  // Calculate average score
+  let averageScore = 0
+  if (avgScoreResult.status === 'fulfilled' && avgScoreResult.value.data && avgScoreResult.value.data.length > 0) {
+    const scores = avgScoreResult.value.data.map((s: any) => s.percentage || 0)
+    averageScore = Math.round(scores.reduce((a: number, b: number) => a + b, 0) / scores.length)
+  }
+
+  // Calculate completion rate
+  let completionRate = 0
+  if (completionRateResult.status === 'fulfilled' && completionRateResult.value.data) {
+    const todos = completionRateResult.value.data
+    const completedCount = todos.filter((t: any) => t.completed_at !== null).length
+    completionRate = todos.length > 0 ? Math.round((completedCount / todos.length) * 100) : 0
+  }
+
+  // Calculate previous month average score
+  let previousMonthAvgScore = 0
+  if (previousMonthAvgScoreResult.status === 'fulfilled' && previousMonthAvgScoreResult.value.data && previousMonthAvgScoreResult.value.data.length > 0) {
+    const scores = previousMonthAvgScoreResult.value.data.map((s: any) => s.percentage || 0)
+    previousMonthAvgScore = Math.round(scores.reduce((a: number, b: number) => a + b, 0) / scores.length)
+  }
+
+  // Calculate previous week completion rate
+  let previousWeekCompletionRate = 0
+  if (previousWeekCompletionRateResult.status === 'fulfilled' && previousWeekCompletionRateResult.value.data) {
+    const todos = previousWeekCompletionRateResult.value.data
+    const completedCount = todos.filter((t: any) => t.completed_at !== null).length
+    previousWeekCompletionRate = todos.length > 0 ? Math.round((completedCount / todos.length) * 100) : 0
+  }
 
   return {
     totalStudents: studentsCount.status === 'fulfilled' ? (studentsCount.value.count || 0) : 0,
@@ -337,5 +518,11 @@ async function fetchStats(supabase: any, tenantId: string, today: string) {
     pendingTodos: pendingTodosCount.status === 'fulfilled' ? (pendingTodosCount.value.count || 0) : 0,
     totalReports: reportsCount.status === 'fulfilled' ? (reportsCount.value.count || 0) : 0,
     unsentReports: unsentReportsCount.status === 'fulfilled' ? (unsentReportsCount.value.count || 0) : 0,
+    averageScore,
+    completionRate,
+    previousMonthStudents: previousMonthStudentsCount.status === 'fulfilled' ? (previousMonthStudentsCount.value.count || 0) : undefined,
+    previousWeekAttendance: previousWeekAttendanceCount.status === 'fulfilled' ? (previousWeekAttendanceCount.value.count || 0) : undefined,
+    previousMonthAvgScore,
+    previousWeekCompletionRate,
   }
 }

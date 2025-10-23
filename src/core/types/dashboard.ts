@@ -120,6 +120,14 @@ export interface DashboardStats {
   pendingTodos: number
   totalReports: number
   unsentReports: number
+  // 실제 계산 데이터
+  averageScore: number
+  completionRate: number
+  // Trend 계산용 (이전 기간 대비)
+  previousMonthStudents?: number
+  previousWeekAttendance?: number
+  previousMonthAvgScore?: number
+  previousWeekCompletionRate?: number
 }
 
 export interface FinancialData {
