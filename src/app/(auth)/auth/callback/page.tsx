@@ -1,19 +1,26 @@
 /**
  * Auth Callback Page (Client Component)
  *
- * 이메일 인증 링크 클릭 후 코드 교환을 클라이언트에서 수행
- * - 메일 보안 스캐너가 JS를 실행하지 않으므로 코드 소모 방지
- * - 인앱 웹뷰 환경에서도 더 안정적
+ * 이메일 인증 링크 클릭 후 중간 랜딩 페이지를 표시하고,
+ * 사용자가 버튼을 클릭해야만 코드 교환 수행
  *
- * 기존 서버 라우트에서 클라이언트 페이지로 이관 (2025-10-23)
- * 이유: Gmail/Outlook 등의 링크 사전 스캔으로 코드가 조기 소모되는 문제 해결
+ * ✅ 메일 스캐너 대응:
+ * - 메일 스캐너가 링크를 방문해도 자동 실행 안 함
+ * - 사용자 클릭 시에만 토큰 소비
+ * - 스캐너는 JS를 실행하지 않으므로 버튼 클릭 불가
+ *
+ * 변경 이력:
+ * - 2025-10-23: 서버 라우트 → 클라이언트 페이지 (스캐너 1차 대응)
+ * - 2025-10-23: 자동 실행 → 수동 클릭 (스캐너 2차 대응)
  */
 
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Mail, ShieldCheck } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { createClient } from '@/lib/supabase/client'
 import { authStageService } from '@/infrastructure/auth/auth-stage.service'
 import { createUserProfileServer } from '@/app/actions/onboarding'
@@ -34,34 +41,32 @@ function classifyAuthError(error: { message?: string; code?: string }): string {
   return 'unknown'
 }
 
-export default function CallbackPage() {
+function CallbackPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const [status, setStatus] = useState<'loading' | 'error' | 'success'>('loading')
+  const [status, setStatus] = useState<'idle' | 'loading' | 'error' | 'success'>('idle')
   const [errorMessage, setErrorMessage] = useState<string>('')
 
-  useEffect(() => {
-    const code = searchParams.get('code')
-    const type = (searchParams.get('type') || 'signup').toLowerCase()
-    const requestId = crypto.randomUUID()
+  const code = searchParams.get('code')
+  const type = (searchParams.get('type') || 'signup').toLowerCase()
 
-    console.log('[auth/callback] Client callback started:', {
+  // 코드가 없으면 로그인으로 리다이렉트
+  if (!code) {
+    router.replace('/auth/login')
+    return null
+  }
+
+  // 사용자가 버튼 클릭 시 코드 교환 시작
+  const handleVerifyClick = () => {
+    const requestId = crypto.randomUUID()
+    console.log('[auth/callback] User initiated verification:', {
       requestId,
-      hasCode: !!code,
       type,
       timestamp: new Date().toISOString(),
     })
-
-    // 코드가 없으면 로그인으로
-    if (!code) {
-      console.warn('[auth/callback] Missing code param', { requestId })
-      router.replace('/auth/login')
-      return
-    }
-
-    // 코드 교환 및 온보딩 처리
+    setStatus('loading')
     handleCallback(code, type, requestId)
-  }, []) // 빈 배열: 마운트 시 한 번만 실행
+  }
 
   async function handleCallback(code: string, type: string, requestId: string) {
     try {
@@ -203,7 +208,58 @@ export default function CallbackPage() {
     }
   }
 
-  // 로딩 상태 표시
+  // 상태별 UI 렌더링
+  if (status === 'idle') {
+    // 중간 랜딩 페이지: 사용자 클릭 대기
+    return (
+      <div className="flex min-h-screen items-center justify-center p-4 bg-background">
+        <Card className="max-w-md w-full border-none shadow-lg">
+          <CardHeader className="text-center space-y-4 pb-4">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 mx-auto">
+              <Mail className="h-8 w-8 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-2xl">이메일 인증 확인</CardTitle>
+              <CardDescription className="mt-2">
+                아래 버튼을 클릭하여 이메일 인증을 완료하세요
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="rounded-lg border border-border bg-muted/50 p-4">
+              <div className="flex items-start gap-3">
+                <ShieldCheck className="mt-0.5 h-5 w-5 flex-shrink-0 text-primary" />
+                <div className="space-y-1 text-sm">
+                  <p className="font-medium text-foreground">보안 안내</p>
+                  <p className="text-muted-foreground">
+                    이메일 링크를 클릭하셨다면, 아래 버튼을 눌러 인증을 완료하세요.
+                    이 과정은 자동으로 진행되지 않으며, 사용자의 확인이 필요합니다.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <Button
+              className="w-full"
+              size="lg"
+              onClick={handleVerifyClick}
+            >
+              <Mail className="mr-2 h-5 w-5" />
+              이메일 인증 완료하기
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full"
+              onClick={() => router.push('/auth/login')}
+            >
+              로그인 페이지로 돌아가기
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // 로딩 또는 에러 상태
   return (
     <div className="flex min-h-screen items-center justify-center p-4 bg-background">
       <div className="text-center space-y-4">
@@ -221,5 +277,25 @@ export default function CallbackPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function CallbackPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center p-4 bg-background">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
+          <div className="space-y-2">
+            <h2 className="text-xl font-semibold">로딩 중</h2>
+            <p className="text-sm text-muted-foreground">
+              페이지를 불러오는 중입니다.
+            </p>
+          </div>
+        </div>
+      </div>
+    }>
+      <CallbackPageContent />
+    </Suspense>
   )
 }

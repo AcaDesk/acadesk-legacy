@@ -153,8 +153,8 @@ export const GENERIC_ERROR_MESSAGE = {
  */
 export const RATE_LIMIT_MESSAGES = {
   emailTooMany: {
-    title: "잠시만 기다려주세요",
-    description: "현재 많은 사용자가 동시에 가입하고 있습니다. 1-2분 후 다시 시도해주세요.",
+    title: "이메일 전송 한도 초과",
+    description: "시간당 이메일 전송 한도(25건)에 도달했습니다. 5-10분 후 다시 시도해주세요.",
   },
   emailResendWait: {
     title: "잠시 후 다시 시도해주세요",
@@ -162,7 +162,11 @@ export const RATE_LIMIT_MESSAGES = {
   },
   tooManyRequests: {
     title: "요청이 너무 많습니다",
-    description: "잠시 후 다시 시도해주세요. 문제가 계속되면 team@acadesk.site로 문의해주세요.",
+    description: "IP당 5분 기준 요청 한도(30회)에 도달했습니다. 5-10분 후 다시 시도해주세요.",
+  },
+  serverRateLimit: {
+    title: "서버 요청 한도 초과",
+    description: "서버에서 요청이 제한되었습니다. 문제가 지속되면 team@acadesk.site로 문의해주세요.",
   },
 }
 

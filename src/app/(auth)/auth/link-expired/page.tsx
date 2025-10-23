@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { AlertCircle, Mail, RefreshCw, ArrowRight } from "lucide-react"
+import { AlertCircle, Mail, RefreshCw, ArrowRight, LogIn } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { LINK_EXPIRED_MESSAGES, EMAIL_RESEND_SUCCESS_MESSAGE, GENERIC_ERROR_MESSAGE, RATE_LIMIT_MESSAGES, getAuthErrorMessage } from "@/lib/auth/messages"
@@ -76,7 +76,95 @@ function LinkExpiredContent() {
 
   const message = getErrorMessage()
 
-  // 인증 이메일 재전송
+  // 매직링크 로그인 (이미 인증된 사용자용)
+  const handleMagicLinkLogin = async () => {
+    if (!email) {
+      toast({
+        title: "이메일 주소 필요",
+        description: "이메일 주소를 입력해주세요.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Rate Limiting 체크
+    if (remainingSeconds > 0) {
+      toast({
+        title: RATE_LIMIT_MESSAGES.emailResendWait.title,
+        description: RATE_LIMIT_MESSAGES.emailResendWait.description(remainingSeconds),
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsProcessing(true)
+    try {
+      const appUrl = window.location.origin
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email,
+        options: {
+          emailRedirectTo: `${appUrl}/auth/callback?type=magiclink`,
+        },
+      })
+
+      if (error) {
+        // 상세한 에러 로깅
+        console.error('[handleMagicLinkLogin] Error:', {
+          message: error.message,
+          status: error.status,
+          code: error.code,
+          name: error.name,
+        })
+
+        const errorMsg = error.message?.toLowerCase() || ''
+
+        // Rate limit 에러 상세 분기
+        if (errorMsg.includes("email rate limit") || errorMsg.includes("rate limit")) {
+          toast({
+            title: RATE_LIMIT_MESSAGES.emailTooMany.title,
+            description: RATE_LIMIT_MESSAGES.emailTooMany.description,
+            variant: "destructive",
+          })
+        } else if (errorMsg.includes("too many") || error.status === 429) {
+          toast({
+            title: RATE_LIMIT_MESSAGES.tooManyRequests.title,
+            description: RATE_LIMIT_MESSAGES.tooManyRequests.description,
+            variant: "destructive",
+          })
+        } else {
+          toast({
+            title: "매직링크 전송 실패",
+            description: getAuthErrorMessage(error),
+            variant: "destructive",
+          })
+        }
+        return
+      }
+
+      // 성공 시 마지막 재전송 시간 기록
+      localStorage.setItem("lastEmailResendTime", Date.now().toString())
+      setRemainingSeconds(60)
+
+      toast({
+        title: "매직링크 전송 완료",
+        description: "이메일함을 확인하여 로그인 링크를 클릭해주세요.",
+      })
+
+      // 이메일 인증 페이지로 리디렉트
+      router.push(`/auth/verify-email?email=${encodeURIComponent(email)}`)
+    } catch (err) {
+      console.error('[handleMagicLinkLogin] Exception:', err)
+      toast({
+        title: GENERIC_ERROR_MESSAGE.title,
+        description: GENERIC_ERROR_MESSAGE.description,
+        variant: "destructive",
+      })
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  // 인증 이메일 재전송 (스마트 재전송: 이미 인증된 경우 자동으로 매직링크로 전환)
   const handleResendSignupEmail = async () => {
     if (!email) {
       toast({
@@ -99,31 +187,70 @@ function LinkExpiredContent() {
 
     setIsProcessing(true)
     try {
+      // ✅ Step 1: signup 재전송 시도
       const { error } = await supabase.auth.resend({
         type: "signup",
         email: email,
       })
 
       if (error) {
-        // Rate limit 에러 특별 처리
-        if (error.message?.toLowerCase().includes("rate limit") ||
-            error.message?.toLowerCase().includes("too many")) {
+        // 상세한 에러 로깅
+        console.error('[handleResendSignupEmail] Error:', {
+          message: error.message,
+          status: error.status,
+          code: error.code,
+          name: error.name,
+        })
+
+        // ✅ Step 2: 에러 메시지 분석
+        const errorMsg = error.message?.toLowerCase() || ''
+
+        // Rate limit 에러 상세 분기
+        if (errorMsg.includes("email rate limit") || errorMsg.includes("rate limit")) {
           toast({
             title: RATE_LIMIT_MESSAGES.emailTooMany.title,
             description: RATE_LIMIT_MESSAGES.emailTooMany.description,
             variant: "destructive",
           })
-        } else {
+          setIsProcessing(false)
+          return
+        }
+
+        if (errorMsg.includes("too many") || error.status === 429) {
           toast({
-            title: "이메일 재전송 실패",
-            description: getAuthErrorMessage(error),
+            title: RATE_LIMIT_MESSAGES.tooManyRequests.title,
+            description: RATE_LIMIT_MESSAGES.tooManyRequests.description,
             variant: "destructive",
           })
+          setIsProcessing(false)
+          return
         }
+
+        // 이미 인증된 사용자 또는 확인 완료 에러
+        if (errorMsg.includes("already") || errorMsg.includes("confirmed") || errorMsg.includes("verified")) {
+          console.log('[handleResendSignupEmail] User already confirmed, switching to magic link')
+          toast({
+            title: "이미 인증된 계정입니다",
+            description: "매직링크 로그인을 진행합니다. 잠시만 기다려주세요.",
+          })
+          // 자동으로 매직링크 로그인 실행
+          setIsProcessing(false)
+          await handleMagicLinkLogin()
+          return
+        }
+
+        // 기타 에러
+        toast({
+          title: "이메일 재전송 실패",
+          description: `${getAuthErrorMessage(error)} (에러: ${error.message})`,
+          variant: "destructive",
+        })
+        setIsProcessing(false)
         return
       }
 
-      // 성공 시 마지막 재전송 시간 기록
+      // ✅ Step 3: 성공 시 처리
+      console.log('[handleResendSignupEmail] Signup email resent successfully')
       localStorage.setItem("lastEmailResendTime", Date.now().toString())
       setRemainingSeconds(60)
 
@@ -134,7 +261,8 @@ function LinkExpiredContent() {
 
       // 이메일 인증 페이지로 리디렉트
       router.push(`/auth/verify-email?email=${encodeURIComponent(email)}`)
-    } catch {
+    } catch (err) {
+      console.error('[handleResendSignupEmail] Exception:', err)
       toast({
         title: GENERIC_ERROR_MESSAGE.title,
         description: GENERIC_ERROR_MESSAGE.description,
@@ -173,18 +301,33 @@ function LinkExpiredContent() {
       })
 
       if (error) {
-        // Rate limit 에러 특별 처리
-        if (error.message?.toLowerCase().includes("rate limit") ||
-            error.message?.toLowerCase().includes("too many")) {
+        // 상세한 에러 로깅
+        console.error('[handleResendRecoveryEmail] Error:', {
+          message: error.message,
+          status: error.status,
+          code: error.code,
+          name: error.name,
+        })
+
+        const errorMsg = error.message?.toLowerCase() || ''
+
+        // Rate limit 에러 상세 분기
+        if (errorMsg.includes("email rate limit") || errorMsg.includes("rate limit")) {
           toast({
             title: RATE_LIMIT_MESSAGES.emailTooMany.title,
             description: RATE_LIMIT_MESSAGES.emailTooMany.description,
             variant: "destructive",
           })
+        } else if (errorMsg.includes("too many") || error.status === 429) {
+          toast({
+            title: RATE_LIMIT_MESSAGES.tooManyRequests.title,
+            description: RATE_LIMIT_MESSAGES.tooManyRequests.description,
+            variant: "destructive",
+          })
         } else {
           toast({
             title: "비밀번호 재설정 요청 실패",
-            description: getAuthErrorMessage(error),
+            description: `${getAuthErrorMessage(error)} (에러: ${error.message})`,
             variant: "destructive",
           })
         }
@@ -192,6 +335,7 @@ function LinkExpiredContent() {
       }
 
       // 성공 시 마지막 재전송 시간 기록
+      console.log('[handleResendRecoveryEmail] Recovery email sent successfully')
       localStorage.setItem("lastEmailResendTime", Date.now().toString())
       setRemainingSeconds(60)
 
@@ -202,7 +346,8 @@ function LinkExpiredContent() {
 
       // 비밀번호 찾기 페이지로 리디렉트
       router.push("/auth/forgot-password")
-    } catch {
+    } catch (err) {
+      console.error('[handleResendRecoveryEmail] Exception:', err)
       toast({
         title: GENERIC_ERROR_MESSAGE.title,
         description: GENERIC_ERROR_MESSAGE.description,
