@@ -59,14 +59,19 @@ const completeOwnerOnboardingSchema = z.object({
  * @returns 성공 여부 및 에러 메시지
  */
 export async function createUserProfileServer(userId: string) {
+  const requestId = crypto.randomUUID()
+
   try {
     // 1. Validate input
     if (!userId) {
+      console.error('[createUserProfileServer] Missing userId:', { requestId })
       return {
         success: false,
         error: '사용자 ID가 필요합니다.',
       }
     }
+
+    console.log('[createUserProfileServer] Request started:', { requestId, userId })
 
     // 2. Service role client로 프로필 생성
     const serviceClient = createServiceRoleClient()
@@ -80,7 +85,7 @@ export async function createUserProfileServer(userId: string) {
       .maybeSingle()
 
     if (checkError) {
-      console.error('[createUserProfileServer] Check error:', checkError)
+      console.error('[createUserProfileServer] Check error:', { requestId, userId, error: checkError })
       return {
         success: false,
         error: '프로필 확인 중 오류가 발생했습니다.',
@@ -89,7 +94,7 @@ export async function createUserProfileServer(userId: string) {
 
     // 이미 프로필이 있으면 성공 반환 (멱등성)
     if (existingUser) {
-      console.log(`[createUserProfileServer] Profile already exists for user ${userId}`)
+      console.log('[createUserProfileServer] Profile already exists:', { requestId, userId })
       return {
         success: true,
         data: { message: '이미 프로필이 존재합니다.' },
@@ -102,7 +107,7 @@ export async function createUserProfileServer(userId: string) {
     )
 
     if (authError || !authUser.user) {
-      console.error('[createUserProfileServer] Auth user not found:', authError)
+      console.error('[createUserProfileServer] Auth user not found:', { requestId, userId, error: authError })
       return {
         success: false,
         error: '인증 사용자를 찾을 수 없습니다.',
@@ -112,22 +117,31 @@ export async function createUserProfileServer(userId: string) {
     const email = authUser.user.email || ''
     const name = authUser.user.user_metadata?.full_name || email
 
-    // 4. 프로필 생성
+    console.log('[createUserProfileServer] Creating profile:', { requestId, userId, email, name })
+
+    // 4. 프로필 생성 (타임스탬프 명시)
+    const now = new Date().toISOString()
     const { error: insertError } = await serviceClient.from('users').insert({
       id: userId,
       email: email,
       name: name,
       role_code: null,
+      tenant_id: null,
       onboarding_completed: false,
       approval_status: 'pending',
+      created_at: now,
+      updated_at: now,
     })
 
     if (insertError) {
-      console.error('[createUserProfileServer] Insert error:', insertError)
+      console.error('[createUserProfileServer] Insert error:', { requestId, userId, error: insertError })
 
       // 이미 존재하는 경우 (race condition) 성공으로 처리
       if (insertError.code === '23505') {
-        console.log(`[createUserProfileServer] Profile created by another request for user ${userId}`)
+        console.log('[createUserProfileServer] Profile created by concurrent request (race condition):', {
+          requestId,
+          userId,
+        })
         return {
           success: true,
           data: { message: '프로필이 생성되었습니다.' },
@@ -140,14 +154,18 @@ export async function createUserProfileServer(userId: string) {
       }
     }
 
-    console.log(`[createUserProfileServer] Profile created for user ${userId}`)
+    console.log('[createUserProfileServer] Profile created successfully:', { requestId, userId })
 
     return {
       success: true,
       data: { message: '프로필이 생성되었습니다.' },
     }
   } catch (error) {
-    console.error('[createUserProfileServer] Error:', error)
+    console.error('[createUserProfileServer] Exception:', {
+      requestId,
+      userId,
+      error: error instanceof Error ? error.message : String(error),
+    })
     return {
       success: false,
       error: getErrorMessage(error),
@@ -171,9 +189,16 @@ export async function createUserProfileServer(userId: string) {
 export async function completeOwnerOnboarding(
   input: z.infer<typeof completeOwnerOnboardingSchema>
 ) {
+  const requestId = crypto.randomUUID()
+
   try {
     // 1. Validate input
     const validated = completeOwnerOnboardingSchema.parse(input)
+
+    console.log('[completeOwnerOnboarding] Request started:', {
+      requestId,
+      academyName: validated.academyName,
+    })
 
     // 2. 현재 사용자 인증 확인
     const supabase = await createServerClient()
@@ -183,22 +208,28 @@ export async function completeOwnerOnboarding(
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      console.error('[completeOwnerOnboarding] Auth error:', authError)
+      console.error('[completeOwnerOnboarding] Auth error:', { requestId, error: authError })
       return {
         success: false,
         error: '인증되지 않은 사용자입니다.',
       }
     }
 
-    // 3. 사용자 정보 가져오기
-    const { data: userData, error: userError } = await supabase
+    const userId = user.id
+
+    console.log('[completeOwnerOnboarding] User authenticated:', { requestId, userId })
+
+    // 3. 사용자 정보 가져오기 (SERVICE ROLE로 통일 - RLS 우회)
+    // 이미 인증 확인을 했으므로 service_role로 읽어도 안전합니다.
+    const serviceClient = createServiceRoleClient()
+    const { data: userData, error: userError } = await serviceClient
       .from('users')
-      .select('name, email, role_code, tenant_id')
-      .eq('id', user.id)
+      .select('name, email, role_code, tenant_id, approval_status, onboarding_completed')
+      .eq('id', userId)
       .maybeSingle()
 
     if (userError) {
-      console.error('[completeOwnerOnboarding] User query error:', userError)
+      console.error('[completeOwnerOnboarding] User query error:', { requestId, userId, error: userError })
       return {
         success: false,
         error: '사용자 정보를 가져오는 중 오류가 발생했습니다.',
@@ -206,18 +237,44 @@ export async function completeOwnerOnboarding(
     }
 
     if (!userData) {
-      console.error('[completeOwnerOnboarding] User not found:', user.id)
+      console.error('[completeOwnerOnboarding] User not found:', { requestId, userId })
       return {
         success: false,
         error: '사용자 정보를 찾을 수 없습니다.',
       }
     }
 
-    // 4. 이미 온보딩 완료된 경우 체크
-    if (userData.tenant_id && userData.role_code === 'owner') {
-      console.log(`[completeOwnerOnboarding] Owner already has tenant: ${user.id}`)
+    console.log('[completeOwnerOnboarding] User data retrieved:', {
+      requestId,
+      userId,
+      roleCode: userData.role_code,
+      tenantId: userData.tenant_id,
+      approvalStatus: userData.approval_status,
+    })
 
-      // 학원 설정만 업데이트
+    // 4. 권한 검증: 이미 다른 역할이거나 다른 테넌트 소속인 경우
+    if (userData.role_code && userData.role_code !== 'owner' && userData.tenant_id) {
+      console.warn('[completeOwnerOnboarding] User already has different role:', {
+        requestId,
+        userId,
+        roleCode: userData.role_code,
+        tenantId: userData.tenant_id,
+      })
+      return {
+        success: false,
+        error: '이미 다른 역할로 등록되어 있습니다. 관리자에게 문의해주세요.',
+      }
+    }
+
+    // 5. 이미 온보딩 완료된 경우 체크 (멱등성)
+    if (userData.tenant_id && userData.role_code === 'owner' && userData.onboarding_completed) {
+      console.log('[completeOwnerOnboarding] Owner already completed onboarding:', {
+        requestId,
+        userId,
+        tenantId: userData.tenant_id,
+      })
+
+      // 학원 설정만 업데이트 (일반 client로 호출)
       const { error: updateError } = await supabase.rpc('finish_owner_academy_setup', {
         _academy_name: validated.academyName,
         _timezone: validated.timezone,
@@ -225,28 +282,41 @@ export async function completeOwnerOnboarding(
       })
 
       if (updateError) {
-        console.error('[completeOwnerOnboarding] finish_owner_academy_setup error:', updateError)
+        console.error('[completeOwnerOnboarding] finish_owner_academy_setup error:', {
+          requestId,
+          userId,
+          error: updateError,
+        })
         return {
           success: false,
           error: '학원 설정 업데이트 중 오류가 발생했습니다.',
         }
       }
 
-      // Revalidate
+      // Revalidate: 대시보드와 레이아웃 모두
       revalidatePath('/', 'layout')
+      revalidatePath('/dashboard')
+      revalidatePath('/dashboard', 'page')
+
+      console.log('[completeOwnerOnboarding] Academy settings updated:', {
+        requestId,
+        userId,
+        tenantId: userData.tenant_id,
+      })
 
       return {
         success: true,
         data: {
-          userId: user.id,
+          userId,
           tenantId: userData.tenant_id,
           message: '학원 설정이 업데이트되었습니다.',
         },
       }
     }
 
-    // 5. Service role로 complete_owner_onboarding 호출
-    const serviceClient = createServiceRoleClient()
+    // 6. Service role로 complete_owner_onboarding 호출
+    // ⚠️ 중요: 이 RPC는 트랜잭션 내에서 테넌트 생성 + 유저 업데이트를 수행합니다.
+    // 실패 시 자동으로 롤백되므로 원자성이 보장됩니다.
 
     const ownerName =
       validated.ownerName ||
@@ -256,10 +326,17 @@ export async function completeOwnerOnboarding(
       user.email ||
       '원장님'
 
+    console.log('[completeOwnerOnboarding] Calling complete_owner_onboarding RPC:', {
+      requestId,
+      userId,
+      ownerName,
+      academyName: validated.academyName,
+    })
+
     const { data: onboardingData, error: onboardingError } = await serviceClient.rpc(
       'complete_owner_onboarding',
       {
-        _user_id: user.id,
+        _user_id: userId,
         _name: ownerName,
         _academy_name: validated.academyName,
         _slug: null, // 자동 생성
@@ -267,7 +344,11 @@ export async function completeOwnerOnboarding(
     )
 
     if (onboardingError) {
-      console.error('[completeOwnerOnboarding] complete_owner_onboarding RPC error:', onboardingError)
+      console.error('[completeOwnerOnboarding] complete_owner_onboarding RPC error:', {
+        requestId,
+        userId,
+        error: onboardingError,
+      })
       return {
         success: false,
         error: '원장 온보딩 처리 중 오류가 발생했습니다.',
@@ -277,14 +358,26 @@ export async function completeOwnerOnboarding(
     const response = onboardingData as { ok: boolean; data?: any; code?: string; message?: string }
 
     if (!response?.ok) {
-      console.error('[completeOwnerOnboarding] RPC returned error:', response)
+      console.error('[completeOwnerOnboarding] RPC returned error:', {
+        requestId,
+        userId,
+        response,
+      })
       return {
         success: false,
         error: response?.message || '원장 온보딩 처리 중 오류가 발생했습니다.',
       }
     }
 
-    // 6. 학원 설정 업데이트 (finish_owner_academy_setup)
+    const tenantId = response.data?.tenant?.id
+
+    console.log('[completeOwnerOnboarding] Tenant created:', {
+      requestId,
+      userId,
+      tenantId,
+    })
+
+    // 7. 학원 설정 업데이트 (finish_owner_academy_setup)
     // 이제 사용자가 owner 권한을 가지므로 일반 client로 호출 가능
     const { error: setupError } = await supabase.rpc('finish_owner_academy_setup', {
       _academy_name: validated.academyName,
@@ -293,29 +386,46 @@ export async function completeOwnerOnboarding(
     })
 
     if (setupError) {
-      console.error('[completeOwnerOnboarding] finish_owner_academy_setup error:', setupError)
+      console.error('[completeOwnerOnboarding] finish_owner_academy_setup error:', {
+        requestId,
+        userId,
+        tenantId,
+        error: setupError,
+      })
       // 테넌트는 생성되었지만 설정 업데이트 실패
       // 사용자가 다시 시도할 수 있도록 부분 성공으로 처리
       return {
         success: true,
         data: {
-          userId: user.id,
-          tenantId: response.data?.tenant?.id,
+          userId,
+          tenantId,
           warning: '테넌트는 생성되었지만 학원 설정 업데이트 중 오류가 발생했습니다. 다시 시도해주세요.',
         },
       }
     }
 
-    // 7. Revalidate paths
-    revalidatePath('/', 'layout')
+    console.log('[completeOwnerOnboarding] Academy settings updated:', {
+      requestId,
+      userId,
+      tenantId,
+    })
 
-    console.log(`[completeOwnerOnboarding] Owner onboarding completed for user ${user.id}`)
+    // 8. Revalidate paths (대시보드와 레이아웃 모두)
+    revalidatePath('/', 'layout')
+    revalidatePath('/dashboard')
+    revalidatePath('/dashboard', 'page')
+
+    console.log('[completeOwnerOnboarding] Owner onboarding completed successfully:', {
+      requestId,
+      userId,
+      tenantId,
+    })
 
     return {
       success: true,
       data: {
-        userId: user.id,
-        tenantId: response.data?.tenant?.id,
+        userId,
+        tenantId,
         message: '학원 설정이 완료되었습니다.',
       },
     }
