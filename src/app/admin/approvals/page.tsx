@@ -1,5 +1,6 @@
 import { Suspense } from "react"
-import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
+import { getCurrentUserWithTenant } from "@/lib/auth/service-role-helpers"
 import { createServiceRoleClient } from "@/lib/supabase/service-role"
 import { ApprovalManagementClient } from "./approval-management-client"
 
@@ -9,23 +10,21 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export default async function ApprovalsPage() {
-  const supabase = await createClient()
+  // 현재 사용자 확인 (service_role)
+  const userResult = await getCurrentUserWithTenant({ includeTenant: false })
 
-  // 현재 사용자 정보 가져오기
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return <div>로그인이 필요합니다.</div>
+  if (!userResult.success || !userResult.data) {
+    redirect('/auth/login')
   }
+
+  const userId = userResult.data.id
 
   // 슈퍼어드민 권한 체크 (service_role 사용 - RLS 우회)
   const admin = createServiceRoleClient()
   const { data: userData } = await admin
     .from("users")
     .select("is_super_admin")
-    .eq("id", user.id)
+    .eq("id", userId)
     .single()
 
   if (!userData?.is_super_admin) {
@@ -84,7 +83,7 @@ export default async function ApprovalsPage() {
       <ApprovalManagementClient
         pendingUsers={pendingUsers || []}
         recentDecisions={recentDecisions || []}
-        currentUserId={user.id}
+        currentUserId={userId}
       />
     </Suspense>
   )
