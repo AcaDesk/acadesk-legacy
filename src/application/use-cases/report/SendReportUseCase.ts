@@ -130,36 +130,42 @@ export class SendReportUseCase {
 
   /**
    * 채널별 메시지 컨텐츠 준비
+   * 전략: 링크형 메시지 (핵심 지표 + 리포트 링크)
    */
   private prepareMessageContent(report: Report, channel: MessageChannel) {
+    // 환경변수에서 base URL 가져오기 (없으면 기본값)
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://acadesk.site'
+
     switch (channel) {
       case MessageChannel.SMS:
         return {
-          body: report.toSMSMessage(),
+          body: report.toSMSMessage(baseUrl),
         }
 
       case MessageChannel.LMS:
         return {
-          subject: `[${report.data.studentName}] 학습 리포트`,
-          body: report.toLMSMessage(),
+          subject: `[${report.data.academyName || 'Acadesk'}] ${report.data.studentName} 학습 리포트`,
+          body: report.toLinkMessage(baseUrl),
         }
 
       case MessageChannel.KAKAO:
+        // 카카오톡도 링크형으로 전환
         return {
-          body: report.toLMSMessage(),
+          body: report.toLinkMessage(baseUrl),
           templateId: 'student_report', // 카카오톡 템플릿 ID
           variables: report.toKakaoVariables(),
         }
 
       case MessageChannel.EMAIL:
+        // 이메일은 HTML 리포트 + 링크 하이브리드
         return {
-          subject: `[${report.data.studentName}] 학습 리포트`,
+          subject: `[${report.data.academyName || 'Acadesk'}] ${report.data.studentName} 학습 리포트`,
           body: report.toEmailHTML(),
         }
 
       default:
         return {
-          body: report.toLMSMessage(),
+          body: report.toLinkMessage(baseUrl),
         }
     }
   }

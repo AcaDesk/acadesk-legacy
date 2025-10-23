@@ -29,6 +29,8 @@ const generateReportSchema = z.object({
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   type: z.enum(['student_monthly', 'student_exam']),
   comment: z.string().optional(),
+  academyName: z.string().optional(),
+  academyPhone: z.string().optional(),
 })
 
 const sendReportSchema = z.object({
@@ -75,6 +77,8 @@ export async function generateStudentReport(input: z.infer<typeof generateReport
       generatedBy: userId,
       tenantId,
       comment: validated.comment,
+      academyName: validated.academyName,
+      academyPhone: validated.academyPhone,
     })
 
     // 6. Revalidate pages
