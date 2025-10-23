@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 
+// Edge 런타임 방지 - service_role은 Node.js에서만 작동
+export const runtime = 'nodejs'
 // 인증 리소스는 항상 동적으로
 export const dynamic = 'force-dynamic'
 
@@ -25,7 +27,7 @@ export async function GET() {
     }
 
     // 2) service_role로 테넌트 조회
-    const admin = await createServiceRoleClient()
+    const admin = createServiceRoleClient()
     const { data, error } = await admin
       .from('users')
       .select('tenant_id')

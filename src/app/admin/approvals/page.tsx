@@ -1,7 +1,10 @@
 import { Suspense } from "react"
 import { createClient } from "@/lib/supabase/server"
+import { createServiceRoleClient } from "@/lib/supabase/service-role"
 import { ApprovalManagementClient } from "./approval-management-client"
 
+// Edge 런타임 방지 - service_role은 Node.js에서만 작동
+export const runtime = 'nodejs'
 // Force dynamic rendering (uses cookies for authentication)
 export const dynamic = 'force-dynamic'
 
@@ -17,8 +20,9 @@ export default async function ApprovalsPage() {
     return <div>로그인이 필요합니다.</div>
   }
 
-  // 슈퍼어드민 권한 체크
-  const { data: userData } = await supabase
+  // 슈퍼어드민 권한 체크 (service_role 사용 - RLS 우회)
+  const admin = createServiceRoleClient()
+  const { data: userData } = await admin
     .from("users")
     .select("is_super_admin")
     .eq("id", user.id)
@@ -37,8 +41,8 @@ export default async function ApprovalsPage() {
     )
   }
 
-  // 승인 대기 중인 사용자 목록 가져오기
-  const { data: pendingUsers } = await supabase
+  // 승인 대기 중인 사용자 목록 가져오기 (service_role 사용 - RLS 우회)
+  const { data: pendingUsers } = await admin
     .from("users")
     .select(`
       id,
@@ -57,8 +61,8 @@ export default async function ApprovalsPage() {
     .eq("approval_status", "pending")
     .order("created_at", { ascending: false })
 
-  // 최근 승인/거부된 사용자 목록
-  const { data: recentDecisions } = await supabase
+  // 최근 승인/거부된 사용자 목록 (service_role 사용 - RLS 우회)
+  const { data: recentDecisions } = await admin
     .from("users")
     .select(`
       id,
