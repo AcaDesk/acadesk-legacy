@@ -13,7 +13,7 @@ import { StudentImportItem } from '@core/domain/entities/StudentImport'
 /**
  * 필수 헤더 목록
  */
-const REQUIRED_HEADERS = ['학생 이름*', '생년월일(YYYY-MM-DD)*', '보호자1 연락처*'] as const
+const REQUIRED_HEADERS = ['학생 이름*', '생년월일(YYYY-MM-DD)*', '보호자1 이름*', '보호자1 연락처*'] as const
 
 /**
  * 모든 예상 헤더 목록 (순서대로)
@@ -24,20 +24,24 @@ const EXPECTED_HEADERS = [
   '학년',
   '학교',
   '학생 연락처',
-  '학생 코드',
+  '학생 이메일',
   '메모',
+  '보호자1 이름*',
   '보호자1 관계',
-  '보호자1 이름',
   '보호자1 연락처*',
+  '보호자1 이메일',
   '보호자1 주보호자',
   '보호자1 픽업가능',
-  '보호자1 성적조회가능',
-  '보호자2 관계',
+  '보호자1 알림수신',
+  '보호자1 청구서수신',
   '보호자2 이름',
+  '보호자2 관계',
   '보호자2 연락처',
+  '보호자2 이메일',
   '보호자2 주보호자',
   '보호자2 픽업가능',
-  '보호자2 성적조회가능',
+  '보호자2 알림수신',
+  '보호자2 청구서수신',
 ] as const
 
 /**
@@ -49,20 +53,24 @@ interface RawExcelRow {
   '학년'?: string
   '학교'?: string
   '학생 연락처'?: string
-  '학생 코드'?: string
+  '학생 이메일'?: string
   '메모'?: string
-  '보호자1 관계'?: string
   '보호자1 이름'?: string
+  '보호자1 관계'?: string
   '보호자1 연락처'?: string
+  '보호자1 이메일'?: string
   '보호자1 주보호자'?: string
   '보호자1 픽업가능'?: string
-  '보호자1 성적조회가능'?: string
-  '보호자2 관계'?: string
+  '보호자1 알림수신'?: string
+  '보호자1 청구서수신'?: string
   '보호자2 이름'?: string
+  '보호자2 관계'?: string
   '보호자2 연락처'?: string
+  '보호자2 이메일'?: string
   '보호자2 주보호자'?: string
   '보호자2 픽업가능'?: string
-  '보호자2 성적조회가능'?: string
+  '보호자2 알림수신'?: string
+  '보호자2 청구서수신'?: string
 }
 
 /**
@@ -174,7 +182,6 @@ function convertRawRowToImportItem(
     grade: row['학년']?.trim() || undefined,
     school: row['학교']?.trim() || undefined,
     student_phone: row['학생 연락처']?.trim() || undefined,
-    student_code: row['학생 코드']?.trim() || undefined,
     notes: row['메모']?.trim() || undefined,
   }
 
@@ -182,26 +189,34 @@ function convertRawRowToImportItem(
   const guardians: GuardianImportData[] = []
 
   // 보호자1
+  const guardian1Name = row['보호자1 이름']?.trim()
   const guardian1Phone = row['보호자1 연락처']?.trim()
-  if (guardian1Phone) {
+  if (guardian1Name && guardian1Phone) {
     guardians.push({
-      emergency_phone: guardian1Phone,
+      name: guardian1Name,
+      phone: guardian1Phone,
+      email: row['보호자1 이메일']?.trim() || undefined,
       relationship: row['보호자1 관계']?.trim() || undefined,
-      is_primary: parseBooleanField(row['보호자1 주보호자']),
-      can_pickup: parseBooleanField(row['보호자1 픽업가능']),
-      can_view_reports: parseBooleanField(row['보호자1 성적조회가능']),
+      is_primary_contact: parseBooleanField(row['보호자1 주보호자']) ?? true,
+      can_pickup: parseBooleanField(row['보호자1 픽업가능']) ?? true,
+      receives_notifications: parseBooleanField(row['보호자1 알림수신']) ?? true,
+      receives_billing: parseBooleanField(row['보호자1 청구서수신']) ?? false,
     })
   }
 
   // 보호자2
+  const guardian2Name = row['보호자2 이름']?.trim()
   const guardian2Phone = row['보호자2 연락처']?.trim()
-  if (guardian2Phone) {
+  if (guardian2Name && guardian2Phone) {
     guardians.push({
-      emergency_phone: guardian2Phone,
+      name: guardian2Name,
+      phone: guardian2Phone,
+      email: row['보호자2 이메일']?.trim() || undefined,
       relationship: row['보호자2 관계']?.trim() || undefined,
-      is_primary: parseBooleanField(row['보호자2 주보호자']),
-      can_pickup: parseBooleanField(row['보호자2 픽업가능']),
-      can_view_reports: parseBooleanField(row['보호자2 성적조회가능']),
+      is_primary_contact: parseBooleanField(row['보호자2 주보호자']) ?? false,
+      can_pickup: parseBooleanField(row['보호자2 픽업가능']) ?? true,
+      receives_notifications: parseBooleanField(row['보호자2 알림수신']) ?? true,
+      receives_billing: parseBooleanField(row['보호자2 청구서수신']) ?? false,
     })
   }
 
@@ -348,20 +363,24 @@ export function downloadErrorReport(
       item.student.grade || '',
       item.student.school || '',
       item.student.student_phone || '',
-      item.student.student_code || '',
+      '', // 학생 이메일
       item.student.notes || '',
+      item.guardians[0]?.name || '',
       item.guardians[0]?.relationship || '',
-      '', // 보호자1 이름 (템플릿에는 있지만 데이터에는 없음)
-      item.guardians[0]?.emergency_phone || '',
-      item.guardians[0]?.is_primary ? 'O' : 'X',
+      item.guardians[0]?.phone || '',
+      item.guardians[0]?.email || '',
+      item.guardians[0]?.is_primary_contact ? 'O' : 'X',
       item.guardians[0]?.can_pickup ? 'O' : 'X',
-      item.guardians[0]?.can_view_reports ? 'O' : 'X',
+      item.guardians[0]?.receives_notifications ? 'O' : 'X',
+      item.guardians[0]?.receives_billing ? 'O' : 'X',
+      item.guardians[1]?.name || '',
       item.guardians[1]?.relationship || '',
-      '', // 보호자2 이름
-      item.guardians[1]?.emergency_phone || '',
-      item.guardians[1]?.is_primary ? 'O' : 'X',
+      item.guardians[1]?.phone || '',
+      item.guardians[1]?.email || '',
+      item.guardians[1]?.is_primary_contact ? 'O' : 'X',
       item.guardians[1]?.can_pickup ? 'O' : 'X',
-      item.guardians[1]?.can_view_reports ? 'O' : 'X',
+      item.guardians[1]?.receives_notifications ? 'O' : 'X',
+      item.guardians[1]?.receives_billing ? 'O' : 'X',
     ]
 
     // 오류 메시지 추가
@@ -382,20 +401,24 @@ export function downloadErrorReport(
     { wch: 10 }, // 학년
     { wch: 15 }, // 학교
     { wch: 15 }, // 학생 연락처
-    { wch: 12 }, // 학생 코드
+    { wch: 20 }, // 학생 이메일
     { wch: 20 }, // 메모
-    { wch: 15 }, // 보호자1 관계
     { wch: 12 }, // 보호자1 이름
+    { wch: 12 }, // 보호자1 관계
     { wch: 15 }, // 보호자1 연락처
+    { wch: 20 }, // 보호자1 이메일
     { wch: 15 }, // 보호자1 주보호자
     { wch: 15 }, // 보호자1 픽업가능
-    { wch: 18 }, // 보호자1 성적조회가능
-    { wch: 15 }, // 보호자2 관계
+    { wch: 15 }, // 보호자1 알림수신
+    { wch: 15 }, // 보호자1 청구서수신
     { wch: 12 }, // 보호자2 이름
+    { wch: 12 }, // 보호자2 관계
     { wch: 15 }, // 보호자2 연락처
+    { wch: 20 }, // 보호자2 이메일
     { wch: 15 }, // 보호자2 주보호자
     { wch: 15 }, // 보호자2 픽업가능
-    { wch: 18 }, // 보호자2 성적조회가능
+    { wch: 15 }, // 보호자2 알림수신
+    { wch: 15 }, // 보호자2 청구서수신
     { wch: 50 }, // 오류 내용
   ]
   worksheet['!cols'] = colWidths
