@@ -45,7 +45,7 @@ export async function getClassesWithDetails() {
     const { tenantId } = await verifyStaff()
 
     // 2. Create service_role client for query
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 3. Query classes with instructor information
     const { data: classesData, error } = await supabase
@@ -119,7 +119,7 @@ export async function getClassById(classId: string) {
     const { tenantId } = await verifyStaff()
 
     // 2. Create service_role client
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 3. Query class with instructor
     const { data: classData, error } = await supabase
@@ -176,7 +176,7 @@ export async function getActiveClasses() {
     const { tenantId } = await verifyStaff()
 
     // 2. Create service_role client
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 3. Query active classes
     const { data, error } = await supabase
@@ -216,7 +216,7 @@ export async function getClassesByInstructor(instructorId: string) {
     const { tenantId } = await verifyStaff()
 
     // 2. Create service_role client
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 3. Query classes
     const { data, error } = await supabase
@@ -257,7 +257,7 @@ export async function updateClassStatus(classId: string, active: boolean) {
     const { tenantId } = await verifyStaff()
 
     // 2. Create service_role client
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 3. Update class
     const { data, error } = await supabase
@@ -305,7 +305,7 @@ export async function getRecentClassSessions(classId: string, limit = 5) {
     const { tenantId } = await verifyStaff()
 
     // 2. Create service_role client
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 3. Query recent sessions
     const { data, error } = await supabase
@@ -346,7 +346,7 @@ export async function deleteClass(classId: string) {
     const { tenantId } = await verifyStaff()
 
     // 2. Create service_role client
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 3. Soft delete class
     const { error } = await supabase
