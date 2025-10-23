@@ -40,6 +40,55 @@ const rejectTodoSchema = z.object({
 // ============================================================================
 
 /**
+ * Get all TODOs with student information
+ *
+ * @returns TODO list with student info or error
+ */
+export async function getTodosWithStudent() {
+  try {
+    // 1. Verify authentication and get tenant
+    const { tenantId } = await verifyStaff()
+
+    // 2. Create service_role client
+    const supabase = await createServiceRoleClient()
+
+    // 3. Query TODOs with student info
+    const { data, error } = await supabase
+      .from('student_todos')
+      .select(`
+        *,
+        students (
+          id,
+          student_code,
+          users (
+            name
+          )
+        )
+      `)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .order('due_date', { ascending: true })
+
+    if (error) {
+      throw error
+    }
+
+    return {
+      success: true,
+      data: data || [],
+      error: null,
+    }
+  } catch (error) {
+    console.error('[getTodosWithStudent] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
  * Create TODOs for multiple students (Weekly Planner)
  *
  * @param input - TODO data and student IDs

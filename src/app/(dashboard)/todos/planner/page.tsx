@@ -23,9 +23,9 @@ import {
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
-import { createGetStudentsUseCase } from '@core/application/factories/studentUseCaseFactory.client'
-import { createGetTodoTemplatesUseCase } from '@core/application/factories/todoTemplateUseCaseFactory.client'
-import { createCreateTodosForStudentsUseCase } from '@core/application/factories/todoUseCaseFactory.client'
+import { getStudents } from '@/app/actions/students'
+import { getTodoTemplates } from '@/app/actions/todo-templates'
+import { createTodosForStudents } from '@/app/actions/todos'
 import { getErrorMessage } from '@/lib/error-handlers'
 
 interface Student {
@@ -159,17 +159,16 @@ export default function WeeklyPlannerPage() {
     if (!tenantId) return
 
     try {
-      const getStudentsUseCase = createGetStudentsUseCase()
-      const { students: studentList, error } = await getStudentsUseCase.execute({
-        tenantId,
-      })
+      const result = await getStudents()
 
-      if (error) throw error
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '학생 목록을 불러올 수 없습니다')
+      }
 
-      // Use Case에서 반환하는 Student 엔티티를 UI 타입으로 변환
-      const mappedStudents = studentList.map(student => ({
+      // Server Action에서 반환하는 데이터를 UI 타입으로 변환
+      const mappedStudents = result.data.map(student => ({
         id: student.id,
-        student_code: student.studentCode.toString(),
+        student_code: student.student_code,
         users: {
           name: student.name,
         },
@@ -189,23 +188,14 @@ export default function WeeklyPlannerPage() {
     if (!tenantId) return
 
     try {
-      const getTemplatesUseCase = createGetTodoTemplatesUseCase()
-      const { templates: templateList, error } = await getTemplatesUseCase.execute({
-        tenantId,
-      })
+      const result = await getTodoTemplates()
 
-      if (error) throw error
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '템플릿 목록을 불러올 수 없습니다')
+      }
 
-      // Use Case에서 반환하는 TodoTemplate 엔티티를 UI 타입으로 변환
-      const mappedTemplates = templateList.map(template => ({
-        id: template.id,
-        title: template.title,
-        subject: template.subject,
-        estimated_duration_minutes: template.estimatedDurationMinutes,
-        priority: template.priority.getValue(),
-      }))
-
-      setTemplates(mappedTemplates)
+      // Server Action에서 반환하는 데이터는 이미 UI 타입과 일치
+      setTemplates(result.data)
     } catch (error: unknown) {
       toast({
         title: '템플릿 로드 실패',
@@ -408,9 +398,6 @@ export default function WeeklyPlannerPage() {
       const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1)
       const monday = new Date(today.setDate(diff))
       monday.setHours(0, 0, 0, 0)
-
-      // ✅ Use Server Action instead of direct UseCase
-      const { createTodosForStudents } = await import('@/app/actions/todos')
 
       // Group todos by date and content to batch create
       const groupedTodos = new Map<string, { studentIds: string[], todo: PlannedTodo, dueDate: Date }>()

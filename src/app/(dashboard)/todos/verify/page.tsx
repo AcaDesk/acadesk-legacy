@@ -26,10 +26,7 @@ import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import type { StudentTodoWithStudent } from '@/core/types/todo.types'
-import {
-  createVerifyTodosUseCase,
-  createRejectTodoUseCase,
-} from '@core/application/factories/todoUseCaseFactory.client'
+import { verifyTodos, rejectTodo } from '@/app/actions/todos'
 import { getErrorMessage } from '@/lib/error-handlers'
 
 export default function VerifyTodosPage() {
@@ -151,8 +148,6 @@ export default function VerifyTodosPage() {
     setLoading(true)
 
     try {
-      // ✅ Use Server Action instead of direct UseCase
-      const { verifyTodos } = await import('@/app/actions/todos')
       const result = await verifyTodos({
         todoIds: Array.from(selectedTodos),
       })
@@ -226,9 +221,7 @@ export default function VerifyTodosPage() {
     setLoading(true)
 
     try {
-      // ✅ Use Server Action instead of direct UseCase
-      const { rejectTodo: rejectTodoAction } = await import('@/app/actions/todos')
-      const result = await rejectTodoAction({
+      const result = await rejectTodo({
         todoId: currentTodoId,
         rejectionReason: feedback,
       })
