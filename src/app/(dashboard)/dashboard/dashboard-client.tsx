@@ -41,6 +41,18 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
   const [isSaving, setIsSaving] = useState(false)
   const [activeId, setActiveId] = useState<string | null>(null)
 
+  // DnD Sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
+
   // Memoized computed values
   const attendanceRate = useMemo(() => {
     return stats.totalStudents > 0
@@ -123,18 +135,6 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
     }
     loadPreferences()
   }, [])
-
-  // Drag and drop sensors
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  )
 
   // Handlers
   const handleManualRefresh = useCallback(() => {
