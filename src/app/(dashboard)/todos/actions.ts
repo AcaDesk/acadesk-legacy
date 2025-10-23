@@ -27,9 +27,24 @@ export async function verifyTodoAction(todoId: string) {
       }
     }
 
+    // Get user's tenant ID
+    const { data: userData } = await supabase
+      .from('users')
+      .select('tenant_id')
+      .eq('id', user.id)
+      .single()
+
+    if (!userData?.tenant_id) {
+      return {
+        success: false,
+        error: '테넌트 정보를 찾을 수 없습니다.',
+      }
+    }
+
     const verifyTodoUseCase = await createVerifyTodoUseCase()
     await verifyTodoUseCase.execute({
       todoId,
+      tenantId: userData.tenant_id,
       verifiedBy: user.id,
     })
 
@@ -53,8 +68,37 @@ export async function verifyTodoAction(todoId: string) {
  */
 export async function deleteTodoAction(todoId: string) {
   try {
+    const supabase = await createClient()
+
+    // Get current user
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return {
+        success: false,
+        error: '로그인이 필요합니다.',
+      }
+    }
+
+    // Get user's tenant ID
+    const { data: userData } = await supabase
+      .from('users')
+      .select('tenant_id')
+      .eq('id', user.id)
+      .single()
+
+    if (!userData?.tenant_id) {
+      return {
+        success: false,
+        error: '테넌트 정보를 찾을 수 없습니다.',
+      }
+    }
+
     const deleteTodoUseCase = await createDeleteTodoUseCase()
-    await deleteTodoUseCase.execute(todoId)
+    await deleteTodoUseCase.execute(todoId, userData.tenant_id)
 
     revalidatePath('/todos')
 

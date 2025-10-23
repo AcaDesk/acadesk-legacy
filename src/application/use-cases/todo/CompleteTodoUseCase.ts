@@ -13,9 +13,9 @@ export class CompleteTodoUseCase {
   /**
    * TODO 완료 처리
    */
-  async execute(todoId: string): Promise<Todo> {
+  async execute(todoId: string, tenantId: string): Promise<Todo> {
     // Find todo
-    const todo = await this.todoRepository.findById(todoId)
+    const todo = await this.todoRepository.findById(todoId, tenantId)
 
     if (!todo) {
       throw new NotFoundError('TODO')
@@ -30,15 +30,15 @@ export class CompleteTodoUseCase {
     const completedTodo = todo.complete()
 
     // Persist to database
-    return await this.todoRepository.save(completedTodo)
+    return await this.todoRepository.save(completedTodo, tenantId)
   }
 
   /**
    * TODO 완료 취소
    */
-  async uncomplete(todoId: string): Promise<Todo> {
+  async uncomplete(todoId: string, tenantId: string): Promise<Todo> {
     // Find todo
-    const todo = await this.todoRepository.findById(todoId)
+    const todo = await this.todoRepository.findById(todoId, tenantId)
 
     if (!todo) {
       throw new NotFoundError('TODO')
@@ -58,6 +58,6 @@ export class CompleteTodoUseCase {
     const uncompletedTodo = todo.uncomplete()
 
     // Persist to database
-    return await this.todoRepository.save(uncompletedTodo)
+    return await this.todoRepository.save(uncompletedTodo, tenantId)
   }
 }

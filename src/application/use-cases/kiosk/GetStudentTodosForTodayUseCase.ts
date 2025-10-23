@@ -30,7 +30,7 @@ export interface TodosResult {
 export class GetStudentTodosForTodayUseCase {
   constructor(private todoRepository: ITodoRepository) {}
 
-  async execute(studentId: string, date?: string): Promise<TodosResult> {
+  async execute(studentId: string, tenantId: string, date?: string): Promise<TodosResult> {
     try {
       // 날짜가 지정되지 않으면 오늘 날짜 사용
       const targetDate = date || new Date().toISOString().split('T')[0]
@@ -38,6 +38,7 @@ export class GetStudentTodosForTodayUseCase {
       // TODO 조회
       const todos = await this.todoRepository.findByStudentIdForDate(
         studentId,
+        tenantId,
         targetDate
       )
 

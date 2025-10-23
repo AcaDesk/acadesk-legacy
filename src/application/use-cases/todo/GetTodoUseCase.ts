@@ -13,15 +13,15 @@ export class GetTodoUseCase {
   /**
    * ID로 TODO 조회
    */
-  async getById(id: string): Promise<Todo | null> {
-    return await this.todoRepository.findById(id)
+  async getById(id: string, tenantId: string): Promise<Todo | null> {
+    return await this.todoRepository.findById(id, tenantId)
   }
 
   /**
    * ID로 TODO 조회 (없으면 에러)
    */
-  async getByIdOrThrow(id: string): Promise<Todo> {
-    const todo = await this.todoRepository.findById(id)
+  async getByIdOrThrow(id: string, tenantId: string): Promise<Todo> {
+    const todo = await this.todoRepository.findById(id, tenantId)
 
     if (!todo) {
       throw new NotFoundError('TODO')
@@ -33,8 +33,8 @@ export class GetTodoUseCase {
   /**
    * 학생의 모든 TODO 조회
    */
-  async getByStudentId(studentId: string, includeCompleted: boolean = true): Promise<Todo[]> {
-    return await this.todoRepository.findByStudentId(studentId, includeCompleted)
+  async getByStudentId(studentId: string, tenantId: string, includeCompleted: boolean = true): Promise<Todo[]> {
+    return await this.todoRepository.findByStudentId(studentId, tenantId, includeCompleted)
   }
 
   /**
@@ -47,15 +47,15 @@ export class GetTodoUseCase {
   /**
    * 임박한 TODO 조회 (D-3 이내)
    */
-  async getUpcoming(studentId: string, days: number = 3): Promise<Todo[]> {
-    return await this.todoRepository.findUpcoming(studentId, days)
+  async getUpcoming(studentId: string, tenantId: string, days: number = 3): Promise<Todo[]> {
+    return await this.todoRepository.findUpcoming(studentId, tenantId, days)
   }
 
   /**
    * 연체된 TODO 조회
    */
-  async getOverdue(studentId: string): Promise<Todo[]> {
-    return await this.todoRepository.findOverdue(studentId)
+  async getOverdue(studentId: string, tenantId: string): Promise<Todo[]> {
+    return await this.todoRepository.findOverdue(studentId, tenantId)
   }
 
   /**

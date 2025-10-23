@@ -5,6 +5,7 @@
 
 export interface StudentDetail {
   id: string
+  tenant_id: string
   student_code: string
   grade: string | null
   school: string | null

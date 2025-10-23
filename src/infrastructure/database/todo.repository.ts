@@ -25,16 +25,22 @@ export class TodoRepository implements ITodoRepository {
     return typeof client.from === 'function' && typeof client.rpc === 'function'
   }
 
-  async findById(id: string): Promise<Todo | null> {
+  async findById(id: string, tenantId: string): Promise<Todo | null> {
     try {
       const { data, error } = await this.dataSource
         .from('student_todos')
-        .select('*')
+        .select(`
+          id, tenant_id, student_id, title, description, subject, due_date,
+          due_day_of_week, priority, estimated_duration_minutes,
+          completed_at, verified_at, verified_by, notes,
+          created_at, updated_at, deleted_at
+        `)
         .eq('id', id)
+        .eq('tenant_id', tenantId)
         .maybeSingle()
 
       if (error) {
-        logError(error, { repository: 'TodoRepository', method: 'findById', id })
+        logError(error, { repository: 'TodoRepository', method: 'findById', id, tenantId })
         throw new DatabaseError('TODO를 조회할 수 없습니다', error)
       }
 
@@ -46,21 +52,29 @@ export class TodoRepository implements ITodoRepository {
     }
   }
 
-  async findByIdOrThrow(id: string): Promise<Todo> {
-    const todo = await this.findById(id)
+  async findByIdOrThrow(id: string, tenantId: string): Promise<Todo> {
+    const todo = await this.findById(id, tenantId)
     if (!todo) {
       throw new NotFoundError('TODO')
     }
     return todo
   }
 
-  async findByStudentId(studentId: string, includeCompleted: boolean = true): Promise<Todo[]> {
+  async findByStudentId(studentId: string, tenantId: string, includeCompleted: boolean = true): Promise<Todo[]> {
     try {
       let query = this.dataSource
         .from('student_todos')
-        .select('*')
+        .select(`
+          id, tenant_id, student_id, title, description, subject, due_date,
+          due_day_of_week, priority, estimated_duration_minutes,
+          completed_at, verified_at, verified_by, notes,
+          created_at, updated_at, deleted_at
+        `)
         .eq('student_id', studentId)
+        .eq('tenant_id', tenantId)
         .order('due_date', { ascending: true })
+        .order('created_at', { ascending: false })
+        .range(0, 99)
 
       if (!includeCompleted) {
         query = query.is('completed_at', null)
@@ -69,7 +83,7 @@ export class TodoRepository implements ITodoRepository {
       const { data, error } = await query
 
       if (error) {
-        logError(error, { repository: 'TodoRepository', method: 'findByStudentId' })
+        logError(error, { repository: 'TodoRepository', method: 'findByStudentId', tenantId })
         throw new DatabaseError('학생 TODO를 조회할 수 없습니다', error)
       }
 
@@ -81,17 +95,24 @@ export class TodoRepository implements ITodoRepository {
     }
   }
 
-  async findByStudentIdForDate(studentId: string, date: string): Promise<Todo[]> {
+  async findByStudentIdForDate(studentId: string, tenantId: string, date: string): Promise<Todo[]> {
     try {
       const { data, error } = await this.dataSource
         .from('student_todos')
-        .select('*')
+        .select(`
+          id, tenant_id, student_id, title, description, subject, due_date,
+          due_day_of_week, priority, estimated_duration_minutes,
+          completed_at, verified_at, verified_by, notes,
+          created_at, updated_at, deleted_at
+        `)
         .eq('student_id', studentId)
+        .eq('tenant_id', tenantId)
         .eq('due_date', date)
+        .order('priority', { ascending: false })
         .order('created_at', { ascending: true })
 
       if (error) {
-        logError(error, { repository: 'TodoRepository', method: 'findByStudentIdForDate' })
+        logError(error, { repository: 'TodoRepository', method: 'findByStudentIdForDate', tenantId })
         throw new DatabaseError('학생 TODO를 조회할 수 없습니다', error)
       }
 
@@ -107,10 +128,16 @@ export class TodoRepository implements ITodoRepository {
     try {
       let query = this.dataSource
         .from('student_todos')
-        .select('*')
+        .select(`
+          id, tenant_id, student_id, title, description, subject, due_date,
+          due_day_of_week, priority, estimated_duration_minutes,
+          completed_at, verified_at, verified_by, notes,
+          created_at, updated_at, deleted_at
+        `)
         .eq('tenant_id', tenantId)
         .order('due_date', { ascending: false })
-        .limit(limit)
+        .order('created_at', { ascending: false })
+        .range(0, Math.min(limit, 100) - 1)
 
       if (filters?.studentId) {
         query = query.eq('student_id', filters.studentId)
@@ -143,7 +170,7 @@ export class TodoRepository implements ITodoRepository {
       const { data, error } = await query
 
       if (error) {
-        logError(error, { repository: 'TodoRepository', method: 'findAll' })
+        logError(error, { repository: 'TodoRepository', method: 'findAll', tenantId })
         throw new DatabaseError('TODO 목록을 조회할 수 없습니다', error)
       }
 
@@ -169,7 +196,10 @@ export class TodoRepository implements ITodoRepository {
       let query = client
         .from('student_todos')
         .select(`
-          *,
+          id, tenant_id, student_id, title, description, subject, due_date,
+          due_day_of_week, priority, estimated_duration_minutes,
+          completed_at, verified_at, verified_by, notes,
+          created_at, updated_at, deleted_at,
           students!inner (
             id,
             student_code,
@@ -180,7 +210,8 @@ export class TodoRepository implements ITodoRepository {
         `)
         .eq('tenant_id', tenantId)
         .order('due_date', { ascending: false })
-        .limit(limit)
+        .order('created_at', { ascending: false })
+        .range(0, Math.min(limit, 100) - 1)
 
       // Apply filters (same as findAll)
       if (filters?.studentId) {
@@ -214,7 +245,7 @@ export class TodoRepository implements ITodoRepository {
       const { data, error } = await query
 
       if (error) {
-        logError(error, { repository: 'TodoRepository', method: 'findAllWithStudent' })
+        logError(error, { repository: 'TodoRepository', method: 'findAllWithStudent', tenantId })
         throw new DatabaseError('TODO 목록을 조회할 수 없습니다', error)
       }
 
@@ -235,7 +266,7 @@ export class TodoRepository implements ITodoRepository {
     }
   }
 
-  async findUpcoming(studentId: string, days: number = 3): Promise<Todo[]> {
+  async findUpcoming(studentId: string, tenantId: string, days: number = 3): Promise<Todo[]> {
     try {
       const today = new Date()
       const futureDate = new Date()
@@ -243,15 +274,22 @@ export class TodoRepository implements ITodoRepository {
 
       const { data, error } = await this.dataSource
         .from('student_todos')
-        .select('*')
+        .select(`
+          id, tenant_id, student_id, title, description, subject, due_date,
+          due_day_of_week, priority, estimated_duration_minutes,
+          completed_at, verified_at, verified_by, notes,
+          created_at, updated_at, deleted_at
+        `)
         .eq('student_id', studentId)
+        .eq('tenant_id', tenantId)
         .gte('due_date', today.toISOString().split('T')[0])
         .lte('due_date', futureDate.toISOString().split('T')[0])
         .is('completed_at', null)
         .order('due_date', { ascending: true })
+        .order('priority', { ascending: false })
 
       if (error) {
-        logError(error, { repository: 'TodoRepository', method: 'findUpcoming' })
+        logError(error, { repository: 'TodoRepository', method: 'findUpcoming', tenantId })
         throw new DatabaseError('임박한 TODO를 조회할 수 없습니다', error)
       }
 
@@ -263,20 +301,27 @@ export class TodoRepository implements ITodoRepository {
     }
   }
 
-  async findOverdue(studentId: string): Promise<Todo[]> {
+  async findOverdue(studentId: string, tenantId: string): Promise<Todo[]> {
     try {
       const today = new Date().toISOString().split('T')[0]
 
       const { data, error } = await this.dataSource
         .from('student_todos')
-        .select('*')
+        .select(`
+          id, tenant_id, student_id, title, description, subject, due_date,
+          due_day_of_week, priority, estimated_duration_minutes,
+          completed_at, verified_at, verified_by, notes,
+          created_at, updated_at, deleted_at
+        `)
         .eq('student_id', studentId)
+        .eq('tenant_id', tenantId)
         .lt('due_date', today)
         .is('completed_at', null)
         .order('due_date', { ascending: true })
+        .order('priority', { ascending: false })
 
       if (error) {
-        logError(error, { repository: 'TodoRepository', method: 'findOverdue' })
+        logError(error, { repository: 'TodoRepository', method: 'findOverdue', tenantId })
         throw new DatabaseError('연체 TODO를 조회할 수 없습니다', error)
       }
 
@@ -288,18 +333,29 @@ export class TodoRepository implements ITodoRepository {
     }
   }
 
-  async save(todo: Todo): Promise<Todo> {
+  async save(todo: Todo, tenantId: string): Promise<Todo> {
     try {
       const data = todo.toPersistence()
+
+      // Validate tenant ownership
+      if (data.tenant_id !== tenantId) {
+        throw new DatabaseError('권한이 없습니다. 다른 테넌트의 TODO 데이터를 저장할 수 없습니다.')
+      }
 
       const { data: savedData, error } = await this.dataSource
         .from('student_todos')
         .upsert(data)
-        .select()
+        .select(`
+          id, tenant_id, student_id, title, description, subject, due_date,
+          due_day_of_week, priority, estimated_duration_minutes,
+          completed_at, verified_at, verified_by, notes,
+          created_at, updated_at, deleted_at
+        `)
+        .eq('tenant_id', tenantId)
         .single()
 
       if (error) {
-        logError(error, { repository: 'TodoRepository', method: 'save' })
+        logError(error, { repository: 'TodoRepository', method: 'save', tenantId })
         throw new DatabaseError('TODO를 저장할 수 없습니다', error)
       }
 
@@ -311,17 +367,29 @@ export class TodoRepository implements ITodoRepository {
     }
   }
 
-  async saveBulk(todos: Todo[]): Promise<Todo[]> {
+  async saveBulk(todos: Todo[], tenantId: string): Promise<Todo[]> {
     try {
       const data = todos.map(todo => todo.toPersistence())
+
+      // Validate all todos belong to the same tenant
+      const invalidTodos = data.filter(d => d.tenant_id !== tenantId)
+      if (invalidTodos.length > 0) {
+        throw new DatabaseError('권한이 없습니다. 다른 테넌트의 TODO 데이터를 저장할 수 없습니다.')
+      }
 
       const { data: savedData, error } = await this.dataSource
         .from('student_todos')
         .upsert(data)
-        .select()
+        .select(`
+          id, tenant_id, student_id, title, description, subject, due_date,
+          due_day_of_week, priority, estimated_duration_minutes,
+          completed_at, verified_at, verified_by, notes,
+          created_at, updated_at, deleted_at
+        `)
+        .eq('tenant_id', tenantId)
 
       if (error) {
-        logError(error, { repository: 'TodoRepository', method: 'saveBulk' })
+        logError(error, { repository: 'TodoRepository', method: 'saveBulk', tenantId })
         throw new DatabaseError('TODO를 일괄 저장할 수 없습니다', error)
       }
 
@@ -333,15 +401,16 @@ export class TodoRepository implements ITodoRepository {
     }
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string, tenantId: string): Promise<void> {
     try {
       const { error } = await this.dataSource
         .from('student_todos')
         .delete()
         .eq('id', id)
+        .eq('tenant_id', tenantId)
 
       if (error) {
-        logError(error, { repository: 'TodoRepository', method: 'delete', id })
+        logError(error, { repository: 'TodoRepository', method: 'delete', id, tenantId })
         throw new DatabaseError('TODO를 삭제할 수 없습니다', error)
       }
     } catch (error) {
@@ -427,6 +496,12 @@ export class TodoRepository implements ITodoRepository {
    * Database row를 Domain Entity로 변환
    */
   private mapToDomain(row: Record<string, unknown>): Todo {
+    const parseSafeDate = (value: unknown): Date | null => {
+      if (!value) return null
+      const date = new Date(value as string)
+      return isNaN(date.getTime()) ? null : date
+    }
+
     return Todo.fromDatabase({
       id: row.id as string,
       tenantId: row.tenant_id as string,
@@ -434,17 +509,17 @@ export class TodoRepository implements ITodoRepository {
       title: row.title as string,
       description: row.description as string | null,
       subject: row.subject as string | null,
-      dueDate: new Date(row.due_date as string),
+      dueDate: row.due_date ? new Date(row.due_date as string) : new Date(),
       dueDayOfWeek: row.due_day_of_week as number,
       priority: Priority.fromString(row.priority as string),
       estimatedDurationMinutes: row.estimated_duration_minutes as number | null,
-      completedAt: row.completed_at ? new Date(row.completed_at as string) : null,
-      verifiedAt: row.verified_at ? new Date(row.verified_at as string) : null,
+      completedAt: parseSafeDate(row.completed_at),
+      verifiedAt: parseSafeDate(row.verified_at),
       verifiedBy: row.verified_by as string | null,
       notes: row.notes as string | null,
-      createdAt: new Date(row.created_at as string),
-      updatedAt: new Date(row.updated_at as string),
-      deletedAt: row.deleted_at ? new Date(row.deleted_at as string) : null,
+      createdAt: row.created_at ? new Date(row.created_at as string) : new Date(),
+      updatedAt: row.updated_at ? new Date(row.updated_at as string) : new Date(),
+      deletedAt: parseSafeDate(row.deleted_at),
     })
   }
 }

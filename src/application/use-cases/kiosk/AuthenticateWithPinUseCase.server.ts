@@ -17,6 +17,7 @@ import {
 
 export interface StudentDTO {
   id: string
+  tenantId: string
   studentCode: string
   name: string
   grade: string | null
@@ -101,6 +102,7 @@ export class AuthenticateWithPinUseCase {
       // StudentDTO 생성 (PIN 제외)
       const studentDTO: StudentDTO = {
         id: student.id,
+        tenantId: student.tenantId,
         studentCode: student.studentCode.getValue(),
         name: student.name,
         grade: student.grade,

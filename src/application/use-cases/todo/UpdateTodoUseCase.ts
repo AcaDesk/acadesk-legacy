@@ -10,6 +10,7 @@ import { ValidationError, NotFoundError } from '@/lib/error-types'
 
 export interface UpdateTodoDTO {
   id: string
+  tenantId: string
   title?: string
   description?: string | null
   subject?: string | null
@@ -24,7 +25,7 @@ export class UpdateTodoUseCase {
 
   async execute(dto: UpdateTodoDTO): Promise<Todo> {
     // Find existing todo
-    const todo = await this.todoRepository.findById(dto.id)
+    const todo = await this.todoRepository.findById(dto.id, dto.tenantId)
 
     if (!todo) {
       throw new NotFoundError('TODO')
@@ -70,6 +71,6 @@ export class UpdateTodoUseCase {
     const updatedTodo = todo.update(updates)
 
     // Persist to database
-    return await this.todoRepository.save(updatedTodo)
+    return await this.todoRepository.save(updatedTodo, dto.tenantId)
   }
 }

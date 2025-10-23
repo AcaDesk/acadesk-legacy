@@ -7,6 +7,7 @@ export interface KioskSession {
   studentId: string
   studentCode: string
   studentName: string
+  tenantId: string
   loginAt: string
 }
 
@@ -20,11 +21,13 @@ export function createKioskSession(student: {
   id: string
   student_code: string
   name: string
+  tenant_id: string
 }): void {
   const session: KioskSession = {
     studentId: student.id,
     studentCode: student.student_code,
     studentName: student.name,
+    tenantId: student.tenant_id,
     loginAt: new Date().toISOString(),
   }
 

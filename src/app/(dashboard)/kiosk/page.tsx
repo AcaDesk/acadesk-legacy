@@ -21,6 +21,7 @@ export default function KioskPage() {
   // All Hooks must be called before any early returns
   const [studentId, setStudentId] = useState<string | null>(null)
   const [studentName, setStudentName] = useState<string>('')
+  const [tenantId, setTenantId] = useState<string | null>(null)
   const [todos, setTodos] = useState<StudentTodo[]>([])
   const [showCelebration, setShowCelebration] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -41,6 +42,7 @@ export default function KioskPage() {
 
     setStudentId(session.studentId)
     setStudentName(session.studentName)
+    setTenantId(session.tenantId)
     setIsCheckingSession(false)
   }, [router])
 
@@ -54,10 +56,10 @@ export default function KioskPage() {
 
   // Function definitions
   async function loadTodos() {
-    if (!studentId) return
+    if (!studentId || !tenantId) return
 
     try {
-      const result = await getStudentTodosForToday(studentId)
+      const result = await getStudentTodosForToday(studentId, tenantId)
 
       if (!result.success) {
         console.error('TODO 로드 오류:', result.error)
@@ -84,12 +86,12 @@ export default function KioskPage() {
   }
 
   async function handleToggleTodo(todoId: string, currentStatus: boolean) {
-    if (!studentId) return
+    if (!studentId || !tenantId) return
 
     setLoading(true)
 
     try {
-      const result = await toggleTodoComplete(todoId, studentId, !!currentStatus)
+      const result = await toggleTodoComplete(todoId, studentId, tenantId, !!currentStatus)
 
       if (!result.success) {
         toast({

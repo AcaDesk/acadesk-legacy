@@ -22,11 +22,12 @@ export class ToggleTodoCompleteForKioskUseCase {
   async execute(
     todoId: string,
     studentId: string,
+    tenantId: string,
     currentStatus: boolean
   ): Promise<ToggleResult> {
     try {
       // TODO 조회
-      const todo = await this.todoRepository.findById(todoId)
+      const todo = await this.todoRepository.findById(todoId, tenantId)
 
       if (!todo) {
         return {
@@ -78,7 +79,7 @@ export class ToggleTodoCompleteForKioskUseCase {
       }
 
       // 저장
-      await this.todoRepository.save(updatedTodo)
+      await this.todoRepository.save(updatedTodo, tenantId)
 
       return {
         success: true,

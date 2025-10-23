@@ -9,6 +9,7 @@ import { NotFoundError, ValidationError } from '@/lib/error-types'
 
 export interface VerifyTodoDTO {
   todoId: string
+  tenantId: string
   verifiedBy: string // User ID of the teacher/instructor
 }
 
@@ -17,7 +18,7 @@ export class VerifyTodoUseCase {
 
   async execute(dto: VerifyTodoDTO): Promise<Todo> {
     // Find todo
-    const todo = await this.todoRepository.findById(dto.todoId)
+    const todo = await this.todoRepository.findById(dto.todoId, dto.tenantId)
 
     if (!todo) {
       throw new NotFoundError('TODO')
@@ -42,6 +43,6 @@ export class VerifyTodoUseCase {
     const verifiedTodo = todo.verify(dto.verifiedBy)
 
     // Persist to database
-    return await this.todoRepository.save(verifiedTodo)
+    return await this.todoRepository.save(verifiedTodo, dto.tenantId)
   }
 }
