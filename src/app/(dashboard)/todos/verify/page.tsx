@@ -151,25 +151,26 @@ export default function VerifyTodosPage() {
     setLoading(true)
 
     try {
-      const verifyTodosUseCase = createVerifyTodosUseCase()
-      const result = await verifyTodosUseCase.execute({
+      // ✅ Use Server Action instead of direct UseCase
+      const { verifyTodos } = await import('@/app/actions/todos')
+      const result = await verifyTodos({
         todoIds: Array.from(selectedTodos),
-        verifiedBy: currentUser.id,
-        tenantId,
       })
 
-      if (result.error) throw result.error
+      if (!result.success) {
+        throw new Error(result.error || '검증 실패')
+      }
 
-      if (result.failedTodoIds.length > 0) {
+      if (result.data && result.data.failedTodoIds.length > 0) {
         toast({
           title: '일부 검증 실패',
-          description: `${result.verifiedCount}개 검증 완료, ${result.failedTodoIds.length}개 실패`,
+          description: `${result.data.verifiedCount}개 검증 완료, ${result.data.failedTodoIds.length}개 실패`,
           variant: 'destructive',
         })
       } else {
         toast({
           title: '검증 완료',
-          description: `${result.verifiedCount}개의 과제가 검증되었습니다.`,
+          description: `${result.data?.verifiedCount || 0}개의 과제가 검증되었습니다.`,
         })
       }
 
@@ -225,13 +226,16 @@ export default function VerifyTodosPage() {
     setLoading(true)
 
     try {
-      const rejectTodoUseCase = createRejectTodoUseCase()
-      await rejectTodoUseCase.execute({
+      // ✅ Use Server Action instead of direct UseCase
+      const { rejectTodo: rejectTodoAction } = await import('@/app/actions/todos')
+      const result = await rejectTodoAction({
         todoId: currentTodoId,
-        rejectedBy: currentUser.id,
         rejectionReason: feedback,
-        tenantId,
       })
+
+      if (!result.success) {
+        throw new Error(result.error || '반려 실패')
+      }
 
       toast({
         title: '과제 반려',

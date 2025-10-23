@@ -409,7 +409,8 @@ export default function WeeklyPlannerPage() {
       const monday = new Date(today.setDate(diff))
       monday.setHours(0, 0, 0, 0)
 
-      const createTodoUseCase = createCreateTodosForStudentsUseCase()
+      // ✅ Use Server Action instead of direct UseCase
+      const { createTodosForStudents } = await import('@/app/actions/todos')
 
       // Group todos by date and content to batch create
       const groupedTodos = new Map<string, { studentIds: string[], todo: PlannedTodo, dueDate: Date }>()
@@ -430,16 +431,20 @@ export default function WeeklyPlannerPage() {
         groupedTodos.get(key)!.studentIds.push(pt.studentId)
       })
 
-      // Create todos for each group
+      // Create todos for each group via Server Action
       for (const group of groupedTodos.values()) {
-        await createTodoUseCase.execute({
-          tenantId,
+        const result = await createTodosForStudents({
           studentIds: group.studentIds,
           title: group.todo.title,
           subject: group.todo.subject,
-          dueDate: group.dueDate,
+          dueDate: group.dueDate.toISOString(),
           priority: group.todo.priority as 'low' | 'normal' | 'high' | 'urgent',
+          estimatedDurationMinutes: group.todo.estimatedDuration,
         })
+
+        if (!result.success) {
+          throw new Error(result.error || 'TODO 생성 실패')
+        }
       }
 
       toast({

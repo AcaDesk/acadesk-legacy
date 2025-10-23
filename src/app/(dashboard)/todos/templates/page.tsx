@@ -236,12 +236,13 @@ export default function TodoTemplatesPage() {
     }
 
     try {
-      const { error } = await supabase
-        .from('todo_templates')
-        .delete()
-        .eq('id', id)
+      // ✅ Use Server Action instead of direct Supabase CUD
+      const { deleteTodoTemplate } = await import('@/app/actions/todo-templates')
+      const result = await deleteTodoTemplate(id)
 
-      if (error) throw error
+      if (!result.success) {
+        throw new Error(result.error || '삭제 실패')
+      }
 
       toast({
         title: '삭제 완료',
@@ -260,12 +261,13 @@ export default function TodoTemplatesPage() {
 
   async function handleToggleActive(template: TodoTemplate) {
     try {
-      const { error } = await supabase
-        .from('todo_templates')
-        .update({ active: !template.active })
-        .eq('id', template.id)
+      // ✅ Use Server Action instead of direct Supabase CUD
+      const { toggleTodoTemplateActive } = await import('@/app/actions/todo-templates')
+      const result = await toggleTodoTemplateActive(template.id)
 
-      if (error) throw error
+      if (!result.success) {
+        throw new Error(result.error || '변경 실패')
+      }
 
       toast({
         title: template.active ? '비활성화됨' : '활성화됨',
