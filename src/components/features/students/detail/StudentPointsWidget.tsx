@@ -13,7 +13,6 @@ import {
   DialogTitle,
 } from '@ui/dialog'
 import { Award, TrendingUp, TrendingDown, History, Plus } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { format as formatDate } from 'date-fns'
 import { ko } from 'date-fns/locale'
 
@@ -38,7 +37,7 @@ export function StudentPointsWidget({ studentId }: StudentPointsWidgetProps) {
   const [loading, setLoading] = useState(true)
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false)
   const [addPointDialogOpen, setAddPointDialogOpen] = useState(false)
-  const supabase = createClient()
+  // Fetch from server API (service_role), no direct RPC from client
 
   useEffect(() => {
     loadPointData()
@@ -49,22 +48,20 @@ export function StudentPointsWidget({ studentId }: StudentPointsWidgetProps) {
     try {
       setLoading(true)
 
-      // Get current balance
-      const { data: balanceData, error: balanceError } = await supabase
-        .rpc('get_student_point_balance', { p_student_id: studentId })
+      const res = await fetch(`/api/students/${studentId}/points`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+      })
 
-      if (balanceError) throw balanceError
-      setBalance(balanceData)
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body?.error || `Failed to load points (${res.status})`)
+      }
 
-      // Get recent history
-      const { data: historyData, error: historyError } = await supabase
-        .rpc('get_student_point_history', {
-          p_student_id: studentId,
-          p_limit: 20,
-        })
-
-      if (historyError) throw historyError
-      setHistory(historyData || [])
+      const payload = (await res.json()) as { balance: number; history: PointHistory[] }
+      setBalance(payload.balance)
+      setHistory(payload.history || [])
     } catch (error) {
       console.error('Error loading point data:', error)
       setBalance(0)

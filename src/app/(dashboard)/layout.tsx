@@ -204,7 +204,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     }
 
     // 온보딩 미완료 - routeAfterLogin으로 위임
-    // (get_auth_stage가 자동으로 올바른 페이지로 라우팅)
+    // (Server Action이 자동으로 올바른 페이지로 라우팅)
     if (!user.onboardingCompleted) {
       // 단, dashboard layout에서는 간단히 로그인으로 리디렉트
       // (실제 상태 확인은 login에서 routeAfterLogin이 처리)

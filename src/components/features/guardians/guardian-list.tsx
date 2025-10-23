@@ -16,22 +16,16 @@ export function GuardianList() {
 
   const { toast } = useToast()
 
-  // Load tenant ID
+  // Load tenant ID via server API (service_role)
   useEffect(() => {
     async function loadTenantId() {
-      const { createClient } = await import('@/lib/supabase/client')
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data } = await supabase
-          .from('users')
-          .select('tenant_id')
-          .eq('id', user.id)
-          .single()
-
-        if (data?.tenant_id) {
-          setTenantId(data.tenant_id)
-        }
+      try {
+        const res = await fetch('/api/auth/tenant', { cache: 'no-store' })
+        if (!res.ok) return
+        const { tenantId } = (await res.json()) as { tenantId?: string }
+        if (tenantId) setTenantId(tenantId)
+      } catch (e) {
+        console.warn('Failed to load tenantId')
       }
     }
     loadTenantId()
