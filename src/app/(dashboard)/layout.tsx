@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { DashboardLayoutClient } from './layout.client'
+import { DashboardShell } from '@/components/layout/dashboard-shell'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@ui/button'
 
@@ -94,13 +94,13 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
   //   redirect('/auth/bootstrap')
   // }
 
-  // 6. 모든 체크 완료 - 클라이언트 컴포넌트로 전달
+  // 6. 모든 체크 완료 - UI 셸로 전달
   return (
-    <DashboardLayoutClient
+    <DashboardShell
       userName={userData.name || undefined}
       userEmail={userData.email || user.email || undefined}
     >
       {children}
-    </DashboardLayoutClient>
+    </DashboardShell>
   )
 }
