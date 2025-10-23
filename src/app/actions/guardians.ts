@@ -500,3 +500,137 @@ export async function searchGuardians(query: string, limit: number = 10) {
     return { success: false, error: getErrorMessage(error), data: [] }
   }
 }
+
+/**
+ * 학생의 보호자 연락처 정보 조회 (연락용)
+ * @param studentId - 학생 ID
+ * @returns 간소화된 보호자 목록 (이름, 관계, 연락처)
+ */
+export async function getGuardiansForContact(studentId: string) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = await createServiceRoleClient()
+
+    // student_guardians를 통해 보호자 조회
+    const { data: links, error: linksError } = await supabase
+      .from('student_guardians')
+      .select(`
+        guardian_id,
+        relation,
+        guardians!inner (
+          id,
+          relationship,
+          users!inner (
+            name,
+            email,
+            phone
+          )
+        )
+      `)
+      .eq('student_id', studentId)
+      .eq('tenant_id', tenantId)
+      .is('guardians.deleted_at', null)
+
+    if (linksError) {
+      console.error('[getGuardiansForContact] Error:', linksError)
+      throw linksError
+    }
+
+    // TODO(any): Supabase nested query types need proper typing
+    const guardians = (links || []).map((link: any) => {
+      const guardian = link.guardians
+      const user = guardian?.users
+
+      return {
+        id: guardian?.id || '',
+        name: user?.name || '',
+        relationship: link.relation || guardian?.relationship || null,
+        email: user?.email || null,
+        phone: user?.phone || null,
+      }
+    })
+
+    return guardians
+  } catch (error) {
+    console.error('[getGuardiansForContact] Exception:', error)
+    throw new Error(getErrorMessage(error))
+  }
+}
+
+/**
+ * 보호자 연락 기록 저장
+ * @param data - 연락 기록 데이터
+ * @returns 성공 여부
+ */
+export async function logGuardianContact(data: {
+  studentId: string
+  guardianId: string
+  sessionId: string
+  notificationType: string
+  message: string
+  notes?: string
+}) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = await createServiceRoleClient()
+
+    // notification_type은 'sms' 또는 'email'만 허용 (DB constraint)
+    // 'phone' → 'sms'로 매핑 (전화 연락도 SMS 알림으로 기록)
+    let notificationType = data.notificationType
+    if (notificationType === 'phone') {
+      notificationType = 'sms'
+    }
+
+    // 보호자 정보 조회
+    const { data: guardian, error: guardianError } = await supabase
+      .from('guardians')
+      .select('users(name)')
+      .eq('id', data.guardianId)
+      .eq('tenant_id', tenantId)
+      .single()
+
+    if (guardianError) {
+      console.error('[logGuardianContact] Guardian not found:', guardianError)
+    }
+
+    // TODO(any): Supabase nested query type
+    const guardianName = (guardian?.users as any)?.name || '보호자'
+
+    // 메시지 구성 (보호자 이름 + 원본 메시지 + 추가 메모)
+    const fullMessage = [
+      `[${guardianName}]`,
+      data.message,
+      data.notes ? `메모: ${data.notes}` : null,
+    ]
+      .filter(Boolean)
+      .join(' ')
+
+    // notification_logs에 기록
+    const { error: logError } = await supabase.from('notification_logs').insert({
+      tenant_id: tenantId,
+      student_id: data.studentId,
+      session_id: data.sessionId,
+      notification_type: notificationType,
+      status: 'sent',
+      message: fullMessage,
+      sent_at: new Date().toISOString(),
+    })
+
+    if (logError) {
+      console.error('[logGuardianContact] Insert error:', logError)
+      throw new Error(`연락 기록 저장 실패: ${logError.message}`)
+    }
+
+    // 캐시 무효화
+    revalidatePath(`/students/${data.studentId}`)
+    revalidatePath('/attendance')
+
+    return { success: true, error: null }
+  } catch (error) {
+    console.error('[logGuardianContact] Exception:', error)
+    return {
+      success: false,
+      error: getErrorMessage(error),
+    }
+  }
+}

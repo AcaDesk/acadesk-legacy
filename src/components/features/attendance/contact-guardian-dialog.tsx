@@ -13,13 +13,9 @@ import { Button } from '@ui/button'
 import { Textarea } from '@ui/textarea'
 import { Badge } from '@ui/badge'
 import { useToast } from '@/hooks/use-toast'
-import { useCurrentUser } from '@/hooks/use-current-user'
 import { Loader2, Phone, MessageSquare, Mail, User } from 'lucide-react'
 import { getErrorMessage } from '@/lib/error-handlers'
-import {
-  createGetGuardiansForContactUseCase,
-  createLogGuardianContactUseCase,
-} from '@core/application/factories/guardianUseCaseFactory.client'
+import { getGuardiansForContact, logGuardianContact } from '@/app/actions/guardians'
 
 interface Guardian {
   id: string
@@ -52,7 +48,6 @@ export function ContactGuardianDialog({
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const { toast } = useToast()
-  const { user: currentUser } = useCurrentUser()
 
   useEffect(() => {
     if (open) {
@@ -66,8 +61,7 @@ export function ContactGuardianDialog({
   async function loadGuardians() {
     try {
       setLoading(true)
-      const useCase = createGetGuardiansForContactUseCase()
-      const guardianList = await useCase.execute(studentId)
+      const guardianList = await getGuardiansForContact(studentId)
       setGuardians(guardianList)
     } catch (error) {
       toast({
@@ -81,14 +75,10 @@ export function ContactGuardianDialog({
   }
 
   const handleContactLog = async (guardianId: string, method: string) => {
-    if (!currentUser || !currentUser.tenantId) return
-
     setSaving(true)
     try {
       // Log the contact attempt
-      const useCase = createLogGuardianContactUseCase()
-      const { success, error } = await useCase.execute({
-        tenantId: currentUser.tenantId,
+      const result = await logGuardianContact({
         studentId,
         guardianId,
         sessionId,
@@ -97,8 +87,8 @@ export function ContactGuardianDialog({
         notes: notes || undefined,
       })
 
-      if (!success || error) {
-        throw error || new Error('연락 기록 저장에 실패했습니다')
+      if (!result.success || result.error) {
+        throw new Error(result.error || '연락 기록 저장에 실패했습니다')
       }
 
       toast({

@@ -1,12 +1,16 @@
 /**
  * Callback Wait Page Component
  *
- * 사용자가 "이메일 인증 완료하기" 버튼을 클릭하여
- * handleAuthCallback Server Action을 호출하도록 유도
+ * 사용자가 "이메일 인증 완료하기" 버튼을 클릭하여 PKCE flow를 완료하도록 유도
+ *
+ * PKCE Flow (클라이언트 기반):
+ * 1. 클라이언트에서 code 교환 (code_verifier 접근 가능)
+ * 2. 세션이 생성되면 서버 액션으로 프로필 생성/온보딩 체크
  *
  * 이렇게 하면:
  * - 메일 스캐너는 버튼을 클릭할 수 없음 (JS 실행 안 됨)
  * - 실제 사용자만 버튼 클릭으로 인증 토큰 소비
+ * - PKCE code_verifier가 브라우저에 있어서 교환 성공
  */
 
 'use client'
@@ -22,7 +26,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@ui/card'
-import { handleAuthCallback } from '@/app/actions/auth'
+import { createClient } from '@/lib/supabase/client'
+import { postAuthSetup } from '@/app/actions/auth'
 import { useToast } from '@/hooks/use-toast'
 
 interface CallbackWaitPageProps {
@@ -41,37 +46,29 @@ export default function CallbackWaitPage({ code, type }: CallbackWaitPageProps) 
 
     try {
       // Server Action 호출
-      const result = await handleAuthCallback(code, type)
+      // handleAuthCallback은 이제 redirect()를 직접 호출하므로
+      // 성공 시 이 함수는 리턴되지 않고 redirect가 발생합니다
+      await handleAuthCallback(code, type)
 
-      if (!result.success) {
-        console.error('[CallbackWaitPage] Auth callback failed:', result.error)
-        toast({
-          title: '인증 실패',
-          description: result.error || '인증에 실패했습니다.',
-          variant: 'destructive',
-        })
-
-        // 에러 발생 시 nextUrl로 리다이렉트
-        if (result.nextUrl) {
-          router.push(result.nextUrl)
-        }
-        return
-      }
-
-      console.log('[CallbackWaitPage] Auth callback success, redirecting to:', result.nextUrl)
-
-      // 성공 시 nextUrl로 리다이렉트
-      if (result.nextUrl) {
-        router.push(result.nextUrl)
-      } else {
-        // nextUrl이 없으면 대시보드로
-        router.push('/dashboard')
-      }
+      // 이 코드는 redirect가 실패했을 때만 실행됩니다 (드문 경우)
+      console.warn('[CallbackWaitPage] handleAuthCallback returned without redirect')
+      router.push('/dashboard')
     } catch (error) {
+      // redirect()는 NEXT_REDIRECT 에러를 throw하므로 이것은 정상 동작입니다
+      // 다른 에러만 처리합니다
+      if (error && typeof error === 'object' && 'digest' in error) {
+        const digest = String((error as { digest: unknown }).digest)
+        if (digest.startsWith('NEXT_REDIRECT')) {
+          // redirect 에러는 재throw하여 Next.js가 처리하도록 함
+          throw error
+        }
+      }
+
+      // 그 외 실제 에러 처리
       console.error('[CallbackWaitPage] Unexpected error:', error)
       toast({
-        title: '오류 발생',
-        description: '알 수 없는 오류가 발생했습니다.',
+        title: '인증 오류',
+        description: '인증 처리 중 오류가 발생했습니다. 다시 시도해주세요.',
         variant: 'destructive',
       })
       router.push('/auth/login')
