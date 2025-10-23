@@ -155,7 +155,7 @@ export function RecentStudentsCard({ students, maxDisplay = 5 }: RecentStudentsC
                 <div className="flex items-center gap-2">
                   <Badge variant="secondary" className="text-xs">
                     <CalendarDays className="h-3 w-3 mr-1" />
-                    {formatDate(student.enrollment_date)}
+                    {formatDate(student.enrollment_date || student.joinedAt)}
                   </Badge>
                 </div>
 

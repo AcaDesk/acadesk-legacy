@@ -37,7 +37,7 @@ export function StudentDetailClient({
     setConsultations([consultation, ...consultations])
   }
 
-  const handleDataRefresh = () => {
+  const handleDataRefresh = async () => {
     router.refresh()
   }
 
@@ -46,6 +46,7 @@ export function StudentDetailClient({
       <StudentDetailProvider
         value={{
           ...initialData,
+          refreshStudent: handleDataRefresh,
           onRefresh: handleDataRefresh,
         }}
       >

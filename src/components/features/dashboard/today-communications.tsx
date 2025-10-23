@@ -87,7 +87,7 @@ export function TodayCommunications({ birthdayStudents, scheduledConsultations, 
                       <div>
                         <div className="font-medium">{consultation.student_name || '이름 없음'}</div>
                         <div className="text-xs text-muted-foreground">
-                          {consultation.scheduled_time}
+                          {consultation.scheduled_at}
                         </div>
                       </div>
                     </div>
@@ -108,7 +108,7 @@ export function TodayCommunications({ birthdayStudents, scheduledConsultations, 
             </h4>
             <div className="space-y-2">
               {parentsToContact.map((parent) => (
-                <Link key={parent.id} href={`/guardians/${parent.guardian_id}`}>
+                <Link key={parent.id} href={`/guardians/${parent.id}`}>
                   <div className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted transition-colors cursor-pointer bg-orange-50/50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800">
                     <div className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-full bg-orange-100 dark:bg-orange-950 flex items-center justify-center">
