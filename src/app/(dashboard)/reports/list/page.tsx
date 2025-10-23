@@ -175,17 +175,20 @@ export default function ReportsListPage() {
     }
 
     try {
-      // Update sent_at timestamp
-      const { error } = await supabase
-        .from('reports')
-        .update({ sent_at: new Date().toISOString() })
-        .eq('id', reportId)
+      // Dynamic import to avoid bundling server action in client
+      const { sendReportToAllGuardians } = await import('@/app/actions/reports')
 
-      if (error) throw error
+      const result = await sendReportToAllGuardians(reportId)
+
+      if (!result.success) {
+        throw new Error(result.error || '리포트 전송에 실패했습니다')
+      }
+
+      const { successCount, failCount, total } = result.data!
 
       toast({
         title: '전송 완료',
-        description: `${studentName} 학생의 보호자에게 리포트가 전송되었습니다.`,
+        description: `${studentName} 학생의 보호자 ${successCount}명에게 리포트가 전송되었습니다.${failCount > 0 ? ` (${failCount}명 실패)` : ''}`,
       })
 
       loadData()
@@ -193,7 +196,7 @@ export default function ReportsListPage() {
       console.error('Error sending report:', error)
       toast({
         title: '전송 오류',
-        description: '리포트를 전송하는 중 오류가 발생했습니다.',
+        description: error instanceof Error ? error.message : '리포트를 전송하는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
     }

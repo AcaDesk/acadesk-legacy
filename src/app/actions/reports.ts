@@ -699,3 +699,395 @@ async function getAttendanceChartData(
     }
   })
 }
+
+// ============================================================================
+// Report Sending Functions
+// ============================================================================
+
+import {
+  generateShortCode,
+  generateReportShareUrl,
+  generateSmsShortUrl,
+  generateReportSmsMessage,
+  calculateLinkExpiry,
+} from '@/lib/short-url'
+
+/**
+ * 단축 URL 생성
+ *
+ * @param reportSendId - report_sends.id
+ * @param targetUrl - 실제 리포트 URL
+ * @param tenantId - 학원 ID
+ * @returns 단축 URL 정보
+ */
+export async function createShortUrl(
+  reportSendId: string,
+  targetUrl: string,
+  tenantId: string
+) {
+  try {
+    const supabase = createServiceRoleClient()
+
+    // 단축 코드 생성 (6자)
+    const shortCode = generateShortCode(6)
+
+    // 만료일 설정 (7일)
+    const expiresAt = calculateLinkExpiry(7)
+
+    // short_urls 테이블에 저장
+    const { data: shortUrl, error } = await supabase
+      .from('short_urls')
+      .insert({
+        tenant_id: tenantId,
+        short_code: shortCode,
+        target_url: targetUrl,
+        report_send_id: reportSendId,
+        expires_at: expiresAt,
+        is_active: true,
+      })
+      .select('id, short_code')
+      .single()
+
+    if (error) {
+      throw new Error('단축 URL 생성 실패: ' + error.message)
+    }
+
+    return {
+      success: true,
+      data: {
+        id: shortUrl.id,
+        shortCode: shortUrl.short_code,
+        shortUrl: generateSmsShortUrl(shortUrl.short_code),
+      },
+      error: null,
+    }
+  } catch (error) {
+    console.error('[createShortUrl] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * 리포트 전송 준비 (발송 레코드 생성 + 단축 URL 생성)
+ *
+ * @param reportId - 리포트 ID
+ * @returns 발송 정보 배열
+ */
+export async function prepareReportSending(reportId: string) {
+  try {
+    // 1. Verify authentication and get tenant
+    const { tenantId } = await verifyStaff()
+
+    // 2. Create service_role client
+    const supabase = createServiceRoleClient()
+
+    // 3. 리포트 정보 조회
+    const { data: report, error: reportError } = await supabase
+      .from('reports')
+      .select(`
+        id,
+        student_id,
+        report_type,
+        content,
+        students (
+          id,
+          users (
+            name
+          )
+        )
+      `)
+      .eq('id', reportId)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .single()
+
+    if (reportError || !report) {
+      throw new Error('리포트를 찾을 수 없습니다')
+    }
+
+    // 4. 학생의 보호자 조회
+    const { data: guardians, error: guardianError } = await supabase
+      .from('student_guardians')
+      .select(`
+        guardian_id,
+        guardians (
+          id,
+          name,
+          phone,
+          relationship
+        )
+      `)
+      .eq('student_id', report.student_id)
+      .is('deleted_at', null)
+
+    if (guardianError || !guardians || guardians.length === 0) {
+      throw new Error('보호자 정보를 찾을 수 없습니다')
+    }
+
+    // 5. 각 보호자별로 발송 레코드 생성
+    const reportSends = []
+
+    for (const sg of guardians) {
+      const guardian = sg.guardians as unknown as {
+        id: string
+        name: string
+        phone: string
+        relationship: string
+      }
+
+      if (!guardian.phone) {
+        console.warn(`Guardian ${guardian.id} has no phone number, skipping`)
+        continue
+      }
+
+      // 5-1. share_link_id 생성 (UUID 자동 생성됨)
+      // 만료일 설정 (7일)
+      const linkExpiresAt = calculateLinkExpiry(7)
+
+      // 5-2. report_sends 레코드 생성
+      const { data: reportSend, error: sendError } = await supabase
+        .from('report_sends')
+        .insert({
+          tenant_id: tenantId,
+          report_id: reportId,
+          recipient_type: 'guardian',
+          recipient_id: guardian.id,
+          recipient_phone: guardian.phone,
+          recipient_name: guardian.name,
+          link_expires_at: linkExpiresAt,
+          message_body: '', // 나중에 업데이트
+          message_type: 'SMS',
+          send_status: 'pending',
+        })
+        .select('id, share_link_id')
+        .single()
+
+      if (sendError) {
+        console.error('[prepareReportSending] Error creating report_send:', sendError)
+        continue
+      }
+
+      // 5-3. 실제 리포트 URL 생성
+      const reportUrl = generateReportShareUrl(reportSend.share_link_id)
+
+      // 5-4. 단축 URL 생성
+      const shortUrlResult = await createShortUrl(reportSend.id, reportUrl, tenantId)
+
+      if (!shortUrlResult.success || !shortUrlResult.data) {
+        console.error('[prepareReportSending] Error creating short URL')
+        continue
+      }
+
+      // 5-5. 문자 메시지 본문 생성
+      const studentName =
+        (report.students as unknown as { users: { name: string }[] })?.users?.[0]?.name ||
+        '학생'
+      const month = new Date(report.content.period.start).getMonth() + 1
+
+      const { message, type } = generateReportSmsMessage({
+        studentName,
+        month,
+        reportType: '성적',
+        shortUrl: shortUrlResult.data.shortUrl,
+      })
+
+      // 5-6. report_sends 업데이트 (메시지 본문, 단축 URL ID)
+      await supabase
+        .from('report_sends')
+        .update({
+          message_body: message,
+          message_type: type,
+          short_url_id: shortUrlResult.data.id,
+        })
+        .eq('id', reportSend.id)
+
+      reportSends.push({
+        id: reportSend.id,
+        recipientName: guardian.name,
+        recipientPhone: guardian.phone,
+        message,
+        messageType: type,
+        shortUrl: shortUrlResult.data.shortUrl,
+      })
+    }
+
+    return {
+      success: true,
+      data: reportSends,
+      error: null,
+    }
+  } catch (error) {
+    console.error('[prepareReportSending] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * 리포트 전송 실행 (알리고 API 호출)
+ *
+ * @param reportSendId - report_sends.id
+ * @returns 전송 결과
+ */
+export async function sendReportMessage(reportSendId: string) {
+  try {
+    // 1. Verify authentication and get tenant
+    const { tenantId } = await verifyStaff()
+
+    // 2. Create service_role client
+    const supabase = createServiceRoleClient()
+
+    // 3. report_send 정보 조회
+    const { data: reportSend, error } = await supabase
+      .from('report_sends')
+      .select('*')
+      .eq('id', reportSendId)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .single()
+
+    if (error || !reportSend) {
+      throw new Error('발송 정보를 찾을 수 없습니다')
+    }
+
+    // 4. 알리고 API 호출 (IMessageProvider 사용)
+    const { createAligoProvider } = await import('@/infra/messaging/AligoProvider')
+    const { MessageChannel } = await import('@/core/domain/messaging/IMessageProvider')
+
+    const messageProvider = createAligoProvider()
+
+    const sendResult = await messageProvider.send({
+      channel: reportSend.message_type === 'SMS' ? MessageChannel.SMS : MessageChannel.LMS,
+      recipient: {
+        name: reportSend.recipient_name,
+        phone: reportSend.recipient_phone,
+      },
+      content: {
+        body: reportSend.message_body,
+      },
+      metadata: {
+        tenantId: tenantId,
+        reportId: reportSend.report_id,
+      },
+    })
+
+    if (!sendResult.success || !sendResult.messageId) {
+      throw new Error(sendResult.error || '메시지 발송 실패')
+    }
+
+    const aligoMsgid = sendResult.messageId
+
+    // 5. report_sends 업데이트 (발송 완료)
+    await supabase
+      .from('report_sends')
+      .update({
+        send_status: 'sent',
+        aligo_msgid: aligoMsgid,
+        sent_at: new Date().toISOString(),
+      })
+      .eq('id', reportSendId)
+
+    // 6. reports 테이블의 sent_at 업데이트
+    await supabase
+      .from('reports')
+      .update({
+        sent_at: new Date().toISOString(),
+      })
+      .eq('id', reportSend.report_id)
+
+    // 7. Revalidate
+    revalidatePath('/reports/list')
+    revalidatePath(`/reports/${reportSend.report_id}`)
+
+    return {
+      success: true,
+      data: { msgid: aligoMsgid },
+      error: null,
+    }
+  } catch (error) {
+    console.error('[sendReportMessage] Error:', error)
+
+    // 실패 상태 업데이트
+    try {
+      const supabase = createServiceRoleClient()
+      await supabase
+        .from('report_sends')
+        .update({
+          send_status: 'failed',
+          send_error: getErrorMessage(error),
+        })
+        .eq('id', reportSendId)
+    } catch (updateError) {
+      console.error('[sendReportMessage] Error updating failed status:', updateError)
+    }
+
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * 리포트 일괄 전송
+ *
+ * @param reportId - 리포트 ID
+ * @returns 전송 결과
+ */
+export async function sendReportToAllGuardians(reportId: string) {
+  try {
+    // 1. 발송 준비 (레코드 생성 + 단축 URL 생성)
+    const prepareResult = await prepareReportSending(reportId)
+
+    if (!prepareResult.success || !prepareResult.data) {
+      throw new Error(prepareResult.error || '발송 준비 실패')
+    }
+
+    // 2. 각 보호자에게 전송
+    const sendResults = []
+    let successCount = 0
+    let failCount = 0
+
+    for (const reportSend of prepareResult.data) {
+      const result = await sendReportMessage(reportSend.id)
+
+      if (result.success) {
+        successCount++
+      } else {
+        failCount++
+      }
+
+      sendResults.push({
+        recipientName: reportSend.recipientName,
+        success: result.success,
+        error: result.error,
+      })
+    }
+
+    return {
+      success: true,
+      data: {
+        total: prepareResult.data.length,
+        successCount,
+        failCount,
+        details: sendResults,
+      },
+      error: null,
+    }
+  } catch (error) {
+    console.error('[sendReportToAllGuardians] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}

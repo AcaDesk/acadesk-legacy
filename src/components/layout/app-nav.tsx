@@ -114,7 +114,7 @@ const navigationGroups: NavGroup[] = [
       { name: "월간 리포트", href: "/reports", icon: BarChart3, featureFlag: "reportManagement" },
       { name: "상담 관리", href: "/consultations", icon: MessageSquare, featureFlag: "consultationManagement" },
       { name: "직원 관리", href: "/staff", icon: Briefcase, featureFlag: "staffManagement" },
-      { name: "알림", href: "/notifications", icon: Bell, featureFlag: "notificationSystem" },
+      { name: "메시지 전송", href: "/notifications", icon: Send, featureFlag: "notificationSystem" },
     ]
   },
   {
