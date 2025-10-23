@@ -19,6 +19,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 export default function BootstrapPage() {
   const router = useRouter()
   const [progress, setProgress] = useState(0)
+  const [hasAttempted, setHasAttempted] = useState(false)
   const { isLoading, error, createProfile } = useAuthStage({
     autoRoute: true,
     successMessage: {
@@ -27,9 +28,14 @@ export default function BootstrapPage() {
     },
   })
 
+  // 마운트 시 한 번만 createProfile 호출
   useEffect(() => {
-    createProfile()
-  }, [createProfile])
+    if (!hasAttempted) {
+      setHasAttempted(true)
+      createProfile()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // 프로그레스 시뮬레이션 (실제로는 RPC 단계별 업데이트 가능)
   useEffect(() => {
