@@ -32,7 +32,7 @@ export function StudentList() {
   const [selectedMarketingSource, setSelectedMarketingSource] = useState<string>('all')
   const [enrollmentDateFrom, setEnrollmentDateFrom] = useState<Date | undefined>()
   const [enrollmentDateTo, setEnrollmentDateTo] = useState<Date | undefined>()
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [classes, setClasses] = useState<Array<{ id: string; name: string }>>([])
   const [grades, setGrades] = useState<string[]>([])
   const [schools, setSchools] = useState<string[]>([])
@@ -72,9 +72,11 @@ export function StudentList() {
   }, [tenantId])
 
   useEffect(() => {
-    loadStudents()
+    if (tenantId) {
+      loadStudents()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedGrade, selectedClass, selectedSchool, selectedCommuteMethod, selectedMarketingSource, enrollmentDateFrom, enrollmentDateTo])
+  }, [tenantId, selectedGrade, selectedClass, selectedSchool, selectedCommuteMethod, selectedMarketingSource, enrollmentDateFrom, enrollmentDateTo])
 
   async function loadStudents() {
     if (!tenantId) {
