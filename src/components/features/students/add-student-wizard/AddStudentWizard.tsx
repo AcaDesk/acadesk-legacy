@@ -362,7 +362,16 @@ export function AddStudentWizard({ open, onOpenChange, onSuccess }: AddStudentWi
         <StepIndicator currentStep={currentStep} steps={steps} />
 
         <FormProvider {...form}>
-          <form onSubmit={handleSubmit((data) => onSubmit(data, true))} className="space-y-6">
+          <form
+            onSubmit={handleSubmit((data) => onSubmit(data, true))}
+            onKeyDown={(e) => {
+              // input 필드에서 Enter를 눌렀을 때 form submit 방지
+              if (e.key === 'Enter' && e.target instanceof HTMLInputElement) {
+                e.preventDefault()
+              }
+            }}
+            className="space-y-6"
+          >
             {/* Step 1: 필수 정보 */}
             {currentStep === 1 && <Step1_StudentInfo schools={schools} />}
 
