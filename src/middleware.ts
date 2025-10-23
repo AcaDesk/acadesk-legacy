@@ -1,7 +1,10 @@
 /**
  * Middleware
  *
- * ✅ 역할: Supabase 세션 쿠키 refresh만 수행
+ * ✅ 역할:
+ * - Supabase 세션 쿠키 refresh
+ * - x-pathname 요청 헤더 추가 (AuthLayout에서 사용)
+ *
  * ❌ 하지 않음: DB 조회, 역할/권한 판별, 전역 리다이렉션
  *
  * 리다이렉션·권한 분기는 서버 레이아웃/페이지 + 서버 액션에서 처리
@@ -14,11 +17,17 @@
  */
 
 import type { NextRequest } from 'next/server'
+import { NextResponse } from 'next/server'
 import { updateSession } from '@/lib/supabase/supabase-session'
 
 export async function middleware(request: NextRequest) {
-  // Supabase 세션 최신화 (쿠키 refresh)
-  return updateSession(request)
+  // 요청 헤더에 현재 pathname 추가 (AuthLayout에서 무한 루프 방지용)
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set('x-pathname', request.nextUrl.pathname)
+
+  // Supabase 세션 최신화
+  const response = await updateSession(request, requestHeaders)
+  return response ?? NextResponse.next({ request: { headers: requestHeaders } })
 }
 
 // 정적 자산/내부 경로는 제외
