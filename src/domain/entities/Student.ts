@@ -19,7 +19,6 @@ export interface StudentProps {
   school: string | null
   enrollmentDate: Date
   withdrawalDate: Date | null
-  emergencyContact: string | null
   notes: string | null
   commuteMethod: string | null
   marketingSource: string | null
@@ -94,10 +93,6 @@ export class Student {
 
   get withdrawalDate(): Date | null {
     return this.props.withdrawalDate
-  }
-
-  get emergencyContact(): string | null {
-    return this.props.emergencyContact
   }
 
   get notes(): string | null {
@@ -201,7 +196,6 @@ export class Student {
       school: this.props.school,
       enrollment_date: this.props.enrollmentDate.toISOString(),
       withdrawal_date: this.props.withdrawalDate?.toISOString(),
-      emergency_contact: this.props.emergencyContact,
       notes: this.props.notes,
       commute_method: this.props.commuteMethod,
       marketing_source: this.props.marketingSource,
@@ -233,7 +227,6 @@ export class Student {
       enrollmentDuration: this.getEnrollmentDuration(),
       withdrawalDate: this.props.withdrawalDate,
       isWithdrawn: this.isWithdrawn,
-      emergencyContact: this.props.emergencyContact,
       notes: this.props.notes,
       commuteMethod: this.props.commuteMethod,
       marketingSource: this.props.marketingSource,
@@ -261,7 +254,6 @@ export interface StudentDTO {
   enrollmentDuration: number
   withdrawalDate: Date | null
   isWithdrawn: boolean
-  emergencyContact: string | null
   notes: string | null
   commuteMethod: string | null
   marketingSource: string | null

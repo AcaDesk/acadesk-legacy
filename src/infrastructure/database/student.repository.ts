@@ -30,12 +30,13 @@ export class StudentRepository implements IStudentRepository {
     return typeof client.from === 'function' && typeof client.rpc === 'function'
   }
 
-  async findById(id: string, options?: FindStudentOptions): Promise<Student | null> {
+  async findById(id: string, tenantId: string, options?: FindStudentOptions): Promise<Student | null> {
     try {
       let query = this.dataSource
         .from('students')
         .select('*')
         .eq('id', id)
+        .eq('tenant_id', tenantId) // ⚠️ service_role: 명시적 tenant 필터링 필수
 
       if (!options?.includeDeleted) {
         query = query.is('deleted_at', null)
@@ -48,7 +49,7 @@ export class StudentRepository implements IStudentRepository {
       const { data, error } = await query.maybeSingle()
 
       if (error) {
-        logError(error, { repository: 'StudentRepository', method: 'findById', id })
+        logError(error, { repository: 'StudentRepository', method: 'findById', id, tenantId })
         throw new DatabaseError('학생을 조회할 수 없습니다', error)
       }
 
@@ -60,8 +61,8 @@ export class StudentRepository implements IStudentRepository {
     }
   }
 
-  async findByIdOrThrow(id: string, options?: FindStudentOptions): Promise<Student> {
-    const student = await this.findById(id, options)
+  async findByIdOrThrow(id: string, tenantId: string, options?: FindStudentOptions): Promise<Student> {
+    const student = await this.findById(id, tenantId, options)
     if (!student) {
       throw new NotFoundError('학생')
     }
@@ -119,7 +120,12 @@ export class StudentRepository implements IStudentRepository {
     try {
       let query = this.dataSource
         .from('students')
-        .select('*')
+        .select(`
+          id, tenant_id, user_id, student_code, name, birth_date, gender, grade, school,
+          enrollment_date, withdrawal_date, student_phone, profile_image_url,
+          commute_method, marketing_source, kiosk_pin, notes,
+          created_at, updated_at, deleted_at
+        `)
         .eq('tenant_id', tenantId)
 
       if (!options?.includeDeleted) {
@@ -158,7 +164,15 @@ export class StudentRepository implements IStudentRepository {
         query = query.lte('enrollment_date', filters.enrollmentDateTo)
       }
 
-      const { data, error } = await query.order('student_code')
+      // 정렬 안정성: 보조 정렬 추가
+      query = query
+        .order('student_code', { ascending: true })
+        .order('created_at', { ascending: false })
+
+      // 기본 페이징 (성능): 최대 100건
+      query = query.range(0, 99)
+
+      const { data, error } = await query
 
       if (error) {
         logError(error, { repository: 'StudentRepository', method: 'findAll' })
@@ -180,7 +194,10 @@ export class StudentRepository implements IStudentRepository {
       let query = this.dataSource
         .from('students')
         .select(`
-          *,
+          id, tenant_id, user_id, student_code, name, birth_date, gender, grade, school,
+          enrollment_date, withdrawal_date, student_phone, profile_image_url,
+          commute_method, marketing_source, kiosk_pin, notes,
+          created_at, updated_at, deleted_at,
           users (
             name,
             email,
@@ -230,7 +247,15 @@ export class StudentRepository implements IStudentRepository {
         query = query.lte('enrollment_date', filters.enrollmentDateTo)
       }
 
-      const { data, error } = await query.order('student_code')
+      // 정렬 안정성: 보조 정렬 추가
+      query = query
+        .order('student_code', { ascending: true })
+        .order('created_at', { ascending: false })
+
+      // 기본 페이징 (성능): 최대 100건
+      query = query.range(0, 99)
+
+      const { data, error } = await query
 
       console.log('[StudentRepository] Query 실행 완료', {
         dataLength: Array.isArray(data) ? data.length : 0,
@@ -299,38 +324,48 @@ export class StudentRepository implements IStudentRepository {
     }
   }
 
-  async save(student: Student): Promise<Student> {
+  async save(student: Student, tenantId: string): Promise<Student> {
     try {
       const data = student.toPersistence()
 
+      // ⚠️ service_role: tenant 검증 필수
+      if (data.tenant_id !== tenantId) {
+        throw new DatabaseError(
+          '권한이 없습니다. 다른 테넌트의 학생 데이터를 저장할 수 없습니다.'
+        )
+      }
+
+      // upsert 후 select에 tenant 필터링 적용 (PostgREST 체이닝 주의)
       const { data: savedData, error } = await this.dataSource
         .from('students')
         .upsert(data)
-        .select()
+        .select('*')
+        .eq('tenant_id', tenantId)
         .single()
 
       if (error) {
-        logError(error, { repository: 'StudentRepository', method: 'save' })
+        logError(error, { repository: 'StudentRepository', method: 'save', tenantId })
         throw new DatabaseError('학생을 저장할 수 없습니다', error)
       }
 
       return this.mapToDomain(savedData)
     } catch (error) {
       if (error instanceof DatabaseError) throw error
-      logError(error, { repository: 'SupabaseStudentRepository', method: 'save' })
+      logError(error, { repository: 'StudentRepository', method: 'save' })
       throw new DatabaseError('학생을 저장할 수 없습니다')
     }
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string, tenantId: string): Promise<void> {
     try {
       const { error } = await this.dataSource
         .from('students')
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', id)
+        .eq('tenant_id', tenantId) // ⚠️ service_role: 명시적 tenant 필터링 필수
 
       if (error) {
-        logError(error, { repository: 'StudentRepository', method: 'delete', id })
+        logError(error, { repository: 'StudentRepository', method: 'delete', id, tenantId })
         throw new DatabaseError('학생을 삭제할 수 없습니다', error)
       }
     } catch (error) {
@@ -459,9 +494,8 @@ export class StudentRepository implements IStudentRepository {
       profileImageUrl: row.profile_image_url as string | null,
       grade: row.grade as string | null,
       school: row.school as string | null,
-      enrollmentDate: new Date(row.enrollment_date as string),
+      enrollmentDate: row.enrollment_date ? new Date(row.enrollment_date as string) : new Date(),
       withdrawalDate: row.withdrawal_date ? new Date(row.withdrawal_date as string) : null,
-      emergencyContact: row.emergency_contact as string | null,
       notes: row.notes as string | null,
       commuteMethod: row.commute_method as string | null,
       marketingSource: row.marketing_source as string | null,

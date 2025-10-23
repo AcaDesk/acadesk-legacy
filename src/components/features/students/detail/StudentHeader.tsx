@@ -40,10 +40,7 @@ import { differenceInYears } from 'date-fns'
 import { useToast } from '@/hooks/use-toast'
 import { RoleGuard } from '@/components/auth/role-guard'
 import type { StudentDetail } from '@/types/studentDetail.types'
-import {
-  createUpdateStudentProfileImageUseCase,
-  createDeleteStudentUseCase,
-} from '@/application/factories/studentUseCaseFactory.client'
+import { updateStudent, deleteStudent } from '@/app/actions/students'
 import { SendReportDialog } from './SendReportDialog'
 
 interface StudentHeaderProps {
@@ -79,14 +76,12 @@ export function StudentHeader({
 
   const handleProfileImageUpdate = async (url: string) => {
     try {
-      const useCase = createUpdateStudentProfileImageUseCase()
-      const { success, error } = await useCase.execute({
-        studentId: student.id,
-        profileImageUrl: url,
+      const result = await updateStudent(student.id, {
+        profile_image_url: url,
       })
 
-      if (!success || error) {
-        throw error || new Error('프로필 이미지 업데이트에 실패했습니다')
+      if (!result.success || result.error) {
+        throw new Error(result.error || '프로필 이미지 업데이트에 실패했습니다')
       }
 
       onStudentUpdate({
@@ -146,8 +141,11 @@ export function StudentHeader({
       )
     ) {
       try {
-        const useCase = createDeleteStudentUseCase()
-        await useCase.execute(student.id)
+        const result = await deleteStudent(student.id)
+
+        if (!result.success || result.error) {
+          throw new Error(result.error || '학생 삭제에 실패했습니다')
+        }
 
         toast({
           title: '학생 삭제 완료',

@@ -9,15 +9,15 @@ import { NotFoundError } from '@/lib/error-types'
 export class DeleteStudentUseCase {
   constructor(private studentRepository: IStudentRepository) {}
 
-  async execute(studentId: string): Promise<void> {
-    // Verify student exists
-    const student = await this.studentRepository.findById(studentId)
+  async execute(studentId: string, tenantId: string): Promise<void> {
+    // Verify student exists and belongs to tenant
+    const student = await this.studentRepository.findById(studentId, tenantId)
 
     if (!student) {
       throw new NotFoundError('학생')
     }
 
     // Soft delete using repository
-    await this.studentRepository.delete(studentId)
+    await this.studentRepository.delete(studentId, tenantId)
   }
 }
