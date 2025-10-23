@@ -1,3 +1,35 @@
+/**
+ * ⚠️ DEPRECATED: Server Route → Client Page로 이관됨 (2025-10-23)
+ *
+ * 이유: 이메일 보안 스캐너(Gmail, Outlook 등)가 링크를 먼저 클릭하여
+ *       코드를 조기 소모하는 문제 발생
+ *
+ * 해결: /auth/callback/page.tsx (클라이언트 페이지)로 전환
+ *       → 스캐너는 JS를 실행하지 않으므로 코드 소모 방지
+ *
+ * 이 파일은 참고용으로 보관됩니다.
+ * 서버 라우트를 다시 사용할 경우 아래 봇 감지 로직을 적용하세요:
+ *
+ * @example
+ * import { detectBotFromRequest, logBotDetection } from '@/lib/auth/bot-detection'
+ *
+ * export async function GET(request: Request) {
+ *   // 봇 감지
+ *   const botResult = detectBotFromRequest(request)
+ *   logBotDetection(botResult, { route: '/auth/callback' })
+ *
+ *   // 봇이면 코드 교환하지 않고 조용히 응답
+ *   if (botResult.isBot) {
+ *     console.warn('[auth/callback] Bot detected, skipping code exchange')
+ *     return new NextResponse(null, { status: 204 })
+ *   }
+ *
+ *   // 실제 사용자만 코드 교환 수행
+ *   const code = url.searchParams.get('code')
+ *   // ...
+ * }
+ */
+
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 import { createUserProfileServer } from "@/app/actions/onboarding"
