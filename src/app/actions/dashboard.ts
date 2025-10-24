@@ -153,6 +153,8 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
       pendingTodos: 0,
       totalReports: 0,
       unsentReports: 0,
+      averageScore: 0,
+      completionRate: 0,
     }
 
     const recentStudents = recentStudentsResult.status === 'fulfilled' && recentStudentsResult.value.data
@@ -202,8 +204,8 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
         }))
       : []
 
-    const studentAlerts = studentAlertsResult.status === 'fulfilled' && studentAlertsResult.value.data
-      ? studentAlertsResult.value.data
+    const studentAlerts = studentAlertsResult.status === 'fulfilled' && studentAlertsResult.value
+      ? studentAlertsResult.value
       : { longAbsence: [], pendingAssignments: [] }
 
     const financialData = financialDataResult.status === 'fulfilled' && financialDataResult.value.data
@@ -296,7 +298,13 @@ async function fetchStudentAlerts(supabase: any, tenantId: string, today: string
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
 
-    const longAbsence = []
+    const longAbsence: Array<{
+      id: string
+      name: string
+      grade: string
+      reason: string
+      days: number
+    }> = []
     if (allStudents && allStudents.length > 0) {
       for (const student of allStudents) {
         const { count } = await supabase
@@ -347,7 +355,12 @@ async function fetchStudentAlerts(supabase: any, tenantId: string, today: string
       })
     }
 
-    const pendingAssignments = Array.from(pendingAssignmentsMap.entries())
+    const pendingAssignments: Array<{
+      id: string
+      name: string
+      grade: string
+      reason: string
+    }> = Array.from(pendingAssignmentsMap.entries())
       .filter(([, data]) => data.count >= 3)
       .map(([id, data]) => ({
         id,

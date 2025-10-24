@@ -72,6 +72,7 @@ export default async function ReportSharePage({ params }: PageProps) {
   // 3. 리포트 데이터 추출
   const report = reportSend.reports as unknown as {
     id: string
+    tenant_id: string
     report_type: string
     period_start: string
     period_end: string
@@ -94,7 +95,7 @@ export default async function ReportSharePage({ params }: PageProps) {
     const referrer = headersList.get('referer') || null
 
     await supabase.from('report_reads').insert({
-      tenant_id: reportSend.reports?.tenant_id,
+      tenant_id: report.tenant_id,
       report_id: report.id,
       report_send_id: reportSend.id,
       user_id: null,
