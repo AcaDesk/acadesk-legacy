@@ -94,7 +94,7 @@ export async function createStudentComplete(
     const validated = createStudentCompleteSchema.parse(input)
 
     // 3. Create service_role client
-    const serviceClient = createServiceRoleClient()
+    const serviceClient = await createServiceRoleClient()
 
     let guardianId: string | null = null
     let studentId: string | null = null
@@ -296,7 +296,7 @@ export async function updateStudent(
     const { tenantId } = await verifyStaff()
 
     // 2. Create service_role client
-    const serviceClient = createServiceRoleClient()
+    const serviceClient = await createServiceRoleClient()
 
     // 3. Verify student belongs to tenant
     const { data: existingStudent, error: fetchError } = await serviceClient
@@ -362,7 +362,7 @@ export async function deleteStudent(studentId: string) {
     const { tenantId } = await verifyStaff()
 
     // 2. Create service_role client
-    const serviceClient = createServiceRoleClient()
+    const serviceClient = await createServiceRoleClient()
 
     // 3. Verify student belongs to tenant
     const { data: existingStudent, error: fetchError } = await serviceClient
@@ -432,7 +432,7 @@ export async function withdrawStudent(
     const { tenantId } = await verifyStaff()
 
     // 2. Create service_role client
-    const serviceClient = createServiceRoleClient()
+    const serviceClient = await createServiceRoleClient()
 
     // 3. Verify student belongs to tenant
     const { data: existingStudent, error: fetchError } = await serviceClient
@@ -503,7 +503,7 @@ export async function getStudentDetail(studentId: string) {
     const { tenantId } = await verifyStaff()
 
     // 2. Create service_role client (for read operations with tenant filtering)
-    const serviceClient = createServiceRoleClient()
+    const serviceClient = await createServiceRoleClient()
 
     // 3. Fetch student detail with related data
     const { data: student, error: studentError } = await serviceClient
@@ -618,7 +618,7 @@ export async function getStudentDetail(studentId: string) {
             consultation_type,
             summary,
             created_at,
-            users!consultations_instructor_id_fkey (
+            users!consultations_conducted_by_fkey (
               name
             )
           `)
@@ -636,7 +636,11 @@ export async function getStudentDetail(studentId: string) {
             attendance_sessions (
               id,
               session_date,
-              class_id
+              class_id,
+              classes (
+                id,
+                name
+              )
             )
           `)
           .eq('student_id', studentId)
@@ -737,7 +741,7 @@ export async function getStudentDetail(studentId: string) {
               session_date: a.attendance_sessions.session_date,
               scheduled_start_at: '',
               scheduled_end_at: '',
-              classes: null,
+              classes: a.attendance_sessions.classes || null,
             }
           : null,
       })),
@@ -789,7 +793,7 @@ export async function bulkUpdateStudents(
     const { tenantId } = await verifyStaff()
 
     // 2. Create service_role client
-    const serviceClient = createServiceRoleClient()
+    const serviceClient = await createServiceRoleClient()
 
     // 3. Update each student
     for (const update of updates) {
@@ -832,7 +836,7 @@ export async function bulkDeleteStudents(studentIds: string[]) {
     const { tenantId } = await verifyStaff()
 
     // 2. Create service_role client
-    const serviceClient = createServiceRoleClient()
+    const serviceClient = await createServiceRoleClient()
 
     // 3. Soft delete each student
     const { error } = await serviceClient
@@ -870,7 +874,7 @@ export async function bulkEnrollClass(studentIds: string[], classId: string) {
     const { tenantId } = await verifyStaff()
 
     // 2. Create service_role client
-    const serviceClient = createServiceRoleClient()
+    const serviceClient = await createServiceRoleClient()
 
     // 3. Create enrollment records
     const enrollments = studentIds.map(studentId => ({
@@ -930,7 +934,7 @@ export async function getStudents(filters?: {
     const { tenantId } = await verifyStaff()
 
     // 2. Create service_role client
-    const serviceClient = createServiceRoleClient()
+    const serviceClient = await createServiceRoleClient()
 
     // 3. Build query
     let query = serviceClient
@@ -1065,7 +1069,7 @@ export async function getStudentFilterOptions() {
     const { tenantId } = await verifyStaff()
 
     // 2. Create service_role client
-    const serviceClient = createServiceRoleClient()
+    const serviceClient = await createServiceRoleClient()
 
     // 3. Fetch filter options in parallel
     const [gradesResult, schoolsResult, classesResult] = await Promise.allSettled([
@@ -1163,7 +1167,7 @@ export async function getStudentPointBalance(studentId: string) {
     const { tenant_id } = permissionResult.data
 
     // 2. Service role로 포인트 조회
-    const serviceClient = createServiceRoleClient()
+    const serviceClient = await createServiceRoleClient()
 
     // TODO: 실제 구현 시 student_points 테이블에서 조회
     // const { data: pointsData } = await serviceClient
@@ -1237,7 +1241,7 @@ export async function getStudentPointHistory(studentId: string, limit = 20) {
     const { tenant_id } = permissionResult.data
 
     // 2. Service role로 포인트 이력 조회
-    const serviceClient = createServiceRoleClient()
+    const serviceClient = await createServiceRoleClient()
 
     // TODO: 실제 구현 시 student_point_history 테이블에서 조회
     // const { data: historyData } = await serviceClient
