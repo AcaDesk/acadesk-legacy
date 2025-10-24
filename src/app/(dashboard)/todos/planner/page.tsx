@@ -94,6 +94,13 @@ export default function WeeklyPlannerPage() {
     return null
   }
 
+  // Helper to get todos for a specific cell
+  function getTodosForCell(studentId: string, dayOfWeek: number): PlannedTodo[] {
+    return plannedTodos.filter(
+      todo => todo.studentId === studentId && todo.dayOfWeek === dayOfWeek
+    )
+  }
+
   const { toast } = useToast()
   const supabase = createClient()
   const { user: currentUser } = useCurrentUser()

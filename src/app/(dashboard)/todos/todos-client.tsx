@@ -24,10 +24,12 @@ import {
   Search,
   Calendar,
   ListTodo,
+  Bell,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import type { StudentTodoWithStudent } from '@/core/types/todo.types'
 import { verifyTodoAction, deleteTodoAction } from './actions'
+import { sendTodoReminder } from '@/app/actions/messages'
 
 interface TodosClientProps {
   initialTodos: StudentTodoWithStudent[]
@@ -127,6 +129,27 @@ export function TodosClient({ initialTodos }: TodosClientProps) {
         toast({
           title: '삭제 오류',
           description: result.error,
+          variant: 'destructive',
+        })
+      }
+    })
+  }
+
+  async function handleSendReminder(todoId: string, todoTitle: string) {
+    if (!confirm(`"${todoTitle}" 과제 알림을 학생에게 전송하시겠습니까?`)) return
+
+    startTransition(async () => {
+      const result = await sendTodoReminder(todoId)
+
+      if (result.success) {
+        toast({
+          title: '알림 전송 완료',
+          description: '과제 알림이 학생에게 전송되었습니다.',
+        })
+      } else {
+        toast({
+          title: '전송 오류',
+          description: result.error || '알림 전송 중 오류가 발생했습니다.',
           variant: 'destructive',
         })
       }
@@ -343,6 +366,17 @@ export function TodosClient({ initialTodos }: TodosClientProps) {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
+                            {!todo.completed_at && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleSendReminder(todo.id, todo.title)}
+                                disabled={isPending}
+                              >
+                                <Bell className="h-4 w-4 mr-1" />
+                                알림
+                              </Button>
+                            )}
                             {todo.completed_at && !todo.verified_at && (
                               <Button
                                 size="sm"

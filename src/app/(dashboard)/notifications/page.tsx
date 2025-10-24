@@ -14,12 +14,14 @@ import {
   TableHeader,
   TableRow,
 } from '@ui/table'
-import { Bell, Send, Clock, CheckCircle, XCircle, Search, AlertCircle, FileText } from 'lucide-react'
+import { Bell, Send, Clock, CheckCircle, XCircle, Search, AlertCircle, FileText, MessageSquare, Settings } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
+import { SendMessageDialog } from '@/components/features/notifications/send-message-dialog'
+import { ManageTemplatesDialog } from '@/components/features/notifications/manage-templates-dialog'
 
 interface NotificationLog {
   id: string
@@ -67,6 +69,8 @@ export default function NotificationsPage() {
   const [sending, setSending] = useState<string | null>(null)
   const [reportAutoSendStatus, setReportAutoSendStatus] = useState<ReportAutoSendStatus | null>(null)
   const [sendingReports, setSendingReports] = useState(false)
+  const [sendMessageOpen, setSendMessageOpen] = useState(false)
+  const [manageTemplatesOpen, setManageTemplatesOpen] = useState(false)
 
   const { toast } = useToast()
   const supabase = createClient()
@@ -329,9 +333,26 @@ export default function NotificationsPage() {
     <PageWrapper>
       <div className="space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold">알림 관리</h1>
-          <p className="text-muted-foreground">자동 알림 스케줄과 전송 기록을 관리하세요</p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">알림 관리</h1>
+            <p className="text-muted-foreground">자동 알림 스케줄과 전송 기록을 관리하세요</p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setManageTemplatesOpen(true)}
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              템플릿 관리
+            </Button>
+            <Button
+              onClick={() => setSendMessageOpen(true)}
+            >
+              <MessageSquare className="h-4 w-4 mr-2" />
+              메시지 전송
+            </Button>
+          </div>
         </div>
 
         {/* Auto-notification Schedules */}
@@ -590,6 +611,20 @@ export default function NotificationsPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Message Dialogs */}
+        <SendMessageDialog
+          open={sendMessageOpen}
+          onOpenChange={setSendMessageOpen}
+          onMessageSent={() => {
+            loadNotificationLogs()
+          }}
+        />
+
+        <ManageTemplatesDialog
+          open={manageTemplatesOpen}
+          onOpenChange={setManageTemplatesOpen}
+        />
       </div>
     </PageWrapper>
   )
