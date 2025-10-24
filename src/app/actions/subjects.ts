@@ -10,7 +10,6 @@ import { revalidatePath } from 'next/cache'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
-import { SubjectRepository } from '@infra/db/repositories/subject.repository'
 
 export interface Subject {
   id: string
@@ -52,18 +51,22 @@ export interface UpdateSubjectInput {
  */
 export async function getSubjectsWithStatistics() {
   try {
-    // 1. 권한 검증 (staff)
-    await verifyStaff()
-
-    // 2. Service Role 클라이언트로 DB 작업
+    const { tenantId } = await verifyStaff()
     const supabase = await createServiceRoleClient()
-    const repository = new SubjectRepository(supabase)
 
-    const subjects = await repository.findAllWithStatistics()
+    const { data, error } = await supabase
+      .from('subject_statistics')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .order('sort_order', { ascending: true })
+
+    if (error) {
+      throw error
+    }
 
     return {
       success: true,
-      data: subjects,
+      data: data || [],
       error: null,
     }
   } catch (error) {
@@ -83,21 +86,32 @@ export async function getSubjectsWithStatistics() {
  */
 export async function createSubject(input: CreateSubjectInput) {
   try {
-    // 1. 권한 검증 (staff)
-    await verifyStaff()
-
-    // 2. Service Role 클라이언트로 DB 작업
+    const { tenantId } = await verifyStaff()
     const supabase = await createServiceRoleClient()
-    const repository = new SubjectRepository(supabase)
 
-    const subject = await repository.create(input)
+    const { data, error } = await supabase
+      .from('subjects')
+      .insert({
+        tenant_id: tenantId,
+        name: input.name,
+        description: input.description || null,
+        code: input.code || null,
+        color: input.color,
+        active: input.active,
+        sort_order: input.sort_order ?? 0,
+      })
+      .select()
+      .single()
 
-    // 3. 캐시 무효화
+    if (error) {
+      throw error
+    }
+
     revalidatePath('/settings/subjects')
 
     return {
       success: true,
-      data: subject,
+      data,
       error: null,
     }
   } catch (error) {
@@ -118,21 +132,33 @@ export async function createSubject(input: CreateSubjectInput) {
  */
 export async function updateSubject(id: string, input: UpdateSubjectInput) {
   try {
-    // 1. 권한 검증 (staff)
-    await verifyStaff()
-
-    // 2. Service Role 클라이언트로 DB 작업
+    const { tenantId } = await verifyStaff()
     const supabase = await createServiceRoleClient()
-    const repository = new SubjectRepository(supabase)
 
-    const subject = await repository.update(id, input)
+    const { data, error } = await supabase
+      .from('subjects')
+      .update({
+        name: input.name,
+        description: input.description,
+        code: input.code,
+        color: input.color,
+        active: input.active,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .select()
+      .single()
 
-    // 3. 캐시 무효화
+    if (error) {
+      throw error
+    }
+
     revalidatePath('/settings/subjects')
 
     return {
       success: true,
-      data: subject,
+      data,
       error: null,
     }
   } catch (error) {
@@ -146,22 +172,25 @@ export async function updateSubject(id: string, input: UpdateSubjectInput) {
 }
 
 /**
- * 과목 삭제
+ * 과목 삭제 (soft delete)
  * @param id - 과목 ID
  * @returns 성공 여부
  */
 export async function deleteSubject(id: string) {
   try {
-    // 1. 권한 검증 (staff)
-    await verifyStaff()
-
-    // 2. Service Role 클라이언트로 DB 작업
+    const { tenantId } = await verifyStaff()
     const supabase = await createServiceRoleClient()
-    const repository = new SubjectRepository(supabase)
 
-    await repository.delete(id)
+    const { error } = await supabase
+      .from('subjects')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
 
-    // 3. 캐시 무효화
+    if (error) {
+      throw error
+    }
+
     revalidatePath('/settings/subjects')
 
     return {
