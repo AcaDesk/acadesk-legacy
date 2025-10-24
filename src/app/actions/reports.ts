@@ -829,7 +829,14 @@ export async function prepareReportSending(reportId: string) {
     }
 
     // 5. 각 보호자별로 발송 레코드 생성
-    const reportSends = []
+    const reportSends: Array<{
+      id: string
+      recipientName: string
+      recipientPhone: string
+      message: string
+      messageType: 'SMS' | 'LMS'
+      shortUrl: string
+    }> = []
 
     for (const sg of guardians) {
       const guardian = sg.guardians as unknown as {
@@ -1052,7 +1059,11 @@ export async function sendReportToAllGuardians(reportId: string) {
     }
 
     // 2. 각 보호자에게 전송
-    const sendResults = []
+    const sendResults: Array<{
+      recipientName: string
+      success: boolean
+      error: string | null
+    }> = []
     let successCount = 0
     let failCount = 0
 

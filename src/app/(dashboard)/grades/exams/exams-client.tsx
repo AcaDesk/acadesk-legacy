@@ -33,7 +33,10 @@ interface Exam {
   classes?: {
     id: string
     name: string
-  } | null
+  } | {
+    id: string
+    name: string
+  }[] | null
 }
 
 interface ExamCategory {
