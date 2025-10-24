@@ -97,8 +97,16 @@ export function LoginForm({
 
       // 초대 토큰 확인 (있으면 전달)
       const inviteToken = inviteTokenStore.get()
-      await routeAfterLogin(router, inviteToken ?? undefined)
-    } catch {
+
+      // routeAfterLogin은 내부에서 에러를 처리하므로 await만 하면 됨
+      // (router.push의 navigation 예외는 정상 동작이므로 무시)
+      await routeAfterLogin(router, inviteToken ?? undefined).catch(() => {
+        // routeAfterLogin 내부에서 이미 에러 처리됨
+        // Navigation 예외는 무시 (정상 동작)
+      })
+    } catch (error) {
+      // signIn() 자체가 실패한 경우에만 에러 토스트
+      console.error('[LoginForm] Sign in error:', error)
       toast({
         title: GENERIC_ERROR_MESSAGE.title,
         description: GENERIC_ERROR_MESSAGE.description,

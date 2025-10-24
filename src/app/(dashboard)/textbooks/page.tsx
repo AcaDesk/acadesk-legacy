@@ -1,4 +1,6 @@
-import { Suspense } from 'react'
+'use client'
+
+import { Suspense, useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Plus, Book, Search } from 'lucide-react'
 import { getTextbooks } from '@/app/actions/textbooks'
@@ -21,29 +23,35 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { WidgetSkeleton } from '@/components/ui/widget-skeleton'
-import { PageWrapper } from '@/components/layout/page-wrapper'
+import { PageHeader } from '@ui/page-header'
+import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/page-error-boundary'
+import { showErrorToast } from '@/lib/toast-helpers'
 
-export const metadata = {
-  title: '교재 관리',
-  description: '교재 및 진도 관리',
+type Textbook = {
+  id: string
+  title: string
+  publisher: string | null
+  isbn: string | null
+  price: number | null
+  is_active: boolean
+  textbook_units?: any[]
 }
 
-async function TextbookListContent() {
-  const result = await getTextbooks({ includeUnits: true })
-
-  if (!result.success || !result.data) {
+function TextbookListContent({
+  textbooks,
+  searchQuery,
+}: {
+  textbooks: Textbook[]
+  searchQuery: string
+}) {
+  // Filter textbooks based on search query
+  const filteredTextbooks = textbooks.filter((textbook) => {
+    const query = searchQuery.toLowerCase()
     return (
-      <Card>
-        <CardContent className="pt-6">
-          <p className="text-center text-muted-foreground">
-            {result.error || '교재를 불러올 수 없습니다'}
-          </p>
-        </CardContent>
-      </Card>
+      textbook.title.toLowerCase().includes(query) ||
+      (textbook.publisher?.toLowerCase() || '').includes(query)
     )
-  }
-
-  const textbooks = result.data
+  })
 
   if (textbooks.length === 0) {
     return (
@@ -67,12 +75,30 @@ async function TextbookListContent() {
     )
   }
 
+  if (filteredTextbooks.length === 0) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <div className="text-center py-8">
+            <Search className="mx-auto h-12 w-12 text-muted-foreground/50" />
+            <h3 className="mt-4 text-lg font-semibold">검색 결과가 없습니다</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              &quot;{searchQuery}&quot;에 해당하는 교재를 찾을 수 없습니다
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>교재 목록</CardTitle>
         <CardDescription>
-          총 {textbooks.length}개의 교재가 등록되어 있습니다
+          {searchQuery
+            ? `${filteredTextbooks.length}개의 검색 결과`
+            : `총 ${textbooks.length}개의 교재가 등록되어 있습니다`}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -89,7 +115,7 @@ async function TextbookListContent() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {textbooks.map((textbook: any) => (
+            {filteredTextbooks.map((textbook) => (
               <TableRow key={textbook.id}>
                 <TableCell className="font-medium">
                   <Link
@@ -133,36 +159,96 @@ async function TextbookListContent() {
 }
 
 export default function TextbooksPage() {
-  return (
-    <PageWrapper
-      title="교재 관리"
-      subtitle="교재를 등록하고 학생별 진도를 관리하세요"
-      actions={
-        <Button asChild>
-          <Link href="/textbooks/new">
-            <Plus className="mr-2 h-4 w-4" />
-            교재 등록
-          </Link>
-        </Button>
+  const [textbooks, setTextbooks] = useState<Textbook[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
+
+  useEffect(() => {
+    async function loadTextbooks() {
+      try {
+        setLoading(true)
+        const result = await getTextbooks({ includeUnits: true })
+
+        if (!result.success || !result.data) {
+          showErrorToast(
+            '교재 목록 로드 실패',
+            new Error(result.error || '교재를 불러올 수 없습니다'),
+            'TextbooksPage.loadTextbooks'
+          )
+          return
+        }
+
+        setTextbooks(result.data as any)
+      } catch (error) {
+        showErrorToast('교재 목록 로드 실패', error, 'TextbooksPage.loadTextbooks')
+      } finally {
+        setLoading(false)
       }
-    >
-      <div className="space-y-6">
+    }
 
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="교재명 또는 출판사 검색..."
-            className="pl-10"
-          />
-        </div>
-      </div>
+    loadTextbooks()
+  }, [])
 
-      <Suspense fallback={<WidgetSkeleton variant="table" />}>
-        <TextbookListContent />
-      </Suspense>
+  return (
+    <PageErrorBoundary pageName="교재 관리">
+      <div className="p-6 lg:p-8 space-y-6">
+        {/* Header */}
+        <section
+          aria-label="페이지 헤더"
+          className="animate-in fade-in-50 slide-in-from-top-2 duration-500"
+        >
+          <div className="flex items-center justify-between">
+            <PageHeader
+              title="교재 관리"
+              description="교재를 등록하고 학생별 진도를 관리하세요"
+            />
+            <Button asChild>
+              <Link href="/textbooks/new">
+                <Plus className="mr-2 h-4 w-4" />
+                교재 등록
+              </Link>
+            </Button>
+          </div>
+        </section>
+
+        {/* Search Bar */}
+        <section
+          aria-label="검색"
+          className="animate-in fade-in-50 slide-in-from-bottom-2 duration-500"
+          style={{ animationDelay: '100ms' }}
+        >
+          <div className="flex items-center gap-4">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="교재명 또는 출판사 검색..."
+                className="pl-10"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* Textbook List */}
+        <section
+          aria-label="교재 목록"
+          className="animate-in fade-in-50 slide-in-from-bottom-2 duration-500"
+          style={{ animationDelay: '200ms' }}
+        >
+          <SectionErrorBoundary sectionName="교재 목록">
+            {loading ? (
+              <WidgetSkeleton variant="table" />
+            ) : (
+              <TextbookListContent
+                textbooks={textbooks}
+                searchQuery={searchQuery}
+              />
+            )}
+          </SectionErrorBoundary>
+        </section>
       </div>
-    </PageWrapper>
+    </PageErrorBoundary>
   )
 }
