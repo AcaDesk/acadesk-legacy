@@ -542,22 +542,22 @@ export async function getStudentDetail(studentId: string) {
       .from('students')
       .select(`
         *,
-        users!students_user_id_fkey (
+        users!inner (
           name,
           email,
           phone
         ),
-        student_guardians!student_guardians_student_id_fkey (
+        student_guardians (
           guardians (
             id,
             relationship,
-            users!guardians_user_id_fkey (
+            users!inner (
               name,
               phone
             )
           )
         ),
-        class_enrollments!class_enrollments_student_id_fkey (
+        class_enrollments (
           id,
           class_id,
           status,
@@ -565,14 +565,14 @@ export async function getStudentDetail(studentId: string) {
           end_date,
           withdrawal_reason,
           notes,
-          classes!class_enrollments_class_id_fkey (
+          classes (
             id,
             name,
             subject,
             instructor_id
           )
         ),
-        student_schedules!student_schedules_student_id_fkey (
+        student_schedules (
           day_of_week,
           scheduled_arrival_time
         )
