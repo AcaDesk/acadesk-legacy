@@ -22,6 +22,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { WidgetSkeleton } from '@/components/ui/widget-skeleton'
+import { DistributionTab } from '@/components/features/textbooks/distribution-tab'
 
 type PageProps = {
   params: Promise<{ id: string }>
@@ -174,19 +175,7 @@ async function TextbookInfo({ id }: { id: string }) {
         </TabsContent>
 
         <TabsContent value="distribution" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>배부 현황</CardTitle>
-              <CardDescription>
-                이 교재를 배부받은 학생 목록
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-center text-muted-foreground py-8">
-                배부 현황 기능은 곧 추가될 예정입니다
-              </p>
-            </CardContent>
-          </Card>
+          <DistributionTab textbookId={id} />
         </TabsContent>
 
         <TabsContent value="progress" className="space-y-4">

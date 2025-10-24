@@ -672,6 +672,55 @@ export async function deleteStudentTextbook(id: string) {
 }
 
 /**
+ * Get students who have been assigned a specific textbook
+ *
+ * @param textbookId - Textbook ID
+ * @param status - Filter by status (optional)
+ * @returns List of student textbook assignments or error
+ */
+export async function getTextbookDistributions(
+  textbookId: string,
+  status?: 'in_use' | 'completed' | 'returned'
+) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    let query = supabase
+      .from('student_textbooks')
+      .select('*, students(id, name, grade, class)')
+      .eq('tenant_id', tenantId)
+      .eq('textbook_id', textbookId)
+      .is('deleted_at', null)
+
+    if (status) {
+      query = query.eq('status', status)
+    }
+
+    const { data, error } = await query.order('issue_date', {
+      ascending: false,
+    })
+
+    if (error) {
+      throw error
+    }
+
+    return {
+      success: true,
+      data: data || [],
+      error: null,
+    }
+  } catch (error) {
+    console.error('[getTextbookDistributions] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
  * Get textbooks assigned to a student
  *
  * @param studentId - Student ID
