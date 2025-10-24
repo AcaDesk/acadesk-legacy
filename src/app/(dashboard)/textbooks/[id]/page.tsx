@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/table'
 import { WidgetSkeleton } from '@/components/ui/widget-skeleton'
 import { DistributionTab } from '@/components/features/textbooks/distribution-tab'
+import { ProgressTab } from '@/components/features/textbooks/progress-tab'
 
 type PageProps = {
   params: Promise<{ id: string }>
@@ -179,17 +180,7 @@ async function TextbookInfo({ id }: { id: string }) {
         </TabsContent>
 
         <TabsContent value="progress" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>진도 기록</CardTitle>
-              <CardDescription>최근 진도 기록</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-center text-muted-foreground py-8">
-                진도 기록 기능은 곧 추가될 예정입니다
-              </p>
-            </CardContent>
-          </Card>
+          <ProgressTab textbookId={id} />
         </TabsContent>
       </Tabs>
     </div>
