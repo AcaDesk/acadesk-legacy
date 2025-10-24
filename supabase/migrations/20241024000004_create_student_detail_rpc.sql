@@ -227,28 +227,33 @@ BEGIN
     LIMIT 30
   ) attendance;
 
-  -- 11. Get invoices (last 10)
-  SELECT COALESCE(jsonb_agg(invoice_data), '[]'::jsonb)
-  INTO v_invoices
-  FROM (
-    SELECT jsonb_build_object(
-      'id', i.id,
-      'billing_month', '',
-      'issue_date', i.created_at,
-      'due_date', i.due_date,
-      'total_amount', i.amount,
-      'paid_amount', 0,
-      'status', i.status,
-      'notes', NULL,
-      'created_at', i.created_at,
-      'invoice_items', '[]'::jsonb,
-      'payments', '[]'::jsonb
-    ) as invoice_data
-    FROM invoices i
-    WHERE i.student_id = p_student_id
-    ORDER BY i.created_at DESC
-    LIMIT 10
-  ) invoices;
+  -- 11. Get invoices (last 10) - Skip if table doesn't exist
+  BEGIN
+    SELECT COALESCE(jsonb_agg(invoice_data), '[]'::jsonb)
+    INTO v_invoices
+    FROM (
+      SELECT jsonb_build_object(
+        'id', i.id,
+        'billing_month', '',
+        'issue_date', i.created_at,
+        'due_date', i.due_date,
+        'total_amount', i.amount,
+        'paid_amount', 0,
+        'status', i.status,
+        'notes', NULL,
+        'created_at', i.created_at,
+        'invoice_items', '[]'::jsonb,
+        'payments', '[]'::jsonb
+      ) as invoice_data
+      FROM invoices i
+      WHERE i.student_id = p_student_id
+      ORDER BY i.created_at DESC
+      LIMIT 10
+    ) invoices;
+  EXCEPTION
+    WHEN undefined_table THEN
+      v_invoices := '[]'::jsonb;
+  END;
 
   -- 12. Calculate KPIs
   -- Attendance rate

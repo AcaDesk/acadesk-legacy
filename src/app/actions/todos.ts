@@ -54,13 +54,13 @@ export async function getTodosWithStudent() {
 
     // 3. Query TODOs with student info
     const { data, error } = await supabase
-      .from('student_todos')
+      .from('todos')
       .select(`
         *,
-        students (
+        students!inner (
           id,
           student_code,
-          users (
+          users!inner (
             name
           )
         )
@@ -70,6 +70,7 @@ export async function getTodosWithStudent() {
       .order('due_date', { ascending: true })
 
     if (error) {
+      console.error('[getTodosWithStudent] Query error:', error)
       throw error
     }
 

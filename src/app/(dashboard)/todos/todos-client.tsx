@@ -310,7 +310,11 @@ export function TodosClient({ initialTodos }: TodosClientProps) {
                           <div className="flex items-center gap-2">
                             <User className="h-4 w-4 text-muted-foreground" />
                             <div>
-                              <div className="text-sm">{todo.students?.name || 'Unknown'}</div>
+                              <div className="text-sm">
+                                {Array.isArray(todo.students?.users)
+                                  ? todo.students.users[0]?.name
+                                  : todo.students?.users?.name || 'Unknown'}
+                              </div>
                               <div className="text-xs text-muted-foreground">
                                 {todo.students?.student_code || '-'}
                               </div>

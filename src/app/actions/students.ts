@@ -14,6 +14,7 @@ import { verifyStaffPermission } from '@/lib/auth/service-role-helpers'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
 import type { StudentDetailData } from '@/core/types/studentDetail.types'
+import { hashKioskPin } from './kiosk'
 
 // ============================================================================
 // Validation Schemas
@@ -194,7 +195,13 @@ export async function createStudentComplete(
       throw new Error('학생 사용자 생성에 실패했습니다: ' + studentUserError?.message)
     }
 
-    // 7. Create student record
+    // 7. Hash kiosk_pin if provided
+    let hashedKioskPin: string | null = null
+    if (validated.student.kiosk_pin) {
+      hashedKioskPin = await hashKioskPin(validated.student.kiosk_pin)
+    }
+
+    // 8. Create student record
     const { data: studentRecord, error: studentError } = await serviceClient
       .from('students')
       .insert({
@@ -212,7 +219,7 @@ export async function createStudentComplete(
         notes: validated.student.notes || null,
         commute_method: validated.student.commute_method || null,
         marketing_source: validated.student.marketing_source || null,
-        kiosk_pin: validated.student.kiosk_pin || null,
+        kiosk_pin: hashedKioskPin,
       })
       .select('id')
       .single()
@@ -223,7 +230,7 @@ export async function createStudentComplete(
 
     studentId = studentRecord.id
 
-    // 8. Link guardian to student (if guardian exists)
+    // 9. Link guardian to student (if guardian exists)
     if (guardianId && studentId) {
       const guardianLinkData =
         validated.guardianMode === 'existing' && validated.guardian && 'id' in validated.guardian
@@ -258,7 +265,7 @@ export async function createStudentComplete(
       }
     }
 
-    // 9. Revalidate pages
+    // 10. Revalidate pages
     revalidatePath('/students')
     revalidatePath('/dashboard')
 
@@ -344,7 +351,15 @@ export async function updateStudent(
     if (updates.commute_method !== undefined) studentUpdates.commute_method = updates.commute_method
     if (updates.marketing_source !== undefined) studentUpdates.marketing_source = updates.marketing_source
     if (updates.emergency_contact !== undefined) studentUpdates.emergency_contact = updates.emergency_contact
-    if (updates.kiosk_pin !== undefined) studentUpdates.kiosk_pin = updates.kiosk_pin
+
+    // Hash kiosk_pin before storing
+    if (updates.kiosk_pin !== undefined) {
+      if (updates.kiosk_pin === null || updates.kiosk_pin === '') {
+        studentUpdates.kiosk_pin = null
+      } else {
+        studentUpdates.kiosk_pin = await hashKioskPin(updates.kiosk_pin)
+      }
+    }
 
     // 5. Update users table if needed
     if (Object.keys(userUpdates).length > 0 && existingStudent.user_id) {
@@ -777,10 +792,10 @@ export async function getStudents(filters?: {
             name
           )
         ),
-        student_guardians!student_guardians_student_id_fkey (
+        student_guardians (
           guardians (
             id,
-            users (
+            users!inner (
               name,
               phone
             )
