@@ -139,33 +139,19 @@ export default function GuardianDetailPage() {
 
   return (
     <PageErrorBoundary pageName="보호자 상세">
-      <PageWrapper>
+      <PageWrapper
+        title={guardian.users?.[0]?.name || '이름 없음'}
+        subtitle={`${guardian.relationship ? `${guardian.relationship} · ` : ''}보호자`}
+        actions={
+          <RoleGuard allowedRoles={['owner', 'instructor']}>
+            <Button onClick={() => router.push(`/guardians/${guardian.id}/edit`)}>
+              <Edit className="h-4 w-4 mr-2" />
+              수정
+            </Button>
+          </RoleGuard>
+        }
+      >
         <div className="space-y-6">
-          {/* Header */}
-          <div className="space-y-4">
-            <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-              <button onClick={() => router.push('/guardians')} className="hover:text-foreground transition-colors">
-                보호자 관리
-              </button>
-              <ChevronRight className="h-4 w-4" />
-              <span className="text-foreground font-medium">{guardian.users?.[0]?.name || '이름 없음'}</span>
-            </nav>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold">{guardian.users?.[0]?.name || '이름 없음'}</h1>
-              <p className="text-muted-foreground">
-                {guardian.relationship ? `${guardian.relationship} · ` : ''}보호자
-              </p>
-            </div>
-            <RoleGuard allowedRoles={['owner', 'instructor']}>
-              <Button onClick={() => router.push(`/guardians/${guardian.id}/edit`)}>
-                <Edit className="h-4 w-4 mr-2" />
-                수정
-              </Button>
-            </RoleGuard>
-          </div>
-        </div>
 
         {/* Basic Info Cards */}
         <SectionErrorBoundary sectionName="기본 정보">

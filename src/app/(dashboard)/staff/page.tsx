@@ -62,7 +62,10 @@ export default async function StaffPage() {
     .order("created_at", { ascending: false })
 
   return (
-    <PageWrapper>
+    <PageWrapper
+      title="직원 관리"
+      subtitle="학원 직원을 초대하고 관리합니다"
+    >
       <Suspense fallback={<div>Loading...</div>}>
         <StaffManagementClient
           staffList={staffList || []}
