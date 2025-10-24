@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { getClassesWithDetails } from '@/app/actions/classes'
-import { motion } from 'framer-motion'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
@@ -39,6 +38,8 @@ import {
   DropdownMenuTrigger,
 } from '@ui/dropdown-menu'
 import { Input } from '@ui/input'
+import { PAGE_ANIMATIONS, getListItemAnimation } from '@/lib/animation-config'
+import { LoadingState, EmptyState } from '@/components/ui/loading-state'
 
 interface ClassData {
   id: string
@@ -146,7 +147,7 @@ export default function ClassesPage() {
   if (loading) {
     return (
       <PageWrapper>
-        <div className="text-center py-12">로딩 중...</div>
+        <LoadingState variant="card" message="수업 목록을 불러오는 중..." />
       </PageWrapper>
     )
   }
@@ -155,11 +156,7 @@ export default function ClassesPage() {
     <PageWrapper>
       <div className={PAGE_LAYOUT.SECTION_SPACING}>
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
+        <section className={PAGE_ANIMATIONS.header}>
           <div className="flex items-center justify-between">
             <div>
               <h1 className={TEXT_STYLES.PAGE_TITLE}>수업 관리</h1>
@@ -174,14 +171,12 @@ export default function ClassesPage() {
               </Button>
             </Link>
           </div>
-        </motion.div>
+        </section>
 
         {/* Stats Cards */}
-        <motion.div
+        <section
           className={GRID_LAYOUTS.STATS}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
+          {...PAGE_ANIMATIONS.getSection(0)}
         >
           <Card>
             <CardHeader className="pb-3">
@@ -227,14 +222,12 @@ export default function ClassesPage() {
               </p>
             </CardContent>
           </Card>
-        </motion.div>
+        </section>
 
         {/* Search & Filter */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.3, delay: 0.2 }}
+        <section
           className="flex gap-4 items-center"
+          {...PAGE_ANIMATIONS.getSection(1)}
         >
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -249,38 +242,26 @@ export default function ClassesPage() {
             <Filter className="h-4 w-4" />
             필터
           </Button>
-        </motion.div>
+        </section>
 
         {/* Classes List */}
         {filteredClasses.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.3, delay: 0.3 }}
-          >
-            <Card>
-              <CardContent className="py-12">
-                <div className="text-center text-muted-foreground">
-                  <GraduationCap className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>등록된 수업이 없습니다.</p>
-                  <p className="text-sm mt-2">새 수업을 추가하여 시작하세요.</p>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+          <section {...PAGE_ANIMATIONS.getSection(2)}>
+            <EmptyState
+              icon={<GraduationCap className="h-12 w-12" />}
+              title="등록된 수업이 없습니다"
+              description="새 수업을 추가하여 시작하세요"
+            />
+          </section>
         ) : (
-          <motion.div
+          <section
             className={GRID_LAYOUTS.DUAL}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.3, delay: 0.3 }}
+            {...PAGE_ANIMATIONS.getSection(2)}
           >
             {paginatedData.map((cls, index) => (
-              <motion.div
+              <div
                 key={cls.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 0.1 * index }}
+                {...getListItemAnimation(index)}
               >
                 <Card className={CARD_STYLES.INTERACTIVE}>
                   <CardHeader>
@@ -348,9 +329,9 @@ export default function ClassesPage() {
                     </div>
                   </CardContent>
                 </Card>
-              </motion.div>
+              </div>
             ))}
-          </motion.div>
+          </section>
         )}
 
         {/* Pagination */}
