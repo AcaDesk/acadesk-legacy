@@ -13,8 +13,8 @@ export function LandingHeader({ user }: LandingHeaderProps) {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4">
-        {/* 로고 */}
-        <Link href="/" className="flex items-center gap-2 font-semibold">
+        {/* 로고 - 로그인 상태에 따라 링크 변경 */}
+        <Link href={user ? "/dashboard" : "/"} className="flex items-center gap-2 font-semibold">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <GraduationCap className="h-5 w-5" />
           </div>
