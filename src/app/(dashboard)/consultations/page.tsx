@@ -252,8 +252,8 @@ export default function ConsultationsPage() {
 
         {/* Search & Tabs */}
         <section
-          className="space-y-4"
-          {...PAGE_ANIMATIONS.getSection(1)}
+          className={cn("space-y-4", PAGE_ANIMATIONS.getSection(1).className)}
+          style={PAGE_ANIMATIONS.getSection(1).style}
         >
           <div className="flex gap-4 items-center">
             <div className="relative flex-1">
@@ -287,8 +287,8 @@ export default function ConsultationsPage() {
 
         {/* Consultations List */}
         <section
-          className="space-y-3"
-          {...PAGE_ANIMATIONS.getSection(2)}
+          className={cn("space-y-3", PAGE_ANIMATIONS.getSection(2).className)}
+          style={PAGE_ANIMATIONS.getSection(2).style}
         >
           {loading ? (
             <LoadingState
