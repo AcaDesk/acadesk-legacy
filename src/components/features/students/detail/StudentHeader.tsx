@@ -23,7 +23,6 @@ import {
 } from '@ui/dialog'
 import { ProfileImageUpload } from '@ui/profile-image-upload'
 import {
-  ChevronRight,
   Edit,
   MoreVertical,
   FileText,
@@ -171,20 +170,6 @@ export function StudentHeader({
 
   return (
     <div className="space-y-4">
-      {/* Breadcrumbs */}
-      <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-        <button
-          onClick={() => router.push('/students')}
-          className="hover:text-foreground transition-colors"
-        >
-          학생 관리
-        </button>
-        <ChevronRight className="h-4 w-4" />
-        <span className="text-foreground font-medium">
-          {student.users?.name || '학생'}
-        </span>
-      </nav>
-
       {/* Header */}
       <motion.div
         className="flex items-center justify-between"

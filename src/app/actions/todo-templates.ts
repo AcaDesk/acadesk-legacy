@@ -20,7 +20,6 @@ const createTodoTemplateSchema = z.object({
   title: z.string().min(1, '과제명은 필수입니다'),
   description: z.string().optional(),
   subject: z.string().optional(),
-  dayOfWeek: z.number().int().min(0).max(6).optional(),
   estimatedDurationMinutes: z.number().int().positive().optional(),
   priority: z.enum(['low', 'normal', 'high', 'urgent']).default('normal'),
   active: z.boolean().optional(),
@@ -31,7 +30,6 @@ const updateTodoTemplateSchema = z.object({
   title: z.string().min(1, '과제명은 필수입니다').optional(),
   description: z.string().optional(),
   subject: z.string().optional(),
-  dayOfWeek: z.number().int().min(0).max(6).optional().nullable(),
   estimatedDurationMinutes: z.number().int().positive().optional().nullable(),
   priority: z.enum(['low', 'normal', 'high', 'urgent']).optional(),
   active: z.boolean().optional(),
@@ -154,7 +152,6 @@ export async function createTodoTemplate(
         title: validated.title,
         description: validated.description || null,
         subject: validated.subject || null,
-        day_of_week: validated.dayOfWeek ?? null,
         estimated_duration_minutes: validated.estimatedDurationMinutes ?? null,
         priority: validated.priority,
         active: validated.active ?? true, // Default to true
@@ -216,9 +213,6 @@ export async function updateTodoTemplate(
     }
     if (validated.subject !== undefined) {
       updateData.subject = validated.subject || null
-    }
-    if (validated.dayOfWeek !== undefined) {
-      updateData.day_of_week = validated.dayOfWeek
     }
     if (validated.estimatedDurationMinutes !== undefined) {
       updateData.estimated_duration_minutes = validated.estimatedDurationMinutes

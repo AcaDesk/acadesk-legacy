@@ -46,10 +46,10 @@ interface TodoWithStudent {
   student_id: string
   students: {
     student_code: string
-    users: {
+    user_id: {
       name: string
-    }[]
-  }[]
+    } | null
+  } | null
   completed_at: string | null
   verified_at: string | null
 }
@@ -167,9 +167,9 @@ export default function TodoStatsPage() {
           completed_at,
           verified_at,
           student_id,
-          students (
+          students!inner (
             student_code,
-            users (
+            user_id (
               name
             )
           )
@@ -185,12 +185,13 @@ export default function TodoStatsPage() {
       if (error) throw error
 
       // Group by student
-      const studentMap = new Map<string, StudentStats>()
+      const studentMap: Map<string, StudentStats> = new Map()
 
-      data?.forEach((todo: TodoWithStudent) => {
+      const todos = data as unknown as TodoWithStudent[]
+      todos?.forEach((todo) => {
         const studentId = todo.student_id
-        const studentsRel = todo.students[0] ?? null
-        const studentName = studentsRel?.users?.[0]?.name || '이름 없음'
+        const studentsRel = todo.students
+        const studentName = studentsRel?.user_id?.name || '이름 없음'
         const studentCode = studentsRel?.student_code || ''
 
         if (!studentMap.has(studentId)) {
@@ -205,14 +206,16 @@ export default function TodoStatsPage() {
           })
         }
 
-        const stats = studentMap.get(studentId)!
-        stats.totalTodos++
-        if (todo.completed_at) stats.completedTodos++
-        if (todo.verified_at) stats.verifiedTodos++
+        const stats = studentMap.get(studentId)
+        if (stats) {
+          stats.totalTodos++
+          if (todo.completed_at) stats.completedTodos++
+          if (todo.verified_at) stats.verifiedTodos++
+        }
       })
 
       // Calculate completion rates
-      const studentStatsArray = Array.from(studentMap.values()).map(stats => ({
+      const studentStatsArray: StudentStats[] = Array.from(studentMap.values()).map(stats => ({
         ...stats,
         completionRate: stats.totalTodos > 0
           ? (stats.completedTodos / stats.totalTodos) * 100

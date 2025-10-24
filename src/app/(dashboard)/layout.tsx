@@ -118,6 +118,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
     <DashboardShell
       userName={userData.name || undefined}
       userEmail={userData.email || user.email || undefined}
+      userRole={userData.role_code || undefined}
     >
       {children}
     </DashboardShell>
