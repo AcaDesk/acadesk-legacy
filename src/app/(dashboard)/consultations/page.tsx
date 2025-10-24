@@ -31,6 +31,7 @@ import { Maintenance } from '@/components/layout/maintenance'
 import { useToast } from '@/hooks/use-toast'
 import { LoadingState, EmptyState } from '@/components/ui/loading-state'
 import { PAGE_ANIMATIONS, getListItemAnimation } from '@/lib/animation-config'
+import { cn } from '@/lib/utils'
 
 type Consultation = {
   id: string
@@ -184,8 +185,8 @@ export default function ConsultationsPage() {
 
         {/* Stats Cards */}
         <section
-          className={GRID_LAYOUTS.STATS}
-          {...PAGE_ANIMATIONS.getSection(0)}
+          className={cn(GRID_LAYOUTS.STATS, PAGE_ANIMATIONS.getSection(0).className)}
+          style={PAGE_ANIMATIONS.getSection(0).style}
         >
           <Card>
             <CardHeader className="pb-3">
