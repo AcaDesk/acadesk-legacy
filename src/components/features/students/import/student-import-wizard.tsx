@@ -14,8 +14,8 @@ import { FileUpload } from './file-upload'
 import { ImportPreview } from './import-preview'
 import { parseExcelFile, validateImportItems, validateExcelHeaders, downloadErrorReport } from '@/lib/excel-parser'
 import { previewStudentImport, confirmStudentImport } from '@/app/actions/student-import'
-import type { StudentImportItem } from '@core/domain/entities/StudentImport'
-import type { StudentImportPreview } from '@core/domain/value-objects/StudentImportPreview'
+import type { StudentImportItem } from '@/core/types/student-import'
+import type { StudentImportPreview } from '@/core/types/student-import-preview'
 
 type Step = 'upload' | 'preview' | 'complete'
 
