@@ -63,6 +63,16 @@ import {
   TableRow,
 } from '@ui/table'
 import { Badge } from '@ui/badge'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@ui/alert-dialog'
 import { getStudentAvatar } from '@/lib/avatar'
 import { cn } from '@/lib/utils'
 import { BulkActionsDialog } from './bulk-actions-dialog'
@@ -129,6 +139,8 @@ export function StudentTableImproved({
   const [rowSelection, setRowSelection] = React.useState({})
   const [badgeFilter, setBadgeFilter] = React.useState<BadgeFilter>(null)
   const [bulkActionsOpen, setBulkActionsOpen] = React.useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
+  const [studentToDelete, setStudentToDelete] = React.useState<{ id: string; name: string } | null>(null)
 
   const isNewStudent = (enrollmentDate: string) => {
     const daysSinceEnrollment = differenceInDays(new Date(), new Date(enrollmentDate))
@@ -535,7 +547,11 @@ export function StudentTableImproved({
                 className="text-red-600 focus:text-red-600"
                 onClick={(e) => {
                   e.stopPropagation()
-                  onDelete?.(student.id, student.users?.name || '학생')
+                  setStudentToDelete({
+                    id: student.id,
+                    name: student.users?.name || '학생',
+                  })
+                  setDeleteDialogOpen(true)
                 }}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
@@ -927,6 +943,35 @@ export function StudentTableImproved({
         selectedStudents={selectedStudents}
         onComplete={handleBulkActionsComplete}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>학생 삭제 확인</AlertDialogTitle>
+            <AlertDialogDescription>
+              정말로 <span className="font-semibold text-foreground">{studentToDelete?.name}</span> 학생을 삭제하시겠습니까?
+              <br />
+              <br />
+              이 작업은 되돌릴 수 없으며, 학생의 모든 정보가 영구적으로 삭제됩니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (studentToDelete) {
+                  onDelete?.(studentToDelete.id, studentToDelete.name)
+                  setStudentToDelete(null)
+                }
+              }}
+            >
+              삭제
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
