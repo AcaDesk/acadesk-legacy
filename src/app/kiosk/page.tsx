@@ -8,7 +8,7 @@ import { Badge } from '@ui/badge'
 import { Progress } from '@ui/progress'
 import { Checkbox } from '@ui/checkbox'
 import { useToast } from '@/hooks/use-toast'
-import { Trophy, CheckCircle, Clock, AlertCircle, PartyPopper, LogOut, Loader2 } from 'lucide-react'
+import { Trophy, CheckCircle, Clock, AlertCircle, PartyPopper, LogOut, Loader2, Calendar } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
@@ -20,6 +20,7 @@ export default function KioskPage() {
   // All Hooks must be called before any early returns
   const [studentId, setStudentId] = useState<string | null>(null)
   const [studentName, setStudentName] = useState<string>('')
+  const [studentCode, setStudentCode] = useState<string>('')
   const [tenantId, setTenantId] = useState<string | null>(null)
   const [todos, setTodos] = useState<StudentTodo[]>([])
   const [showCelebration, setShowCelebration] = useState(false)
@@ -41,6 +42,7 @@ export default function KioskPage() {
 
     setStudentId(session.studentId)
     setStudentName(session.studentName)
+    setStudentCode(session.studentCode)
     setTenantId(session.tenantId)
     setIsCheckingSession(false)
   }, [router])
@@ -137,6 +139,12 @@ export default function KioskPage() {
   const progressPercentage = totalTodos > 0 ? (completedTodos / totalTodos) * 100 : 0
   const allCompleted = totalTodos > 0 && completedTodos === totalTodos
   const allVerified = totalTodos > 0 && verifiedTodos === totalTodos
+
+  // Get today's date
+  const today = new Date()
+  const weekdays = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일']
+  const dateString = `${today.getFullYear()}년 ${today.getMonth() + 1}월 ${today.getDate()}일`
+  const dayOfWeek = weekdays[today.getDay()]
 
   // Feature flag checks after all Hooks
   const featureStatus = FEATURES.kioskMode;
@@ -236,30 +244,51 @@ export default function KioskPage() {
           )}
         </AnimatePresence>
 
-        {/* 학생 정보 헤더 */}
+        {/* 학생 프로필 & 날짜 헤더 */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between"
         >
-          <div>
-            <h2 className="text-2xl font-bold">{studentName}님, 환영합니다! 👋</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              오늘도 열심히 공부해요!
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleLogout}
-            className="gap-2"
-          >
-            <LogOut className="h-4 w-4" />
-            로그아웃
-          </Button>
+          <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between">
+                <div className="space-y-3">
+                  {/* 날짜 정보 */}
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Calendar className="h-4 w-4" />
+                    <span>{dateString} {dayOfWeek}</span>
+                  </div>
+
+                  {/* 학생 정보 */}
+                  <div>
+                    <div className="flex items-baseline gap-3">
+                      <h2 className="text-3xl font-bold">{studentName}님</h2>
+                      <span className="text-lg font-mono text-muted-foreground">
+                        {studentCode}
+                      </span>
+                    </div>
+                    <p className="text-muted-foreground mt-1">
+                      오늘도 열심히 공부해요! 👋
+                    </p>
+                  </div>
+                </div>
+
+                {/* 로그아웃 버튼 */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleLogout}
+                  className="gap-2"
+                >
+                  <LogOut className="h-4 w-4" />
+                  로그아웃
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </motion.div>
 
-        {/* Header with Progress */}
+        {/* 학습 진행률 */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -269,7 +298,7 @@ export default function KioskPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h1 className="text-3xl font-bold">오늘의 학습 목표</h1>
+                  <h1 className="text-2xl font-bold">오늘의 학습 목표</h1>
                   <p className="text-muted-foreground mt-1">
                     {allCompleted
                       ? '✨ 모든 과제를 완료했어요!'
@@ -277,10 +306,10 @@ export default function KioskPage() {
                   </p>
                 </div>
                 <div className="text-right">
-                  <div className="text-5xl font-bold text-primary">
+                  <div className="text-4xl font-bold text-primary">
                     {Math.round(progressPercentage)}%
                   </div>
-                  <p className="text-sm text-muted-foreground">진행률</p>
+                  <p className="text-xs text-muted-foreground">진행률</p>
                 </div>
               </div>
 

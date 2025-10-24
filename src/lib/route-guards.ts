@@ -35,6 +35,11 @@ export function isPublicPath(pathname: string): boolean {
     return true
   }
 
+  // 키오스크 경로는 모두 공개 (학생용 독립 로그인)
+  if (pathname.startsWith("/kiosk")) {
+    return true
+  }
+
   return false
 }
 
