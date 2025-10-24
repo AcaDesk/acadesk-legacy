@@ -7,9 +7,39 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
+
+// ============================================================================
+// Validation Schemas
+// ============================================================================
+
+const createClassSchema = z.object({
+  name: z.string().min(1, '수업명은 필수입니다'),
+  description: z.string().optional(),
+  subject: z.string().optional(),
+  gradeLevel: z.string().optional(),
+  instructorId: z.string().uuid('유효한 강사를 선택해주세요').optional(),
+  schedule: z.record(z.string(), z.any()).optional(),
+  room: z.string().optional(),
+  capacity: z.number().int().positive().optional(),
+  active: z.boolean().default(true),
+})
+
+const updateClassSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().min(1, '수업명은 필수입니다').optional(),
+  description: z.string().optional(),
+  subject: z.string().optional(),
+  gradeLevel: z.string().optional(),
+  instructorId: z.string().uuid().optional(),
+  schedule: z.record(z.string(), z.any()).optional(),
+  room: z.string().optional(),
+  capacity: z.number().int().positive().optional(),
+  active: z.boolean().optional(),
+})
 
 // ============================================================================
 // Types
@@ -99,6 +129,124 @@ export async function getClassesWithDetails() {
     }
   } catch (error) {
     console.error('[getClassesWithDetails] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * Create a new class
+ *
+ * @param input - Class data
+ * @returns Created class or error
+ */
+export async function createClass(input: z.infer<typeof createClassSchema>) {
+  try {
+    // 1. Verify authentication and get tenant
+    const { tenantId } = await verifyStaff()
+
+    // 2. Validate input
+    const validated = createClassSchema.parse(input)
+
+    // 3. Create service_role client
+    const supabase = await createServiceRoleClient()
+
+    // 4. Insert class
+    const { data, error } = await supabase
+      .from('classes')
+      .insert({
+        tenant_id: tenantId,
+        name: validated.name,
+        description: validated.description || null,
+        subject: validated.subject || null,
+        grade_level: validated.gradeLevel || null,
+        instructor_id: validated.instructorId || null,
+        schedule: validated.schedule || null,
+        room: validated.room || null,
+        capacity: validated.capacity || null,
+        status: 'active',
+        active: validated.active,
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+
+    // 5. Revalidate pages
+    revalidatePath('/classes')
+
+    return {
+      success: true,
+      data,
+      error: null,
+    }
+  } catch (error) {
+    console.error('[createClass] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * Update a class
+ *
+ * @param input - Class data to update
+ * @returns Updated class or error
+ */
+export async function updateClass(input: z.infer<typeof updateClassSchema>) {
+  try {
+    // 1. Verify authentication and get tenant
+    const { tenantId } = await verifyStaff()
+
+    // 2. Validate input
+    const validated = updateClassSchema.parse(input)
+
+    // 3. Create service_role client
+    const supabase = await createServiceRoleClient()
+
+    // 4. Build update object
+    const updateData: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    }
+
+    if (validated.name !== undefined) updateData.name = validated.name
+    if (validated.description !== undefined) updateData.description = validated.description
+    if (validated.subject !== undefined) updateData.subject = validated.subject
+    if (validated.gradeLevel !== undefined) updateData.grade_level = validated.gradeLevel
+    if (validated.instructorId !== undefined) updateData.instructor_id = validated.instructorId
+    if (validated.schedule !== undefined) updateData.schedule = validated.schedule
+    if (validated.room !== undefined) updateData.room = validated.room
+    if (validated.capacity !== undefined) updateData.capacity = validated.capacity
+    if (validated.active !== undefined) updateData.active = validated.active
+
+    // 5. Update class
+    const { data, error } = await supabase
+      .from('classes')
+      .update(updateData)
+      .eq('id', validated.id)
+      .eq('tenant_id', tenantId)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    // 6. Revalidate pages
+    revalidatePath('/classes')
+    revalidatePath(`/classes/${validated.id}`)
+
+    return {
+      success: true,
+      data,
+      error: null,
+    }
+  } catch (error) {
+    console.error('[updateClass] Error:', error)
     return {
       success: false,
       data: null,
@@ -326,6 +474,45 @@ export async function getRecentClassSessions(classId: string, limit = 5) {
     }
   } catch (error) {
     console.error('[getRecentClassSessions] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * Get all instructors for class assignment
+ *
+ * @returns List of instructors or error
+ */
+export async function getInstructors() {
+  try {
+    // 1. Verify authentication and get tenant
+    const { tenantId } = await verifyStaff()
+
+    // 2. Create service_role client
+    const supabase = await createServiceRoleClient()
+
+    // 3. Query instructors
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, name, email')
+      .eq('tenant_id', tenantId)
+      .in('role_code', ['owner', 'instructor'])
+      .is('deleted_at', null)
+      .order('name', { ascending: true })
+
+    if (error) throw error
+
+    return {
+      success: true,
+      data: data || [],
+      error: null,
+    }
+  } catch (error) {
+    console.error('[getInstructors] Error:', error)
     return {
       success: false,
       data: null,

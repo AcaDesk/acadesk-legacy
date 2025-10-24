@@ -309,37 +309,25 @@ export default function BookLendingsPage() {
   }
 
   return (
-    <PageWrapper>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="space-y-4">
-          <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Link href="/library" className="hover:text-foreground transition-colors">
-              도서관
-            </Link>
-            <ChevronRight className="h-4 w-4" />
-            <span className="text-foreground font-medium">대여 관리</span>
-          </nav>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold">도서 대출 관리</h1>
-              <p className="text-muted-foreground">도서 대출 현황을 관리하고 반납 알림을 전송하세요</p>
-            </div>
-            <div className="flex gap-2">
-              {stats.overdue > 0 && (
-                <Button variant="outline" onClick={handleBulkReminder}>
-                  <Send className="h-4 w-4 mr-2" />
-                  연체 알림 ({stats.overdue}건)
-                </Button>
-              )}
-              <Button onClick={() => router.push('/library/lendings/new')}>
-                <Plus className="h-4 w-4 mr-2" />
-                대출 등록
-              </Button>
-            </div>
-          </div>
+    <PageWrapper
+      title="도서 대출 관리"
+      subtitle="도서 대출 현황을 관리하고 반납 알림을 전송하세요"
+      actions={
+        <div className="flex gap-2">
+          {stats.overdue > 0 && (
+            <Button variant="outline" onClick={handleBulkReminder}>
+              <Send className="h-4 w-4 mr-2" />
+              연체 알림 ({stats.overdue}건)
+            </Button>
+          )}
+          <Button onClick={() => router.push('/library/lendings/new')}>
+            <Plus className="h-4 w-4 mr-2" />
+            대출 등록
+          </Button>
         </div>
+      }
+    >
+      <div className="space-y-6">
 
         {/* Filters */}
         <div className="flex flex-col gap-4 sm:flex-row">
