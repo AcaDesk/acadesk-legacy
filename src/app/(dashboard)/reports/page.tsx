@@ -131,17 +131,11 @@ export default function ReportsPage() {
   }
 
   return (
-    <PageWrapper>
-      <div className="max-w-6xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">월간 리포트</h1>
-            <p className="text-muted-foreground">
-              학생별 월간 성적 리포트를 생성하고 조회합니다
-            </p>
-          </div>
-        </div>
+    <PageWrapper
+      title="월간 리포트"
+      subtitle="학생별 월간 성적 리포트를 생성하고 조회합니다"
+    >
+      <div className="space-y-6">
 
         {/* Report Generation Form */}
         <Card>

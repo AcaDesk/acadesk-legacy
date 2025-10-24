@@ -161,20 +161,13 @@ export function StaffManagementClient({
   }
 
   return (
-    <div className="container mx-auto space-y-6 p-6">
+    <div className="space-y-6">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">직원 관리</h1>
-            <p className="text-muted-foreground">
-              학원 직원을 초대하고 관리합니다
-            </p>
-          </div>
-
+        <div className="flex items-center justify-end">
           <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
             <DialogTrigger asChild>
               <Button>
