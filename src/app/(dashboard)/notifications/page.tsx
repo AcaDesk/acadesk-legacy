@@ -77,7 +77,8 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     loadNotificationLogs()
-    loadReportAutoSendStatus()
+    // TODO: Uncomment when API is implemented
+    // loadReportAutoSendStatus()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -389,10 +390,11 @@ export default function NotificationsPage() {
                   size="sm"
                   className="w-full"
                   onClick={() => handleManualTrigger(notification.type)}
-                  disabled={sending === notification.type}
+                  disabled={true}
+                  title="API 구현 예정"
                 >
                   <Send className="h-3 w-3 mr-2" />
-                  {sending === notification.type ? '전송 중...' : '수동 실행'}
+                  수동 실행 (준비 중)
                 </Button>
               </CardContent>
             </Card>

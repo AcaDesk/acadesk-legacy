@@ -76,7 +76,19 @@ export function ManageTemplatesDialog({
       const result = await getMessageTemplates()
 
       if (!result.success || !result.data) {
-        throw new Error(result.error || '템플릿 로드 실패')
+        const errorMsg = result.error || '템플릿 로드 실패'
+
+        // Provide more helpful error message for permission issues
+        if (errorMsg.includes('권한') || errorMsg.includes('인증')) {
+          throw new Error(
+            `${errorMsg}\n\n확인사항:\n` +
+            '1. 로그인 상태를 확인하세요\n' +
+            '2. Staff 권한(원장, 강사, 조교)이 있는지 확인하세요\n' +
+            '3. Tenant가 올바르게 설정되어 있는지 확인하세요'
+          )
+        }
+
+        throw new Error(errorMsg)
       }
 
       setTemplates(result.data)
