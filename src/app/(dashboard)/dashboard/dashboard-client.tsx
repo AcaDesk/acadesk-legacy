@@ -422,14 +422,34 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
           onDragEnd={handleDragEnd}
         >
           <SortableContext
-            items={isEditMode ? tempWidgets.map(w => w.id) : widgets.map(w => w.id)}
+            items={isEditMode ? tempWidgets.filter(w => w.visible).map(w => w.id) : widgets.filter(w => w.visible).map(w => w.id)}
             strategy={verticalListSortingStrategy}
           >
-            <div className="space-y-6">
-              {DASHBOARD_LAYOUT.map((section, index) =>
-                shouldShowSection(section, visibleWidgetIds) && renderSection(section, index)
-              )}
-            </div>
+            {isEditMode ? (
+              /* Edit Mode: Simple list for easy drag-and-drop */
+              <div className="space-y-4">
+                <div className="p-4 bg-accent/20 border-2 border-dashed border-primary/30 rounded-lg">
+                  <p className="text-sm text-muted-foreground text-center">
+                    위젯을 드래그하여 순서를 변경하세요. 저장하면 새 순서가 적용됩니다.
+                  </p>
+                </div>
+                {tempWidgets
+                  .filter(w => w.visible)
+                  .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                  .map((widget) => (
+                    <div key={widget.id}>
+                      {renderWidget(widget.id)}
+                    </div>
+                  ))}
+              </div>
+            ) : (
+              /* View Mode: Section-based layout */
+              <div className="space-y-6">
+                {DASHBOARD_LAYOUT.map((section, index) =>
+                  shouldShowSection(section, visibleWidgetIds) && renderSection(section, index)
+                )}
+              </div>
+            )}
           </SortableContext>
           <DragOverlay>
             {activeId ? (
