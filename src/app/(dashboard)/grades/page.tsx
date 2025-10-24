@@ -21,6 +21,7 @@ import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { PAGE_ANIMATIONS } from '@/lib/animation-config'
+import { cn } from '@/lib/utils'
 
 interface Student {
   id: string
@@ -196,8 +197,8 @@ export default function GradesPage() {
 
         {/* Quick Actions */}
         <section
-          className={GRID_LAYOUTS.DUAL}
-          {...PAGE_ANIMATIONS.getSection(0)}
+          className={cn(GRID_LAYOUTS.DUAL, PAGE_ANIMATIONS.getSection(0).className)}
+          style={PAGE_ANIMATIONS.getSection(0).style}
         >
           <Link href="/grades/exams">
             <Card className={CARD_STYLES.INTERACTIVE}>
