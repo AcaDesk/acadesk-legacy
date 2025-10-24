@@ -8,7 +8,6 @@ import { Badge } from '@ui/badge'
 import { Progress } from '@ui/progress'
 import { Checkbox } from '@ui/checkbox'
 import { useToast } from '@/hooks/use-toast'
-import { PageWrapper } from "@/components/layout/page-wrapper"
 import { Trophy, CheckCircle, Clock, AlertCircle, PartyPopper, LogOut, Loader2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { FEATURES } from '@/lib/features.config'
@@ -163,7 +162,7 @@ export default function KioskPage() {
   }
 
   return (
-    <PageWrapper>
+    <div className="min-h-screen bg-background p-6">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Celebration Screen */}
         <AnimatePresence>
@@ -391,6 +390,6 @@ export default function KioskPage() {
           )}
         </div>
       </div>
-    </PageWrapper>
+    </div>
   )
 }
