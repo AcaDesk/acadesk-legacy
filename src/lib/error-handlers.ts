@@ -22,8 +22,18 @@ export interface ErrorResponse {
 
 /**
  * Convert any error to a user-friendly message
+ *
+ * 이 함수는 모든 에러를 사용자 친화적인 메시지로 변환합니다.
+ * 개발자를 위한 상세 로그는 자동으로 콘솔에 기록됩니다.
  */
-export function getErrorMessage(error: unknown): string {
+export function getErrorMessage(error: unknown, context?: string): string {
+  // 개발자를 위한 상세 로그 (항상 원본 에러 기록)
+  console.error(
+    `[Error${context ? ` in ${context}` : ''}]`,
+    error instanceof Error ? error.message : error,
+    error
+  )
+
   // Known AppError types
   if (isAppError(error)) {
     return error.message
@@ -46,12 +56,34 @@ export function getErrorMessage(error: unknown): string {
     if ('code' in error) {
       const code = error.code as string
 
-      // Common Supabase error codes
-      if (code === '23505') return '이미 존재하는 데이터입니다'
-      if (code === '23503') return '참조된 데이터가 존재하지 않습니다'
-      if (code === '42501') return '권한이 없습니다'
-      if (code === 'PGRST116') return '데이터를 찾을 수 없습니다'
-      if (code === 'PGRST301') return '인증이 필요합니다'
+      // PostgreSQL Error Codes
+      if (code === '23505') return '이미 존재하는 데이터입니다' // Unique violation
+      if (code === '23503') return '참조된 데이터가 존재하지 않습니다' // Foreign key violation
+      if (code === '23502') return '필수 입력값이 누락되었습니다' // Not null violation
+      if (code === '42501') return '권한이 없습니다' // Insufficient privilege
+      if (code === '42P01') return '테이블을 찾을 수 없습니다' // Undefined table
+
+      // PostgREST Error Codes
+      if (code === 'PGRST116') return '데이터를 찾을 수 없습니다' // No rows returned
+      if (code === 'PGRST301') return '인증이 필요합니다' // JWT expired
+      if (code === 'PGRST302') return '인증 정보가 올바르지 않습니다' // JWT invalid
+
+      // HTTP Error Codes
+      if (code === '403') return '이 작업을 수행할 권한이 없습니다'
+      if (code === '404') return '요청한 리소스를 찾을 수 없습니다'
+      if (code === '429') return '너무 많은 요청이 발생했습니다. 잠시 후 다시 시도해주세요'
+    }
+
+    // Network errors
+    if (error.message.includes('fetch failed') ||
+        error.message.includes('Network request failed') ||
+        error.message.includes('Failed to fetch')) {
+      return '네트워크 연결을 확인해주세요'
+    }
+
+    // Timeout errors
+    if (error.message.includes('timeout') || error.message.includes('timed out')) {
+      return '요청 시간이 초과되었습니다. 다시 시도해주세요'
     }
 
     return error.message
@@ -59,6 +91,13 @@ export function getErrorMessage(error: unknown): string {
 
   // Generic error
   if (error instanceof Error) {
+    // Network errors
+    if (error.message.includes('fetch failed') ||
+        error.message.includes('Network request failed') ||
+        error.message.includes('Failed to fetch')) {
+      return '네트워크 연결을 확인해주세요'
+    }
+
     return error.message
   }
 
@@ -115,12 +154,22 @@ export function toErrorResponse(error: unknown): ErrorResponse {
     const code = error.code as string
     let statusCode = 500
 
-    // Map Supabase error codes to HTTP status codes
+    // Map PostgreSQL error codes to HTTP status codes
     if (code === '23505') statusCode = 409 // Unique violation
     if (code === '23503') statusCode = 400 // Foreign key violation
+    if (code === '23502') statusCode = 400 // Not null violation
     if (code === '42501') statusCode = 403 // Insufficient privilege
+    if (code === '42P01') statusCode = 500 // Undefined table
+
+    // Map PostgREST error codes to HTTP status codes
     if (code === 'PGRST116') statusCode = 404 // Not found
-    if (code === 'PGRST301') statusCode = 401 // Authentication required
+    if (code === 'PGRST301') statusCode = 401 // JWT expired
+    if (code === 'PGRST302') statusCode = 401 // JWT invalid
+
+    // Map HTTP error codes
+    if (code === '403') statusCode = 403
+    if (code === '404') statusCode = 404
+    if (code === '429') statusCode = 429
 
     return {
       message: getErrorMessage(error),
