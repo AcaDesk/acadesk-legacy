@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, KeyboardEvent, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
@@ -21,6 +20,8 @@ import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { bulkUpsertExamScores } from '@/app/actions/grades'
+import { PAGE_ANIMATIONS, getListItemAnimation } from '@/lib/animation-config'
+import { LoadingState, EmptyState } from '@/components/ui/loading-state'
 
 interface Exam {
   id: string
@@ -352,9 +353,7 @@ export default function BulkGradeEntryPage() {
   if (loading) {
     return (
       <PageWrapper>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-muted-foreground">로딩 중...</div>
-        </div>
+        <LoadingState variant="card" message="로딩 중..." />
       </PageWrapper>
     )
   }
@@ -362,10 +361,13 @@ export default function BulkGradeEntryPage() {
   if (!exam) {
     return (
       <PageWrapper>
-        <div className="flex flex-col items-center justify-center h-64">
-          <p className="text-muted-foreground mb-4">시험을 찾을 수 없습니다.</p>
-          <Button onClick={() => router.push('/grades/exams')}>목록으로 돌아가기</Button>
-        </div>
+        <EmptyState
+          icon={<AlertCircle className="h-12 w-12" />}
+          title="시험을 찾을 수 없습니다"
+          action={
+            <Button onClick={() => router.push('/grades/exams')}>목록으로 돌아가기</Button>
+          }
+        />
       </PageWrapper>
     )
   }
@@ -406,11 +408,7 @@ export default function BulkGradeEntryPage() {
     <PageWrapper>
       <div className="space-y-6 max-w-7xl mx-auto">
         {/* Breadcrumbs */}
-        <motion.nav
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-2 text-sm text-muted-foreground"
-        >
+        <nav className="flex items-center gap-2 text-sm text-muted-foreground">
           <button
             onClick={() => router.push('/grades')}
             className="hover:text-foreground transition-colors"
@@ -426,41 +424,29 @@ export default function BulkGradeEntryPage() {
           </button>
           <ChevronRight className="h-4 w-4" />
           <span className="text-foreground font-medium">성적 일괄 입력</span>
-        </motion.nav>
+        </nav>
 
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between"
-        >
+        <section aria-label="페이지 헤더" className={`${PAGE_ANIMATIONS.header} flex items-center justify-between`}>
           <div>
             <h1 className="text-3xl font-bold">성적 일괄 입력</h1>
             <p className="text-muted-foreground">{exam.name}</p>
           </div>
           <div className="flex items-center gap-3">
             {lastSaved && (
-              <motion.span
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="text-sm text-muted-foreground"
-              >
+              <span className="text-sm text-muted-foreground">
                 마지막 저장: {lastSaved.toLocaleTimeString('ko-KR')}
-              </motion.span>
+              </span>
             )}
             <Button size="lg" onClick={() => handleSave(false)} disabled={saving}>
               <Save className="h-5 w-5 mr-2" />
               {saving ? '저장 중...' : '저장하고 나가기'}
             </Button>
           </div>
-        </motion.div>
+        </section>
 
         {/* Progress Bar */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-        >
+        <section aria-label="진행 상황" {...PAGE_ANIMATIONS.getSection(0)}>
           <Card>
             <CardContent className="pt-6">
               <div className="space-y-3">
@@ -477,27 +463,18 @@ export default function BulkGradeEntryPage() {
                 </div>
                 <Progress value={progressPercentage} className="h-3" />
                 {stats.notEntered > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="flex items-center gap-2 text-sm text-orange-600"
-                  >
+                  <div className="flex items-center gap-2 text-sm text-orange-600">
                     <AlertCircle className="h-4 w-4" />
                     <span>{stats.notEntered}명의 학생이 미입력 상태입니다</span>
-                  </motion.div>
+                  </div>
                 )}
               </div>
             </CardContent>
           </Card>
-        </motion.div>
+        </section>
 
         {/* Stats Cards & Distribution */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="grid gap-4 md:grid-cols-5"
-        >
+        <section aria-label="통계 카드" className="grid gap-4 md:grid-cols-5" {...PAGE_ANIMATIONS.getSection(1)}>
           <Card>
             <CardHeader className="pb-3">
               <CardDescription>전체 학생</CardDescription>
@@ -528,15 +505,11 @@ export default function BulkGradeEntryPage() {
               <CardTitle className="text-3xl text-orange-600">{stats.notEntered}명</CardTitle>
             </CardHeader>
           </Card>
-        </motion.div>
+        </section>
 
         {/* Score Distribution Chart */}
         {stats.entered > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
+          <section aria-label="성적 분포" {...PAGE_ANIMATIONS.getSection(2)}>
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -585,15 +558,11 @@ export default function BulkGradeEntryPage() {
                 </div>
               </CardContent>
             </Card>
-          </motion.div>
+          </section>
         )}
 
         {/* Filters & Options */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-        >
+        <section aria-label="필터 및 옵션" {...PAGE_ANIMATIONS.getSection(3)}>
           <Card>
             <CardContent className="pt-6 space-y-4">
               <div className="flex items-center gap-6 flex-wrap">
@@ -656,52 +625,45 @@ export default function BulkGradeEntryPage() {
                 </div>
               </div>
 
-              <AnimatePresence>
-                {showBulkFeedback && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="space-y-3"
-                  >
-                    <Separator />
-                    <div className="space-y-2">
-                      <Label htmlFor="bulkFeedback">모든 학생에게 적용할 코멘트</Label>
-                      <Textarea
-                        id="bulkFeedback"
-                        value={bulkFeedback}
-                        onChange={(e) => setBulkFeedback(e.target.value)}
-                        placeholder="예: 이번 시험 잘 봤습니다. 꾸준히 노력하세요."
-                        rows={3}
-                        className="resize-none"
-                      />
-                      <div className="flex gap-2 justify-end">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setBulkFeedback('')
-                            setShowBulkFeedback(false)
-                          }}
-                        >
-                          취소
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={applyBulkFeedback}
-                          disabled={!bulkFeedback.trim()}
-                        >
-                          <Copy className="h-4 w-4 mr-2" />
-                          {students.length}명에게 적용
-                        </Button>
-                      </div>
+              {showBulkFeedback && (
+                <div className="space-y-3">
+                  <Separator />
+                  <div className="space-y-2">
+                    <Label htmlFor="bulkFeedback">모든 학생에게 적용할 코멘트</Label>
+                    <Textarea
+                      id="bulkFeedback"
+                      value={bulkFeedback}
+                      onChange={(e) => setBulkFeedback(e.target.value)}
+                      placeholder="예: 이번 시험 잘 봤습니다. 꾸준히 노력하세요."
+                      rows={3}
+                      className="resize-none"
+                    />
+                    <div className="flex gap-2 justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setBulkFeedback('')
+                          setShowBulkFeedback(false)
+                        }}
+                      >
+                        취소
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={applyBulkFeedback}
+                        disabled={!bulkFeedback.trim()}
+                      >
+                        <Copy className="h-4 w-4 mr-2" />
+                        {students.length}명에게 적용
+                      </Button>
                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
-        </motion.div>
+        </section>
 
         {/* Bulk Entry Table */}
         <Card>
@@ -732,11 +694,9 @@ export default function BulkGradeEntryPage() {
                     const isNotEntered = !score?.correct || !score?.total
 
                     return (
-                      <motion.tr
+                      <tr
                         key={student.id}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.02 }}
+                        {...getListItemAnimation(index, 20)}
                         className={`hover:bg-muted/50 transition-colors ${
                           isNotEntered ? 'bg-orange-50/50 dark:bg-orange-950/10' : ''
                         }`}
@@ -806,7 +766,7 @@ export default function BulkGradeEntryPage() {
                             className="text-sm"
                           />
                         </td>
-                      </motion.tr>
+                      </tr>
                     )
                   })}
                 </tbody>
