@@ -40,6 +40,7 @@ import {
 import { Input } from '@ui/input'
 import { PAGE_ANIMATIONS, getListItemAnimation } from '@/lib/animation-config'
 import { LoadingState, EmptyState } from '@/components/ui/loading-state'
+import { cn } from '@/lib/utils'
 
 interface ClassData {
   id: string
@@ -175,8 +176,8 @@ export default function ClassesPage() {
 
         {/* Stats Cards */}
         <section
-          className={GRID_LAYOUTS.STATS}
-          {...PAGE_ANIMATIONS.getSection(0)}
+          className={cn(GRID_LAYOUTS.STATS, PAGE_ANIMATIONS.getSection(0).className)}
+          style={PAGE_ANIMATIONS.getSection(0).style}
         >
           <Card>
             <CardHeader className="pb-3">
@@ -226,8 +227,8 @@ export default function ClassesPage() {
 
         {/* Search & Filter */}
         <section
-          className="flex gap-4 items-center"
-          {...PAGE_ANIMATIONS.getSection(1)}
+          className={cn("flex gap-4 items-center", PAGE_ANIMATIONS.getSection(1).className)}
+          style={PAGE_ANIMATIONS.getSection(1).style}
         >
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -255,8 +256,8 @@ export default function ClassesPage() {
           </section>
         ) : (
           <section
-            className={GRID_LAYOUTS.DUAL}
-            {...PAGE_ANIMATIONS.getSection(2)}
+            className={cn(GRID_LAYOUTS.DUAL, PAGE_ANIMATIONS.getSection(2).className)}
+            style={PAGE_ANIMATIONS.getSection(2).style}
           >
             {paginatedData.map((cls, index) => (
               <div
