@@ -47,7 +47,7 @@ export async function authenticateKioskPin(
     // 학생 코드로 학생 조회
     const { data: student, error: studentError } = await supabase
       .from('students')
-      .select('id, tenant_id, student_code, name, grade, profile_image_url, kiosk_pin_hash')
+      .select('id, tenant_id, student_code, name, grade, profile_image_url, kiosk_pin')
       .eq('student_code', studentCode)
       .is('deleted_at', null)
       .maybeSingle()
@@ -63,7 +63,7 @@ export async function authenticateKioskPin(
       }
     }
 
-    if (!student.kiosk_pin_hash) {
+    if (!student.kiosk_pin) {
       return {
         success: false,
         error: 'PIN이 등록되지 않았습니다.',
@@ -71,7 +71,7 @@ export async function authenticateKioskPin(
     }
 
     // PIN 검증
-    const isValidPin = await bcrypt.compare(pin, student.kiosk_pin_hash)
+    const isValidPin = await bcrypt.compare(pin, student.kiosk_pin)
 
     if (!isValidPin) {
       return {
@@ -80,8 +80,8 @@ export async function authenticateKioskPin(
       }
     }
 
-    // kiosk_pin_hash 제거 후 반환
-    const { kiosk_pin_hash, ...studentData } = student
+    // kiosk_pin 제거 후 반환
+    const { kiosk_pin, ...studentData } = student
 
     return {
       success: true,

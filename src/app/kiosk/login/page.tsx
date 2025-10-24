@@ -103,7 +103,7 @@ export default function KioskLoginPage() {
                   <Input
                     id="studentCode"
                     type="text"
-                    placeholder="예: S2501001"
+                    placeholder="예: STU25-01078"
                     value={studentCode}
                     onChange={(e) => setStudentCode(e.target.value.toUpperCase())}
                     className="pl-10"
