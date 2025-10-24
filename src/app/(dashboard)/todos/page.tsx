@@ -8,6 +8,8 @@ import { TodoPageActions } from '@/components/features/todos/todo-page-actions'
 import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/page-error-boundary'
 import { getTodosWithStudent } from '@/app/actions/todos'
 import type { StudentTodoWithStudent } from '@/core/types/todo.types'
+import { PAGE_ANIMATIONS } from '@/lib/animation-config'
+import { WidgetSkeleton } from '@/components/ui/widget-skeleton'
 
 // Force dynamic rendering (uses cookies for authentication)
 export const dynamic = 'force-dynamic'
@@ -33,8 +35,7 @@ export default async function TodosPage() {
       {/* Header */}
       <section
         aria-label="페이지 헤더"
-        className="animate-in fade-in-50 slide-in-from-top-2 duration-500"
-        style={{ animationDelay: '50ms' }}
+        className={PAGE_ANIMATIONS.header}
       >
         <PageHeader
           title="TODO 관리"
@@ -46,8 +47,7 @@ export default async function TodosPage() {
       {/* Quick Navigation Cards */}
       <section
         aria-label="빠른 탐색"
-        className="animate-in fade-in-50 slide-in-from-bottom-2 duration-500"
-        style={{ animationDelay: '100ms' }}
+        {...PAGE_ANIMATIONS.getSection(0)}
       >
         <div className="grid gap-4 md:grid-cols-4">
           <Link href="/todos/planner">
@@ -113,10 +113,8 @@ export default async function TodosPage() {
         <Suspense
           fallback={
             <div className="space-y-6">
-              <div className="animate-pulse">
-                <div className="h-24 bg-muted rounded-lg mb-4" />
-                <div className="h-96 bg-muted rounded-lg" />
-              </div>
+              <WidgetSkeleton variant="stats" />
+              <WidgetSkeleton variant="list" />
             </div>
           }
         >
