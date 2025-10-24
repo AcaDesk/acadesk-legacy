@@ -119,8 +119,6 @@ export async function createTodosForStudents(
       estimated_duration_minutes: validated.estimatedDurationMinutes || null,
       completed_at: null,
       verified_at: null,
-      rejected_at: null,
-      rejection_reason: null,
       notes: null,
     }))
 

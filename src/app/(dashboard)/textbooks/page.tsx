@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { WidgetSkeleton } from '@/components/ui/widget-skeleton'
+import { PageWrapper } from '@/components/layout/page-wrapper'
 
 export const metadata = {
   title: '교재 관리',
@@ -133,21 +134,19 @@ async function TextbookListContent() {
 
 export default function TextbooksPage() {
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">교재 관리</h1>
-          <p className="mt-2 text-muted-foreground">
-            교재를 등록하고 학생별 진도를 관리하세요
-          </p>
-        </div>
+    <PageWrapper
+      title="교재 관리"
+      subtitle="교재를 등록하고 학생별 진도를 관리하세요"
+      actions={
         <Button asChild>
           <Link href="/textbooks/new">
             <Plus className="mr-2 h-4 w-4" />
             교재 등록
           </Link>
         </Button>
-      </div>
+      }
+    >
+      <div className="space-y-6">
 
       <div className="flex items-center gap-4">
         <div className="relative flex-1 max-w-sm">
@@ -163,6 +162,7 @@ export default function TextbooksPage() {
       <Suspense fallback={<WidgetSkeleton variant="table" />}>
         <TextbookListContent />
       </Suspense>
-    </div>
+      </div>
+    </PageWrapper>
   )
 }
