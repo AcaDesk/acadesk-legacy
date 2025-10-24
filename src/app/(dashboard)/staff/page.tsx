@@ -6,6 +6,8 @@ import { StaffManagementClient } from "./staff-management-client"
 import { PageHeader } from '@ui/page-header'
 import { Card, CardContent } from '@ui/card'
 import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/page-error-boundary'
+import { PAGE_ANIMATIONS } from '@/lib/animation-config'
+import { LoadingState } from '@/components/ui/loading-state'
 
 // Edge 런타임 방지 - service_role은 Node.js에서만 작동
 export const runtime = 'nodejs'
@@ -36,13 +38,13 @@ export default async function StaffPage() {
     return (
       <PageErrorBoundary pageName="직원 관리">
         <div className="p-6 lg:p-8 space-y-6">
-          <section aria-label="페이지 헤더" className="animate-in fade-in-50 slide-in-from-top-2 duration-500">
+          <section aria-label="페이지 헤더" className={PAGE_ANIMATIONS.header}>
             <PageHeader
               title="직원 관리"
               description="학원 직원을 초대하고 관리합니다"
             />
           </section>
-          <section aria-label="접근 권한" className="animate-in fade-in-50 slide-in-from-bottom-2 duration-500" style={{ animationDelay: '100ms' }}>
+          <section aria-label="접근 권한" {...PAGE_ANIMATIONS.getSection(0)}>
             <Card>
               <CardContent className="pt-6">
                 <div className="flex h-[40vh] items-center justify-center">
@@ -89,19 +91,9 @@ export default async function StaffPage() {
         </section>
 
         {/* Staff Management Content */}
-        <section aria-label="직원 목록" className="animate-in fade-in-50 slide-in-from-bottom-2 duration-500" style={{ animationDelay: '100ms' }}>
+        <section aria-label="직원 목록" {...PAGE_ANIMATIONS.getSection(0)}>
           <SectionErrorBoundary sectionName="직원 관리">
-            <Suspense
-              fallback={
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-center py-8">
-                      <p className="text-muted-foreground">로딩 중...</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              }
-            >
+            <Suspense fallback={<LoadingState variant="card" message="직원 목록을 불러오는 중..." />}>
               <StaffManagementClient
                 staffList={staffList || []}
                 invitations={invitations || []}
