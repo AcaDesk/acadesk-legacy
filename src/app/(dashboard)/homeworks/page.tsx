@@ -6,6 +6,7 @@ import { PageErrorBoundary } from '@/components/layout/page-error-boundary'
 import { getHomeworksWithSubmissions } from '@/app/actions/homeworks'
 import { HomeworksClient } from './homeworks-client'
 import { createClient } from '@/lib/supabase/server'
+import { PAGE_ANIMATIONS } from '@/lib/animation-config'
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
@@ -46,8 +47,7 @@ export default async function HomeworksPage() {
         {/* Header */}
         <section
           aria-label="페이지 헤더"
-          className="animate-in fade-in-50 slide-in-from-top-2 duration-500"
-          style={{ animationDelay: '50ms' }}
+          className={PAGE_ANIMATIONS.header}
         >
           <PageHeader
             title="숙제 관리"
@@ -64,7 +64,9 @@ export default async function HomeworksPage() {
         </section>
 
         {/* Main Content */}
-        <HomeworksClient initialHomeworks={homeworksWithStudents} />
+        <section aria-label="숙제 목록" {...PAGE_ANIMATIONS.getSection(0)}>
+          <HomeworksClient initialHomeworks={homeworksWithStudents} />
+        </section>
       </div>
     </PageErrorBoundary>
   )
