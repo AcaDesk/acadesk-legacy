@@ -1,6 +1,5 @@
 'use client'
 
-import { motion } from 'framer-motion'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
 
@@ -19,6 +18,9 @@ import { PAGE_LAYOUT, GRID_LAYOUTS, TEXT_STYLES, CARD_STYLES } from '@/lib/const
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
+import { PAGE_ANIMATIONS, getListItemAnimation } from '@/lib/animation-config'
+import { EmptyState } from '@/components/ui/loading-state'
+import { cn } from '@/lib/utils'
 
 export default function LibraryPage() {
   // Feature flag checks after all Hooks
@@ -69,11 +71,7 @@ export default function LibraryPage() {
     <PageWrapper>
       <div className={PAGE_LAYOUT.SECTION_SPACING}>
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
+        <section aria-label="페이지 헤더" className={PAGE_ANIMATIONS.header}>
           <div className="flex items-center justify-between">
             <div>
               <h1 className={TEXT_STYLES.PAGE_TITLE}>교재 관리</h1>
@@ -88,14 +86,13 @@ export default function LibraryPage() {
               </Button>
             </Link>
           </div>
-        </motion.div>
+        </section>
 
         {/* Stats Cards */}
-        <motion.div
-          className={GRID_LAYOUTS.STATS}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
+        <section
+          aria-label="통계 카드"
+          className={cn(GRID_LAYOUTS.STATS, PAGE_ANIMATIONS.getSection(0).className)}
+          style={PAGE_ANIMATIONS.getSection(0).style}
         >
           <Card>
             <CardHeader className="pb-3">
@@ -141,25 +138,16 @@ export default function LibraryPage() {
               </p>
             </CardContent>
           </Card>
-        </motion.div>
+        </section>
 
         {/* Quick Actions */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.3, delay: 0.2 }}
-        >
+        <section aria-label="빠른 작업" {...PAGE_ANIMATIONS.getSection(1)}>
           <h2 className={TEXT_STYLES.SECTION_TITLE + ' mb-4'}>빠른 작업</h2>
           <div className={GRID_LAYOUTS.STATS}>
             {quickActions.map((action, index) => {
               const Icon = action.icon
               return (
-                <motion.div
-                  key={action.title}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: 0.1 * (index + 3) }}
-                >
+                <div key={action.title} {...getListItemAnimation(index)}>
                   <Link href={action.href}>
                     <Card className={CARD_STYLES.INTERACTIVE}>
                       <CardHeader>
@@ -179,37 +167,33 @@ export default function LibraryPage() {
                       </CardContent>
                     </Card>
                   </Link>
-                </motion.div>
+                </div>
               )
             })}
           </div>
-        </motion.div>
+        </section>
 
         {/* Recent Activity */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.3, delay: 0.5 }}
-        >
+        <section aria-label="최근 활동" {...PAGE_ANIMATIONS.getSection(2)}>
           <Card>
             <CardHeader>
               <CardTitle>최근 대여 활동</CardTitle>
               <CardDescription>최근 7일간 교재 대여 현황</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>최근 대여 활동이 없습니다.</p>
-                <p className="text-sm mt-2">
-                  <Link href="/library/lendings" className="text-primary hover:underline">
-                    대여 관리
+              <EmptyState
+                icon={<BookOpen className="h-12 w-12" />}
+                title="최근 대여 활동이 없습니다"
+                description="대여 관리에서 새 대여를 시작하세요"
+                action={
+                  <Link href="/library/lendings">
+                    <Button variant="outline">대여 관리</Button>
                   </Link>
-                  에서 새 대여를 시작하세요.
-                </p>
-              </div>
+                }
+              />
             </CardContent>
           </Card>
-        </motion.div>
+        </section>
       </div>
     </PageWrapper>
   )
