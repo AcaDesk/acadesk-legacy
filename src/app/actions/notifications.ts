@@ -9,7 +9,6 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getErrorMessage } from '@/lib/error-handlers'
-import { NotificationRepository } from '@infra/db/repositories/notification.repository'
 
 export interface InAppNotification {
   id: string
@@ -41,12 +40,20 @@ export async function getNotifications(limit: number = 20) {
       throw new Error('인증되지 않은 사용자입니다')
     }
 
-    const repository = new NotificationRepository(supabase)
-    const notifications = await repository.findAll({ userId: user.id }, limit)
+    const { data, error } = await supabase
+      .from('in_app_notifications')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(limit)
+
+    if (error) {
+      throw error
+    }
 
     return {
       success: true,
-      data: notifications,
+      data: data || [],
       error: null,
     }
   } catch (error) {
@@ -72,12 +79,19 @@ export async function getUnreadNotificationCount() {
       throw new Error('인증되지 않은 사용자입니다')
     }
 
-    const repository = new NotificationRepository(supabase)
-    const count = await repository.countUnread(user.id)
+    const { count, error } = await supabase
+      .from('in_app_notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('is_read', false)
+
+    if (error) {
+      throw error
+    }
 
     return {
       success: true,
-      data: count,
+      data: count || 0,
       error: null,
     }
   } catch (error) {
@@ -104,8 +118,17 @@ export async function markNotificationAsRead(notificationId: string) {
       throw new Error('인증되지 않은 사용자입니다')
     }
 
-    const repository = new NotificationRepository(supabase)
-    await repository.markAsRead(notificationId)
+    const { error } = await supabase
+      .from('in_app_notifications')
+      .update({
+        is_read: true,
+        read_at: new Date().toISOString(),
+      })
+      .eq('id', notificationId)
+
+    if (error) {
+      throw error
+    }
 
     revalidatePath('/notifications')
 
@@ -135,8 +158,18 @@ export async function markAllNotificationsAsRead() {
       throw new Error('인증되지 않은 사용자입니다')
     }
 
-    const repository = new NotificationRepository(supabase)
-    await repository.markAllAsRead(user.id)
+    const { error } = await supabase
+      .from('in_app_notifications')
+      .update({
+        is_read: true,
+        read_at: new Date().toISOString(),
+      })
+      .eq('user_id', user.id)
+      .eq('is_read', false)
+
+    if (error) {
+      throw error
+    }
 
     revalidatePath('/notifications')
 

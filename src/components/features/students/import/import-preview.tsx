@@ -156,7 +156,7 @@ export function ImportPreview({
                     )}
                     {item.guardians.length > 0 && (
                       <p className="text-xs text-muted-foreground">
-                        보호자: {item.guardians.map((g) => g.emergency_phone).join(', ')}
+                        보호자: {item.guardians.map((g) => g.name).join(', ')}
                       </p>
                     )}
                   </div>
