@@ -117,10 +117,10 @@ export function ExamForm({ mode, examId, defaultValues, onSuccess }: ExamFormPro
       // Convert string values to proper types
       const examData = {
         name: values.name,
-        category_code: values.category_code || null,
-        exam_type: values.exam_type || null,
+        category_code: values.category_code && values.category_code !== 'none' ? values.category_code : null,
+        exam_type: values.exam_type && values.exam_type !== 'none' ? values.exam_type : null,
         exam_date: values.exam_date || null,
-        class_id: values.class_id || null,
+        class_id: values.class_id && values.class_id !== 'none' ? values.class_id : null,
         total_questions: values.total_questions ? parseInt(values.total_questions) : null,
         passing_score: values.passing_score ? parseFloat(values.passing_score) : null,
         description: values.description || null,
@@ -201,7 +201,7 @@ export function ExamForm({ mode, examId, defaultValues, onSuccess }: ExamFormPro
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">미분류</SelectItem>
+                        <SelectItem value="none">미분류</SelectItem>
                         {categories.map((category) => (
                           <SelectItem key={category.code} value={category.code}>
                             {category.label}
@@ -227,7 +227,7 @@ export function ExamForm({ mode, examId, defaultValues, onSuccess }: ExamFormPro
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">미선택</SelectItem>
+                        <SelectItem value="none">미선택</SelectItem>
                         <SelectItem value="midterm">중간고사</SelectItem>
                         <SelectItem value="final">기말고사</SelectItem>
                         <SelectItem value="quiz">퀴즈</SelectItem>
@@ -269,7 +269,7 @@ export function ExamForm({ mode, examId, defaultValues, onSuccess }: ExamFormPro
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">선택 안 함</SelectItem>
+                        <SelectItem value="none">선택 안 함</SelectItem>
                         {classes.map((cls) => (
                           <SelectItem key={cls.id} value={cls.id}>
                             {cls.name} {cls.subject && `(${cls.subject})`}
