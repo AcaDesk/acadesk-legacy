@@ -23,9 +23,11 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { WidgetSkeleton } from '@/components/ui/widget-skeleton'
+import { EmptyState } from '@/components/ui/loading-state'
 import { PageHeader } from '@ui/page-header'
 import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/page-error-boundary'
 import { showErrorToast } from '@/lib/toast-helpers'
+import { PAGE_ANIMATIONS } from '@/lib/animation-config'
 
 type Textbook = {
   id: string
@@ -55,39 +57,29 @@ function TextbookListContent({
 
   if (textbooks.length === 0) {
     return (
-      <Card>
-        <CardContent className="pt-6">
-          <div className="text-center">
-            <Book className="mx-auto h-12 w-12 text-muted-foreground/50" />
-            <h3 className="mt-4 text-lg font-semibold">등록된 교재가 없습니다</h3>
-            <p className="mt-2 text-sm text-muted-foreground">
-              새 교재를 등록하여 진도 관리를 시작하세요
-            </p>
-            <Button asChild className="mt-4">
-              <Link href="/textbooks/new">
-                <Plus className="mr-2 h-4 w-4" />
-                교재 등록
-              </Link>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <EmptyState
+        icon={<Book className="h-12 w-12" />}
+        title="등록된 교재가 없습니다"
+        description="새 교재를 등록하여 진도 관리를 시작하세요"
+        action={
+          <Button asChild>
+            <Link href="/textbooks/new">
+              <Plus className="mr-2 h-4 w-4" />
+              교재 등록
+            </Link>
+          </Button>
+        }
+      />
     )
   }
 
   if (filteredTextbooks.length === 0) {
     return (
-      <Card>
-        <CardContent className="pt-6">
-          <div className="text-center py-8">
-            <Search className="mx-auto h-12 w-12 text-muted-foreground/50" />
-            <h3 className="mt-4 text-lg font-semibold">검색 결과가 없습니다</h3>
-            <p className="mt-2 text-sm text-muted-foreground">
-              &quot;{searchQuery}&quot;에 해당하는 교재를 찾을 수 없습니다
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <EmptyState
+        icon={<Search className="h-12 w-12" />}
+        title="검색 결과가 없습니다"
+        description={`"${searchQuery}"에 해당하는 교재를 찾을 수 없습니다`}
+      />
     )
   }
 
@@ -193,10 +185,7 @@ export default function TextbooksPage() {
     <PageErrorBoundary pageName="교재 관리">
       <div className="p-6 lg:p-8 space-y-6">
         {/* Header */}
-        <section
-          aria-label="페이지 헤더"
-          className="animate-in fade-in-50 slide-in-from-top-2 duration-500"
-        >
+        <section aria-label="페이지 헤더" className={PAGE_ANIMATIONS.header}>
           <div className="flex items-center justify-between">
             <PageHeader
               title="교재 관리"
@@ -214,8 +203,7 @@ export default function TextbooksPage() {
         {/* Search Bar */}
         <section
           aria-label="검색"
-          className="animate-in fade-in-50 slide-in-from-bottom-2 duration-500"
-          style={{ animationDelay: '100ms' }}
+          className={PAGE_ANIMATIONS.firstSection}
         >
           <div className="flex items-center gap-4">
             <div className="relative flex-1 max-w-sm">
@@ -234,8 +222,7 @@ export default function TextbooksPage() {
         {/* Textbook List */}
         <section
           aria-label="교재 목록"
-          className="animate-in fade-in-50 slide-in-from-bottom-2 duration-500"
-          style={{ animationDelay: '200ms' }}
+          {...PAGE_ANIMATIONS.getSection(1)}
         >
           <SectionErrorBoundary sectionName="교재 목록">
             {loading ? (

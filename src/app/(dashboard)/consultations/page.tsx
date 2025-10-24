@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
@@ -15,7 +14,6 @@ import {
   Filter,
   CheckCircle,
   AlertCircle,
-  Loader2,
 } from 'lucide-react'
 import Link from 'next/link'
 import { PageWrapper } from '@/components/layout/page-wrapper'
@@ -31,6 +29,8 @@ import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { useToast } from '@/hooks/use-toast'
+import { LoadingState, EmptyState } from '@/components/ui/loading-state'
+import { PAGE_ANIMATIONS, getListItemAnimation } from '@/lib/animation-config'
 
 type Consultation = {
   id: string
@@ -165,11 +165,7 @@ export default function ConsultationsPage() {
     <PageWrapper>
       <div className={PAGE_LAYOUT.SECTION_SPACING}>
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
+        <section className={PAGE_ANIMATIONS.header}>
           <div className="flex items-center justify-between">
             <div>
               <h1 className={TEXT_STYLES.PAGE_TITLE}>상담 관리</h1>
@@ -184,14 +180,12 @@ export default function ConsultationsPage() {
               </Button>
             </Link>
           </div>
-        </motion.div>
+        </section>
 
         {/* Stats Cards */}
-        <motion.div
+        <section
           className={GRID_LAYOUTS.STATS}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
+          {...PAGE_ANIMATIONS.getSection(0)}
         >
           <Card>
             <CardHeader className="pb-3">
@@ -203,7 +197,7 @@ export default function ConsultationsPage() {
             <CardContent>
               <div className="text-2xl font-bold">
                 {loading ? (
-                  <Loader2 className="h-6 w-6 animate-spin" />
+                  <LoadingState variant="spinner" />
                 ) : (
                   `${stats.totalConsultations}건`
                 )}
@@ -222,7 +216,7 @@ export default function ConsultationsPage() {
             <CardContent>
               <div className="text-2xl font-bold text-blue-600">
                 {loading ? (
-                  <Loader2 className="h-6 w-6 animate-spin" />
+                  <LoadingState variant="spinner" />
                 ) : (
                   `${stats.upcomingConsultations}건`
                 )}
@@ -243,7 +237,7 @@ export default function ConsultationsPage() {
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
                 {loading ? (
-                  <Loader2 className="h-6 w-6 animate-spin" />
+                  <LoadingState variant="spinner" />
                 ) : (
                   `${stats.completedThisMonth}건`
                 )}
@@ -253,14 +247,12 @@ export default function ConsultationsPage() {
               </p>
             </CardContent>
           </Card>
-        </motion.div>
+        </section>
 
         {/* Search & Tabs */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.3, delay: 0.2 }}
+        <section
           className="space-y-4"
+          {...PAGE_ANIMATIONS.getSection(1)}
         >
           <div className="flex gap-4 items-center">
             <div className="relative flex-1">
@@ -290,44 +282,28 @@ export default function ConsultationsPage() {
               <TabsTrigger value="completed">완료</TabsTrigger>
             </TabsList>
           </Tabs>
-        </motion.div>
+        </section>
 
         {/* Consultations List */}
-        <motion.div
+        <section
           className="space-y-3"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.3, delay: 0.3 }}
+          {...PAGE_ANIMATIONS.getSection(2)}
         >
           {loading ? (
-            <Card>
-              <CardContent className="py-12">
-                <div className="text-center">
-                  <Loader2 className="h-12 w-12 mx-auto mb-4 animate-spin text-muted-foreground" />
-                  <p className="text-muted-foreground">
-                    상담 기록을 불러오는 중...
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+            <LoadingState
+              variant="card"
+              message="상담 기록을 불러오는 중..."
+            />
           ) : filteredConsultations.length === 0 ? (
-            <Card>
-              <CardContent className="py-12">
-                <div className="text-center text-muted-foreground">
-                  <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>
-                    {searchTerm
-                      ? '검색 결과가 없습니다.'
-                      : '상담 기록이 없습니다.'}
-                  </p>
-                  <p className="text-sm mt-2">
-                    {searchTerm
-                      ? '다른 검색어를 시도해보세요.'
-                      : '새 상담 기록을 등록하여 시작하세요.'}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+            <EmptyState
+              icon={<MessageSquare className="h-12 w-12" />}
+              title={searchTerm ? '검색 결과가 없습니다' : '상담 기록이 없습니다'}
+              description={
+                searchTerm
+                  ? '다른 검색어를 시도해보세요.'
+                  : '새 상담 기록을 등록하여 시작하세요.'
+              }
+            />
           ) : (
             filteredConsultations.map((consultation, index) => {
               const consultDate = new Date(consultation.consultation_date)
@@ -339,11 +315,9 @@ export default function ConsultationsPage() {
                 : null
 
               return (
-                <motion.div
+                <div
                   key={consultation.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, delay: 0.05 * index }}
+                  {...getListItemAnimation(index)}
                 >
                   <Card className={CARD_STYLES.INTERACTIVE}>
                     <CardContent className="py-4">
@@ -440,11 +414,11 @@ export default function ConsultationsPage() {
                       </div>
                     </CardContent>
                   </Card>
-                </motion.div>
+                </div>
               )
             })
           )}
-        </motion.div>
+        </section>
       </div>
     </PageWrapper>
   )
