@@ -386,12 +386,6 @@ export default function WeeklyPlannerPage() {
     })
   }
 
-  function getTodosForCell(studentId: string, dayOfWeek: number) {
-    return plannedTodos.filter(
-      t => t.studentId === studentId && t.dayOfWeek === dayOfWeek
-    )
-  }
-
   async function publishWeeklyPlan() {
     if (!tenantId) return
     if (plannedTodos.length === 0) {
