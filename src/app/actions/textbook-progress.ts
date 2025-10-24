@@ -52,7 +52,7 @@ export async function addProgress(input: z.infer<typeof addProgressSchema>) {
   try {
     const validated = addProgressSchema.parse(input)
     const { tenantId, userId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // ✅ Validate that the student has this textbook with status='in_use'
     const { data: studentTextbook, error: checkError } = await supabase
@@ -125,7 +125,7 @@ export async function updateProgress(
   try {
     const validated = updateProgressSchema.parse(input)
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const updateData: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
@@ -191,7 +191,7 @@ export async function updateProgress(
 export async function deleteProgress(id: string) {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // Get student_id and textbook_id for revalidation
     const { data: progress } = await supabase
@@ -252,7 +252,7 @@ export async function getStudentProgress(
 ) {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     let query = supabase
       .from('textbook_progress')
@@ -315,7 +315,7 @@ export async function getProgressSummary(
 ) {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // Get all progress records
     const { data: progressRecords, error: progressError } = await supabase
@@ -392,7 +392,7 @@ export async function getRecentProgress(options?: {
 }) {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     let query = supabase
       .from('textbook_progress')
@@ -463,7 +463,7 @@ export async function getProgressByUnit(
 ) {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // Get all units for this textbook
     const { data: units, error: unitsError } = await supabase

@@ -52,7 +52,7 @@ export async function getAttendanceSessionById(sessionId: string) {
     const { tenantId } = await verifyStaff()
 
     // 2. Service Role 클라이언트로 DB 작업
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 3. 세션 조회
     const { data, error } = await supabase
@@ -98,7 +98,7 @@ export async function getAttendanceBySession(sessionId: string) {
     const { tenantId } = await verifyStaff()
 
     // 2. Service Role 클라이언트로 DB 작업
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 3. 출석 기록 조회
     const { data, error } = await supabase
@@ -141,7 +141,7 @@ export async function getAttendanceSessions(params?: {
     const { tenantId } = await verifyStaff()
 
     // 2. Service Role 클라이언트로 DB 작업
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 3. 출석 세션 조회
     let query = supabase
@@ -207,7 +207,7 @@ export async function createAttendanceSession(
     const validatedData = createSessionSchema.parse(data)
 
     // 3. Service Role 클라이언트로 DB 작업
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const { data: session, error } = await supabase
       .from('attendance_sessions')
@@ -259,7 +259,7 @@ export async function bulkUpsertAttendance(
     const validatedData = bulkUpsertAttendanceSchema.parse(data)
 
     // 3. Service Role 클라이언트로 DB 작업
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 각 출석 기록을 upsert (session_id + student_id 기준)
     const records = validatedData.attendances.map((attendance) => ({
@@ -306,7 +306,7 @@ export async function deleteAttendanceSession(sessionId: string) {
     const { tenantId } = await verifyStaff()
 
     // 2. Service Role 클라이언트로 DB 작업
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const { error } = await supabase
       .from('attendance_sessions')
@@ -350,7 +350,7 @@ export async function updateAttendanceSessionStatus(
     const { tenantId } = await verifyStaff()
 
     // 2. Service Role 클라이언트로 DB 작업
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const updateData: Record<string, unknown> = {
       status,
@@ -406,7 +406,7 @@ export async function bulkNotifyAbsentStudents(
     const { tenantId } = await verifyStaff()
 
     // 2. Service Role 클라이언트로 DB 작업
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 각 학생의 보호자 정보를 가져와서 알림 생성
     let successCount = 0

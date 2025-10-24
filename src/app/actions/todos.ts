@@ -50,7 +50,7 @@ export async function getTodosWithStudent() {
     const { tenantId } = await verifyStaff()
 
     // 2. Create service_role client
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 3. Query TODOs with student info
     const { data, error } = await supabase
@@ -106,7 +106,7 @@ export async function createTodosForStudents(
     const validated = createTodosForStudentsSchema.parse(input)
 
     // 3. Create service_role client
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 4. Create TODOs for each student
     const todoRecords = validated.studentIds.map((studentId) => ({
@@ -170,7 +170,7 @@ export async function verifyTodos(input: z.infer<typeof verifyTodosSchema>) {
     const validated = verifyTodosSchema.parse(input)
 
     // 3. Create service_role client
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 4. Fetch TODOs to verify eligibility
     const { data: todos, error: fetchError } = await supabase
@@ -256,7 +256,7 @@ export async function rejectTodo(input: z.infer<typeof rejectTodoSchema>) {
     const validated = rejectTodoSchema.parse(input)
 
     // 3. Create service_role client
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 4. Fetch TODO to verify eligibility
     const { data: todo, error: fetchError } = await supabase
@@ -346,7 +346,7 @@ export async function deleteTodo(todoId: string) {
     const { tenantId } = await verifyStaff()
 
     // 2. Create service_role client
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 3. Verify TODO exists and belongs to tenant
     const { data: existingTodo, error: fetchError } = await supabase
@@ -494,7 +494,7 @@ export async function completeTodo(todoId: string) {
     }
 
     // 3. Create service_role client
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 4. Fetch TODO to verify state
     const { data: todo, error: fetchError } = await supabase
@@ -579,7 +579,7 @@ export async function uncompleteTodo(todoId: string) {
     }
 
     // 3. Create service_role client
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 4. Fetch TODO to verify state
     const { data: todo, error: fetchError } = await supabase

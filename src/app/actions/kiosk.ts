@@ -42,7 +42,7 @@ export async function authenticateKioskPin(
   pin: string
 ): Promise<{ success: boolean; student?: Student; error?: string }> {
   try {
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 학생 코드로 학생 조회
     const { data: student, error: studentError } = await supabase
@@ -106,7 +106,7 @@ export async function getStudentTodosForToday(
   tenantId: string
 ): Promise<{ success: boolean; todos?: StudentTodo[]; error?: string }> {
   try {
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 오늘 날짜의 시작과 끝
     const today = new Date()
@@ -159,7 +159,7 @@ export async function toggleTodoComplete(
   currentStatus: boolean
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 권한 검증: 해당 TODO가 학생의 것인지 확인
     const { data: todo, error: todoError } = await supabase

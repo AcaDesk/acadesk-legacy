@@ -83,7 +83,7 @@ export async function getTextbooks(options?: {
 }) {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     let query = supabase
       .from('textbooks')
@@ -132,7 +132,7 @@ export async function getTextbooks(options?: {
 export async function getTextbookById(id: string, includeUnits = true) {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const { data, error } = await supabase
       .from('textbooks')
@@ -189,7 +189,7 @@ export async function createTextbook(
   try {
     const validated = createTextbookSchema.parse(input)
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const { data, error } = await supabase
       .from('textbooks')
@@ -237,7 +237,7 @@ export async function updateTextbook(
   try {
     const validated = updateTextbookSchema.parse(input)
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const updateData: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
@@ -303,7 +303,7 @@ export async function updateTextbook(
 export async function deleteTextbook(id: string) {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const { error } = await supabase
       .from('textbooks')
@@ -349,7 +349,7 @@ export async function createTextbookUnit(
   try {
     const validated = createTextbookUnitSchema.parse(input)
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const { data, error } = await supabase
       .from('textbook_units')
@@ -398,7 +398,7 @@ export async function updateTextbookUnit(
   try {
     const validated = updateTextbookUnitSchema.parse(input)
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const updateData: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
@@ -461,7 +461,7 @@ export async function updateTextbookUnit(
 export async function deleteTextbookUnit(id: string) {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // Get textbook_id for revalidation before deleting
     const { data: unit } = await supabase
@@ -519,7 +519,7 @@ export async function assignTextbookToStudent(
   try {
     const validated = assignTextbookSchema.parse(input)
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const { data, error } = await supabase
       .from('student_textbooks')
@@ -569,7 +569,7 @@ export async function updateStudentTextbook(
   try {
     const validated = updateStudentTextbookSchema.parse(input)
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const updateData: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
@@ -629,7 +629,7 @@ export async function updateStudentTextbook(
 export async function deleteStudentTextbook(id: string) {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // Get student_id for revalidation
     const { data: assignment } = await supabase
@@ -684,7 +684,7 @@ export async function getStudentTextbooks(
 ) {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     let query = supabase
       .from('student_textbooks')
@@ -728,7 +728,7 @@ export async function getStudentTextbooks(
 export async function getUnpaidTextbooks() {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const { data, error } = await supabase
       .from('student_textbooks')

@@ -152,7 +152,7 @@ export async function createClass(input: z.infer<typeof createClassSchema>) {
     const validated = createClassSchema.parse(input)
 
     // 3. Create service_role client
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 4. Insert class
     const { data, error } = await supabase
@@ -208,7 +208,7 @@ export async function updateClass(input: z.infer<typeof updateClassSchema>) {
     const validated = updateClassSchema.parse(input)
 
     // 3. Create service_role client
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 4. Build update object
     const updateData: Record<string, any> = {
@@ -493,7 +493,7 @@ export async function getInstructors() {
     const { tenantId } = await verifyStaff()
 
     // 2. Create service_role client
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 3. Query instructors
     const { data, error } = await supabase

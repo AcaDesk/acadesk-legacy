@@ -83,7 +83,7 @@ export async function generateMonthlyReport(
     const { tenantId } = await verifyStaff()
 
     // 2. Create service_role client
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 3. 기간 설정
     const periodStart = new Date(year, month - 1, 1)
@@ -199,7 +199,7 @@ export async function saveReport(
     const { tenantId } = await verifyStaff()
 
     // 2. Create service_role client
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 3. Verify student belongs to tenant
     const { data: studentData, error: studentError } = await supabase
@@ -259,7 +259,7 @@ export async function getStudentsForReport() {
     const { tenantId } = await verifyStaff()
 
     // 2. Create service_role client
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 3. Query students
     const { data, error } = await supabase
@@ -309,7 +309,7 @@ export async function generateAndSendReport(params: {
     const { tenantId } = await verifyStaff()
 
     // 2. Create service_role client
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 3. 학생 정보 조회
     const { data: student, error: studentError } = await supabase

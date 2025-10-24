@@ -22,7 +22,7 @@ import { getErrorMessage } from '@/lib/error-handlers'
 export async function getTenantCodes(codeType: string) {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const { data, error } = await supabase
       .from('tenant_codes')

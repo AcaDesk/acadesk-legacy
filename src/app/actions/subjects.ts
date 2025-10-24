@@ -52,7 +52,7 @@ export interface UpdateSubjectInput {
 export async function getSubjectsWithStatistics() {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const { data, error } = await supabase
       .from('subject_statistics')
@@ -87,7 +87,7 @@ export async function getSubjectsWithStatistics() {
 export async function createSubject(input: CreateSubjectInput) {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const { data, error } = await supabase
       .from('subjects')
@@ -133,7 +133,7 @@ export async function createSubject(input: CreateSubjectInput) {
 export async function updateSubject(id: string, input: UpdateSubjectInput) {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const { data, error } = await supabase
       .from('subjects')
@@ -179,7 +179,7 @@ export async function updateSubject(id: string, input: UpdateSubjectInput) {
 export async function deleteSubject(id: string) {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const { error } = await supabase
       .from('subjects')

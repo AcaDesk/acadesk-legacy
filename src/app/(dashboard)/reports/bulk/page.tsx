@@ -99,12 +99,17 @@ export default function BulkReportsPage() {
     try {
       const { data, error } = await supabase
         .from('students')
-        .select('id, student_code, users(name, email)')
+        .select('id, student_code, user_id!inner(name, email)')
         .is('deleted_at', null)
         .order('student_code')
 
       if (error) throw error
-      setStudents(data as unknown as Student[])
+      // Map user_id to users for type compatibility
+      const mappedData = data?.map(student => ({
+        ...student,
+        users: student.user_id
+      }))
+      setStudents(mappedData as unknown as Student[])
     } catch (error) {
       console.error('Error loading students:', error)
     }
@@ -130,13 +135,18 @@ export default function BulkReportsPage() {
 
       const { data: studentsData, error: studentsError } = await supabase
         .from('students')
-        .select('id, student_code, users(name, email)')
+        .select('id, student_code, user_id!inner(name, email)')
         .in('id', studentIds)
         .is('deleted_at', null)
         .order('student_code')
 
       if (studentsError) throw studentsError
-      setStudents(studentsData as unknown as Student[])
+      // Map user_id to users for type compatibility
+      const mappedData = studentsData?.map(student => ({
+        ...student,
+        users: student.user_id
+      }))
+      setStudents(mappedData as unknown as Student[])
     } catch (error) {
       console.error('Error filtering students:', error)
     }

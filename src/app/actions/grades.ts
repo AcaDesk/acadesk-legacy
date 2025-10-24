@@ -60,7 +60,7 @@ export async function createExamScore(
     const validatedData = createExamScoreSchema.parse(data)
 
     // 3. Service Role 클라이언트로 DB 작업
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const { data: examScore, error } = await supabase
       .from('exam_scores')
@@ -115,7 +115,7 @@ export async function bulkUpsertExamScores(
     }
 
     // 3. Service Role 클라이언트로 DB 작업
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const scoresToSave = validatedData.scores.map((score) => ({
       tenant_id: tenantId,
@@ -164,7 +164,7 @@ export async function deleteExamScore(examScoreId: string) {
     const { tenantId } = await verifyStaff()
 
     // 2. Service Role 클라이언트로 DB 작업
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const { error } = await supabase
       .from('exam_scores')
