@@ -22,6 +22,7 @@ import { Maintenance } from '@/components/layout/maintenance'
 import { bulkUpsertExamScores } from '@/app/actions/grades'
 import { PAGE_ANIMATIONS, getListItemAnimation } from '@/lib/animation-config'
 import { LoadingState, EmptyState } from '@/components/ui/loading-state'
+import { cn } from '@/lib/utils'
 
 interface Exam {
   id: string
@@ -474,7 +475,11 @@ export default function BulkGradeEntryPage() {
         </section>
 
         {/* Stats Cards & Distribution */}
-        <section aria-label="통계 카드" className="grid gap-4 md:grid-cols-5" {...PAGE_ANIMATIONS.getSection(1)}>
+        <section
+          aria-label="통계 카드"
+          className={cn("grid gap-4 md:grid-cols-5", PAGE_ANIMATIONS.getSection(1).className)}
+          style={PAGE_ANIMATIONS.getSection(1).style}
+        >
           <Card>
             <CardHeader className="pb-3">
               <CardDescription>전체 학생</CardDescription>
