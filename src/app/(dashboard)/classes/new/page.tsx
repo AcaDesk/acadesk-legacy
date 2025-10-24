@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { motion } from 'framer-motion'
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
@@ -26,6 +25,8 @@ import { PAGE_LAYOUT, TEXT_STYLES } from '@/lib/constants'
 import { useToast } from '@/hooks/use-toast'
 import { createClass, getInstructors } from '@/app/actions/classes'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { PAGE_ANIMATIONS } from '@/lib/animation-config'
+import { LoadingState } from '@/components/ui/loading-state'
 
 const classSchema = z.object({
   name: z.string().min(1, '수업명은 필수입니다'),
@@ -133,9 +134,7 @@ export default function NewClassPage() {
   if (loadingInstructors) {
     return (
       <PageWrapper>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-muted-foreground">수업 정보를 불러오는 중...</div>
-        </div>
+        <LoadingState variant="card" message="수업 정보를 불러오는 중..." />
       </PageWrapper>
     )
   }
@@ -144,11 +143,7 @@ export default function NewClassPage() {
     <PageWrapper>
       <div className={PAGE_LAYOUT.SECTION_SPACING}>
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
+        <section aria-label="페이지 헤더" className={PAGE_ANIMATIONS.header}>
           <div className="flex items-center gap-4 mb-6">
             <Link href="/classes">
               <Button variant="ghost" size="icon">
@@ -162,14 +157,10 @@ export default function NewClassPage() {
               </p>
             </div>
           </div>
-        </motion.div>
+        </section>
 
         {/* Form */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
-        >
+        <section aria-label="수업 등록 폼" {...PAGE_ANIMATIONS.getSection(0)}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <Card>
               <CardHeader>
@@ -304,7 +295,7 @@ export default function NewClassPage() {
               </Button>
             </div>
           </form>
-        </motion.div>
+        </section>
       </div>
     </PageWrapper>
   )
