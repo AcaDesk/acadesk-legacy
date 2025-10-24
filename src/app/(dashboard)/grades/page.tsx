@@ -241,14 +241,10 @@ export default function GradesPage() {
               </CardContent>
             </Card>
           </Link>
-        </motion.div>
+        </section>
 
         <RoleGuard allowedRoles={['owner', 'instructor']}>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
+          <section {...PAGE_ANIMATIONS.getSection(1)}>
             <SectionErrorBoundary sectionName="성적 입력 폼">
               <Card>
                 <CardHeader>
@@ -362,15 +358,11 @@ export default function GradesPage() {
           </CardContent>
         </Card>
             </SectionErrorBoundary>
-          </motion.div>
+          </section>
         </RoleGuard>
 
         {/* Quick Guide */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-        >
+        <section {...PAGE_ANIMATIONS.getSection(2)}>
           <Card>
           <CardHeader>
             <CardTitle className="text-lg">사용 가이드</CardTitle>
@@ -406,7 +398,7 @@ export default function GradesPage() {
             </div>
           </CardContent>
         </Card>
-        </motion.div>
+        </section>
       </div>
     </PageWrapper>
     </PageErrorBoundary>
