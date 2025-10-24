@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation'
 import { createClient } from "@/lib/supabase/server"
 import { LandingHeader } from "@/components/landing/LandingHeader"
 import { HeroSection } from "@/components/landing/HeroSection"
@@ -13,6 +14,11 @@ export default async function HomePage() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
+
+  // 로그인한 사용자는 대시보드로 리다이렉트
+  if (user) {
+    redirect('/dashboard')
+  }
 
   return (
     <div className="min-h-screen">
