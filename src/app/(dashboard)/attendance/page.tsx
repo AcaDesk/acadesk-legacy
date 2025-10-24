@@ -9,6 +9,8 @@ import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/pag
 import { FEATURES } from '@/lib/features.config';
 import { ComingSoon } from '@/components/layout/coming-soon';
 import { Maintenance } from '@/components/layout/maintenance';
+import { PAGE_ANIMATIONS } from '@/lib/animation-config';
+import { LoadingState } from '@/components/ui/loading-state';
 
 export const metadata: Metadata = {
   title: "출석 관리",
@@ -48,14 +50,14 @@ export default async function AttendancePage() {
     return (
       <PageErrorBoundary pageName="출석 관리">
         <div className="p-6 lg:p-8 space-y-6">
-          <section aria-label="페이지 헤더" className="animate-in fade-in-50 slide-in-from-top-2 duration-500">
+          <section aria-label="페이지 헤더" className={PAGE_ANIMATIONS.header}>
             <PageHeader
               title="출석 관리"
               description="수업별 출석 세션을 생성하고 학생들의 출석 현황을 관리합니다"
             />
           </section>
 
-          <section aria-label="오류 메시지" className="animate-in fade-in-50 slide-in-from-bottom-2 duration-500" style={{ animationDelay: '100ms' }}>
+          <section aria-label="오류 메시지" {...PAGE_ANIMATIONS.getSection(0)}>
             <Card>
               <CardContent className="pt-6">
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
@@ -81,7 +83,7 @@ export default async function AttendancePage() {
     <PageErrorBoundary pageName="출석 관리">
       <div className="p-6 lg:p-8 space-y-6">
         {/* Header */}
-        <section aria-label="페이지 헤더" className="animate-in fade-in-50 slide-in-from-top-2 duration-500">
+        <section aria-label="페이지 헤더" className={PAGE_ANIMATIONS.header}>
           <PageHeader
             title="출석 관리"
             description="수업별 출석 세션을 생성하고 학생들의 출석 현황을 관리합니다"
@@ -89,18 +91,10 @@ export default async function AttendancePage() {
         </section>
 
         {/* Attendance List */}
-        <section aria-label="출석 목록" className="animate-in fade-in-50 slide-in-from-bottom-2 duration-500" style={{ animationDelay: '100ms' }}>
+        <section aria-label="출석 목록" {...PAGE_ANIMATIONS.getSection(0)}>
           <SectionErrorBoundary sectionName="출석 목록">
             <Suspense
-              fallback={
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-center py-8">
-                      <p className="text-muted-foreground">로딩 중...</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              }
+              fallback={<LoadingState variant="card" message="출석 목록을 불러오는 중..." />}
             >
               <AttendanceList
                 initialSessions={sessionsResult.data || []}
