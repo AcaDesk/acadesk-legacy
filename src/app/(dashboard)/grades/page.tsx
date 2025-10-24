@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
@@ -21,6 +20,7 @@ import Link from 'next/link'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
+import { PAGE_ANIMATIONS } from '@/lib/animation-config'
 
 interface Student {
   id: string
@@ -189,20 +189,15 @@ export default function GradesPage() {
       <PageWrapper>
         <div className={PAGE_LAYOUT.SECTION_SPACING}>
           {/* Header */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
+          <section className={PAGE_ANIMATIONS.header}>
             <h1 className={TEXT_STYLES.PAGE_TITLE}>성적 입력</h1>
             <p className={TEXT_STYLES.PAGE_DESCRIPTION}>시험 성적을 입력하고 관리합니다</p>
-          </motion.div>
+          </section>
 
         {/* Quick Actions */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
+        <section
           className={GRID_LAYOUTS.DUAL}
+          {...PAGE_ANIMATIONS.getSection(0)}
         >
           <Link href="/grades/exams">
             <Card className={CARD_STYLES.INTERACTIVE}>
