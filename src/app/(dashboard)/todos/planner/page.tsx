@@ -278,13 +278,20 @@ export default function WeeklyPlannerPage() {
       }
     })
 
+    console.log('[addTodoToBulkCells] Adding todos:', {
+      newTodosCount: newTodos.length,
+      selectedCellsCount: selectedCells.size,
+      newTodos: newTodos,
+      template: template.title
+    })
+
     setPlannedTodos([...plannedTodos, ...newTodos])
     setBulkDialogOpen(false)
     clearCellSelection()
 
     toast({
       title: '일괄 과제 추가 완료',
-      description: `${selectedCells.size}개 셀에 과제가 추가되었습니다.`,
+      description: `${newTodos.length}개의 과제가 ${selectedCells.size}개 셀에 추가되었습니다.`,
     })
   }
 
@@ -404,7 +411,9 @@ export default function WeeklyPlannerPage() {
 
       plannedTodos.forEach(pt => {
         const dueDate = new Date(monday)
-        dueDate.setDate(monday.getDate() + pt.dayOfWeek)
+        // dayOfWeek is 1 for Monday, 2 for Tuesday, etc.
+        // Monday + (1 - 1) = Monday, Monday + (2 - 1) = Tuesday, etc.
+        dueDate.setDate(monday.getDate() + pt.dayOfWeek - 1)
 
         const key = `${pt.title}-${pt.subject}-${pt.priority}-${dueDate.toISOString().split('T')[0]}`
 
@@ -420,6 +429,17 @@ export default function WeeklyPlannerPage() {
 
       // Create todos for each group via Server Action
       for (const group of groupedTodos.values()) {
+        // Validate student IDs before sending
+        const invalidIds = group.studentIds.filter(id => {
+          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+          return !uuidRegex.test(id)
+        })
+
+        if (invalidIds.length > 0) {
+          console.error('[publishWeeklyPlan] Invalid student IDs detected:', invalidIds)
+          throw new Error(`유효하지 않은 학생 ID가 있습니다: ${invalidIds.join(', ')}`)
+        }
+
         const result = await createTodosForStudents({
           studentIds: group.studentIds,
           title: group.todo.title,

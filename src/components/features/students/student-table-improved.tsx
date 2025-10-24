@@ -429,6 +429,20 @@ export function StudentTableImproved({
           </div>
         )
       },
+      filterFn: (row, columnId, filterValue) => {
+        const student = row.original
+        const searchTerm = filterValue.toLowerCase()
+
+        // Search in name, email, phone, and student_code
+        return (
+          student.users?.name?.toLowerCase().includes(searchTerm) ||
+          student.users?.email?.toLowerCase().includes(searchTerm) ||
+          student.users?.phone?.toLowerCase().includes(searchTerm) ||
+          student.student_phone?.toLowerCase().includes(searchTerm) ||
+          student.student_code?.toLowerCase().includes(searchTerm) ||
+          false
+        )
+      },
       enableHiding: false,
     },
     {
@@ -659,7 +673,7 @@ export function StudentTableImproved({
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="학생 이름으로 검색..."
+              placeholder="이름, 학번, 전화번호로 검색..."
               value={searchValue}
               onChange={(event) =>
                 table.getColumn('users')?.setFilterValue(event.target.value)
