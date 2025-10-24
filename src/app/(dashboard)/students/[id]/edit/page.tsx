@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
@@ -17,6 +16,7 @@ import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { GRADES } from '@/lib/constants'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { getStudentDetail, updateStudent } from '@/app/actions/students'
 
 const studentSchema = z.object({
   name: z.string().min(2, '이름은 최소 2자 이상이어야 합니다'),
@@ -42,7 +42,6 @@ interface StudentData {
   emergency_contact: string | null
   notes: string | null
   users: {
-    id: string
     name: string
     email: string | null
     phone: string | null
@@ -56,7 +55,6 @@ export default function EditStudentPage() {
   const [student, setStudent] = useState<StudentData | null>(null)
   const router = useRouter()
   const { toast } = useToast()
-  const supabase = createClient()
 
   const {
     register,
@@ -80,49 +78,26 @@ export default function EditStudentPage() {
   async function loadStudentData(studentId: string) {
     try {
       setInitialLoading(true)
-      const { data, error } = await supabase
-        .from('students')
-        .select(`
-          id,
-          student_code,
-          grade,
-          school,
-          emergency_contact,
-          notes,
-          users (
-            id,
-            name,
-            email,
-            phone
-          )
-        `)
-        .eq('id', studentId)
-        .is('deleted_at', null)
-        .maybeSingle()
+      const result = await getStudentDetail(studentId)
 
-      if (error) {
-        throw error
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '학생 정보를 찾을 수 없습니다.')
       }
 
-      if (!data) {
-        throw new Error('학생 정보를 찾을 수 없습니다.')
-      }
-
-      const usersRel = Array.isArray(data.users) ? (data.users[0] ?? null) : data.users
+      const data = result.data.student
 
       const normalized: StudentData = {
         id: data.id as string,
         student_code: data.student_code as string,
-        grade: (data.grade ?? null) as string | null,
-        school: (data.school ?? null) as string | null,
-        emergency_contact: (data.emergency_contact ?? null) as string | null,
-        notes: (data.notes ?? null) as string | null,
-        users: usersRel
+        grade: data.grade,
+        school: data.school,
+        emergency_contact: data.emergency_contact,
+        notes: data.notes,
+        users: data.users
           ? {
-              id: usersRel.id as string,
-              name: usersRel.name as string,
-              email: (usersRel.email ?? null) as string | null,
-              phone: (usersRel.phone ?? null) as string | null,
+              name: data.users.name,
+              email: data.users.email,
+              phone: data.users.phone,
             }
           : null,
       }
@@ -130,15 +105,15 @@ export default function EditStudentPage() {
       setStudent(normalized)
 
       // Populate form fields
-      if (usersRel) {
-        setValue('name', usersRel.name)
-        setValue('email', usersRel.email || '')
-        setValue('phone', usersRel.phone || '')
+      if (data.users) {
+        setValue('name', data.users.name)
+        setValue('email', data.users.email || '')
+        setValue('phone', data.users.phone || '')
       }
-      setValue('grade', (data.grade as string | null) || '')
-      setValue('school', (data.school as string | null) || '')
-      setValue('emergencyContact', (data.emergency_contact as string | null) || '')
-      setValue('notes', (data.notes as string | null) || '')
+      setValue('grade', data.grade || '')
+      setValue('school', data.school || '')
+      setValue('emergencyContact', data.emergency_contact || '')
+      setValue('notes', data.notes || '')
     } catch (error) {
       toast({
         title: '학생 조회 실패',
@@ -156,26 +131,19 @@ export default function EditStudentPage() {
 
     setLoading(true)
     try {
-      const response = await fetch(`/api/students/${student.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: data.name,
-          email: data.email,
-          phone: data.phone,
-          grade: data.grade,
-          school: data.school,
-          emergencyContact: data.emergencyContact,
-          notes: data.notes,
-          kioskPin: data.kioskPin,
-        }),
+      const result = await updateStudent(student.id, {
+        name: data.name,
+        email: data.email || null,
+        phone: data.phone || null,
+        grade: data.grade,
+        school: data.school || null,
+        emergency_contact: data.emergencyContact,
+        notes: data.notes || null,
+        kiosk_pin: data.kioskPin || null,
       })
 
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || '학생 정보 수정에 실패했습니다')
+      if (!result.success) {
+        throw new Error(result.error || '학생 정보 수정에 실패했습니다')
       }
 
       toast({
