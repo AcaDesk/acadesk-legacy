@@ -3,6 +3,9 @@ import type { Metadata } from 'next';
 import { getAttendanceSessions } from '@/app/actions/attendance';
 import { getActiveClasses } from '@/app/actions/classes';
 import { AttendanceList } from '@/components/features/attendance/AttendanceList';
+import { PageHeader } from '@ui/page-header';
+import { Card, CardContent } from '@ui/card';
+import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/page-error-boundary';
 import { FEATURES } from '@/lib/features.config';
 import { ComingSoon } from '@/components/layout/coming-soon';
 import { Maintenance } from '@/components/layout/maintenance';
@@ -43,43 +46,70 @@ export default async function AttendancePage() {
     const errorMessage = sessionsResult.error || classesResult.error || '데이터를 불러올 수 없습니다';
 
     return (
-      <div className="container mx-auto py-8 px-4">
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-          <h2 className="text-xl font-semibold text-yellow-800 mb-2">
-            데이터 로딩 오류
-          </h2>
-          <p className="text-yellow-700 mb-4">{errorMessage}</p>
-          <p className="text-sm text-yellow-600">
-            {!sessionsResult.success && '• 출석 세션 로딩 실패'}
-            {!sessionsResult.success && !classesResult.success && <br />}
-            {!classesResult.success && '• 클래스 목록 로딩 실패'}
-          </p>
+      <PageErrorBoundary pageName="출석 관리">
+        <div className="p-6 lg:p-8 space-y-6">
+          <section aria-label="페이지 헤더" className="animate-in fade-in-50 slide-in-from-top-2 duration-500">
+            <PageHeader
+              title="출석 관리"
+              description="수업별 출석 세션을 생성하고 학생들의 출석 현황을 관리합니다"
+            />
+          </section>
+
+          <section aria-label="오류 메시지" className="animate-in fade-in-50 slide-in-from-bottom-2 duration-500" style={{ animationDelay: '100ms' }}>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+                  <h2 className="text-xl font-semibold text-yellow-800 mb-2">
+                    데이터 로딩 오류
+                  </h2>
+                  <p className="text-yellow-700 mb-4">{errorMessage}</p>
+                  <p className="text-sm text-yellow-600">
+                    {!sessionsResult.success && '• 출석 세션 로딩 실패'}
+                    {!sessionsResult.success && !classesResult.success && <br />}
+                    {!classesResult.success && '• 클래스 목록 로딩 실패'}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </section>
         </div>
-      </div>
+      </PageErrorBoundary>
     );
   }
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="mb-8 space-y-6">
-        <h1 className="text-3xl font-bold">출석 관리</h1>
-        <p className="text-gray-600">
-          클래스별 출석 세션을 생성하고 학생들의 출석을 관리합니다.
-        </p>
-      </div>
+    <PageErrorBoundary pageName="출석 관리">
+      <div className="p-6 lg:p-8 space-y-6">
+        {/* Header */}
+        <section aria-label="페이지 헤더" className="animate-in fade-in-50 slide-in-from-top-2 duration-500">
+          <PageHeader
+            title="출석 관리"
+            description="수업별 출석 세션을 생성하고 학생들의 출석 현황을 관리합니다"
+          />
+        </section>
 
-      <Suspense
-        fallback={
-          <div className="text-center py-8">
-            <p className="text-gray-500">로딩 중...</p>
-          </div>
-        }
-      >
-        <AttendanceList
-          initialSessions={sessionsResult.data || []}
-          classes={classesResult.data || []}
-        />
-      </Suspense>
-    </div>
+        {/* Attendance List */}
+        <section aria-label="출석 목록" className="animate-in fade-in-50 slide-in-from-bottom-2 duration-500" style={{ animationDelay: '100ms' }}>
+          <SectionErrorBoundary sectionName="출석 목록">
+            <Suspense
+              fallback={
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground">로딩 중...</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              }
+            >
+              <AttendanceList
+                initialSessions={sessionsResult.data || []}
+                classes={classesResult.data || []}
+              />
+            </Suspense>
+          </SectionErrorBoundary>
+        </section>
+      </div>
+    </PageErrorBoundary>
   );
 }
