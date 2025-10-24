@@ -302,6 +302,7 @@ export async function updateStudent(
     phone?: string | null
     emergency_contact?: string | null
     kiosk_pin?: string | null
+    profile_image_url?: string | null
   }
 ) {
   try {
@@ -351,6 +352,7 @@ export async function updateStudent(
     if (updates.commute_method !== undefined) studentUpdates.commute_method = updates.commute_method
     if (updates.marketing_source !== undefined) studentUpdates.marketing_source = updates.marketing_source
     if (updates.emergency_contact !== undefined) studentUpdates.emergency_contact = updates.emergency_contact
+    if (updates.profile_image_url !== undefined) studentUpdates.profile_image_url = updates.profile_image_url
 
     // Hash kiosk_pin before storing
     if (updates.kiosk_pin !== undefined) {

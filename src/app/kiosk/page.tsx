@@ -7,8 +7,15 @@ import { Card, CardContent } from '@ui/card'
 import { Badge } from '@ui/badge'
 import { Progress } from '@ui/progress'
 import { Checkbox } from '@ui/checkbox'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { Trophy, CheckCircle, Clock, AlertCircle, PartyPopper, LogOut, Loader2, Calendar } from 'lucide-react'
+import { Trophy, CheckCircle, Clock, AlertCircle, PartyPopper, LogOut, Loader2, Calendar, FileText } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
@@ -26,6 +33,7 @@ export default function KioskPage() {
   const [showCelebration, setShowCelebration] = useState(false)
   const [loading, setLoading] = useState(false)
   const [isCheckingSession, setIsCheckingSession] = useState(true)
+  const [selectedTodo, setSelectedTodo] = useState<StudentTodo | null>(null)
 
   const router = useRouter()
   const { toast } = useToast()
@@ -343,7 +351,7 @@ export default function KioskPage() {
               transition={{ delay: index * 0.05 }}
             >
               <Card
-                className={`transition-all ${
+                className={`transition-all cursor-pointer ${
                   todo.verified_at
                     ? 'bg-green-50/50 dark:bg-green-950/20 border-green-200 dark:border-green-800'
                     : todo.completed_at
@@ -353,27 +361,33 @@ export default function KioskPage() {
               >
                 <CardContent className="p-4">
                   <div className="flex items-start gap-4">
-                    <Checkbox
-                      checked={!!todo.completed_at}
-                      onCheckedChange={() =>
-                        handleToggleTodo(todo.id, !!todo.completed_at)
-                      }
-                      disabled={loading || !!todo.verified_at}
-                      className="mt-1"
-                    />
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={!!todo.completed_at}
+                        onCheckedChange={() => handleToggleTodo(todo.id, !!todo.completed_at)}
+                        disabled={loading || !!todo.verified_at}
+                        className="mt-1"
+                      />
+                    </div>
 
-                    <div className="flex-1">
+                    <div
+                      className="flex-1"
+                      onClick={() => setSelectedTodo(todo)}
+                    >
                       <div className="flex items-start justify-between">
-                        <div>
-                          <p
-                            className={`font-medium text-lg ${
-                              todo.verified_at || todo.completed_at
-                                ? 'line-through text-muted-foreground'
-                                : ''
-                            }`}
-                          >
-                            {todo.title}
-                          </p>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <p
+                              className={`font-medium text-lg ${
+                                todo.verified_at || todo.completed_at
+                                  ? 'line-through text-muted-foreground'
+                                  : ''
+                              }`}
+                            >
+                              {todo.title}
+                            </p>
+                            <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          </div>
                           <div className="flex gap-2 mt-1">
                             {todo.subject && (
                               <Badge variant="secondary">{todo.subject}</Badge>
@@ -418,6 +432,127 @@ export default function KioskPage() {
             </Card>
           )}
         </div>
+
+        {/* TODO 상세 다이얼로그 */}
+        <Dialog open={!!selectedTodo} onOpenChange={() => setSelectedTodo(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-2xl">
+                {selectedTodo?.title}
+              </DialogTitle>
+              <DialogDescription className="sr-only">
+                TODO 상세 정보
+              </DialogDescription>
+            </DialogHeader>
+
+            {selectedTodo && (
+              <div className="space-y-6 mt-4">
+                {/* 상태 & 과목 정보 */}
+                <div className="flex flex-wrap gap-2">
+                  {selectedTodo.subject && (
+                    <Badge variant="secondary" className="text-base px-3 py-1">
+                      {selectedTodo.subject}
+                    </Badge>
+                  )}
+                  {selectedTodo.verified_at ? (
+                    <Badge variant="default" className="gap-1 text-base px-3 py-1">
+                      <CheckCircle className="h-4 w-4" />
+                      검증 완료
+                    </Badge>
+                  ) : selectedTodo.completed_at ? (
+                    <Badge className="gap-1 text-base px-3 py-1 bg-blue-600">
+                      <CheckCircle className="h-4 w-4" />
+                      완료
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-base px-3 py-1">
+                      진행 중
+                    </Badge>
+                  )}
+                </div>
+
+                {/* 마감일 & 예상 시간 */}
+                <div className="grid grid-cols-2 gap-4">
+                  {selectedTodo.due_date && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">마감일</p>
+                        <p className="font-medium">
+                          {new Date(selectedTodo.due_date).toLocaleDateString('ko-KR', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {selectedTodo.estimated_duration_minutes && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">예상 소요 시간</p>
+                        <p className="font-medium">{selectedTodo.estimated_duration_minutes}분</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 상세 설명 */}
+                {selectedTodo.description && (
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-sm text-muted-foreground">상세 설명</h4>
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                        {selectedTodo.description}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* 선생님 피드백 */}
+                {selectedTodo.notes && (
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-sm text-muted-foreground">선생님 피드백</h4>
+                    <div className="p-4 bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                      <p className="text-sm text-yellow-800 dark:text-yellow-200 whitespace-pre-wrap leading-relaxed">
+                        💬 {selectedTodo.notes}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* 완료 체크 버튼 */}
+                {!selectedTodo.verified_at && (
+                  <div className="flex justify-end pt-4 border-t">
+                    <Button
+                      size="lg"
+                      onClick={() => {
+                        handleToggleTodo(selectedTodo.id, !!selectedTodo.completed_at)
+                        setSelectedTodo(null)
+                      }}
+                      disabled={loading}
+                      className="gap-2"
+                    >
+                      {selectedTodo.completed_at ? (
+                        <>
+                          <CheckCircle className="h-5 w-5" />
+                          완료 취소
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="h-5 w-5" />
+                          완료하기
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )

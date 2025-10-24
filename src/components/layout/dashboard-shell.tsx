@@ -31,6 +31,7 @@ interface DashboardShellProps {
   children: React.ReactNode
   userName?: string
   userEmail?: string
+  userRole?: string
 }
 
 /**
@@ -95,6 +96,7 @@ const Header = memo(function Header({
   isLoggingOut = false,
   userName,
   userEmail,
+  userRole,
 }: {
   onMenuClick?: () => void
   showMenuButton?: boolean
@@ -102,7 +104,20 @@ const Header = memo(function Header({
   isLoggingOut?: boolean
   userName?: string
   userEmail?: string
+  userRole?: string
 }) {
+  // 역할 코드를 한글로 변환
+  const getRoleLabel = (roleCode?: string) => {
+    const roleMap: Record<string, string> = {
+      'owner': '원장',
+      'instructor': '강사',
+      'assistant': '조교',
+      'parent': '학부모',
+      'student': '학생',
+    }
+    return roleCode ? roleMap[roleCode] || roleCode : '사용자'
+  }
+
   return (
     <header className="flex h-16 items-center justify-between border-b bg-card px-4 md:px-6">
       {/* 모바일: 햄버거 메뉴 + 로고 */}
@@ -137,12 +152,17 @@ const Header = memo(function Header({
               <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-primary/70" />
               <div className="text-left hidden sm:block">
                 <p className="text-sm font-medium">{userName || '사용자'}</p>
-                <p className="text-xs text-muted-foreground">{userEmail || ''}</p>
+                <p className="text-xs text-muted-foreground">{getRoleLabel(userRole)}</p>
               </div>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56" align="end" forceMount>
-            <DropdownMenuLabel>내 계정</DropdownMenuLabel>
+            <DropdownMenuLabel className="font-normal">
+              <div className="flex flex-col space-y-1">
+                <p className="text-sm font-medium leading-none">{userName || '사용자'}</p>
+                <p className="text-xs leading-none text-muted-foreground">{userEmail || ''}</p>
+              </div>
+            </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
               <Link href="/profile" className="cursor-pointer">
@@ -193,7 +213,8 @@ const Header = memo(function Header({
 export function DashboardShell({
   children,
   userName,
-  userEmail
+  userEmail,
+  userRole
 }: DashboardShellProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -272,6 +293,7 @@ export function DashboardShell({
           isLoggingOut={isLoggingOut}
           userName={userName}
           userEmail={userEmail}
+          userRole={userRole}
         />
 
         {/* 메인 - 페이지 컨텐츠만 전환 */}

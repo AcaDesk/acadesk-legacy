@@ -57,7 +57,6 @@ export default function NewTodoTemplatePage() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [subject, setSubject] = useState('')
-  const [dayOfWeek, setDayOfWeek] = useState('')
   const [estimatedDuration, setEstimatedDuration] = useState('')
   const [priority, setPriority] = useState('normal')
   const [loading, setLoading] = useState(false)
@@ -176,7 +175,6 @@ export default function NewTodoTemplatePage() {
         title: title.trim(),
         description: description.trim() || undefined,
         subject: subject.trim() || undefined,
-        dayOfWeek: dayOfWeek ? parseInt(dayOfWeek) : undefined,
         estimatedDurationMinutes: estimatedDuration ? parseInt(estimatedDuration) : undefined,
         priority: priority as 'low' | 'normal' | 'high' | 'urgent',
       })
@@ -419,33 +417,6 @@ export default function NewTodoTemplatePage() {
 
                   <Separator />
 
-                  {/* Day of Week */}
-                  <div className="space-y-2">
-                    <Label htmlFor="dayOfWeek" className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4" />
-                      마감 요일
-                      <Badge variant="outline" className="text-xs">선택</Badge>
-                    </Label>
-                    <Select value={dayOfWeek || undefined} onValueChange={(value) => setDayOfWeek(value === 'none' ? '' : value)}>
-                      <SelectTrigger id="dayOfWeek">
-                        <SelectValue placeholder="요일을 선택하세요" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">선택 안 함</SelectItem>
-                        {Object.entries(DAYS_OF_WEEK).map(([key, value]) => (
-                          <SelectItem key={key} value={key}>
-                            {value}요일
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">
-                      과제를 자동 생성할 때 다음 해당 요일로 마감일이 설정됩니다
-                    </p>
-                  </div>
-
-                  <Separator />
-
                   {/* Duration */}
                   <div className="space-y-3">
                     <Label htmlFor="estimatedDuration" className="flex items-center gap-2">
@@ -547,15 +518,6 @@ export default function NewTodoTemplatePage() {
                     <div className="flex items-center gap-2">
                       <BookOpen className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm text-muted-foreground">{subject}</span>
-                    </div>
-                  )}
-
-                  {dayOfWeek && dayOfWeek !== 'none' && (
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">
-                        매주 {DAYS_OF_WEEK[parseInt(dayOfWeek)]}요일 마감
-                      </span>
                     </div>
                   )}
 
