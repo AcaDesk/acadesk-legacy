@@ -48,7 +48,7 @@ export function ConsultationTab({
   const [consultations, setConsultations] = useState(initialConsultations)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [consultationDate, setConsultationDate] = useState<Date | undefined>()
-  const [consultationType, setConsultationType] = useState('대면')
+  const [consultationType, setConsultationType] = useState<'parent_meeting' | 'phone_call' | 'video_call' | 'in_person'>('in_person')
   const [consultationContent, setConsultationContent] = useState('')
 
   const handleSaveConsultation = async () => {
@@ -65,7 +65,7 @@ export function ConsultationTab({
       const result = await createConsultation({
         studentId: studentId,
         consultationDate: consultationDate.toISOString(),
-        consultationType: consultationType as 'parent_meeting' | 'phone_call' | 'video_call' | 'in_person',
+        consultationType: consultationType,
         title: '상담 기록',
         summary: consultationContent,
       })
@@ -79,7 +79,7 @@ export function ConsultationTab({
       onConsultationAdded(newConsultation)
       setIsDialogOpen(false)
       setConsultationDate(undefined)
-      setConsultationType('대면')
+      setConsultationType('in_person')
       setConsultationContent('')
 
       toast({
@@ -188,15 +188,15 @@ export function ConsultationTab({
 
             <div className="space-y-2">
               <Label>상담 유형</Label>
-              <Select value={consultationType} onValueChange={setConsultationType}>
+              <Select value={consultationType} onValueChange={(v) => setConsultationType(v as 'parent_meeting' | 'phone_call' | 'video_call' | 'in_person')}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="대면">대면</SelectItem>
-                  <SelectItem value="전화">전화</SelectItem>
-                  <SelectItem value="화상">화상</SelectItem>
-                  <SelectItem value="기타">기타</SelectItem>
+                  <SelectItem value="in_person">대면 상담</SelectItem>
+                  <SelectItem value="phone_call">전화 상담</SelectItem>
+                  <SelectItem value="video_call">화상 상담</SelectItem>
+                  <SelectItem value="parent_meeting">학부모 면담</SelectItem>
                 </SelectContent>
               </Select>
             </div>
