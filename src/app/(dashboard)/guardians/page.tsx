@@ -12,6 +12,8 @@ import { RoleGuard } from '@/components/auth/role-guard'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
+import { PAGE_ANIMATIONS } from '@/lib/animation-config'
+import { LoadingState } from '@/components/ui/loading-state'
 
 export default function GuardiansPage() {
   // 피처 플래그 체크
@@ -28,35 +30,41 @@ export default function GuardiansPage() {
     <PageErrorBoundary pageName="보호자 관리">
       <PageWrapper>
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold">보호자 관리</h1>
-              <p className="text-muted-foreground">학부모 및 보호자 정보를 관리합니다</p>
+          {/* Header */}
+          <section aria-label="페이지 헤더" className={PAGE_ANIMATIONS.header}>
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold">보호자 관리</h1>
+                <p className="text-muted-foreground">학부모 및 보호자 정보를 관리합니다</p>
+              </div>
+              <RoleGuard allowedRoles={['owner', 'instructor']}>
+                <Link href="/guardians/new">
+                  <Button>
+                    <Plus className="mr-2 h-4 w-4" />
+                    보호자 추가
+                  </Button>
+                </Link>
+              </RoleGuard>
             </div>
-          <RoleGuard allowedRoles={['owner', 'instructor']}>
-            <Link href="/guardians/new">
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                보호자 추가
-              </Button>
-            </Link>
-          </RoleGuard>
-        </div>
+          </section>
 
-        <SectionErrorBoundary sectionName="보호자 목록">
-          <Card>
-            <CardHeader>
-              <CardTitle>전체 보호자 목록</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Suspense fallback={<div className="text-center py-8">로딩 중...</div>}>
-                <GuardianList />
-              </Suspense>
-            </CardContent>
-          </Card>
-        </SectionErrorBoundary>
-      </div>
-    </PageWrapper>
+          {/* Guardian List */}
+          <section aria-label="보호자 목록" {...PAGE_ANIMATIONS.getSection(0)}>
+            <SectionErrorBoundary sectionName="보호자 목록">
+              <Card>
+                <CardHeader>
+                  <CardTitle>전체 보호자 목록</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Suspense fallback={<LoadingState variant="card" message="보호자 목록을 불러오는 중..." />}>
+                    <GuardianList />
+                  </Suspense>
+                </CardContent>
+              </Card>
+            </SectionErrorBoundary>
+          </section>
+        </div>
+      </PageWrapper>
     </PageErrorBoundary>
   )
 }
