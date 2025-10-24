@@ -15,7 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { useToast } from '@/hooks/use-toast'
+import { showSuccessToast, showErrorToast } from '@/lib/toast-helpers'
 
 type TextbookUnit = {
   tempId: string
@@ -27,8 +27,6 @@ type TextbookUnit = {
 
 export default function NewTextbookPage() {
   const router = useRouter()
-  const { toast } = useToast()
-
   const [loading, setLoading] = useState(false)
 
   // Textbook fields
@@ -122,20 +120,10 @@ export default function NewTextbookPage() {
         }
       }
 
-      toast({
-        title: '교재 등록 완료',
-        description: `${title} 교재가 등록되었습니다`,
-      })
-
+      showSuccessToast('교재 등록 완료', `${title} 교재가 등록되었습니다`)
       router.push(`/textbooks/${textbookId}`)
     } catch (error) {
-      console.error('[NewTextbook] Error:', error)
-      toast({
-        title: '교재 등록 실패',
-        description:
-          error instanceof Error ? error.message : '오류가 발생했습니다',
-        variant: 'destructive',
-      })
+      showErrorToast('교재 등록 실패', error, 'NewTextbookPage.handleSubmit')
     } finally {
       setLoading(false)
     }
