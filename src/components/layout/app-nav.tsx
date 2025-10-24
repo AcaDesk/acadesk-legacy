@@ -25,6 +25,7 @@ import {
   ChevronRight,
   LibraryBig,
   Send,
+  BookCopy,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { isFeatureAvailable, type FeatureKey } from "@/lib/features.config"
@@ -102,6 +103,16 @@ const navigationGroups: NavGroup[] = [
         subItems: [
           { name: "과제 목록", href: "/todos", icon: ListTodo, featureFlag: "todoManagement" },
           { name: "템플릿 관리", href: "/todos/templates", icon: LibraryBig, featureFlag: "todoManagement" },
+        ]
+      },
+      {
+        name: "숙제 관리",
+        href: "/homeworks",
+        icon: BookCopy,
+        featureFlag: "todoManagement",
+        subItems: [
+          { name: "숙제 목록", href: "/homeworks", icon: BookCopy, featureFlag: "todoManagement" },
+          { name: "제출 현황", href: "/homeworks/submissions", icon: ClipboardCheck, featureFlag: "todoManagement" },
         ]
       },
       { name: "교재 관리", href: "/library", icon: BookOpen, featureFlag: "libraryManagement" },
