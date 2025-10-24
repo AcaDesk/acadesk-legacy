@@ -289,7 +289,13 @@ export async function createStudentComplete(
  */
 export async function updateStudent(
   studentId: string,
-  updates: Partial<z.infer<typeof studentSchema>>
+  updates: Partial<z.infer<typeof studentSchema>> & {
+    name?: string
+    email?: string | null
+    phone?: string | null
+    emergency_contact?: string | null
+    kiosk_pin?: string | null
+  }
 ) {
   try {
     // 1. Verify authentication and get tenant
@@ -298,10 +304,10 @@ export async function updateStudent(
     // 2. Create service_role client
     const serviceClient = await createServiceRoleClient()
 
-    // 3. Verify student belongs to tenant
+    // 3. Verify student belongs to tenant and get user_id
     const { data: existingStudent, error: fetchError } = await serviceClient
       .from('students')
-      .select('id, tenant_id')
+      .select('id, tenant_id, user_id')
       .eq('id', studentId)
       .maybeSingle()
 
@@ -319,20 +325,58 @@ export async function updateStudent(
       }
     }
 
-    // 4. Update with service_role
-    const { error: updateError } = await serviceClient
-      .from('students')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', studentId)
+    // 4. Separate user updates from student updates
+    const userUpdates: Record<string, any> = {}
+    const studentUpdates: Record<string, any> = {}
 
-    if (updateError) {
-      throw updateError
+    // User table fields
+    if (updates.name !== undefined) userUpdates.name = updates.name
+    if (updates.email !== undefined) userUpdates.email = updates.email
+    if (updates.phone !== undefined) userUpdates.phone = updates.phone
+
+    // Student table fields
+    if (updates.grade !== undefined) studentUpdates.grade = updates.grade
+    if (updates.school !== undefined) studentUpdates.school = updates.school
+    if (updates.birth_date !== undefined) studentUpdates.birth_date = updates.birth_date
+    if (updates.gender !== undefined) studentUpdates.gender = updates.gender
+    if (updates.student_phone !== undefined) studentUpdates.student_phone = updates.student_phone
+    if (updates.notes !== undefined) studentUpdates.notes = updates.notes
+    if (updates.commute_method !== undefined) studentUpdates.commute_method = updates.commute_method
+    if (updates.marketing_source !== undefined) studentUpdates.marketing_source = updates.marketing_source
+    if (updates.emergency_contact !== undefined) studentUpdates.emergency_contact = updates.emergency_contact
+    if (updates.kiosk_pin !== undefined) studentUpdates.kiosk_pin = updates.kiosk_pin
+
+    // 5. Update users table if needed
+    if (Object.keys(userUpdates).length > 0 && existingStudent.user_id) {
+      const { error: userUpdateError } = await serviceClient
+        .from('users')
+        .update({
+          ...userUpdates,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existingStudent.user_id)
+
+      if (userUpdateError) {
+        throw userUpdateError
+      }
     }
 
-    // 5. Revalidate pages
+    // 6. Update students table if needed
+    if (Object.keys(studentUpdates).length > 0) {
+      const { error: studentUpdateError } = await serviceClient
+        .from('students')
+        .update({
+          ...studentUpdates,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', studentId)
+
+      if (studentUpdateError) {
+        throw studentUpdateError
+      }
+    }
+
+    // 7. Revalidate pages
     revalidatePath('/students')
     revalidatePath(`/students/${studentId}`)
     revalidatePath('/dashboard')
@@ -502,319 +546,46 @@ export async function getStudentDetail(studentId: string) {
     // 1. Verify authentication and get tenant
     const { tenantId } = await verifyStaff()
 
-    // 2. Create service_role client (for read operations with tenant filtering)
+    // 2. Create service_role client
     const serviceClient = await createServiceRoleClient()
 
-    // 3. First, try to fetch basic student data
-    const { data: basicStudent, error: basicError } = await serviceClient
-      .from('students')
-      .select('*')
-      .eq('id', studentId)
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
-      .maybeSingle()
+    // 3. Call RPC function to get complete student detail
+    const { data, error: rpcError } = await serviceClient
+      .rpc('get_student_detail', {
+        p_student_id: studentId,
+        p_tenant_id: tenantId,
+      })
+      .single()
 
-    console.log('[getStudentDetail] Basic student query:', {
-      studentId,
-      tenantId,
-      hasData: !!basicStudent,
-      error: basicError,
-    })
-
-    if (basicError || !basicStudent) {
-      console.error('[getStudentDetail] Basic student query failed:', {
+    if (rpcError) {
+      console.error('[getStudentDetail] RPC Error:', {
         studentId,
         tenantId,
-        error: basicError,
-        errorMessage: basicError?.message,
-        errorDetails: basicError?.details,
-        errorHint: basicError?.hint,
+        error: rpcError,
+        message: rpcError.message,
+        details: rpcError.details,
+        hint: rpcError.hint,
+      })
+      throw rpcError
+    }
+
+    if (!data) {
+      console.log('[getStudentDetail] Student not found:', {
+        studentId,
+        tenantId,
       })
       return {
         success: false,
-        error: basicError ? `${basicError.message} - ${basicError.details || ''} - ${basicError.hint || ''}` : '학생을 찾을 수 없습니다',
+        error: '학생을 찾을 수 없습니다',
         data: null,
       }
     }
 
-    // 4. Fetch student detail with related data
-    const { data: student, error: studentError } = await serviceClient
-      .from('students')
-      .select(`
-        *,
-        users!inner (
-          name,
-          email,
-          phone
-        ),
-        student_guardians (
-          guardians (
-            id,
-            relationship,
-            users!inner (
-              name,
-              phone
-            )
-          )
-        ),
-        class_enrollments (
-          id,
-          class_id,
-          status,
-          enrolled_at,
-          end_date,
-          withdrawal_reason,
-          notes,
-          classes (
-            id,
-            name,
-            subject,
-            instructor_id
-          )
-        ),
-        student_schedules (
-          day_of_week,
-          scheduled_arrival_time
-        )
-      `)
-      .eq('id', studentId)
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
-      .maybeSingle()
-
-    if (studentError || !student) {
-      console.error('[getStudentDetail] Student query error:', {
-        studentId,
-        tenantId,
-        error: studentError,
-        errorMessage: studentError?.message,
-        errorDetails: studentError?.details,
-        errorHint: studentError?.hint,
-        hasStudent: !!student,
-      })
-      return {
-        success: false,
-        error: studentError ? `${studentError.message} - ${studentError.details || ''} - ${studentError.hint || ''}` : '학생을 찾을 수 없습니다',
-        data: null,
-      }
-    }
-
-    // 4. Fetch related data in parallel
-    const [scoresResult, todosResult, consultationsResult, attendanceResult, invoicesResult] =
-      await Promise.all([
-        // Recent exam scores
-        serviceClient
-          .from('exam_scores')
-          .select(`
-            id,
-            percentage,
-            created_at,
-            exam_id,
-            exams (
-              id,
-              name,
-              exam_date,
-              category_code,
-              class_id
-            )
-          `)
-          .eq('student_id', studentId)
-          .order('created_at', { ascending: false })
-          .limit(10),
-
-        // Recent todos
-        serviceClient
-          .from('student_todos')
-          .select(`
-            id,
-            title,
-            description,
-            priority,
-            due_date,
-            completed_at,
-            verified_at,
-            created_at
-          `)
-          .eq('student_id', studentId)
-          .order('created_at', { ascending: false })
-          .limit(20),
-
-        // Consultations
-        serviceClient
-          .from('consultations')
-          .select(`
-            id,
-            consultation_type,
-            summary,
-            created_at,
-            users!consultations_conducted_by_fkey (
-              name
-            )
-          `)
-          .eq('student_id', studentId)
-          .order('created_at', { ascending: false })
-          .limit(10),
-
-        // Attendance records
-        serviceClient
-          .from('attendance')
-          .select(`
-            id,
-            status,
-            session_id,
-            attendance_sessions (
-              id,
-              session_date,
-              class_id,
-              classes (
-                id,
-                name
-              )
-            )
-          `)
-          .eq('student_id', studentId)
-          .order('created_at', { ascending: false })
-          .limit(30),
-
-        // Invoices (billing)
-        serviceClient
-          .from('invoices')
-          .select(`
-            id,
-            amount,
-            status,
-            due_date,
-            created_at
-          `)
-          .eq('student_id', studentId)
-          .order('created_at', { ascending: false })
-          .limit(10),
-      ])
-
-    // Log any errors from parallel queries
-    if (scoresResult.error) {
-      console.error('[getStudentDetail] Scores query error:', scoresResult.error)
-    }
-    if (todosResult.error) {
-      console.error('[getStudentDetail] Todos query error:', todosResult.error)
-    }
-    if (consultationsResult.error) {
-      console.error('[getStudentDetail] Consultations query error:', consultationsResult.error)
-    }
-    if (attendanceResult.error) {
-      console.error('[getStudentDetail] Attendance query error:', attendanceResult.error)
-    }
-    if (invoicesResult.error) {
-      console.error('[getStudentDetail] Invoices query error:', invoicesResult.error)
-    }
-
-    const recentScores = scoresResult.data || []
-    const recentTodos = todosResult.data || []
-    const consultations = consultationsResult.data || []
-    const attendanceRecords = attendanceResult.data || []
-    const invoices = invoicesResult.data || []
-
-    // 5. Calculate KPIs
-    const attendanceRate =
-      attendanceRecords.length > 0
-        ? Math.round(
-            (attendanceRecords.filter((r) => r.status === 'present').length /
-              attendanceRecords.length) *
-              100
-          )
-        : 0
-
-    const avgScore =
-      recentScores.length > 0
-        ? Math.round(
-            recentScores.reduce((sum, s) => sum + s.percentage, 0) / recentScores.length
-          )
-        : 0
-
-    const homeworkRate =
-      recentTodos.length > 0
-        ? Math.round(
-            (recentTodos.filter((t) => t.completed_at).length / recentTodos.length) * 100
-          )
-        : 0
-
-    // 6. Calculate class averages (simple average by exam)
-    const classAverages: Record<string, number> = {}
-    for (const score of recentScores) {
-      const exam = score.exams as any
-      if (exam?.class_id) {
-        const classId = exam.class_id as string
-        if (!classAverages[classId]) {
-          classAverages[classId] = score.percentage
-        }
-      }
-    }
-
-    // 7. Transform data to match StudentDetailData type
-    const transformedData: StudentDetailData = {
-      student: student as any, // Supabase returns correct structure
-      recentScores: recentScores.map((s) => ({
-        id: s.id,
-        percentage: s.percentage,
-        created_at: s.created_at,
-        exam_id: s.exam_id,
-        exams: Array.isArray(s.exams) ? s.exams[0] : s.exams,
-      })),
-      classAverages,
-      recentTodos: recentTodos.map((t) => ({
-        id: t.id,
-        title: t.title,
-        due_date: t.due_date,
-        subject: null, // Not returned from DB
-        completed_at: t.completed_at,
-      })),
-      consultations: consultations.map((c: any) => ({
-        id: c.id,
-        consultation_date: c.created_at,
-        consultation_type: c.consultation_type,
-        content: c.summary,
-        created_at: c.created_at,
-        instructor_id: c.users?.id || undefined,
-      })),
-      attendanceRecords: attendanceRecords.map((a: any) => ({
-        id: a.id,
-        status: a.status,
-        check_in_at: null,
-        check_out_at: null,
-        notes: null,
-        attendance_sessions: a.attendance_sessions
-          ? {
-              session_date: a.attendance_sessions.session_date,
-              scheduled_start_at: '',
-              scheduled_end_at: '',
-              classes: a.attendance_sessions.classes || null,
-            }
-          : null,
-      })),
-      invoices: invoices.map((inv: any) => ({
-        id: inv.id,
-        billing_month: '',
-        issue_date: inv.created_at,
-        due_date: inv.due_date,
-        total_amount: inv.amount,
-        paid_amount: 0,
-        status: inv.status,
-        notes: null,
-        created_at: inv.created_at,
-        invoice_items: [],
-        payments: [],
-      })),
-      kpis: {
-        attendanceRate,
-        avgScore,
-        homeworkRate,
-      },
-    }
-
+    // 4. Return the data (DB already returns StudentDetailData format)
     return {
       success: true,
       error: null,
-      data: transformedData,
+      data: data as StudentDetailData,
     }
   } catch (error) {
     console.error('[getStudentDetail] Error:', error)
