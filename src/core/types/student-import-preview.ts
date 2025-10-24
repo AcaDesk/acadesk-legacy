@@ -3,7 +3,7 @@
  * 학생 Import 미리보기 결과
  */
 
-import type { StudentImportData, GuardianImportData } from '../entities/StudentImport'
+import type { StudentImportData, GuardianImportData } from './student-import'
 
 export interface ImportSummary {
   total: number

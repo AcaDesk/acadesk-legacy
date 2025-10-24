@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
@@ -15,79 +15,148 @@ import {
   Filter,
   CheckCircle,
   AlertCircle,
+  Loader2,
 } from 'lucide-react'
 import Link from 'next/link'
-import { PageWrapper } from "@/components/layout/page-wrapper"
-import { PAGE_LAYOUT, GRID_LAYOUTS, TEXT_STYLES, CARD_STYLES } from '@/lib/constants'
+import { PageWrapper } from '@/components/layout/page-wrapper'
+import {
+  PAGE_LAYOUT,
+  GRID_LAYOUTS,
+  TEXT_STYLES,
+  CARD_STYLES,
+} from '@/lib/constants'
 import { Input } from '@ui/input'
 import { Tabs, TabsList, TabsTrigger } from '@ui/tabs'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
+import { useToast } from '@/hooks/use-toast'
+
+type Consultation = {
+  id: string
+  student_id: string
+  consultation_date: string
+  consultation_type: string
+  title: string
+  summary: string | null
+  outcome: string | null
+  follow_up_required: boolean
+  next_consultation_date: string | null
+  students?: { name: string }
+  users?: { name: string }
+}
+
+const consultationTypeLabels: Record<string, string> = {
+  parent_meeting: '학부모 상담',
+  phone_call: '전화 상담',
+  video_call: '화상 상담',
+  in_person: '대면 상담',
+}
 
 export default function ConsultationsPage() {
   // All Hooks must be called before any early returns
   const [searchTerm, setSearchTerm] = useState('')
-  const [activeTab, setActiveTab] = useState('all')
+  const [activeTab, setActiveTab] = useState<'all' | 'upcoming' | 'completed'>(
+    'all'
+  )
+  const [consultations, setConsultations] = useState<Consultation[]>([])
+  const [loading, setLoading] = useState(true)
+  const { toast } = useToast()
 
   // 피처 플래그 체크 (Hooks 이후에 체크)
-  const featureStatus = FEATURES.consultationManagement;
+  const featureStatus = FEATURES.consultationManagement
+
+  // Load consultations
+  useEffect(() => {
+    async function loadConsultations() {
+      try {
+        setLoading(true)
+        const { getConsultations } = await import('@/app/actions/consultations')
+        const result = await getConsultations({ limit: 100 })
+
+        if (result.success && result.data) {
+          setConsultations(result.data)
+        } else {
+          console.error('Failed to load consultations:', result.error)
+          toast({
+            title: '상담 기록 로드 실패',
+            description: result.error || '상담 기록을 불러올 수 없습니다',
+            variant: 'destructive',
+          })
+        }
+      } catch (error) {
+        console.error('Error loading consultations:', error)
+        toast({
+          title: '오류 발생',
+          description: '상담 기록을 불러오는 중 오류가 발생했습니다',
+          variant: 'destructive',
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (featureStatus === 'active') {
+      loadConsultations()
+    }
+  }, [featureStatus, toast])
 
   if (featureStatus === 'inactive') {
-    return <ComingSoon featureName="상담 관리" description="학부모 상담 일정을 체계적으로 관리하고, 상담 기록을 효율적으로 관리하는 기능을 준비하고 있습니다." />;
+    return (
+      <ComingSoon
+        featureName="상담 관리"
+        description="학부모 상담 일정을 체계적으로 관리하고, 상담 기록을 효율적으로 관리하는 기능을 준비하고 있습니다."
+      />
+    )
   }
 
   if (featureStatus === 'maintenance') {
-    return <Maintenance featureName="상담 관리" reason="상담 관리 시스템 개선 작업이 진행 중입니다." />;
+    return (
+      <Maintenance
+        featureName="상담 관리"
+        reason="상담 관리 시스템 개선 작업이 진행 중입니다."
+      />
+    )
   }
+
+  // Calculate stats from real data
+  const now = new Date()
+  const currentMonth = now.getMonth()
+  const currentYear = now.getFullYear()
 
   const stats = {
-    totalConsultations: 24,
-    scheduledConsultations: 5,
-    completedThisMonth: 12,
+    totalConsultations: consultations.length,
+    upcomingConsultations: consultations.filter(
+      (c) =>
+        c.follow_up_required &&
+        c.next_consultation_date &&
+        new Date(c.next_consultation_date) >= now
+    ).length,
+    completedThisMonth: consultations.filter((c) => {
+      const consultDate = new Date(c.consultation_date)
+      return (
+        consultDate.getMonth() === currentMonth &&
+        consultDate.getFullYear() === currentYear
+      )
+    }).length,
   }
 
-  const consultations = [
-    {
-      id: '1',
-      studentName: '김철수',
-      guardianName: '김부모',
-      date: '2025-10-05',
-      time: '14:00',
-      topic: '학습 진도 상담',
-      status: 'scheduled',
-      notes: '수학 성적 향상 방안 논의',
-    },
-    {
-      id: '2',
-      studentName: '이영희',
-      guardianName: '이부모',
-      date: '2025-10-03',
-      time: '15:30',
-      topic: '진로 상담',
-      status: 'completed',
-      notes: '대학 진학 관련 상담 완료',
-    },
-    {
-      id: '3',
-      studentName: '박민수',
-      guardianName: '박부모',
-      date: '2025-10-07',
-      time: '16:00',
-      topic: '출석 관련 상담',
-      status: 'scheduled',
-      notes: '최근 결석 사유 확인',
-    },
-  ]
+  // Filter consultations
+  const filteredConsultations = consultations.filter((c) => {
+    const matchesSearch =
+      c.students?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.summary?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      false
 
-  const filteredConsultations = consultations.filter(c => {
-    const matchesSearch = c.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.guardianName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.topic.toLowerCase().includes(searchTerm.toLowerCase())
+    const consultDate = new Date(c.consultation_date)
+    const isUpcoming = c.follow_up_required && c.next_consultation_date
+    const isCompleted = !c.follow_up_required || consultDate < now
 
-    const matchesTab = activeTab === 'all' ||
-      (activeTab === 'scheduled' && c.status === 'scheduled') ||
-      (activeTab === 'completed' && c.status === 'completed')
+    const matchesTab =
+      activeTab === 'all' ||
+      (activeTab === 'upcoming' && isUpcoming) ||
+      (activeTab === 'completed' && isCompleted)
 
     return matchesSearch && matchesTab
   })
@@ -111,7 +180,7 @@ export default function ConsultationsPage() {
             <Link href="/consultations/new">
               <Button className="gap-2">
                 <Plus className="h-4 w-4" />
-                새 상담 예약
+                새 상담 기록
               </Button>
             </Link>
           </div>
@@ -132,10 +201,14 @@ export default function ConsultationsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalConsultations}건</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                총 상담 건수
-              </p>
+              <div className="text-2xl font-bold">
+                {loading ? (
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                ) : (
+                  `${stats.totalConsultations}건`
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">총 상담 건수</p>
             </CardContent>
           </Card>
 
@@ -143,13 +216,19 @@ export default function ConsultationsPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
-                예정된 상담
+                후속 상담 예정
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{stats.scheduledConsultations}건</div>
+              <div className="text-2xl font-bold text-blue-600">
+                {loading ? (
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                ) : (
+                  `${stats.upcomingConsultations}건`
+                )}
+              </div>
               <p className="text-xs text-muted-foreground mt-1">
-                진행 예정
+                후속 상담 필요
               </p>
             </CardContent>
           </Card>
@@ -162,9 +241,15 @@ export default function ConsultationsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">{stats.completedThisMonth}건</div>
+              <div className="text-2xl font-bold text-green-600">
+                {loading ? (
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                ) : (
+                  `${stats.completedThisMonth}건`
+                )}
+              </div>
               <p className="text-xs text-muted-foreground mt-1">
-                10월 완료 상담
+                {now.getMonth() + 1}월 완료 상담
               </p>
             </CardContent>
           </Card>
@@ -181,7 +266,7 @@ export default function ConsultationsPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="학생명, 보호자명, 주제로 검색..."
+                placeholder="학생명, 제목, 내용으로 검색..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -193,10 +278,15 @@ export default function ConsultationsPage() {
             </Button>
           </div>
 
-          <Tabs defaultValue="all" onValueChange={setActiveTab}>
+          <Tabs
+            defaultValue="all"
+            onValueChange={(value) =>
+              setActiveTab(value as 'all' | 'upcoming' | 'completed')
+            }
+          >
             <TabsList>
               <TabsTrigger value="all">전체</TabsTrigger>
-              <TabsTrigger value="scheduled">예정</TabsTrigger>
+              <TabsTrigger value="upcoming">후속 상담 예정</TabsTrigger>
               <TabsTrigger value="completed">완료</TabsTrigger>
             </TabsList>
           </Tabs>
@@ -209,71 +299,150 @@ export default function ConsultationsPage() {
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3, delay: 0.3 }}
         >
-          {filteredConsultations.length === 0 ? (
+          {loading ? (
+            <Card>
+              <CardContent className="py-12">
+                <div className="text-center">
+                  <Loader2 className="h-12 w-12 mx-auto mb-4 animate-spin text-muted-foreground" />
+                  <p className="text-muted-foreground">
+                    상담 기록을 불러오는 중...
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : filteredConsultations.length === 0 ? (
             <Card>
               <CardContent className="py-12">
                 <div className="text-center text-muted-foreground">
                   <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>상담 기록이 없습니다.</p>
-                  <p className="text-sm mt-2">새 상담을 예약하여 시작하세요.</p>
+                  <p>
+                    {searchTerm
+                      ? '검색 결과가 없습니다.'
+                      : '상담 기록이 없습니다.'}
+                  </p>
+                  <p className="text-sm mt-2">
+                    {searchTerm
+                      ? '다른 검색어를 시도해보세요.'
+                      : '새 상담 기록을 등록하여 시작하세요.'}
+                  </p>
                 </div>
               </CardContent>
             </Card>
           ) : (
-            filteredConsultations.map((consultation, index) => (
-              <motion.div
-                key={consultation.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3, delay: 0.05 * index }}
-              >
-                <Card className={CARD_STYLES.INTERACTIVE}>
-                  <CardContent className="py-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 space-y-2">
-                        <div className="flex items-center gap-3">
-                          <h3 className="font-semibold text-lg">{consultation.topic}</h3>
-                          <Badge variant={consultation.status === 'completed' ? 'default' : 'secondary'}>
-                            {consultation.status === 'completed' ? (
-                              <><CheckCircle className="h-3 w-3 mr-1" /> 완료</>
-                            ) : (
-                              <><AlertCircle className="h-3 w-3 mr-1" /> 예정</>
+            filteredConsultations.map((consultation, index) => {
+              const consultDate = new Date(consultation.consultation_date)
+              const isUpcoming =
+                consultation.follow_up_required &&
+                consultation.next_consultation_date
+              const nextDate = consultation.next_consultation_date
+                ? new Date(consultation.next_consultation_date)
+                : null
+
+              return (
+                <motion.div
+                  key={consultation.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3, delay: 0.05 * index }}
+                >
+                  <Card className={CARD_STYLES.INTERACTIVE}>
+                    <CardContent className="py-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-center gap-3">
+                            <h3 className="font-semibold text-lg">
+                              {consultation.title}
+                            </h3>
+                            <Badge
+                              variant={
+                                consultationTypeLabels[
+                                  consultation.consultation_type
+                                ]
+                                  ? 'outline'
+                                  : 'secondary'
+                              }
+                            >
+                              {consultationTypeLabels[
+                                consultation.consultation_type
+                              ] || consultation.consultation_type}
+                            </Badge>
+                            {isUpcoming && (
+                              <Badge variant="secondary">
+                                <AlertCircle className="h-3 w-3 mr-1" />
+                                후속 상담 필요
+                              </Badge>
                             )}
-                          </Badge>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <User className="h-4 w-4" />
+                              <span>
+                                {consultation.students?.name || '학생 정보 없음'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Calendar className="h-4 w-4" />
+                              <span>
+                                {consultDate.toLocaleDateString('ko-KR', {
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric',
+                                })}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Clock className="h-4 w-4" />
+                              <span>
+                                {consultDate.toLocaleTimeString('ko-KR', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                            </div>
+                            {nextDate && (
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <Calendar className="h-4 w-4 text-blue-500" />
+                                <span className="text-blue-600">
+                                  다음: {nextDate.toLocaleDateString('ko-KR')}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          {consultation.summary && (
+                            <p className="text-sm text-muted-foreground line-clamp-2">
+                              {consultation.summary}
+                            </p>
+                          )}
+
+                          {consultation.outcome && (
+                            <div className="text-sm">
+                              <span className="font-medium">결과: </span>
+                              <span className="text-muted-foreground">
+                                {consultation.outcome}
+                              </span>
+                            </div>
+                          )}
+
+                          <div className="text-xs text-muted-foreground">
+                            진행자: {consultation.users?.name || '정보 없음'}
+                          </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <User className="h-4 w-4" />
-                            <span>{consultation.studentName} ({consultation.guardianName})</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <Calendar className="h-4 w-4" />
-                            <span>{consultation.date}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-muted-foreground col-span-2">
-                            <Clock className="h-4 w-4" />
-                            <span>{consultation.time}</span>
-                          </div>
+                        <div className="ml-4">
+                          <Link href={`/consultations/${consultation.id}`}>
+                            <Button variant="outline" size="sm">
+                              상세보기
+                            </Button>
+                          </Link>
                         </div>
-
-                        {consultation.notes && (
-                          <p className="text-sm text-muted-foreground">{consultation.notes}</p>
-                        )}
                       </div>
-
-                      <div className="ml-4">
-                        <Link href={`/consultations/${consultation.id}`}>
-                          <Button variant="outline" size="sm">
-                            상세보기
-                          </Button>
-                        </Link>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )
+            })
           )}
         </motion.div>
       </div>

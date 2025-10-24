@@ -63,10 +63,11 @@ export function ConsultationTab({
 
     try {
       const result = await createConsultation({
-        student_id: studentId,
-        consultation_date: formatDate(consultationDate, 'yyyy-MM-dd'),
-        consultation_type: consultationType,
-        content: consultationContent,
+        studentId: studentId,
+        consultationDate: consultationDate.toISOString(),
+        consultationType: consultationType as 'parent_meeting' | 'phone_call' | 'video_call' | 'in_person',
+        title: '상담 기록',
+        summary: consultationContent,
       })
 
       if (!result.success || !result.data) {

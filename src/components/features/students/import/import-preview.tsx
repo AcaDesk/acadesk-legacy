@@ -18,8 +18,8 @@ import {
 } from '@ui/accordion'
 import { Alert, AlertDescription, AlertTitle } from '@ui/alert'
 import { CheckCircle, AlertCircle, XCircle } from 'lucide-react'
-import type { StudentImportPreview } from '@core/domain/value-objects/StudentImportPreview'
-import type { StudentImportItem } from '@core/domain/entities/StudentImport'
+import type { StudentImportPreview } from '@/core/types/student-import-preview'
+import type { StudentImportItem } from '@/core/types/student-import'
 
 interface ImportPreviewProps {
   preview: StudentImportPreview
