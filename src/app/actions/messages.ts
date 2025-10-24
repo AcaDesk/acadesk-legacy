@@ -11,6 +11,7 @@ import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { sendMessage } from '@/lib/messaging/provider'
 
 // ============================================================================
 // Validation Schemas
@@ -222,21 +223,24 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
       const guardians = student.student_guardians || []
 
       for (const sg of guardians) {
-        const guardian = sg.guardians
-        if (!guardian?.users) continue
+        const guardian = sg.guardians as any
+        const guardianUser = guardian?.users as { name: string; email: string; phone: string } | null
+        if (!guardianUser) continue
 
         const recipientInfo =
           validated.type === 'email'
-            ? guardian.users.email
-            : guardian.users.phone
+            ? guardianUser.email
+            : guardianUser.phone
 
         if (!recipientInfo) {
           failCount++
           logs.push({
             tenant_id: tenantId,
             student_id: student.id,
+            session_id: null,
             notification_type: validated.type,
             message: validated.message,
+            subject: validated.type === 'email' ? validated.subject : null,
             status: 'failed',
             error_message: `보호자 ${validated.type === 'email' ? '이메일' : '전화번호'} 정보가 없습니다`,
             sent_at: new Date().toISOString(),
@@ -245,15 +249,25 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
         }
 
         try {
-          // TODO: Integrate with actual SMS/Email service
-          // For now, just log the message
-          console.log(`[sendMessages] Would send ${validated.type} to ${recipientInfo}:`, validated.message)
+          // 실제 SMS/Email 발송
+          const result = await sendMessage({
+            type: validated.type,
+            to: recipientInfo,
+            message: validated.message,
+            subject: validated.subject,
+          })
+
+          if (!result.success) {
+            throw new Error(result.error || '발송 실패')
+          }
 
           logs.push({
             tenant_id: tenantId,
             student_id: student.id,
+            session_id: null,
             notification_type: validated.type,
             message: validated.message,
+            subject: validated.type === 'email' ? validated.subject : null,
             status: 'sent',
             error_message: null,
             sent_at: new Date().toISOString(),
@@ -265,8 +279,10 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
           logs.push({
             tenant_id: tenantId,
             student_id: student.id,
+            session_id: null,
             notification_type: validated.type,
             message: validated.message,
+            subject: validated.type === 'email' ? validated.subject : null,
             status: 'failed',
             error_message: getErrorMessage(error),
             sent_at: new Date().toISOString(),
@@ -339,22 +355,36 @@ export async function sendReportNotification(reportId: string) {
     // Create notification message
     const message = `새로운 학습 리포트가 생성되었습니다. 자녀의 학습 현황을 확인해주세요.`
 
+    // Type assertion for student data
+    const reportWithStudent = report as any
+
     // Send to all guardians
-    const guardians = report.students?.student_guardians || []
+    const guardians = reportWithStudent.students?.student_guardians || []
     let successCount = 0
     let failCount = 0
 
     for (const sg of guardians) {
-      const guardian = sg.guardians
-      if (!guardian?.users?.email) {
+      const guardian = sg.guardians as any
+      const guardianUser = guardian?.users as { email: string } | null
+      if (!guardianUser?.email) {
         failCount++
         continue
       }
 
       try {
-        // TODO: Send email with report link
-        console.log(`[sendReportNotification] Sending to ${guardian.users.email}`)
-        successCount++
+        // 이메일 발송 (리포트 링크 포함)
+        const result = await sendMessage({
+          type: 'email',
+          to: guardianUser.email,
+          subject: '학습 리포트 알림',
+          message,
+        })
+
+        if (result.success) {
+          successCount++
+        } else {
+          throw new Error(result.error || '발송 실패')
+        }
       } catch (error) {
         console.error('[sendReportNotification] Send error:', error)
         failCount++
@@ -416,18 +446,29 @@ export async function sendTodoReminder(todoId: string) {
     const dueDate = new Date(todo.due_date).toLocaleDateString('ko-KR')
     const message = `[과제 알림] ${todo.title} - 마감: ${dueDate}`
 
+    // Type assertion for todo with student data
+    const todoWithStudent = todo as any
+    const studentUser = todoWithStudent.students?.users as { name: string; phone: string } | null
+
     // Send SMS to student
-    if (todo.students?.users?.phone) {
-      // TODO: Send actual SMS
-      console.log(`[sendTodoReminder] Sending to ${todo.students.users.phone}:`, message)
+    if (studentUser?.phone) {
+      // 실제 SMS 발송
+      const result = await sendMessage({
+        type: 'sms',
+        to: studentUser.phone,
+        message,
+      })
 
       // Log notification
       await supabase.from('notification_logs').insert({
         tenant_id: tenantId,
         student_id: todo.student_id,
+        session_id: null,
         notification_type: 'sms',
         message,
-        status: 'sent',
+        subject: null,
+        status: result.success ? 'sent' : 'failed',
+        error_message: result.success ? null : (result.error || '발송 실패'),
         sent_at: new Date().toISOString(),
       })
     }
