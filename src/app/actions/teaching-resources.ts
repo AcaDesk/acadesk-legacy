@@ -63,7 +63,7 @@ export async function getTeachingResources(options?: {
 }) {
   try {
     const { tenantId, userId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     let query = supabase
       .from('teaching_resources')
@@ -128,7 +128,7 @@ export async function getTeachingResources(options?: {
 export async function getTeachingResourceById(id: string) {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const { data, error } = await supabase
       .from('teaching_resources')
@@ -173,7 +173,7 @@ export async function createTeachingResource(
   try {
     const validated = createResourceSchema.parse(input)
     const { tenantId, userId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // Validate that either fileUrl or externalUrl is provided
     if (!validated.fileUrl && !validated.externalUrl) {
@@ -234,7 +234,7 @@ export async function updateTeachingResource(
   try {
     const validated = updateResourceSchema.parse(input)
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const updateData: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
@@ -309,7 +309,7 @@ export async function updateTeachingResource(
 export async function deleteTeachingResource(id: string) {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // Note: This does NOT delete the file from Storage
     // File cleanup should be done separately if needed
@@ -351,7 +351,7 @@ export async function deleteTeachingResource(id: string) {
 export async function shareResource(id: string, userIds: string[]) {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const { data, error } = await supabase
       .from('teaching_resources')
@@ -401,7 +401,7 @@ export async function shareResource(id: string, userIds: string[]) {
 export async function toggleResourcePublic(id: string, isPublic: boolean) {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const { data, error } = await supabase
       .from('teaching_resources')
@@ -449,7 +449,7 @@ export async function toggleResourcePublic(id: string, isPublic: boolean) {
 export async function getSharedWithMe() {
   try {
     const { tenantId, userId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const { data, error } = await supabase
       .from('teaching_resources')
@@ -486,7 +486,7 @@ export async function getSharedWithMe() {
 export async function getMyResources() {
   try {
     const { tenantId, userId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const { data, error } = await supabase
       .from('teaching_resources')

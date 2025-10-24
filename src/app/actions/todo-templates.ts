@@ -50,7 +50,7 @@ export async function getTodoTemplates() {
     const { tenantId } = await verifyStaff()
 
     // 2. Create service_role client
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 3. Query templates
     const { data, error } = await supabase
@@ -91,7 +91,7 @@ export async function getTodoTemplateById(id: string) {
     const { tenantId } = await verifyStaff()
 
     // 2. Create service_role client
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 3. Query template
     const { data, error } = await supabase
@@ -142,7 +142,7 @@ export async function createTodoTemplate(
     const { tenantId } = await verifyStaff()
 
     // 3. Create service_role client
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 4. Insert template
     const { data, error } = await supabase
@@ -198,7 +198,7 @@ export async function updateTodoTemplate(
     const { tenantId } = await verifyStaff()
 
     // 3. Create service_role client
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 4. Prepare update data (only include fields that were provided)
     const updateData: Record<string, unknown> = {
@@ -273,7 +273,7 @@ export async function deleteTodoTemplate(id: string) {
     const { tenantId } = await verifyStaff()
 
     // 2. Create service_role client
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 3. Soft delete (set deleted_at timestamp)
     const { error } = await supabase
@@ -317,7 +317,7 @@ export async function toggleTodoTemplateActive(id: string) {
     const { tenantId } = await verifyStaff()
 
     // 2. Create service_role client
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 3. Get current status
     const { data: current, error: fetchError } = await supabase

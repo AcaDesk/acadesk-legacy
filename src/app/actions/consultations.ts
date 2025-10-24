@@ -86,7 +86,7 @@ export async function getConsultations(options?: {
 }) {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     let query = supabase
       .from('consultations')
@@ -147,7 +147,7 @@ export async function getConsultations(options?: {
 export async function getConsultationById(id: string, includeDetails = true) {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const { data, error } = await supabase
       .from('consultations')
@@ -216,7 +216,7 @@ export async function createConsultation(
   try {
     const validated = createConsultationSchema.parse(input)
     const { tenantId, userId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const { data, error } = await supabase
       .from('consultations')
@@ -270,7 +270,7 @@ export async function updateConsultation(
   try {
     const validated = updateConsultationSchema.parse(input)
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const updateData: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
@@ -346,7 +346,7 @@ export async function updateConsultation(
 export async function deleteConsultation(id: string) {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // Get student_id for revalidation
     const { data: consultation } = await supabase
@@ -404,7 +404,7 @@ export async function createConsultationNote(
   try {
     const validated = createNoteSchema.parse(input)
     const { tenantId, userId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const { data, error } = await supabase
       .from('consultation_notes')
@@ -452,7 +452,7 @@ export async function updateConsultationNote(
   try {
     const validated = updateNoteSchema.parse(input)
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const updateData: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
@@ -511,7 +511,7 @@ export async function updateConsultationNote(
 export async function deleteConsultationNote(id: string) {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // Get consultation_id for revalidation
     const { data: note } = await supabase
@@ -568,7 +568,7 @@ export async function addConsultationParticipant(
   try {
     const validated = addParticipantSchema.parse(input)
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const { data, error } = await supabase
       .from('consultation_participants')
@@ -614,7 +614,7 @@ export async function addConsultationParticipant(
 export async function removeConsultationParticipant(id: string) {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // Get consultation_id for revalidation
     const { data: participant } = await supabase
@@ -664,7 +664,7 @@ export async function removeConsultationParticipant(id: string) {
 export async function getUpcomingFollowUps(daysAhead = 7) {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const today = new Date().toISOString().split('T')[0]
     const futureDate = new Date()

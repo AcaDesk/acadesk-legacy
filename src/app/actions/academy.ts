@@ -43,7 +43,7 @@ export async function getAcademyInfo() {
     const { tenantId } = await verifyStaff()
 
     // 2. Create service_role client
-    const serviceClient = await createServiceRoleClient()
+    const serviceClient = createServiceRoleClient()
 
     // 3. Fetch tenant info
     const { data: academy, error } = await serviceClient
@@ -92,7 +92,7 @@ export async function updateAcademyInfo(
     const validated = academySchema.partial().parse(input)
 
     // 3. Create service_role client
-    const serviceClient = await createServiceRoleClient()
+    const serviceClient = createServiceRoleClient()
 
     // 4. Update tenant info
     const { error: updateError } = await serviceClient
@@ -137,7 +137,7 @@ export async function updateOperatingHours(operatingHours: Record<string, any>) 
     const { tenantId } = await verifyStaff()
 
     // 2. Create service_role client
-    const serviceClient = await createServiceRoleClient()
+    const serviceClient = createServiceRoleClient()
 
     // 3. Get current settings
     const { data: currentTenant } = await serviceClient

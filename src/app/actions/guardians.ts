@@ -55,7 +55,7 @@ export async function createGuardian(data: z.infer<typeof createGuardianSchema>)
     const validatedData = createGuardianSchema.parse(data)
 
     // 3. Service Role 클라이언트로 DB 작업
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 트랜잭션 시뮬레이션 (Supabase에서는 RPC를 사용하거나 순차적으로 처리)
     // 3-1. users 테이블에 보호자 생성
@@ -136,7 +136,7 @@ export async function updateGuardian(data: z.infer<typeof updateGuardianSchema>)
     const validatedData = updateGuardianSchema.parse(data)
 
     // 3. Service Role 클라이언트로 DB 작업
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 3-1. guardian에서 user_id 조회
     const { data: guardian, error: guardianError } = await supabase
@@ -205,7 +205,7 @@ export async function deleteGuardian(guardianId: string) {
     const { tenantId } = await verifyStaff()
 
     // 2. Service Role 클라이언트로 DB 작업
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 2-1. guardian에서 user_id 조회
     const { data: guardian, error: guardianError } = await supabase
@@ -261,7 +261,7 @@ export async function deleteGuardian(guardianId: string) {
 export async function getGuardiansWithDetails() {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 1. 모든 보호자 조회 (users 정보 포함)
     const { data: guardians, error: guardiansError } = await supabase
@@ -351,7 +351,7 @@ export async function getGuardiansWithDetails() {
 export async function getStudentGuardians(studentId: string) {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const { data, error } = await supabase
       .from('student_guardians')
@@ -376,7 +376,7 @@ export async function getStudentGuardians(studentId: string) {
 export async function getAvailableGuardians(studentId: string) {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // 이미 연결된 보호자 ID 목록
     const { data: linkedGuardians } = await supabase
@@ -422,7 +422,7 @@ export async function linkGuardianToStudent(
 ) {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const { error } = await supabase
       .from('student_guardians')
@@ -455,7 +455,7 @@ export async function unlinkGuardianFromStudent(
 ) {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     const { error } = await supabase
       .from('student_guardians')
@@ -482,7 +482,7 @@ export async function unlinkGuardianFromStudent(
 export async function searchGuardians(query: string, limit: number = 10) {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // guardians와 users 조인하여 검색
     const { data, error } = await supabase
@@ -509,7 +509,7 @@ export async function searchGuardians(query: string, limit: number = 10) {
 export async function getGuardiansForContact(studentId: string) {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // student_guardians를 통해 보호자 조회
     const { data: links, error: linksError } = await supabase
@@ -572,7 +572,7 @@ export async function logGuardianContact(data: {
 }) {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient()
 
     // notification_type은 'sms' 또는 'email'만 허용 (DB constraint)
     // 'phone' → 'sms'로 매핑 (전화 연락도 SMS 알림으로 기록)

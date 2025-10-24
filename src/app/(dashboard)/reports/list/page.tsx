@@ -36,18 +36,18 @@ interface Report {
   students: {
     id: string
     student_code: string
-    users: {
+    user_id: {
       name: string
-    }[] | null
-  }[] | null
+    } | null
+  } | null
 }
 
 interface Student {
   id: string
   student_code: string
-  users: {
+  user_id: {
     name: string
-  }[] | null
+  } | null
 }
 
 export default function ReportsListPage() {
@@ -81,7 +81,7 @@ export default function ReportsListPage() {
       // Load students for filter
       const { data: studentsData, error: studentsError } = await supabase
         .from('students')
-        .select('id, student_code, users(name)')
+        .select('id, student_code, user_id!inner(name)')
         .is('deleted_at', null)
         .order('student_code')
 
@@ -99,10 +99,10 @@ export default function ReportsListPage() {
           content,
           generated_at,
           sent_at,
-          students (
+          students!inner (
             id,
             student_code,
-            users (
+            user_id!inner (
               name
             )
           )
@@ -129,7 +129,7 @@ export default function ReportsListPage() {
 
     // Student filter
     if (selectedStudent !== 'all') {
-      filtered = filtered.filter((report) => report.students?.[0]?.id === selectedStudent)
+      filtered = filtered.filter((report) => report.students?.id === selectedStudent)
     }
 
     // Type filter
@@ -140,8 +140,8 @@ export default function ReportsListPage() {
     // Search filter
     if (searchTerm) {
       filtered = filtered.filter((report) => {
-        const studentName = report.students?.[0]?.users?.[0]?.name?.toLowerCase() || ''
-        const studentCode = report.students?.[0]?.student_code?.toLowerCase() || ''
+        const studentName = report.students?.user_id?.name?.toLowerCase() || ''
+        const studentCode = report.students?.student_code?.toLowerCase() || ''
         const search = searchTerm.toLowerCase()
 
         return studentName.includes(search) || studentCode.includes(search)
@@ -267,7 +267,7 @@ export default function ReportsListPage() {
               <SelectItem value="all">전체 학생</SelectItem>
               {students.map((student) => (
                 <SelectItem key={student.id} value={student.id}>
-                  {student.student_code} - {student.users?.[0]?.name || '이름 없음'}
+                  {student.student_code} - {student.user_id?.name || '이름 없음'}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -332,10 +332,10 @@ export default function ReportsListPage() {
                           <TableCell>
                             <div>
                               <div className="font-medium">
-                                {report.students?.[0]?.users?.[0]?.name || '이름 없음'}
+                                {report.students?.user_id?.name || '이름 없음'}
                               </div>
                               <div className="text-xs text-muted-foreground">
-                                {report.students?.[0]?.student_code}
+                                {report.students?.student_code}
                               </div>
                             </div>
                           </TableCell>
@@ -400,7 +400,7 @@ export default function ReportsListPage() {
                                   onClick={() =>
                                     handleSendToGuardian(
                                       report.id,
-                                      report.students?.[0]?.users?.[0]?.name || '학생'
+                                      report.students?.user_id?.name || '학생'
                                     )
                                   }
                                 >
