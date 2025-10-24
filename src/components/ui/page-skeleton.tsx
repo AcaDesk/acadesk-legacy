@@ -237,7 +237,7 @@ function DashboardPageSkeleton() {
  * </Suspense>
  */
 export function SectionSkeleton({
-  variant = 'default',
+  variant = 'list',
   className,
 }: {
   variant?: 'stats' | 'list' | 'chart' | 'table'
