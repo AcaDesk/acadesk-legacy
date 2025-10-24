@@ -27,51 +27,59 @@ export default async function AttendancePage() {
     return <Maintenance featureName="출석 관리" reason="출석 시스템 개선 작업이 진행 중입니다." />;
   }
 
-  try {
-    // Get today's date for default filter
-    const today = new Date().toISOString().split('T')[0];
+  // Get today's date for default filter
+  const today = new Date().toISOString().split('T')[0];
 
-    // Get recent sessions using Server Action
-    const sessionsResult = await getAttendanceSessions({
-      startDate: today,
-    });
+  // Get recent sessions using Server Action
+  const sessionsResult = await getAttendanceSessions({
+    startDate: today,
+  });
 
-    if (!sessionsResult.success) {
-      throw new Error(sessionsResult.error || '출석 세션을 불러올 수 없습니다');
-    }
+  // Get all active classes using Server Action
+  const classesResult = await getActiveClasses();
 
-    // Get all active classes using Server Action
-    const classesResult = await getActiveClasses();
-
-    if (!classesResult.success) {
-      throw new Error(classesResult.error || '클래스 목록을 불러올 수 없습니다');
-    }
+  // Handle errors with clear messaging
+  if (!sessionsResult.success || !classesResult.success) {
+    const errorMessage = sessionsResult.error || classesResult.error || '데이터를 불러올 수 없습니다';
 
     return (
       <div className="container mx-auto py-8 px-4">
-        <div className="mb-8 space-y-6">
-          <h1 className="text-3xl font-bold">출석 관리</h1>
-          <p className="text-gray-600">
-            클래스별 출석 세션을 생성하고 학생들의 출석을 관리합니다.
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+          <h2 className="text-xl font-semibold text-yellow-800 mb-2">
+            데이터 로딩 오류
+          </h2>
+          <p className="text-yellow-700 mb-4">{errorMessage}</p>
+          <p className="text-sm text-yellow-600">
+            {!sessionsResult.success && '• 출석 세션 로딩 실패'}
+            {!sessionsResult.success && !classesResult.success && <br />}
+            {!classesResult.success && '• 클래스 목록 로딩 실패'}
           </p>
         </div>
-
-        <Suspense
-          fallback={
-            <div className="text-center py-8">
-              <p className="text-gray-500">로딩 중...</p>
-            </div>
-          }
-        >
-          <AttendanceList
-            initialSessions={sessionsResult.data || []}
-            classes={classesResult.data || []}
-          />
-        </Suspense>
       </div>
     );
-  } catch (error) {
-    console.error('Attendance page error:', error);
-    throw error;
   }
+
+  return (
+    <div className="container mx-auto py-8 px-4">
+      <div className="mb-8 space-y-6">
+        <h1 className="text-3xl font-bold">출석 관리</h1>
+        <p className="text-gray-600">
+          클래스별 출석 세션을 생성하고 학생들의 출석을 관리합니다.
+        </p>
+      </div>
+
+      <Suspense
+        fallback={
+          <div className="text-center py-8">
+            <p className="text-gray-500">로딩 중...</p>
+          </div>
+        }
+      >
+        <AttendanceList
+          initialSessions={sessionsResult.data || []}
+          classes={classesResult.data || []}
+        />
+      </Suspense>
+    </div>
+  );
 }

@@ -182,6 +182,15 @@ export const BREADCRUMB_CONFIG: BreadcrumbConfig = {
   '/todos/planner': '할 일 계획',
   '/todos/stats': '할 일 통계',
 
+  // Homeworks (숙제)
+  '/homeworks': '숙제 관리',
+  '/homeworks/new': '숙제 출제',
+  '/homeworks/submissions': '제출 현황',
+
+  // Textbooks (교재)
+  '/textbooks': '교재 관리',
+  '/textbooks/new': '교재 등록',
+
   // Reports (보고서)
   '/reports': '보고서',
   '/reports/list': '보고서 목록',
@@ -204,6 +213,9 @@ export const BREADCRUMB_CONFIG: BreadcrumbConfig = {
   // Settings (설정)
   '/settings': '설정',
   '/settings/subjects': '과목 설정',
+
+  // Profile (프로필)
+  '/profile': '내 프로필',
 
   // Help (도움말)
   '/help': '도움말',
