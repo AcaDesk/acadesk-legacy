@@ -505,24 +505,44 @@ export async function getStudentDetail(studentId: string) {
     // 2. Create service_role client (for read operations with tenant filtering)
     const serviceClient = await createServiceRoleClient()
 
-    // 3. Fetch student detail with related data
+    // 3. First, try to fetch basic student data
+    const { data: basicStudent, error: basicError } = await serviceClient
+      .from('students')
+      .select('*')
+      .eq('id', studentId)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    console.log('[getStudentDetail] Basic student query:', {
+      studentId,
+      tenantId,
+      hasData: !!basicStudent,
+      error: basicError,
+    })
+
+    if (basicError || !basicStudent) {
+      console.error('[getStudentDetail] Basic student query failed:', {
+        studentId,
+        tenantId,
+        error: basicError,
+        errorMessage: basicError?.message,
+        errorDetails: basicError?.details,
+        errorHint: basicError?.hint,
+      })
+      return {
+        success: false,
+        error: basicError ? `${basicError.message} - ${basicError.details || ''} - ${basicError.hint || ''}` : '학생을 찾을 수 없습니다',
+        data: null,
+      }
+    }
+
+    // 4. Fetch student detail with related data
     const { data: student, error: studentError } = await serviceClient
       .from('students')
       .select(`
-        id,
-        student_code,
-        grade,
-        school,
-        enrollment_date,
-        birth_date,
-        gender,
-        student_phone,
-        profile_image_url,
-        commute_method,
-        marketing_source,
-        emergency_contact,
-        notes,
-        users (
+        *,
+        users!students_user_id_fkey (
           name,
           email,
           phone
@@ -531,13 +551,13 @@ export async function getStudentDetail(studentId: string) {
           guardians (
             id,
             relationship,
-            users (
+            users!guardians_user_id_fkey (
               name,
               phone
             )
           )
         ),
-        class_enrollments (
+        class_enrollments!class_enrollments_student_id_fkey (
           id,
           class_id,
           status,
@@ -545,14 +565,14 @@ export async function getStudentDetail(studentId: string) {
           end_date,
           withdrawal_reason,
           notes,
-          classes (
+          classes!class_enrollments_class_id_fkey (
             id,
             name,
             subject,
             instructor_id
           )
         ),
-        student_schedules (
+        student_schedules!student_schedules_student_id_fkey (
           day_of_week,
           scheduled_arrival_time
         )
@@ -563,9 +583,18 @@ export async function getStudentDetail(studentId: string) {
       .maybeSingle()
 
     if (studentError || !student) {
+      console.error('[getStudentDetail] Student query error:', {
+        studentId,
+        tenantId,
+        error: studentError,
+        errorMessage: studentError?.message,
+        errorDetails: studentError?.details,
+        errorHint: studentError?.hint,
+        hasStudent: !!student,
+      })
       return {
         success: false,
-        error: '학생을 찾을 수 없습니다',
+        error: studentError ? `${studentError.message} - ${studentError.details || ''} - ${studentError.hint || ''}` : '학생을 찾을 수 없습니다',
         data: null,
       }
     }
@@ -661,6 +690,23 @@ export async function getStudentDetail(studentId: string) {
           .order('created_at', { ascending: false })
           .limit(10),
       ])
+
+    // Log any errors from parallel queries
+    if (scoresResult.error) {
+      console.error('[getStudentDetail] Scores query error:', scoresResult.error)
+    }
+    if (todosResult.error) {
+      console.error('[getStudentDetail] Todos query error:', todosResult.error)
+    }
+    if (consultationsResult.error) {
+      console.error('[getStudentDetail] Consultations query error:', consultationsResult.error)
+    }
+    if (attendanceResult.error) {
+      console.error('[getStudentDetail] Attendance query error:', attendanceResult.error)
+    }
+    if (invoicesResult.error) {
+      console.error('[getStudentDetail] Invoices query error:', invoicesResult.error)
+    }
 
     const recentScores = scoresResult.data || []
     const recentTodos = todosResult.data || []
