@@ -31,8 +31,11 @@ import {
   Link as LinkIcon,
   List,
   ListOrdered,
-  Heading2
+  Heading2,
+  ArrowLeft,
+  ChevronRight
 } from 'lucide-react'
+import Link from 'next/link'
 import { DAYS_OF_WEEK } from '@/lib/constants'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
@@ -91,8 +94,8 @@ export default function EditTodoTemplatePage() {
         setTitle(template.title)
         setDescription(template.description || '')
         setSubject(template.subject || '')
-        setDayOfWeek(template.day_of_week !== null ? template.day_of_week.toString() : '')
-        setEstimatedDuration(template.estimated_duration_minutes?.toString() || '')
+        setDayOfWeek(template.day_of_week != null ? template.day_of_week.toString() : '')
+        setEstimatedDuration(template.estimated_duration_minutes != null ? template.estimated_duration_minutes.toString() : '')
         setPriority(template.priority || 'normal')
       } catch (error) {
         toast({
@@ -271,12 +274,34 @@ export default function EditTodoTemplatePage() {
   return (
     <PageWrapper>
       <div className="space-y-6 max-w-4xl mx-auto">
-        {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">과제 템플릿 수정</h1>
-          <p className="text-muted-foreground mt-1">
-            과제 템플릿 정보를 수정하세요
-          </p>
+        {/* Breadcrumb Navigation */}
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Link href="/todos" className="hover:text-foreground transition-colors">
+            과제 관리
+          </Link>
+          <ChevronRight className="h-4 w-4" />
+          <Link href="/todos/templates" className="hover:text-foreground transition-colors">
+            과제 템플릿
+          </Link>
+          <ChevronRight className="h-4 w-4" />
+          <span className="text-foreground font-medium line-clamp-1">
+            {title || '템플릿 수정'}
+          </span>
+        </div>
+
+        {/* Header with Back Button */}
+        <div className="flex items-center gap-4">
+          <Link href="/todos/templates">
+            <Button variant="ghost" size="icon" className="shrink-0">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">과제 템플릿 수정</h1>
+            <p className="text-muted-foreground mt-1">
+              {title ? `"${title}" 템플릿 정보를 수정하세요` : '과제 템플릿 정보를 수정하세요'}
+            </p>
+          </div>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
