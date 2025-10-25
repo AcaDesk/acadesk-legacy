@@ -249,20 +249,16 @@ export function ManageTemplatesDialog({
                 </div>
                 <div>
                   <Label htmlFor="template-type">전송 방법 *</Label>
-                  <Select
-                    value={formData.type}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, type: value as 'sms' | 'email' })
-                    }
-                  >
-                    <SelectTrigger id="template-type" className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sms">SMS</SelectItem>
-                      <SelectItem value="email">이메일</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="mt-1 p-3 border rounded-lg bg-muted/50">
+                    <div className="flex items-center gap-2">
+                      <MessageSquare className="h-4 w-4" />
+                      <span className="font-medium text-sm">SMS/알림톡</span>
+                      <Badge variant="default" className="ml-auto">전용</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      이메일 기능은 제거되었습니다
+                    </p>
+                  </div>
                 </div>
               </div>
 
