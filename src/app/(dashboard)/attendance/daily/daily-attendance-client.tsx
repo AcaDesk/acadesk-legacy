@@ -16,6 +16,7 @@ import {
   Save,
   ChevronDown,
   ChevronUp,
+  MessageSquare,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { SendMessageDialog } from '@/components/features/messaging/send-message-dialog'
@@ -130,6 +131,20 @@ export function DailyAttendanceClient({ classes: initialClasses }: DailyAttendan
         시간: classInfo.time,
         지각시간: '10', // TODO: 실제 지각 시간 계산
       },
+    })
+  }
+
+  function sendCustomMessage(student: Student) {
+    setMessageDialog({
+      open: true,
+      recipients: [{
+        id: student.id,
+        name: student.guardian_name,
+        phone: student.guardian_phone,
+        studentName: student.name,
+      }],
+      template: 'custom',  // 직접 입력 모드
+      context: {},
     })
   }
 
@@ -364,6 +379,17 @@ export function DailyAttendanceClient({ classes: initialClasses }: DailyAttendan
                               지각 알림
                             </Button>
                           )}
+
+                          {/* 수동 발송 옵션 - 항상 표시 */}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => sendCustomMessage(student)}
+                            className="ml-2"
+                            title="직접 메시지 작성하기"
+                          >
+                            <MessageSquare className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
                     ))}

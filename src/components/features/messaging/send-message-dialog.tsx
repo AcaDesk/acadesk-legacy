@@ -45,6 +45,13 @@ interface SendMessageDialogProps {
 // Mock templates - 실제로는 데이터베이스에서 가져옴
 const MOCK_TEMPLATES: MessageTemplate[] = [
   {
+    id: 'custom',
+    name: '✏️ 직접 입력 (수동 작성)',
+    category: 'custom',
+    content: '',
+    variables: [],
+  },
+  {
     id: 'attendance_absent',
     name: '결석 알림',
     category: 'attendance',
@@ -71,13 +78,6 @@ const MOCK_TEMPLATES: MessageTemplate[] = [
     category: 'report',
     content: '안녕하세요, Acadesk입니다.\n\n{학생이름} 학생의 {기간} 학습 리포트가 발송되었습니다.\n\n앱에서 확인해주세요.',
     variables: ['학생이름', '기간'],
-  },
-  {
-    id: 'custom',
-    name: '직접 입력',
-    category: 'custom',
-    content: '',
-    variables: [],
   },
 ]
 
@@ -270,6 +270,12 @@ export function SendMessageDialog({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label>메시지 내용</Label>
+              {selectedTemplate && selectedTemplate.id === 'custom' && (
+                <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
+                  <Info className="h-3 w-3" />
+                  <span>직접 작성 모드 - 자유롭게 입력하세요</span>
+                </div>
+              )}
               {selectedTemplate && selectedTemplate.variables.length > 0 && (
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <Sparkles className="h-3 w-3" />
@@ -280,7 +286,11 @@ export function SendMessageDialog({
             <Textarea
               value={messageContent}
               onChange={(e) => setMessageContent(e.target.value)}
-              placeholder="메시지 내용을 입력하세요..."
+              placeholder={
+                selectedTemplate?.id === 'custom'
+                  ? "학부모님께 전달할 메시지를 자유롭게 작성하세요.\n\n예:\n철수 어머님, 안녕하세요.\n이번 주 보강 일정 관련해서..."
+                  : "메시지 내용을 입력하세요..."
+              }
               className="min-h-[200px] font-mono text-sm"
               disabled={sending}
             />
