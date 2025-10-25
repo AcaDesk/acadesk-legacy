@@ -16,7 +16,6 @@ import {
   GraduationCap,
   BookOpen,
   MessageSquare,
-  Bell,
   Briefcase,
   CreditCard,
   CalendarDays,
@@ -26,6 +25,17 @@ import {
   LibraryBig,
   Send,
   BookCopy,
+  PieChart,
+  CheckSquare,
+  BookMarked,
+  HandCoins,
+  FileBarChart,
+  FilePlus,
+  Building2,
+  HelpCircle,
+  User,
+  BookText,
+  ClipboardList,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { isFeatureAvailable, type FeatureKey } from "@/lib/features.config"
@@ -62,23 +72,24 @@ const navigationGroups: NavGroup[] = [
     title: "메인",
     items: [
       { name: "대시보드", href: "/dashboard", icon: LayoutDashboard, featureFlag: "dashboard" },
-      { name: "학원 캘린더", href: "/calendar", icon: CalendarDays, featureFlag: "calendarIntegration" },
+      { name: "캘린더", href: "/calendar", icon: CalendarDays, featureFlag: "calendarIntegration" },
     ]
   },
   {
     title: "학생 관리",
     items: [
+      { name: "학생 목록", href: "/students", icon: Users, featureFlag: "studentManagement" },
+      { name: "보호자 관리", href: "/guardians", icon: UserCircle, featureFlag: "guardianManagement" },
       {
-        name: "학생 관리",
-        href: "/students",
-        icon: Users,
-        featureFlag: "studentManagement",
+        name: "출결 관리",
+        href: "/attendance",
+        icon: Calendar,
+        featureFlag: "attendanceManagement",
         subItems: [
-          { name: "전체 학생", href: "/students", icon: Users, featureFlag: "studentManagement" },
-          { name: "보호자 관리", href: "/guardians", icon: UserCircle, featureFlag: "guardianManagement" },
+          { name: "일일 출석부", href: "/attendance/daily", icon: CheckSquare, featureFlag: "attendanceManagement" },
+          { name: "출석 현황", href: "/attendance", icon: Calendar, featureFlag: "attendanceManagement" },
         ]
       },
-      { name: "출석 관리", href: "/attendance", icon: Calendar, featureFlag: "attendanceManagement" },
     ]
   },
   {
@@ -86,44 +97,54 @@ const navigationGroups: NavGroup[] = [
     items: [
       { name: "수업 관리", href: "/classes", icon: GraduationCap, featureFlag: "classManagement" },
       {
-        name: "성적 관리",
-        href: "/grades",
-        icon: FileText,
-        featureFlag: "gradesManagement",
-        subItems: [
-          { name: "성적 입력", href: "/grades", icon: FileText, featureFlag: "gradesManagement" },
-          { name: "시험 관리", href: "/grades/exams", icon: ClipboardCheck, featureFlag: "gradesManagement" },
-        ]
-      },
-      {
-        name: "TODO 관리",
+        name: "TODO & 숙제",
         href: "/todos",
         icon: ClipboardCheck,
         featureFlag: "todoManagement",
         subItems: [
-          { name: "과제 목록", href: "/todos", icon: ListTodo, featureFlag: "todoManagement" },
-          { name: "템플릿 관리", href: "/todos/templates", icon: LibraryBig, featureFlag: "todoManagement" },
+          { name: "TODO 목록", href: "/todos", icon: ListTodo, featureFlag: "todoManagement" },
+          { name: "TODO 템플릿", href: "/todos/templates", icon: LibraryBig, featureFlag: "todoManagement" },
+          { name: "TODO 검증", href: "/todos/verify", icon: CheckSquare, featureFlag: "todoManagement" },
+          { name: "TODO 통계", href: "/todos/stats", icon: PieChart, featureFlag: "todoManagement" },
+          { name: "숙제 관리", href: "/homeworks", icon: BookCopy, featureFlag: "todoManagement" },
+          { name: "제출 현황", href: "/homeworks/submissions", icon: ClipboardList, featureFlag: "todoManagement" },
         ]
       },
       {
-        name: "숙제 관리",
-        href: "/homeworks",
-        icon: BookCopy,
-        featureFlag: "todoManagement",
+        name: "성적 & 시험",
+        href: "/grades",
+        icon: BarChart3,
+        featureFlag: "gradesManagement",
         subItems: [
-          { name: "숙제 목록", href: "/homeworks", icon: BookCopy, featureFlag: "todoManagement" },
-          { name: "제출 현황", href: "/homeworks/submissions", icon: ClipboardCheck, featureFlag: "todoManagement" },
+          { name: "시험 목록", href: "/grades/exams", icon: FileText, featureFlag: "gradesManagement" },
+          { name: "성적 목록", href: "/grades/list", icon: ClipboardCheck, featureFlag: "gradesManagement" },
+          { name: "시험 템플릿", href: "/grades/exam-templates", icon: BookMarked, featureFlag: "gradesManagement" },
         ]
       },
-      { name: "교재 관리", href: "/library", icon: BookOpen, featureFlag: "libraryManagement" },
     ]
   },
   {
-    title: "운영",
+    title: "교재 & 자료",
     items: [
-      { name: "학원비 관리", href: "/payments", icon: CreditCard, featureFlag: "tuitionManagement" },
-      { name: "월간 리포트", href: "/reports", icon: BarChart3, featureFlag: "reportManagement" },
+      { name: "교재 목록", href: "/textbooks", icon: BookText, featureFlag: "libraryManagement" },
+      { name: "교재 대여", href: "/library/lendings", icon: BookOpen, featureFlag: "libraryManagement" },
+    ]
+  },
+  {
+    title: "운영 관리",
+    items: [
       { name: "상담 관리", href: "/consultations", icon: MessageSquare, featureFlag: "consultationManagement" },
+      {
+        name: "리포트",
+        href: "/reports",
+        icon: FileBarChart,
+        featureFlag: "reportManagement",
+        subItems: [
+          { name: "리포트 목록", href: "/reports/list", icon: FileBarChart, featureFlag: "reportManagement" },
+          { name: "리포트 일괄 생성", href: "/reports/bulk", icon: FilePlus, featureFlag: "reportManagement" },
+        ]
+      },
+      { name: "학원비 관리", href: "/payments", icon: HandCoins, featureFlag: "tuitionManagement" },
       { name: "직원 관리", href: "/staff", icon: Briefcase, featureFlag: "staffManagement" },
       { name: "메시지 전송", href: "/notifications", icon: Send, featureFlag: "notificationSystem" },
     ]
@@ -131,15 +152,11 @@ const navigationGroups: NavGroup[] = [
   {
     title: "시스템",
     items: [
-      {
-        name: "설정",
-        href: "/settings",
-        icon: Settings,
-        subItems: [
-          { name: "일반 설정", href: "/settings", icon: Settings },
-          { name: "과목 관리", href: "/settings/subjects", icon: Shapes, featureFlag: "subjectManagement" },
-        ]
-      },
+      { name: "내 프로필", href: "/profile", icon: User },
+      { name: "학원 설정", href: "/settings/academy", icon: Building2 },
+      { name: "과목 관리", href: "/settings/subjects", icon: Shapes, featureFlag: "subjectManagement" },
+      { name: "알림 템플릿", href: "/settings/message-templates", icon: MessageSquare, featureFlag: "notificationSystem" },
+      { name: "도움말", href: "/help/guide", icon: HelpCircle },
     ]
   }
 ]
