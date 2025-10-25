@@ -35,7 +35,7 @@ interface MessageTemplate {
   id: string
   name: string
   content: string
-  type: 'sms' | 'email'
+  type: 'sms'  // Email removed - SMS/알림톡 only
   category: string
   created_at: string
 }
@@ -56,8 +56,8 @@ export function ManageTemplatesDialog({
   const [formData, setFormData] = useState({
     name: '',
     content: '',
-    type: 'sms' as 'sms' | 'email',
-    category: 'general' as 'general' | 'report' | 'todo' | 'attendance' | 'event',
+    type: 'sms' as const,  // Email removed - SMS/알림톡 only
+    category: 'general' as 'general' | 'report' | 'todo' | 'attendance' | 'event' | 'payment' | 'consultation',
   })
   const [saving, setSaving] = useState(false)
 
