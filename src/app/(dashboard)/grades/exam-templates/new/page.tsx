@@ -12,7 +12,7 @@ import { Textarea } from '@ui/textarea'
 import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { PageWrapper } from "@/components/layout/page-wrapper"
-import { ChevronRight, Repeat } from 'lucide-react'
+import { Repeat } from 'lucide-react'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
@@ -169,25 +169,6 @@ export default function NewExamTemplatePage() {
   return (
     <PageWrapper>
       <div className="space-y-6 max-w-2xl">
-        {/* Breadcrumbs */}
-        <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-          <button
-            onClick={() => router.push('/grades')}
-            className="hover:text-foreground transition-colors"
-          >
-            성적 관리
-          </button>
-          <ChevronRight className="h-4 w-4" />
-          <button
-            onClick={() => router.push('/grades/exam-templates')}
-            className="hover:text-foreground transition-colors"
-          >
-            시험 템플릿
-          </button>
-          <ChevronRight className="h-4 w-4" />
-          <span className="text-foreground font-medium">새 템플릿</span>
-        </nav>
-
         {/* Header */}
         <div>
           <h1 className="text-3xl font-bold">시험 템플릿 등록</h1>

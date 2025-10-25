@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '@ui/table'
-import { Plus, Edit, Trash2, FileText, Search, PenSquare } from 'lucide-react'
+import { Plus, Edit, Trash2, FileText, Search, PenSquare, UserPlus } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { deleteExam } from '@/app/actions/exams'
 
@@ -200,6 +200,14 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => router.push(`/grades/exams/${exam.id}`)}
+                          >
+                            <UserPlus className="h-4 w-4 mr-2" />
+                            학생 배정
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"

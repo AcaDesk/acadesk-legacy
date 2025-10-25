@@ -6,7 +6,6 @@ import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import {
-  ChevronRight,
   Edit,
   PenSquare,
   Users,
@@ -133,25 +132,6 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumbs */}
-      <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-        <button
-          onClick={() => router.push('/grades')}
-          className="hover:text-foreground transition-colors"
-        >
-          성적 관리
-        </button>
-        <ChevronRight className="h-4 w-4" />
-        <button
-          onClick={() => router.push('/grades/exams')}
-          className="hover:text-foreground transition-colors"
-        >
-          시험 관리
-        </button>
-        <ChevronRight className="h-4 w-4" />
-        <span className="text-foreground font-medium">{exam.name}</span>
-      </nav>
-
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>

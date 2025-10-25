@@ -15,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from '@ui/table'
-import { Plus, Edit, Trash2, Copy, FileText, Repeat, ChevronRight } from 'lucide-react'
+import { Plus, Edit, Trash2, Copy, FileText, Repeat } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { PageWrapper } from "@/components/layout/page-wrapper"
@@ -245,18 +245,6 @@ export default function ExamTemplatesPage() {
   return (
     <PageWrapper>
       <div className="space-y-6">
-        {/* Breadcrumbs */}
-        <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-          <button
-            onClick={() => router.push('/grades')}
-            className="hover:text-foreground transition-colors"
-          >
-            성적 관리
-          </button>
-          <ChevronRight className="h-4 w-4" />
-          <span className="text-foreground font-medium">시험 템플릿</span>
-        </nav>
-
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
