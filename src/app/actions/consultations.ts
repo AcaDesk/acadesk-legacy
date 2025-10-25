@@ -90,7 +90,7 @@ export async function getConsultations(options?: {
 
     let query = supabase
       .from('consultations')
-      .select('*, students(id, name), users!consultations_conducted_by_fkey(id, name)')
+      .select('*, students!student_id(id, name), users!consultations_conducted_by_fkey(id, name)')
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
 
@@ -155,7 +155,7 @@ export async function getConsultationById(id: string, includeDetails = true) {
         includeDetails
           ? `
             *,
-            students(id, name, grade),
+            students!student_id(id, name, grade),
             users!consultations_conducted_by_fkey(id, name),
             consultation_notes(*),
             consultation_participants(*)
@@ -673,7 +673,7 @@ export async function getUpcomingFollowUps(daysAhead = 7) {
 
     const { data, error } = await supabase
       .from('consultations')
-      .select('*, students(id, name), users!consultations_conducted_by_fkey(id, name)')
+      .select('*, students!student_id(id, name), users!consultations_conducted_by_fkey(id, name)')
       .eq('tenant_id', tenantId)
       .eq('follow_up_required', true)
       .gte('next_consultation_date', today)

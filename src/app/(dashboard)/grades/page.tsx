@@ -84,7 +84,7 @@ export default function GradesPage() {
       // Load students
       const { data: studentsData, error: studentsError } = await supabase
         .from('students')
-        .select('id, student_code, users(name)')
+        .select('id, student_code, users!user_id(name)')
         .is('deleted_at', null)
         .order('student_code')
 
