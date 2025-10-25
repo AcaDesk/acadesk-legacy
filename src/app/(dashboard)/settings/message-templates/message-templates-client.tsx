@@ -5,6 +5,23 @@ import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Input } from '@ui/input'
+import { Label } from '@ui/label'
+import { Textarea } from '@ui/textarea'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@ui/select'
 import {
   Table,
   TableBody,
@@ -15,16 +32,17 @@ import {
 } from '@ui/table'
 import { Plus, Edit, Trash2, MessageSquare, Search, FileText } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { createMessageTemplate, updateMessageTemplate, deleteMessageTemplate } from '@/app/actions/messages'
+import { useRouter } from 'next/navigation'
 
 interface MessageTemplate {
   id: string
   name: string
-  category: 'attendance' | 'payment' | 'report' | 'consultation' | 'general'
-  channel: 'alimtalk' | 'sms'
+  category: 'attendance' | 'payment' | 'report' | 'consultation' | 'general' | 'todo' | 'event'
+  type: 'sms'  // Email removed - SMS/알림톡 only
   content: string
-  variables: string[]
-  is_active: boolean
   created_at: string
+  updated_at: string
 }
 
 interface MessageTemplatesClientProps {
@@ -37,44 +55,148 @@ const categoryLabels: Record<string, string> = {
   report: '리포트',
   consultation: '상담',
   general: '일반',
+  todo: '과제',
+  event: '이벤트',
 }
 
-const channelLabels: Record<string, string> = {
-  alimtalk: '알림톡',
-  sms: 'SMS',
+// Extract variables from template content
+function extractVariables(content: string): string[] {
+  const matches = content.match(/\{([^}]+)\}/g)
+  if (!matches) return []
+  return [...new Set(matches.map(m => m.slice(1, -1)))]
+}
+
+type DialogMode = 'create' | 'edit' | null
+
+interface TemplateFormData {
+  id?: string
+  name: string
+  category: MessageTemplate['category']
+  content: string
 }
 
 export function MessageTemplatesClient({ templates }: MessageTemplatesClientProps) {
   const { toast } = useToast()
+  const router = useRouter()
   const [searchTerm, setSearchTerm] = useState('')
+  const [dialogMode, setDialogMode] = useState<DialogMode>(null)
+  const [formData, setFormData] = useState<TemplateFormData>({
+    name: '',
+    category: 'general',
+    content: '',
+  })
+  const [loading, setLoading] = useState(false)
 
   const filteredTemplates = templates.filter(template =>
     template.name.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  function handleEdit(id: string) {
-    toast({
-      title: '템플릿 수정',
-      description: '템플릿 수정 기능은 준비 중입니다.',
+  function handleEdit(template: MessageTemplate) {
+    setFormData({
+      id: template.id,
+      name: template.name,
+      category: template.category,
+      content: template.content,
     })
+    setDialogMode('edit')
   }
 
-  function handleDelete(id: string, name: string) {
+  async function handleDelete(id: string, name: string) {
     if (!confirm(`"${name}" 템플릿을 삭제하시겠습니까?`)) {
       return
     }
 
-    toast({
-      title: '삭제 완료',
-      description: `${name} 템플릿이 삭제되었습니다.`,
-    })
+    setLoading(true)
+    try {
+      const result = await deleteMessageTemplate(id)
+
+      if (!result.success) {
+        throw new Error(result.error || '삭제 실패')
+      }
+
+      toast({
+        title: '삭제 완료',
+        description: `${name} 템플릿이 삭제되었습니다.`,
+      })
+
+      router.refresh()
+    } catch (error) {
+      toast({
+        title: '삭제 오류',
+        description: error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
   function handleCreate() {
-    toast({
-      title: '템플릿 생성',
-      description: '템플릿 생성 기능은 준비 중입니다.',
+    setFormData({
+      name: '',
+      category: 'general',
+      content: '',
     })
+    setDialogMode('create')
+  }
+
+  async function handleSubmit() {
+    if (!formData.name.trim() || !formData.content.trim()) {
+      toast({
+        title: '입력 오류',
+        description: '템플릿 이름과 내용을 모두 입력해주세요.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setLoading(true)
+    try {
+      if (dialogMode === 'create') {
+        const result = await createMessageTemplate({
+          name: formData.name.trim(),
+          category: formData.category,
+          type: 'sms',
+          content: formData.content.trim(),
+        })
+
+        if (!result.success) {
+          throw new Error(result.error || '생성 실패')
+        }
+
+        toast({
+          title: '생성 완료',
+          description: '새 템플릿이 생성되었습니다.',
+        })
+      } else if (dialogMode === 'edit' && formData.id) {
+        const result = await updateMessageTemplate(formData.id, {
+          name: formData.name.trim(),
+          category: formData.category,
+          content: formData.content.trim(),
+        })
+
+        if (!result.success) {
+          throw new Error(result.error || '수정 실패')
+        }
+
+        toast({
+          title: '수정 완료',
+          description: '템플릿이 수정되었습니다.',
+        })
+      }
+
+      setDialogMode(null)
+      setFormData({ name: '', category: 'general', content: '' })
+      router.refresh()
+    } catch (error) {
+      toast({
+        title: dialogMode === 'create' ? '생성 오류' : '수정 오류',
+        description: error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -147,68 +269,63 @@ export function MessageTemplatesClient({ templates }: MessageTemplatesClientProp
                   <TableRow>
                     <TableHead>템플릿명</TableHead>
                     <TableHead>분류</TableHead>
-                    <TableHead>발송 채널</TableHead>
                     <TableHead>변수</TableHead>
                     <TableHead>내용 미리보기</TableHead>
-                    <TableHead>상태</TableHead>
                     <TableHead className="text-right">작업</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredTemplates.map((template) => (
-                    <TableRow key={template.id}>
-                      <TableCell className="font-medium">{template.name}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {categoryLabels[template.category]}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={template.channel === 'alimtalk' ? 'default' : 'secondary'}>
-                          {channelLabels[template.channel]}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {template.variables.map((variable) => (
-                            <Badge key={variable} variant="outline" className="text-xs">
-                              {'{' + variable + '}'}
-                            </Badge>
-                          ))}
-                        </div>
-                      </TableCell>
-                      <TableCell className="max-w-md">
-                        <div className="text-sm text-muted-foreground line-clamp-2 whitespace-pre-wrap">
-                          {template.content}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {template.is_active ? (
-                          <Badge variant="default" className="bg-green-600">활성</Badge>
-                        ) : (
-                          <Badge variant="secondary">비활성</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEdit(template.id)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(template.id, template.name)}
-                          >
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {filteredTemplates.map((template) => {
+                    const variables = extractVariables(template.content)
+                    return (
+                      <TableRow key={template.id}>
+                        <TableCell className="font-medium">{template.name}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {categoryLabels[template.category] || template.category}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {variables.length > 0 ? (
+                              variables.map((variable) => (
+                                <Badge key={variable} variant="outline" className="text-xs">
+                                  {'{' + variable + '}'}
+                                </Badge>
+                              ))
+                            ) : (
+                              <span className="text-xs text-muted-foreground">없음</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-md">
+                          <div className="text-sm text-muted-foreground line-clamp-2 whitespace-pre-wrap">
+                            {template.content}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEdit(template)}
+                              disabled={loading}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDelete(template.id, template.name)}
+                              disabled={loading}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -249,6 +366,96 @@ export function MessageTemplatesClient({ templates }: MessageTemplatesClientProp
           </CardHeader>
         </Card>
       </div>
+
+      {/* Create/Edit Dialog */}
+      <Dialog open={dialogMode !== null} onOpenChange={(open) => !open && setDialogMode(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {dialogMode === 'create' ? '템플릿 생성' : '템플릿 수정'}
+            </DialogTitle>
+            <DialogDescription>
+              {dialogMode === 'create'
+                ? 'SMS/알림톡 템플릿을 생성합니다. 변수는 {변수명} 형식으로 입력하세요.'
+                : '템플릿 내용을 수정합니다. 변수는 {변수명} 형식으로 입력하세요.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="name">템플릿 이름</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="예: 결석 알림"
+                className="mt-2"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="category">분류</Label>
+              <Select
+                value={formData.category}
+                onValueChange={(value) => setFormData({ ...formData, category: value as MessageTemplate['category'] })}
+              >
+                <SelectTrigger className="mt-2">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="general">일반</SelectItem>
+                  <SelectItem value="attendance">출결</SelectItem>
+                  <SelectItem value="payment">학원비</SelectItem>
+                  <SelectItem value="report">리포트</SelectItem>
+                  <SelectItem value="consultation">상담</SelectItem>
+                  <SelectItem value="todo">과제</SelectItem>
+                  <SelectItem value="event">이벤트</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="content">메시지 내용</Label>
+              <Textarea
+                id="content"
+                value={formData.content}
+                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                placeholder="안녕하세요, {학원이름}입니다.\n\n{학생이름} 학생이..."
+                rows={8}
+                className="mt-2 font-mono text-sm"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {formData.content.length}자 | 변수 사용 예: {'{학원이름}, {학생이름}, {날짜}, {시간}'}
+              </p>
+            </div>
+
+            {formData.content && (
+              <div className="border rounded-lg p-3 bg-muted/50">
+                <Label className="text-xs text-muted-foreground">변수 목록</Label>
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {extractVariables(formData.content).map((variable) => (
+                    <Badge key={variable} variant="outline" className="text-xs">
+                      {'{' + variable + '}'}
+                    </Badge>
+                  ))}
+                  {extractVariables(formData.content).length === 0 && (
+                    <span className="text-xs text-muted-foreground">변수가 없습니다</span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogMode(null)} disabled={loading}>
+              취소
+            </Button>
+            <Button onClick={handleSubmit} disabled={loading}>
+              {loading ? '처리 중...' : dialogMode === 'create' ? '생성' : '수정'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
