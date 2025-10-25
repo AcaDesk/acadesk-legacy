@@ -72,7 +72,7 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
           students (
             id,
             student_code,
-            users (name),
+            users!user_id (name),
             grade
           )
         `)
@@ -83,7 +83,7 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
       const studentList: Student[] = (scores || []).map((score: any) => ({
         id: score.students.id,
         student_code: score.students.student_code,
-        name: score.students.users?.[0]?.name || '이름 없음',
+        name: score.students.users?.name || '이름 없음',
         grade: score.students.grade,
       }))
 
