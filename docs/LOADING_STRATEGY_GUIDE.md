@@ -35,6 +35,436 @@ Acadesk 프로젝트에서 사용자 경험을 극대화하기 위한 케이스�
 
 ---
 
+## Link vs router.push 완벽 가이드
+
+### ⚡️ 왜 `<Link>`가 `router.push()`보다 빠른가?
+
+**핵심 이유: 프리페칭 (Pre-fetching)**
+
+```tsx
+// <Link> 동작 방식
+1. 사용자가 링크에 마우스 올림 (hover)
+2. Next.js가 백그라운드에서 다음 페이지 데이터 미리 다운로드 ⚡
+3. 사용자가 클릭
+4. 이미 준비된 데이터로 즉시 페이지 전환! (체감 0초)
+
+// router.push() 동작 방식
+1. 사용자가 버튼 클릭
+2. router.push() 호출
+3. 이제부터 데이터 다운로드 시작 ⏳
+4. 데이터 다운로드 완료 (0.5~2초 대기)
+5. 페이지 전환
+```
+
+### 📊 체감 속도 비교
+
+| 방식 | 데이터 다운로드 시점 | 클릭 → 화면 전환 | 사용자 체감 |
+|------|------------------|----------------|----------|
+| `<Link>` | 마우스 올릴 때 (미리) | ~0.1초 | ⚡️ 즉각적 |
+| `router.push()` | 클릭 후 (나중) | ~1.5초 | 🐢 느림/끊김 |
+
+### 🎯 언제 무엇을 사용할까?
+
+#### ✅ `<Link>` 사용 시나리오 (예측 가능한 탐색)
+
+**"사용자가 이 버튼/링크를 클릭할 것이라고 예측 가능할 때"**
+
+```tsx
+// 1. 사이드바 메뉴
+import Link from 'next/link'
+
+<Link href="/students" className="nav-item">
+  <Users className="h-4 w-4" />
+  학생 관리
+</Link>
+
+// 2. 테이블 행 클릭
+<Link href={`/students/${student.id}`} className="table-row">
+  {student.name}
+</Link>
+
+// 3. 카드 클릭
+<Link href={`/consultations/${consultation.id}`}>
+  <Card className="cursor-pointer hover:shadow-lg">
+    {/* 카드 내용 */}
+  </Card>
+</Link>
+
+// 4. 브레드크럼
+<Link href="/dashboard" className="breadcrumb">
+  대시보드
+</Link>
+```
+
+**실제 적용 예시: 학생 목록 → 학생 상세**
+
+```tsx
+// src/components/features/students/student-list.tsx
+import Link from 'next/link'
+
+export function StudentList({ students }) {
+  return (
+    <div className="space-y-2">
+      {students.map((student) => (
+        <Link
+          key={student.id}
+          href={`/students/${student.id}`}
+          className="block p-4 rounded-lg hover:bg-muted transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <Avatar>
+              <AvatarFallback>{student.name[0]}</AvatarFallback>
+            </Avatar>
+            <div>
+              <p className="font-medium">{student.name}</p>
+              <p className="text-sm text-muted-foreground">{student.grade}</p>
+            </div>
+          </div>
+        </Link>
+      ))}
+    </div>
+  )
+}
+```
+
+#### ✅ `router.push()` 사용 시나리오 (조건부 탐색)
+
+**"작업이 성공적으로 완료된 후에만 페이지를 이동시켜야 할 때"**
+
+```tsx
+// 1. 폼 제출 후
+async function handleSubmit(e) {
+  e.preventDefault()
+  const result = await saveStudent(formData)
+
+  if (result.success) {
+    router.push('/students') // ✅ 저장 성공 후에만 이동
+  }
+}
+
+// 2. 로그인 후
+async function handleLogin(credentials) {
+  const result = await signIn(credentials)
+
+  if (result.success) {
+    router.push('/dashboard') // ✅ 인증 성공 후에만 이동
+  }
+}
+
+// 3. 복잡한 로직 완료 후
+async function handleBulkAssignment() {
+  const result = await assignHomeworkToStudents(selectedStudents)
+
+  if (result.success) {
+    toast({ title: '과제가 배정되었습니다' })
+    router.push('/homeworks') // ✅ 일괄 작업 완료 후 이동
+  }
+}
+```
+
+**실제 적용 예시: 학생 등록 폼**
+
+```tsx
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { LoadingButton } from '@/components/ui/loading-button'
+import { createStudent } from '@/app/actions/students'
+import { useToast } from '@/hooks/use-toast'
+
+export function StudentRegistrationForm() {
+  const router = useRouter()
+  const { toast } = useToast()
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setIsSubmitting(true) // 🔄 로딩 시작
+
+    try {
+      const formData = new FormData(e.currentTarget)
+      const result = await createStudent(formData)
+
+      if (result.success) {
+        toast({
+          title: '학생 등록 완료',
+          description: '학생이 성공적으로 등록되었습니다.',
+        })
+
+        // ✅ 성공 후에만 페이지 이동
+        // 이 시점에 isSubmitting=true이므로 버튼에 스피너 표시 중
+        router.push('/students')
+      } else {
+        throw new Error(result.error)
+      }
+    } catch (error) {
+      toast({
+        title: '등록 실패',
+        description: error.message,
+        variant: 'destructive',
+      })
+      setIsSubmitting(false) // ❌ 실패 시에만 로딩 해제
+    }
+    // 주의: 성공 시 setIsSubmitting(false) 하지 않음!
+    // router.push()로 페이지가 이동되면서 컴포넌트가 언마운트되므로 불필요
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <Input name="name" placeholder="학생 이름" required />
+      <Input name="grade" placeholder="학년" required />
+
+      <LoadingButton
+        type="submit"
+        loading={isSubmitting}
+        loadingText="등록 중..."
+        className="w-full"
+      >
+        학생 등록
+      </LoadingButton>
+    </form>
+  )
+}
+```
+
+### 💡 `router.push()`의 버벅임 제거하기
+
+**문제**: `router.push()`는 호출 후 데이터 로딩이 필요하므로 화면이 멈춘 것처럼 보임
+
+**해결책**: 로딩 상태를 명확히 표시
+
+#### 패턴 1: 버튼 로딩 상태 (권장)
+
+```tsx
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { LoadingButton } from '@/components/ui/loading-button'
+
+export function MyForm() {
+  const router = useRouter()
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  async function handleAction() {
+    setIsSubmitting(true) // 🟢 1. 로딩 시작
+
+    try {
+      await performAction() // 🔄 2. 서버 작업
+      router.push('/next-page') // 🚀 3. 페이지 이동 (로딩 상태 유지)
+    } catch (error) {
+      setIsSubmitting(false) // 🔴 실패 시에만 로딩 해제
+    }
+  }
+
+  return (
+    <LoadingButton loading={isSubmitting} onClick={handleAction}>
+      작업 수행
+    </LoadingButton>
+  )
+}
+```
+
+**사용자 경험**:
+```
+Before: [클릭] → ... (무반응 1.5초) ... → [페이지 이동]
+        👤 "멈췄나?" "고장 났나?"
+
+After:  [클릭] → "작업 중..." 스피너 → [페이지 이동]
+        👤 "처리되고 있구나!" ✨
+```
+
+#### 패턴 2: 전체 화면 로딩 (복잡한 작업)
+
+```tsx
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Loader2 } from 'lucide-react'
+
+export function ComplexOperationButton() {
+  const router = useRouter()
+  const [isProcessing, setIsProcessing] = useState(false)
+
+  async function handleComplexOperation() {
+    setIsProcessing(true)
+
+    try {
+      // 시간이 오래 걸리는 작업 (예: 일괄 처리)
+      await bulkProcessStudents(selectedStudents)
+      router.push('/results')
+    } catch (error) {
+      setIsProcessing(false)
+    }
+  }
+
+  if (isProcessing) {
+    return (
+      <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+          <p className="text-lg font-medium">작업 처리 중...</p>
+          <p className="text-sm text-muted-foreground">잠시만 기다려주세요</p>
+        </div>
+      </div>
+    )
+  }
+
+  return <Button onClick={handleComplexOperation}>일괄 처리</Button>
+}
+```
+
+#### 패턴 3: 토스트 + 로딩 조합 (사용자 친화적)
+
+```tsx
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { LoadingButton } from '@/components/ui/loading-button'
+import { useToast } from '@/hooks/use-toast'
+import { Loader2 } from 'lucide-react'
+
+export function StudentDeleteButton({ studentId }) {
+  const router = useRouter()
+  const { toast } = useToast()
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  async function handleDelete() {
+    setIsDeleting(true)
+
+    // 📢 즉시 피드백
+    const { dismiss } = toast({
+      title: (
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          삭제 중...
+        </div>
+      ),
+      duration: Infinity, // 작업 완료까지 유지
+    })
+
+    try {
+      await deleteStudent(studentId)
+
+      dismiss() // 로딩 토스트 제거
+
+      toast({
+        title: '삭제 완료',
+        description: '학생 정보가 삭제되었습니다.',
+      })
+
+      router.push('/students')
+    } catch (error) {
+      dismiss()
+
+      toast({
+        title: '삭제 실패',
+        description: error.message,
+        variant: 'destructive',
+      })
+
+      setIsDeleting(false)
+    }
+  }
+
+  return (
+    <LoadingButton
+      variant="destructive"
+      loading={isDeleting}
+      loadingText="삭제 중..."
+      onClick={handleDelete}
+    >
+      학생 삭제
+    </LoadingButton>
+  )
+}
+```
+
+### 🎯 실전 팁
+
+#### Tip 1: `router.push()` 후 로딩 상태 해제하지 않기
+
+```tsx
+// ❌ 잘못된 패턴
+async function handleSubmit() {
+  setIsSubmitting(true)
+  await saveData()
+  router.push('/success')
+  setIsSubmitting(false) // ⚠️ 불필요! 페이지 이동되면 컴포넌트 언마운트됨
+}
+
+// ✅ 올바른 패턴
+async function handleSubmit() {
+  setIsSubmitting(true)
+  try {
+    await saveData()
+    router.push('/success') // 이동 완료까지 로딩 유지
+  } catch (error) {
+    setIsSubmitting(false) // 실패 시에만 해제
+  }
+}
+```
+
+#### Tip 2: `<Link>`를 `onClick`과 함께 사용하지 않기
+
+```tsx
+// ❌ 안티패턴
+<Link href="/students" onClick={() => console.log('클릭')}>
+  학생 관리
+</Link>
+
+// ✅ onClick이 필요하다면 router.push 사용
+<Button onClick={() => {
+  logEvent('navigation', { to: 'students' })
+  router.push('/students')
+}}>
+  학생 관리
+</Button>
+```
+
+#### Tip 3: 프리페칭 비활성화가 필요한 경우
+
+```tsx
+// 민감한 데이터나 권한이 필요한 페이지
+<Link href="/admin/settings" prefetch={false}>
+  관리자 설정
+</Link>
+```
+
+### 📊 의사결정 플로우차트
+
+```
+페이지 이동이 필요한가?
+│
+├─ YES → 이동 전에 조건 확인이 필요한가?
+│         │
+│         ├─ YES (폼 저장, 로그인, 권한 체크 등)
+│         │   → router.push() + 로딩 상태
+│         │
+│         └─ NO (단순 탐색)
+│             → <Link>
+│
+└─ NO → 그냥 Button
+```
+
+### 🎨 UI 패턴별 선택 가이드
+
+| UI 패턴 | 추천 방식 | 예시 |
+|---------|---------|------|
+| 사이드바 메뉴 | `<Link>` | `<Link href="/students">학생 관리</Link>` |
+| 테이블 행 클릭 | `<Link>` | `<Link href={`/students/${id}`}>` |
+| 카드 클릭 | `<Link>` | `<Link href={url}><Card /></Link>` |
+| 브레드크럼 | `<Link>` | `<Link href="/dashboard">홈</Link>` |
+| 폼 제출 버튼 | `router.push()` | 저장 후 `router.push('/list')` |
+| 로그인 버튼 | `router.push()` | 인증 후 `router.push('/dashboard')` |
+| 삭제 버튼 | `router.push()` | 삭제 후 `router.push('/list')` |
+| 마법사 완료 | `router.push()` | 모든 단계 완료 후 이동 |
+
+---
+
 ## 케이스 1: 페이지 이동 시
 
 ### 문제 상황
