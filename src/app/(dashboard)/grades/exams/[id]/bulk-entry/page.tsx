@@ -397,10 +397,10 @@ export default function BulkGradeEntryPage() {
     <PageWrapper>
       <div className="space-y-6 max-w-7xl mx-auto">
         {/* Header */}
-        <section aria-label="페이지 헤더" className={`${PAGE_ANIMATIONS.header} flex items-center justify-between`}>
-          <div>
-            <h1 className="text-3xl font-bold">성적 일괄 입력</h1>
-            <p className="text-muted-foreground">{exam.name}</p>
+        <section aria-label="페이지 헤더" className={`${PAGE_ANIMATIONS.header} flex items-start justify-between`}>
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold">성적 일괄 입력</h1>
+            <p className="text-base text-muted-foreground">{exam.name}</p>
           </div>
           <div className="flex items-center gap-3">
             {lastSaved && (
@@ -408,8 +408,8 @@ export default function BulkGradeEntryPage() {
                 마지막 저장: {lastSaved.toLocaleTimeString('ko-KR')}
               </span>
             )}
-            <Button size="lg" onClick={() => handleSave(false)} disabled={saving}>
-              <Save className="h-5 w-5 mr-2" />
+            <Button onClick={() => handleSave(false)} disabled={saving}>
+              <Save className="h-4 w-4 mr-2" />
               {saving ? '저장 중...' : '저장하고 나가기'}
             </Button>
           </div>
@@ -422,18 +422,18 @@ export default function BulkGradeEntryPage() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-primary" />
-                    <span className="font-semibold">입력 진행 상황</span>
+                    <TrendingUp className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium">입력 진행 상황</span>
                   </div>
                   <div className="text-right">
                     <span className="text-2xl font-bold text-primary">{stats.entered}</span>
-                    <span className="text-muted-foreground">/{stats.total}명 </span>
-                    <span className="text-lg font-semibold text-primary">({progressPercentage}%)</span>
+                    <span className="text-sm text-muted-foreground">/{stats.total}명 </span>
+                    <span className="text-base font-semibold text-primary ml-1">({progressPercentage}%)</span>
                   </div>
                 </div>
-                <Progress value={progressPercentage} className="h-3" />
+                <Progress value={progressPercentage} className="h-2" />
                 {stats.notEntered > 0 && (
-                  <div className="flex items-center gap-2 text-sm text-orange-600">
+                  <div className="flex items-center gap-2 text-sm text-orange-600 dark:text-orange-500">
                     <AlertCircle className="h-4 w-4" />
                     <span>{stats.notEntered}명의 학생이 미입력 상태입니다</span>
                   </div>
@@ -451,32 +451,32 @@ export default function BulkGradeEntryPage() {
         >
           <Card>
             <CardHeader className="pb-3">
-              <CardDescription>전체 학생</CardDescription>
-              <CardTitle className="text-3xl">{stats.total}명</CardTitle>
+              <CardDescription className="text-xs">전체 학생</CardDescription>
+              <CardTitle className="text-2xl font-bold">{stats.total}명</CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-3">
-              <CardDescription>반 평균</CardDescription>
-              <CardTitle className="text-3xl text-blue-600">{averageScore}점</CardTitle>
+              <CardDescription className="text-xs">반 평균</CardDescription>
+              <CardTitle className="text-2xl font-bold text-blue-600 dark:text-blue-500">{averageScore}점</CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-3">
-              <CardDescription>합격 (70점 이상)</CardDescription>
-              <CardTitle className="text-3xl text-green-600">{stats.passed}명</CardTitle>
+              <CardDescription className="text-xs">합격 (70점 이상)</CardDescription>
+              <CardTitle className="text-2xl font-bold text-green-600 dark:text-green-500">{stats.passed}명</CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-3">
-              <CardDescription>미달 (70점 미만)</CardDescription>
-              <CardTitle className="text-3xl text-red-600">{stats.failed}명</CardTitle>
+              <CardDescription className="text-xs">미달 (70점 미만)</CardDescription>
+              <CardTitle className="text-2xl font-bold text-red-600 dark:text-red-500">{stats.failed}명</CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-3">
-              <CardDescription>미입력</CardDescription>
-              <CardTitle className="text-3xl text-orange-600">{stats.notEntered}명</CardTitle>
+              <CardDescription className="text-xs">미입력</CardDescription>
+              <CardTitle className="text-2xl font-bold text-orange-600 dark:text-orange-500">{stats.notEntered}명</CardTitle>
             </CardHeader>
           </Card>
         </section>
@@ -485,47 +485,47 @@ export default function BulkGradeEntryPage() {
         {stats.entered > 0 && (
           <section aria-label="성적 분포" {...PAGE_ANIMATIONS.getSection(2)}>
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart className="h-5 w-5" />
+              <CardHeader className="pb-4">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <BarChart className="h-4 w-4" />
                   성적 분포
                 </CardTitle>
-                <CardDescription>점수 구간별 학생 수</CardDescription>
+                <CardDescription className="text-sm">점수 구간별 학생 수</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="space-y-2">
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-sm">
                       <span className="font-medium">90~100점</span>
-                      <span className="text-muted-foreground">{distribution.range90}명</span>
+                      <span className="text-sm text-muted-foreground">{distribution.range90}명</span>
                     </div>
                     <Progress value={(distribution.range90 / stats.entered) * 100} className="h-2" />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-sm">
                       <span className="font-medium">80~89점</span>
-                      <span className="text-muted-foreground">{distribution.range80}명</span>
+                      <span className="text-sm text-muted-foreground">{distribution.range80}명</span>
                     </div>
                     <Progress value={(distribution.range80 / stats.entered) * 100} className="h-2" />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-sm">
                       <span className="font-medium">70~79점</span>
-                      <span className="text-muted-foreground">{distribution.range70}명</span>
+                      <span className="text-sm text-muted-foreground">{distribution.range70}명</span>
                     </div>
                     <Progress value={(distribution.range70 / stats.entered) * 100} className="h-2" />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-sm">
                       <span className="font-medium">60~69점</span>
-                      <span className="text-muted-foreground">{distribution.range60}명</span>
+                      <span className="text-sm text-muted-foreground">{distribution.range60}명</span>
                     </div>
                     <Progress value={(distribution.range60 / stats.entered) * 100} className="h-2" />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-sm">
                       <span className="font-medium">0~59점</span>
-                      <span className="text-muted-foreground">{distribution.range0}명</span>
+                      <span className="text-sm text-muted-foreground">{distribution.range0}명</span>
                     </div>
                     <Progress value={(distribution.range0 / stats.entered) * 100} className="h-2" />
                   </div>
@@ -539,20 +539,20 @@ export default function BulkGradeEntryPage() {
         <section aria-label="필터 및 옵션" {...PAGE_ANIMATIONS.getSection(3)}>
           <Card>
             <CardContent className="pt-6 space-y-4">
-              <div className="flex items-center gap-6 flex-wrap">
+              <div className="flex items-center gap-4 flex-wrap">
                 <div className="flex items-center gap-2">
                   <Checkbox
                     id="showLowPerformers"
                     checked={showLowPerformers}
                     onCheckedChange={(checked) => setShowLowPerformers(checked as boolean)}
                   />
-                  <Label htmlFor="showLowPerformers" className="cursor-pointer">
+                  <Label htmlFor="showLowPerformers" className="text-sm cursor-pointer">
                     미달 학생만 보기
                   </Label>
                 </div>
                 {showLowPerformers && (
                   <div className="flex items-center gap-2">
-                    <Label htmlFor="threshold">기준:</Label>
+                    <Label htmlFor="threshold" className="text-sm">기준:</Label>
                     <Input
                       id="threshold"
                       type="number"
@@ -560,7 +560,7 @@ export default function BulkGradeEntryPage() {
                       max="100"
                       value={lowPerformerThreshold}
                       onChange={(e) => setLowPerformerThreshold(parseInt(e.target.value) || 80)}
-                      className="w-20"
+                      className="w-20 h-9"
                     />
                     <span className="text-sm text-muted-foreground">점 미만</span>
                   </div>
@@ -574,7 +574,7 @@ export default function BulkGradeEntryPage() {
                     checked={autoSave}
                     onCheckedChange={(checked) => setAutoSave(checked as boolean)}
                   />
-                  <Label htmlFor="autoSave" className="cursor-pointer">
+                  <Label htmlFor="autoSave" className="text-sm cursor-pointer">
                     자동 저장 (3초마다)
                   </Label>
                 </div>
@@ -585,13 +585,12 @@ export default function BulkGradeEntryPage() {
                   variant="outline"
                   size="sm"
                   onClick={() => setShowBulkFeedback(!showBulkFeedback)}
-                  className="gap-2"
                 >
-                  <Copy className="h-4 w-4" />
+                  <Copy className="h-4 w-4 mr-2" />
                   코멘트 일괄 적용
                 </Button>
 
-                <div className="ml-auto flex items-center gap-2">
+                <div className="ml-auto hidden lg:flex items-center gap-2">
                   <AlertCircle className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">
                     Enter/Tab으로 다음 칸 이동 | 형식: &quot;30/32&quot; 또는 &quot;30&quot;
@@ -600,17 +599,17 @@ export default function BulkGradeEntryPage() {
               </div>
 
               {showBulkFeedback && (
-                <div className="space-y-3">
+                <div className="space-y-3 pt-2">
                   <Separator />
                   <div className="space-y-2">
-                    <Label htmlFor="bulkFeedback">모든 학생에게 적용할 코멘트</Label>
+                    <Label htmlFor="bulkFeedback" className="text-sm">모든 학생에게 적용할 코멘트</Label>
                     <Textarea
                       id="bulkFeedback"
                       value={bulkFeedback}
                       onChange={(e) => setBulkFeedback(e.target.value)}
                       placeholder="예: 이번 시험 잘 봤습니다. 꾸준히 노력하세요."
                       rows={3}
-                      className="resize-none"
+                      className="resize-none text-sm"
                     />
                     <div className="flex gap-2 justify-end">
                       <Button
@@ -641,22 +640,22 @@ export default function BulkGradeEntryPage() {
 
         {/* Bulk Entry Table */}
         <Card>
-          <CardHeader>
-            <CardTitle>성적 입력</CardTitle>
-            <CardDescription>
+          <CardHeader className="pb-4">
+            <CardTitle className="text-base font-semibold">성적 입력</CardTitle>
+            <CardDescription className="text-sm">
               맞은 개수/전체 문항 형식으로 입력하세요 (예: 30/32). 전체 문항 수가 동일하면 숫자만 입력해도 됩니다.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="border rounded-lg overflow-hidden">
               <table className="w-full">
-                <thead className="bg-muted">
+                <thead className="bg-muted/50">
                   <tr>
-                    <th className="text-left p-4 font-medium">학번</th>
-                    <th className="text-left p-4 font-medium">이름</th>
-                    <th className="text-left p-4 font-medium w-40">점수 (맞은개수/전체)</th>
-                    <th className="text-center p-4 font-medium w-24">득점률</th>
-                    <th className="text-left p-4 font-medium">피드백</th>
+                    <th className="text-left p-3 text-xs font-medium text-muted-foreground">학번</th>
+                    <th className="text-left p-3 text-xs font-medium text-muted-foreground">이름</th>
+                    <th className="text-left p-3 text-xs font-medium text-muted-foreground w-40">점수 (맞은개수/전체)</th>
+                    <th className="text-center p-3 text-xs font-medium text-muted-foreground w-24">득점률</th>
+                    <th className="text-left p-3 text-xs font-medium text-muted-foreground">피드백</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -671,33 +670,33 @@ export default function BulkGradeEntryPage() {
                       <tr
                         key={student.id}
                         {...getListItemAnimation(index, 20)}
-                        className={`hover:bg-muted/50 transition-colors ${
+                        className={`hover:bg-muted/30 transition-colors ${
                           isNotEntered ? 'bg-orange-50/50 dark:bg-orange-950/10' : ''
                         }`}
                       >
-                        <td className="p-4">
+                        <td className="p-3">
                           <div className="flex items-center gap-2">
                             {isNotEntered && (
-                              <AlertCircle className="h-4 w-4 text-orange-600" />
+                              <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-500" />
                             )}
                             <span className="text-sm text-muted-foreground">
                               {student.student_code}
                             </span>
                           </div>
                         </td>
-                        <td className="p-4">
+                        <td className="p-3">
                           <div className="flex items-center gap-2">
-                            <span className={`font-medium ${isNotEntered ? 'text-orange-600' : ''}`}>
+                            <span className={`text-sm font-medium ${isNotEntered ? 'text-orange-600 dark:text-orange-500' : ''}`}>
                               {student.users?.[0]?.name || '이름 없음'}
                             </span>
                             {isNotEntered && (
-                              <Badge variant="outline" className="text-orange-600 border-orange-600">
+                              <Badge variant="outline" className="text-xs text-orange-600 border-orange-600 dark:text-orange-500 dark:border-orange-500">
                                 미입력
                               </Badge>
                             )}
                           </div>
                         </td>
-                        <td className="p-4">
+                        <td className="p-3">
                           <Input
                             ref={(el) => {
                               if (el) inputRefs.current.set(`score-${student.id}`, el)
@@ -706,13 +705,13 @@ export default function BulkGradeEntryPage() {
                             onChange={(e) => handleScoreInput(student.id, e.target.value)}
                             onKeyDown={(e) => handleKeyDown(e, student.id, 'score')}
                             placeholder="30/32"
-                            className={`font-mono ${
+                            className={`h-9 font-mono text-sm ${
                               isNotEntered ? 'border-orange-300 focus:border-orange-500 dark:border-orange-800' : ''
                             }`}
                             autoFocus={index === 0}
                           />
                         </td>
-                        <td className="p-4 text-center">
+                        <td className="p-3 text-center">
                           {score && score.percentage > 0 ? (
                             <Badge
                               variant={
@@ -720,15 +719,15 @@ export default function BulkGradeEntryPage() {
                                 score.percentage >= 70 ? 'secondary' :
                                 'destructive'
                               }
-                              className="text-base font-bold"
+                              className="text-sm font-semibold"
                             >
                               {score.percentage}%
                             </Badge>
                           ) : (
-                            <span className="text-muted-foreground">-</span>
+                            <span className="text-sm text-muted-foreground">-</span>
                           )}
                         </td>
-                        <td className="p-4">
+                        <td className="p-3">
                           <Input
                             ref={(el) => {
                               if (el) inputRefs.current.set(`feedback-${student.id}`, el)
@@ -737,7 +736,7 @@ export default function BulkGradeEntryPage() {
                             onChange={(e) => handleFeedbackChange(student.id, e.target.value)}
                             onKeyDown={(e) => handleKeyDown(e, student.id, 'feedback')}
                             placeholder="선택사항"
-                            className="text-sm"
+                            className="h-9 text-sm"
                           />
                         </td>
                       </tr>
@@ -749,8 +748,8 @@ export default function BulkGradeEntryPage() {
 
             {filteredStudents.length === 0 && (
               <div className="text-center py-12 text-muted-foreground">
-                <AlertCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>표시할 학생이 없습니다.</p>
+                <AlertCircle className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p className="text-sm">표시할 학생이 없습니다.</p>
               </div>
             )}
           </CardContent>
