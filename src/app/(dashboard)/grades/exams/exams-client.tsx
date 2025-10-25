@@ -163,7 +163,14 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
                 <TableBody>
                   {filteredExams.map((exam) => (
                     <TableRow key={exam.id}>
-                      <TableCell className="font-medium">{exam.name}</TableCell>
+                      <TableCell className="font-medium">
+                        <button
+                          onClick={() => router.push(`/grades/exams/${exam.id}`)}
+                          className="hover:text-primary hover:underline text-left"
+                        >
+                          {exam.name}
+                        </button>
+                      </TableCell>
                       <TableCell>
                         <Badge variant="outline">
                           {getCategoryLabel(exam.category_code)}
