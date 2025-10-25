@@ -105,6 +105,11 @@ export function LoginForm({
         // Navigation 예외는 무시 (정상 동작)
       })
     } catch (error) {
+      // NEXT_REDIRECT 에러는 정상적인 리다이렉트이므로 무시
+      if (error && typeof error === 'object' && 'digest' in error && String(error.digest).startsWith('NEXT_REDIRECT')) {
+        throw error
+      }
+
       // signIn() 자체가 실패한 경우에만 에러 토스트
       console.error('[LoginForm] Sign in error:', error)
       toast({

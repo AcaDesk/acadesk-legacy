@@ -11,7 +11,7 @@ import { Checkbox } from '@ui/checkbox'
 import { Label } from '@ui/label'
 import { Progress } from '@ui/progress'
 import { Textarea } from '@ui/textarea'
-import { ChevronRight, Save, AlertCircle, Copy, TrendingUp, BarChart } from 'lucide-react'
+import { Save, AlertCircle, Copy, TrendingUp, BarChart } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { PageWrapper } from "@/components/layout/page-wrapper"
@@ -408,25 +408,6 @@ export default function BulkGradeEntryPage() {
   return (
     <PageWrapper>
       <div className="space-y-6 max-w-7xl mx-auto">
-        {/* Breadcrumbs */}
-        <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-          <button
-            onClick={() => router.push('/grades')}
-            className="hover:text-foreground transition-colors"
-          >
-            성적 관리
-          </button>
-          <ChevronRight className="h-4 w-4" />
-          <button
-            onClick={() => router.push('/grades/exams')}
-            className="hover:text-foreground transition-colors"
-          >
-            시험 관리
-          </button>
-          <ChevronRight className="h-4 w-4" />
-          <span className="text-foreground font-medium">성적 일괄 입력</span>
-        </nav>
-
         {/* Header */}
         <section aria-label="페이지 헤더" className={`${PAGE_ANIMATIONS.header} flex items-center justify-between`}>
           <div>
