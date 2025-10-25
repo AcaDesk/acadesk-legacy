@@ -109,7 +109,7 @@ export default function BulkGradeEntryPage() {
         if (studentIds.length > 0) {
           const { data: studentsData, error: studentsError } = await supabase
             .from('students')
-            .select('id, student_code, users(name)')
+            .select('id, student_code, users!user_id(name)')
             .in('id', studentIds)
             .is('deleted_at', null)
             .order('student_code')

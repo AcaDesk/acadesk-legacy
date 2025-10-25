@@ -399,9 +399,9 @@ export async function getRecentProgress(options?: {
       .select(
         `
         *,
-        students(id, name),
-        textbooks(id, title),
-        textbook_units(id, unit_order, unit_code, unit_title),
+        students!student_id(id, name),
+        textbooks!textbook_id(id, title),
+        textbook_units!unit_id(id, unit_order, unit_code, unit_title),
         users!textbook_progress_recorded_by_fkey(id, name)
       `
       )

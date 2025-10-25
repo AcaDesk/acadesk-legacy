@@ -91,7 +91,7 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
       // Today's sessions
       supabase
         .from('class_sessions')
-        .select('id, classes!inner(name), scheduled_start, scheduled_end, status, users(name)')
+        .select('id, classes!inner(name), scheduled_start, scheduled_end, status, users!instructor_id(name)')
         .eq('classes.tenant_id', tenantId)
         .gte('scheduled_start', `${today}T00:00:00`)
         .lte('scheduled_start', `${today}T23:59:59`)

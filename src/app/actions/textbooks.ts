@@ -688,7 +688,7 @@ export async function getTextbookDistributions(
 
     let query = supabase
       .from('student_textbooks')
-      .select('*, students(id, name, grade, class)')
+      .select('*, students!student_id(id, name, grade, class)')
       .eq('tenant_id', tenantId)
       .eq('textbook_id', textbookId)
       .is('deleted_at', null)
@@ -781,7 +781,7 @@ export async function getUnpaidTextbooks() {
 
     const { data, error } = await supabase
       .from('student_textbooks')
-      .select('*, textbooks(*), students(name)')
+      .select('*, textbooks!textbook_id(*), students!student_id(name)')
       .eq('tenant_id', tenantId)
       .eq('paid', false)
       .is('deleted_at', null)

@@ -355,7 +355,7 @@ export async function getStudentGuardians(studentId: string) {
 
     const { data, error } = await supabase
       .from('student_guardians')
-      .select('*, guardians(*, users(*))')
+      .select('*, guardians!guardian_id(*, users!user_id(*))')
       .eq('student_id', studentId)
       .eq('tenant_id', tenantId)
       .is('guardians.deleted_at', null)
@@ -390,7 +390,7 @@ export async function getAvailableGuardians(studentId: string) {
     // 연결되지 않은 보호자 조회
     const query = supabase
       .from('guardians')
-      .select('*, users(*)')
+      .select('*, users!user_id(*)')
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
 
@@ -487,7 +487,7 @@ export async function searchGuardians(query: string, limit: number = 10) {
     // guardians와 users 조인하여 검색
     const { data, error } = await supabase
       .from('guardians')
-      .select('*, users(*)')
+      .select('*, users!user_id(*)')
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
       .or(`users.name.ilike.%${query}%,users.phone.ilike.%${query}%,users.email.ilike.%${query}%`)
@@ -584,7 +584,7 @@ export async function logGuardianContact(data: {
     // 보호자 정보 조회
     const { data: guardian, error: guardianError } = await supabase
       .from('guardians')
-      .select('users(name)')
+      .select('users!user_id(name)')
       .eq('id', data.guardianId)
       .eq('tenant_id', tenantId)
       .single()
