@@ -20,7 +20,7 @@ import { PageWrapper } from "@/components/layout/page-wrapper"
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
-import { SendMessageDialog } from '@/components/features/notifications/send-message-dialog'
+import { BulkMessageDialog } from '@/components/features/notifications/bulk-message-dialog'
 import { ManageTemplatesDialog } from '@/components/features/notifications/manage-templates-dialog'
 
 interface NotificationLog {
@@ -63,7 +63,7 @@ export default function NotificationsPage() {
   const [logs, setLogs] = useState<NotificationLog[]>([])
   const [filteredLogs, setFilteredLogs] = useState<NotificationLog[]>([])
   const [searchTerm, setSearchTerm] = useState('')
-  const [filterType, setFilterType] = useState<'all' | 'sms' | 'email'>('all')
+  const [filterType, setFilterType] = useState<'all' | 'sms'>('all')
   const [filterStatus, setFilterStatus] = useState<'all' | 'sent' | 'failed'>('all')
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState<string | null>(null)
@@ -293,9 +293,7 @@ export default function NotificationsPage() {
   function getTypeBadge(type: string) {
     switch (type) {
       case 'sms':
-        return <Badge variant="default">SMS</Badge>
-      case 'email':
-        return <Badge variant="outline">이메일</Badge>
+        return <Badge variant="default">SMS/알림톡</Badge>
       default:
         return <Badge variant="secondary">{type}</Badge>
     }
@@ -327,7 +325,6 @@ export default function NotificationsPage() {
     sent: logs.filter((l) => l.status === 'sent').length,
     failed: logs.filter((l) => l.status === 'failed').length,
     sms: logs.filter((l) => l.notification_type === 'sms').length,
-    email: logs.filter((l) => l.notification_type === 'email').length,
   }
 
   return (
@@ -336,8 +333,8 @@ export default function NotificationsPage() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold">알림 관리</h1>
-            <p className="text-muted-foreground">자동 알림 스케줄과 전송 기록을 관리하세요</p>
+            <h1 className="text-3xl font-bold">메시지 관리</h1>
+            <p className="text-muted-foreground">SMS/알림톡 자동 발송 스케줄과 전송 기록을 관리하세요</p>
           </div>
           <div className="flex gap-2">
             <Button
@@ -454,7 +451,7 @@ export default function NotificationsPage() {
         )}
 
         {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-5">
+        <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="pb-3">
               <CardDescription>전체 알림</CardDescription>
@@ -475,14 +472,8 @@ export default function NotificationsPage() {
           </Card>
           <Card>
             <CardHeader className="pb-3">
-              <CardDescription>SMS</CardDescription>
+              <CardDescription>SMS/알림톡</CardDescription>
               <CardTitle className="text-3xl">{stats.sms}건</CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardDescription>이메일</CardDescription>
-              <CardTitle className="text-3xl">{stats.email}건</CardTitle>
             </CardHeader>
           </Card>
         </div>
@@ -511,14 +502,7 @@ export default function NotificationsPage() {
               size="sm"
               onClick={() => setFilterType('sms')}
             >
-              SMS
-            </Button>
-            <Button
-              variant={filterType === 'email' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setFilterType('email')}
-            >
-              이메일
+              SMS/알림톡
             </Button>
           </div>
           <div className="flex gap-2">
@@ -615,7 +599,7 @@ export default function NotificationsPage() {
         </Card>
 
         {/* Message Dialogs */}
-        <SendMessageDialog
+        <BulkMessageDialog
           open={sendMessageOpen}
           onOpenChange={setSendMessageOpen}
           onMessageSent={() => {
