@@ -133,6 +133,54 @@ async function getReportTitle(reportId: string): Promise<string> {
 }
 
 /**
+ * 교재 ID로 교재명을 조회하는 함수
+ */
+async function getTextbookTitle(textbookId: string): Promise<string> {
+  try {
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('textbooks')
+      .select('title')
+      .eq('id', textbookId)
+      .single()
+
+    if (error || !data) {
+      console.error('[Breadcrumb] Failed to fetch textbook title:', error)
+      return textbookId
+    }
+
+    return data.title
+  } catch (err) {
+    console.error('[Breadcrumb] Error fetching textbook title:', err)
+    return textbookId
+  }
+}
+
+/**
+ * 상담 ID로 상담 제목을 조회하는 함수
+ */
+async function getConsultationTitle(consultationId: string): Promise<string> {
+  try {
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('consultations')
+      .select('title')
+      .eq('id', consultationId)
+      .single()
+
+    if (error || !data) {
+      console.error('[Breadcrumb] Failed to fetch consultation title:', error)
+      return consultationId
+    }
+
+    return data.title
+  } catch (err) {
+    console.error('[Breadcrumb] Error fetching consultation title:', err)
+    return consultationId
+  }
+}
+
+/**
  * 브래드크럼 경로 매핑 설정
  *
  * - 정적 경로: { '/path': '레이블' }
@@ -157,11 +205,14 @@ export const BREADCRUMB_CONFIG: BreadcrumbConfig = {
 
   // Attendance (출석)
   '/attendance': '출석 관리',
+  '/attendance/daily': '일일 출석부',
   '/attendance/[id]': '출석 상세',
 
   // Classes (반)
   '/classes': '반 관리',
+  '/classes/new': '반 등록',
   '/classes/[id]': getClassName,
+  '/classes/[id]/edit': '반 수정',
 
   // Grades (성적)
   '/grades': '성적 관리',
@@ -169,50 +220,74 @@ export const BREADCRUMB_CONFIG: BreadcrumbConfig = {
   '/grades/exams': '시험 목록',
   '/grades/exams/new': '시험 등록',
   '/grades/exams/[examId]': getExamName,
+  '/grades/exams/[examId]/edit': '시험 수정',
   '/grades/exams/[examId]/bulk-entry': '성적 일괄 입력',
   '/grades/exam-templates': '시험 템플릿',
   '/grades/exam-templates/new': '시험 템플릿 등록',
+  '/grades/exam-templates/[id]': '시험 템플릿 수정',
+  '/grades/exam-templates/[id]/edit': '시험 템플릿 수정',
 
   // Todos (할 일)
   '/todos': '할 일 관리',
   '/todos/new': '할 일 등록',
   '/todos/templates': '할 일 템플릿',
   '/todos/templates/new': '할 일 템플릿 등록',
+  '/todos/templates/[id]': '할 일 템플릿 수정',
+  '/todos/templates/[id]/edit': '할 일 템플릿 수정',
   '/todos/verify': '할 일 검증',
   '/todos/planner': '할 일 계획',
   '/todos/stats': '할 일 통계',
+  '/todos/[id]': '할 일 상세',
+  '/todos/[id]/edit': '할 일 수정',
 
   // Homeworks (숙제)
   '/homeworks': '숙제 관리',
   '/homeworks/new': '숙제 출제',
   '/homeworks/submissions': '제출 현황',
+  '/homeworks/[id]': '숙제 상세',
+  '/homeworks/[id]/edit': '숙제 수정',
 
   // Textbooks (교재)
   '/textbooks': '교재 관리',
   '/textbooks/new': '교재 등록',
+  '/textbooks/[id]': getTextbookTitle,
+  '/textbooks/[id]/edit': '교재 수정',
 
   // Reports (보고서)
   '/reports': '보고서',
   '/reports/list': '보고서 목록',
   '/reports/bulk': '보고서 대량 생성',
+  '/reports/new': '보고서 작성',
   '/reports/[id]': getReportTitle,
+  '/reports/[id]/edit': '보고서 수정',
 
   // Payments (결제)
   '/payments': '결제 관리',
+  '/payments/new': '결제 등록',
+  '/payments/[id]': '결제 상세',
 
   // Library (도서)
   '/library': '도서관',
   '/library/lendings': '대출 관리',
+  '/library/lendings/new': '도서 대출',
 
   // Calendar (일정)
   '/calendar': '일정',
+  '/calendar/new': '일정 등록',
+  '/calendar/[id]': '일정 상세',
 
   // Consultations (상담)
   '/consultations': '상담 관리',
+  '/consultations/new': '상담 등록',
+  '/consultations/[id]': getConsultationTitle,
+  '/consultations/[id]/edit': '상담 수정',
 
   // Settings (설정)
   '/settings': '설정',
+  '/settings/academy': '학원 설정',
   '/settings/subjects': '과목 설정',
+  '/settings/messaging-integration': '알림 서비스 연동',
+  '/settings/message-templates': '메시지 템플릿',
 
   // Profile (프로필)
   '/profile': '내 프로필',
@@ -226,12 +301,18 @@ export const BREADCRUMB_CONFIG: BreadcrumbConfig = {
 
   // Staff (직원)
   '/staff': '직원 관리',
+  '/staff/new': '직원 등록',
+  '/staff/[id]': '직원 상세',
+  '/staff/[id]/edit': '직원 수정',
 
   // Notifications (알림)
   '/notifications': '알림',
+  '/notifications/[id]': '알림 상세',
 
   // Kiosk (키오스크)
   '/kiosk': '키오스크',
+  '/kiosk/login': '키오스크 로그인',
+  '/kiosk/checkin': '출석 체크인',
 }
 
 /**
