@@ -229,6 +229,7 @@ export async function createExam(input: z.infer<typeof examSchema>) {
     // 5. Revalidate pages
     revalidatePath('/grades/exams')
     revalidatePath('/grades')
+    revalidatePath(`/grades/exams/${exam.id}`)
 
     return {
       success: true,
