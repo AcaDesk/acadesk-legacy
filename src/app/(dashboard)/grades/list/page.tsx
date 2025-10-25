@@ -239,7 +239,7 @@ export default function GradesListPage() {
     try {
       const { data, error } = await supabase
         .from('exam_scores')
-        .select('percentage, correct_answers, total_questions, is_retest')
+        .select('percentage, score, total_points, is_retest')
         .eq('student_id', selectedStudent)
 
       if (error) throw error
@@ -252,8 +252,8 @@ export default function GradesListPage() {
       const nonRetestScores = data.filter(s => !s.is_retest)
       const processedScores = nonRetestScores.map((score) =>
         score.percentage ||
-        (score.total_questions > 0
-          ? Math.round((score.correct_answers / score.total_questions) * 10000) / 100
+        (score.total_points && score.total_points > 0 && score.score !== null
+          ? Math.round((score.score / score.total_points) * 10000) / 100
           : 0)
       )
 
