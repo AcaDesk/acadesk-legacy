@@ -142,11 +142,14 @@ export function ExamForm({ mode, examId, defaultValues, onSuccess }: ExamFormPro
 
       toast({
         title: mode === 'create' ? '시험 등록 완료' : '시험 수정 완료',
-        description: mode === 'create' ? '새 시험이 등록되었습니다.' : '시험 정보가 수정되었습니다.',
+        description: mode === 'create' ? '새 시험이 등록되었습니다. 학생을 배정하세요.' : '시험 정보가 수정되었습니다.',
       })
 
       if (onSuccess) {
         onSuccess()
+      } else if (mode === 'create' && result.data?.examId) {
+        // 시험 생성 시 상세 페이지로 이동
+        router.push(`/grades/exams/${result.data.examId}`)
       } else {
         router.push('/grades/exams')
         router.refresh()
