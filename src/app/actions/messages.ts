@@ -20,8 +20,8 @@ import { sendMessage } from '@/lib/messaging/provider'
 const messageTemplateSchema = z.object({
   name: z.string().min(1, '템플릿 이름은 필수입니다'),
   content: z.string().min(1, '메시지 내용은 필수입니다'),
-  type: z.enum(['sms', 'email']),
-  category: z.enum(['general', 'report', 'todo', 'attendance', 'event']),
+  type: z.enum(['sms']), // Email removed - SMS/알림톡 only
+  category: z.enum(['general', 'report', 'todo', 'attendance', 'event', 'payment', 'consultation']),
 })
 
 const sendMessageSchema = z.object({
@@ -93,6 +93,7 @@ export async function createMessageTemplate(
     if (error) throw error
 
     revalidatePath('/notifications')
+    revalidatePath('/settings/message-templates')
 
     return {
       success: true,
@@ -134,6 +135,7 @@ export async function updateMessageTemplate(
     if (error) throw error
 
     revalidatePath('/notifications')
+    revalidatePath('/settings/message-templates')
 
     return {
       success: true,
@@ -169,6 +171,7 @@ export async function deleteMessageTemplate(id: string) {
     if (error) throw error
 
     revalidatePath('/notifications')
+    revalidatePath('/settings/message-templates')
 
     return {
       success: true,
