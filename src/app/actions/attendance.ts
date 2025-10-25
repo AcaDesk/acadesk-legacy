@@ -59,7 +59,7 @@ export async function getAttendanceSessionById(sessionId: string) {
       .from('attendance_sessions')
       .select(`
         *,
-        class:classes(
+        class:classes!class_id(
           id,
           name,
           subject
@@ -148,7 +148,7 @@ export async function getAttendanceSessions(params?: {
       .from('attendance_sessions')
       .select(`
         *,
-        class:classes(
+        class:classes!class_id(
           id,
           name,
           subject
@@ -222,7 +222,7 @@ export async function createAttendanceSession(
       })
       .select(`
         *,
-        class:classes(id, name)
+        class:classes!class_id(id, name)
       `)
       .single()
 

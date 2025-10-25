@@ -10,6 +10,7 @@ import { Search, UserPlus, Users } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { createClient } from '@/lib/supabase/client'
 import { ScrollArea } from '@ui/scroll-area'
+import { useCurrentUser } from '@/hooks/use-current-user'
 
 interface Student {
   id: string
@@ -36,6 +37,7 @@ export function AssignStudentsDialog({
 }: AssignStudentsDialogProps) {
   const { toast } = useToast()
   const supabase = createClient()
+  const { user: currentUser } = useCurrentUser()
 
   const [students, setStudents] = useState<Student[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -53,10 +55,10 @@ export function AssignStudentsDialog({
     try {
       setLoading(true)
 
-      // Get all students
+      // Get all students with proper foreign key hint
       const { data: allStudents, error: studentsError } = await supabase
         .from('students')
-        .select('id, student_code, users(name), grade')
+        .select('id, student_code, users!user_id(name), grade')
         .is('deleted_at', null)
         .order('student_code')
 
@@ -75,7 +77,7 @@ export function AssignStudentsDialog({
       const studentList: Student[] = (allStudents || []).map((s: any) => ({
         id: s.id,
         student_code: s.student_code,
-        name: s.users?.[0]?.name || '이름 없음',
+        name: s.users?.name || '이름 없음',
         grade: s.grade,
         isAssigned: assignedIds.has(s.id),
       }))
@@ -160,6 +162,15 @@ export function AssignStudentsDialog({
   }
 
   async function handleSave() {
+    if (!currentUser?.tenantId) {
+      toast({
+        title: '인증 오류',
+        description: '로그인 정보를 확인할 수 없습니다.',
+        variant: 'destructive',
+      })
+      return
+    }
+
     try {
       setSaving(true)
 
@@ -178,6 +189,7 @@ export function AssignStudentsDialog({
           .from('exam_scores')
           .insert(
             toAdd.map(studentId => ({
+              tenant_id: currentUser.tenantId,
               exam_id: examId,
               student_id: studentId,
               percentage: null,

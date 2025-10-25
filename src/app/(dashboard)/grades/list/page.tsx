@@ -16,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from '@ui/table'
-import { Search, TrendingUp, TrendingDown, Minus, Plus, ChevronRight } from 'lucide-react'
+import { Search, TrendingUp, TrendingDown, Minus, Plus } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/page-error-boundary'
@@ -297,18 +297,6 @@ export default function GradesListPage() {
     <PageErrorBoundary pageName="성적 조회">
       <PageWrapper>
         <div className="space-y-6">
-          {/* Breadcrumbs */}
-          <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-          <button
-            onClick={() => router.push('/grades')}
-            className="hover:text-foreground transition-colors"
-          >
-            성적 관리
-          </button>
-          <ChevronRight className="h-4 w-4" />
-          <span className="text-foreground font-medium">성적 조회</span>
-        </nav>
-
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
