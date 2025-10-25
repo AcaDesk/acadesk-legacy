@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@ui/dialog'
 import { Textarea } from '@ui/textarea'
@@ -17,6 +17,7 @@ import {
 import { Send, MessageSquare, Smartphone, Info, Sparkles } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { Card, CardContent } from '@ui/card'
+import { getMessageTemplates } from '@/app/actions/messages'
 
 interface Recipient {
   id: string
@@ -29,8 +30,10 @@ interface MessageTemplate {
   id: string
   name: string
   content: string
-  variables: string[]
   category: string
+  type: 'sms'
+  created_at: string
+  updated_at: string
 }
 
 interface SendMessageDialogProps {
@@ -42,44 +45,23 @@ interface SendMessageDialogProps {
   onSuccess?: () => void
 }
 
-// Mock templates - 실제로는 데이터베이스에서 가져옴
-const MOCK_TEMPLATES: MessageTemplate[] = [
-  {
-    id: 'custom',
-    name: '✏️ 직접 입력 (수동 작성)',
-    category: 'custom',
-    content: '',
-    variables: [],
-  },
-  {
-    id: 'attendance_absent',
-    name: '결석 알림',
-    category: 'attendance',
-    content: '안녕하세요, Acadesk입니다.\n\n{학생이름} 학생이 {날짜} {시간} 수업에 결석하셨습니다.\n\n결석 사유를 알려주시면 감사하겠습니다.',
-    variables: ['학생이름', '날짜', '시간'],
-  },
-  {
-    id: 'attendance_late',
-    name: '지각 알림',
-    category: 'attendance',
-    content: '안녕하세요, Acadesk입니다.\n\n{학생이름} 학생이 {시간} 수업에 {지각시간}분 지각하셨습니다.',
-    variables: ['학생이름', '시간', '지각시간'],
-  },
-  {
-    id: 'payment_overdue',
-    name: '학원비 미납 안내',
-    category: 'payment',
-    content: '안녕하세요, Acadesk입니다.\n\n{학생이름} 학생의 {월}월 학원비 {금액}원이 미납되었습니다.\n\n확인 부탁드립니다.',
-    variables: ['학생이름', '월', '금액'],
-  },
-  {
-    id: 'report_sent',
-    name: '리포트 발송',
-    category: 'report',
-    content: '안녕하세요, Acadesk입니다.\n\n{학생이름} 학생의 {기간} 학습 리포트가 발송되었습니다.\n\n앱에서 확인해주세요.',
-    variables: ['학생이름', '기간'],
-  },
-]
+// Extract variables from template content
+function extractVariables(content: string): string[] {
+  const matches = content.match(/\{([^}]+)\}/g)
+  if (!matches) return []
+  return [...new Set(matches.map(m => m.slice(1, -1)))]
+}
+
+// Custom template for manual input
+const CUSTOM_TEMPLATE: MessageTemplate = {
+  id: 'custom',
+  name: '✏️ 직접 입력 (수동 작성)',
+  category: 'custom',
+  content: '',
+  type: 'sms',
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+}
 
 export function SendMessageDialog({
   open,
@@ -91,23 +73,53 @@ export function SendMessageDialog({
 }: SendMessageDialogProps) {
   const { toast } = useToast()
   const [channel, setChannel] = useState<'alimtalk' | 'sms'>('alimtalk')
+  const [templates, setTemplates] = useState<MessageTemplate[]>([CUSTOM_TEMPLATE])
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(
-    defaultTemplate || MOCK_TEMPLATES[0].id
+    defaultTemplate || 'custom'
   )
   const [messageContent, setMessageContent] = useState('')
   const [sending, setSending] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  // Load templates from database when dialog opens
+  useEffect(() => {
+    if (open) {
+      loadTemplates()
+    }
+  }, [open])
+
+  async function loadTemplates() {
+    setLoading(true)
+    try {
+      const result = await getMessageTemplates()
+      if (result.success && result.data) {
+        // Add custom template at the beginning
+        setTemplates([CUSTOM_TEMPLATE, ...result.data])
+      }
+    } catch (error) {
+      console.error('Failed to load templates:', error)
+      toast({
+        title: '템플릿 로드 실패',
+        description: '템플릿을 불러오는 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   // 템플릿 변경 시 내용 자동 업데이트
   function handleTemplateChange(templateId: string) {
     setSelectedTemplateId(templateId)
-    const template = MOCK_TEMPLATES.find(t => t.id === templateId)
+    const template = templates.find(t => t.id === templateId)
     if (template) {
       let content = template.content
 
       // 변수 자동 치환 (context에 있는 값으로)
-      template.variables.forEach(variable => {
+      const variables = extractVariables(template.content)
+      variables.forEach(variable => {
         if (context[variable]) {
-          content = content.replace(new RegExp(`{${variable}}`, 'g'), context[variable])
+          content = content.replace(new RegExp(`\\{${variable}\\}`, 'g'), context[variable])
         }
       })
 
@@ -116,9 +128,12 @@ export function SendMessageDialog({
   }
 
   // 초기 템플릿 설정
-  useState(() => {
-    handleTemplateChange(selectedTemplateId)
-  })
+  useEffect(() => {
+    if (templates.length > 0) {
+      handleTemplateChange(selectedTemplateId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templates, selectedTemplateId])
 
   async function handleSend() {
     if (!messageContent.trim()) {
@@ -154,7 +169,8 @@ export function SendMessageDialog({
     }
   }
 
-  const selectedTemplate = MOCK_TEMPLATES.find(t => t.id === selectedTemplateId)
+  const selectedTemplate = templates.find(t => t.id === selectedTemplateId)
+  const selectedVariables = selectedTemplate ? extractVariables(selectedTemplate.content) : []
   const estimatedCost = channel === 'alimtalk' ? recipients.length * 8 : recipients.length * 15
 
   return (
@@ -247,21 +263,24 @@ export function SendMessageDialog({
           {/* 템플릿 선택 */}
           <div className="space-y-2">
             <Label>템플릿 선택</Label>
-            <Select value={selectedTemplateId} onValueChange={handleTemplateChange}>
+            <Select value={selectedTemplateId} onValueChange={handleTemplateChange} disabled={loading}>
               <SelectTrigger>
-                <SelectValue placeholder="템플릿 선택" />
+                <SelectValue placeholder={loading ? "템플릿 로딩 중..." : "템플릿 선택"} />
               </SelectTrigger>
               <SelectContent>
-                {MOCK_TEMPLATES.map((template) => (
-                  <SelectItem key={template.id} value={template.id}>
-                    {template.name}
-                    {template.variables.length > 0 && (
-                      <span className="text-xs text-muted-foreground ml-2">
-                        ({template.variables.join(', ')})
-                      </span>
-                    )}
-                  </SelectItem>
-                ))}
+                {templates.map((template) => {
+                  const variables = extractVariables(template.content)
+                  return (
+                    <SelectItem key={template.id} value={template.id}>
+                      {template.name}
+                      {variables.length > 0 && (
+                        <span className="text-xs text-muted-foreground ml-2">
+                          ({variables.join(', ')})
+                        </span>
+                      )}
+                    </SelectItem>
+                  )
+                })}
               </SelectContent>
             </Select>
           </div>
@@ -276,7 +295,7 @@ export function SendMessageDialog({
                   <span>직접 작성 모드 - 자유롭게 입력하세요</span>
                 </div>
               )}
-              {selectedTemplate && selectedTemplate.variables.length > 0 && (
+              {selectedTemplate && selectedVariables.length > 0 && (
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <Sparkles className="h-3 w-3" />
                   <span>변수가 자동으로 변환됩니다</span>
