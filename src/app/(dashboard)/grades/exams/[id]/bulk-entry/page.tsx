@@ -85,60 +85,48 @@ export default function BulkGradeEntryPage() {
       if (examError) throw examError
       setExam(examData)
 
-      // Get class_id from exam
-      const { data: examWithClass, error: classError } = await supabase
-        .from('exams')
-        .select('class_id')
-        .eq('id', examId)
-        .single()
+      // Get students assigned to this exam (from exam_scores table)
+      const { data: examScores, error: scoresError } = await supabase
+        .from('exam_scores')
+        .select(`
+          student_id,
+          score,
+          total_points,
+          percentage,
+          feedback,
+          students (
+            id,
+            student_code,
+            users!user_id(name)
+          )
+        `)
+        .eq('exam_id', examId)
 
-      if (classError) throw classError
+      if (scoresError) throw scoresError
 
-      if (examWithClass.class_id) {
-        // Get students enrolled in this class
-        const { data: enrollments, error: enrollmentError } = await supabase
-          .from('class_enrollments')
-          .select('student_id')
-          .eq('class_id', examWithClass.class_id)
-          .eq('status', 'active')
+      // Extract student data from exam_scores
+      const studentsData: Student[] = (examScores || []).map((score: any) => ({
+        id: score.students.id,
+        student_code: score.students.student_code,
+        users: score.students.users ? [{ name: score.students.users.name }] : null,
+      })).sort((a, b) => a.student_code.localeCompare(b.student_code))
 
-        if (enrollmentError) throw enrollmentError
+      setStudents(studentsData)
 
-        const studentIds = enrollments?.map(e => e.student_id) || []
+      // Create scores map
+      const scoresMap = new Map<string, ScoreEntry>()
+      examScores?.forEach((existing: any) => {
+        const defaultTotal = examData.total_questions?.toString() || ''
 
-        if (studentIds.length > 0) {
-          const { data: studentsData, error: studentsError } = await supabase
-            .from('students')
-            .select('id, student_code, users!user_id(name)')
-            .in('id', studentIds)
-            .is('deleted_at', null)
-            .order('student_code')
-
-          if (studentsError) throw studentsError
-          setStudents(studentsData as Student[])
-
-          // Load existing scores
-          const { data: existingScores } = await supabase
-            .from('exam_scores')
-            .select('student_id, score, total_points, percentage, feedback')
-            .eq('exam_id', examId)
-
-          const scoresMap = new Map<string, ScoreEntry>()
-          studentsData.forEach((student: Student) => {
-            const existing = existingScores?.find(s => s.student_id === student.id)
-            const defaultTotal = examData.total_questions?.toString() || ''
-
-            scoresMap.set(student.id, {
-              student_id: student.id,
-              correct: existing?.score?.toString() || '',
-              total: existing?.total_points?.toString() || defaultTotal,
-              percentage: existing?.percentage || 0,
-              feedback: existing?.feedback || '',
-            })
-          })
-          setScores(scoresMap)
-        }
-      }
+        scoresMap.set(existing.student_id, {
+          student_id: existing.student_id,
+          correct: existing.score?.toString() || '',
+          total: existing.total_points?.toString() || defaultTotal,
+          percentage: existing.percentage || 0,
+          feedback: existing.feedback || '',
+        })
+      })
+      setScores(scoresMap)
     } catch (error) {
       console.error('Error loading data:', error)
       toast({
