@@ -37,9 +37,9 @@ import {
 
 interface ExamScore {
   id: string
-  correct_answers: number
-  total_questions: number
-  percentage: number
+  score: number | null
+  total_points: number | null
+  percentage: number | null
   feedback: string | null
   is_retest: boolean
   retest_count: number
@@ -48,14 +48,14 @@ interface ExamScore {
     name: string
     exam_date: string
     category_code: string
-  }[] | null
+  } | null
   students: {
     id: string
     student_code: string
     users: {
       name: string
-    }[] | null
-  }[] | null
+    } | null
+  } | null
 }
 
 interface Student {
@@ -155,22 +155,22 @@ export default function GradesListPage() {
         .from('exam_scores')
         .select(`
           id,
-          correct_answers,
-          total_questions,
+          score,
+          total_points,
           percentage,
           feedback,
           is_retest,
           retest_count,
           created_at,
-          exams (
+          exams!exam_id (
             name,
             exam_date,
             category_code
           ),
-          students (
+          students!student_id (
             id,
             student_code,
-            users (
+            users!user_id (
               name
             )
           )
@@ -203,8 +203,8 @@ export default function GradesListPage() {
       const processedScores = (scoresData as ExamScore[]).map((score) => ({
         ...score,
         percentage: score.percentage ||
-          (score.total_questions > 0
-            ? Math.round((score.correct_answers / score.total_questions) * 10000) / 100
+          (score.total_points && score.total_points > 0 && score.score !== null
+            ? Math.round((score.score / score.total_points) * 10000) / 100
             : 0)
       }))
 
