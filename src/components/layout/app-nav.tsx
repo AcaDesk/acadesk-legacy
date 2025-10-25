@@ -155,6 +155,7 @@ const navigationGroups: NavGroup[] = [
       { name: "내 프로필", href: "/profile", icon: User },
       { name: "학원 설정", href: "/settings/academy", icon: Building2 },
       { name: "과목 관리", href: "/settings/subjects", icon: Shapes, featureFlag: "subjectManagement" },
+      { name: "알림 서비스 연동", href: "/settings/messaging-integration", icon: MessageSquare, featureFlag: "notificationSystem" },
       { name: "메시지 템플릿", href: "/settings/message-templates", icon: MessageSquare, featureFlag: "notificationSystem" },
       { name: "도움말", href: "/help/guide", icon: HelpCircle },
     ]

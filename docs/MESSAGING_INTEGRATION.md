@@ -4,13 +4,15 @@
 
 Acadesk의 메시징 시스템은 **"프로세스 연동형 소통(Process-Integrated Communication)"** 철학을 따릅니다.
 
-원장님이 별도의 "메시지 전송" 페이지로 이동하는 것이 아니라, **현재 보고 있는 화면에서 바로** 학부모님께 알림을 보낼 수 있도록 설계되었습니다.
+원장님이 별도의 "메시지 전송" 페이지로 이동하는 것이 아니라, **현재 보고 있는 화면에서 바로** 학부모님께 SMS/알림톡을 보낼 수 있도록 설계되었습니다.
+
+**참고**: Acadesk는 프로그램명입니다. 실제 발송되는 메시지에는 `{학원이름}` 변수를 사용하여 각 학원의 이름이 표시됩니다.
 
 ## 핵심 컴포넌트
 
-### 1. SendMessageDialog
+### 1. SendMessageDialog (프로세스 연동형)
 
-모든 페이지에서 공통으로 사용하는 지능형 발송 모달입니다.
+각 업무 프로세스에서 바로 사용하는 간편한 발송 모달입니다.
 
 **위치**: `/src/components/features/messaging/send-message-dialog.tsx`
 
@@ -32,6 +34,30 @@ interface SendMessageDialogProps {
 - ✅ 실시간 미리보기
 - ✅ 예상 비용 계산
 - ✅ 전송 전 확인 및 편집
+
+### 2. BulkMessageDialog (일괄 발송용)
+
+학생을 직접 선택하여 대량으로 메시지를 발송하는 모달입니다.
+
+**위치**: `/src/components/features/notifications/bulk-message-dialog.tsx`
+
+**Props**:
+```typescript
+interface BulkMessageDialogProps {
+  open: boolean                          // 다이얼로그 열림 상태
+  onOpenChange: (open: boolean) => void  // 상태 변경 핸들러
+  onMessageSent?: () => void             // 전송 성공 콜백
+}
+```
+
+**특징**:
+- ✅ 학생 검색 및 선택 기능
+- ✅ 전체 선택/해제
+- ✅ 템플릿 사용 가능
+- ✅ SMS/알림톡 전용 (이메일 기능 제거)
+- ✅ 장문 SMS 자동 감지
+
+**사용 위치**: `/notifications` (메시지 관리 페이지)
 
 ## 통합 패턴
 
@@ -345,26 +371,91 @@ context={{
 
 ---
 
+## 셀프 서비스 API 키 관리
+
+### 개요
+
+Acadesk는 **원장님이 직접 메시징 서비스 API 키를 등록**하는 B2B SaaS 모델을 채택합니다.
+
+**장점:**
+- ✅ **확장성**: 개발자가 매번 수동으로 키를 등록할 필요 없음
+- ✅ **비용 분리**: 발송 비용이 각 원장님의 계정에서 직접 차감
+- ✅ **법적 책임 분리**: 발신번호 등록 및 스팸 책임이 API 키 소유자에게 귀속
+- ✅ **유연성**: 원장님이 선호하는 서비스(알리고/솔라피/NHN Cloud) 선택 가능
+
+### 워크플로우
+
+1. **원장님**: 메시징 서비스 가입 → 발신번호 등록·인증 → API 키 발급
+2. **원장님**: Acadesk 설정 페이지(`/settings/messaging-integration`)에서 API 키 입력
+3. **Acadesk**: 테스트 메시지 발송으로 설정 검증
+4. **원장님**: 서비스 활성화 → 실제 메시지 발송 시작
+
+### 설정 페이지
+
+**위치**: `/settings/messaging-integration`
+
+**기능**:
+- 메시징 서비스 제공사 선택 (알리고/솔라피/NHN Cloud)
+- API 인증 정보 입력 (User ID, API Key, 발신번호)
+- 테스트 메시지 발송 및 인증
+- 서비스 활성화/비활성화 토글
+- 설정 삭제
+
+**Server Actions**: `/src/app/actions/messaging-config.ts`
+- `getMessagingConfig()` - 현재 설정 조회
+- `saveMessagingConfig(input)` - 설정 저장/업데이트
+- `sendTestMessage(phoneNumber)` - 테스트 메시지 발송
+- `toggleMessagingActive(isActive)` - 서비스 활성화 토글
+- `deleteMessagingConfig()` - 설정 삭제
+
+**Database**: `tenant_messaging_config` 테이블
+- 각 tenant별 메시징 서비스 설정 저장
+- API 키는 암호화되어 저장 (TODO: 암호화 구현 필요)
+- RLS 정책으로 tenant 격리
+
+### 지원 서비스
+
+#### 1. 알리고 (Aligo)
+- **가입**: https://smartsms.aligo.in/join.html
+- **API 문서**: https://smartsms.aligo.in/admin/api/spec.html
+- **필요 정보**: User ID, API Key, 발신번호
+
+#### 2. 솔라피 (Solapi)
+- **가입**: https://solapi.com
+- **API 문서**: https://docs.solapi.com
+- **필요 정보**: API Key, API Secret, 발신번호
+
+#### 3. NHN Cloud
+- **가입**: https://www.nhncloud.com
+- **API 문서**: https://docs.nhncloud.com
+- **필요 정보**: App Key, Secret Key, 발신번호
+
+---
+
 ## 다음 단계
 
-### 미구현 기능 (현재 UI만 구성됨)
+### 미구현 기능
 
 1. **[ ]** 실제 메시지 발송 API 연동
-   - 알림톡 발송 서비스 (예: NHN Cloud, Aligo 등)
-   - SMS 발송 서비스
-   - 실패 시 자동 SMS 재전송
+   - 알리고/솔라피/NHN Cloud API 호출 Provider 레이어 구현
+   - Tenant credentials 사용하여 발송
+   - 실패 시 자동 SMS 재전송 (알림톡 → SMS fallback)
 
-2. **[ ]** 템플릿 CRUD 기능
+2. **[✅]** 템플릿 CRUD 기능 (완료)
    - 템플릿 생성/수정/삭제 Server Actions
    - Database 마이그레이션 (message_templates 테이블)
 
-3. **[ ]** 발송 이력 관리
+3. **[ ]** API 키 암호화
+   - tenant_messaging_config 테이블의 민감한 정보 암호화
+   - 암호화/복호화 유틸리티 함수
+
+4. **[ ]** 발송 이력 관리
    - 발송 성공/실패 로그
    - 발송 이력 조회 페이지
    - 재발송 기능
 
-4. **[ ]** 비용 관리
-   - 실제 발송 비용 계산
+5. **[ ]** 비용 관리
+   - 실제 발송 비용 계산 (provider별)
    - 월별 발송 현황 대시보드
    - 예산 초과 알림
 
