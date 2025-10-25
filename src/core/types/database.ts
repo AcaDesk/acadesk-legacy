@@ -167,6 +167,31 @@ export interface StudentTodo extends TenantScoped, Timestamps {
 }
 
 // ============================================================================
+// Exams
+// ============================================================================
+export interface Exam extends TenantScoped, Timestamps {
+  id: UUID
+  name: string
+  category_code?: string | null
+  exam_type?: string | null
+  exam_date?: string | null
+  class_id?: UUID | null
+  total_questions?: number | null
+  passing_score?: number | null
+  description?: string | null
+  deleted_at?: string | null
+}
+
+export interface ExamScore extends TenantScoped, Timestamps {
+  id: UUID
+  exam_id: UUID
+  student_id: UUID
+  percentage?: number | null
+  feedback?: string | null
+  deleted_at?: string | null
+}
+
+// ============================================================================
 // Tasks (legacy - for future features)
 // ============================================================================
 export interface Task extends TenantScoped, Timestamps {
