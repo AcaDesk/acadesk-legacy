@@ -22,7 +22,7 @@ interface StudentDataWithUser {
   grade: string | null
   users: {
     name: string
-  }[] | null
+  } | null
 }
 
 interface ExamScoreWithDetails {
@@ -100,7 +100,7 @@ export async function generateMonthlyReport(
     // 4. 학생 정보 조회
     const { data: studentData, error: studentError } = await supabase
       .from('students')
-      .select('id, student_code, grade, tenant_id, users(name)')
+      .select('id, student_code, grade, tenant_id, users!inner(name)')
       .eq('id', studentId)
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
@@ -152,7 +152,7 @@ export async function generateMonthlyReport(
     const reportData: ReportData = {
       student: {
         id: typedStudentData.id,
-        name: typedStudentData.users?.[0]?.name || 'Unknown',
+        name: typedStudentData.users?.name || 'Unknown',
         grade: typedStudentData.grade || '',
         student_code: typedStudentData.student_code,
       },
@@ -264,7 +264,7 @@ export async function getStudentsForReport() {
     // 3. Query students
     const { data, error } = await supabase
       .from('students')
-      .select('id, student_code, users(name)')
+      .select('id, student_code, users!inner(name)')
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
       .order('student_code')
@@ -314,7 +314,7 @@ export async function generateAndSendReport(params: {
     // 3. 학생 정보 조회
     const { data: student, error: studentError } = await supabase
       .from('students')
-      .select('id, grade, users(name)')
+      .select('id, grade, users!inner(name)')
       .eq('id', params.studentId)
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
@@ -341,7 +341,7 @@ export async function generateAndSendReport(params: {
     )
 
     // 5. 메시지 생성 (채널에 따라 다른 포맷)
-    const studentName = typedStudent.users?.[0]?.name || '학생'
+    const studentName = typedStudent.users?.name || '학생'
     let message = ''
 
     if (params.channel === 'sms') {
@@ -891,7 +891,7 @@ export async function prepareReportSending(reportId: string) {
 
       // 5-5. 문자 메시지 본문 생성
       const studentName =
-        (report.students as unknown as { users: { name: string }[] })?.users?.[0]?.name ||
+        (report.students as unknown as { users: { name: string } })?.users?.name ||
         '학생'
       const month = new Date(report.content.period.start).getMonth() + 1
 
