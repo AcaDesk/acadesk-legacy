@@ -146,7 +146,7 @@ const navigationGroups: NavGroup[] = [
       },
       { name: "학원비 관리", href: "/payments", icon: HandCoins, featureFlag: "tuitionManagement" },
       { name: "직원 관리", href: "/staff", icon: Briefcase, featureFlag: "staffManagement" },
-      { name: "메시지 전송", href: "/notifications", icon: Send, featureFlag: "notificationSystem" },
+      { name: "메시지 관리", href: "/notifications", icon: Send, featureFlag: "notificationSystem" },
     ]
   },
   {
@@ -155,7 +155,7 @@ const navigationGroups: NavGroup[] = [
       { name: "내 프로필", href: "/profile", icon: User },
       { name: "학원 설정", href: "/settings/academy", icon: Building2 },
       { name: "과목 관리", href: "/settings/subjects", icon: Shapes, featureFlag: "subjectManagement" },
-      { name: "알림 템플릿", href: "/settings/message-templates", icon: MessageSquare, featureFlag: "notificationSystem" },
+      { name: "메시지 템플릿", href: "/settings/message-templates", icon: MessageSquare, featureFlag: "notificationSystem" },
       { name: "도움말", href: "/help/guide", icon: HelpCircle },
     ]
   }
