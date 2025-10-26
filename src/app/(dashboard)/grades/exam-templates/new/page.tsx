@@ -206,12 +206,15 @@ export default function NewExamTemplatePage() {
               <div className="grid gap-6 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="category">시험 분류</Label>
-                  <Select value={categoryCode} onValueChange={setCategoryCode}>
+                  <Select
+                    value={categoryCode || undefined}
+                    onValueChange={(value) => setCategoryCode(value === 'none' ? '' : value)}
+                  >
                     <SelectTrigger id="category">
                       <SelectValue placeholder="분류 선택" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">선택 안 함</SelectItem>
+                      <SelectItem value="none">선택 안 함</SelectItem>
                       {categories.map((cat) => (
                         <SelectItem key={cat.code} value={cat.code}>
                           {cat.label}
@@ -223,12 +226,15 @@ export default function NewExamTemplatePage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="examType">시험 유형</Label>
-                  <Select value={examType} onValueChange={setExamType}>
+                  <Select
+                    value={examType || undefined}
+                    onValueChange={(value) => setExamType(value === 'none' ? '' : value)}
+                  >
                     <SelectTrigger id="examType">
                       <SelectValue placeholder="유형 선택" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">선택 안 함</SelectItem>
+                      <SelectItem value="none">선택 안 함</SelectItem>
                       <SelectItem value="written">필기시험</SelectItem>
                       <SelectItem value="oral">구술시험</SelectItem>
                       <SelectItem value="practical">실기시험</SelectItem>
@@ -274,12 +280,15 @@ export default function NewExamTemplatePage() {
               {/* Class */}
               <div className="space-y-2">
                 <Label htmlFor="class">수업</Label>
-                <Select value={classId} onValueChange={setClassId}>
+                <Select
+                  value={classId || undefined}
+                  onValueChange={(value) => setClassId(value === 'none' ? '' : value)}
+                >
                   <SelectTrigger id="class">
                     <SelectValue placeholder="수업 선택 (선택사항)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">선택 안 함</SelectItem>
+                    <SelectItem value="none">선택 안 함</SelectItem>
                     {classes.map((cls) => (
                       <SelectItem key={cls.id} value={cls.id}>
                         {cls.name} {cls.subject && `- ${cls.subject}`}

@@ -220,14 +220,17 @@ export default function NewClassPage() {
                 <div className="space-y-2">
                   <Label htmlFor="instructorId">담당 강사</Label>
                   <Select
-                    value={form.watch('instructorId')}
-                    onValueChange={(value) => form.setValue('instructorId', value)}
+                    value={form.watch('instructorId') || undefined}
+                    onValueChange={(value) => {
+                      // "none" 값이면 빈 문자열로 저장
+                      form.setValue('instructorId', value === 'none' ? '' : value)
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="강사 선택 (선택사항)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">선택 안함</SelectItem>
+                      <SelectItem value="none">선택 안함</SelectItem>
                       {instructors.map((instructor) => (
                         <SelectItem key={instructor.id} value={instructor.id}>
                           {instructor.name}
