@@ -3,6 +3,44 @@
  * 리포트 관련 타입 정의
  */
 
+/**
+ * Student information (for report joins)
+ */
+export interface ReportStudent {
+  id: string
+  student_code: string
+  grade: string | null
+  users: {
+    name: string
+    email: string | null
+  } | null
+}
+
+/**
+ * Student information (for filter dropdowns)
+ */
+export interface StudentForFilter {
+  id: string
+  student_code: string
+  user_id: {
+    name: string
+  } | null
+}
+
+/**
+ * Report with student information (from Supabase joins)
+ */
+export interface ReportWithStudent {
+  id: string
+  report_type: string
+  period_start: string
+  period_end: string
+  content: ReportData
+  generated_at: string
+  sent_at: string | null
+  students: ReportStudent | null
+}
+
 export interface ReportData {
   student: {
     id: string
