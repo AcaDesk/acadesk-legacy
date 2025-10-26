@@ -29,6 +29,7 @@ import { PAGE_LAYOUT, TEXT_STYLES } from '@/lib/constants'
 import { useToast } from '@/hooks/use-toast'
 import { format as formatDate } from 'date-fns'
 import { createConsultation, updateConsultation } from '@/app/actions/consultations'
+import { StudentSearch, type Student as StudentSearchStudent } from '@/components/features/students/student-search'
 
 const consultationSchema = z.object({
   isLead: z.boolean(),
@@ -307,22 +308,17 @@ export function ConsultationFormClient({
                     <Label htmlFor="studentId">
                       학생 <span className="text-red-500">*</span>
                     </Label>
-                    <Select
+                    <StudentSearch
+                      mode="single"
+                      variant="select"
+                      students={students as StudentSearchStudent[]}
                       value={form.watch('studentId')}
-                      onValueChange={(value) => form.setValue('studentId', value)}
+                      onChange={(id) => form.setValue('studentId', id || '')}
                       disabled={mode === 'edit'}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="학생 선택" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {students.map((student) => (
-                          <SelectItem key={student.id} value={student.id}>
-                            {student.name} ({student.grade})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder="학생 선택"
+                      showStudentCode={false}
+                      showGrade={true}
+                    />
                     {form.formState.errors.studentId && (
                       <p className="text-sm text-red-500">
                         {form.formState.errors.studentId.message}
