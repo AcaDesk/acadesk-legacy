@@ -29,6 +29,7 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { deleteHomework } from '@/app/actions/homeworks'
+import { ConfirmationDialog } from '@ui/confirmation-dialog'
 
 interface Homework {
   id: string
@@ -83,6 +84,9 @@ export function HomeworksClient({ initialHomeworks }: HomeworksClientProps) {
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'submitted' | 'graded'>(
     'all'
   )
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string } | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const { toast } = useToast()
 
@@ -122,23 +126,35 @@ export function HomeworksClient({ initialHomeworks }: HomeworksClientProps) {
     setFilteredHomeworks(filtered)
   }, [searchTerm, statusFilter, initialHomeworks])
 
-  async function handleDelete(homeworkId: string, title: string) {
-    if (!confirm(`"${title}" 숙제를 삭제하시겠습니까?`)) return
+  function handleDeleteClick(homeworkId: string, title: string) {
+    setItemToDelete({ id: homeworkId, name: title })
+    setDeleteDialogOpen(true)
+  }
 
-    const result = await deleteHomework(homeworkId)
+  async function handleConfirmDelete() {
+    if (!itemToDelete) return
 
-    if (result.success) {
-      toast({
-        title: '삭제 완료',
-        description: '숙제가 삭제되었습니다.',
-      })
-      window.location.reload()
-    } else {
-      toast({
-        title: '삭제 오류',
-        description: result.error,
-        variant: 'destructive',
-      })
+    setIsDeleting(true)
+    try {
+      const result = await deleteHomework(itemToDelete.id)
+
+      if (result.success) {
+        toast({
+          title: '삭제 완료',
+          description: '숙제가 삭제되었습니다.',
+        })
+        window.location.reload()
+      } else {
+        toast({
+          title: '삭제 오류',
+          description: result.error,
+          variant: 'destructive',
+        })
+      }
+    } finally {
+      setIsDeleting(false)
+      setDeleteDialogOpen(false)
+      setItemToDelete(null)
     }
   }
 
@@ -358,7 +374,7 @@ export function HomeworksClient({ initialHomeworks }: HomeworksClientProps) {
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => handleDelete(homework.id, homework.title)}
+                            onClick={() => handleDeleteClick(homework.id, homework.title)}
                           >
                             삭제
                           </Button>
@@ -372,6 +388,18 @@ export function HomeworksClient({ initialHomeworks }: HomeworksClientProps) {
           </CardContent>
         </Card>
       </section>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="정말로 삭제하시겠습니까?"
+        description={itemToDelete ? `"${itemToDelete.name}"이(가) 삭제됩니다. 이 작업은 되돌릴 수 없습니다.` : ''}
+        confirmText="삭제"
+        variant="destructive"
+        isLoading={isDeleting}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   )
 }

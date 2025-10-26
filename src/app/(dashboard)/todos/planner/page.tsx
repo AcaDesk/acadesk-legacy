@@ -27,6 +27,7 @@ import { getStudents } from '@/app/actions/students'
 import { getTodoTemplates } from '@/app/actions/todo-templates'
 import { createTodosForStudents } from '@/app/actions/todos'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { ConfirmationDialog } from '@ui/confirmation-dialog'
 
 interface Student {
   id: string
@@ -78,6 +79,7 @@ export default function WeeklyPlannerPage() {
   const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set())
   const [selectionMode, setSelectionMode] = useState(false)
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
   // Helper to generate cell key
   function getCellKey(studentId: string, dayOfWeek: number): string {
@@ -302,11 +304,11 @@ export default function WeeklyPlannerPage() {
     })
   }
 
-  function deleteTodosFromBulkCells() {
-    if (!confirm(`선택한 ${selectedCells.size}개 셀의 모든 과제를 삭제하시겠습니까?`)) {
-      return
-    }
+  function deleteTodosFromBulkCellsClick() {
+    setDeleteDialogOpen(true)
+  }
 
+  function handleConfirmDelete() {
     const cellsToDelete = new Set(selectedCells)
     const updatedTodos = plannedTodos.filter(todo => {
       const cellKey = getCellKey(todo.studentId, todo.dayOfWeek)
@@ -315,6 +317,7 @@ export default function WeeklyPlannerPage() {
 
     setPlannedTodos(updatedTodos)
     clearCellSelection()
+    setDeleteDialogOpen(false)
 
     toast({
       title: '일괄 삭제 완료',
@@ -644,7 +647,7 @@ export default function WeeklyPlannerPage() {
                 </Button>
                 <Button
                   variant="destructive"
-                  onClick={deleteTodosFromBulkCells}
+                  onClick={deleteTodosFromBulkCellsClick}
                   disabled={selectedCells.size === 0}
                   className="gap-2"
                 >
@@ -1112,6 +1115,17 @@ export default function WeeklyPlannerPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <ConfirmationDialog
+          open={deleteDialogOpen}
+          onOpenChange={setDeleteDialogOpen}
+          title="정말로 삭제하시겠습니까?"
+          description={`선택한 ${selectedCells.size}개 셀의 모든 과제가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`}
+          confirmText="삭제"
+          variant="destructive"
+          onConfirm={handleConfirmDelete}
+        />
       </div>
     </PageWrapper>
   )

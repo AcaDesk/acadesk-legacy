@@ -8,6 +8,7 @@ import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Separator } from '@ui/separator'
+import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import { Download, Send, TrendingUp, TrendingDown, Minus, ChevronRight } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
@@ -42,6 +43,7 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
   const [report, setReport] = useState<Report | null>(null)
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
+  const [sendDialogOpen, setSendDialogOpen] = useState(false)
 
   const { toast } = useToast()
   const router = useRouter()
@@ -104,14 +106,14 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
     }
   }
 
-  async function handleSendToGuardian() {
+  function handleSendClick() {
+    setSendDialogOpen(true)
+  }
+
+  async function handleConfirmSend() {
     if (!report) return
 
     const studentName = report.content.studentName || report.students?.users?.name || '학생'
-
-    if (!confirm(`"${studentName}" 학생의 보호자에게 리포트를 전송하시겠습니까?`)) {
-      return
-    }
 
     setSending(true)
     try {
@@ -141,6 +143,7 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
       })
     } finally {
       setSending(false)
+      setSendDialogOpen(false)
     }
   }
 
@@ -252,9 +255,9 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
                 PDF 다운로드
               </Button>
               {!report.sent_at && (
-                <Button onClick={handleSendToGuardian} disabled={sending}>
+                <Button onClick={handleSendClick} disabled={sending}>
                   <Send className="h-4 w-4 mr-2" />
-                  {sending ? '전송 중...' : '보호자 전송'}
+                  보호자 전송
                 </Button>
               )}
             </div>
@@ -462,6 +465,22 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
           </CardContent>
         </Card>
       </div>
+
+      {/* Send Confirmation Dialog */}
+      <ConfirmationDialog
+        open={sendDialogOpen}
+        onOpenChange={setSendDialogOpen}
+        title="리포트를 전송하시겠습니까?"
+        description={
+          report
+            ? `"${report.content.studentName || report.students?.users?.name || '학생'}" 학생의 보호자에게 리포트를 전송합니다.`
+            : ''
+        }
+        confirmText="전송"
+        variant="default"
+        isLoading={sending}
+        onConfirm={handleConfirmSend}
+      />
 
       {/* Print Styles */}
       <style jsx global>{`

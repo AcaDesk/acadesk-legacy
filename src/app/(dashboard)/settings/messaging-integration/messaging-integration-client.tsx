@@ -4,11 +4,13 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
+import { PhoneInput } from '@ui/phone-input'
 import { Label } from '@ui/label'
 import { Badge } from '@ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Alert, AlertDescription } from '@ui/alert'
 import { Switch } from '@ui/switch'
+import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import {
   Select,
   SelectContent,
@@ -120,6 +122,7 @@ export function MessagingIntegrationClient({ config }: MessagingIntegrationClien
   const [testing, setTesting] = useState(false)
   const [toggling, setToggling] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
   const selectedProvider = providerInfo[formData.provider]
   const hasConfig = config !== null
@@ -238,11 +241,11 @@ export function MessagingIntegrationClient({ config }: MessagingIntegrationClien
     }
   }
 
-  async function handleDelete() {
-    if (!confirm('메시징 서비스 설정을 삭제하시겠습니까?\n\n삭제 후에는 메시지를 발송할 수 없습니다.')) {
-      return
-    }
+  function handleDeleteClick() {
+    setDeleteDialogOpen(true)
+  }
 
+  async function handleConfirmDelete() {
     setDeleting(true)
     try {
       const result = await deleteMessagingConfig()
@@ -265,6 +268,7 @@ export function MessagingIntegrationClient({ config }: MessagingIntegrationClien
       })
     } finally {
       setDeleting(false)
+      setDeleteDialogOpen(false)
     }
   }
 
@@ -443,14 +447,12 @@ export function MessagingIntegrationClient({ config }: MessagingIntegrationClien
               </div>
               <div>
                 <Label htmlFor="aligo_sender_phone">발신번호 *</Label>
-                <Input
+                <PhoneInput
                   id="aligo_sender_phone"
-                  type="tel"
                   value={formData.aligo_sender_phone}
-                  onChange={(e) => setFormData({ ...formData, aligo_sender_phone: e.target.value.replace(/[^0-9]/g, '') })}
-                  placeholder="01012345678 (하이픈 없이)"
+                  onChange={(value) => setFormData({ ...formData, aligo_sender_phone: value })}
+                  placeholder="010-0000-0000"
                   className="mt-2"
-                  maxLength={11}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   알리고에 등록 및 인증된 발신번호를 입력하세요
@@ -485,14 +487,12 @@ export function MessagingIntegrationClient({ config }: MessagingIntegrationClien
               </div>
               <div>
                 <Label htmlFor="solapi_sender_phone">발신번호 *</Label>
-                <Input
+                <PhoneInput
                   id="solapi_sender_phone"
-                  type="tel"
                   value={formData.solapi_sender_phone}
-                  onChange={(e) => setFormData({ ...formData, solapi_sender_phone: e.target.value.replace(/[^0-9]/g, '') })}
-                  placeholder="01012345678 (하이픈 없이)"
+                  onChange={(value) => setFormData({ ...formData, solapi_sender_phone: value })}
+                  placeholder="010-0000-0000"
                   className="mt-2"
-                  maxLength={11}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   솔라피에 등록 및 인증된 발신번호를 입력하세요
@@ -527,14 +527,12 @@ export function MessagingIntegrationClient({ config }: MessagingIntegrationClien
               </div>
               <div>
                 <Label htmlFor="nhncloud_sender_phone">발신번호 *</Label>
-                <Input
+                <PhoneInput
                   id="nhncloud_sender_phone"
-                  type="tel"
                   value={formData.nhncloud_sender_phone}
-                  onChange={(e) => setFormData({ ...formData, nhncloud_sender_phone: e.target.value.replace(/[^0-9]/g, '') })}
-                  placeholder="01012345678 (하이픈 없이)"
+                  onChange={(value) => setFormData({ ...formData, nhncloud_sender_phone: value })}
+                  placeholder="010-0000-0000"
                   className="mt-2"
-                  maxLength={11}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   NHN Cloud에 등록 및 인증된 발신번호를 입력하세요
@@ -549,9 +547,9 @@ export function MessagingIntegrationClient({ config }: MessagingIntegrationClien
               {saving ? '저장 중...' : '저장'}
             </Button>
             {hasConfig && (
-              <Button variant="outline" onClick={handleDelete} disabled={deleting}>
+              <Button variant="outline" onClick={handleDeleteClick} disabled={deleting}>
                 <Trash2 className="h-4 w-4 mr-2" />
-                {deleting ? '삭제 중...' : '설정 삭제'}
+                설정 삭제
               </Button>
             )}
           </div>
@@ -576,14 +574,12 @@ export function MessagingIntegrationClient({ config }: MessagingIntegrationClien
             <div className="space-y-4">
               <div>
                 <Label htmlFor="test_phone">테스트 수신 번호</Label>
-                <Input
+                <PhoneInput
                   id="test_phone"
-                  type="tel"
                   value={testPhone}
-                  onChange={(e) => setTestPhone(e.target.value.replace(/[^0-9]/g, ''))}
-                  placeholder="01012345678 (하이픈 없이)"
+                  onChange={setTestPhone}
+                  placeholder="010-0000-0000"
                   className="mt-2"
-                  maxLength={11}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   테스트 메시지를 받을 전화번호를 입력하세요
@@ -632,6 +628,18 @@ export function MessagingIntegrationClient({ config }: MessagingIntegrationClien
           </div>
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="메시징 서비스 설정을 삭제하시겠습니까?"
+        description="삭제 후에는 메시지를 발송할 수 없습니다. 이 작업은 되돌릴 수 없습니다."
+        confirmText="삭제"
+        variant="destructive"
+        isLoading={deleting}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   )
 }

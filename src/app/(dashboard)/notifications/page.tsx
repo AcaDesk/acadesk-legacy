@@ -22,6 +22,7 @@ import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { BulkMessageDialog } from '@/components/features/notifications/bulk-message-dialog'
 import { ManageTemplatesDialog } from '@/components/features/notifications/manage-templates-dialog'
+import { ConfirmationDialog } from '@ui/confirmation-dialog'
 
 interface NotificationLog {
   id: string
@@ -71,6 +72,7 @@ export default function NotificationsPage() {
   const [sendingReports, setSendingReports] = useState(false)
   const [sendMessageOpen, setSendMessageOpen] = useState(false)
   const [manageTemplatesOpen, setManageTemplatesOpen] = useState(false)
+  const [sendReportsDialogOpen, setSendReportsDialogOpen] = useState(false)
 
   const { toast } = useToast()
   const supabase = createClient()
@@ -166,11 +168,11 @@ export default function NotificationsPage() {
     }
   }
 
-  async function handleSendReports() {
-    if (!confirm('이번 달 리포트를 보호자에게 일괄 발송하시겠습니까?')) {
-      return
-    }
+  function handleSendReportsClick() {
+    setSendReportsDialogOpen(true)
+  }
 
+  async function handleConfirmSendReports() {
     setSendingReports(true)
 
     try {
@@ -200,6 +202,7 @@ export default function NotificationsPage() {
       })
     } finally {
       setSendingReports(false)
+      setSendReportsDialogOpen(false)
     }
   }
 
@@ -439,7 +442,7 @@ export default function NotificationsPage() {
                 <Button
                   variant="default"
                   size="sm"
-                  onClick={handleSendReports}
+                  onClick={handleSendReportsClick}
                   disabled={sendingReports || reportAutoSendStatus.pending === 0}
                 >
                   <Send className="h-3 w-3 mr-2" />
@@ -610,6 +613,18 @@ export default function NotificationsPage() {
         <ManageTemplatesDialog
           open={manageTemplatesOpen}
           onOpenChange={setManageTemplatesOpen}
+        />
+
+        {/* Send Reports Confirmation Dialog */}
+        <ConfirmationDialog
+          open={sendReportsDialogOpen}
+          onOpenChange={setSendReportsDialogOpen}
+          title="리포트 일괄 발송"
+          description="이번 달 리포트를 보호자에게 일괄 발송하시겠습니까? 발송 대기 중인 리포트가 모두 전송됩니다."
+          confirmText="발송"
+          variant="default"
+          isLoading={sendingReports}
+          onConfirm={handleConfirmSendReports}
         />
       </div>
     </PageWrapper>

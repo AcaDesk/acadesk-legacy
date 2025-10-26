@@ -20,6 +20,7 @@ import type {
   AttendanceSessionWithClass,
   AttendanceWithStudent,
 } from '@/core/types/attendance';
+import { ConfirmationDialog } from '@ui/confirmation-dialog';
 
 interface AttendanceCheckPageProps {
   session: AttendanceSessionWithClass;
@@ -47,6 +48,11 @@ export function AttendanceCheckPage({
   const [selectedStudent, setSelectedStudent] = useState<{ id: string; name: string } | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [updating, setUpdating] = useState(false);
+
+  // Bulk notify confirmation dialog state
+  const [notifyDialogOpen, setNotifyDialogOpen] = useState(false);
+  const [absentStudentsCount, setAbsentStudentsCount] = useState(0);
+  const [isNotifying, setIsNotifying] = useState(false);
 
   // Update timer every second
   useEffect(() => {
@@ -132,7 +138,7 @@ export function AttendanceCheckPage({
     }
   };
 
-  const handleBulkNotifyAbsent = async () => {
+  const handleBulkNotifyClick = () => {
     const absentStudents = students.filter(student => {
       const record = existingRecords.find(r => r.student_id === student.id);
       return record?.status === 'absent' || !record;
@@ -146,10 +152,17 @@ export function AttendanceCheckPage({
       return;
     }
 
-    if (!confirm(`${absentStudents.length}명의 보호자에게 결석 알림을 전송하시겠습니까?`)) {
-      return;
-    }
+    setAbsentStudentsCount(absentStudents.length);
+    setNotifyDialogOpen(true);
+  };
 
+  const handleConfirmNotify = async () => {
+    const absentStudents = students.filter(student => {
+      const record = existingRecords.find(r => r.student_id === student.id);
+      return record?.status === 'absent' || !record;
+    });
+
+    setIsNotifying(true);
     toast({
       title: '전송 중',
       description: `${absentStudents.length}명의 보호자에게 알림을 전송하고 있습니다...`,
@@ -182,6 +195,10 @@ export function AttendanceCheckPage({
         description: getErrorMessage(error),
         variant: 'destructive',
       });
+    } finally {
+      setIsNotifying(false);
+      setNotifyDialogOpen(false);
+      setAbsentStudentsCount(0);
     }
   };
 
@@ -330,7 +347,7 @@ export function AttendanceCheckPage({
           <Button
             size="lg"
             variant="outline"
-            onClick={handleBulkNotifyAbsent}
+            onClick={handleBulkNotifyClick}
             className="gap-2"
           >
             <Send className="h-5 w-5" />
@@ -448,6 +465,18 @@ export function AttendanceCheckPage({
           }}
         />
       )} */}
+
+      {/* Bulk Notify Confirmation Dialog */}
+      <ConfirmationDialog
+        open={notifyDialogOpen}
+        onOpenChange={setNotifyDialogOpen}
+        title="결석 알림 전송"
+        description={`${absentStudentsCount}명의 보호자에게 결석 알림을 전송하시겠습니까?`}
+        confirmText="전송"
+        variant="default"
+        isLoading={isNotifying}
+        onConfirm={handleConfirmNotify}
+      />
     </div>
   );
 }

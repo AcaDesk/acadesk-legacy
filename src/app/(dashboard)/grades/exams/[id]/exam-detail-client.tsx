@@ -18,6 +18,7 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { AssignStudentsDialog } from '@/components/features/exams/assign-students-dialog'
 import { createClient } from '@/lib/supabase/client'
+import { ConfirmationDialog } from '@ui/confirmation-dialog'
 
 interface Exam {
   id: string
@@ -55,6 +56,9 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
   const [students, setStudents] = useState<Student[]>([])
   const [loading, setLoading] = useState(true)
   const [showAssignDialog, setShowAssignDialog] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [studentToRemove, setStudentToRemove] = useState<{ id: string; name: string } | null>(null)
+  const [isRemoving, setIsRemoving] = useState(false)
 
   useEffect(() => {
     loadStudents()
@@ -100,23 +104,27 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
     }
   }
 
-  async function handleRemoveStudent(studentId: string, studentName: string) {
-    if (!confirm(`${studentName} 학생을 이 시험에서 제외하시겠습니까?\n\n해당 학생의 성적 데이터도 함께 삭제됩니다.`)) {
-      return
-    }
+  function handleRemoveClick(studentId: string, studentName: string) {
+    setStudentToRemove({ id: studentId, name: studentName })
+    setDeleteDialogOpen(true)
+  }
 
+  async function handleConfirmRemove() {
+    if (!studentToRemove) return
+
+    setIsRemoving(true)
     try {
       const { error } = await supabase
         .from('exam_scores')
         .delete()
         .eq('exam_id', exam.id)
-        .eq('student_id', studentId)
+        .eq('student_id', studentToRemove.id)
 
       if (error) throw error
 
       toast({
         title: '제외 완료',
-        description: `${studentName} 학생이 시험에서 제외되었습니다.`,
+        description: `${studentToRemove.name} 학생이 시험에서 제외되었습니다.`,
       })
 
       loadStudents()
@@ -127,6 +135,10 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
         description: '학생을 제외하는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
+    } finally {
+      setIsRemoving(false)
+      setDeleteDialogOpen(false)
+      setStudentToRemove(null)
     }
   }
 
@@ -261,7 +273,7 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => handleRemoveStudent(student.id, student.name)}
+                    onClick={() => handleRemoveClick(student.id, student.name)}
                   >
                     <Trash2 className="h-4 w-4 text-red-500" />
                   </Button>
@@ -302,6 +314,18 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
           loadStudents()
           setShowAssignDialog(false)
         }}
+      />
+
+      {/* Remove Student Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="학생을 시험에서 제외하시겠습니까?"
+        description={studentToRemove ? `"${studentToRemove.name}" 학생의 성적 데이터도 함께 삭제됩니다. 이 작업은 되돌릴 수 없습니다.` : ''}
+        confirmText="제외"
+        variant="destructive"
+        isLoading={isRemoving}
+        onConfirm={handleConfirmRemove}
       />
     </div>
   )

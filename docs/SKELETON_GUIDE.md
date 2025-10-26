@@ -679,6 +679,314 @@ if (confirm('삭제하시겠습니까?')) {
 />
 ```
 
+## 빈 상태 (EmptyState)
+
+### 개요
+
+위치: `src/components/ui/empty-state.tsx`
+
+데이터가 없는 상태를 사용자에게 친절하게 안내하고, 다음 행동을 유도하는 표준화된 컴포넌트입니다. 단순히 "데이터가 없습니다"라고만 표시하는 것이 아니라, 사용자에게 무엇을 해야 하는지 명확히 안내합니다.
+
+### 왜 EmptyState를 사용하나요?
+
+- 🎯 **명확한 안내**: 왜 비어있는지, 무엇을 할 수 있는지 명확히 전달
+- ✨ **행동 유도**: 액션 버튼으로 사용자의 다음 행동을 유도
+- 🎨 **일관성**: 앱 전체에서 동일한 빈 상태 UI/UX 제공
+- 😊 **친절함**: 아이콘과 설명으로 친근한 느낌 제공
+- 🔧 **유지보수**: 한 곳에서 모든 빈 상태 스타일 관리
+
+### 기본 사용법
+
+```tsx
+import { EmptyState } from '@ui/empty-state'
+import { Users } from 'lucide-react'
+import { Button } from '@ui/button'
+
+function StudentList({ students }) {
+  if (students.length === 0) {
+    return (
+      <EmptyState
+        icon={Users}
+        title="등록된 학생이 없습니다"
+        description="새로운 학생을 등록하여 시작하세요"
+        action={
+          <Button onClick={() => router.push('/students/new')}>
+            학생 등록
+          </Button>
+        }
+      />
+    )
+  }
+
+  return <Table data={students} />
+}
+```
+
+### Props
+
+| Prop | 타입 | 필수 | 기본값 | 설명 |
+|------|------|------|--------|------|
+| `icon` | `LucideIcon \| ReactNode` | ❌ | - | 표시할 아이콘 (LucideIcon 컴포넌트 또는 ReactNode) |
+| `title` | `string` | ✅ | - | 핵심 메시지 (제목) |
+| `description` | `string` | ❌ | - | 부가 설명 (선택) |
+| `action` | `ReactNode` | ❌ | - | 액션 버튼 또는 커스텀 액션 영역 |
+| `variant` | `"default" \| "minimal" \| "card"` | ❌ | `"default"` | 컨테이너 스타일 variant |
+| `className` | `string` | ❌ | - | 커스텀 className |
+| `iconClassName` | `string` | ❌ | `"text-muted-foreground"` | 아이콘 색상 클래스 |
+
+### Variants
+
+```tsx
+// default - dashed border (기본)
+<EmptyState variant="default" icon={Users} title="데이터 없음" />
+
+// minimal - border 없음 (최소한의 스타일)
+<EmptyState variant="minimal" icon={CheckCircle} title="모두 완료!" />
+
+// card - Card 스타일
+<EmptyState variant="card" icon={FileText} title="문서 없음" />
+```
+
+### 편의 컴포넌트 (Convenience Components)
+
+더 빠른 사용을 위한 특화된 컴포넌트들도 제공됩니다:
+
+#### 1. NoDataEmptyState
+
+데이터가 전혀 없을 때 사용하는 표준 EmptyState입니다.
+
+```tsx
+import { NoDataEmptyState } from '@ui/empty-state'
+import { Users } from 'lucide-react'
+
+<NoDataEmptyState
+  resourceName="학생"
+  onCreateClick={() => router.push('/students/new')}
+  createButtonText="학생 등록"
+  icon={Users}
+/>
+```
+
+#### 2. NoSearchResultsEmptyState
+
+검색 결과가 없을 때 사용하는 표준 EmptyState입니다.
+
+```tsx
+import { NoSearchResultsEmptyState } from '@ui/empty-state'
+import { Search } from 'lucide-react'
+
+<NoSearchResultsEmptyState
+  searchTerm={searchQuery}
+  onClearSearch={handleClearSearch}
+  icon={Search}
+/>
+```
+
+#### 3. NoFilterResultsEmptyState
+
+필터 조건과 일치하는 결과가 없을 때 사용하는 표준 EmptyState입니다.
+
+```tsx
+import { NoFilterResultsEmptyState } from '@ui/empty-state'
+import { Filter } from 'lucide-react'
+
+<NoFilterResultsEmptyState
+  onClearFilters={handleClearFilters}
+  icon={Filter}
+/>
+```
+
+### 실제 사용 예시
+
+#### 1. 보호자 테이블 (guardian-table-improved.tsx)
+
+검색 결과 여부에 따라 다른 EmptyState를 표시하는 패턴:
+
+```tsx
+import { EmptyState, NoSearchResultsEmptyState } from '@ui/empty-state'
+import { Users, Search } from 'lucide-react'
+
+{table.getRowModel().rows?.length ? (
+  <TableBody>
+    {/* ... 테이블 rows ... */}
+  </TableBody>
+) : (
+  <TableRow>
+    <TableCell colSpan={columns.length} className="p-0">
+      {globalFilter ? (
+        <NoSearchResultsEmptyState
+          searchTerm={globalFilter}
+          onClearSearch={() => setGlobalFilter('')}
+          icon={Search}
+        />
+      ) : (
+        <EmptyState
+          icon={Users}
+          title="등록된 보호자가 없습니다"
+          description="새로운 보호자를 등록하여 시작하세요"
+          action={
+            <Button onClick={() => router.push('/guardians/new')}>
+              보호자 등록
+            </Button>
+          }
+        />
+      )}
+    </TableCell>
+  </TableRow>
+)}
+```
+
+#### 2. 학생 테이블 (student-table-improved.tsx)
+
+기본 EmptyState 사용 예시:
+
+```tsx
+import { EmptyState } from '@ui/empty-state'
+import { GraduationCap } from 'lucide-react'
+
+{filteredData.length === 0 ? (
+  <EmptyState
+    icon={GraduationCap}
+    title="등록된 학생이 없습니다"
+    description="새로운 학생을 등록하여 시작하세요"
+    action={
+      <Button onClick={() => router.push('/students/new')}>
+        학생 등록
+      </Button>
+    }
+  />
+) : (
+  <Table data={filteredData} />
+)}
+```
+
+#### 3. 성공 상태 (모든 작업 완료)
+
+```tsx
+<EmptyState
+  icon={CheckCircle}
+  title="모든 과제를 완료했습니다!"
+  description="훌륭합니다. 새로운 과제가 등록되면 알려드리겠습니다."
+  variant="minimal"
+  iconClassName="text-green-500"
+/>
+```
+
+#### 4. 커스텀 아이콘 크기
+
+```tsx
+import { EmptyStateIcon } from '@ui/empty-state'
+import { Inbox } from 'lucide-react'
+
+<EmptyState
+  icon={<EmptyStateIcon icon={Inbox} className="h-16 w-16 text-blue-500" />}
+  title="받은 메시지가 없습니다"
+  description="새로운 메시지가 도착하면 여기에 표시됩니다"
+/>
+```
+
+### 시나리오별 사용 가이드
+
+| 시나리오 | 사용할 컴포넌트 | 예시 |
+|---------|--------------|------|
+| 첫 사용 (데이터 없음) | `EmptyState` | 학생 목록, 보호자 목록 |
+| 검색 결과 없음 | `NoSearchResultsEmptyState` | 검색 기능이 있는 테이블 |
+| 필터 결과 없음 | `NoFilterResultsEmptyState` | 필터 기능이 있는 리스트 |
+| 성공 상태 (모두 완료) | `EmptyState` (variant="minimal") | 할 일 목록 완료 |
+| 오류 상태 | 사용 금지 (ErrorFallback 사용) | - |
+
+### Best Practices
+
+#### ✅ DO
+
+```tsx
+// 명확한 제목과 설명 제공
+<EmptyState
+  title="등록된 학생이 없습니다"
+  description="새로운 학생을 등록하여 시작하세요"
+/>
+
+// 적절한 아이콘 사용
+<EmptyState icon={Users} title="사용자 없음" />
+<EmptyState icon={FileText} title="문서 없음" />
+
+// 행동 유도 버튼 제공
+<EmptyState
+  title="데이터 없음"
+  action={<Button onClick={handleCreate}>등록하기</Button>}
+/>
+
+// 검색/필터 결과가 없을 때 초기화 버튼 제공
+<NoSearchResultsEmptyState
+  searchTerm={query}
+  onClearSearch={handleClear}
+/>
+
+// 상황에 맞는 variant 사용
+<EmptyState variant="default" />  // 일반적인 경우
+<EmptyState variant="minimal" />  // 성공 상태
+<EmptyState variant="card" />     // Card 내부
+```
+
+#### ❌ DON'T
+
+```tsx
+// 단순 텍스트만 표시 금지
+<div className="text-center">데이터 없음</div>  // ❌
+
+// 불명확한 메시지
+<EmptyState title="없음" />  // ❌ 무엇이 없는지 불명확
+<EmptyState title="데이터가 없습니다" />  // ❌ 너무 일반적
+
+// 행동 유도 없음 (첫 사용 시)
+<EmptyState title="등록된 학생이 없습니다" />  // ❌ 어떻게 등록하는지?
+
+// 오류 상태에 EmptyState 사용
+<EmptyState title="오류가 발생했습니다" />  // ❌ ErrorFallback 사용
+
+// 아이콘 없이 사용
+<EmptyState title="데이터 없음" />  // ❌ 아이콘으로 시각적 안내 제공
+
+// 너무 긴 설명
+<EmptyState
+  description="현재 등록된 학생이 없습니다. 학생을 등록하려면..."  // ❌ 간결하게
+/>
+```
+
+### 아이콘 선택 가이드
+
+| 컨텍스트 | 추천 아이콘 | 예시 |
+|---------|----------|------|
+| 사용자/학생/보호자 | `Users`, `UserPlus`, `GraduationCap` | 학생 목록, 보호자 목록 |
+| 문서/파일 | `FileText`, `File`, `Files` | 리포트, 문서 목록 |
+| 검색 결과 | `Search`, `SearchX` | 검색 결과 없음 |
+| 할 일/과제 | `CheckCircle`, `ListTodo` | 완료된 할 일 목록 |
+| 메시지/알림 | `Inbox`, `Bell`, `MessageCircle` | 받은 메시지 |
+| 일정/이벤트 | `Calendar`, `CalendarX` | 일정 없음 |
+| 데이터/통계 | `BarChart`, `TrendingUp` | 분석 데이터 없음 |
+
+### 테이블에서 사용하기
+
+테이블에서 EmptyState를 사용할 때는 `TableCell`의 `colSpan`과 `className="p-0"`을 사용하여 전체 너비를 차지하도록 합니다:
+
+```tsx
+<TableBody>
+  {data.length > 0 ? (
+    data.map((row) => <TableRow key={row.id}>...</TableRow>)
+  ) : (
+    <TableRow>
+      <TableCell colSpan={columns.length} className="p-0">
+        <EmptyState
+          icon={Users}
+          title="데이터 없음"
+          description="새로운 항목을 추가하세요"
+        />
+      </TableCell>
+    </TableRow>
+  )}
+</TableBody>
+```
+
 ## 마무리
 
 이 스켈레톤 시스템을 활용하면:

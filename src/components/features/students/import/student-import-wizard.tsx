@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/c
 import { Alert, AlertDescription, AlertTitle } from '@ui/alert'
 import { Button } from '@ui/button'
 import { InfoIcon, CheckCircle } from 'lucide-react'
+import { useToast } from '@/hooks/use-toast'
 import { TemplateDownloadButton } from './template-download-button'
 import { FileUpload } from './file-upload'
 import { ImportPreview } from './import-preview'
@@ -20,6 +21,7 @@ import type { StudentImportPreview } from '@/core/types/student-import-preview'
 type Step = 'upload' | 'preview' | 'complete'
 
 export function StudentImportWizard() {
+  const { toast } = useToast()
   const [step, setStep] = useState<Step>('upload')
   const [items, setItems] = useState<StudentImportItem[]>([])
   const [allItems, setAllItems] = useState<StudentImportItem[]>([]) // 오류 리포트용
@@ -139,7 +141,11 @@ export function StudentImportWizard() {
       downloadErrorReport(allItems, invalidItems)
     } catch (err) {
       console.error('오류 리포트 다운로드 실패:', err)
-      alert('오류 리포트 다운로드에 실패했습니다.')
+      toast({
+        title: '다운로드 실패',
+        description: '오류 리포트 다운로드에 실패했습니다.',
+        variant: 'destructive',
+      })
     }
   }
 

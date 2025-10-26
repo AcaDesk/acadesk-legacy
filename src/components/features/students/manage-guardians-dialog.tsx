@@ -53,6 +53,7 @@ import { GuardianFormStandalone, type GuardianFormValues } from '@/components/fe
 import type { GuardianRelation, GuardianWithUser } from '@/core/types/guardian'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'motion/react'
+import { ConfirmationDialog } from '@ui/confirmation-dialog'
 
 const linkGuardianSchema = z.object({
   guardianId: z.string().min(1, '학부모를 선택해주세요'),
@@ -83,6 +84,11 @@ export function ManageGuardiansDialog({
   const [actionMode, setActionMode] = useState<'add' | 'link'>('add')
   const { toast } = useToast()
   const { user: currentUser } = useCurrentUser()
+
+  // Unlink confirmation dialog state
+  const [unlinkDialogOpen, setUnlinkDialogOpen] = useState(false)
+  const [guardianToUnlink, setGuardianToUnlink] = useState<{ id: string; name: string } | null>(null)
+  const [isUnlinking, setIsUnlinking] = useState(false)
 
   const linkForm = useForm<LinkGuardianFormValues>({
     resolver: zodResolver(linkGuardianSchema),
@@ -257,17 +263,18 @@ export function ManageGuardiansDialog({
     }
   }
 
-  async function handleUnlinkGuardian(guardianId: string, guardianName: string) {
-    if (!currentUser || !currentUser.tenantId) return
+  function handleUnlinkClick(guardianId: string, guardianName: string) {
+    setGuardianToUnlink({ id: guardianId, name: guardianName })
+    setUnlinkDialogOpen(true)
+  }
 
-    if (!confirm(`${guardianName} 학부모와의 연결을 해제하시겠습니까?`)) {
-      return
-    }
+  async function handleConfirmUnlink() {
+    if (!currentUser || !currentUser.tenantId || !guardianToUnlink) return
 
-    setLoading(true)
+    setIsUnlinking(true)
     try {
       // Server Action을 통한 보호자 연결 해제
-      const result = await unlinkGuardianFromStudent(studentId, guardianId)
+      const result = await unlinkGuardianFromStudent(studentId, guardianToUnlink.id)
 
       if (!result.success) {
         throw new Error(result.error || '연결 해제 실패')
@@ -275,7 +282,7 @@ export function ManageGuardiansDialog({
 
       toast({
         title: '연결 해제 완료',
-        description: `${guardianName} 학부모와의 연결이 해제되었습니다.`,
+        description: `${guardianToUnlink.name} 학부모와의 연결이 해제되었습니다.`,
       })
 
       loadLinkedGuardians()
@@ -288,7 +295,9 @@ export function ManageGuardiansDialog({
         variant: 'destructive',
       })
     } finally {
-      setLoading(false)
+      setIsUnlinking(false)
+      setUnlinkDialogOpen(false)
+      setGuardianToUnlink(null)
     }
   }
 
@@ -392,7 +401,7 @@ export function ManageGuardiansDialog({
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleUnlinkGuardian(guardian.id, guardian.name)}
+                              onClick={() => handleUnlinkClick(guardian.id, guardian.name)}
                               disabled={loading}
                               className="hover:bg-destructive/10 hover:text-destructive transition-colors"
                             >
@@ -562,6 +571,18 @@ export function ManageGuardiansDialog({
           </motion.div>
         </div>
       </DialogContent>
+
+      {/* Unlink Confirmation Dialog */}
+      <ConfirmationDialog
+        open={unlinkDialogOpen}
+        onOpenChange={setUnlinkDialogOpen}
+        title="학부모 연결 해제"
+        description={guardianToUnlink ? `${guardianToUnlink.name} 학부모와 ${studentName} 학생의 연결을 해제하시겠습니까?` : ''}
+        confirmText="연결 해제"
+        variant="destructive"
+        isLoading={isUnlinking}
+        onConfirm={handleConfirmUnlink}
+      />
     </Dialog>
   )
 }

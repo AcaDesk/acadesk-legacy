@@ -30,6 +30,7 @@ import {
   deleteMessageTemplate,
 } from '@/app/actions/messages'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { ConfirmationDialog } from '@ui/confirmation-dialog'
 
 interface MessageTemplate {
   id: string
@@ -60,6 +61,9 @@ export function ManageTemplatesDialog({
     category: 'general' as 'general' | 'report' | 'todo' | 'attendance' | 'event' | 'payment' | 'consultation',
   })
   const [saving, setSaving] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [templateToDelete, setTemplateToDelete] = useState<{ id: string; name: string } | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const { toast } = useToast()
 
@@ -181,13 +185,17 @@ export function ManageTemplatesDialog({
     }
   }
 
-  async function handleDelete(template: MessageTemplate) {
-    if (!confirm(`"${template.name}" 템플릿을 삭제하시겠습니까?`)) {
-      return
-    }
+  function handleDeleteClick(template: MessageTemplate) {
+    setTemplateToDelete({ id: template.id, name: template.name })
+    setDeleteDialogOpen(true)
+  }
 
+  async function handleConfirmDelete() {
+    if (!templateToDelete) return
+
+    setIsDeleting(true)
     try {
-      const result = await deleteMessageTemplate(template.id)
+      const result = await deleteMessageTemplate(templateToDelete.id)
 
       if (!result.success) {
         throw new Error(result.error || '템플릿 삭제 실패')
@@ -195,7 +203,7 @@ export function ManageTemplatesDialog({
 
       toast({
         title: '템플릿 삭제 완료',
-        description: `${template.name} 템플릿이 삭제되었습니다.`,
+        description: `${templateToDelete.name} 템플릿이 삭제되었습니다.`,
       })
 
       await loadTemplates()
@@ -206,6 +214,10 @@ export function ManageTemplatesDialog({
         description: getErrorMessage(error),
         variant: 'destructive',
       })
+    } finally {
+      setIsDeleting(false)
+      setDeleteDialogOpen(false)
+      setTemplateToDelete(null)
     }
   }
 
@@ -381,7 +393,7 @@ export function ManageTemplatesDialog({
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleDelete(template)}
+                        onClick={() => handleDeleteClick(template)}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
@@ -399,6 +411,18 @@ export function ManageTemplatesDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="템플릿을 삭제하시겠습니까?"
+        description={templateToDelete ? `"${templateToDelete.name}" 템플릿이 삭제됩니다. 이 작업은 되돌릴 수 없습니다.` : ''}
+        confirmText="삭제"
+        variant="destructive"
+        isLoading={isDeleting}
+        onConfirm={handleConfirmDelete}
+      />
     </Dialog>
   )
 }
