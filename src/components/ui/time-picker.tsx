@@ -5,6 +5,7 @@ import { Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from './button'
 import { Popover, PopoverContent, PopoverTrigger } from './popover'
+import { ScrollArea } from './scroll-area'
 
 // ============================================================================
 // Types
@@ -64,44 +65,49 @@ export interface TimePickerProps {
 /**
  * Parse time string to hour and minute
  */
-function parseTime(time: string): { hour: number; minute: number; period: 'AM' | 'PM' } {
+function parseTime(time: string): { hour24: number; minute: number } {
   const [hourStr, minuteStr] = time.split(':')
   const hour24 = parseInt(hourStr, 10)
   const minute = parseInt(minuteStr, 10)
-
-  const period = hour24 >= 12 ? 'PM' : 'AM'
-  const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24
-
-  return { hour: hour12, minute, period }
-}
-
-/**
- * Convert 12-hour format to 24-hour format
- */
-function to24Hour(hour12: number, period: 'AM' | 'PM'): number {
-  if (period === 'AM') {
-    return hour12 === 12 ? 0 : hour12
-  } else {
-    return hour12 === 12 ? 12 : hour12 + 12
-  }
+  return { hour24, minute }
 }
 
 /**
  * Format time string for display
  */
 function formatTimeDisplay(time: string): string {
-  const { hour, minute, period } = parseTime(time)
-  const periodText = period === 'AM' ? '오전' : '오후'
-  return `${periodText} ${hour}:${minute.toString().padStart(2, '0')}`
+  const { hour24, minute } = parseTime(time)
+  const period = hour24 >= 12 ? '오후' : '오전'
+  const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24
+  return `${period} ${hour12}:${minute.toString().padStart(2, '0')}`
+}
+
+/**
+ * Generate hour options (0-23)
+ */
+function generateHourOptions(): Array<{ hour24: number; label: string }> {
+  const hours: Array<{ hour24: number; label: string }> = []
+  for (let h = 0; h < 24; h++) {
+    const period = h >= 12 ? '오후' : '오전'
+    const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h
+    hours.push({
+      hour24: h,
+      label: `${period} ${hour12}시`,
+    })
+  }
+  return hours
 }
 
 /**
  * Generate minute options based on interval
  */
-function generateMinuteOptions(interval: number): number[] {
-  const minutes: number[] = []
+function generateMinuteOptions(interval: number): Array<{ minute: number; label: string }> {
+  const minutes: Array<{ minute: number; label: string }> = []
   for (let m = 0; m < 60; m += interval) {
-    minutes.push(m)
+    minutes.push({
+      minute: m,
+      label: `${m.toString().padStart(2, '0')}분`,
+    })
   }
   return minutes
 }
@@ -113,18 +119,19 @@ function generateMinuteOptions(interval: number): number[] {
 /**
  * TimePicker Component
  *
- * 개선된 시간 선택 컴포넌트
+ * 듀얼 컬럼 방식의 직관적인 시간 선택 컴포넌트
  *
  * ## 주요 기능
- * - 큰 오전/오후 토글 버튼 (향상된 UX)
- * - 시간 그리드 (1-12)
- * - 분 그리드 (interval 기반)
+ * - 왼쪽: 시간 선택 컬럼 (오전 12시 ~ 오후 11시)
+ * - 오른쪽: 분 선택 컬럼 (interval 기반)
+ * - ScrollArea를 사용한 효율적인 탐색
  * - React Hook Form 완벽 호환
  *
  * ## UI/UX 개선
- * - 오전/오후 버튼을 크게 표시하여 선택이 쉬워짐
- * - 탭 전환 없이 모든 선택 항목을 한 화면에 표시
- * - 선택된 시간/분을 시각적으로 강조
+ * - 스크롤 최소화: 시간과 분을 분리하여 빠른 탐색
+ * - 직관적 경험: "시간 먼저, 분 나중" 멘탈 모델과 일치
+ * - 간결한 UI: 7~8개 항목만 표시하는 컴팩트한 디자인
+ * - 자동 선택: 시간과 분 모두 선택 시 자동으로 완료
  *
  * ## 사용 예시
  *
@@ -168,50 +175,45 @@ export const TimePicker = React.forwardRef<HTMLButtonElement, TimePickerProps>(
     const currentTime = value ? parseTime(value) : null
 
     // Local state for time selection
-    const [selectedPeriod, setSelectedPeriod] = React.useState<'AM' | 'PM'>(
-      currentTime?.period || 'AM'
-    )
-    const [selectedHour, setSelectedHour] = React.useState<number | null>(
-      currentTime?.hour || null
+    const [selectedHour24, setSelectedHour24] = React.useState<number | null>(
+      currentTime?.hour24 ?? null
     )
     const [selectedMinute, setSelectedMinute] = React.useState<number | null>(
       currentTime?.minute ?? null
     )
 
     // Generate options
-    const hours = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-    const minutes = React.useMemo(() => generateMinuteOptions(interval), [interval])
+    const hourOptions = React.useMemo(() => generateHourOptions(), [])
+    const minuteOptions = React.useMemo(() => generateMinuteOptions(interval), [interval])
 
     // Update local state when value changes
     React.useEffect(() => {
       if (value) {
         const parsed = parseTime(value)
-        setSelectedPeriod(parsed.period)
-        setSelectedHour(parsed.hour)
+        setSelectedHour24(parsed.hour24)
         setSelectedMinute(parsed.minute)
       }
     }, [value])
 
-    const handleTimeSelect = (hour: number, minute: number, period: 'AM' | 'PM') => {
-      const hour24 = to24Hour(hour, period)
+    const handleTimeSelect = (hour24: number, minute: number) => {
       const timeString = `${hour24.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
       onChange?.(timeString)
       setOpen(false)
     }
 
-    const handleHourClick = (hour: number) => {
-      setSelectedHour(hour)
+    const handleHourClick = (hour24: number) => {
+      setSelectedHour24(hour24)
       // If minute is already selected, complete the selection
       if (selectedMinute !== null) {
-        handleTimeSelect(hour, selectedMinute, selectedPeriod)
+        handleTimeSelect(hour24, selectedMinute)
       }
     }
 
     const handleMinuteClick = (minute: number) => {
       setSelectedMinute(minute)
       // If hour is already selected, complete the selection
-      if (selectedHour !== null) {
-        handleTimeSelect(selectedHour, minute, selectedPeriod)
+      if (selectedHour24 !== null) {
+        handleTimeSelect(selectedHour24, minute)
       }
     }
 
@@ -234,80 +236,57 @@ export const TimePicker = React.forwardRef<HTMLButtonElement, TimePickerProps>(
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align={align}>
-          <div className="p-4 space-y-4">
-            {/* AM/PM Toggle - 큰 버튼으로 개선 */}
-            <div>
-              <p className="text-sm font-medium mb-2 text-muted-foreground">오전/오후</p>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  type="button"
-                  variant={selectedPeriod === 'AM' ? 'default' : 'outline'}
-                  size="lg"
-                  className={cn(
-                    'h-12 text-base font-semibold',
-                    selectedPeriod === 'AM' && 'bg-primary text-primary-foreground'
-                  )}
-                  onClick={() => setSelectedPeriod('AM')}
-                >
-                  오전
-                </Button>
-                <Button
-                  type="button"
-                  variant={selectedPeriod === 'PM' ? 'default' : 'outline'}
-                  size="lg"
-                  className={cn(
-                    'h-12 text-base font-semibold',
-                    selectedPeriod === 'PM' && 'bg-primary text-primary-foreground'
-                  )}
-                  onClick={() => setSelectedPeriod('PM')}
-                >
-                  오후
-                </Button>
+          <div className="flex">
+            {/* Hour Column */}
+            <div className="flex-1 border-r">
+              <div className="px-3 py-2 border-b bg-muted/50">
+                <p className="text-xs font-medium text-muted-foreground text-center">시간</p>
               </div>
+              <ScrollArea className="h-[240px]">
+                <div className="px-1 py-1">
+                  {hourOptions.map((option) => (
+                    <button
+                      key={option.hour24}
+                      type="button"
+                      onClick={() => handleHourClick(option.hour24)}
+                      className={cn(
+                        'w-full px-3 py-2 text-sm rounded-md text-center transition-colors',
+                        'hover:bg-accent hover:text-accent-foreground',
+                        selectedHour24 === option.hour24 &&
+                          'bg-primary text-primary-foreground hover:bg-primary/90'
+                      )}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </ScrollArea>
             </div>
 
-            {/* Hour Selection */}
-            <div>
-              <p className="text-sm font-medium mb-2 text-muted-foreground">시</p>
-              <div className="grid grid-cols-6 gap-1">
-                {hours.map((hour) => (
-                  <Button
-                    key={hour}
-                    type="button"
-                    variant={selectedHour === hour ? 'default' : 'outline'}
-                    size="sm"
-                    className={cn(
-                      'h-9 px-2',
-                      selectedHour === hour && 'bg-primary text-primary-foreground'
-                    )}
-                    onClick={() => handleHourClick(hour)}
-                  >
-                    {hour}
-                  </Button>
-                ))}
+            {/* Minute Column */}
+            <div className="flex-1">
+              <div className="px-3 py-2 border-b bg-muted/50">
+                <p className="text-xs font-medium text-muted-foreground text-center">분</p>
               </div>
-            </div>
-
-            {/* Minute Selection */}
-            <div>
-              <p className="text-sm font-medium mb-2 text-muted-foreground">분</p>
-              <div className="grid grid-cols-6 gap-1">
-                {minutes.map((minute) => (
-                  <Button
-                    key={minute}
-                    type="button"
-                    variant={selectedMinute === minute ? 'default' : 'outline'}
-                    size="sm"
-                    className={cn(
-                      'h-9 px-2',
-                      selectedMinute === minute && 'bg-primary text-primary-foreground'
-                    )}
-                    onClick={() => handleMinuteClick(minute)}
-                  >
-                    {minute.toString().padStart(2, '0')}
-                  </Button>
-                ))}
-              </div>
+              <ScrollArea className="h-[240px]">
+                <div className="px-1 py-1">
+                  {minuteOptions.map((option) => (
+                    <button
+                      key={option.minute}
+                      type="button"
+                      onClick={() => handleMinuteClick(option.minute)}
+                      className={cn(
+                        'w-full px-3 py-2 text-sm rounded-md text-center transition-colors',
+                        'hover:bg-accent hover:text-accent-foreground',
+                        selectedMinute === option.minute &&
+                          'bg-primary text-primary-foreground hover:bg-primary/90'
+                      )}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </ScrollArea>
             </div>
           </div>
         </PopoverContent>
