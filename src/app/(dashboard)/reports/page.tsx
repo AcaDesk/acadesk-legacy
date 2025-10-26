@@ -118,7 +118,7 @@ export default function ReportsPage() {
 
       if (reportsError) throw reportsError
 
-      let filtered = reportsData as unknown as Report[]
+      let filtered = reportsData as unknown as ReportWithStudent[]
 
       // Apply search filter (client-side for now due to joined table complexity)
       if (currentSearch) {
