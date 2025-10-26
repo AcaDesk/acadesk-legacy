@@ -16,6 +16,7 @@ import { Repeat } from 'lucide-react'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
+import { ClassSelector } from '@/components/features/common/class-selector'
 
 interface ExamCategory {
   code: string
@@ -280,22 +281,12 @@ export default function NewExamTemplatePage() {
               {/* Class */}
               <div className="space-y-2">
                 <Label htmlFor="class">수업</Label>
-                <Select
-                  value={classId || undefined}
-                  onValueChange={(value) => setClassId(value === 'none' ? '' : value)}
-                >
-                  <SelectTrigger id="class">
-                    <SelectValue placeholder="수업 선택 (선택사항)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">선택 안 함</SelectItem>
-                    {classes.map((cls) => (
-                      <SelectItem key={cls.id} value={cls.id}>
-                        {cls.name} {cls.subject && `- ${cls.subject}`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <ClassSelector
+                  value={classId}
+                  onChange={setClassId}
+                  placeholder="수업 선택 (선택사항)"
+                  classes={classes.map(cls => ({ ...cls, active: true }))}
+                />
                 <p className="text-xs text-muted-foreground">
                   특정 수업과 연결하려면 선택하세요
                 </p>
