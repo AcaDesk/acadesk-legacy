@@ -124,7 +124,7 @@ export default function ReportsPage() {
       if (currentSearch) {
         const search = currentSearch.toLowerCase()
         filtered = filtered.filter((report) => {
-          const studentName = report.students?.user_id?.name?.toLowerCase() || ''
+          const studentName = report.students?.users?.name?.toLowerCase() || ''
           const studentCode = report.students?.student_code?.toLowerCase() || ''
           return studentName.includes(search) || studentCode.includes(search)
         })
@@ -339,7 +339,7 @@ export default function ReportsPage() {
                           <TableCell>
                             <div>
                               <div className="font-medium">
-                                {report.students?.user_id?.name || '이름 없음'}
+                                {report.students?.users?.name || '이름 없음'}
                               </div>
                               <div className="text-xs text-muted-foreground">
                                 {report.students?.student_code}
@@ -407,7 +407,7 @@ export default function ReportsPage() {
                                   onClick={() =>
                                     handleSendClick(
                                       report.id,
-                                      report.students?.user_id?.name || '학생'
+                                      report.students?.users?.name || '학생'
                                     )
                                   }
                                 >

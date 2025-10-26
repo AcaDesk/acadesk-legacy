@@ -93,7 +93,7 @@ export default function ReportsPage() {
 
       toast({
         title: '리포트 생성 완료',
-        description: `${result.data.student.name}의 ${selectedYear}년 ${selectedMonth}월 리포트가 생성되었습니다.`,
+        description: `${result.data.studentName || result.data.student?.name || '학생'}의 ${selectedYear}년 ${selectedMonth}월 리포트가 생성되었습니다.`,
       })
 
       // Redirect to report detail page
