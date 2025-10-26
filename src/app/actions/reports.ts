@@ -986,6 +986,82 @@ export async function prepareReportSending(reportId: string) {
 }
 
 /**
+ * 강사 코멘트 업데이트
+ *
+ * @param reportId - 리포트 ID
+ * @param comment - 코멘트 객체
+ * @returns Success or error
+ */
+export async function updateReportComment(
+  reportId: string,
+  comment: {
+    summary: string
+    strengths: string
+    improvements: string
+    nextGoals: string
+  }
+): Promise<{ success: boolean; error: string | null }> {
+  try {
+    // 1. Verify authentication and get tenant
+    const { tenantId } = await verifyStaff()
+
+    // 2. Create service_role client
+    const supabase = createServiceRoleClient()
+
+    // 3. Fetch current report to verify ownership
+    const { data: report, error: fetchError } = await supabase
+      .from('reports')
+      .select('content, tenant_id')
+      .eq('id', reportId)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .single()
+
+    if (fetchError || !report) {
+      throw new Error('리포트를 찾을 수 없습니다.')
+    }
+
+    // 4. Update content with new comment (JSON format)
+    const updatedContent = {
+      ...report.content,
+      // New structured comment format (JSON object)
+      comment: {
+        summary: comment.summary,
+        strengths: comment.strengths,
+        improvements: comment.improvements,
+        nextGoals: comment.nextGoals,
+      },
+      // Keep legacy fields for backward compatibility
+      instructorComment: comment.summary,
+      overallComment: comment.summary,
+    }
+
+    // 5. Update report
+    const { error: updateError } = await supabase
+      .from('reports')
+      .update({ content: updatedContent })
+      .eq('id', reportId)
+
+    if (updateError) throw updateError
+
+    // 6. Revalidate paths
+    revalidatePath(`/reports/${reportId}`)
+    revalidatePath('/reports')
+
+    return {
+      success: true,
+      error: null,
+    }
+  } catch (error) {
+    console.error('[updateReportComment] Error:', error)
+    return {
+      success: false,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
  * 리포트 전송 실행 (알리고 API 호출)
  *
  * @param reportSendId - report_sends.id
