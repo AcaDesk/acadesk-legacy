@@ -18,7 +18,7 @@ import {
 } from '@ui/dialog'
 import { Textarea } from '@ui/textarea'
 import { Label } from '@ui/label'
-import { Download, Send, ChevronRight } from 'lucide-react'
+import { Download, Send, ChevronRight, Edit2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import type { ReportData } from '@/core/types/report-entity'
