@@ -254,10 +254,9 @@ export const BREADCRUMB_CONFIG: BreadcrumbConfig = {
   '/textbooks/[id]/edit': '교재 수정',
 
   // Reports (보고서)
-  '/reports': '보고서',
-  '/reports/list': '보고서 목록',
-  '/reports/bulk': '보고서 대량 생성',
-  '/reports/new': '보고서 작성',
+  '/reports': '리포트 관리',
+  '/reports/bulk': '일괄 생성',
+  '/reports/new': '개별 생성',
   '/reports/[id]': getReportTitle,
   '/reports/[id]/edit': '보고서 수정',
 
