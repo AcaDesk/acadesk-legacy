@@ -64,6 +64,7 @@ import {
 } from '@ui/table'
 import { Badge } from '@ui/badge'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
+import { EmptyState } from '@ui/empty-state'
 import { getStudentAvatar } from '@/lib/avatar'
 import { cn } from '@/lib/utils'
 import { BulkActionsDialog } from './bulk-actions-dialog'
@@ -843,15 +844,14 @@ export function StudentTableImproved({
                       </span>
                     </motion.div>
                   ) : (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="text-center text-muted-foreground"
-                    >
-                      <UserCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                      <p>등록된 학생이 없습니다.</p>
-                    </motion.div>
+                    <div className="py-0">
+                      <EmptyState
+                        icon={UserCircle}
+                        title="등록된 학생이 없습니다"
+                        description="새로운 학생을 등록하여 시작하세요"
+                        variant="minimal"
+                      />
+                    </div>
                   )}
                 </TableCell>
               </TableRow>
