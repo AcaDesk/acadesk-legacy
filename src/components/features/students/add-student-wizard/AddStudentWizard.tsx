@@ -142,7 +142,11 @@ export function AddStudentWizard({ open, onOpenChange, onSuccess, initialValues 
   // Step Navigation
   // ============================================================================
 
-  async function handleNext() {
+  async function handleNext(e?: React.MouseEvent) {
+    // Form submit 방지 (혹시 모를 이벤트 전파 차단)
+    e?.preventDefault()
+    e?.stopPropagation()
+
     let fieldsToValidate: (keyof StudentWizardFormValues)[] = []
 
     if (currentStep === 1) {
@@ -456,7 +460,7 @@ export function AddStudentWizard({ open, onOpenChange, onSuccess, initialValues 
                       나중에 입력하기
                     </Button>
                   )}
-                  <Button type="button" onClick={handleNext}>
+                  <Button type="button" onClick={(e) => handleNext(e)}>
                     다음
                     <ChevronRight className="h-4 w-4 ml-2" />
                   </Button>
