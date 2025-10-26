@@ -36,6 +36,7 @@ import { Switch } from '@ui/switch'
 import { EVENT_TYPE_CONFIG } from '@/core/types/calendar'
 import { Plus, Loader2 } from 'lucide-react'
 import { DatePicker } from '@ui/date-picker'
+import { TimePicker } from '@ui/time-picker'
 
 const eventFormSchema = z.object({
   title: z.string().min(1, '제목을 입력해주세요'),
@@ -237,7 +238,12 @@ export function AddEventModal({
                     <FormItem>
                       <FormLabel>시작 시간</FormLabel>
                       <FormControl>
-                        <Input type="time" {...field} />
+                        <TimePicker
+                          value={field.value}
+                          onChange={field.onChange}
+                          placeholder="시작 시간 선택"
+                          interval={30}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -275,7 +281,12 @@ export function AddEventModal({
                     <FormItem>
                       <FormLabel>종료 시간</FormLabel>
                       <FormControl>
-                        <Input type="time" {...field} />
+                        <TimePicker
+                          value={field.value}
+                          onChange={field.onChange}
+                          placeholder="종료 시간 선택"
+                          interval={30}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
