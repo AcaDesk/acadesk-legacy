@@ -1,25 +1,53 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { Plus, Upload } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
 import { PageHeader } from '@ui/page-header'
 import { StudentList } from '@/components/features/students/student-list'
 import { StudentListSkeleton } from '@/components/features/students/student-list-skeleton'
-import { AddStudentWizard } from '@/components/features/students/add-student-wizard'
+import { AddStudentWizard, type StudentInitialValues } from '@/components/features/students/add-student-wizard'
 import { RoleGuard } from '@/components/auth/role-guard'
 import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/page-error-boundary'
 
 export default function StudentsPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [initialValues, setInitialValues] = useState<StudentInitialValues | undefined>()
+
+  // Check for query parameters from consultation
+  useEffect(() => {
+    const fromConsultation = searchParams.get('fromConsultation')
+    const name = searchParams.get('name')
+    const guardianName = searchParams.get('guardianName')
+    const guardianPhone = searchParams.get('guardianPhone')
+
+    if (fromConsultation) {
+      // Set initial values
+      setInitialValues({
+        consultationId: fromConsultation,
+        name: name || undefined,
+        guardianName: guardianName || undefined,
+        guardianPhone: guardianPhone || undefined,
+      })
+
+      // Auto-open dialog
+      setAddDialogOpen(true)
+
+      // Clear query parameters to avoid re-opening on refresh
+      router.replace('/students', { scroll: false })
+    }
+  }, [searchParams, router])
 
   const handleStudentAdded = () => {
     // Trigger refresh of student list
     setRefreshKey(prev => prev + 1)
+    // Clear initial values after adding
+    setInitialValues(undefined)
   }
 
   return (
@@ -67,6 +95,7 @@ export default function StudentsPage() {
         open={addDialogOpen}
         onOpenChange={setAddDialogOpen}
         onSuccess={handleStudentAdded}
+        initialValues={initialValues}
       />
     </div>
     </PageErrorBoundary>

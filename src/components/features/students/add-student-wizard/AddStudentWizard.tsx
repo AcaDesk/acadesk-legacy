@@ -285,10 +285,10 @@ export function AddStudentWizard({ open, onOpenChange, onSuccess, initialValues 
       }
 
       // If this student was created from a consultation, mark it as converted
-      if (consultationId && result.data?.id) {
+      if (consultationId && result.data?.studentId) {
         try {
           const { convertLeadToStudent } = await import('@/app/actions/consultations')
-          const convertResult = await convertLeadToStudent(consultationId, result.data.id)
+          const convertResult = await convertLeadToStudent(consultationId, result.data.studentId)
 
           if (!convertResult.success) {
             console.error('Failed to mark consultation as converted:', convertResult.error)

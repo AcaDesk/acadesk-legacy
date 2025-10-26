@@ -1,2 +1,2 @@
-// Re-export main component
-export { AddStudentWizard } from './AddStudentWizard'
+// Re-export main component and types
+export { AddStudentWizard, type StudentInitialValues } from './AddStudentWizard'
