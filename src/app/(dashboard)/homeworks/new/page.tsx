@@ -2,12 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
 import { Textarea } from '@ui/textarea'
 import { Label } from '@ui/label'
-import { Checkbox } from '@ui/checkbox'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@ui/card'
 import {
   Select,
@@ -16,28 +14,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ui/select'
-import { Badge } from '@ui/badge'
-import { Search, BookCopy, User } from 'lucide-react'
+import { BookCopy } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { createHomework } from '@/app/actions/homeworks'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { DatePicker } from '@ui/date-picker'
-
-interface Student {
-  id: string
-  student_code: string
-  user_id: {
-    name: string
-  } | null
-}
+import { StudentSearch } from '@/components/features/students/student-search'
 
 export default function NewHomeworkPage() {
-  const [students, setStudents] = useState<Student[]>([])
-  const [filteredStudents, setFilteredStudents] = useState<Student[]>([])
-  const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set())
-  const [searchTerm, setSearchTerm] = useState('')
-  const [loading, setLoading] = useState(true)
+  const [selectedStudents, setSelectedStudents] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
 
   // Form data
@@ -49,78 +35,13 @@ export default function NewHomeworkPage() {
 
   const { toast } = useToast()
   const router = useRouter()
-  const supabase = createClient()
 
   useEffect(() => {
-    loadStudents()
     // Set default due date to 7 days from now
     const defaultDueDate = new Date()
     defaultDueDate.setDate(defaultDueDate.getDate() + 7)
     setDueDate(defaultDueDate)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  useEffect(() => {
-    filterStudents()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, students])
-
-  async function loadStudents() {
-    try {
-      setLoading(true)
-      const { data, error } = await supabase
-        .from('students')
-        .select('id, student_code, user_id!inner(name)')
-        .is('deleted_at', null)
-        .order('student_code')
-
-      if (error) throw error
-      setStudents(data as unknown as Student[])
-      setFilteredStudents(data as unknown as Student[])
-    } catch (error) {
-      console.error('Error loading students:', error)
-      toast({
-        title: '학생 목록 로드 오류',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  function filterStudents() {
-    if (!searchTerm) {
-      setFilteredStudents(students)
-      return
-    }
-
-    const search = searchTerm.toLowerCase()
-    const filtered = students.filter(
-      (s) =>
-        s.user_id?.name?.toLowerCase().includes(search) ||
-        s.student_code?.toLowerCase().includes(search)
-    )
-    setFilteredStudents(filtered)
-  }
-
-  function toggleStudent(studentId: string) {
-    const newSelected = new Set(selectedStudents)
-    if (newSelected.has(studentId)) {
-      newSelected.delete(studentId)
-    } else {
-      newSelected.add(studentId)
-    }
-    setSelectedStudents(newSelected)
-  }
-
-  function toggleAll() {
-    if (selectedStudents.size === filteredStudents.length) {
-      setSelectedStudents(new Set())
-    } else {
-      setSelectedStudents(new Set(filteredStudents.map((s) => s.id)))
-    }
-  }
 
   async function handleSubmit() {
     if (!title.trim()) {
@@ -132,7 +53,7 @@ export default function NewHomeworkPage() {
       return
     }
 
-    if (selectedStudents.size === 0) {
+    if (selectedStudents.length === 0) {
       toast({
         title: '학생 선택 필요',
         description: '최소 한 명의 학생을 선택해주세요.',
@@ -154,7 +75,7 @@ export default function NewHomeworkPage() {
 
     try {
       const result = await createHomework({
-        studentIds: Array.from(selectedStudents),
+        studentIds: selectedStudents,
         title: title.trim(),
         description: description.trim() || undefined,
         subject: subject.trim() || undefined,
@@ -168,7 +89,7 @@ export default function NewHomeworkPage() {
 
       toast({
         title: '숙제 출제 완료',
-        description: `${selectedStudents.size}명의 학생에게 숙제가 출제되었습니다.`,
+        description: `${selectedStudents.length}명의 학생에게 숙제가 출제되었습니다.`,
       })
 
       router.push('/homeworks')
@@ -200,59 +121,17 @@ export default function NewHomeworkPage() {
               <CardTitle>학생 선택</CardTitle>
               <CardDescription>숙제를 받을 학생을 선택하세요</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="학생 검색..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <Badge variant="secondary">
-                  {selectedStudents.size}명 선택됨
-                </Badge>
-                <Button variant="outline" size="sm" onClick={toggleAll}>
-                  {selectedStudents.size === filteredStudents.length ? '전체 해제' : '전체 선택'}
-                </Button>
-              </div>
-
-              <div className="border rounded-lg p-2 max-h-96 overflow-y-auto">
-                {loading ? (
-                  <div className="text-center py-8 text-muted-foreground">로딩 중...</div>
-                ) : filteredStudents.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <User className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                    <p>학생이 없습니다</p>
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    {filteredStudents.map((student) => (
-                      <div
-                        key={student.id}
-                        className="flex items-center gap-3 p-2 hover:bg-muted rounded cursor-pointer"
-                        onClick={() => toggleStudent(student.id)}
-                      >
-                        <Checkbox
-                          checked={selectedStudents.has(student.id)}
-                          onCheckedChange={() => toggleStudent(student.id)}
-                        />
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">
-                            {student.user_id?.name || '이름 없음'}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {student.student_code}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+            <CardContent>
+              <StudentSearch
+                mode="multiple"
+                variant="checkbox-list"
+                value={selectedStudents}
+                onChange={setSelectedStudents}
+                searchable={true}
+                showSelectAll={true}
+                showSelectedCount={true}
+                placeholder="학생 검색..."
+              />
             </CardContent>
           </Card>
 
@@ -342,10 +221,10 @@ export default function NewHomeworkPage() {
                 <Button
                   className="flex-1"
                   onClick={handleSubmit}
-                  disabled={submitting || selectedStudents.size === 0}
+                  disabled={submitting || selectedStudents.length === 0}
                 >
                   <BookCopy className="h-4 w-4 mr-2" />
-                  {submitting ? '출제 중...' : `${selectedStudents.size}명에게 출제`}
+                  {submitting ? '출제 중...' : `${selectedStudents.length}명에게 출제`}
                 </Button>
               </div>
             </CardContent>

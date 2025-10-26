@@ -1,13 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@ui/button'
-import { Input } from '@ui/input'
 import { Textarea } from '@ui/textarea'
 import { Label } from '@ui/label'
-import { Badge } from '@ui/badge'
-import { Checkbox } from '@ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -16,25 +12,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@ui/select'
-import { Search, Send, Users, MessageSquare } from 'lucide-react'
+import { Send, MessageSquare } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { sendMessages, getMessageTemplates } from '@/app/actions/messages'
 import { getErrorMessage } from '@/lib/error-handlers'
-
-interface Student {
-  id: string
-  student_code: string
-  user_id: {
-    name: string
-  } | null
-}
+import { StudentSearch } from '@/components/features/students/student-search'
 
 interface MessageTemplate {
   id: string
@@ -55,53 +37,19 @@ export function BulkMessageDialog({
   onOpenChange,
   onMessageSent,
 }: BulkMessageDialogProps) {
-  const [students, setStudents] = useState<Student[]>([])
-  const [filteredStudents, setFilteredStudents] = useState<Student[]>([])
-  const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set())
-  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedStudents, setSelectedStudents] = useState<string[]>([])
   const [message, setMessage] = useState('')
   const [templates, setTemplates] = useState<MessageTemplate[]>([])
   const [sending, setSending] = useState(false)
-  const [loading, setLoading] = useState(true)
 
   const { toast } = useToast()
-  const supabase = createClient()
 
   useEffect(() => {
     if (open) {
-      loadStudents()
       loadTemplates()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
-
-  useEffect(() => {
-    filterStudents()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, students])
-
-  async function loadStudents() {
-    try {
-      setLoading(true)
-      const { data, error } = await supabase
-        .from('students')
-        .select('id, student_code, user_id!inner(name)')
-        .is('deleted_at', null)
-        .order('student_code')
-
-      if (error) throw error
-      setStudents(data as unknown as Student[])
-    } catch (error) {
-      console.error('Error loading students:', error)
-      toast({
-        title: '학생 목록 로드 오류',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
 
   async function loadTemplates() {
     try {
@@ -115,45 +63,12 @@ export function BulkMessageDialog({
     }
   }
 
-  function filterStudents() {
-    if (!searchTerm) {
-      setFilteredStudents(students)
-      return
-    }
-
-    const search = searchTerm.toLowerCase()
-    const filtered = students.filter(
-      (s) =>
-        s.user_id?.name?.toLowerCase().includes(search) ||
-        s.student_code?.toLowerCase().includes(search)
-    )
-    setFilteredStudents(filtered)
-  }
-
-  function toggleStudent(studentId: string) {
-    const newSelected = new Set(selectedStudents)
-    if (newSelected.has(studentId)) {
-      newSelected.delete(studentId)
-    } else {
-      newSelected.add(studentId)
-    }
-    setSelectedStudents(newSelected)
-  }
-
-  function toggleAll() {
-    if (selectedStudents.size === filteredStudents.length) {
-      setSelectedStudents(new Set())
-    } else {
-      setSelectedStudents(new Set(filteredStudents.map((s) => s.id)))
-    }
-  }
-
   function useTemplate(template: MessageTemplate) {
     setMessage(template.content)
   }
 
   async function handleSend() {
-    if (selectedStudents.size === 0) {
+    if (selectedStudents.length === 0) {
       toast({
         title: '학생 선택 필요',
         description: '메시지를 받을 학생을 선택해주세요.',
@@ -175,7 +90,7 @@ export function BulkMessageDialog({
 
     try {
       const result = await sendMessages({
-        studentIds: Array.from(selectedStudents),
+        studentIds: selectedStudents,
         message: message.trim(),
         type: 'sms',
       })
@@ -190,7 +105,7 @@ export function BulkMessageDialog({
       })
 
       // Reset form
-      setSelectedStudents(new Set())
+      setSelectedStudents([])
       setMessage('')
       onMessageSent?.()
       onOpenChange(false)
@@ -219,66 +134,18 @@ export function BulkMessageDialog({
         <div className="grid grid-cols-2 gap-6">
           {/* Left: Student Selection */}
           <div className="space-y-4">
-            <div>
-              <Label>수신 대상 선택</Label>
-              <div className="mt-2 space-y-2">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="학생 검색..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Badge variant="secondary">
-                    {selectedStudents.size}명 선택됨
-                  </Badge>
-                  <Button variant="outline" size="sm" onClick={toggleAll}>
-                    {selectedStudents.size === filteredStudents.length
-                      ? '전체 해제'
-                      : '전체 선택'}
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            <div className="border rounded-lg p-2 max-h-80 overflow-y-auto">
-              {loading ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  로딩 중...
-                </div>
-              ) : filteredStudents.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Users className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>학생이 없습니다</p>
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  {filteredStudents.map((student) => (
-                    <div
-                      key={student.id}
-                      className="flex items-center gap-3 p-2 hover:bg-muted rounded cursor-pointer"
-                      onClick={() => toggleStudent(student.id)}
-                    >
-                      <Checkbox
-                        checked={selectedStudents.has(student.id)}
-                        onCheckedChange={() => toggleStudent(student.id)}
-                      />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">
-                          {student.user_id?.name || '이름 없음'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {student.student_code}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <Label>수신 대상 선택</Label>
+            <StudentSearch
+              mode="multiple"
+              variant="checkbox-list"
+              value={selectedStudents}
+              onChange={setSelectedStudents}
+              searchable={true}
+              showSelectAll={true}
+              showSelectedCount={true}
+              placeholder="학생 검색..."
+              className="border rounded-lg"
+            />
           </div>
 
           {/* Right: Message Composition */}
@@ -348,9 +215,9 @@ export function BulkMessageDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             취소
           </Button>
-          <Button onClick={handleSend} disabled={sending || selectedStudents.size === 0}>
+          <Button onClick={handleSend} disabled={sending || selectedStudents.length === 0}>
             <Send className="h-4 w-4 mr-2" />
-            {sending ? '전송 중...' : `${selectedStudents.size}명에게 전송`}
+            {sending ? '전송 중...' : `${selectedStudents.length}명에게 전송`}
           </Button>
         </DialogFooter>
       </DialogContent>
