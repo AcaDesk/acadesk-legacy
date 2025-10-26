@@ -17,6 +17,7 @@ import {
 import { Plus, Edit, Trash2, FileText, Search, PenSquare, UserPlus } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { deleteExam } from '@/app/actions/exams'
+import { ConfirmationDialog } from '@ui/confirmation-dialog'
 
 interface Exam {
   id: string
@@ -53,6 +54,9 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState('')
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [examToDelete, setExamToDelete] = useState<{ id: string; name: string } | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // Filter exams based on search
   const filteredExams = useMemo(() => {
@@ -67,13 +71,17 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
     })
   }, [initialExams, searchTerm])
 
-  async function handleDelete(id: string, name: string) {
-    if (!confirm(`"${name}" 시험을 삭제하시겠습니까?\n\n이 시험과 연결된 모든 성적 데이터도 함께 삭제됩니다.`)) {
-      return
-    }
+  function handleDeleteClick(id: string, name: string) {
+    setExamToDelete({ id, name })
+    setDeleteDialogOpen(true)
+  }
 
+  async function handleConfirmDelete() {
+    if (!examToDelete) return
+
+    setIsDeleting(true)
     try {
-      const result = await deleteExam(id)
+      const result = await deleteExam(examToDelete.id)
 
       if (!result.success) {
         throw new Error(result.error || '시험 삭제에 실패했습니다')
@@ -81,7 +89,7 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
 
       toast({
         title: '삭제 완료',
-        description: `${name} 시험이 삭제되었습니다.`,
+        description: `${examToDelete.name} 시험이 삭제되었습니다.`,
       })
 
       router.refresh()
@@ -92,6 +100,10 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
         description: error instanceof Error ? error.message : '시험을 삭제하는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
+    } finally {
+      setIsDeleting(false)
+      setDeleteDialogOpen(false)
+      setExamToDelete(null)
     }
   }
 
@@ -226,7 +238,7 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleDelete(exam.id, exam.name)}
+                            onClick={() => handleDeleteClick(exam.id, exam.name)}
                           >
                             <Trash2 className="h-4 w-4 text-red-500" />
                           </Button>
@@ -274,6 +286,18 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
           </CardHeader>
         </Card>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="시험을 삭제하시겠습니까?"
+        description={examToDelete ? `"${examToDelete.name}" 시험과 연결된 모든 성적 데이터가 함께 삭제됩니다. 이 작업은 되돌릴 수 없습니다.` : ''}
+        confirmText="삭제"
+        variant="destructive"
+        isLoading={isDeleting}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   )
 }

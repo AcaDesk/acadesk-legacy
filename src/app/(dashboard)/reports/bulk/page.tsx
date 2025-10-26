@@ -17,6 +17,7 @@ import Link from 'next/link'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
+import { ConfirmationDialog } from '@ui/confirmation-dialog'
 
 interface Student {
   id: string
@@ -52,6 +53,7 @@ export default function BulkReportsPage() {
   const [generating, setGenerating] = useState(false)
   const [progress, setProgress] = useState(0)
   const [results, setResults] = useState<GenerationResult[]>([])
+  const [generateDialogOpen, setGenerateDialogOpen] = useState(false)
 
   const { toast } = useToast()
   // const router = useRouter()
@@ -170,7 +172,7 @@ export default function BulkReportsPage() {
     }
   }
 
-  async function generateBulkReports() {
+  function handleGenerateClick() {
     if (selectedStudents.size === 0) {
       toast({
         title: '학생 선택 필요',
@@ -180,10 +182,11 @@ export default function BulkReportsPage() {
       return
     }
 
-    if (!confirm(`${selectedStudents.size}명의 학생 리포트를 생성하시겠습니까?`)) {
-      return
-    }
+    setGenerateDialogOpen(true)
+  }
 
+  async function handleConfirmGenerate() {
+    setGenerateDialogOpen(false)
     setGenerating(true)
     setProgress(0)
     setResults([])
@@ -427,7 +430,7 @@ export default function BulkReportsPage() {
               </Badge>
               <Button
                 size="lg"
-                onClick={generateBulkReports}
+                onClick={handleGenerateClick}
                 disabled={generating || selectedStudents.size === 0}
               >
                 <FileText className="h-5 w-5 mr-2" />
@@ -492,6 +495,18 @@ export default function BulkReportsPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Generate Confirmation Dialog */}
+        <ConfirmationDialog
+          open={generateDialogOpen}
+          onOpenChange={setGenerateDialogOpen}
+          title="리포트를 생성하시겠습니까?"
+          description={`${selectedStudents.size}명의 학생 리포트가 생성됩니다.${autoSend ? ' 생성 후 자동으로 보호자에게 전송됩니다.' : ''}`}
+          confirmText="생성"
+          variant="default"
+          isLoading={generating}
+          onConfirm={handleConfirmGenerate}
+        />
       </div>
     </PageWrapper>
   )

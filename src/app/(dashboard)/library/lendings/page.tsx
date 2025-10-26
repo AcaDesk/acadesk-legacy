@@ -22,6 +22,7 @@ import Link from 'next/link'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
+import { ConfirmationDialog } from '@ui/confirmation-dialog'
 
 interface BookLending {
   id: string
@@ -51,6 +52,8 @@ export default function BookLendingsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'overdue' | 'returned'>('active')
   const [loading, setLoading] = useState(true)
+  const [bulkReminderDialogOpen, setBulkReminderDialogOpen] = useState(false)
+  const [isSendingBulkReminder, setIsSendingBulkReminder] = useState(false)
 
   const { toast } = useToast()
   const router = useRouter()
@@ -204,7 +207,7 @@ export default function BookLendingsPage() {
     }
   }
 
-  async function handleBulkReminder() {
+  function handleBulkReminderClick() {
     const today = new Date().toISOString().split('T')[0]
     const overdueLendings = lendings.filter(
       (l) => !l.returned_at && l.due_date < today && !l.reminder_sent_at
@@ -218,9 +221,16 @@ export default function BookLendingsPage() {
       return
     }
 
-    if (!confirm(`${overdueLendings.length}명에게 반납 알림을 전송하시겠습니까?`)) {
-      return
-    }
+    setBulkReminderDialogOpen(true)
+  }
+
+  async function handleConfirmBulkReminder() {
+    const today = new Date().toISOString().split('T')[0]
+    const overdueLendings = lendings.filter(
+      (l) => !l.returned_at && l.due_date < today && !l.reminder_sent_at
+    )
+
+    setIsSendingBulkReminder(true)
 
     try {
       for (const lending of overdueLendings) {
@@ -251,6 +261,9 @@ export default function BookLendingsPage() {
         description: '일괄 알림 전송 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
+    } finally {
+      setIsSendingBulkReminder(false)
+      setBulkReminderDialogOpen(false)
     }
   }
 
@@ -315,7 +328,7 @@ export default function BookLendingsPage() {
       actions={
         <div className="flex gap-2">
           {stats.overdue > 0 && (
-            <Button variant="outline" onClick={handleBulkReminder}>
+            <Button variant="outline" onClick={handleBulkReminderClick}>
               <Send className="h-4 w-4 mr-2" />
               연체 알림 ({stats.overdue}건)
             </Button>
@@ -499,6 +512,18 @@ export default function BookLendingsPage() {
             </CardHeader>
           </Card>
         </div>
+
+        {/* Bulk Reminder Confirmation Dialog */}
+        <ConfirmationDialog
+          open={bulkReminderDialogOpen}
+          onOpenChange={setBulkReminderDialogOpen}
+          title="연체 알림을 전송하시겠습니까?"
+          description={`${stats.overdue}명에게 반납 알림이 전송됩니다.`}
+          confirmText="전송"
+          variant="default"
+          isLoading={isSendingBulkReminder}
+          onConfirm={handleConfirmBulkReminder}
+        />
       </div>
     </PageWrapper>
   )

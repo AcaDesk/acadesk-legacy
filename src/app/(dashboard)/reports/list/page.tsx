@@ -24,6 +24,7 @@ import Link from 'next/link'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
+import { ConfirmationDialog } from '@ui/confirmation-dialog'
 
 interface Report {
   id: string
@@ -59,6 +60,9 @@ export default function ReportsListPage() {
   const [selectedStudent, setSelectedStudent] = useState<string>('all')
   const [selectedType, setSelectedType] = useState<string>('all')
   const [loading, setLoading] = useState(true)
+  const [sendDialogOpen, setSendDialogOpen] = useState(false)
+  const [reportToSend, setReportToSend] = useState<{ id: string; name: string } | null>(null)
+  const [isSending, setIsSending] = useState(false)
 
   const { toast } = useToast()
   const router = useRouter()
@@ -169,16 +173,21 @@ export default function ReportsListPage() {
     return `${startDate.getFullYear()}.${String(startDate.getMonth() + 1).padStart(2, '0')}.${String(startDate.getDate()).padStart(2, '0')} ~ ${endDate.getFullYear()}.${String(endDate.getMonth() + 1).padStart(2, '0')}.${String(endDate.getDate()).padStart(2, '0')}`
   }
 
-  async function handleSendToGuardian(reportId: string, studentName: string) {
-    if (!confirm(`"${studentName}" 학생의 리포트를 보호자에게 전송하시겠습니까?`)) {
-      return
-    }
+  function handleSendClick(reportId: string, studentName: string) {
+    setReportToSend({ id: reportId, name: studentName })
+    setSendDialogOpen(true)
+  }
+
+  async function handleConfirmSend() {
+    if (!reportToSend) return
+
+    setIsSending(true)
 
     try {
       // Dynamic import to avoid bundling server action in client
       const { sendReportToAllGuardians } = await import('@/app/actions/reports')
 
-      const result = await sendReportToAllGuardians(reportId)
+      const result = await sendReportToAllGuardians(reportToSend.id)
 
       if (!result.success) {
         throw new Error(result.error || '리포트 전송에 실패했습니다')
@@ -188,7 +197,7 @@ export default function ReportsListPage() {
 
       toast({
         title: '전송 완료',
-        description: `${studentName} 학생의 보호자 ${successCount}명에게 리포트가 전송되었습니다.${failCount > 0 ? ` (${failCount}명 실패)` : ''}`,
+        description: `${reportToSend.name} 학생의 보호자 ${successCount}명에게 리포트가 전송되었습니다.${failCount > 0 ? ` (${failCount}명 실패)` : ''}`,
       })
 
       loadData()
@@ -199,6 +208,10 @@ export default function ReportsListPage() {
         description: error instanceof Error ? error.message : '리포트를 전송하는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
+    } finally {
+      setIsSending(false)
+      setSendDialogOpen(false)
+      setReportToSend(null)
     }
   }
 
@@ -398,7 +411,7 @@ export default function ReportsListPage() {
                                   variant="ghost"
                                   size="icon"
                                   onClick={() =>
-                                    handleSendToGuardian(
+                                    handleSendClick(
                                       report.id,
                                       report.students?.user_id?.name || '학생'
                                     )
@@ -459,6 +472,18 @@ export default function ReportsListPage() {
             </CardHeader>
           </Card>
         </div>
+
+        {/* Send Confirmation Dialog */}
+        <ConfirmationDialog
+          open={sendDialogOpen}
+          onOpenChange={setSendDialogOpen}
+          title="리포트를 전송하시겠습니까?"
+          description={reportToSend ? `"${reportToSend.name}" 학생의 리포트가 모든 보호자에게 전송됩니다.` : ''}
+          confirmText="전송"
+          variant="default"
+          isLoading={isSending}
+          onConfirm={handleConfirmSend}
+        />
       </div>
     </PageWrapper>
   )

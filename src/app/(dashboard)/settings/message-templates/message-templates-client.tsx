@@ -34,6 +34,7 @@ import { Plus, Edit, Trash2, MessageSquare, Search, FileText } from 'lucide-reac
 import { useToast } from '@/hooks/use-toast'
 import { createMessageTemplate, updateMessageTemplate, deleteMessageTemplate } from '@/app/actions/messages'
 import { useRouter } from 'next/navigation'
+import { ConfirmationDialog } from '@ui/confirmation-dialog'
 
 interface MessageTemplate {
   id: string
@@ -86,6 +87,9 @@ export function MessageTemplatesClient({ templates }: MessageTemplatesClientProp
     content: '',
   })
   const [loading, setLoading] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [templateToDelete, setTemplateToDelete] = useState<{ id: string; name: string } | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const filteredTemplates = templates.filter(template =>
     template.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -101,14 +105,17 @@ export function MessageTemplatesClient({ templates }: MessageTemplatesClientProp
     setDialogMode('edit')
   }
 
-  async function handleDelete(id: string, name: string) {
-    if (!confirm(`"${name}" 템플릿을 삭제하시겠습니까?`)) {
-      return
-    }
+  function handleDeleteClick(id: string, name: string) {
+    setTemplateToDelete({ id, name })
+    setDeleteDialogOpen(true)
+  }
 
-    setLoading(true)
+  async function handleConfirmDelete() {
+    if (!templateToDelete) return
+
+    setIsDeleting(true)
     try {
-      const result = await deleteMessageTemplate(id)
+      const result = await deleteMessageTemplate(templateToDelete.id)
 
       if (!result.success) {
         throw new Error(result.error || '삭제 실패')
@@ -116,7 +123,7 @@ export function MessageTemplatesClient({ templates }: MessageTemplatesClientProp
 
       toast({
         title: '삭제 완료',
-        description: `${name} 템플릿이 삭제되었습니다.`,
+        description: `${templateToDelete.name} 템플릿이 삭제되었습니다.`,
       })
 
       router.refresh()
@@ -127,7 +134,9 @@ export function MessageTemplatesClient({ templates }: MessageTemplatesClientProp
         variant: 'destructive',
       })
     } finally {
-      setLoading(false)
+      setIsDeleting(false)
+      setDeleteDialogOpen(false)
+      setTemplateToDelete(null)
     }
   }
 
@@ -316,7 +325,7 @@ export function MessageTemplatesClient({ templates }: MessageTemplatesClientProp
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => handleDelete(template.id, template.name)}
+                              onClick={() => handleDeleteClick(template.id, template.name)}
                               disabled={loading}
                             >
                               <Trash2 className="h-4 w-4 text-red-500" />
@@ -456,6 +465,18 @@ export function MessageTemplatesClient({ templates }: MessageTemplatesClientProp
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="템플릿을 삭제하시겠습니까?"
+        description={templateToDelete ? `"${templateToDelete.name}" 템플릿이 삭제됩니다. 이 작업은 되돌릴 수 없습니다.` : ''}
+        confirmText="삭제"
+        variant="destructive"
+        isLoading={isDeleting}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   )
 }

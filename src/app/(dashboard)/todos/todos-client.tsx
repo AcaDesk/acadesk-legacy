@@ -30,6 +30,7 @@ import { useToast } from '@/hooks/use-toast'
 import type { StudentTodoWithStudent } from '@/core/types/todo.types'
 import { verifyTodoAction, deleteTodoAction } from './actions'
 import { sendTodoReminder } from '@/app/actions/messages'
+import { ConfirmationDialog } from '@ui/confirmation-dialog'
 
 interface TodosClientProps {
   initialTodos: StudentTodoWithStudent[]
@@ -56,6 +57,10 @@ export function TodosClient({ initialTodos }: TodosClientProps) {
     'all'
   )
   const [isPending, startTransition] = useTransition()
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string } | null>(null)
+  const [reminderDialogOpen, setReminderDialogOpen] = useState(false)
+  const [itemToRemind, setItemToRemind] = useState<{ id: string; name: string } | null>(null)
 
   const { toast } = useToast()
 
@@ -114,44 +119,64 @@ export function TodosClient({ initialTodos }: TodosClientProps) {
     })
   }
 
-  async function handleDelete(todoId: string) {
-    if (!confirm('이 TODO를 삭제하시겠습니까?')) return
+  function handleDeleteClick(todoId: string, todoTitle: string) {
+    setItemToDelete({ id: todoId, name: todoTitle })
+    setDeleteDialogOpen(true)
+  }
+
+  async function handleConfirmDelete() {
+    if (!itemToDelete) return
 
     startTransition(async () => {
-      const result = await deleteTodoAction(todoId)
+      try {
+        const result = await deleteTodoAction(itemToDelete.id)
 
-      if (result.success) {
-        toast({
-          title: '삭제 완료',
-          description: result.message,
-        })
-      } else {
-        toast({
-          title: '삭제 오류',
-          description: result.error,
-          variant: 'destructive',
-        })
+        if (result.success) {
+          toast({
+            title: '삭제 완료',
+            description: result.message,
+          })
+        } else {
+          toast({
+            title: '삭제 오류',
+            description: result.error,
+            variant: 'destructive',
+          })
+        }
+      } finally {
+        setDeleteDialogOpen(false)
+        setItemToDelete(null)
       }
     })
   }
 
-  async function handleSendReminder(todoId: string, todoTitle: string) {
-    if (!confirm(`"${todoTitle}" 과제 알림을 학생에게 전송하시겠습니까?`)) return
+  function handleSendReminderClick(todoId: string, todoTitle: string) {
+    setItemToRemind({ id: todoId, name: todoTitle })
+    setReminderDialogOpen(true)
+  }
+
+  async function handleConfirmSendReminder() {
+    if (!itemToRemind) return
 
     startTransition(async () => {
-      const result = await sendTodoReminder(todoId)
+      try {
+        const result = await sendTodoReminder(itemToRemind.id)
 
-      if (result.success) {
-        toast({
-          title: '알림 전송 완료',
-          description: '과제 알림이 학생에게 전송되었습니다.',
-        })
-      } else {
-        toast({
-          title: '전송 오류',
-          description: result.error || '알림 전송 중 오류가 발생했습니다.',
-          variant: 'destructive',
-        })
+        if (result.success) {
+          toast({
+            title: '알림 전송 완료',
+            description: '과제 알림이 학생에게 전송되었습니다.',
+          })
+        } else {
+          toast({
+            title: '전송 오류',
+            description: result.error || '알림 전송 중 오류가 발생했습니다.',
+            variant: 'destructive',
+          })
+        }
+      } finally {
+        setReminderDialogOpen(false)
+        setItemToRemind(null)
       }
     })
   }
@@ -370,7 +395,7 @@ export function TodosClient({ initialTodos }: TodosClientProps) {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => handleSendReminder(todo.id, todo.title)}
+                                onClick={() => handleSendReminderClick(todo.id, todo.title)}
                                 disabled={isPending}
                               >
                                 <Bell className="h-4 w-4 mr-1" />
@@ -390,7 +415,7 @@ export function TodosClient({ initialTodos }: TodosClientProps) {
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => handleDelete(todo.id)}
+                              onClick={() => handleDeleteClick(todo.id, todo.title)}
                               disabled={isPending}
                             >
                               삭제
@@ -406,6 +431,30 @@ export function TodosClient({ initialTodos }: TodosClientProps) {
           </CardContent>
         </Card>
       </section>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="정말로 삭제하시겠습니까?"
+        description={itemToDelete ? `"${itemToDelete.name}"이(가) 삭제됩니다. 이 작업은 되돌릴 수 없습니다.` : ''}
+        confirmText="삭제"
+        variant="destructive"
+        isLoading={isPending}
+        onConfirm={handleConfirmDelete}
+      />
+
+      {/* Send Reminder Confirmation Dialog */}
+      <ConfirmationDialog
+        open={reminderDialogOpen}
+        onOpenChange={setReminderDialogOpen}
+        title="과제 알림 전송"
+        description={itemToRemind ? `"${itemToRemind.name}" 과제 알림을 학생에게 전송하시겠습니까?` : ''}
+        confirmText="전송"
+        variant="default"
+        isLoading={isPending}
+        onConfirm={handleConfirmSendReminder}
+      />
     </div>
   )
 }

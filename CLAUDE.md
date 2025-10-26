@@ -601,6 +601,60 @@ function MyComponent() {
 
 **See also:** `docs/SKELETON_GUIDE.md` - Confirmation Dialog section
 
+### Handling Empty States
+
+```typescript
+// ❌ BAD: Hardcoded empty state
+{data.length === 0 && (
+  <div className="text-center p-8">
+    <p>No data</p>
+  </div>
+)}
+
+// ✅ GOOD: Use EmptyState component
+import { EmptyState } from '@ui/empty-state'
+import { Users } from 'lucide-react'
+
+{data.length === 0 ? (
+  <EmptyState
+    icon={Users}
+    title="등록된 학생이 없습니다"
+    description="새로운 학생을 등록하여 시작하세요"
+    action={<Button onClick={() => router.push('/students/new')}>학생 등록</Button>}
+  />
+) : (
+  <Table data={data} />
+)}
+
+// ✅ GOOD: Differentiate between no data and no search results
+{filteredData.length === 0 ? (
+  searchTerm ? (
+    <NoSearchResultsEmptyState
+      searchTerm={searchTerm}
+      onClearSearch={() => setSearchTerm('')}
+      icon={Search}
+    />
+  ) : (
+    <EmptyState
+      icon={Users}
+      title="등록된 데이터가 없습니다"
+      description="새로운 항목을 추가하세요"
+      action={<Button onClick={handleCreate}>추가</Button>}
+    />
+  )
+) : (
+  <List data={filteredData} />
+)}
+```
+
+**Benefits:**
+- ✅ Consistent empty state UI/UX
+- ✅ Clear action guidance for users
+- ✅ Different states for no data vs. no search results
+- ✅ Better user engagement
+
+**See also:** `docs/SKELETON_GUIDE.md` - EmptyState section
+
 ## Async Widgets & Error Handling Strategy
 
 ### Overview

@@ -56,6 +56,7 @@ import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { ConfirmationDialog } from '@ui/confirmation-dialog'
 
 interface Subject {
   id: string
@@ -84,6 +85,9 @@ export default function SubjectsPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [subjectToDelete, setSubjectToDelete] = useState<Subject | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const { toast } = useToast()
 
@@ -199,14 +203,20 @@ export default function SubjectsPage() {
     }
   }
 
-  // Handle delete subject
-  const handleDeleteSubject = async (subject: Subject) => {
-    if (!confirm(`"${subject.name}" 과목을 삭제하시겠습니까?\n연결된 수업은 과목 정보가 제거됩니다.`)) {
-      return
-    }
+  // Handle delete subject click
+  const handleDeleteClick = (subject: Subject) => {
+    setSubjectToDelete(subject)
+    setDeleteDialogOpen(true)
+  }
+
+  // Handle confirm delete
+  const handleConfirmDelete = async () => {
+    if (!subjectToDelete) return
+
+    setIsDeleting(true)
 
     try {
-      const result = await deleteSubject(subject.id)
+      const result = await deleteSubject(subjectToDelete.id)
 
       if (!result.success) {
         throw new Error(result.error || '과목 삭제 실패')
@@ -216,7 +226,7 @@ export default function SubjectsPage() {
 
       toast({
         title: '과목 삭제 완료',
-        description: `"${subject.name}" 과목이 삭제되었습니다.`,
+        description: `"${subjectToDelete.name}" 과목이 삭제되었습니다.`,
       })
     } catch (error) {
       toast({
@@ -224,6 +234,10 @@ export default function SubjectsPage() {
         title: '과목 삭제 실패',
         description: getErrorMessage(error),
       })
+    } finally {
+      setIsDeleting(false)
+      setDeleteDialogOpen(false)
+      setSubjectToDelete(null)
     }
   }
 
@@ -339,7 +353,7 @@ export default function SubjectsPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleDeleteSubject(subject as Subject)}
+                          onClick={() => handleDeleteClick(subject as Subject)}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -612,6 +626,18 @@ export default function SubjectsPage() {
           </Form>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="정말로 삭제하시겠습니까?"
+        description={subjectToDelete ? `"${subjectToDelete.name}" 과목이 삭제됩니다. 연결된 수업은 과목 정보가 제거됩니다. 이 작업은 되돌릴 수 없습니다.` : ''}
+        confirmText="삭제"
+        variant="destructive"
+        isLoading={isDeleting}
+        onConfirm={handleConfirmDelete}
+      />
     </PageWrapper>
   )
 }

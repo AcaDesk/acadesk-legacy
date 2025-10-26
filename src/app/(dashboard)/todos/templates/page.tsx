@@ -62,6 +62,7 @@ import { getStudents } from '@/app/actions/students'
 import { getTodoTemplates } from '@/app/actions/todo-templates'
 import { createTodosForStudents } from '@/app/actions/todos'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { ConfirmationDialog } from '@ui/confirmation-dialog'
 
 interface TodoTemplate {
   id: string
@@ -93,6 +94,16 @@ export default function TodoTemplatesPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
   const [priorityFilter, setPriorityFilter] = useState<'all' | 'high' | 'normal' | 'low'>('all')
   const [dayFilter, setDayFilter] = useState<'all' | string>('all')
+
+  // Delete confirmation dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [templateToDelete, setTemplateToDelete] = useState<{ id: string; title: string } | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  // Generate todos confirmation dialog state
+  const [generateDialogOpen, setGenerateDialogOpen] = useState(false)
+  const [templateToGenerate, setTemplateToGenerate] = useState<TodoTemplate | null>(null)
+  const [isGenerating, setIsGenerating] = useState(false)
 
   const { toast } = useToast()
   const router = useRouter()
@@ -226,15 +237,19 @@ export default function TodoTemplatesPage() {
     return searchTerm !== '' || statusFilter !== 'all' || priorityFilter !== 'all' || dayFilter !== 'all'
   }
 
-  async function handleDelete(id: string, title: string) {
-    if (!confirm(`"${title}" 템플릿을 삭제하시겠습니까?`)) {
-      return
-    }
+  function handleDeleteClick(id: string, title: string) {
+    setTemplateToDelete({ id, title })
+    setDeleteDialogOpen(true)
+  }
 
+  async function handleConfirmDelete() {
+    if (!templateToDelete) return
+
+    setIsDeleting(true)
     try {
       // ✅ Use Server Action instead of direct Supabase CUD
       const { deleteTodoTemplate } = await import('@/app/actions/todo-templates')
-      const result = await deleteTodoTemplate(id)
+      const result = await deleteTodoTemplate(templateToDelete.id)
 
       if (!result.success) {
         throw new Error(result.error || '삭제 실패')
@@ -242,7 +257,7 @@ export default function TodoTemplatesPage() {
 
       toast({
         title: '삭제 완료',
-        description: `${title} 템플릿이 삭제되었습니다.`,
+        description: `${templateToDelete.title} 템플릿이 삭제되었습니다.`,
       })
 
       loadTemplates()
@@ -252,6 +267,10 @@ export default function TodoTemplatesPage() {
         description: getErrorMessage(error),
         variant: 'destructive',
       })
+    } finally {
+      setIsDeleting(false)
+      setDeleteDialogOpen(false)
+      setTemplateToDelete(null)
     }
   }
 
@@ -280,13 +299,15 @@ export default function TodoTemplatesPage() {
     }
   }
 
-  async function handleGenerateTodos(template: TodoTemplate) {
-    if (!tenantId) return
+  function handleGenerateClick(template: TodoTemplate) {
+    setTemplateToGenerate(template)
+    setGenerateDialogOpen(true)
+  }
 
-    if (!confirm(`전체 학생에게 "${template.title}" 과제를 배정하시겠습니까?`)) {
-      return
-    }
+  async function handleConfirmGenerate() {
+    if (!tenantId || !templateToGenerate) return
 
+    setIsGenerating(true)
     try {
       // Get all active students
       const studentsResult = await getStudents()
@@ -306,7 +327,7 @@ export default function TodoTemplatesPage() {
 
       // Calculate due date based on day_of_week
       const today = new Date()
-      const targetDayOfWeek = template.day_of_week !== null ? template.day_of_week : today.getDay()
+      const targetDayOfWeek = templateToGenerate.day_of_week !== null ? templateToGenerate.day_of_week : today.getDay()
       const daysUntilTarget = (targetDayOfWeek - today.getDay() + 7) % 7
       const dueDate = new Date(today)
       dueDate.setDate(today.getDate() + (daysUntilTarget === 0 ? 7 : daysUntilTarget))
@@ -314,11 +335,11 @@ export default function TodoTemplatesPage() {
       // Create todos using Server Action
       const createResult = await createTodosForStudents({
         studentIds: studentsResult.data.map(s => s.id),
-        title: template.title,
-        description: template.description || undefined,
-        subject: template.subject || undefined,
+        title: templateToGenerate.title,
+        description: templateToGenerate.description || undefined,
+        subject: templateToGenerate.subject || undefined,
         dueDate: dueDate.toISOString(),
-        priority: (template.priority || 'normal') as 'low' | 'normal' | 'high' | 'urgent',
+        priority: (templateToGenerate.priority || 'normal') as 'low' | 'normal' | 'high' | 'urgent',
       })
 
       if (!createResult.success) {
@@ -327,7 +348,7 @@ export default function TodoTemplatesPage() {
 
       toast({
         title: '과제 생성 완료',
-        description: `${studentsResult.data.length}명의 학생에게 "${template.title}" 과제가 배정되었습니다.`,
+        description: `${studentsResult.data.length}명의 학생에게 "${templateToGenerate.title}" 과제가 배정되었습니다.`,
       })
 
       router.push('/todos')
@@ -337,6 +358,10 @@ export default function TodoTemplatesPage() {
         description: getErrorMessage(error),
         variant: 'destructive',
       })
+    } finally {
+      setIsGenerating(false)
+      setGenerateDialogOpen(false)
+      setTemplateToGenerate(null)
     }
   }
 
@@ -611,7 +636,7 @@ export default function TodoTemplatesPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleGenerateTodos(template)} disabled={!template.active}>
+                          <DropdownMenuItem onClick={() => handleGenerateClick(template)} disabled={!template.active}>
                             <Sparkles className="h-4 w-4 mr-2 text-green-600" />
                             과제 일괄 생성
                           </DropdownMenuItem>
@@ -634,7 +659,7 @@ export default function TodoTemplatesPage() {
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
-                            onClick={() => handleDelete(template.id, template.title)}
+                            onClick={() => handleDeleteClick(template.id, template.title)}
                             className="text-red-600"
                           >
                             <Trash2 className="h-4 w-4 mr-2" />
@@ -688,7 +713,7 @@ export default function TodoTemplatesPage() {
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation()
-                          handleGenerateTodos(template)
+                          handleGenerateClick(template)
                         }}
                         disabled={!template.active}
                         className="gap-2"
@@ -795,7 +820,7 @@ export default function TodoTemplatesPage() {
                       variant="default"
                       onClick={() => {
                         setDetailDialogOpen(false)
-                        handleGenerateTodos(selectedTemplate)
+                        handleGenerateClick(selectedTemplate)
                       }}
                       disabled={!selectedTemplate.active}
                       className="flex-1 gap-2"
@@ -841,7 +866,7 @@ export default function TodoTemplatesPage() {
                       variant="ghost"
                       onClick={() => {
                         setDetailDialogOpen(false)
-                        handleDelete(selectedTemplate.id, selectedTemplate.title)
+                        handleDeleteClick(selectedTemplate.id, selectedTemplate.title)
                       }}
                       className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-2"
                     >
@@ -854,6 +879,30 @@ export default function TodoTemplatesPage() {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <ConfirmationDialog
+          open={deleteDialogOpen}
+          onOpenChange={setDeleteDialogOpen}
+          title="템플릿 삭제"
+          description={templateToDelete ? `"${templateToDelete.title}" 템플릿을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.` : ''}
+          confirmText="삭제"
+          variant="destructive"
+          isLoading={isDeleting}
+          onConfirm={handleConfirmDelete}
+        />
+
+        {/* Generate Todos Confirmation Dialog */}
+        <ConfirmationDialog
+          open={generateDialogOpen}
+          onOpenChange={setGenerateDialogOpen}
+          title="과제 일괄 생성"
+          description={templateToGenerate ? `전체 학생에게 "${templateToGenerate.title}" 과제를 배정하시겠습니까?` : ''}
+          confirmText="생성"
+          variant="default"
+          isLoading={isGenerating}
+          onConfirm={handleConfirmGenerate}
+        />
       </div>
     </PageWrapper>
   )

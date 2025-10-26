@@ -22,6 +22,7 @@ import {
   bulkDeleteStudents,
   bulkEnrollClass,
 } from '@/app/actions/students'
+import { ConfirmationDialog } from '@ui/confirmation-dialog'
 
 type BulkAction = 'delete' | 'grade' | 'class' | 'export'
 
@@ -45,6 +46,10 @@ export function BulkActionsDialog({
   const [loading, setLoading] = useState(false)
 
   const { toast } = useToast()
+
+  // Delete confirmation dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // Load classes when dialog opens
   useEffect(() => {
@@ -77,12 +82,12 @@ export function BulkActionsDialog({
     }
   }
 
-  async function handleBulkDelete() {
-    if (!confirm(`${selectedStudents.length}명의 학생을 삭제하시겠습니까?`)) {
-      return
-    }
+  function handleDeleteClick() {
+    setDeleteDialogOpen(true)
+  }
 
-    setLoading(true)
+  async function handleConfirmDelete() {
+    setIsDeleting(true)
     try {
       const studentIds = selectedStudents.map(s => s.id)
 
@@ -107,7 +112,8 @@ export function BulkActionsDialog({
         variant: 'destructive',
       })
     } finally {
-      setLoading(false)
+      setIsDeleting(false)
+      setDeleteDialogOpen(false)
     }
   }
 
@@ -255,8 +261,8 @@ export function BulkActionsDialog({
               <Button variant="outline" onClick={() => setSelectedAction(null)}>
                 취소
               </Button>
-              <Button variant="destructive" onClick={handleBulkDelete} disabled={loading}>
-                {loading ? '삭제 중...' : '삭제'}
+              <Button variant="destructive" onClick={handleDeleteClick} disabled={loading}>
+                삭제
               </Button>
             </DialogFooter>
           </div>
@@ -411,6 +417,18 @@ export function BulkActionsDialog({
           </div>
         )}
       </DialogContent>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="학생 일괄 삭제"
+        description={`${selectedStudents.length}명의 학생을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`}
+        confirmText="삭제"
+        variant="destructive"
+        isLoading={isDeleting}
+        onConfirm={handleConfirmDelete}
+      />
     </Dialog>
   )
 }
