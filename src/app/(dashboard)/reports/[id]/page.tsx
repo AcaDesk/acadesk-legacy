@@ -9,12 +9,11 @@ import { Badge } from '@ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Separator } from '@ui/separator'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
-import { Download, Send, TrendingUp, TrendingDown, Minus, ChevronRight } from 'lucide-react'
+import { Download, Send, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import type { ReportData } from '@/core/types/report-entity'
 import { ReportGrowthChart } from '@/components/features/reports/ReportGrowthChart'
-import Link from 'next/link'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
@@ -229,47 +228,25 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
   const homeworkCompleted = reportData.completedTodos || reportData.homework?.completed || 0
 
   return (
-    <PageWrapper>
-      <div ref={contentRef} className="max-w-5xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="space-y-4">
-          <nav className="flex items-center gap-2 text-sm text-muted-foreground print:hidden">
-            <Link href="/reports" className="hover:text-foreground transition-colors">
-              리포트 관리
-            </Link>
-            <ChevronRight className="h-4 w-4" />
-            <Link href="/reports/list" className="hover:text-foreground transition-colors">
-              리포트 목록
-            </Link>
-            <ChevronRight className="h-4 w-4" />
-            <span className="text-foreground font-medium">
-              {studentName}
-            </span>
-          </nav>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold">
-                {getReportTypeLabel(report.report_type)} 리포트
-              </h1>
-              <p className="text-muted-foreground">
-                {formatPeriod(report.period_start, report.period_end)}
-              </p>
-            </div>
-            <div className="flex gap-2 print:hidden">
-              <Button variant="outline" onClick={handlePrint}>
-                <Download className="h-4 w-4 mr-2" />
-                PDF 다운로드
-              </Button>
-              {!report.sent_at && (
-                <Button onClick={handleSendClick} disabled={sending}>
-                  <Send className="h-4 w-4 mr-2" />
-                  보호자 전송
-                </Button>
-              )}
-            </div>
-          </div>
+    <PageWrapper
+      title={`${getReportTypeLabel(report.report_type)} 리포트`}
+      subtitle={formatPeriod(report.period_start, report.period_end)}
+      actions={
+        <div className="flex gap-2 print:hidden">
+          <Button variant="outline" onClick={handlePrint}>
+            <Download className="h-4 w-4 mr-2" />
+            PDF 다운로드
+          </Button>
+          {!report.sent_at && (
+            <Button onClick={handleSendClick} disabled={sending}>
+              <Send className="h-4 w-4 mr-2" />
+              보호자 전송
+            </Button>
+          )}
         </div>
+      }
+    >
+      <div ref={contentRef} className="max-w-5xl mx-auto space-y-6">
 
         {/* Academy & Student Info Card */}
         <Card>
