@@ -45,6 +45,27 @@ export function ReportPrintView({
   const studentCode = reportData.studentCode || reportData.student?.student_code || ''
   const studentGrade = reportData.grade || reportData.student?.grade || ''
 
+  // Format comment for display
+  function getFormattedComment(): string {
+    // Use new structured format if available
+    if (reportData.comment) {
+      return `📝 총평
+${reportData.comment.summary}
+
+✨ 잘한 점
+${reportData.comment.strengths}
+
+📈 보완할 점
+${reportData.comment.improvements}
+
+🎯 다음 달 목표
+${reportData.comment.nextGoals}`
+    }
+
+    // Fallback to legacy formats
+    return reportData.overallComment || reportData.instructorComment || '코멘트가 없습니다.'
+  }
+
   const handlePrint = useReactToPrint({
     contentRef,
     documentTitle: `${studentName}_${periodStart.getFullYear()}년_${periodStart.getMonth() + 1}월_리포트`,
@@ -224,7 +245,7 @@ export function ReportPrintView({
           </CardHeader>
           <CardContent>
             <p className="text-sm leading-relaxed whitespace-pre-wrap">
-              {reportData.instructorComment}
+              {getFormattedComment()}
             </p>
           </CardContent>
         </Card>
