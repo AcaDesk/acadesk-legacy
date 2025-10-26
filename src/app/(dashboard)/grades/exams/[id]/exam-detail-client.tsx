@@ -33,7 +33,7 @@ interface Exam {
   classes?: {
     id: string
     name: string
-  } | null
+  }[] | null
 }
 
 interface Student {
@@ -177,7 +177,7 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
               수업
             </CardDescription>
             <CardTitle className="text-lg">
-              {exam.classes?.name || '미배정'}
+              {exam.classes?.[0]?.name || '미배정'}
             </CardTitle>
           </CardHeader>
         </Card>

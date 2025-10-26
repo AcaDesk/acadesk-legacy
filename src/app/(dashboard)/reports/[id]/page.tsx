@@ -51,7 +51,7 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
   const handlePrint = useReactToPrint({
     contentRef,
     documentTitle: report
-      ? `${report.content.studentName || report.content.student?.name || report.students?.users?.name || '학생'}_${new Date(report.period_start).getFullYear()}년_${new Date(report.period_start).getMonth() + 1}월_리포트`
+      ? `${report.content.studentName || report.students?.users?.name || '학생'}_${new Date(report.period_start).getFullYear()}년_${new Date(report.period_start).getMonth() + 1}월_리포트`
       : 'report',
     onAfterPrint: () => {
       console.log('[ReportDetailPage] Print completed')
@@ -107,7 +107,7 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
   async function handleSendToGuardian() {
     if (!report) return
 
-    const studentName = report.content.studentName || report.content.student?.name || report.students?.users?.name || '학생'
+    const studentName = report.content.studentName || report.students?.users?.name || '학생'
 
     if (!confirm(`"${studentName}" 학생의 보호자에게 리포트를 전송하시겠습니까?`)) {
       return
