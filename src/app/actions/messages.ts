@@ -14,6 +14,51 @@ import { getErrorMessage } from '@/lib/error-handlers'
 import { sendMessage } from '@/lib/messaging/provider'
 
 // ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * 메시지 변수 치환 함수
+ *
+ * 지원 변수:
+ * - {학생명}: 학생 이름
+ * - {학생번호}: 학생 코드
+ * - {학년}: 학년
+ * - {학원명}: 학원 이름
+ * - {보호자명}: 보호자 이름
+ */
+function replaceMessageVariables(
+  template: string,
+  variables: {
+    studentName?: string
+    studentCode?: string
+    grade?: string
+    academyName?: string
+    guardianName?: string
+  }
+): string {
+  let message = template
+
+  if (variables.studentName) {
+    message = message.replace(/\{학생명\}/g, variables.studentName)
+  }
+  if (variables.studentCode) {
+    message = message.replace(/\{학생번호\}/g, variables.studentCode)
+  }
+  if (variables.grade) {
+    message = message.replace(/\{학년\}/g, variables.grade)
+  }
+  if (variables.academyName) {
+    message = message.replace(/\{학원명\}/g, variables.academyName)
+  }
+  if (variables.guardianName) {
+    message = message.replace(/\{보호자명\}/g, variables.guardianName)
+  }
+
+  return message
+}
+
+// ============================================================================
 // Validation Schemas
 // ============================================================================
 
@@ -59,6 +104,83 @@ export async function getMessageTemplates() {
     }
   } catch (error) {
     console.error('[getMessageTemplates] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * Create default sample templates
+ */
+export async function createDefaultTemplates() {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    const defaultTemplates = [
+      {
+        name: '출석 확인 알림',
+        content: '안녕하세요 {보호자명}님, {학생명} 학생이 {학원명}에 출석하였습니다. 오늘도 즐거운 하루 보내세요!',
+        type: 'sms' as const,
+        category: 'attendance',
+      },
+      {
+        name: '결석 안내',
+        content: '안녕하세요 {보호자명}님, {학생명} 학생이 오늘 결석하였습니다. 혹시 특별한 사유가 있으신가요?',
+        type: 'sms' as const,
+        category: 'attendance',
+      },
+      {
+        name: '월간 리포트 발송',
+        content: '안녕하세요 {보호자명}님, {학생명} 학생의 이번 달 학습 리포트가 발송되었습니다. 확인 부탁드립니다.',
+        type: 'sms' as const,
+        category: 'report',
+      },
+      {
+        name: '과제 미완료 안내',
+        content: '{보호자명}님, {학생명} 학생의 이번 주 과제가 미완료 상태입니다. 확인 부탁드립니다.',
+        type: 'sms' as const,
+        category: 'todo',
+      },
+      {
+        name: '수업 휴강 안내',
+        content: '안녕하세요 {보호자명}님, {학원명}에서 알려드립니다. [날짜] 수업이 [사유]로 휴강됩니다. 양해 부탁드립니다.',
+        type: 'sms' as const,
+        category: 'event',
+      },
+      {
+        name: '상담 일정 안내',
+        content: '안녕하세요 {보호자명}님, {학생명} 학생과의 상담이 [날짜] [시간]에 예정되어 있습니다. 참석 부탁드립니다.',
+        type: 'sms' as const,
+        category: 'consultation',
+      },
+    ]
+
+    const { data, error } = await supabase
+      .from('message_templates')
+      .insert(
+        defaultTemplates.map(template => ({
+          tenant_id: tenantId,
+          ...template,
+        }))
+      )
+      .select()
+
+    if (error) throw error
+
+    revalidatePath('/notifications')
+    revalidatePath('/settings/message-templates')
+
+    return {
+      success: true,
+      data,
+      error: null,
+    }
+  } catch (error) {
+    console.error('[createDefaultTemplates] Error:', error)
     return {
       success: false,
       data: null,
@@ -195,11 +317,25 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
     const validated = sendMessageSchema.parse(input)
     const supabase = createServiceRoleClient()
 
-    // Get student guardian information
+    // Get academy info for template variables
+    const { data: academy } = await supabase
+      .from('tenants')
+      .select('name')
+      .eq('id', tenantId)
+      .single()
+
+    const academyName = academy?.name || '학원'
+
+    // Get student guardian information with student details
     const { data: students, error: studentsError } = await supabase
       .from('students')
       .select(`
         id,
+        student_code,
+        grade,
+        users!inner (
+          name
+        ),
         student_guardians (
           guardians (
             users (
@@ -221,8 +357,14 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
 
     // Process each student
     for (const student of students || []) {
+      const typedStudent = student as any
+      const studentUser = typedStudent.users as { name: string } | null
+      const studentName = studentUser?.name || '학생'
+      const studentCode = typedStudent.student_code || ''
+      const grade = typedStudent.grade || ''
+
       // Send to guardians
-      const guardians = student.student_guardians || []
+      const guardians = typedStudent.student_guardians || []
 
       for (const sg of guardians) {
         const guardian = sg.guardians as any
@@ -230,12 +372,13 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
         if (!guardianUser) continue
 
         const recipientPhone = guardianUser.phone
+        const guardianName = guardianUser.name || '보호자'
 
         if (!recipientPhone) {
           failCount++
           logs.push({
             tenant_id: tenantId,
-            student_id: student.id,
+            student_id: typedStudent.id,
             session_id: null,
             notification_type: validated.type,
             message: validated.message,
@@ -247,13 +390,32 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
           continue
         }
 
+        // Replace template variables
+        const personalizedMessage = replaceMessageVariables(validated.message, {
+          studentName,
+          studentCode,
+          grade,
+          academyName,
+          guardianName,
+        })
+
+        const personalizedSubject = validated.subject
+          ? replaceMessageVariables(validated.subject, {
+              studentName,
+              studentCode,
+              grade,
+              academyName,
+              guardianName,
+            })
+          : undefined
+
         try {
           // 실제 SMS/LMS/MMS 발송
           const result = await sendMessage({
             type: validated.type,
             to: recipientPhone,
-            message: validated.message,
-            subject: validated.subject,
+            message: personalizedMessage,
+            subject: personalizedSubject,
           })
 
           if (!result.success) {
@@ -262,11 +424,11 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
 
           logs.push({
             tenant_id: tenantId,
-            student_id: student.id,
+            student_id: typedStudent.id,
             session_id: null,
             notification_type: validated.type,
-            message: validated.message,
-            subject: validated.subject || null,
+            message: personalizedMessage,
+            subject: personalizedSubject || null,
             status: 'sent',
             error_message: null,
             sent_at: new Date().toISOString(),
@@ -277,11 +439,11 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
           failCount++
           logs.push({
             tenant_id: tenantId,
-            student_id: student.id,
+            student_id: typedStudent.id,
             session_id: null,
             notification_type: validated.type,
-            message: validated.message,
-            subject: validated.subject || null,
+            message: personalizedMessage,
+            subject: personalizedSubject || null,
             status: 'failed',
             error_message: getErrorMessage(error),
             sent_at: new Date().toISOString(),

@@ -2,6 +2,18 @@ import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { ConsultationFormClient } from './consultation-form-client'
 
+// Common schools list for lead consultations
+const SCHOOLS = [
+  '서울고등학교',
+  '경기고등학교',
+  '대원외국어고등학교',
+  '한영외국어고등학교',
+  '민족사관고등학교',
+  '상산고등학교',
+  '하나고등학교',
+  '기타',
+]
+
 export default async function NewConsultationPage() {
   const { tenantId } = await verifyStaff()
   const supabase = await createServiceRoleClient()
@@ -17,6 +29,7 @@ export default async function NewConsultationPage() {
   return (
     <ConsultationFormClient
       students={students || []}
+      schools={SCHOOLS}
       mode="create"
     />
   )

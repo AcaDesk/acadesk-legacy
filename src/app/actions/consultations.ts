@@ -30,6 +30,7 @@ const createConsultationSchema = z.object({
   leadName: z.string().optional(),
   leadGuardianName: z.string().optional(),
   leadGuardianPhone: z.string().optional(),
+  leadSchool: z.string().optional(),
 
   // 공통 필드
   consultationDate: z.string(), // ISO datetime string
@@ -253,6 +254,7 @@ export async function createConsultation(
         lead_name: validated.isLead ? validated.leadName : null,
         lead_guardian_name: validated.isLead ? validated.leadGuardianName : null,
         lead_guardian_phone: validated.isLead ? validated.leadGuardianPhone : null,
+        lead_school: validated.isLead ? validated.leadSchool : null,
         consultation_date: validated.consultationDate,
         consultation_type: validated.consultationType,
         duration_minutes: validated.durationMinutes ?? null,
