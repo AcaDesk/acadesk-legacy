@@ -1,11 +1,11 @@
 /**
  * Solapi SMS/LMS Provider - Infrastructure Layer
  *
- * IMessageProvider 인터페이스 구현체 (솔라피 API)
- * @see https://docs.solapi.com
+ * IMessageProvider 인터페이스 구현체 (솔라피 SDK 사용)
+ * @see https://developers.solapi.com/sdk-list/Node.js
  */
 
-import crypto from 'crypto'
+import { SolapiMessageService } from 'solapi'
 import {
   type IMessageProvider,
   type SendMessageRequest,
@@ -21,34 +21,12 @@ interface SolapiConfig {
   senderPhone: string
 }
 
-interface SolapiSendResponse {
-  groupId?: string
-  messageId?: string
-  statusCode?: string
-  statusMessage?: string
-  errorCode?: string
-  errorMessage?: string
-}
-
-interface SolapiMessageStatusResponse {
-  statusCode: string // PENDING, SENDING, SENT, FAILED
-  statusMessage: string
-  messageId: string
-  groupId: string
-  to: string
-  from: string
-  type: string
-  reason?: string
-  sentAt?: string
-  failedAt?: string
-}
-
 export class SolapiProvider implements IMessageProvider {
   readonly channel: MessageChannel = MessageChannel.SMS
   readonly name: string = 'Solapi'
 
   private config: SolapiConfig
-  private readonly apiBaseUrl = 'https://api.solapi.com'
+  private messageService: SolapiMessageService
 
   constructor(config?: Partial<SolapiConfig>) {
     this.config = {
@@ -63,6 +41,9 @@ export class SolapiProvider implements IMessageProvider {
         '[SolapiProvider] Missing configuration. Set SOLAPI_API_KEY, SOLAPI_API_SECRET, and SOLAPI_SENDER_PHONE'
       )
     }
+
+    // SDK 초기화
+    this.messageService = new SolapiMessageService(this.config.apiKey, this.config.apiSecret)
   }
 
   /**
@@ -105,44 +86,21 @@ export class SolapiProvider implements IMessageProvider {
       // 메시지 타입 결정
       const messageType = this.determineMessageType(request.content.body, request.channel)
 
-      // API 요청 본문
-      const requestBody = {
-        message: {
-          to: this.sanitizePhoneNumber(request.recipient.phone),
-          from: this.sanitizePhoneNumber(this.config.senderPhone),
-          text: request.content.body,
-          ...(messageType === 'LMS' && request.content.subject
-            ? { subject: request.content.subject }
-            : {}),
-          type: messageType,
-        },
+      // SDK를 사용한 메시지 발송
+      const messageObject = {
+        to: this.sanitizePhoneNumber(request.recipient.phone),
+        from: this.sanitizePhoneNumber(this.config.senderPhone),
+        text: request.content.body,
+        ...(messageType === 'LMS' && request.content.subject
+          ? { subject: request.content.subject }
+          : {}),
       }
 
-      // HMAC 인증 헤더 생성
-      const headers = this.generateAuthHeaders('POST', '/messages/v4/send', requestBody)
-
-      // API 호출
-      const response = await fetch(`${this.apiBaseUrl}/messages/v4/send`, {
-        method: 'POST',
-        headers: {
-          ...headers,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      })
-
-      const data: SolapiSendResponse = await response.json()
-
-      // 에러 응답 확인
-      if (!response.ok || data.errorCode) {
-        return {
-          success: false,
-          error: `Solapi API error: ${data.errorMessage || data.statusMessage || 'Unknown error'}`,
-        }
-      }
+      // SDK send 메서드 호출
+      const response = await this.messageService.send(messageObject)
 
       // 성공 응답
-      if (!data.groupId) {
+      if (!response.groupId) {
         return {
           success: false,
           error: 'Solapi API did not return a group ID',
@@ -151,8 +109,8 @@ export class SolapiProvider implements IMessageProvider {
 
       return {
         success: true,
-        messageId: data.groupId,
-        cost: messageType === 'SMS' ? 8 : 24, // SMS: 8원, LMS: 24원 (예상, 실제 요금은 솔라피 플랜에 따라 다름)
+        messageId: response.groupId,
+        cost: messageType === 'SMS' ? 8 : 24, // SMS: 8원, LMS: 24원 (예상)
       }
     } catch (error) {
       console.error('[SolapiProvider.send] Error:', error)
@@ -173,23 +131,11 @@ export class SolapiProvider implements IMessageProvider {
         return { balance: 100000, currency: 'KRW' }
       }
 
-      // HMAC 인증 헤더 생성
-      const headers = this.generateAuthHeaders('GET', '/cash/v1/balance')
-
-      // API 호출
-      const response = await fetch(`${this.apiBaseUrl}/cash/v1/balance`, {
-        method: 'GET',
-        headers,
-      })
-
-      if (!response.ok) {
-        throw new Error(`Solapi balance check failed: ${response.status}`)
-      }
-
-      const data = await response.json()
+      // SDK getBalance 메서드 사용
+      const balanceData = await this.messageService.getBalance()
 
       return {
-        balance: data.balance || 0,
+        balance: balanceData.balance || 0,
         currency: 'KRW',
       }
     } catch (error) {
@@ -211,35 +157,35 @@ export class SolapiProvider implements IMessageProvider {
         }
       }
 
-      // HMAC 인증 헤더 생성
-      const headers = this.generateAuthHeaders('GET', `/messages/v4/groups/${messageId}`)
-
-      // API 호출
-      const response = await fetch(`${this.apiBaseUrl}/messages/v4/groups/${messageId}`, {
-        method: 'GET',
-        headers,
+      // SDK getMessages 메서드로 메시지 조회
+      const messages = await this.messageService.getMessages({
+        groupId: messageId,
       })
 
-      if (!response.ok) {
-        throw new Error(`Solapi status check failed: ${response.status}`)
+      // 첫 번째 메시지의 상태 확인
+      if (!messages || !messages.messageList || messages.messageList.length === 0) {
+        return {
+          status: DeliveryStatus.PENDING,
+        }
       }
 
-      const data: SolapiMessageStatusResponse = await response.json()
+      const message = messages.messageList[0]
 
       // 상태 매핑
-      switch (data.statusCode) {
+      switch (message.statusCode) {
         case 'PENDING':
         case 'SENDING':
           return { status: DeliveryStatus.PENDING }
         case 'SENT':
+        case 'COMPLETE':
           return {
             status: DeliveryStatus.DELIVERED,
-            deliveredAt: data.sentAt ? new Date(data.sentAt) : undefined,
+            deliveredAt: message.sentAt ? new Date(message.sentAt) : undefined,
           }
         case 'FAILED':
           return {
             status: DeliveryStatus.FAILED,
-            failureReason: data.reason || '전송 실패',
+            failureReason: message.reason || '전송 실패',
           }
         default:
           return { status: DeliveryStatus.PENDING }
@@ -254,28 +200,82 @@ export class SolapiProvider implements IMessageProvider {
   }
 
   /**
-   * HMAC-SHA256 인증 헤더 생성
-   * Solapi API는 요청마다 HMAC 서명을 요구합니다
+   * 메시지 이력 조회 (새 기능)
+   *
+   * @param filters - 필터 옵션
+   * @returns 메시지 목록
    */
-  private generateAuthHeaders(
-    method: string,
-    path: string,
-    body?: any
-  ): Record<string, string> {
-    const date = new Date().toISOString()
-    const salt = crypto.randomBytes(16).toString('hex')
+  async getMessages(filters?: {
+    limit?: number
+    messageIds?: string[]
+    groupId?: string
+    startDate?: Date | string
+    endDate?: Date | string
+    type?: 'SMS' | 'LMS' | 'MMS'
+  }) {
+    try {
+      // 테스트 모드
+      if (process.env.NODE_ENV === 'development') {
+        return {
+          messageList: [],
+          totalCount: 0,
+        }
+      }
 
-    // 서명할 데이터 생성
-    const stringToSign = `${date}${salt}`
+      // SDK getMessages 메서드 사용
+      const params: any = {}
 
-    // HMAC-SHA256 서명 생성
-    const signature = crypto
-      .createHmac('sha256', this.config.apiSecret)
-      .update(stringToSign)
-      .digest('hex')
+      if (filters?.limit) params.limit = filters.limit
+      if (filters?.messageIds) params.messageIds = filters.messageIds
+      if (filters?.groupId) params.groupId = filters.groupId
+      if (filters?.startDate) params.startDate = filters.startDate
+      if (filters?.endDate) params.endDate = filters.endDate
+      if (filters?.type) params.type = filters.type
 
-    return {
-      Authorization: `HMAC-SHA256 apiKey=${this.config.apiKey}, date=${date}, salt=${salt}, signature=${signature}`,
+      const result = await this.messageService.getMessages(params)
+
+      return {
+        messageList: result.messageList || [],
+        totalCount: result.totalCount || 0,
+        nextKey: result.nextKey,
+      }
+    } catch (error) {
+      console.error('[SolapiProvider.getMessages] Error:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 통계 조회 (새 기능)
+   *
+   * @param startDate - 시작 날짜
+   * @param endDate - 종료 날짜
+   * @returns 통계 데이터
+   */
+  async getStatistics(startDate?: Date | string, endDate?: Date | string) {
+    try {
+      // 테스트 모드
+      if (process.env.NODE_ENV === 'development') {
+        return {
+          total: 0,
+          success: 0,
+          pending: 0,
+          failed: 0,
+        }
+      }
+
+      // SDK getStatistics 메서드 사용
+      const params: any = {}
+
+      if (startDate) params.startDate = startDate
+      if (endDate) params.endDate = endDate
+
+      const result = await this.messageService.getStatistics(params)
+
+      return result
+    } catch (error) {
+      console.error('[SolapiProvider.getStatistics] Error:', error)
+      throw error
     }
   }
 
@@ -287,13 +287,14 @@ export class SolapiProvider implements IMessageProvider {
       return 'LMS'
     }
 
-    // SMS는 90바이트 이내
+    // SMS는 90바이트 이내 (한글 45자, 영문 90자)
     const bytes = Buffer.byteLength(body, 'utf-8')
     return bytes <= 90 ? 'SMS' : 'LMS'
   }
 
   /**
    * 전화번호 정리 (하이픈 제거)
+   * Solapi는 01012345678 형식 요구
    */
   private sanitizePhoneNumber(phone: string): string {
     return phone.replace(/[^0-9]/g, '')
