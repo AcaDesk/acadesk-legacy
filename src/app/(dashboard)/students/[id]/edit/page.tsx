@@ -14,9 +14,9 @@ import { Textarea } from '@ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@ui/tabs'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
-import { GRADES } from '@/lib/constants'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { getStudentDetail, updateStudent } from '@/app/actions/students'
+import { GradeSelector } from '@/components/features/common/grade-selector'
 
 const studentSchema = z.object({
   name: z.string().min(2, '이름은 최소 2자 이상이어야 합니다'),
@@ -224,18 +224,11 @@ export default function EditStudentPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="grade">학년 *</Label>
-                  <Select onValueChange={(value) => setValue('grade', value)} value={selectedGrade}>
-                    <SelectTrigger id="grade">
-                      <SelectValue placeholder="학년 선택" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {GRADES.map((grade) => (
-                        <SelectItem key={grade.value} value={grade.value}>
-                          {grade.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <GradeSelector
+                    value={selectedGrade}
+                    onChange={(value) => setValue('grade', value)}
+                    placeholder="학년 선택"
+                  />
                   {errors.grade && (
                     <p className="text-sm text-destructive">{errors.grade.message}</p>
                   )}
