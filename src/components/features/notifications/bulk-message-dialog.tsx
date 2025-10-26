@@ -12,7 +12,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@ui/dialog'
-import { Send, MessageSquare } from 'lucide-react'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@ui/select'
+import { Alert, AlertDescription } from '@ui/alert'
+import { Send, MessageSquare, Info } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { sendMessages, getMessageTemplates } from '@/app/actions/messages'
 import { getErrorMessage } from '@/lib/error-handlers'
@@ -32,6 +40,35 @@ interface BulkMessageDialogProps {
   onMessageSent?: () => void
 }
 
+type MessageType = 'sms' | 'lms' | 'mms'
+
+const MESSAGE_TYPE_INFO = {
+  sms: {
+    label: 'SMS (단문)',
+    description: '90바이트(한글 45자) 이내의 짧은 문자',
+    maxLength: 90,
+    maxLengthKor: 45,
+    estimatedCost: '약 8-10원/건',
+    icon: '📱',
+  },
+  lms: {
+    label: 'LMS (장문)',
+    description: '2,000자 이내의 긴 문자 메시지',
+    maxLength: 2000,
+    maxLengthKor: 1000,
+    estimatedCost: '약 24-30원/건',
+    icon: '📄',
+  },
+  mms: {
+    label: 'MMS (포토)',
+    description: '2,000자 + 이미지 첨부 가능 (이미지 업로드는 추후 지원)',
+    maxLength: 2000,
+    maxLengthKor: 1000,
+    estimatedCost: '약 40-50원/건',
+    icon: '🖼️',
+  },
+}
+
 export function BulkMessageDialog({
   open,
   onOpenChange,
@@ -39,10 +76,12 @@ export function BulkMessageDialog({
 }: BulkMessageDialogProps) {
   const [selectedStudents, setSelectedStudents] = useState<string[]>([])
   const [message, setMessage] = useState('')
+  const [messageType, setMessageType] = useState<MessageType>('sms')
   const [templates, setTemplates] = useState<MessageTemplate[]>([])
   const [sending, setSending] = useState(false)
 
   const { toast } = useToast()
+  const typeInfo = MESSAGE_TYPE_INFO[messageType]
 
   useEffect(() => {
     if (open) {
@@ -86,13 +125,33 @@ export function BulkMessageDialog({
       return
     }
 
+    // 글자 수 제한 체크
+    const charCount = message.length
+    if (messageType === 'sms' && charCount > typeInfo.maxLengthKor) {
+      toast({
+        title: '글자 수 초과',
+        description: `SMS는 최대 ${typeInfo.maxLengthKor}자까지 입력 가능합니다. LMS 또는 MMS를 선택해주세요.`,
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if ((messageType === 'lms' || messageType === 'mms') && charCount > typeInfo.maxLengthKor) {
+      toast({
+        title: '글자 수 초과',
+        description: `최대 ${typeInfo.maxLengthKor}자까지 입력 가능합니다.`,
+        variant: 'destructive',
+      })
+      return
+    }
+
     setSending(true)
 
     try {
       const result = await sendMessages({
         studentIds: selectedStudents,
         message: message.trim(),
-        type: 'sms',
+        type: messageType,
       })
 
       if (!result.success || !result.data) {
@@ -107,6 +166,7 @@ export function BulkMessageDialog({
       // Reset form
       setSelectedStudents([])
       setMessage('')
+      setMessageType('sms')
       onMessageSent?.()
       onOpenChange(false)
     } catch (error) {
@@ -151,14 +211,58 @@ export function BulkMessageDialog({
           {/* Right: Message Composition */}
           <div className="space-y-4">
             <div>
-              <Label>전송 방법</Label>
-              <div className="mt-2 flex items-center gap-2 p-3 border rounded-lg bg-muted/50">
-                <MessageSquare className="h-5 w-5" />
-                <div>
-                  <p className="font-medium text-sm">SMS/알림톡</p>
-                  <p className="text-xs text-muted-foreground">문자 메시지로 전송됩니다</p>
-                </div>
-              </div>
+              <Label>메시지 타입</Label>
+              <Select value={messageType} onValueChange={(value) => setMessageType(value as MessageType)}>
+                <SelectTrigger className="mt-2">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sms">
+                    <div className="flex items-center gap-2">
+                      <span>{MESSAGE_TYPE_INFO.sms.icon}</span>
+                      <div>
+                        <p className="font-medium">{MESSAGE_TYPE_INFO.sms.label}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {MESSAGE_TYPE_INFO.sms.estimatedCost}
+                        </p>
+                      </div>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="lms">
+                    <div className="flex items-center gap-2">
+                      <span>{MESSAGE_TYPE_INFO.lms.icon}</span>
+                      <div>
+                        <p className="font-medium">{MESSAGE_TYPE_INFO.lms.label}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {MESSAGE_TYPE_INFO.lms.estimatedCost}
+                        </p>
+                      </div>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="mms">
+                    <div className="flex items-center gap-2">
+                      <span>{MESSAGE_TYPE_INFO.mms.icon}</span>
+                      <div>
+                        <p className="font-medium">{MESSAGE_TYPE_INFO.mms.label}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {MESSAGE_TYPE_INFO.mms.estimatedCost}
+                        </p>
+                      </div>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Type Info Alert */}
+              <Alert className="mt-2">
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  <p className="text-sm font-medium">{typeInfo.description}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    최대 {typeInfo.maxLengthKor}자 | 예상 비용: {typeInfo.estimatedCost}
+                  </p>
+                </AlertDescription>
+              </Alert>
             </div>
 
             {templates.length > 0 && (
@@ -191,22 +295,35 @@ export function BulkMessageDialog({
                 id="message"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="SMS 내용 (최대 90자 권장, 초과 시 장문 SMS로 발송)"
-                rows={8}
+                placeholder={`${typeInfo.label} 메시지 내용을 입력하세요 (최대 ${typeInfo.maxLengthKor}자)`}
+                rows={messageType === 'sms' ? 4 : 8}
                 className="mt-2"
-                maxLength={1000}
+                maxLength={typeInfo.maxLengthKor}
               />
               <div className="flex items-center justify-between mt-1">
-                <p className="text-xs text-muted-foreground">
-                  {message.length}자
-                  {message.length > 90 && ` / 장문 SMS (${Math.ceil(message.length / 90)}건으로 발송)`}
+                <p className={`text-xs ${
+                  message.length > typeInfo.maxLengthKor * 0.9
+                    ? 'text-orange-600 font-medium'
+                    : 'text-muted-foreground'
+                }`}>
+                  {message.length} / {typeInfo.maxLengthKor}자
                 </p>
-                {message.length > 90 && (
-                  <p className="text-xs text-orange-600">
-                    90자 초과 시 요금이 추가될 수 있습니다
+                {messageType === 'sms' && message.length > typeInfo.maxLengthKor && (
+                  <p className="text-xs text-red-600 font-medium">
+                    SMS 글자 수 초과 - LMS 또는 MMS 선택 필요
                   </p>
                 )}
               </div>
+
+              {/* 비용 안내 */}
+              <p className="text-xs text-muted-foreground mt-2">
+                💡 {selectedStudents.length}명에게 발송 시 예상 비용: 약 {
+                  Math.ceil(
+                    selectedStudents.length *
+                    parseInt(typeInfo.estimatedCost.match(/\d+/)?.[0] || '10')
+                  )
+                }원
+              </p>
             </div>
           </div>
         </div>
