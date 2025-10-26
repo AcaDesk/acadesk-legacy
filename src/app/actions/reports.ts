@@ -166,6 +166,20 @@ export async function generateMonthlyReport(
       periodEndStr
     )
 
+    // 11. 현재 성적 및 추이 데이터 생성
+    const currentScore = await getCurrentScoreData(
+      supabase,
+      studentId,
+      periodStartStr,
+      periodEndStr
+    )
+    const scoreTrend = await getScoreTrendData(
+      supabase,
+      studentId,
+      year,
+      month
+    )
+
     const reportData: ReportData = {
       student: {
         id: typedStudentData.id,
@@ -190,6 +204,8 @@ export async function generateMonthlyReport(
       instructorComment,
       gradesChartData,
       attendanceChartData,
+      currentScore,
+      scoreTrend,
     }
 
     return {
@@ -726,6 +742,131 @@ async function getAttendanceChartData(
       note: attendanceRecord.note || undefined,
     }
   })
+}
+
+/**
+ * 현재 성적 데이터 생성 (내 점수, 반 평균, 최고 점수)
+ */
+async function getCurrentScoreData(
+  supabase: Awaited<ReturnType<typeof createServiceRoleClient>>,
+  studentId: string,
+  periodStart: string,
+  periodEnd: string
+) {
+  // 현재 기간 내 모든 시험 점수 조회
+  const { data: myScores } = await supabase
+    .from('exam_scores')
+    .select('percentage')
+    .eq('student_id', studentId)
+    .gte('created_at', periodStart)
+    .lte('created_at', periodEnd)
+
+  if (!myScores || myScores.length === 0) {
+    return {
+      myScore: 0,
+      classAverage: 0,
+      highestScore: 0,
+    }
+  }
+
+  // 내 평균 점수 계산
+  const myAverage =
+    myScores.reduce((sum, score) => sum + score.percentage, 0) / myScores.length
+
+  // 같은 기간 내 모든 학생들의 시험 점수 조회 (반 평균 계산용)
+  const { data: allScores } = await supabase
+    .from('exam_scores')
+    .select('percentage, student_id')
+    .gte('created_at', periodStart)
+    .lte('created_at', periodEnd)
+
+  let classAverage = myAverage
+  let highestScore = myAverage
+
+  if (allScores && allScores.length > 0) {
+    // 반 평균 계산
+    classAverage =
+      allScores.reduce((sum, score) => sum + score.percentage, 0) / allScores.length
+
+    // 최고 점수 계산 (학생별 평균 중 최고)
+    const studentAverages = new Map<string, number[]>()
+    allScores.forEach((score) => {
+      if (!studentAverages.has(score.student_id)) {
+        studentAverages.set(score.student_id, [])
+      }
+      studentAverages.get(score.student_id)?.push(score.percentage)
+    })
+
+    const averages = Array.from(studentAverages.values()).map(
+      (scores) => scores.reduce((sum, s) => sum + s, 0) / scores.length
+    )
+    highestScore = Math.max(...averages)
+  }
+
+  return {
+    myScore: Math.round(myAverage * 10) / 10,
+    classAverage: Math.round(classAverage * 10) / 10,
+    highestScore: Math.round(highestScore * 10) / 10,
+  }
+}
+
+/**
+ * 성적 추이 데이터 생성 (최근 3개월)
+ */
+async function getScoreTrendData(
+  supabase: Awaited<ReturnType<typeof createServiceRoleClient>>,
+  studentId: string,
+  currentYear: number,
+  currentMonth: number
+) {
+  const trendData: Array<{
+    name: string
+    '내 점수': number
+    '반 평균': number
+  }> = []
+
+  // 최근 3개월 데이터 생성
+  for (let i = 2; i >= 0; i--) {
+    const targetDate = new Date(currentYear, currentMonth - 1 - i, 1)
+    const targetYear = targetDate.getFullYear()
+    const targetMonth = targetDate.getMonth() + 1
+
+    const periodStart = new Date(targetYear, targetMonth - 1, 1).toISOString().split('T')[0]
+    const periodEnd = new Date(targetYear, targetMonth, 0).toISOString().split('T')[0]
+
+    // 해당 월의 내 점수 조회
+    const { data: myScores } = await supabase
+      .from('exam_scores')
+      .select('percentage')
+      .eq('student_id', studentId)
+      .gte('created_at', periodStart)
+      .lte('created_at', periodEnd)
+
+    // 해당 월의 반 평균 조회
+    const { data: allScores } = await supabase
+      .from('exam_scores')
+      .select('percentage')
+      .gte('created_at', periodStart)
+      .lte('created_at', periodEnd)
+
+    const myAverage =
+      myScores && myScores.length > 0
+        ? myScores.reduce((sum, s) => sum + s.percentage, 0) / myScores.length
+        : 0
+
+    const classAverage =
+      allScores && allScores.length > 0
+        ? allScores.reduce((sum, s) => sum + s.percentage, 0) / allScores.length
+        : 0
+
+    trendData.push({
+      name: `${targetMonth}월`,
+      '내 점수': Math.round(myAverage * 10) / 10,
+      '반 평균': Math.round(classAverage * 10) / 10,
+    })
+  }
+
+  return trendData
 }
 
 // ============================================================================
