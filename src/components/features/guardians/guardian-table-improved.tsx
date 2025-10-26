@@ -21,10 +21,11 @@ import {
   IconChevronsLeft,
   IconChevronsRight,
 } from '@tabler/icons-react'
-import { Eye, Edit, Trash2, Search, X } from 'lucide-react'
+import { Eye, Edit, Trash2, Search, X, Users } from 'lucide-react'
 
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
+import { EmptyState, NoSearchResultsEmptyState } from '@ui/empty-state'
 import {
   Table,
   TableBody,
@@ -377,14 +378,26 @@ export function GuardianTableImproved({
               <TableRow>
                 <TableCell
                   colSpan={columns.length}
-                  className="h-24 text-center"
+                  className="p-0"
                 >
-                  <div className="flex flex-col items-center justify-center text-muted-foreground">
-                    <p>등록된 보호자가 없습니다.</p>
-                    {globalFilter && (
-                      <p className="text-sm mt-1">검색 결과가 없습니다.</p>
-                    )}
-                  </div>
+                  {globalFilter ? (
+                    <NoSearchResultsEmptyState
+                      searchTerm={globalFilter}
+                      onClearSearch={() => setGlobalFilter('')}
+                      icon={Search}
+                    />
+                  ) : (
+                    <EmptyState
+                      icon={Users}
+                      title="등록된 보호자가 없습니다"
+                      description="새로운 보호자를 등록하여 시작하세요"
+                      action={
+                        <Button onClick={() => router.push('/guardians/new')}>
+                          보호자 등록
+                        </Button>
+                      }
+                    />
+                  )}
                 </TableCell>
               </TableRow>
             )}

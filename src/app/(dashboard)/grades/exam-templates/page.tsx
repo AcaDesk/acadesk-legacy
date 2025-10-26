@@ -19,6 +19,7 @@ import { Plus, Edit, Trash2, Copy, FileText, Repeat } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { PageWrapper } from "@/components/layout/page-wrapper"
+import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
@@ -53,6 +54,9 @@ export default function ExamTemplatesPage() {
   const [categories, setCategories] = useState<ExamCategory[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(true)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [templateToDelete, setTemplateToDelete] = useState<{ id: string; name: string } | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const { toast } = useToast()
   const router = useRouter()
@@ -134,22 +138,26 @@ export default function ExamTemplatesPage() {
     setFilteredTemplates(filtered)
   }
 
-  async function handleDelete(id: string, name: string) {
-    if (!confirm(`"${name}" 템플릿을 삭제하시겠습니까?`)) {
-      return
-    }
+  function handleDelete(id: string, name: string) {
+    setTemplateToDelete({ id, name })
+    setDeleteDialogOpen(true)
+  }
 
+  async function handleConfirmDelete() {
+    if (!templateToDelete) return
+
+    setIsDeleting(true)
     try {
       const { error } = await supabase
         .from('exams')
         .update({ deleted_at: new Date().toISOString() })
-        .eq('id', id)
+        .eq('id', templateToDelete.id)
 
       if (error) throw error
 
       toast({
         title: '삭제 완료',
-        description: `${name} 템플릿이 삭제되었습니다.`,
+        description: `${templateToDelete.name} 템플릿이 삭제되었습니다.`,
       })
 
       loadData()
@@ -160,6 +168,10 @@ export default function ExamTemplatesPage() {
         description: '템플릿을 삭제하는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
+    } finally {
+      setIsDeleting(false)
+      setDeleteDialogOpen(false)
+      setTemplateToDelete(null)
     }
   }
 
@@ -395,6 +407,22 @@ export default function ExamTemplatesPage() {
           </Card>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="정말로 삭제하시겠습니까?"
+        description={
+          templateToDelete
+            ? `"${templateToDelete.name}" 템플릿이 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`
+            : ''
+        }
+        confirmText="삭제"
+        variant="destructive"
+        isLoading={isDeleting}
+        onConfirm={handleConfirmDelete}
+      />
     </PageWrapper>
   )
 }
