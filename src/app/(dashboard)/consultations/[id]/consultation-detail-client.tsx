@@ -64,7 +64,13 @@ import {
 
 type Consultation = {
   id: string
-  student_id: string
+  is_lead: boolean
+  student_id: string | null
+  lead_name: string | null
+  lead_guardian_name: string | null
+  lead_guardian_phone: string | null
+  converted_to_student_id: string | null
+  converted_at: string | null
   consultation_date: string
   consultation_type: string
   duration_minutes: number | null
@@ -447,6 +453,33 @@ export function ConsultationDetailClient({
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {/* 입회 처리 버튼 (신규 상담이고 아직 등록 안 된 경우에만 표시) */}
+              {consultation.is_lead && !consultation.converted_to_student_id && (
+                <Button
+                  variant="default"
+                  className="gap-2 bg-green-600 hover:bg-green-700"
+                  onClick={() => {
+                    // 학생 등록 페이지로 이동하면서 상담 정보를 query parameter로 전달
+                    const params = new URLSearchParams({
+                      fromConsultation: consultation.id,
+                      name: consultation.lead_name || '',
+                      guardianName: consultation.lead_guardian_name || '',
+                      guardianPhone: consultation.lead_guardian_phone || '',
+                    })
+                    router.push(`/students/new?${params.toString()}`)
+                  }}
+                >
+                  <CheckCircle className="h-4 w-4" />
+                  입회 처리하기
+                </Button>
+              )}
+              {/* 입회 완료 표시 */}
+              {consultation.is_lead && consultation.converted_to_student_id && (
+                <Badge variant="default" className="bg-green-600 px-3 py-1">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  입회 완료
+                </Badge>
+              )}
               <Link href={`/consultations/${consultation.id}/edit`}>
                 <Button variant="outline" className="gap-2">
                   <Edit className="h-4 w-4" />
@@ -495,18 +528,36 @@ export function ConsultationDetailClient({
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-1">
-                  <div className="text-sm text-muted-foreground">학생</div>
+                  <div className="text-sm text-muted-foreground">
+                    {consultation.is_lead ? '잠재 고객' : '학생'}
+                  </div>
                   <div className="flex items-center gap-2">
                     <User className="h-4 w-4 text-muted-foreground" />
                     <span className="font-medium">
-                      {consultation.students?.name || '정보 없음'}
+                      {consultation.is_lead
+                        ? consultation.lead_name || '정보 없음'
+                        : consultation.students?.name || '정보 없음'}
                     </span>
-                    {consultation.students?.grade && (
-                      <Badge variant="outline" className="ml-2">
-                        {consultation.students.grade}
+                    {consultation.is_lead ? (
+                      <Badge variant="default" className="bg-blue-600">
+                        신규
                       </Badge>
+                    ) : (
+                      consultation.students?.grade && (
+                        <Badge variant="outline" className="ml-2">
+                          {consultation.students.grade}
+                        </Badge>
+                      )
                     )}
                   </div>
+                  {consultation.is_lead && consultation.lead_guardian_name && (
+                    <div className="text-sm text-muted-foreground mt-2">
+                      학부모: {consultation.lead_guardian_name}
+                      {consultation.lead_guardian_phone && (
+                        <span className="ml-2">({consultation.lead_guardian_phone})</span>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-1">

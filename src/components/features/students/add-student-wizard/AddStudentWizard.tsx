@@ -23,20 +23,29 @@ import { getTenantCodes } from '@/app/actions/tenant'
 // Props
 // ============================================================================
 
+export interface StudentInitialValues {
+  name?: string
+  guardianName?: string
+  guardianPhone?: string
+  consultationId?: string
+}
+
 interface AddStudentWizardProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess?: () => void
+  initialValues?: StudentInitialValues
 }
 
 // ============================================================================
 // Main Component
 // ============================================================================
 
-export function AddStudentWizard({ open, onOpenChange, onSuccess }: AddStudentWizardProps) {
+export function AddStudentWizard({ open, onOpenChange, onSuccess, initialValues }: AddStudentWizardProps) {
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [schools, setSchools] = useState<string[]>([])
+  const [consultationId, setConsultationId] = useState<string | undefined>(initialValues?.consultationId)
 
   const { toast } = useToast()
   const { user: currentUser } = useCurrentUser()
@@ -51,14 +60,14 @@ export function AddStudentWizard({ open, onOpenChange, onSuccess }: AddStudentWi
     resolver: zodResolver(studentWizardSchema),
     mode: 'onTouched', // 사용자가 필드를 건드리고 포커스를 잃으면 즉시 검증
     defaultValues: {
-      name: '',
+      name: initialValues?.name || '',
       grade: '',
       school: '',
       gender: undefined,
       guardianMode: GUARDIAN_MODES.NEW,
       guardian: {
-        name: '',
-        phone: '',
+        name: initialValues?.guardianName || '',
+        phone: initialValues?.guardianPhone || '',
         email: '',
         relationship: '',
         address: '',
@@ -75,6 +84,22 @@ export function AddStudentWizard({ open, onOpenChange, onSuccess }: AddStudentWi
       profileImage: '',
     },
   })
+
+  // Update form values when initialValues change
+  useEffect(() => {
+    if (initialValues && open) {
+      if (initialValues.name) {
+        form.setValue('name', initialValues.name)
+      }
+      if (initialValues.guardianName) {
+        form.setValue('guardian.name', initialValues.guardianName)
+      }
+      if (initialValues.guardianPhone) {
+        form.setValue('guardian.phone', initialValues.guardianPhone)
+      }
+      setConsultationId(initialValues.consultationId)
+    }
+  }, [initialValues, open, form])
 
   const { handleSubmit, trigger } = form
   const guardianMode = form.watch('guardianMode')
@@ -259,27 +284,46 @@ export function AddStudentWizard({ open, onOpenChange, onSuccess }: AddStudentWi
         throw new Error(result.error || '학생을 추가하는 중 오류가 발생했습니다.')
       }
 
-      // Show success message based on guardian mode
-      if (guardianMode === 'new' && data.guardian) {
-        toast({
-          title: '학생 및 학부모 추가 완료',
-          description: `${data.name} 학생과 ${data.guardian.name} 학부모가 추가되었습니다.`,
-        })
-      } else if (guardianMode === 'existing') {
-        toast({
-          title: '학생 추가 및 학부모 연결 완료',
-          description: `${data.name} 학생이 추가되고 기존 학부모와 연결되었습니다.`,
-        })
-      } else {
-        toast({
-          title: '학생 추가 완료',
-          description: `${data.name} 학생이 추가되었습니다.`,
-        })
+      // If this student was created from a consultation, mark it as converted
+      if (consultationId && result.data?.id) {
+        try {
+          const { convertLeadToStudent } = await import('@/app/actions/consultations')
+          const convertResult = await convertLeadToStudent(consultationId, result.data.id)
+
+          if (!convertResult.success) {
+            console.error('Failed to mark consultation as converted:', convertResult.error)
+            // Don't fail the whole operation, just log
+          }
+        } catch (error) {
+          console.error('Error converting consultation:', error)
+          // Don't fail the whole operation, just log
+        }
       }
+
+      // Show success message based on context and guardian mode
+      let successTitle = '학생 추가 완료'
+      let successDescription = `${data.name} 학생이 추가되었습니다.`
+
+      if (consultationId) {
+        successTitle = '✅ 입회 처리 완료'
+        successDescription = `${data.name} 학생이 등록되었고, 상담 기록이 "입회 완료"로 업데이트되었습니다.`
+      } else if (guardianMode === 'new' && data.guardian) {
+        successTitle = '학생 및 학부모 추가 완료'
+        successDescription = `${data.name} 학생과 ${data.guardian.name} 학부모가 추가되었습니다.`
+      } else if (guardianMode === 'existing') {
+        successTitle = '학생 추가 및 학부모 연결 완료'
+        successDescription = `${data.name} 학생이 추가되고 기존 학부모와 연결되었습니다.`
+      }
+
+      toast({
+        title: successTitle,
+        description: successDescription,
+      })
 
       // Reset form and close
       form.reset()
       setCurrentStep(1)
+      setConsultationId(undefined)
       onSuccess?.()
 
       if (closeAfter) {

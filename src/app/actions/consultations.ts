@@ -20,7 +20,18 @@ import { getErrorMessage } from '@/lib/error-handlers'
 // ============================================================================
 
 const createConsultationSchema = z.object({
-  studentId: z.string().uuid(),
+  // 재원생 상담 또는 신규 입회 상담
+  isLead: z.boolean().default(false),
+
+  // 재원생 상담 (isLead = false)
+  studentId: z.string().uuid().optional(),
+
+  // 신규 입회 상담 (isLead = true)
+  leadName: z.string().optional(),
+  leadGuardianName: z.string().optional(),
+  leadGuardianPhone: z.string().optional(),
+
+  // 공통 필드
   consultationDate: z.string(), // ISO datetime string
   consultationType: z.enum(['parent_meeting', 'phone_call', 'video_call', 'in_person']),
   durationMinutes: z.number().int().positive().optional(),
@@ -29,7 +40,18 @@ const createConsultationSchema = z.object({
   outcome: z.string().optional(),
   nextConsultationDate: z.string().optional().nullable(), // ISO date string
   followUpRequired: z.boolean().optional(),
-})
+}).refine(
+  (data) => {
+    // isLead = false이면 studentId 필수
+    if (!data.isLead && !data.studentId) return false
+    // isLead = true이면 leadName 필수
+    if (data.isLead && !data.leadName) return false
+    return true
+  },
+  {
+    message: '재원생 상담은 학생을, 신규 상담은 잠재 고객 이름을 입력해주세요',
+  }
+)
 
 const updateConsultationSchema = z.object({
   id: z.string().uuid(),
@@ -80,6 +102,7 @@ export async function getConsultations(options?: {
   studentId?: string
   conductedBy?: string
   followUpOnly?: boolean
+  isLead?: boolean
   startDate?: string
   endDate?: string
   limit?: number
@@ -102,6 +125,9 @@ export async function getConsultations(options?: {
     }
     if (options?.followUpOnly) {
       query = query.eq('follow_up_required', true)
+    }
+    if (options?.isLead !== undefined) {
+      query = query.eq('is_lead', options.isLead)
     }
     if (options?.startDate) {
       query = query.gte('consultation_date', options.startDate)
@@ -222,7 +248,11 @@ export async function createConsultation(
       .from('consultations')
       .insert({
         tenant_id: tenantId,
-        student_id: validated.studentId,
+        is_lead: validated.isLead,
+        student_id: validated.isLead ? null : validated.studentId,
+        lead_name: validated.isLead ? validated.leadName : null,
+        lead_guardian_name: validated.isLead ? validated.leadGuardianName : null,
+        lead_guardian_phone: validated.isLead ? validated.leadGuardianPhone : null,
         consultation_date: validated.consultationDate,
         consultation_type: validated.consultationType,
         duration_minutes: validated.durationMinutes ?? null,
@@ -241,7 +271,9 @@ export async function createConsultation(
     }
 
     revalidatePath('/consultations')
-    revalidatePath(`/students/${validated.studentId}`)
+    if (validated.studentId) {
+      revalidatePath(`/students/${validated.studentId}`)
+    }
 
     return {
       success: true,
@@ -692,6 +724,75 @@ export async function getUpcomingFollowUps(daysAhead = 7) {
     }
   } catch (error) {
     console.error('[getUpcomingFollowUps] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+// ============================================================================
+// Lead Consultation (입회 상담) Management
+// ============================================================================
+
+/**
+ * Mark lead consultation as converted to student
+ * 신규 입회 상담을 학생 등록 완료로 표시
+ *
+ * @param consultationId - Consultation ID
+ * @param studentId - Created student ID
+ * @returns Success or error
+ */
+export async function convertLeadToStudent(consultationId: string, studentId: string) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    // 1. Verify consultation is a lead
+    const { data: consultation, error: fetchError } = await supabase
+      .from('consultations')
+      .select('is_lead')
+      .eq('id', consultationId)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .single()
+
+    if (fetchError) {
+      throw fetchError
+    }
+
+    if (!consultation?.is_lead) {
+      throw new Error('해당 상담은 신규 입회 상담이 아닙니다')
+    }
+
+    // 2. Mark as converted
+    const { error } = await supabase
+      .from('consultations')
+      .update({
+        converted_to_student_id: studentId,
+        converted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', consultationId)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+
+    if (error) {
+      throw error
+    }
+
+    revalidatePath('/consultations')
+    revalidatePath(`/consultations/${consultationId}`)
+    revalidatePath(`/students/${studentId}`)
+
+    return {
+      success: true,
+      data: null,
+      error: null,
+    }
+  } catch (error) {
+    console.error('[convertLeadToStudent] Error:', error)
     return {
       success: false,
       data: null,
