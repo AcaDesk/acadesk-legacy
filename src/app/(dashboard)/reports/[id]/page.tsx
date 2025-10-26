@@ -9,14 +9,24 @@ import { Badge } from '@ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Separator } from '@ui/separator'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
-import { Download, Send, TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@ui/dialog'
+import { Textarea } from '@ui/textarea'
+import { Label } from '@ui/label'
+import { Download, Send, ChevronRight } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import type { ReportData } from '@/core/types/report-entity'
-import { ReportGrowthChart } from '@/components/features/reports/ReportGrowthChart'
+import { ReportViewer } from '@/components/features/reports/ReportViewer'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
+import Link from 'next/link'
 
 interface Report {
   id: string
@@ -43,6 +53,14 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [sendDialogOpen, setSendDialogOpen] = useState(false)
+  const [commentDialogOpen, setCommentDialogOpen] = useState(false)
+  const [commentForm, setCommentForm] = useState({
+    summary: '',
+    strengths: '',
+    improvements: '',
+    nextGoals: '',
+  })
+  const [savingComment, setSavingComment] = useState(false)
 
   const { toast } = useToast()
   const router = useRouter()
@@ -146,11 +164,76 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
     }
   }
 
-  function getTrendIcon(change: number | null) {
-    if (change === null) return <Minus className="h-4 w-4" />
-    if (change > 0) return <TrendingUp className="h-4 w-4 text-green-600" />
-    if (change < 0) return <TrendingDown className="h-4 w-4 text-red-600" />
-    return <Minus className="h-4 w-4" />
+  function handleEditComment() {
+    const currentComment = reportData.overallComment || reportData.instructorComment || ''
+
+    // 기존 코멘트를 파싱하여 폼에 채우기 (간단한 파싱)
+    const lines = currentComment.split('\n').filter(l => l.trim())
+    setCommentForm({
+      summary: lines[0] || '',
+      strengths: lines[1] || '',
+      improvements: lines[2] || '',
+      nextGoals: lines[3] || '',
+    })
+
+    setCommentDialogOpen(true)
+  }
+
+  async function handleSaveComment() {
+    if (!report) return
+
+    setSavingComment(true)
+    try {
+      // 구조화된 코멘트를 하나의 문자열로 합치기
+      const structuredComment = `📝 총평
+${commentForm.summary}
+
+✨ 잘한 점
+${commentForm.strengths}
+
+📈 보완할 점
+${commentForm.improvements}
+
+🎯 다음 달 목표
+${commentForm.nextGoals}`
+
+      // reportData 업데이트
+      const updatedContent = {
+        ...report.content,
+        overallComment: structuredComment,
+        instructorComment: structuredComment,
+      }
+
+      // DB 업데이트
+      const { error } = await supabase
+        .from('reports')
+        .update({ content: updatedContent })
+        .eq('id', report.id)
+
+      if (error) throw error
+
+      // 로컬 state 업데이트
+      setReport({
+        ...report,
+        content: updatedContent,
+      })
+
+      toast({
+        title: '저장 완료',
+        description: '강사 코멘트가 성공적으로 저장되었습니다.',
+      })
+
+      setCommentDialogOpen(false)
+    } catch (error) {
+      console.error('Error saving comment:', error)
+      toast({
+        title: '저장 오류',
+        description: '코멘트를 저장하는 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingComment(false)
+    }
   }
 
   function formatPeriod(start: string, end: string) {
@@ -228,25 +311,44 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
   const homeworkCompleted = reportData.completedTodos || reportData.homework?.completed || 0
 
   return (
-    <PageWrapper
-      title={`${getReportTypeLabel(report.report_type)} 리포트`}
-      subtitle={formatPeriod(report.period_start, report.period_end)}
-      actions={
-        <div className="flex gap-2 print:hidden">
-          <Button variant="outline" onClick={handlePrint}>
-            <Download className="h-4 w-4 mr-2" />
-            PDF 다운로드
-          </Button>
-          {!report.sent_at && (
-            <Button onClick={handleSendClick} disabled={sending}>
-              <Send className="h-4 w-4 mr-2" />
-              보호자 전송
+    <PageWrapper>
+      <div className="space-y-6">
+        {/* Breadcrumb */}
+        <nav className="flex items-center gap-2 text-sm text-muted-foreground print:hidden">
+          <Link href="/reports" className="hover:text-foreground transition-colors">
+            리포트 관리
+          </Link>
+          <ChevronRight className="h-4 w-4" />
+          <span className="text-foreground font-medium">
+            {studentName}
+          </span>
+        </nav>
+
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">
+              {getReportTypeLabel(report.report_type)} 리포트
+            </h1>
+            <p className="text-muted-foreground">
+              {formatPeriod(report.period_start, report.period_end)}
+            </p>
+          </div>
+          <div className="flex gap-2 print:hidden">
+            <Button variant="outline" onClick={handlePrint}>
+              <Download className="h-4 w-4 mr-2" />
+              PDF 다운로드
             </Button>
-          )}
+            {!report.sent_at && (
+              <Button onClick={handleSendClick} disabled={sending}>
+                <Send className="h-4 w-4 mr-2" />
+                보호자 전송
+              </Button>
+            )}
+          </div>
         </div>
-      }
-    >
-      <div ref={contentRef} className="max-w-5xl mx-auto space-y-6">
+
+        <div ref={contentRef} className="max-w-5xl mx-auto space-y-6">
 
         {/* Academy & Student Info Card */}
         <Card>
@@ -445,11 +547,25 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
         {/* Instructor Comment */}
         <Card>
           <CardHeader>
-            <CardTitle>강사 코멘트</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>강사 코멘트</CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleEditComment}
+                className="print:hidden"
+              >
+                <Edit2 className="h-4 w-4 mr-2" />
+                코멘트 수정
+              </Button>
+            </div>
+            <CardDescription>
+              학생의 성장을 위한 맞춤형 피드백을 작성하세요
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-sm leading-relaxed whitespace-pre-line">
-              {reportData.overallComment || reportData.instructorComment || '코멘트가 없습니다.'}
+              {reportData.overallComment || reportData.instructorComment || '코멘트가 없습니다.\n"코멘트 수정" 버튼을 클릭하여 구조화된 피드백을 작성해보세요.'}
             </p>
           </CardContent>
         </Card>
@@ -480,7 +596,8 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
             </div>
           </CardContent>
         </Card>
-      </div>
+        </div> {/* contentRef div */}
+      </div> {/* space-y-6 div */}
 
       {/* Send Confirmation Dialog */}
       <ConfirmationDialog
@@ -497,6 +614,119 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
         isLoading={sending}
         onConfirm={handleConfirmSend}
       />
+
+      {/* Comment Edit Dialog */}
+      <Dialog open={commentDialogOpen} onOpenChange={setCommentDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>강사 코멘트 작성</DialogTitle>
+            <DialogDescription>
+              학생의 성장을 위한 구조화된 피드백을 작성하세요. 작성한 내용은 리포트에 자동으로 반영됩니다.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            {/* 총평 */}
+            <div className="space-y-2">
+              <Label htmlFor="summary" className="text-base font-semibold">
+                📝 총평
+              </Label>
+              <Textarea
+                id="summary"
+                placeholder="이번 달 학생의 전반적인 학습 상황을 간략히 요약해주세요..."
+                value={commentForm.summary}
+                onChange={(e) =>
+                  setCommentForm({ ...commentForm, summary: e.target.value })
+                }
+                rows={3}
+                className="resize-none"
+              />
+              <p className="text-xs text-muted-foreground">
+                예: 이번 달 ○○ 학생은 수학 영역에서 두드러진 성장을 보였습니다.
+              </p>
+            </div>
+
+            <Separator />
+
+            {/* 잘한 점 */}
+            <div className="space-y-2">
+              <Label htmlFor="strengths" className="text-base font-semibold">
+                ✨ 잘한 점
+              </Label>
+              <Textarea
+                id="strengths"
+                placeholder="학생이 특히 잘한 점이나 긍정적인 변화를 구체적으로 적어주세요..."
+                value={commentForm.strengths}
+                onChange={(e) =>
+                  setCommentForm({ ...commentForm, strengths: e.target.value })
+                }
+                rows={3}
+                className="resize-none"
+              />
+              <p className="text-xs text-muted-foreground">
+                예: 어려운 문제를 포기하지 않고 끝까지 해결하려는 자세가 훌륭했습니다.
+              </p>
+            </div>
+
+            <Separator />
+
+            {/* 보완할 점 */}
+            <div className="space-y-2">
+              <Label htmlFor="improvements" className="text-base font-semibold">
+                📈 보완할 점
+              </Label>
+              <Textarea
+                id="improvements"
+                placeholder="개선이 필요한 부분을 긍정적으로 표현해주세요..."
+                value={commentForm.improvements}
+                onChange={(e) =>
+                  setCommentForm({ ...commentForm, improvements: e.target.value })
+                }
+                rows={3}
+                className="resize-none"
+              />
+              <p className="text-xs text-muted-foreground">
+                예: 기본 개념 학습에 조금 더 시간을 투자하면 응용 문제 풀이가 더 수월할 것 같습니다.
+              </p>
+            </div>
+
+            <Separator />
+
+            {/* 다음 달 목표 */}
+            <div className="space-y-2">
+              <Label htmlFor="nextGoals" className="text-base font-semibold">
+                🎯 다음 달 목표
+              </Label>
+              <Textarea
+                id="nextGoals"
+                placeholder="다음 달 학습 목표나 권장 사항을 적어주세요..."
+                value={commentForm.nextGoals}
+                onChange={(e) =>
+                  setCommentForm({ ...commentForm, nextGoals: e.target.value })
+                }
+                rows={3}
+                className="resize-none"
+              />
+              <p className="text-xs text-muted-foreground">
+                예: 다음 달에는 응용 문제 풀이 시간을 늘려 실전 감각을 키우는 것을 목표로 합니다.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setCommentDialogOpen(false)}
+              disabled={savingComment}
+            >
+              취소
+            </Button>
+            <Button onClick={handleSaveComment} disabled={savingComment}>
+              {savingComment ? '저장 중...' : '저장'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Print Styles */}
       <style jsx global>{`
