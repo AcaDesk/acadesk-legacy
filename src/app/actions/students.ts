@@ -235,8 +235,10 @@ export async function createStudentComplete(
       const guardianLinkData =
         validated.guardianMode === 'existing' && validated.guardian && 'id' in validated.guardian
           ? {
+              tenant_id: tenantId,
               student_id: studentId,
               guardian_id: guardianId,
+              is_primary: validated.guardian.is_primary_contact ?? true,
               is_primary_contact: validated.guardian.is_primary_contact ?? true,
               receives_notifications: validated.guardian.receives_notifications ?? true,
               receives_billing: validated.guardian.receives_billing ?? false,
@@ -244,8 +246,10 @@ export async function createStudentComplete(
             }
           : validated.guardianMode === 'new' && validated.guardian && 'name' in validated.guardian
           ? {
+              tenant_id: tenantId,
               student_id: studentId,
               guardian_id: guardianId,
+              is_primary: validated.guardian.is_primary_contact ?? true,
               is_primary_contact: validated.guardian.is_primary_contact ?? true,
               receives_notifications: validated.guardian.receives_notifications ?? true,
               receives_billing: validated.guardian.receives_billing ?? false,
@@ -259,8 +263,8 @@ export async function createStudentComplete(
           .insert(guardianLinkData)
 
         if (linkError) {
-          console.warn('[createStudentComplete] Failed to link guardian:', linkError)
-          // Don't throw - student is created, just log the warning
+          // ❌ 보호자 연결은 중요한 작업이므로 에러를 throw합니다
+          throw new Error('보호자와 학생을 연결하는 데 실패했습니다: ' + linkError.message)
         }
       }
     }
