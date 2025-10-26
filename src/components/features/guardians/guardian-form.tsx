@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect } from 'react'
 import { useForm, UseFormReturn, Path, FieldValues } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { Input } from '@ui/input'
+import { PhoneInput } from '@ui/phone-input'
 import { Label } from '@ui/label'
 import { Button } from '@ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
@@ -81,30 +81,6 @@ export function GuardianFormFields<T extends FieldValues = GuardianFormValues>({
   const phoneValue = watch(`${prefix}phone` as Path<T>)
   const relationshipValue = watch(`${prefix}relationship` as Path<T>)
 
-  // Auto-format phone number
-  useEffect(() => {
-    if (phoneValue && typeof phoneValue === 'string') {
-      const formatted = formatPhoneNumber(phoneValue)
-      if (formatted !== phoneValue) {
-        setValue(`${prefix}phone` as Path<T>, formatted as never, { shouldValidate: true })
-      }
-    }
-  }, [phoneValue, setValue, prefix])
-
-  function formatPhoneNumber(value: string): string {
-    const numbers = value.replace(/\D/g, '')
-
-    if (numbers.length <= 3) {
-      return numbers
-    } else if (numbers.length <= 7) {
-      return `${numbers.slice(0, 3)}-${numbers.slice(3)}`
-    } else if (numbers.length <= 11) {
-      return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7)}`
-    } else {
-      return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7, 11)}`
-    }
-  }
-
   const getError = (field: string): { message?: string } | undefined => {
     const keys = `${prefix}${field}`.split('.')
 
@@ -165,11 +141,10 @@ export function GuardianFormFields<T extends FieldValues = GuardianFormValues>({
         {/* Phone */}
         <div className="space-y-2">
           <Label htmlFor={`${prefix}phone`}>연락처 *</Label>
-          <Input
+          <PhoneInput
             id={`${prefix}phone`}
-            type="tel"
-            placeholder="010-0000-0000"
-            {...register(`${prefix}phone` as Path<T>)}
+            value={(phoneValue as string | undefined) || ''}
+            onChange={(value) => setValue(`${prefix}phone` as Path<T>, value as never, { shouldValidate: true })}
             disabled={disabled}
           />
           {getError('phone') && (

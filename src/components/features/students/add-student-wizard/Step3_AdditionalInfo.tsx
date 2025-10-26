@@ -2,6 +2,7 @@ import { useFormContext } from 'react-hook-form'
 import { format } from 'date-fns'
 import { Calendar as CalendarIcon } from 'lucide-react'
 import { Input } from '@ui/input'
+import { PhoneInput } from '@ui/phone-input'
 import { Label } from '@ui/label'
 import { Button } from '@ui/button'
 import { Textarea } from '@ui/textarea'
@@ -15,16 +16,17 @@ export function Step3_AdditionalInfo() {
   const { register, setValue, watch, formState: { errors } } = useFormContext<StudentWizardFormValues>()
 
   const enrollmentDate = watch('enrollmentDate')
+  const studentPhone = watch('studentPhone')
 
   return (
     <div className="space-y-4">
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="studentPhone">학생 연락처</Label>
-          <Input
+          <PhoneInput
             id="studentPhone"
-            placeholder="010-0000-0000"
-            {...register('studentPhone')}
+            value={studentPhone || ''}
+            onChange={(value) => setValue('studentPhone', value)}
           />
         </div>
 

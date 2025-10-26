@@ -4,6 +4,7 @@ import { Search, UserPlus, Check, Loader2, X } from 'lucide-react'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { GUARDIAN_MODES } from '@/lib/constants'
 import { Input } from '@ui/input'
+import { PhoneInput } from '@ui/phone-input'
 import { Label } from '@ui/label'
 import { Button } from '@ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
@@ -90,11 +91,12 @@ function guardianReducer(state: GuardianState, action: GuardianAction): Guardian
 // ============================================================================
 
 export function Step2_GuardianInfo() {
-  const { register, setValue, formState: { errors } } = useFormContext<StudentWizardFormValues>()
+  const { register, setValue, watch, formState: { errors } } = useFormContext<StudentWizardFormValues>()
   const [state, dispatch] = useReducer(guardianReducer, initialState)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   const { user: currentUser } = useCurrentUser()
+  const guardianPhone = watch('guardian.phone')
 
   // 포커스 관리: 컴포넌트가 마운트될 때 검색 필드에 포커스
   useEffect(() => {
@@ -312,10 +314,10 @@ export function Step2_GuardianInfo() {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="guardian.phone">연락처 *</Label>
-              <Input
+              <PhoneInput
                 id="guardian.phone"
-                placeholder="010-0000-0000"
-                {...register('guardian.phone')}
+                value={guardianPhone || ''}
+                onChange={(value) => setValue('guardian.phone', value, { shouldValidate: true })}
               />
               {errors.guardian?.phone && (
                 <p className="text-sm text-destructive">{errors.guardian.phone.message}</p>
