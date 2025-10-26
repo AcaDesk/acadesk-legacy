@@ -89,6 +89,8 @@ export function AcademyInfoForm({ initialData }: AcademyInfoFormProps) {
         description: '학원 정보가 성공적으로 수정되었습니다.',
       })
 
+      // Reset form dirty state with current values
+      form.reset(values)
       router.refresh()
     } catch (error) {
       console.error('Error updating academy info:', error)
