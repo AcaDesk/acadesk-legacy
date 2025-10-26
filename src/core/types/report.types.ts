@@ -42,12 +42,19 @@ export interface ReportWithStudent {
 }
 
 export interface ReportData {
-  student: {
+  // Legacy format (for backward compatibility)
+  student?: {
     id: string
     name: string
     grade: string
     student_code: string
   }
+
+  // New format (flat structure)
+  studentName?: string
+  studentCode?: string
+  grade?: string
+
   academy: {
     name: string
     phone: string | null
@@ -83,17 +90,29 @@ export interface ReportData {
       feedback: string | null
     }>
   }[]
-  instructorComment: string
+  instructorComment?: string
+  overallComment?: string
+
   // Chart data
-  gradesChartData: Array<{
+  gradesChartData?: Array<{
     examName: string
     score: number
     classAverage?: number
     date?: string
   }>
-  attendanceChartData: Array<{
+  attendanceChartData?: Array<{
     date: Date
     status: 'present' | 'late' | 'absent' | 'none'
     note?: string
   }>
+
+  // Additional fields for compatibility
+  attendanceRate?: number
+  totalDays?: number
+  presentDays?: number
+  lateDays?: number
+  absentDays?: number
+  homeworkRate?: number
+  totalTodos?: number
+  completedTodos?: number
 }

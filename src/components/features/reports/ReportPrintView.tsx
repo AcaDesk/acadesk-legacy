@@ -40,9 +40,14 @@ export function ReportPrintView({
 }: ReportPrintViewProps) {
   const contentRef = useRef<HTMLDivElement>(null)
 
+  // Extract student data with fallbacks
+  const studentName = reportData.studentName || reportData.student?.name || '학생'
+  const studentCode = reportData.studentCode || reportData.student?.student_code || ''
+  const studentGrade = reportData.grade || reportData.student?.grade || ''
+
   const handlePrint = useReactToPrint({
     contentRef,
-    documentTitle: `${reportData.student.name}_${periodStart.getFullYear()}년_${periodStart.getMonth() + 1}월_리포트`,
+    documentTitle: `${studentName}_${periodStart.getFullYear()}년_${periodStart.getMonth() + 1}월_리포트`,
     onAfterPrint: () => {
       console.log('[ReportPrintView] Print completed')
     },
@@ -77,14 +82,14 @@ export function ReportPrintView({
                     {reportType === 'monthly' ? '월간' : '주간'} 리포트
                   </Badge>
                   <span className="text-sm text-muted-foreground">
-                    {reportData.student.name} 님
+                    {studentName} 님
                   </span>
                 </div>
                 <CardTitle className="text-2xl">
-                  {reportData.student.name} ({reportData.student.student_code})
+                  {studentName} ({studentCode})
                 </CardTitle>
                 <CardDescription>
-                  {reportData.student.grade} |{' '}
+                  {studentGrade} |{' '}
                   {periodStart.getFullYear()}년 {periodStart.getMonth() + 1}월{' '}
                   {periodStart.getDate()}일 ~ {periodEnd.getMonth() + 1}월{' '}
                   {periodEnd.getDate()}일
@@ -97,7 +102,7 @@ export function ReportPrintView({
         {/* Charts Section */}
         <div className="space-y-6">
           {/* Grades Chart */}
-          {reportData.gradesChartData.length > 0 && (
+          {reportData.gradesChartData && reportData.gradesChartData.length > 0 && (
             <GradesLineChart
               data={reportData.gradesChartData}
               title="성적 추이"
@@ -109,13 +114,15 @@ export function ReportPrintView({
           {/* Attendance & Todo Charts */}
           <div className="grid gap-6 md:grid-cols-2">
             {/* Attendance Heatmap */}
-            <AttendanceHeatmap
-              data={reportData.attendanceChartData}
-              title="출석 현황"
-              description="월별 출석 캘린더"
-              year={periodStart.getFullYear()}
-              month={periodStart.getMonth() + 1}
-            />
+            {reportData.attendanceChartData && reportData.attendanceChartData.length > 0 && (
+              <AttendanceHeatmap
+                data={reportData.attendanceChartData}
+                title="출석 현황"
+                description="월별 출석 캘린더"
+                year={periodStart.getFullYear()}
+                month={periodStart.getMonth() + 1}
+              />
+            )}
 
             {/* Todo Completion Donut */}
             <TodoCompletionDonut

@@ -219,6 +219,11 @@ export async function saveReport(
   reportType: 'weekly' | 'monthly' = 'monthly'
 ): Promise<{ success: boolean; error: string | null; data: { id: string } | null }> {
   try {
+    // 0. Validate student data
+    if (!reportData.student?.id) {
+      throw new Error('학생 정보가 없습니다.')
+    }
+
     // 1. Verify authentication and get tenant
     const { tenantId } = await verifyStaff()
 

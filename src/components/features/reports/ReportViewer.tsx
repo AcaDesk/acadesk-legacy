@@ -6,7 +6,6 @@ import { Separator } from '@ui/separator'
 import { Button } from '@ui/button'
 import { TrendingUp, TrendingDown, Minus, Edit2 } from 'lucide-react'
 import type { ReportData } from '@/core/types/report.types'
-import { ReportGrowthChart } from './ReportGrowthChart'
 
 interface ReportViewerProps {
   reportData: {
@@ -142,11 +141,6 @@ export function ReportViewer({ reportData, onEditComment, showEditButton = false
           </div>
         </CardHeader>
       </Card>
-
-      {/* Charts Section */}
-      {reportData.gradesChartData && reportData.gradesChartData.length > 0 && (
-        <ReportGrowthChart data={reportData.gradesChartData} />
-      )}
 
       {/* Attendance & Homework KPIs */}
       <div className="grid gap-6 md:grid-cols-2">
