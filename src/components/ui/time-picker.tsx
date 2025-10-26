@@ -235,7 +235,7 @@ export const TimePicker = React.forwardRef<HTMLButtonElement, TimePickerProps>(
             {value ? formatTimeDisplay(value) : placeholder}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align={align}>
+        <PopoverContent className="w-56 p-0" align={align}>
           <div className="flex">
             {/* Hour Column */}
             <div className="flex-1 border-r">
@@ -296,3 +296,6 @@ export const TimePicker = React.forwardRef<HTMLButtonElement, TimePickerProps>(
 )
 
 TimePicker.displayName = 'TimePicker'
+
+// Default export for better compatibility
+export default TimePicker
