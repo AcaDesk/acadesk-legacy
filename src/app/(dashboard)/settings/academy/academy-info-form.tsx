@@ -64,6 +64,9 @@ export function AcademyInfoForm({ initialData }: AcademyInfoFormProps) {
     },
   })
 
+  // Check if form has changes
+  const hasChanges = form.formState.isDirty
+
   async function onSubmit(values: AcademyFormValues) {
     setIsLoading(true)
 
@@ -264,10 +267,10 @@ export function AcademyInfoForm({ initialData }: AcademyInfoFormProps) {
           >
             취소
           </Button>
-          <Button type="submit" disabled={isLoading}>
+          <Button type="submit" disabled={isLoading || !hasChanges}>
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {!isLoading && <Save className="mr-2 h-4 w-4" />}
-            변경사항 저장
+            {hasChanges ? '변경사항 저장' : '저장됨'}
           </Button>
         </div>
       </form>
