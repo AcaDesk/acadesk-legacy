@@ -1,12 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { useFormContext } from 'react-hook-form'
-import { format } from 'date-fns'
-import { Calendar as CalendarIcon, Check, ChevronsUpDown } from 'lucide-react'
+import { Check, ChevronsUpDown } from 'lucide-react'
 import { Input } from '@ui/input'
+import { DatePicker } from '@ui/date-picker'
 import { Label } from '@ui/label'
 import { Button } from '@ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
-import { Calendar } from '@ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@ui/popover'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@ui/command'
 import { cn } from '@/lib/utils'
@@ -55,32 +54,14 @@ export function Step1_StudentInfo({ schools }: Step1Props) {
 
         <div className="space-y-2">
           <Label>생년월일 *</Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  'w-full justify-start text-left font-normal',
-                  !birthDate && 'text-muted-foreground'
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {birthDate ? format(birthDate, 'yyyy년 MM월 dd일') : '날짜 선택'}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={birthDate}
-                onSelect={(date) => setValue('birthDate', date as Date, { shouldValidate: true })}
-                disabled={(date) => date > new Date() || date < new Date('1900-01-01')}
-                initialFocus
-                captionLayout="dropdown"
-                fromYear={currentYear - 30}
-                toYear={currentYear}
-              />
-            </PopoverContent>
-          </Popover>
+          <DatePicker
+            value={birthDate}
+            onChange={(date) => setValue('birthDate', date as Date, { shouldValidate: true })}
+            disabled={(date) => date > new Date() || date < new Date('1900-01-01')}
+            captionLayout="dropdown"
+            fromYear={currentYear - 30}
+            toYear={currentYear}
+          />
           {errors.birthDate && (
             <p className="text-sm text-destructive">{errors.birthDate.message}</p>
           )}
