@@ -15,8 +15,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { getErrorMessage } from '@/lib/error-handlers'
-import { GRADES } from '@/lib/constants'
 import type { Student } from './student-table-improved'
+import { GradeSelector } from '@/components/features/common/grade-selector'
+import { ClassSelector } from '@/components/features/common/class-selector'
 import {
   bulkUpdateStudents,
   bulkDeleteStudents,
@@ -42,7 +43,7 @@ export function BulkActionsDialog({
   const [selectedAction, setSelectedAction] = useState<BulkAction | null>(null)
   const [selectedGrade, setSelectedGrade] = useState<string>('')
   const [selectedClass, setSelectedClass] = useState<string>('')
-  const [classes, setClasses] = useState<Array<{ id: string; name: string }>>([])
+  const [classes, setClasses] = useState<Array<{ id: string; name: string; subject?: string | null; active?: boolean }>>([])
   const [loading, setLoading] = useState(false)
 
   const { toast } = useToast()
@@ -66,7 +67,7 @@ export function BulkActionsDialog({
       const supabase = createClient()
       const { data, error } = await supabase
         .from('classes')
-        .select('id, name')
+        .select('id, name, subject, active')
         .eq('status', 'active')
         .is('deleted_at', null)
         .order('name')
@@ -273,18 +274,11 @@ export function BulkActionsDialog({
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="grade">변경할 학년</Label>
-              <Select value={selectedGrade} onValueChange={setSelectedGrade}>
-                <SelectTrigger id="grade">
-                  <SelectValue placeholder="학년 선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  {GRADES.map((grade) => (
-                    <SelectItem key={grade.value} value={grade.value}>
-                      {grade.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <GradeSelector
+                value={selectedGrade}
+                onChange={setSelectedGrade}
+                placeholder="학년 선택"
+              />
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setSelectedAction(null)}>
@@ -302,18 +296,17 @@ export function BulkActionsDialog({
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="class">배정할 수업</Label>
-              <Select value={selectedClass} onValueChange={setSelectedClass}>
-                <SelectTrigger id="class">
-                  <SelectValue placeholder="수업 선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  {classes.map((cls) => (
-                    <SelectItem key={cls.id} value={cls.id}>
-                      {cls.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <ClassSelector
+                value={selectedClass}
+                onChange={setSelectedClass}
+                placeholder="수업 선택"
+                classes={classes.map(cls => ({
+                  id: cls.id,
+                  name: cls.name,
+                  subject: cls.subject ?? null,
+                  active: cls.active ?? true
+                }))}
+              />
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setSelectedAction(null)}>

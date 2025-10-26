@@ -9,9 +9,10 @@ import { Input } from '@ui/input';
 import { Textarea } from '@ui/textarea';
 import { TimeRangePicker } from '@ui/time-range-picker';
 import { DatePicker } from '@ui/date-picker';
+import { ClassSelector } from '@/components/features/common/class-selector';
 
 interface AttendanceSessionFormProps {
-  classes: Array<{ id: string; name: string }>;
+  classes: Array<{ id: string; name: string; subject?: string | null; active?: boolean }>;
   onSubmit: (data: CreateSessionInput) => Promise<void>;
   onCancel: () => void;
 }
@@ -72,17 +73,17 @@ export function AttendanceSessionForm({
         <label className="block text-sm font-medium mb-2">
           클래스 <span className="text-red-500">*</span>
         </label>
-        <select
-          {...register('class_id')}
-          className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">클래스를 선택하세요</option>
-          {classes.map((cls) => (
-            <option key={cls.id} value={cls.id}>
-              {cls.name}
-            </option>
-          ))}
-        </select>
+        <ClassSelector
+          value={watch('class_id') || ''}
+          onChange={(value) => setValue('class_id', value, { shouldValidate: true })}
+          placeholder="클래스를 선택하세요"
+          classes={classes.map(cls => ({
+            id: cls.id,
+            name: cls.name,
+            subject: cls.subject || null,
+            active: cls.active ?? true
+          }))}
+        />
         {errors.class_id && (
           <p className="text-red-500 text-sm mt-1">{errors.class_id.message}</p>
         )}
