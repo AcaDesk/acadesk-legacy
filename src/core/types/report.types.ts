@@ -83,6 +83,8 @@ export interface ReportData {
     current: number
     previous: number | null
     change: number | null
+    average: number | null
+    retestRate: number | null
     tests: Array<{
       name: string
       date: string

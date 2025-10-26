@@ -60,6 +60,8 @@ interface ReportViewerProps {
       current: number
       previous: number | null
       change: number | null
+      average: number | null
+      retestRate: number | null
       tests: Array<{
         name: string
         date: string
@@ -381,7 +383,21 @@ ${reportData.comment.nextGoals}`
                         </Badge>
                       )}
                     </div>
-                    <div className="text-2xl font-bold">{score.current}%</div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <div className="text-2xl font-bold">{score.current}%</div>
+                        {score.average !== null && (
+                          <div className="text-xs text-muted-foreground">
+                            반 평균: {score.average}%
+                          </div>
+                        )}
+                        {score.retestRate !== null && score.retestRate > 0 && (
+                          <div className="text-xs text-orange-600">
+                            재시험률: {score.retestRate}%
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   {score.tests.length > 0 && (

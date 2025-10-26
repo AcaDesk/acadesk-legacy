@@ -66,6 +66,166 @@ interface AttendanceRecordType {
 // ============================================================================
 
 /**
+ * 주간 리포트 생성
+ *
+ * @param studentId - 학생 ID
+ * @param startDate - 시작일 (YYYY-MM-DD)
+ * @param endDate - 종료일 (YYYY-MM-DD)
+ * @returns ReportData or error
+ */
+export async function generateWeeklyReport(
+  studentId: string,
+  startDate: string,
+  endDate: string
+): Promise<{ success: boolean; data: ReportData | null; error: string | null }> {
+  try {
+    // 1. Verify authentication and get tenant
+    const { tenantId } = await verifyStaff()
+
+    // 2. Create service_role client
+    const supabase = createServiceRoleClient()
+
+    // 3. 기간 설정
+    const periodStartStr = startDate
+    const periodEndStr = endDate
+
+    // 이전 주 기간 (7일 전)
+    const startDateObj = new Date(startDate)
+    const prevStartDateObj = new Date(startDateObj)
+    prevStartDateObj.setDate(prevStartDateObj.getDate() - 7)
+    const prevEndDateObj = new Date(endDate)
+    prevEndDateObj.setDate(prevEndDateObj.getDate() - 7)
+    const prevPeriodStartStr = prevStartDateObj.toISOString().split('T')[0]
+    const prevPeriodEndStr = prevEndDateObj.toISOString().split('T')[0]
+
+    // 4. 학생 정보 조회
+    const { data: studentData, error: studentError } = await supabase
+      .from('students')
+      .select('id, student_code, grade, tenant_id, users!inner(name)')
+      .eq('id', studentId)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .single()
+
+    if (studentError || !studentData) {
+      throw new Error('학생을 찾을 수 없습니다.')
+    }
+
+    const typedStudentData = studentData as unknown as StudentDataWithUser
+
+    // 5. 학원 정보 조회
+    const { data: academyData, error: academyError } = await supabase
+      .from('tenants')
+      .select('name, settings')
+      .eq('id', tenantId)
+      .single()
+
+    if (academyError || !academyData) {
+      throw new Error('학원 정보를 찾을 수 없습니다.')
+    }
+
+    // settings에서 필드 추출
+    const settings = (academyData.settings as Record<string, any>) || {}
+    const academy = {
+      name: academyData.name,
+      phone: settings.phone || null,
+      email: settings.email || null,
+      address: settings.address || null,
+      website: settings.website || null,
+    }
+
+    // 6. 출석 정보 조회
+    const attendance = await getAttendanceData(supabase, studentId, periodStartStr, periodEndStr)
+
+    // 7. 숙제 완료율 조회
+    const homework = await getHomeworkData(supabase, studentId, periodStartStr, periodEndStr)
+
+    // 8. 성적 정보 조회
+    const scores = await getScoresData(
+      supabase,
+      studentId,
+      periodStartStr,
+      periodEndStr,
+      prevPeriodStartStr,
+      prevPeriodEndStr
+    )
+
+    // 9. 강사 코멘트 생성
+    const instructorComment = generateInstructorComment(attendance, scores)
+
+    // 10. 차트 데이터 생성
+    const gradesChartData = await getGradesChartData(
+      supabase,
+      studentId,
+      periodStartStr,
+      periodEndStr
+    )
+    const attendanceChartData = await getAttendanceChartData(
+      supabase,
+      studentId,
+      periodStartStr,
+      periodEndStr
+    )
+
+    // 11. 현재 성적 및 추이 데이터 생성
+    const currentScore = await getCurrentScoreData(
+      supabase,
+      studentId,
+      periodStartStr,
+      periodEndStr
+    )
+
+    // 주간은 추이 데이터 생략 (최근 3주로 변경 가능)
+    const scoreTrend: Array<{
+      name: string
+      '내 점수': number
+      '반 평균': number
+    }> = []
+
+    const reportData: ReportData = {
+      student: {
+        id: typedStudentData.id,
+        name: typedStudentData.users?.name || 'Unknown',
+        grade: typedStudentData.grade || '',
+        student_code: typedStudentData.student_code,
+      },
+      academy: {
+        name: academy.name,
+        phone: academy.phone,
+        email: academy.email,
+        address: academy.address,
+        website: academy.website,
+      },
+      period: {
+        start: periodStartStr,
+        end: periodEndStr,
+      },
+      attendance,
+      homework,
+      scores,
+      instructorComment,
+      gradesChartData,
+      attendanceChartData,
+      currentScore,
+      scoreTrend,
+    }
+
+    return {
+      success: true,
+      data: reportData,
+      error: null,
+    }
+  } catch (error) {
+    console.error('[generateWeeklyReport] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
  * 월간 리포트 생성
  *
  * @param studentId - 학생 ID
@@ -511,6 +671,7 @@ async function getScoresData(
     .select(`
       percentage,
       feedback,
+      is_retest,
       exams (
         name,
         exam_date,
@@ -534,6 +695,20 @@ async function getScoresData(
     .gte('created_at', prevPeriodStart)
     .lte('created_at', prevPeriodEnd)
 
+  // 현재 기간의 반 평균 및 재시험률 조회 (카테고리별)
+  const { data: classScores } = await supabase
+    .from('exam_scores')
+    .select(`
+      percentage,
+      is_retest,
+      exams!inner (
+        category_code,
+        exam_date
+      )
+    `)
+    .gte('created_at', periodStart)
+    .lte('created_at', periodEnd)
+
   // 카테고리별로 그룹화
   interface CategoryDataMap {
     category: string
@@ -544,12 +719,14 @@ async function getScoresData(
       feedback: string | null
     }>
     percentages: number[]
+    retestCount: number
+    totalCount: number
   }
 
   const categories = new Map<string, CategoryDataMap>()
 
   currentScores?.forEach((score) => {
-    const examScore = score as unknown as ExamScoreWithDetails
+    const examScore = score as unknown as ExamScoreWithDetails & { is_retest?: boolean }
     const category = examScore.exams?.category_code || ''
     const label = examScore.exams?.ref_exam_categories?.label || category
 
@@ -558,6 +735,8 @@ async function getScoresData(
         category: label,
         tests: [],
         percentages: [],
+        retestCount: 0,
+        totalCount: 0,
       })
     }
 
@@ -570,6 +749,10 @@ async function getScoresData(
         feedback: examScore.feedback || null,
       })
       categoryData.percentages.push(examScore.percentage)
+      categoryData.totalCount++
+      if (examScore.is_retest) {
+        categoryData.retestCount++
+      }
     }
   })
 
@@ -584,6 +767,26 @@ async function getScoresData(
     const categoryScores = prevAverages.get(category)
     if (categoryScores) {
       categoryScores.push(examScore.percentage)
+    }
+  })
+
+  // 카테고리별 반 평균 및 재시험률 계산
+  const classAverages = new Map<string, { percentages: number[]; retestCount: number; totalCount: number }>()
+  classScores?.forEach((score) => {
+    const typedScore = score as unknown as { percentage: number; is_retest?: boolean; exams?: { category_code: string } }
+    const category = typedScore.exams?.category_code || ''
+
+    if (!classAverages.has(category)) {
+      classAverages.set(category, { percentages: [], retestCount: 0, totalCount: 0 })
+    }
+
+    const classData = classAverages.get(category)
+    if (classData) {
+      classData.percentages.push(typedScore.percentage)
+      classData.totalCount++
+      if (typedScore.is_retest) {
+        classData.retestCount++
+      }
     }
   })
 
@@ -602,11 +805,24 @@ async function getScoresData(
     const change =
       previousAvg !== null ? Math.round((currentAvg - previousAvg) * 10) / 10 : null
 
+    // 반 평균 계산
+    const classData = classAverages.get(category)
+    const average = classData && classData.percentages.length > 0
+      ? Math.round((classData.percentages.reduce((sum, p) => sum + p, 0) / classData.percentages.length) * 10) / 10
+      : null
+
+    // 재시험률 계산
+    const retestRate = classData && classData.totalCount > 0
+      ? Math.round((classData.retestCount / classData.totalCount) * 100 * 10) / 10
+      : null
+
     return {
       category: data.category,
       current: Math.round(currentAvg * 10) / 10,
       previous: previousAvg !== null ? Math.round(previousAvg * 10) / 10 : null,
       change,
+      average,
+      retestRate,
       tests: data.tests,
     }
   })

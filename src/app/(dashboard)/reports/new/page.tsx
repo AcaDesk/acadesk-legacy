@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { generateMonthlyReport, saveReport, getStudentsForReport } from '@/app/actions/reports'
+import { generateMonthlyReport, generateWeeklyReport, saveReport, getStudentsForReport } from '@/app/actions/reports'
 import { Button } from '@ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
 import { Separator } from '@ui/separator'
+import { Tabs, TabsList, TabsTrigger } from '@ui/tabs'
+import { Input } from '@ui/input'
 import { useToast } from '@/hooks/use-toast'
 import { FileText } from 'lucide-react'
 import { PageWrapper } from "@/components/layout/page-wrapper"
@@ -26,8 +28,11 @@ export default function ReportsPage() {
   // All Hooks must be called before any early returns
   const [students, setStudents] = useState<Student[]>([])
   const [selectedStudent, setSelectedStudent] = useState<string>('')
+  const [reportType, setReportType] = useState<'weekly' | 'monthly'>('monthly')
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear())
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1)
+  const [startDate, setStartDate] = useState<string>('')
+  const [endDate, setEndDate] = useState<string>('')
   const [generating, setGenerating] = useState(false)
 
   const { toast } = useToast()
@@ -70,21 +75,35 @@ export default function ReportsPage() {
       return
     }
 
+    if (reportType === 'weekly' && (!startDate || !endDate)) {
+      toast({
+        title: '기간 선택 필요',
+        description: '주간 리포트 생성을 위해 시작일과 종료일을 선택해주세요.',
+        variant: 'destructive',
+      })
+      return
+    }
+
     setGenerating(true)
     try {
       // Generate report
-      const result = await generateMonthlyReport(
-        selectedStudent,
-        selectedYear,
-        selectedMonth
-      )
+      let result
+      let periodDescription = ''
+
+      if (reportType === 'weekly') {
+        result = await generateWeeklyReport(selectedStudent, startDate, endDate)
+        periodDescription = `${startDate} ~ ${endDate}`
+      } else {
+        result = await generateMonthlyReport(selectedStudent, selectedYear, selectedMonth)
+        periodDescription = `${selectedYear}년 ${selectedMonth}월`
+      }
 
       if (!result.success || !result.data) {
         throw new Error(result.error || '리포트 생성 실패')
       }
 
       // Save report to database
-      const saveResult = await saveReport(result.data, 'monthly')
+      const saveResult = await saveReport(result.data, reportType)
 
       if (!saveResult.success || !saveResult.data) {
         console.warn('리포트 저장 실패:', saveResult.error)
@@ -93,7 +112,7 @@ export default function ReportsPage() {
 
       toast({
         title: '리포트 생성 완료',
-        description: `${result.data.studentName || result.data.student?.name || '학생'}의 ${selectedYear}년 ${selectedMonth}월 리포트가 생성되었습니다.`,
+        description: `${result.data.studentName || result.data.student?.name || '학생'}의 ${periodDescription} 리포트가 생성되었습니다.`,
       })
 
       // Redirect to report detail page
@@ -123,8 +142,8 @@ export default function ReportsPage() {
 
   return (
     <PageWrapper
-      title="월간 리포트 생성"
-      subtitle="학생별 월간 성적 리포트를 자동 생성합니다"
+      title="리포트 생성"
+      subtitle="학생별 주간/월간 성적 리포트를 자동 생성합니다"
       actions={
         <Button onClick={() => router.push('/reports')} variant="outline">
           <FileText className="h-4 w-4 mr-2" />
@@ -137,7 +156,7 @@ export default function ReportsPage() {
           <CardHeader>
             <CardTitle>리포트 생성</CardTitle>
             <CardDescription>
-              학생과 기간을 선택하면 자동으로 월간 리포트가 생성됩니다
+              학생과 기간을 선택하면 자동으로 리포트가 생성됩니다
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -158,45 +177,76 @@ export default function ReportsPage() {
                 </Select>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label className="text-sm font-medium mb-2 block">연도</label>
-                  <Select
-                    value={selectedYear.toString()}
-                    onValueChange={(v) => setSelectedYear(parseInt(v))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {years.map((year) => (
-                        <SelectItem key={year} value={year.toString()}>
-                          {year}년
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium mb-2 block">월</label>
-                  <Select
-                    value={selectedMonth.toString()}
-                    onValueChange={(v) => setSelectedMonth(parseInt(v))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {months.map((month) => (
-                        <SelectItem key={month} value={month.toString()}>
-                          {month}월
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block">리포트 유형</label>
+                <Tabs value={reportType} onValueChange={(v) => setReportType(v as 'weekly' | 'monthly')}>
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="weekly">주간</TabsTrigger>
+                    <TabsTrigger value="monthly">월간</TabsTrigger>
+                  </TabsList>
+                </Tabs>
               </div>
+
+              {reportType === 'weekly' ? (
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">시작일</label>
+                    <Input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">종료일</label>
+                    <Input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">연도</label>
+                    <Select
+                      value={selectedYear.toString()}
+                      onValueChange={(v) => setSelectedYear(parseInt(v))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {years.map((year) => (
+                          <SelectItem key={year} value={year.toString()}>
+                            {year}년
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">월</label>
+                    <Select
+                      value={selectedMonth.toString()}
+                      onValueChange={(v) => setSelectedMonth(parseInt(v))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {months.map((month) => (
+                          <SelectItem key={month} value={month.toString()}>
+                            {month}월
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
             </div>
 
             <Separator />

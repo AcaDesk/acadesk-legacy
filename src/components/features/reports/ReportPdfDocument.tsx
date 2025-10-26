@@ -213,6 +213,21 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 700,
   },
+  categoryStats: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+  },
+  categoryStatSecondary: {
+    fontSize: 8,
+    color: '#71717a',
+    marginTop: 2,
+  },
+  categoryStatWarning: {
+    fontSize: 8,
+    color: '#ea580c',
+    marginTop: 2,
+  },
   testList: {
     marginLeft: 12,
     marginTop: 4,
@@ -434,7 +449,19 @@ export function ReportPdfDocument({
                         </Text>
                       )}
                     </View>
-                    <Text style={styles.categoryScore}>{score.current}%</Text>
+                    <View style={styles.categoryStats}>
+                      <Text style={styles.categoryScore}>{score.current}%</Text>
+                      {score.average !== null && (
+                        <Text style={styles.categoryStatSecondary}>
+                          반 평균: {score.average}%
+                        </Text>
+                      )}
+                      {score.retestRate !== null && score.retestRate > 0 && (
+                        <Text style={styles.categoryStatWarning}>
+                          재시험률: {score.retestRate}%
+                        </Text>
+                      )}
+                    </View>
                   </View>
                   {score.tests && score.tests.length > 0 && (
                     <View style={styles.testList}>

@@ -35,6 +35,7 @@ const consultationSchema = z.object({
   isLead: z.boolean(),
   studentId: z.string().optional(),
   leadName: z.string().optional(),
+  leadSchool: z.string().optional(),
   leadGuardianName: z.string().optional(),
   leadGuardianPhone: z.string().optional(),
   consultationDate: z.date(),
@@ -81,12 +82,14 @@ type Consultation = {
 
 interface ConsultationFormClientProps {
   students: Student[]
+  schools: string[]
   mode: 'create' | 'edit'
   consultation?: Consultation
 }
 
 export function ConsultationFormClient({
   students,
+  schools,
   mode,
   consultation,
 }: ConsultationFormClientProps) {
@@ -105,6 +108,7 @@ export function ConsultationFormClient({
       isLead: false,
       studentId: consultation?.student_id || '',
       leadName: '',
+      leadSchool: '',
       leadGuardianName: '',
       leadGuardianPhone: '',
       consultationDate: consultation
@@ -140,6 +144,7 @@ export function ConsultationFormClient({
           isLead: data.isLead,
           studentId: data.studentId,
           leadName: data.leadName,
+          leadSchool: data.leadSchool,
           leadGuardianName: data.leadGuardianName,
           leadGuardianPhone: data.leadGuardianPhone,
           consultationDate: dateTime.toISOString(),
@@ -262,6 +267,7 @@ export function ConsultationFormClient({
                           form.setValue('studentId', '')
                         } else {
                           form.setValue('leadName', '')
+                          form.setValue('leadSchool', '')
                           form.setValue('leadGuardianName', '')
                           form.setValue('leadGuardianPhone', '')
                         }
@@ -344,6 +350,25 @@ export function ConsultationFormClient({
                           {form.formState.errors.leadName.message}
                         </p>
                       )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="leadSchool">학교</Label>
+                      <Select
+                        value={form.watch('leadSchool')}
+                        onValueChange={(value) => form.setValue('leadSchool', value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="학교 선택 (선택사항)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {schools.map((school) => (
+                            <SelectItem key={school} value={school}>
+                              {school}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div className="space-y-2">

@@ -28,6 +28,7 @@ import {
   createMessageTemplate,
   updateMessageTemplate,
   deleteMessageTemplate,
+  createDefaultTemplates,
 } from '@/app/actions/messages'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
@@ -64,6 +65,7 @@ export function ManageTemplatesDialog({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [templateToDelete, setTemplateToDelete] = useState<{ id: string; name: string } | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [creatingDefaults, setCreatingDefaults] = useState(false)
 
   const { toast } = useToast()
 
@@ -221,6 +223,33 @@ export function ManageTemplatesDialog({
     }
   }
 
+  async function handleCreateDefaults() {
+    setCreatingDefaults(true)
+    try {
+      const result = await createDefaultTemplates()
+
+      if (!result.success) {
+        throw new Error(result.error || '기본 템플릿 생성 실패')
+      }
+
+      toast({
+        title: '기본 템플릿 생성 완료',
+        description: '6개의 샘플 템플릿이 추가되었습니다.',
+      })
+
+      await loadTemplates()
+    } catch (error) {
+      console.error('Error creating defaults:', error)
+      toast({
+        title: '생성 오류',
+        description: getErrorMessage(error),
+        variant: 'destructive',
+      })
+    } finally {
+      setCreatingDefaults(false)
+    }
+  }
+
   const getCategoryLabel = (category: string) => {
     const labels: Record<string, string> = {
       general: '일반',
@@ -306,7 +335,7 @@ export function ManageTemplatesDialog({
                   onChange={(e) =>
                     setFormData({ ...formData, content: e.target.value })
                   }
-                  placeholder="템플릿 내용을 입력하세요"
+                  placeholder="템플릿 내용을 입력하세요. 변수: {학생명}, {학생번호}, {학년}, {학원명}, {보호자명}"
                   rows={formData.type === 'sms' ? 4 : 6}
                   className="mt-1"
                 />
@@ -315,6 +344,16 @@ export function ManageTemplatesDialog({
                     {formData.content.length}자
                   </p>
                 )}
+                <div className="mt-2 p-3 bg-muted/50 rounded-lg">
+                  <p className="text-xs font-medium mb-1">사용 가능한 변수</p>
+                  <div className="grid grid-cols-2 gap-1 text-xs text-muted-foreground">
+                    <span>• {'{학생명}'}: 학생 이름</span>
+                    <span>• {'{학생번호}'}: 학생 코드</span>
+                    <span>• {'{학년}'}: 학년</span>
+                    <span>• {'{학원명}'}: 학원 이름</span>
+                    <span>• {'{보호자명}'}: 보호자 이름</span>
+                  </div>
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-2">
@@ -330,10 +369,22 @@ export function ManageTemplatesDialog({
 
           {/* Add New Button */}
           {!creating && !editingTemplate && (
-            <Button onClick={startCreating} className="w-full" variant="outline">
-              <Plus className="h-4 w-4 mr-2" />
-              새 템플릿 만들기
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={startCreating} className="flex-1" variant="outline">
+                <Plus className="h-4 w-4 mr-2" />
+                새 템플릿 만들기
+              </Button>
+              {templates.length === 0 && (
+                <Button
+                  onClick={handleCreateDefaults}
+                  className="flex-1"
+                  variant="default"
+                  disabled={creatingDefaults}
+                >
+                  {creatingDefaults ? '생성 중...' : '기본 템플릿 추가'}
+                </Button>
+              )}
+            </div>
           )}
 
           {/* Template List */}
