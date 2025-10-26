@@ -196,3 +196,6 @@ export const DatePicker = React.forwardRef<HTMLButtonElement, DatePickerProps>(
 )
 
 DatePicker.displayName = 'DatePicker'
+
+// Default export for better compatibility
+export default DatePicker
