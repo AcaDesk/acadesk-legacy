@@ -206,17 +206,42 @@ export default function ReportsPage() {
         {/* Report Display */}
         {reportData && (
           <div className="space-y-6">
-            {/* Student Info */}
+            {/* Academy & Student Info */}
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>
-                      {reportData.student.name} ({reportData.student.student_code})
-                    </CardTitle>
-                    <CardDescription>
-                      {reportData.student.grade} | {selectedYear}년 {selectedMonth}월
-                    </CardDescription>
+                  <div className="space-y-3">
+                    {/* Academy Info */}
+                    <div className="space-y-1">
+                      <h2 className="text-2xl font-bold text-primary">{reportData.academy.name}</h2>
+                      <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                        {reportData.academy.phone && (
+                          <span className="flex items-center gap-1">
+                            📞 {reportData.academy.phone}
+                          </span>
+                        )}
+                        {reportData.academy.address && (
+                          <span className="flex items-center gap-1">
+                            📍 {reportData.academy.address}
+                          </span>
+                        )}
+                        {reportData.academy.email && (
+                          <span className="flex items-center gap-1">
+                            ✉️ {reportData.academy.email}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <Separator />
+                    {/* Student Info */}
+                    <div>
+                      <CardTitle>
+                        {reportData.student.name} ({reportData.student.student_code})
+                      </CardTitle>
+                      <CardDescription>
+                        {reportData.student.grade} | {selectedYear}년 {selectedMonth}월
+                      </CardDescription>
+                    </div>
                   </div>
                   <Button variant="outline" size="sm">
                     <Download className="h-4 w-4 mr-2" />

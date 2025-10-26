@@ -78,25 +78,30 @@ export function generateReportSmsMessage(params: {
   month?: number
   reportType?: string
   shortUrl: string
+  academyName?: string
+  academyPhone?: string
 }): {
   message: string
   type: 'SMS' | 'LMS'
 } {
-  const { studentName, month, reportType = '성적', shortUrl } = params
+  const { studentName, month, reportType = '성적', shortUrl, academyName, academyPhone } = params
+
+  // 학원 정보 텍스트
+  const academyInfo = academyName || 'Acadesk'
+  const contactInfo = academyPhone ? `\n문의: ${academyPhone}` : ''
 
   // SMS 버전 (90바이트 이내)
-  const smsMessage = `[Acadesk] ${studentName} ${month ? `${month}월 ` : ''}${reportType}표가 도착했습니다.\n확인: ${shortUrl}`
+  const smsMessage = `[${academyInfo}] ${studentName} ${month ? `${month}월 ` : ''}${reportType}표가 도착했습니다.\n확인: ${shortUrl}${contactInfo}`
 
   // LMS 버전 (더 상세한 안내)
-  const lmsMessage = `[Acadesk 성적 리포트]
+  const lmsMessage = `[${academyInfo} 성적 리포트]
 
 ${studentName} 학생의 ${month ? `${month}월 ` : ''}${reportType}표가 도착했습니다.
 
 아래 링크를 클릭하여 확인해주세요:
 ${shortUrl}
 
-※ 링크는 7일간 유효합니다.
-※ 문의사항은 학원으로 연락주세요.`
+※ 링크는 7일간 유효합니다.${academyPhone ? `\n※ 문의: ${academyPhone}` : '\n※ 문의사항은 학원으로 연락주세요.'}`
 
   // 바이트 계산 (한글 2바이트, 영숫자 1바이트)
   const smsBytes = Buffer.byteLength(smsMessage, 'utf-8')
