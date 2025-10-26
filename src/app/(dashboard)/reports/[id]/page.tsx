@@ -204,6 +204,13 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
 
   const reportData = report.content as any // Support both old and new format
 
+  // Get academy info
+  const academyName = reportData.academy?.name || '학원'
+  const academyPhone = reportData.academy?.phone
+  const academyEmail = reportData.academy?.email
+  const academyAddress = reportData.academy?.address
+  const academyWebsite = reportData.academy?.website
+
   // Get student info from either format
   const studentName = reportData.studentName || reportData.student?.name || report.students?.users?.name || '학생'
   const studentCode = reportData.studentCode || reportData.student?.student_code || report.students?.student_code || ''
@@ -264,23 +271,55 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
           </div>
         </div>
 
-        {/* Student Info Card */}
+        {/* Academy & Student Info Card */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-2xl">
-                  {studentName} ({studentCode})
-                </CardTitle>
-                <CardDescription className="mt-2">
-                  {studentGrade} | {report.students?.users?.email || '이메일 없음'}
-                </CardDescription>
+            <div className="space-y-4">
+              {/* Academy Info */}
+              <div className="space-y-2">
+                <h2 className="text-2xl font-bold text-primary">{academyName}</h2>
+                <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                  {academyPhone && (
+                    <span className="flex items-center gap-1">
+                      📞 {academyPhone}
+                    </span>
+                  )}
+                  {academyAddress && (
+                    <span className="flex items-center gap-1">
+                      📍 {academyAddress}
+                    </span>
+                  )}
+                  {academyEmail && (
+                    <span className="flex items-center gap-1">
+                      ✉️ {academyEmail}
+                    </span>
+                  )}
+                  {academyWebsite && (
+                    <span className="flex items-center gap-1">
+                      🌐 {academyWebsite}
+                    </span>
+                  )}
+                </div>
               </div>
-              {report.sent_at && (
-                <Badge variant="outline">
-                  전송 완료: {new Date(report.sent_at).toLocaleDateString('ko-KR')}
-                </Badge>
-              )}
+
+              <Separator />
+
+              {/* Student Info */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-2xl">
+                    {studentName} ({studentCode})
+                  </CardTitle>
+                  <CardDescription className="mt-2">
+                    {studentGrade} | {report.students?.users?.email || '이메일 없음'}
+                  </CardDescription>
+                </div>
+                {report.sent_at && (
+                  <Badge variant="outline">
+                    전송 완료: {new Date(report.sent_at).toLocaleDateString('ko-KR')}
+                  </Badge>
+                )}
+              </div>
             </div>
           </CardHeader>
         </Card>

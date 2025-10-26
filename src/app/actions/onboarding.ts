@@ -261,11 +261,14 @@ export async function completeOwnerOnboarding(
       })
 
       // 학원 설정만 업데이트 (service_role로 직접 업데이트)
+      // ✅ address, phone을 직접 컬럼으로 저장 (설정 페이지와 통일)
       const { error: updateError } = await serviceClient
         .from('tenants')
         .update({
           name: validated.academyName,
           timezone: validated.timezone,
+          address: validated.settings?.address || null,
+          phone: validated.settings?.phone || null,
           settings: validated.settings || {},
           updated_at: new Date().toISOString(),
         })
@@ -323,6 +326,7 @@ export async function completeOwnerOnboarding(
     })
 
     // 6-1. 테넌트 생성
+    // ✅ address, phone을 직접 컬럼으로 저장 (설정 페이지와 통일)
     const slug = `academy-${Date.now()}-${Math.random().toString(36).substring(7)}`
     const { data: tenantData, error: tenantError } = await serviceClient
       .from('tenants')
@@ -330,6 +334,8 @@ export async function completeOwnerOnboarding(
         name: validated.academyName,
         slug: slug,
         timezone: validated.timezone,
+        address: validated.settings?.address || null,
+        phone: validated.settings?.phone || null,
         settings: validated.settings || {},
       })
       .select('id')

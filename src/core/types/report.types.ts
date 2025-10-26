@@ -10,6 +10,13 @@ export interface ReportData {
     grade: string
     student_code: string
   }
+  academy: {
+    name: string
+    phone: string | null
+    email: string | null
+    address: string | null
+    website: string | null
+  }
   period: {
     start: string
     end: string

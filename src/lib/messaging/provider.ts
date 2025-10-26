@@ -26,12 +26,14 @@
  */
 
 import { sendAligoSMS } from './aligo-sms'
+import { addEmailSignature, type AcademyInfo } from './email-signature'
 
 export interface SendMessageOptions {
   type: 'sms' | 'email'
   to: string
   message: string
   subject?: string
+  academyInfo?: AcademyInfo
 }
 
 /**
@@ -43,6 +45,7 @@ export interface SendMessageOptions {
  * @param options.to - 수신자 (전화번호 또는 이메일)
  * @param options.message - 메시지 내용
  * @param options.subject - 제목 (이메일 또는 LMS)
+ * @param options.academyInfo - 학원 정보 (이메일 서명용)
  * @returns 발송 결과
  */
 export async function sendMessage({
@@ -50,6 +53,7 @@ export async function sendMessage({
   to,
   message,
   subject,
+  academyInfo,
 }: SendMessageOptions): Promise<{
   success: boolean
   error?: string
@@ -63,8 +67,13 @@ export async function sendMessage({
     })
   } else {
     // Email: TODO - Resend 또는 다른 서비스 통합
+    // ✅ 학원정보가 있으면 서명 추가
+    const finalMessage = academyInfo
+      ? addEmailSignature(message, academyInfo)
+      : message
+
     console.log('[sendMessage] Email sending not implemented yet')
-    console.log(`Would send email to ${to}:`, { subject, message })
+    console.log(`Would send email to ${to}:`, { subject, message: finalMessage })
 
     // 임시로 성공 처리 (나중에 실제 이메일 서비스 통합)
     return {

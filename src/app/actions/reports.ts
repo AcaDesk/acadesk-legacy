@@ -112,13 +112,24 @@ export async function generateMonthlyReport(
 
     const typedStudentData = studentData as unknown as StudentDataWithUser
 
-    // 5. 출석 정보 조회
+    // 5. 학원 정보 조회
+    const { data: academyData, error: academyError } = await supabase
+      .from('tenants')
+      .select('name, phone, email, address, website')
+      .eq('id', tenantId)
+      .single()
+
+    if (academyError || !academyData) {
+      throw new Error('학원 정보를 찾을 수 없습니다.')
+    }
+
+    // 6. 출석 정보 조회
     const attendance = await getAttendanceData(supabase, studentId, periodStartStr, periodEndStr)
 
-    // 6. 숙제 완료율 조회
+    // 7. 숙제 완료율 조회
     const homework = await getHomeworkData(supabase, studentId, periodStartStr, periodEndStr)
 
-    // 7. 성적 정보 조회
+    // 8. 성적 정보 조회
     const scores = await getScoresData(
       supabase,
       studentId,
@@ -128,14 +139,14 @@ export async function generateMonthlyReport(
       prevPeriodEndStr
     )
 
-    // 8. 강사 코멘트 생성
+    // 9. 강사 코멘트 생성
     const instructorComment = generateInstructorComment(
       typedStudentData,
       attendance,
       scores
     )
 
-    // 9. 차트 데이터 생성
+    // 10. 차트 데이터 생성
     const gradesChartData = await getGradesChartData(
       supabase,
       studentId,
@@ -155,6 +166,13 @@ export async function generateMonthlyReport(
         name: typedStudentData.users?.name || 'Unknown',
         grade: typedStudentData.grade || '',
         student_code: typedStudentData.student_code,
+      },
+      academy: {
+        name: academyData.name,
+        phone: academyData.phone,
+        email: academyData.email,
+        address: academyData.address,
+        website: academyData.website,
       },
       period: {
         start: periodStartStr,
@@ -785,7 +803,18 @@ export async function prepareReportSending(reportId: string) {
     // 2. Create service_role client
     const supabase = createServiceRoleClient()
 
-    // 3. 리포트 정보 조회
+    // 3. 학원 정보 조회
+    const { data: academy, error: academyError } = await supabase
+      .from('tenants')
+      .select('name, phone')
+      .eq('id', tenantId)
+      .single()
+
+    if (academyError || !academy) {
+      throw new Error('학원 정보를 찾을 수 없습니다')
+    }
+
+    // 4. 리포트 정보 조회
     const { data: report, error: reportError } = await supabase
       .from('reports')
       .select(`
@@ -900,6 +929,8 @@ export async function prepareReportSending(reportId: string) {
         month,
         reportType: '성적',
         shortUrl: shortUrlResult.data.shortUrl,
+        academyName: academy.name,
+        academyPhone: academy.phone || undefined,
       })
 
       // 5-6. report_sends 업데이트 (메시지 본문, 단축 URL ID)
