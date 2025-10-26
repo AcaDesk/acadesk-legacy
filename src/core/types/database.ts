@@ -20,11 +20,32 @@ export interface UserProfile extends Timestamps {
 // ============================================================================
 // Tenants
 // ============================================================================
+
+/**
+ * Academy settings stored in JSONB
+ */
+export interface TenantSettings {
+  // Contact Information
+  address?: string | null
+  business_number?: string | null
+  phone?: string | null
+  email?: string | null
+  website?: string | null
+
+  // Operating Hours (set via updateOperatingHours)
+  operating_hours?: Record<string, any> | null
+
+  // Additional custom settings
+  [key: string]: any
+}
+
 export interface Tenant extends Timestamps {
-  tenant_id: UUID
+  id: UUID
   name: string
+  slug: string
   timezone: string
-  settings: Record<string, unknown>
+  settings: TenantSettings
+  deleted_at?: string | null
 }
 
 // ============================================================================
