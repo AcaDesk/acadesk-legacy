@@ -7,6 +7,7 @@ import { createSessionSchema, type CreateSessionInput } from '@/core/types/atten
 import { Button } from '@ui/button';
 import { Input } from '@ui/input';
 import { Textarea } from '@ui/textarea';
+import { TimeRangePicker } from '@ui/time-range-picker';
 
 interface AttendanceSessionFormProps {
   classes: Array<{ id: string; name: string }>;
@@ -25,10 +26,14 @@ export function AttendanceSessionForm({
     register,
     handleSubmit,
     formState: { errors },
+    watch,
+    setValue,
   } = useForm<CreateSessionInput>({
     resolver: zodResolver(createSessionSchema),
     defaultValues: {
       session_date: new Date().toISOString().split('T')[0],
+      scheduled_start_at: '',
+      scheduled_end_at: '',
     },
   });
 
@@ -91,39 +96,18 @@ export function AttendanceSessionForm({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium mb-2">
-            시작 시간 <span className="text-red-500">*</span>
-          </label>
-          <Input
-            type="time"
-            {...register('scheduled_start_at')}
-            className={errors.scheduled_start_at ? 'border-red-500' : ''}
-          />
-          {errors.scheduled_start_at && (
-            <p className="text-red-500 text-sm mt-1">
-              {errors.scheduled_start_at.message}
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-2">
-            종료 시간 <span className="text-red-500">*</span>
-          </label>
-          <Input
-            type="time"
-            {...register('scheduled_end_at')}
-            className={errors.scheduled_end_at ? 'border-red-500' : ''}
-          />
-          {errors.scheduled_end_at && (
-            <p className="text-red-500 text-sm mt-1">
-              {errors.scheduled_end_at.message}
-            </p>
-          )}
-        </div>
-      </div>
+      <TimeRangePicker
+        startTime={watch('scheduled_start_at') || ''}
+        endTime={watch('scheduled_end_at') || ''}
+        onStartTimeChange={(value) => setValue('scheduled_start_at', value)}
+        onEndTimeChange={(value) => setValue('scheduled_end_at', value)}
+        startLabel="시작 시간"
+        endLabel="종료 시간"
+        startError={errors.scheduled_start_at?.message}
+        endError={errors.scheduled_end_at?.message}
+        required
+        disabled={isSubmitting}
+      />
 
       <div>
         <label className="block text-sm font-medium mb-2">메모</label>
