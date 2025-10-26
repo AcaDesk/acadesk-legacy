@@ -8,6 +8,14 @@ import { Input } from '@ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Label } from '@ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@ui/dialog'
 import { Textarea } from '@ui/textarea'
 import { Badge } from '@ui/badge'
 import { Separator } from '@ui/separator'
@@ -68,6 +76,9 @@ export default function EditTodoTemplatePage() {
   const [loading, setLoading] = useState(false)
   const [loadingTemplate, setLoadingTemplate] = useState(true)
   const [textareaRef, setTextareaRef] = useState<HTMLTextAreaElement | null>(null)
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false)
+  const [linkUrl, setLinkUrl] = useState('')
+  const [pendingLinkSelection, setPendingLinkSelection] = useState<{ start: number; end: number } | null>(null)
 
   const { toast } = useToast()
   const router = useRouter()
@@ -168,24 +179,43 @@ export default function EditTodoTemplatePage() {
     }, 0)
   }
   const handleLink = () => {
-    const url = prompt('링크 URL을 입력하세요:')
-    if (url) {
-      const start = textareaRef?.selectionStart || 0
-      const end = textareaRef?.selectionEnd || 0
-      const selectedText = description.substring(start, end)
-      const linkText = selectedText || '링크 텍스트'
-      wrapSelection('[', `](${url})`)
-      if (!selectedText) {
-        // If no text was selected, select the placeholder text
-        setTimeout(() => {
-          if (textareaRef) {
-            textareaRef.selectionStart = start + 1
-            textareaRef.selectionEnd = start + 1 + linkText.length
-          }
-        }, 0)
-      }
-    }
+    const start = textareaRef?.selectionStart || 0
+    const end = textareaRef?.selectionEnd || 0
+    setPendingLinkSelection({ start, end })
+    setLinkUrl('')
+    setLinkDialogOpen(true)
   }
+
+  const handleConfirmLink = () => {
+    if (!linkUrl || !pendingLinkSelection) return
+
+    const { start, end } = pendingLinkSelection
+    const selectedText = description.substring(start, end)
+    const linkText = selectedText || '링크 텍스트'
+
+    // Insert link
+    const before = description.substring(0, start)
+    const after = description.substring(end)
+    const linkMarkdown = `[${linkText}](${linkUrl})`
+    setDescription(before + linkMarkdown + after)
+
+    // Close dialog and reset
+    setLinkDialogOpen(false)
+    setLinkUrl('')
+    setPendingLinkSelection(null)
+
+    // Focus back to textarea
+    setTimeout(() => {
+      if (textareaRef) {
+        textareaRef.focus()
+        if (!selectedText) {
+          textareaRef.selectionStart = start + 1
+          textareaRef.selectionEnd = start + 1 + linkText.length
+        }
+      }
+    }, 0)
+  }
+
   const handleList = () => insertAtCursor('\n- ')
   const handleOrderedList = () => insertAtCursor('\n1. ')
 
@@ -671,6 +701,43 @@ export default function EditTodoTemplatePage() {
           </div>
         </div>
       </div>
+
+      {/* Link URL Dialog */}
+      <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>링크 URL 입력</DialogTitle>
+            <DialogDescription>
+              링크할 URL을 입력하세요
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="link-url">URL</Label>
+              <Input
+                id="link-url"
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+                placeholder="https://example.com"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    handleConfirmLink()
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLinkDialogOpen(false)}>
+              취소
+            </Button>
+            <Button onClick={handleConfirmLink} disabled={!linkUrl}>
+              확인
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PageWrapper>
   )
 }
