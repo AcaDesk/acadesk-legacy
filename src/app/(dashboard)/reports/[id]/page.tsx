@@ -90,7 +90,7 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
         .single()
 
       if (error) throw error
-      setReport(data as unknown as Report)
+      setReport(data as unknown as ReportWithStudent)
     } catch (error) {
       console.error('Error loading report:', error)
       toast({
