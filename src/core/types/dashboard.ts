@@ -123,6 +123,10 @@ export interface DashboardStats {
   // 실제 계산 데이터
   averageScore: number
   completionRate: number
+  // 입회 상담 통계
+  leadConsultations?: number  // 신규 입회 상담 수
+  convertedConsultations?: number  // 입회 완료 수
+  conversionRate?: number  // 입회 전환율 (%)
   // Trend 계산용 (이전 기간 대비)
   previousMonthStudents?: number
   previousWeekAttendance?: number

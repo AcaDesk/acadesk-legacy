@@ -406,6 +406,9 @@ async function fetchStats(supabase: any, tenantId: string, today: string) {
     previousWeekAttendanceCount,
     previousMonthAvgScoreResult,
     previousWeekCompletionRateResult,
+    // Lead consultations data
+    leadConsultationsCount,
+    convertedConsultationsCount,
   ] = await Promise.allSettled([
     // Total students
     supabase
@@ -492,6 +495,24 @@ async function fetchStats(supabase: any, tenantId: string, today: string) {
       .gte('created_at', lastWeekStart)
       .lt('created_at', today)
       .is('deleted_at', null),
+
+    // Lead consultations (신규 입회 상담 - 아직 전환 안 됨)
+    supabase
+      .from('consultations')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .eq('is_lead', true)
+      .is('converted_to_student_id', null)
+      .is('deleted_at', null),
+
+    // Converted consultations (입회 완료)
+    supabase
+      .from('consultations')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .eq('is_lead', true)
+      .not('converted_to_student_id', 'is', null)
+      .is('deleted_at', null),
   ])
 
   // Calculate average score
@@ -524,6 +545,16 @@ async function fetchStats(supabase: any, tenantId: string, today: string) {
     previousWeekCompletionRate = todos.length > 0 ? Math.round((completedCount / todos.length) * 100) : 0
   }
 
+  // Extract lead consultation counts
+  const leadConsultations = leadConsultationsCount.status === 'fulfilled' ? (leadConsultationsCount.value.count || 0) : 0
+  const convertedConsultations = convertedConsultationsCount.status === 'fulfilled' ? (convertedConsultationsCount.value.count || 0) : 0
+
+  // Calculate conversion rate (입회율)
+  const totalLeadConsultations = leadConsultations + convertedConsultations
+  const conversionRate = totalLeadConsultations > 0
+    ? Math.round((convertedConsultations / totalLeadConsultations) * 100)
+    : 0
+
   return {
     totalStudents: studentsCount.status === 'fulfilled' ? (studentsCount.value.count || 0) : 0,
     activeClasses: classesCount.status === 'fulfilled' ? (classesCount.value.count || 0) : 0,
@@ -537,5 +568,8 @@ async function fetchStats(supabase: any, tenantId: string, today: string) {
     previousWeekAttendance: previousWeekAttendanceCount.status === 'fulfilled' ? (previousWeekAttendanceCount.value.count || 0) : undefined,
     previousMonthAvgScore,
     previousWeekCompletionRate,
+    leadConsultations,
+    convertedConsultations,
+    conversionRate,
   }
 }

@@ -63,6 +63,7 @@ export function ConsultationTab({
 
     try {
       const result = await createConsultation({
+        isLead: false, // This is a consultation for an existing student
         studentId: studentId,
         consultationDate: consultationDate.toISOString(),
         consultationType: consultationType,
