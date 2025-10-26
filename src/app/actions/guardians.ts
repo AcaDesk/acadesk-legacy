@@ -98,6 +98,11 @@ export async function createGuardian(data: z.infer<typeof createGuardianSchema>)
         guardian_id: newGuardian.id,
         relation: validatedData.relationship,
         is_primary: false,
+        is_primary_contact: false,
+        can_view_reports: true,
+        receives_notifications: true,
+        receives_billing: false,
+        can_pickup: true,
       }))
 
       const { error: linkError } = await supabase
@@ -105,7 +110,7 @@ export async function createGuardian(data: z.infer<typeof createGuardianSchema>)
         .insert(guardianStudentRecords)
 
       if (linkError) {
-        console.warn('학생 연결 오류:', linkError)
+        throw new Error('학생과 보호자를 연결하는 데 실패했습니다: ' + linkError.message)
       }
     }
 
@@ -432,11 +437,17 @@ export async function linkGuardianToStudent(
         guardian_id: guardianId,
         relation: relationship,
         is_primary: false,
+        is_primary_contact: false,
+        can_view_reports: true,
+        receives_notifications: true,
+        receives_billing: false,
+        can_pickup: true,
       })
 
     if (error) throw error
 
     revalidatePath(`/students/${studentId}`)
+    revalidatePath('/guardians')
     return { success: true }
   } catch (error) {
     return { success: false, error: getErrorMessage(error) }
