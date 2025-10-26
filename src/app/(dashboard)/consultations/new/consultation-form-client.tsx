@@ -11,6 +11,7 @@ import { Button } from '@ui/button'
 import { Input } from '@ui/input'
 import { Textarea } from '@ui/textarea'
 import { DatePicker } from '@ui/date-picker'
+import { TimePicker } from '@ui/time-picker'
 import { Label } from '@ui/label'
 import { Checkbox } from '@ui/checkbox'
 import {
@@ -316,10 +317,13 @@ export function ConsultationFormClient({
                     <Label htmlFor="consultationTime">
                       상담 시간 <span className="text-red-500">*</span>
                     </Label>
-                    <Input
-                      id="consultationTime"
-                      type="time"
-                      {...form.register('consultationTime')}
+                    <TimePicker
+                      value={form.watch('consultationTime')}
+                      onChange={(time) => form.setValue('consultationTime', time, {
+                        shouldValidate: true,
+                      })}
+                      placeholder="상담 시간 선택"
+                      interval={30}
                     />
                     {form.formState.errors.consultationTime && (
                       <p className="text-sm text-red-500">
