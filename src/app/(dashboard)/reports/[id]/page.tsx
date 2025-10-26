@@ -277,7 +277,7 @@ ${commentForm.nextGoals}`
       <PageWrapper>
         <div className="flex flex-col items-center justify-center h-64">
           <p className="text-muted-foreground mb-4">리포트를 찾을 수 없습니다.</p>
-          <Button onClick={() => router.push('/reports/list')}>목록으로 돌아가기</Button>
+          <Button onClick={() => router.push('/reports')}>목록으로 돌아가기</Button>
         </div>
       </PageWrapper>
     )
