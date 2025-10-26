@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { useReactToPrint } from 'react-to-print'
+import { usePDF } from '@react-pdf/renderer'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
@@ -23,6 +23,7 @@ import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import type { ReportWithStudent } from '@/core/types/report.types'
 import { ReportViewer } from '@/components/features/reports/ReportViewer'
+import { ReportPdfDocument } from '@/components/features/reports/ReportPdfDocument'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
@@ -47,15 +48,39 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
   const supabase = createClient()
   const contentRef = useRef<HTMLDivElement>(null)
 
-  const handlePrint = useReactToPrint({
-    contentRef,
-    documentTitle: report
-      ? `${report.content.studentName || report.students?.users?.name || '학생'}_${new Date(report.period_start).getFullYear()}년_${new Date(report.period_start).getMonth() + 1}월_리포트`
-      : 'report',
-    onAfterPrint: () => {
-      console.log('[ReportDetailPage] Print completed')
-    },
+  // PDF generation with usePDF hook
+  // Initialize with empty data first to avoid hook order issues
+  const [instance, updatePdf] = usePDF({
+    document: report ? (
+      <ReportPdfDocument
+        reportData={report.content}
+        studentName={report.students?.users?.name || report.content.studentName || report.content.student?.name || '학생'}
+        studentCode={report.students?.student_code || report.content.studentCode || report.content.student?.student_code || ''}
+        studentGrade={report.students?.grade || report.content.grade || report.content.student?.grade || ''}
+        periodStart={report.period_start}
+        periodEnd={report.period_end}
+        generatedAt={report.generated_at}
+      />
+    ) : <></>,
   })
+
+  // Update PDF when report data changes
+  useEffect(() => {
+    if (report) {
+      updatePdf(
+        <ReportPdfDocument
+          reportData={report.content}
+          studentName={report.students?.users?.name || report.content.studentName || report.content.student?.name || '학생'}
+          studentCode={report.students?.student_code || report.content.studentCode || report.content.student?.student_code || ''}
+          studentGrade={report.students?.grade || report.content.grade || report.content.student?.grade || ''}
+          periodStart={report.period_start}
+          periodEnd={report.period_end}
+          generatedAt={report.generated_at}
+        />
+      )
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [report])
 
   useEffect(() => {
     loadReport()
@@ -220,6 +245,27 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
     return types[type] || type
   }
 
+  // PDF download handler
+  function handlePdfDownload() {
+    if (!instance.blob || instance.loading || !report) return
+
+    // Create anchor tag to trigger download
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(instance.blob)
+    const studentName = report.students?.users?.name || report.content.studentName || report.content.student?.name || '학생'
+    const fileName = `${studentName}_${new Date(report.period_start).getFullYear()}년_${new Date(report.period_start).getMonth() + 1}월_리포트.pdf`
+    link.download = fileName
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(link.href)
+
+    toast({
+      title: 'PDF 다운로드 완료',
+      description: `${studentName} 학생의 리포트가 다운로드되었습니다.`,
+    })
+  }
+
   // Feature flag checks after all Hooks
   const featureStatus = FEATURES.reportManagement;
 
@@ -279,9 +325,13 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
             </p>
           </div>
           <div className="flex gap-2 print:hidden">
-            <Button variant="outline" onClick={handlePrint}>
+            <Button
+              variant="outline"
+              onClick={handlePdfDownload}
+              disabled={instance.loading || !instance.blob}
+            >
               <Download className="h-4 w-4 mr-2" />
-              PDF 다운로드
+              {instance.loading ? 'PDF 생성 중...' : 'PDF 다운로드'}
             </Button>
             {!report.sent_at && (
               <Button onClick={handleSendClick} disabled={sending}>
