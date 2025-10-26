@@ -1,6 +1,6 @@
 'use client'
 
-import { Input } from '@ui/input'
+import { TimePicker } from '@ui/time-picker'
 import { Label } from '@ui/label'
 import { cn } from '@/lib/utils'
 
@@ -16,12 +16,18 @@ export interface TimeRangePickerProps {
   required?: boolean
   disabled?: boolean
   className?: string
+  /**
+   * Time interval in minutes
+   * @default 30
+   */
+  interval?: number
 }
 
 /**
  * TimeRangePicker 컴포넌트
  *
  * 시작 시간과 종료 시간을 선택하는 재사용 가능한 컴포넌트
+ * DatePicker와 동일한 UI/UX 패턴 사용 (Popover + 시간 리스트)
  * React Hook Form과 함께 사용 가능
  *
  * @example
@@ -36,6 +42,7 @@ export interface TimeRangePickerProps {
  *   startError={errors.startTime?.message}
  *   endError={errors.endTime?.message}
  *   required
+ *   interval={15}
  * />
  * ```
  */
@@ -51,6 +58,7 @@ export function TimeRangePicker({
   required = false,
   disabled = false,
   className,
+  interval = 30,
 }: TimeRangePickerProps) {
   return (
     <div className={cn('grid grid-cols-2 gap-4', className)}>
@@ -60,13 +68,14 @@ export function TimeRangePicker({
           {startLabel}
           {required && <span className="text-red-500 ml-1">*</span>}
         </Label>
-        <Input
+        <TimePicker
           id="start-time"
-          type="time"
           value={startTime}
-          onChange={(e) => onStartTimeChange(e.target.value)}
+          onChange={onStartTimeChange}
+          placeholder="시작 시간 선택"
           disabled={disabled}
           className={cn(startError && 'border-red-500')}
+          interval={interval}
         />
         {startError && (
           <p className="text-red-500 text-sm mt-1">{startError}</p>
@@ -79,13 +88,14 @@ export function TimeRangePicker({
           {endLabel}
           {required && <span className="text-red-500 ml-1">*</span>}
         </Label>
-        <Input
+        <TimePicker
           id="end-time"
-          type="time"
           value={endTime}
-          onChange={(e) => onEndTimeChange(e.target.value)}
+          onChange={onEndTimeChange}
+          placeholder="종료 시간 선택"
           disabled={disabled}
           className={cn(endError && 'border-red-500')}
+          interval={interval}
         />
         {endError && (
           <p className="text-red-500 text-sm mt-1">{endError}</p>
