@@ -27,8 +27,8 @@ const messageTemplateSchema = z.object({
 const sendMessageSchema = z.object({
   studentIds: z.array(z.string().uuid()).min(1, '최소 한 명의 학생을 선택해야 합니다'),
   message: z.string().min(1, '메시지 내용은 필수입니다'),
-  type: z.enum(['sms', 'email']),
-  subject: z.string().optional(), // For email
+  type: z.enum(['sms', 'lms', 'mms']), // SMS, LMS, MMS only (no email, no 알림톡)
+  subject: z.string().optional(), // For LMS
 })
 
 // ============================================================================
@@ -204,7 +204,6 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
           guardians (
             users (
               name,
-              email,
               phone
             )
           )
@@ -227,15 +226,12 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
 
       for (const sg of guardians) {
         const guardian = sg.guardians as any
-        const guardianUser = guardian?.users as { name: string; email: string; phone: string } | null
+        const guardianUser = guardian?.users as { name: string; phone: string } | null
         if (!guardianUser) continue
 
-        const recipientInfo =
-          validated.type === 'email'
-            ? guardianUser.email
-            : guardianUser.phone
+        const recipientPhone = guardianUser.phone
 
-        if (!recipientInfo) {
+        if (!recipientPhone) {
           failCount++
           logs.push({
             tenant_id: tenantId,
@@ -243,19 +239,19 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
             session_id: null,
             notification_type: validated.type,
             message: validated.message,
-            subject: validated.type === 'email' ? validated.subject : null,
+            subject: validated.subject || null,
             status: 'failed',
-            error_message: `보호자 ${validated.type === 'email' ? '이메일' : '전화번호'} 정보가 없습니다`,
+            error_message: '보호자 전화번호 정보가 없습니다',
             sent_at: new Date().toISOString(),
           })
           continue
         }
 
         try {
-          // 실제 SMS/Email 발송
+          // 실제 SMS/LMS/MMS 발송
           const result = await sendMessage({
             type: validated.type,
-            to: recipientInfo,
+            to: recipientPhone,
             message: validated.message,
             subject: validated.subject,
           })
@@ -270,7 +266,7 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
             session_id: null,
             notification_type: validated.type,
             message: validated.message,
-            subject: validated.type === 'email' ? validated.subject : null,
+            subject: validated.subject || null,
             status: 'sent',
             error_message: null,
             sent_at: new Date().toISOString(),
@@ -285,7 +281,7 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
             session_id: null,
             notification_type: validated.type,
             message: validated.message,
-            subject: validated.type === 'email' ? validated.subject : null,
+            subject: validated.subject || null,
             status: 'failed',
             error_message: getErrorMessage(error),
             sent_at: new Date().toISOString(),
@@ -342,7 +338,6 @@ export async function sendReportNotification(reportId: string) {
             guardians (
               users (
                 name,
-                email,
                 phone
               )
             )
@@ -368,18 +363,17 @@ export async function sendReportNotification(reportId: string) {
 
     for (const sg of guardians) {
       const guardian = sg.guardians as any
-      const guardianUser = guardian?.users as { email: string } | null
-      if (!guardianUser?.email) {
+      const guardianUser = guardian?.users as { phone: string } | null
+      if (!guardianUser?.phone) {
         failCount++
         continue
       }
 
       try {
-        // 이메일 발송 (리포트 링크 포함)
+        // SMS 발송 (리포트 알림)
         const result = await sendMessage({
-          type: 'email',
-          to: guardianUser.email,
-          subject: '학습 리포트 알림',
+          type: 'sms',
+          to: guardianUser.phone,
           message,
         })
 
