@@ -29,7 +29,7 @@ import Link from 'next/link'
 
 export default function ReportDetailPage({ params }: { params: { id: string } }) {
   // All Hooks must be called before any early returns
-  const [report, setReport] = useState<Report | null>(null)
+  const [report, setReport] = useState<ReportWithStudent | null>(null)
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [sendDialogOpen, setSendDialogOpen] = useState(false)
