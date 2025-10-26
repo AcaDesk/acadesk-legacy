@@ -254,29 +254,16 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
 
   const reportData = report.content as any // Support both old and new format
 
-  // Get academy info
-  const academyName = reportData.academy?.name || '학원'
-  const academyPhone = reportData.academy?.phone
-  const academyEmail = reportData.academy?.email
-  const academyAddress = reportData.academy?.address
-  const academyWebsite = reportData.academy?.website
+  /**
+   * Data Access Strategy: Source of Truth
+   * Priority: report.students (joined data from DB) > reportData.* (snapshot in JSONB)
+   * This ensures we always display the latest student information
+   */
 
-  // Get student info from either format
-  const studentName = reportData.studentName || reportData.student?.name || report.students?.users?.name || '학생'
-  const studentCode = reportData.studentCode || reportData.student?.student_code || report.students?.student_code || ''
-  const studentGrade = reportData.grade || reportData.student?.grade || report.students?.grade || ''
-
-  // Get attendance data from either format
-  const attendanceRate = reportData.attendanceRate || reportData.attendance?.rate || 0
-  const attendanceTotal = reportData.totalDays || reportData.attendance?.total || 0
-  const attendancePresent = reportData.presentDays || reportData.attendance?.present || 0
-  const attendanceLate = reportData.lateDays || reportData.attendance?.late || 0
-  const attendanceAbsent = reportData.absentDays || reportData.attendance?.absent || 0
-
-  // Get homework data from either format
-  const homeworkRate = reportData.homeworkRate || reportData.homework?.rate || 0
-  const homeworkTotal = reportData.totalTodos || reportData.homework?.total || 0
-  const homeworkCompleted = reportData.completedTodos || reportData.homework?.completed || 0
+  // Student info - Use joined data as Source of Truth
+  const studentName = report.students?.users?.name || reportData.studentName || reportData.student?.name || '학생'
+  const studentCode = report.students?.student_code || reportData.studentCode || reportData.student?.student_code || ''
+  const studentGrade = report.students?.grade || reportData.grade || reportData.student?.grade || ''
 
   return (
     <PageWrapper>
