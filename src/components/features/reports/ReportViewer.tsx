@@ -285,7 +285,7 @@ ${reportData.comment.nextGoals}`
         </CardHeader>
         <CardContent>
           <p className="text-sm leading-relaxed whitespace-pre-line">
-            {reportData.overallComment || reportData.instructorComment || '코멘트가 없습니다.\n"코멘트 수정" 버튼을 클릭하여 구조화된 피드백을 작성해보세요.'}
+            {getFormattedComment()}
           </p>
         </CardContent>
       </Card>
