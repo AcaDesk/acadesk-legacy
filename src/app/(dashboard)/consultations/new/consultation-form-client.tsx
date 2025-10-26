@@ -315,14 +315,14 @@ export function ConsultationFormClient({
 
                   <div className="space-y-2">
                     <Label htmlFor="consultationTime">
-                      상담 시간 <span className="text-red-500">*</span>
+                      시작 시간 <span className="text-red-500">*</span>
                     </Label>
                     <TimePicker
                       value={form.watch('consultationTime')}
                       onChange={(time) => form.setValue('consultationTime', time, {
                         shouldValidate: true,
                       })}
-                      placeholder="상담 시간 선택"
+                      placeholder="시작 시간 선택"
                       interval={30}
                     />
                     {form.formState.errors.consultationTime && (
@@ -335,7 +335,7 @@ export function ConsultationFormClient({
 
                 {/* Duration */}
                 <div className="space-y-2">
-                  <Label htmlFor="durationMinutes">상담 시간 (분)</Label>
+                  <Label htmlFor="durationMinutes">소요 시간 (분)</Label>
                   <Input
                     id="durationMinutes"
                     type="number"
