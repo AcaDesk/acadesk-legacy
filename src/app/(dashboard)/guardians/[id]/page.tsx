@@ -19,21 +19,21 @@ import { Maintenance } from '@/components/layout/maintenance'
 interface GuardianDetail {
   id: string
   relationship: string | null
-  users: Array<{
+  users: {
     name: string
     email: string | null
     phone: string | null
-  }>
+  } | null
   student_guardians: Array<{
     is_primary: boolean
-    students: Array<{
+    students: {
       id: string
       student_code: string
       grade: string | null
-      users: Array<{
+      users: {
         name: string
-      }>
-    }>
+      } | null
+    } | null
   }>
 }
 
@@ -140,7 +140,7 @@ export default function GuardianDetailPage() {
   return (
     <PageErrorBoundary pageName="보호자 상세">
       <PageWrapper
-        title={guardian.users?.[0]?.name || '이름 없음'}
+        title={guardian.users?.name || '이름 없음'}
         subtitle={`${guardian.relationship ? `${guardian.relationship} · ` : ''}보호자`}
         actions={
           <RoleGuard allowedRoles={['owner', 'instructor']}>
@@ -162,19 +162,19 @@ export default function GuardianDetailPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {guardian.users?.[0]?.phone && (
+                  {guardian.users?.phone && (
                     <div className="flex items-center gap-2">
                       <Phone className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">{guardian.users[0].phone}</span>
+                      <span className="text-sm">{guardian.users.phone}</span>
                     </div>
                   )}
-                  {guardian.users?.[0]?.email && (
+                  {guardian.users?.email && (
                     <div className="flex items-center gap-2">
                       <Mail className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">{guardian.users[0].email}</span>
+                      <span className="text-sm">{guardian.users.email}</span>
                     </div>
                   )}
-                  {!guardian.users?.[0]?.phone && !guardian.users?.[0]?.email && (
+                  {!guardian.users?.phone && !guardian.users?.email && (
                     <p className="text-sm text-muted-foreground">연락처 정보 없음</p>
                   )}
                 </div>
@@ -225,7 +225,7 @@ export default function GuardianDetailPage() {
                             <div>
                               <div className="flex items-center gap-2">
                                 <div className="font-medium">
-                                  {sg.students?.[0]?.users?.[0]?.name || '이름 없음'}
+                                  {sg.students?.users?.name || '이름 없음'}
                                 </div>
                                 {sg.is_primary && (
                                   <Badge variant="default" className="text-xs">
@@ -234,8 +234,8 @@ export default function GuardianDetailPage() {
                                 )}
                               </div>
                               <div className="text-sm text-muted-foreground">
-                                {sg.students?.[0]?.student_code || '학번 없음'}
-                                {sg.students?.[0]?.grade && ` · ${sg.students[0].grade}`}
+                                {sg.students?.student_code || '학번 없음'}
+                                {sg.students?.grade && ` · ${sg.students.grade}`}
                               </div>
                             </div>
                           </div>
@@ -243,7 +243,7 @@ export default function GuardianDetailPage() {
                             variant="outline"
                             size="sm"
                             onClick={() =>
-                              sg.students?.[0]?.id && router.push(`/students/${sg.students[0].id}`)
+                              sg.students?.id && router.push(`/students/${sg.students.id}`)
                             }
                           >
                             학생 상세
