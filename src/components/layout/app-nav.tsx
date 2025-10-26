@@ -134,14 +134,10 @@ const navigationGroups: NavGroup[] = [
     items: [
       { name: "상담 관리", href: "/consultations", icon: MessageSquare, featureFlag: "consultationManagement" },
       {
-        name: "리포트",
+        name: "리포트 관리",
         href: "/reports",
         icon: FileBarChart,
         featureFlag: "reportManagement",
-        subItems: [
-          { name: "리포트 목록", href: "/reports/list", icon: FileBarChart, featureFlag: "reportManagement" },
-          { name: "리포트 일괄 생성", href: "/reports/bulk", icon: FilePlus, featureFlag: "reportManagement" },
-        ]
       },
       { name: "학원비 관리", href: "/payments", icon: HandCoins, featureFlag: "tuitionManagement" },
       { name: "직원 관리", href: "/staff", icon: Briefcase, featureFlag: "staffManagement" },
