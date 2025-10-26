@@ -30,6 +30,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/c
 import { Loader2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { createExam, updateExam, getExamCategories, getClassesForExam } from '@/app/actions/exams'
+import { ClassSelector } from '@/components/features/common/class-selector'
 
 // ============================================================================
 // Types & Schemas
@@ -64,6 +65,7 @@ interface ClassOption {
   id: string
   name: string
   subject: string | null
+  active: boolean
 }
 
 // ============================================================================
@@ -105,7 +107,11 @@ export function ExamForm({ mode, examId, defaultValues, onSuccess }: ExamFormPro
       }
 
       if (classesResult.success && classesResult.data) {
-        setClasses(classesResult.data)
+        // Map to include active field (default to true if not provided)
+        setClasses(classesResult.data.map(cls => ({
+          ...cls,
+          active: ('active' in cls ? cls.active : true) as boolean
+        })))
       }
     }
 
@@ -278,21 +284,14 @@ export function ExamForm({ mode, examId, defaultValues, onSuccess }: ExamFormPro
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>연결된 수업</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="수업 선택" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="none">선택 안 함</SelectItem>
-                        {classes.map((cls) => (
-                          <SelectItem key={cls.id} value={cls.id}>
-                            {cls.name} {cls.subject && `(${cls.subject})`}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                      <ClassSelector
+                        value={field.value || ''}
+                        onChange={field.onChange}
+                        placeholder="수업 선택"
+                        classes={classes}
+                      />
+                    </FormControl>
                     <FormDescription>
                       수업과 연결하면 해당 수업의 학생들에게 시험을 배정할 수 있습니다
                     </FormDescription>

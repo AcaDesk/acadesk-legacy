@@ -18,6 +18,7 @@ import { getErrorMessage } from '@/lib/error-handlers'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { DatePicker } from '@ui/date-picker'
 import { StudentSearch } from '@/components/features/students/student-search'
+import { SubjectSelector } from '@/components/features/common/subject-selector'
 
 interface TodoFormData {
   title: string
@@ -160,11 +161,11 @@ export default function NewTodoPage() {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="subject">과목 (선택)</Label>
-                  <Input
-                    id="subject"
-                    placeholder="예: Vocabulary, Reading"
+                  <SubjectSelector
                     value={formData.subject}
-                    onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                    onChange={(value) => setFormData({ ...formData, subject: value })}
+                    placeholder="과목 선택"
+                    showColor={true}
                   />
                 </div>
 

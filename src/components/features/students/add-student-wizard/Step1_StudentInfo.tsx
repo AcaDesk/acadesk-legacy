@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@ui/popover'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@ui/command'
 import { cn } from '@/lib/utils'
-import { GRADES } from '@/lib/constants'
+import { GradeSelector } from '@/components/features/common/grade-selector'
 import type { StudentWizardFormValues } from './types'
 
 interface Step1Props {
@@ -71,18 +71,11 @@ export function Step1_StudentInfo({ schools }: Step1Props) {
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="grade">학년 *</Label>
-          <Select onValueChange={(value) => setValue('grade', value)} value={selectedGrade}>
-            <SelectTrigger id="grade">
-              <SelectValue placeholder="학년 선택" />
-            </SelectTrigger>
-            <SelectContent>
-              {GRADES.map((grade) => (
-                <SelectItem key={grade.value} value={grade.value}>
-                  {grade.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <GradeSelector
+            value={selectedGrade}
+            onChange={(value) => setValue('grade', value)}
+            placeholder="학년 선택"
+          />
           {errors.grade && (
             <p className="text-sm text-destructive">{errors.grade.message}</p>
           )}
