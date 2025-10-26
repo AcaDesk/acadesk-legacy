@@ -6,7 +6,6 @@ import { Button } from '@ui/button'
 import { Input } from '@ui/input'
 import { Badge } from '@ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@ui/tabs'
 import {
   Table,
   TableBody,
@@ -15,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '@ui/table'
-import { Bell, Send, Clock, CheckCircle, XCircle, Search, AlertCircle, FileText, MessageSquare, Settings, History, BarChart3 } from 'lucide-react'
+import { Bell, CheckCircle, XCircle, Search, AlertCircle, MessageSquare, Settings } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { FEATURES } from '@/lib/features.config'
@@ -23,9 +22,6 @@ import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { BulkMessageDialog } from '@/components/features/notifications/bulk-message-dialog'
 import { ManageTemplatesDialog } from '@/components/features/notifications/manage-templates-dialog'
-import { ConfirmationDialog } from '@ui/confirmation-dialog'
-import { MessageHistory } from '@/components/features/notifications/message-history'
-import { MessageStatistics } from '@/components/features/notifications/message-statistics'
 
 interface NotificationLog {
   id: string
@@ -44,24 +40,6 @@ interface NotificationLog {
   } | null
 }
 
-interface AutoNotificationStats {
-  type: string
-  label: string
-  description: string
-  schedule: string
-  lastRun: string | null
-  nextRun: string
-  enabled: boolean
-}
-
-interface ReportAutoSendStatus {
-  total: number
-  sent: number
-  pending: number
-  readyToSend: number
-  nextRun: string
-}
-
 export default function NotificationsPage() {
   // All Hooks must be called before any early returns
   const [logs, setLogs] = useState<NotificationLog[]>([])
@@ -70,20 +48,14 @@ export default function NotificationsPage() {
   const [filterType, setFilterType] = useState<'all' | 'sms'>('all')
   const [filterStatus, setFilterStatus] = useState<'all' | 'sent' | 'failed'>('all')
   const [loading, setLoading] = useState(true)
-  const [sending, setSending] = useState<string | null>(null)
-  const [reportAutoSendStatus, setReportAutoSendStatus] = useState<ReportAutoSendStatus | null>(null)
-  const [sendingReports, setSendingReports] = useState(false)
   const [sendMessageOpen, setSendMessageOpen] = useState(false)
   const [manageTemplatesOpen, setManageTemplatesOpen] = useState(false)
-  const [sendReportsDialogOpen, setSendReportsDialogOpen] = useState(false)
 
   const { toast } = useToast()
   const supabase = createClient()
 
   useEffect(() => {
     loadNotificationLogs()
-    // TODO: Uncomment when API is implemented
-    // loadReportAutoSendStatus()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -93,37 +65,6 @@ export default function NotificationsPage() {
   }, [searchTerm, filterType, filterStatus, logs])
 
   // Function definitions
-  // Auto-notification configurations
-  const autoNotifications: AutoNotificationStats[] = [
-    {
-      type: 'absent_students',
-      label: '미등원 알림',
-      description: '수업 시작 30분 후 결석 학생 보호자에게 자동 알림',
-      schedule: '매 수업 30분 후',
-      lastRun: null,
-      nextRun: '다음 수업 시작 30분 후',
-      enabled: true,
-    },
-    {
-      type: 'todo_reminders',
-      label: '과제 마감 알림',
-      description: '과제 마감 하루 전 학생에게 자동 알림',
-      schedule: '매일 오후 8시',
-      lastRun: null,
-      nextRun: '오늘 오후 8시',
-      enabled: true,
-    },
-    {
-      type: 'book_return_reminders',
-      label: '도서 반납 알림',
-      description: '이번 주 반납 예정 도서에 대한 알림',
-      schedule: '매주 월요일 오전 9시',
-      lastRun: null,
-      nextRun: '다음 월요일 오전 9시',
-      enabled: true,
-    },
-  ]
-
   async function loadNotificationLogs() {
     try {
       setLoading(true)
@@ -160,55 +101,6 @@ export default function NotificationsPage() {
     }
   }
 
-  async function loadReportAutoSendStatus() {
-    try {
-      const response = await fetch('/api/reports/auto-send')
-      if (!response.ok) throw new Error('Failed to load status')
-      const data = await response.json()
-      setReportAutoSendStatus(data)
-    } catch (error) {
-      console.error('Error loading report auto-send status:', error)
-    }
-  }
-
-  function handleSendReportsClick() {
-    setSendReportsDialogOpen(true)
-  }
-
-  async function handleConfirmSendReports() {
-    setSendingReports(true)
-
-    try {
-      const response = await fetch('/api/reports/auto-send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) throw new Error(result.error)
-
-      toast({
-        title: '리포트 발송 완료',
-        description: `${result.sent}건 발송, ${result.failed}건 실패`,
-      })
-
-      loadReportAutoSendStatus()
-      loadNotificationLogs()
-    } catch (error: unknown) {
-      console.error('Error sending reports:', error)
-      toast({
-        title: '발송 오류',
-        description: error instanceof Error ? error.message : '리포트 발송 중 오류가 발생했습니다.',
-        variant: 'destructive',
-      })
-    } finally {
-      setSendingReports(false)
-      setSendReportsDialogOpen(false)
-    }
-  }
-
   function filterLogs() {
     let filtered = logs
 
@@ -241,38 +133,6 @@ export default function NotificationsPage() {
     }
 
     setFilteredLogs(filtered)
-  }
-
-  async function handleManualTrigger(type: string) {
-    setSending(type)
-
-    try {
-      const response = await fetch('/api/notifications/auto-send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type }),
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) throw new Error(result.error)
-
-      toast({
-        title: '알림 전송 완료',
-        description: `${result.count}건의 알림이 전송되었습니다.`,
-      })
-
-      loadNotificationLogs()
-    } catch (error: unknown) {
-      console.error('Error triggering notification:', error)
-      toast({
-        title: '전송 오류',
-        description: error instanceof Error ? error.message : '알림 전송 중 오류가 발생했습니다.',
-        variant: 'destructive',
-      })
-    } finally {
-      setSending(null)
-    }
   }
 
   function getStatusBadge(status: string) {
@@ -344,7 +204,7 @@ export default function NotificationsPage() {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-3xl font-bold">메시지 관리</h1>
-            <p className="text-muted-foreground">SMS/알림톡 자동 발송 스케줄과 전송 기록을 관리하세요</p>
+            <p className="text-muted-foreground">메시지 전송 이력과 통계를 확인하세요</p>
           </div>
           <div className="flex gap-2">
             <Button
@@ -363,126 +223,11 @@ export default function NotificationsPage() {
           </div>
         </div>
 
-        {/* Tabs */}
-        <Tabs defaultValue="logs" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="logs" className="flex items-center gap-2">
-              <Bell className="h-4 w-4" />
-              발송 내역
-            </TabsTrigger>
-            <TabsTrigger value="history" className="flex items-center gap-2">
-              <History className="h-4 w-4" />
-              메시지 이력
-            </TabsTrigger>
-            <TabsTrigger value="stats" className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              통계
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="logs" className="space-y-6">
-            {/* Auto-notification Schedules */}
-            <div className="grid gap-4 md:grid-cols-3">
-          {autoNotifications.map((notification) => (
-            <Card key={notification.type}>
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-5 w-5 text-blue-600" />
-                    <CardTitle className="text-base">{notification.label}</CardTitle>
-                  </div>
-                  <Badge variant={notification.enabled ? 'default' : 'secondary'}>
-                    {notification.enabled ? '활성' : '비활성'}
-                  </Badge>
-                </div>
-                <CardDescription className="text-xs mt-2">
-                  {notification.description}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="text-sm">
-                  <div className="flex items-center justify-between text-muted-foreground">
-                    <span>스케줄</span>
-                    <span className="font-medium text-foreground">{notification.schedule}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-muted-foreground mt-1">
-                    <span>다음 실행</span>
-                    <span className="font-medium text-foreground">{notification.nextRun}</span>
-                  </div>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => handleManualTrigger(notification.type)}
-                  disabled={true}
-                  title="API 구현 예정"
-                >
-                  <Send className="h-3 w-3 mr-2" />
-                  수동 실행 (준비 중)
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Report Auto-Send */}
-        {reportAutoSendStatus && (
-          <Card className="border-blue-200 bg-blue-50/50">
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-blue-600" />
-                  <CardTitle>월간 리포트 자동 발송</CardTitle>
-                </div>
-                <Badge variant="default">활성</Badge>
-              </div>
-              <CardDescription>
-                매월 1일 오전 9시에 전월 리포트를 보호자에게 자동 발송합니다
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-4 gap-4 text-sm">
-                <div>
-                  <div className="text-muted-foreground">전체 리포트</div>
-                  <div className="text-2xl font-bold">{reportAutoSendStatus.total}건</div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">발송 완료</div>
-                  <div className="text-2xl font-bold text-green-600">{reportAutoSendStatus.sent}건</div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">발송 대기</div>
-                  <div className="text-2xl font-bold text-orange-600">{reportAutoSendStatus.pending}건</div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">이메일 등록</div>
-                  <div className="text-2xl font-bold text-blue-600">{reportAutoSendStatus.readyToSend}건</div>
-                </div>
-              </div>
-              <div className="flex items-center justify-between pt-2 border-t">
-                <div className="text-sm text-muted-foreground">
-                  다음 자동 발송: {reportAutoSendStatus.nextRun}
-                </div>
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={handleSendReportsClick}
-                  disabled={sendingReports || reportAutoSendStatus.pending === 0}
-                >
-                  <Send className="h-3 w-3 mr-2" />
-                  {sendingReports ? '발송 중...' : '즉시 발송'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         {/* Stats Cards */}
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="pb-3">
-              <CardDescription>전체 알림</CardDescription>
+              <CardDescription>전체 전송</CardDescription>
               <CardTitle className="text-3xl">{stats.total}건</CardTitle>
             </CardHeader>
           </Card>
@@ -500,8 +245,10 @@ export default function NotificationsPage() {
           </Card>
           <Card>
             <CardHeader className="pb-3">
-              <CardDescription>SMS/알림톡</CardDescription>
-              <CardTitle className="text-3xl">{stats.sms}건</CardTitle>
+              <CardDescription>성공률</CardDescription>
+              <CardTitle className="text-3xl">
+                {stats.total > 0 ? Math.round((stats.sent / stats.total) * 100) : 0}%
+              </CardTitle>
             </CardHeader>
           </Card>
         </div>
@@ -530,7 +277,7 @@ export default function NotificationsPage() {
               size="sm"
               onClick={() => setFilterType('sms')}
             >
-              SMS/알림톡
+              SMS
             </Button>
           </div>
           <div className="flex gap-2">
@@ -561,14 +308,14 @@ export default function NotificationsPage() {
         {/* Notification Logs */}
         <Card>
           <CardHeader>
-            <CardTitle>알림 전송 기록</CardTitle>
-            <CardDescription>최근 200건의 알림 전송 기록입니다</CardDescription>
+            <CardTitle>메시지 전송 이력</CardTitle>
+            <CardDescription>최근 200건의 메시지 전송 기록입니다</CardDescription>
           </CardHeader>
           <CardContent>
             {filteredLogs.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <Bell className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>표시할 알림 기록이 없습니다.</p>
+                <p>전송 이력이 없습니다.</p>
                 {searchTerm && <p className="text-sm mt-2">검색 결과가 없습니다.</p>}
               </div>
             ) : (
@@ -625,16 +372,6 @@ export default function NotificationsPage() {
             )}
           </CardContent>
         </Card>
-          </TabsContent>
-
-          <TabsContent value="history" className="space-y-6">
-            <MessageHistory />
-          </TabsContent>
-
-          <TabsContent value="stats" className="space-y-6">
-            <MessageStatistics />
-          </TabsContent>
-        </Tabs>
 
         {/* Message Dialogs */}
         <BulkMessageDialog
@@ -648,18 +385,6 @@ export default function NotificationsPage() {
         <ManageTemplatesDialog
           open={manageTemplatesOpen}
           onOpenChange={setManageTemplatesOpen}
-        />
-
-        {/* Send Reports Confirmation Dialog */}
-        <ConfirmationDialog
-          open={sendReportsDialogOpen}
-          onOpenChange={setSendReportsDialogOpen}
-          title="리포트 일괄 발송"
-          description="이번 달 리포트를 보호자에게 일괄 발송하시겠습니까? 발송 대기 중인 리포트가 모두 전송됩니다."
-          confirmText="발송"
-          variant="default"
-          isLoading={sendingReports}
-          onConfirm={handleConfirmSendReports}
         />
       </div>
     </PageWrapper>
