@@ -69,7 +69,7 @@ export default function ReportsPage() {
         .order('student_code')
 
       if (studentsError) throw studentsError
-      setStudents(studentsData as unknown as Student[])
+      setStudents(studentsData as unknown as StudentForFilter[])
     } catch (error) {
       console.error('Error loading students:', error)
     }
