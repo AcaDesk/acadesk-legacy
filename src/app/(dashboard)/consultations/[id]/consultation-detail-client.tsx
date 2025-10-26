@@ -34,6 +34,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@ui/alert-dialog'
+import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import {
   MessageSquare,
   Calendar,
@@ -129,6 +130,12 @@ export function ConsultationDetailClient({
   >('guardian')
   const [participantName, setParticipantName] = useState('')
   const [participantRole, setParticipantRole] = useState('')
+  const [deleteNoteDialogOpen, setDeleteNoteDialogOpen] = useState(false)
+  const [noteToDelete, setNoteToDelete] = useState<string | null>(null)
+  const [isDeletingNote, setIsDeletingNote] = useState(false)
+  const [removeParticipantDialogOpen, setRemoveParticipantDialogOpen] = useState(false)
+  const [participantToRemove, setParticipantToRemove] = useState<string | null>(null)
+  const [isRemovingParticipant, setIsRemovingParticipant] = useState(false)
 
   const consultDate = new Date(consultation.consultation_date)
   const nextDate = consultation.next_consultation_date
@@ -250,13 +257,17 @@ export function ConsultationDetailClient({
     }
   }
 
-  async function handleDeleteNote(noteId: string) {
-    if (!confirm('이 노트를 삭제하시겠습니까?')) {
-      return
-    }
+  function handleDeleteNote(noteId: string) {
+    setNoteToDelete(noteId)
+    setDeleteNoteDialogOpen(true)
+  }
 
+  async function handleConfirmDeleteNote() {
+    if (!noteToDelete) return
+
+    setIsDeletingNote(true)
     try {
-      const result = await deleteConsultationNote(noteId)
+      const result = await deleteConsultationNote(noteToDelete)
 
       if (!result.success) {
         throw new Error(result.error || '노트 삭제 실패')
@@ -266,7 +277,7 @@ export function ConsultationDetailClient({
       setConsultation((prev) => ({
         ...prev,
         consultation_notes: prev.consultation_notes?.filter(
-          (note) => note.id !== noteId
+          (note) => note.id !== noteToDelete
         ),
       }))
 
@@ -284,6 +295,10 @@ export function ConsultationDetailClient({
             : '노트를 삭제하는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
+    } finally {
+      setIsDeletingNote(false)
+      setDeleteNoteDialogOpen(false)
+      setNoteToDelete(null)
     }
   }
 
@@ -365,13 +380,17 @@ export function ConsultationDetailClient({
     }
   }
 
-  async function handleRemoveParticipant(participantId: string) {
-    if (!confirm('이 참석자를 제거하시겠습니까?')) {
-      return
-    }
+  function handleRemoveParticipant(participantId: string) {
+    setParticipantToRemove(participantId)
+    setRemoveParticipantDialogOpen(true)
+  }
 
+  async function handleConfirmRemoveParticipant() {
+    if (!participantToRemove) return
+
+    setIsRemovingParticipant(true)
     try {
-      const result = await removeConsultationParticipant(participantId)
+      const result = await removeConsultationParticipant(participantToRemove)
 
       if (!result.success) {
         throw new Error(result.error || '참석자 제거 실패')
@@ -381,7 +400,7 @@ export function ConsultationDetailClient({
       setConsultation((prev) => ({
         ...prev,
         consultation_participants: prev.consultation_participants?.filter(
-          (p) => p.id !== participantId
+          (p) => p.id !== participantToRemove
         ),
       }))
 
@@ -399,6 +418,10 @@ export function ConsultationDetailClient({
             : '참석자를 제거하는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
+    } finally {
+      setIsRemovingParticipant(false)
+      setRemoveParticipantDialogOpen(false)
+      setParticipantToRemove(null)
     }
   }
 
@@ -832,6 +855,30 @@ export function ConsultationDetailClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Note Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteNoteDialogOpen}
+        onOpenChange={setDeleteNoteDialogOpen}
+        title="정말로 삭제하시겠습니까?"
+        description="이 노트가 삭제됩니다. 이 작업은 되돌릴 수 없습니다."
+        confirmText="삭제"
+        variant="destructive"
+        isLoading={isDeletingNote}
+        onConfirm={handleConfirmDeleteNote}
+      />
+
+      {/* Remove Participant Confirmation Dialog */}
+      <ConfirmationDialog
+        open={removeParticipantDialogOpen}
+        onOpenChange={setRemoveParticipantDialogOpen}
+        title="정말로 제거하시겠습니까?"
+        description="이 참석자가 제거됩니다. 이 작업은 되돌릴 수 없습니다."
+        confirmText="제거"
+        variant="destructive"
+        isLoading={isRemovingParticipant}
+        onConfirm={handleConfirmRemoveParticipant}
+      />
     </PageWrapper>
   )
 }
