@@ -27,9 +27,9 @@ import { ConfirmationDialog } from '@ui/confirmation-dialog'
 
 export default function ReportsPage() {
   // All Hooks must be called before any early returns
-  const [reports, setReports] = useState<Report[]>([])
-  const [allReports, setAllReports] = useState<Report[]>([]) // For statistics
-  const [students, setStudents] = useState<Student[]>([])
+  const [reports, setReports] = useState<ReportWithStudent[]>([])
+  const [allReports, setAllReports] = useState<ReportWithStudent[]>([]) // For statistics
+  const [students, setStudents] = useState<StudentForFilter[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedStudent, setSelectedStudent] = useState<string>('all')
   const [selectedType, setSelectedType] = useState<string>('all')
