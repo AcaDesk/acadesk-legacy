@@ -20,6 +20,26 @@ const eslintConfig = [
       "next-env.d.ts",
     ],
   },
+  {
+    rules: {
+      // Prohibit native confirm/alert/prompt - use ConfirmationDialog instead
+      "no-restricted-globals": [
+        "error",
+        {
+          name: "confirm",
+          message: "Use ConfirmationDialog component instead of native confirm(). See docs/SKELETON_GUIDE.md for usage.",
+        },
+        {
+          name: "alert",
+          message: "Use toast notifications instead of native alert(). Import from @/hooks/use-toast.",
+        },
+        {
+          name: "prompt",
+          message: "Use Dialog component with form inputs instead of native prompt().",
+        },
+      ],
+    },
+  },
 ];
 
 export default eslintConfig;

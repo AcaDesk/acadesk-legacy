@@ -549,6 +549,58 @@ async function onSubmit(data: z.infer<typeof studentSchema>) {
 }
 ```
 
+### Confirmation Dialogs
+
+**Always use `ConfirmationDialog` component instead of native `confirm()`** for user confirmations.
+
+```typescript
+import { useState } from 'react'
+import { ConfirmationDialog } from '@ui/confirmation-dialog'
+
+function MyComponent() {
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  async function handleConfirmDelete() {
+    setIsDeleting(true)
+    try {
+      await deleteItem(id)
+      toast({ title: '삭제 완료' })
+    } catch (error) {
+      toast({ title: '삭제 실패', variant: 'destructive' })
+    } finally {
+      setIsDeleting(false)
+      setDeleteDialogOpen(false)
+    }
+  }
+
+  return (
+    <>
+      <Button onClick={() => setDeleteDialogOpen(true)}>삭제</Button>
+
+      <ConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="정말로 삭제하시겠습니까?"
+        description="이 작업은 되돌릴 수 없습니다."
+        confirmText="삭제"
+        variant="destructive"
+        isLoading={isDeleting}
+        onConfirm={handleConfirmDelete}
+      />
+    </>
+  )
+}
+```
+
+**Benefits:**
+- ✅ Consistent UI/UX across the app
+- ✅ Loading states with spinner
+- ✅ Clear warning messages
+- ✅ Better accessibility
+
+**See also:** `docs/SKELETON_GUIDE.md` - Confirmation Dialog section
+
 ## Async Widgets & Error Handling Strategy
 
 ### Overview
@@ -682,6 +734,7 @@ export default async function DashboardPage() {
 - `docs/DEPLOYMENT_GUIDE.md` - Complete deployment guide for Local/Staging/Production
 - `docs/error-and-loading-strategy.md` - Error handling strategy
 - `docs/ASYNC_WIDGETS_GUIDE.md` - Async widgets quick start
+- `docs/SKELETON_GUIDE.md` - **Skeleton component usage guide**
 - `internal/tech/Architecture.md` - System architecture and deployment
 - `internal/tech/ERD.md` - Database schema design principles
 - `internal/tech/CodeGuideline.md` - Detailed coding standards (Korean)
