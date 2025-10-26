@@ -10,6 +10,7 @@ import { AddEventModal } from '@/components/features/calendar/AddEventModal'
 import { EditEventModal } from '@/components/features/calendar/EditEventModal'
 import { Button } from '@ui/button'
 import { Card } from '@ui/card'
+import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import { useToast } from '@/hooks/use-toast'
 import { Plus, Calendar as CalendarIcon, Loader2 } from 'lucide-react'
 import type { CalendarEvent } from '@/core/types/calendar'
@@ -26,6 +27,9 @@ export default function CalendarPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [slotInfo, setSlotInfo] = useState<{ start: Date; end: Date } | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [eventToDelete, setEventToDelete] = useState<CalendarEvent | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const { toast } = useToast()
   const supabase = createClient()
@@ -229,38 +233,48 @@ export default function CalendarPage() {
     }
   }
 
-  // Handle delete event
+  // Handle delete event - open confirmation dialog
   const handleDeleteEvent = useCallback(
-    async (event: CalendarEvent) => {
-      if (!confirm(`"${event.title}" 일정을 삭제하시겠습니까?`)) {
-        return
-      }
-
-      try {
-        const { error } = await supabase
-          .from('calendar_events')
-          .update({ deleted_at: new Date().toISOString() })
-          .eq('id', event.id)
-
-        if (error) throw error
-
-        await loadEvents()
-
-        toast({
-          title: '일정 삭제 완료',
-          description: `"${event.title}" 일정이 삭제되었습니다.`,
-        })
-      } catch (error) {
-        console.error('Failed to delete event:', error)
-        toast({
-          variant: 'destructive',
-          title: '일정 삭제 실패',
-          description: '일정을 삭제하는데 실패했습니다.',
-        })
-      }
+    (event: CalendarEvent) => {
+      setEventToDelete(event)
+      setDeleteDialogOpen(true)
+      setIsDetailModalOpen(false)
     },
-    [supabase, loadEvents, toast]
+    []
   )
+
+  // Handle confirm delete
+  const handleConfirmDelete = async () => {
+    if (!eventToDelete) return
+
+    setIsDeleting(true)
+    try {
+      const { error } = await supabase
+        .from('calendar_events')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', eventToDelete.id)
+
+      if (error) throw error
+
+      await loadEvents()
+
+      toast({
+        title: '일정 삭제 완료',
+        description: `"${eventToDelete.title}" 일정이 삭제되었습니다.`,
+      })
+    } catch (error) {
+      console.error('Failed to delete event:', error)
+      toast({
+        variant: 'destructive',
+        title: '일정 삭제 실패',
+        description: '일정을 삭제하는데 실패했습니다.',
+      })
+    } finally {
+      setIsDeleting(false)
+      setDeleteDialogOpen(false)
+      setEventToDelete(null)
+    }
+  }
 
   // Handle event drop (drag and drop)
   const handleEventDrop = useCallback(
@@ -404,6 +418,22 @@ export default function CalendarPage() {
         open={isEditModalOpen}
         onOpenChange={setIsEditModalOpen}
         onSubmit={handleUpdateEvent}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="정말로 삭제하시겠습니까?"
+        description={
+          eventToDelete
+            ? `"${eventToDelete.title}" 일정이 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`
+            : ''
+        }
+        confirmText="삭제"
+        variant="destructive"
+        isLoading={isDeleting}
+        onConfirm={handleConfirmDelete}
       />
     </PageWrapper>
   )
