@@ -29,7 +29,7 @@ import { sendAligoSMS } from './aligo-sms'
 import { addEmailSignature, type AcademyInfo } from './email-signature'
 
 export interface SendMessageOptions {
-  type: 'sms' | 'email'
+  type: 'sms' | 'lms' | 'mms'
   to: string
   message: string
   subject?: string
@@ -39,13 +39,13 @@ export interface SendMessageOptions {
 /**
  * 통합 메시지 발송
  *
- * SMS와 이메일을 단일 인터페이스로 발송합니다.
+ * SMS, LMS, MMS를 단일 인터페이스로 발송합니다.
  *
- * @param options.type - 'sms' 또는 'email'
- * @param options.to - 수신자 (전화번호 또는 이메일)
+ * @param options.type - 'sms', 'lms', 'mms'
+ * @param options.to - 수신자 전화번호
  * @param options.message - 메시지 내용
- * @param options.subject - 제목 (이메일 또는 LMS)
- * @param options.academyInfo - 학원 정보 (이메일 서명용)
+ * @param options.subject - 제목 (LMS)
+ * @param options.academyInfo - 학원 정보
  * @returns 발송 결과
  */
 export async function sendMessage({
@@ -58,28 +58,13 @@ export async function sendMessage({
   success: boolean
   error?: string
 }> {
-  if (type === 'sms') {
-    // SMS: 알리고 사용
-    return await sendAligoSMS({
-      to: [to],
-      message,
-      subject,
-    })
-  } else {
-    // Email: TODO - Resend 또는 다른 서비스 통합
-    // ✅ 학원정보가 있으면 서명 추가
-    const finalMessage = academyInfo
-      ? addEmailSignature(message, academyInfo)
-      : message
-
-    console.log('[sendMessage] Email sending not implemented yet')
-    console.log(`Would send email to ${to}:`, { subject, message: finalMessage })
-
-    // 임시로 성공 처리 (나중에 실제 이메일 서비스 통합)
-    return {
-      success: true,
-    }
-  }
+  // All types (SMS, LMS, MMS) use the same provider
+  // The provider will automatically determine the message type based on content length
+  return await sendAligoSMS({
+    to: [to],
+    message,
+    subject,
+  })
 }
 
 /**

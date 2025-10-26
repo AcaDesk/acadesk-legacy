@@ -296,9 +296,13 @@ export default function NotificationsPage() {
   function getTypeBadge(type: string) {
     switch (type) {
       case 'sms':
-        return <Badge variant="default">SMS/알림톡</Badge>
+        return <Badge variant="default">SMS</Badge>
+      case 'lms':
+        return <Badge variant="default" className="bg-blue-600">LMS</Badge>
+      case 'mms':
+        return <Badge variant="default" className="bg-purple-600">MMS</Badge>
       default:
-        return <Badge variant="secondary">{type}</Badge>
+        return <Badge variant="secondary">{type.toUpperCase()}</Badge>
     }
   }
 
