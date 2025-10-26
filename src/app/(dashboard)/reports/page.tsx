@@ -1,395 +1,489 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { generateMonthlyReport, saveReport, getStudentsForReport } from '@/app/actions/reports'
-import type { ReportData } from '@/core/types/report.types'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import { Button } from '@ui/button'
+import { Input } from '@ui/input'
+import { Badge } from '@ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
-import { Badge } from '@ui/badge'
-import { Separator } from '@ui/separator'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@ui/table'
+import { Search, Eye, Download, Send, Plus, FileText, Users } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import { FileText, TrendingUp, TrendingDown, Minus, Download } from 'lucide-react'
 import { PageWrapper } from "@/components/layout/page-wrapper"
-import { GradesLineChart } from '@/components/features/charts/grades-line-chart'
-import { TodoCompletionDonut } from '@/components/features/charts/todo-completion-donut'
-import { AttendanceHeatmap } from '@/components/features/charts/attendance-heatmap'
+import type { ReportData } from '@/core/types/report.types'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
+import { ConfirmationDialog } from '@ui/confirmation-dialog'
+
+interface Report {
+  id: string
+  report_type: string
+  period_start: string
+  period_end: string
+  content: ReportData
+  generated_at: string
+  sent_at: string | null
+  students: {
+    id: string
+    student_code: string
+    user_id: {
+      name: string
+    } | null
+  } | null
+}
 
 interface Student {
   id: string
   student_code: string
-  users: {
+  user_id: {
     name: string
   } | null
 }
 
 export default function ReportsPage() {
   // All Hooks must be called before any early returns
+  const [reports, setReports] = useState<Report[]>([])
+  const [filteredReports, setFilteredReports] = useState<Report[]>([])
   const [students, setStudents] = useState<Student[]>([])
-  const [selectedStudent, setSelectedStudent] = useState<string>('')
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear())
-  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1)
-  const [reportData, setReportData] = useState<ReportData | null>(null)
-  const [generating, setGenerating] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedStudent, setSelectedStudent] = useState<string>('all')
+  const [selectedType, setSelectedType] = useState<string>('all')
+  const [loading, setLoading] = useState(true)
+  const [sendDialogOpen, setSendDialogOpen] = useState(false)
+  const [reportToSend, setReportToSend] = useState<{ id: string; name: string } | null>(null)
+  const [isSending, setIsSending] = useState(false)
 
   const { toast } = useToast()
-
-  const years = [2024, 2025, 2026]
-  const months = Array.from({ length: 12 }, (_, i) => i + 1)
+  const router = useRouter()
+  const supabase = createClient()
 
   useEffect(() => {
-    loadStudents()
+    loadData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  async function loadStudents() {
+  useEffect(() => {
+    filterReports()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm, selectedStudent, selectedType, reports])
+
+  async function loadData() {
     try {
-      const result = await getStudentsForReport()
+      setLoading(true)
 
-      if (!result.success || !result.data) {
-        throw new Error(result.error || '학생 목록 조회 실패')
-      }
+      // Load students for filter
+      const { data: studentsData, error: studentsError } = await supabase
+        .from('students')
+        .select('id, student_code, user_id!inner(name)')
+        .is('deleted_at', null)
+        .order('student_code')
 
-      setStudents(result.data as unknown as Student[])
+      if (studentsError) throw studentsError
+      setStudents(studentsData as unknown as Student[])
+
+      // Load reports with student data
+      const { data: reportsData, error: reportsError } = await supabase
+        .from('reports')
+        .select(`
+          id,
+          report_type,
+          period_start,
+          period_end,
+          content,
+          generated_at,
+          sent_at,
+          students!inner (
+            id,
+            student_code,
+            user_id!inner (
+              name
+            )
+          )
+        `)
+        .order('generated_at', { ascending: false })
+
+      if (reportsError) throw reportsError
+      setReports(reportsData as unknown as Report[])
+      setFilteredReports(reportsData as unknown as Report[])
     } catch (error) {
-      console.error('Error loading students:', error)
+      console.error('Error loading data:', error)
       toast({
         title: '데이터 로드 오류',
-        description: '학생 목록을 불러오는 중 오류가 발생했습니다.',
-        variant: 'destructive',
-      })
-    }
-  }
-
-  async function generateReport() {
-    if (!selectedStudent) {
-      toast({
-        title: '학생 선택 필요',
-        description: '리포트를 생성할 학생을 선택해주세요.',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    setGenerating(true)
-    try {
-      // Generate report
-      const result = await generateMonthlyReport(
-        selectedStudent,
-        selectedYear,
-        selectedMonth
-      )
-
-      if (!result.success || !result.data) {
-        throw new Error(result.error || '리포트 생성 실패')
-      }
-
-      setReportData(result.data)
-
-      // Save report to database
-      const saveResult = await saveReport(result.data, 'monthly')
-
-      if (!saveResult.success) {
-        console.warn('리포트 저장 실패:', saveResult.error)
-      }
-
-      toast({
-        title: '리포트 생성 완료',
-        description: `${result.data.student.name}의 ${selectedYear}년 ${selectedMonth}월 리포트가 생성되었습니다.`,
-      })
-    } catch (error: unknown) {
-      console.error('Error generating report:', error)
-      toast({
-        title: '리포트 생성 오류',
-        description: error instanceof Error ? error.message : '리포트를 생성하는 중 오류가 발생했습니다.',
+        description: '리포트를 불러오는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
     } finally {
-      setGenerating(false)
+      setLoading(false)
     }
   }
 
-  function getTrendIcon(change: number | null) {
-    if (change === null) return <Minus className="h-4 w-4" />
-    if (change > 0) return <TrendingUp className="h-4 w-4 text-green-600" />
-    if (change < 0) return <TrendingDown className="h-4 w-4 text-red-600" />
-    return <Minus className="h-4 w-4" />
+  function filterReports() {
+    let filtered = reports
+
+    // Student filter
+    if (selectedStudent !== 'all') {
+      filtered = filtered.filter((report) => report.students?.id === selectedStudent)
+    }
+
+    // Type filter
+    if (selectedType !== 'all') {
+      filtered = filtered.filter((report) => report.report_type === selectedType)
+    }
+
+    // Search filter
+    if (searchTerm) {
+      filtered = filtered.filter((report) => {
+        const studentName = report.students?.user_id?.name?.toLowerCase() || ''
+        const studentCode = report.students?.student_code?.toLowerCase() || ''
+        const search = searchTerm.toLowerCase()
+
+        return studentName.includes(search) || studentCode.includes(search)
+      })
+    }
+
+    setFilteredReports(filtered)
+  }
+
+  function getReportTypeBadge(type: string) {
+    const types: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
+      weekly: { label: '주간', variant: 'secondary' },
+      monthly: { label: '월간', variant: 'default' },
+      quarterly: { label: '분기', variant: 'outline' },
+    }
+
+    const config = types[type] || { label: type, variant: 'outline' }
+    return <Badge variant={config.variant}>{config.label}</Badge>
+  }
+
+  function formatPeriod(start: string, end: string) {
+    const startDate = new Date(start)
+    const endDate = new Date(end)
+
+    return `${startDate.getFullYear()}.${String(startDate.getMonth() + 1).padStart(2, '0')}.${String(startDate.getDate()).padStart(2, '0')} ~ ${endDate.getFullYear()}.${String(endDate.getMonth() + 1).padStart(2, '0')}.${String(endDate.getDate()).padStart(2, '0')}`
+  }
+
+  function handleSendClick(reportId: string, studentName: string) {
+    setReportToSend({ id: reportId, name: studentName })
+    setSendDialogOpen(true)
+  }
+
+  async function handleConfirmSend() {
+    if (!reportToSend) return
+
+    setIsSending(true)
+
+    try {
+      // Dynamic import to avoid bundling server action in client
+      const { sendReportToAllGuardians } = await import('@/app/actions/reports')
+
+      const result = await sendReportToAllGuardians(reportToSend.id)
+
+      if (!result.success) {
+        throw new Error(result.error || '리포트 전송에 실패했습니다')
+      }
+
+      const { successCount, failCount, total } = result.data!
+
+      toast({
+        title: '전송 완료',
+        description: `${reportToSend.name} 학생의 보호자 ${successCount}명에게 리포트가 전송되었습니다.${failCount > 0 ? ` (${failCount}명 실패)` : ''}`,
+      })
+
+      loadData()
+    } catch (error) {
+      console.error('Error sending report:', error)
+      toast({
+        title: '전송 오류',
+        description: error instanceof Error ? error.message : '리포트를 전송하는 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSending(false)
+      setSendDialogOpen(false)
+      setReportToSend(null)
+    }
   }
 
   // Feature flag checks after all Hooks
   const featureStatus = FEATURES.reportManagement;
 
   if (featureStatus === 'inactive') {
-    return <ComingSoon featureName="월간 리포트" description="학생별 월간 성적, 출석, 과제 완료율을 자동으로 분석하여 리포트를 생성하는 기능을 준비하고 있습니다." />;
+    return <ComingSoon featureName="리포트 관리" description="생성된 모든 리포트를 조회하고 보호자에게 전송할 수 있는 기능을 준비하고 있습니다." />;
   }
 
   if (featureStatus === 'maintenance') {
-    return <Maintenance featureName="월간 리포트" reason="리포트 생성 시스템 업그레이드가 진행 중입니다." />;
+    return <Maintenance featureName="리포트 관리" reason="리포트 시스템 업데이트가 진행 중입니다." />;
+  }
+
+  if (loading) {
+    return (
+      <PageWrapper>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-muted-foreground">로딩 중...</div>
+        </div>
+      </PageWrapper>
+    )
   }
 
   return (
     <PageWrapper
-      title="월간 리포트"
-      subtitle="학생별 월간 성적 리포트를 생성하고 조회합니다"
+      title="리포트 관리"
+      subtitle="생성된 모든 리포트를 조회하고 관리합니다"
+      actions={
+        <div className="flex gap-2">
+          <Button onClick={() => router.push('/reports/new')}>
+            <Plus className="h-4 w-4 mr-2" />
+            개별 생성
+          </Button>
+          <Button onClick={() => router.push('/reports/bulk')} variant="outline">
+            <Users className="h-4 w-4 mr-2" />
+            일괄 생성
+          </Button>
+        </div>
+      }
     >
       <div className="space-y-6">
 
-        {/* Report Generation Form */}
+        {/* Filters */}
+        <div className="flex flex-col gap-4 sm:flex-row">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="학생 이름, 학번으로 검색..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Select value={selectedStudent} onValueChange={setSelectedStudent}>
+            <SelectTrigger className="w-full sm:w-[200px]">
+              <SelectValue placeholder="학생 선택" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">전체 학생</SelectItem>
+              {students.map((student) => (
+                <SelectItem key={student.id} value={student.id}>
+                  {student.student_code} - {student.user_id?.name || '이름 없음'}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={selectedType} onValueChange={setSelectedType}>
+            <SelectTrigger className="w-full sm:w-[150px]">
+              <SelectValue placeholder="유형 선택" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">전체 유형</SelectItem>
+              <SelectItem value="weekly">주간</SelectItem>
+              <SelectItem value="monthly">월간</SelectItem>
+              <SelectItem value="quarterly">분기</SelectItem>
+            </SelectContent>
+          </Select>
+          <Badge variant="secondary" className="h-10 px-4 flex items-center whitespace-nowrap">
+            {filteredReports.length}개 리포트
+          </Badge>
+        </div>
+
+        {/* Reports Table */}
         <Card>
           <CardHeader>
-            <CardTitle>리포트 생성</CardTitle>
+            <CardTitle>리포트 목록</CardTitle>
             <CardDescription>
-              학생과 기간을 선택하여 월간 리포트를 자동 생성합니다
+              생성된 모든 리포트를 확인하고 보호자에게 전송할 수 있습니다
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 md:grid-cols-4">
-              <div className="md:col-span-2">
-                <Select value={selectedStudent} onValueChange={setSelectedStudent}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="학생 선택" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {students.map((student) => (
-                      <SelectItem key={student.id} value={student.id}>
-                        {student.student_code} - {student.users?.name || 'Unknown'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            {filteredReports.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>생성된 리포트가 없습니다.</p>
+                {searchTerm && <p className="text-sm mt-2">검색 결과가 없습니다.</p>}
+                <Button
+                  className="mt-4"
+                  onClick={() => router.push('/reports/new')}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  첫 리포트 생성하기
+                </Button>
               </div>
+            ) : (
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>학생</TableHead>
+                      <TableHead>유형</TableHead>
+                      <TableHead>기간</TableHead>
+                      <TableHead className="text-center">출석률</TableHead>
+                      <TableHead className="text-center">평균 점수</TableHead>
+                      <TableHead>생성일</TableHead>
+                      <TableHead>전송일</TableHead>
+                      <TableHead className="text-right">작업</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredReports.map((report) => {
+                      const avgScore = report.content.scores.length > 0
+                        ? Math.round(
+                            report.content.scores.reduce((sum, s) => sum + s.current, 0) /
+                            report.content.scores.length
+                          )
+                        : 0
 
-              <Select
-                value={selectedYear.toString()}
-                onValueChange={(v) => setSelectedYear(parseInt(v))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {years.map((year) => (
-                    <SelectItem key={year} value={year.toString()}>
-                      {year}년
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={selectedMonth.toString()}
-                onValueChange={(v) => setSelectedMonth(parseInt(v))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {months.map((month) => (
-                    <SelectItem key={month} value={month.toString()}>
-                      {month}월
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="mt-4 flex gap-2">
-              <Button onClick={generateReport} disabled={generating || !selectedStudent}>
-                {generating ? '생성 중...' : '리포트 생성'}
-              </Button>
-            </div>
+                      return (
+                        <TableRow key={report.id}>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">
+                                {report.students?.user_id?.name || '이름 없음'}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {report.students?.student_code}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>{getReportTypeBadge(report.report_type)}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {formatPeriod(report.period_start, report.period_end)}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge
+                              variant={
+                                report.content.attendance.rate >= 90
+                                  ? 'default'
+                                  : report.content.attendance.rate >= 80
+                                  ? 'secondary'
+                                  : 'destructive'
+                              }
+                            >
+                              {report.content.attendance.rate}%
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge
+                              variant={
+                                avgScore >= 90
+                                  ? 'default'
+                                  : avgScore >= 80
+                                  ? 'secondary'
+                                  : 'outline'
+                              }
+                            >
+                              {avgScore}점
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {new Date(report.generated_at).toLocaleDateString('ko-KR')}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {report.sent_at ? (
+                              <Badge variant="outline" className="text-xs">
+                                {new Date(report.sent_at).toLocaleDateString('ko-KR')}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">미전송</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => router.push(`/reports/${report.id}`)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon">
+                                <Download className="h-4 w-4" />
+                              </Button>
+                              {!report.sent_at && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() =>
+                                    handleSendClick(
+                                      report.id,
+                                      report.students?.user_id?.name || '학생'
+                                    )
+                                  }
+                                >
+                                  <Send className="h-4 w-4 text-blue-600" />
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Report Display */}
-        {reportData && (
-          <div className="space-y-6">
-            {/* Academy & Student Info */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="space-y-3">
-                    {/* Academy Info */}
-                    <div className="space-y-1">
-                      <h2 className="text-2xl font-bold text-primary">{reportData.academy.name}</h2>
-                      <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                        {reportData.academy.phone && (
-                          <span className="flex items-center gap-1">
-                            📞 {reportData.academy.phone}
-                          </span>
-                        )}
-                        {reportData.academy.address && (
-                          <span className="flex items-center gap-1">
-                            📍 {reportData.academy.address}
-                          </span>
-                        )}
-                        {reportData.academy.email && (
-                          <span className="flex items-center gap-1">
-                            ✉️ {reportData.academy.email}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <Separator />
-                    {/* Student Info */}
-                    <div>
-                      <CardTitle>
-                        {reportData.student.name} ({reportData.student.student_code})
-                      </CardTitle>
-                      <CardDescription>
-                        {reportData.student.grade} | {selectedYear}년 {selectedMonth}월
-                      </CardDescription>
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm">
-                    <Download className="h-4 w-4 mr-2" />
-                    PDF 다운로드
-                  </Button>
-                </div>
-              </CardHeader>
-            </Card>
-
-            {/* Charts Section */}
-            <div className="space-y-6">
-              {/* Grades Chart */}
-              {reportData.gradesChartData.length > 0 && (
-                <GradesLineChart
-                  data={reportData.gradesChartData}
-                  title="성적 추이"
-                  description="시험별 점수 변화"
-                  showClassAverage={true}
-                />
-              )}
-
-              {/* Attendance & Todo Charts */}
-              <div className="grid gap-6 md:grid-cols-2">
-                {/* Attendance Heatmap */}
-                <AttendanceHeatmap
-                  data={reportData.attendanceChartData}
-                  title="출석 현황"
-                  description="월별 출석 캘린더"
-                  year={selectedYear}
-                  month={selectedMonth}
-                />
-
-                {/* Todo Completion Donut */}
-                <TodoCompletionDonut
-                  data={{
-                    completed: reportData.homework.completed,
-                    incomplete: reportData.homework.total - reportData.homework.completed,
-                  }}
-                  title="과제 완료율"
-                  description="완료 vs 미완료 비율"
-                />
-              </div>
-            </div>
-
-            {/* Attendance & Homework */}
-            <div className="grid gap-6 md:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>출석</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-4xl font-bold text-blue-600">
-                    {reportData.attendance.rate}%
-                  </div>
-                  <div className="mt-2 text-sm text-muted-foreground">
-                    출석: {reportData.attendance.present} / 지각: {reportData.attendance.late} /
-                    결석: {reportData.attendance.absent}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>숙제 완료율</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-4xl font-bold text-green-600">
-                    {reportData.homework.rate}%
-                  </div>
-                  <div className="mt-2 text-sm text-muted-foreground">
-                    완료: {reportData.homework.completed} / 전체: {reportData.homework.total}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Scores by Category */}
-            <Card>
-              <CardHeader>
-                <CardTitle>영역별 성적</CardTitle>
-                <CardDescription>이번 달 평균 점수 및 전월 대비 변화</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {reportData.scores.map((score, idx) => (
-                    <div key={idx}>
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-semibold">{score.category}</h4>
-                          {score.change !== null && (
-                            <Badge variant={score.change > 0 ? 'default' : 'destructive'}>
-                              <div className="flex items-center gap-1">
-                                {getTrendIcon(score.change)}
-                                {Math.abs(score.change)}%
-                              </div>
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="text-2xl font-bold">{score.current}%</div>
-                      </div>
-
-                      {score.tests.length > 0 && (
-                        <div className="ml-4 space-y-2">
-                          {score.tests.map((test, testIdx) => (
-                            <div
-                              key={testIdx}
-                              className="flex items-center justify-between text-sm"
-                            >
-                              <div>
-                                <span className="text-muted-foreground">{test.date}</span> -{' '}
-                                {test.name}
-                              </div>
-                              <div className="font-medium">{test.percentage}%</div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {idx < reportData.scores.length - 1 && <Separator className="mt-4" />}
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Instructor Comment */}
-            <Card>
-              <CardHeader>
-                <CardTitle>강사 코멘트</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm leading-relaxed">{reportData.instructorComment}</p>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Empty State */}
-        {!reportData && (
+        {/* Statistics */}
+        <div className="grid gap-4 md:grid-cols-4">
           <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">
-                학생과 기간을 선택하고 리포트를 생성해주세요
-              </p>
-            </CardContent>
+            <CardHeader className="pb-3">
+              <CardDescription>총 리포트 수</CardDescription>
+              <CardTitle className="text-3xl">{reports.length}개</CardTitle>
+            </CardHeader>
           </Card>
-        )}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardDescription>이번 달 생성</CardDescription>
+              <CardTitle className="text-3xl">
+                {reports.filter((r) => {
+                  const genDate = new Date(r.generated_at)
+                  const now = new Date()
+                  return (
+                    genDate.getMonth() === now.getMonth() &&
+                    genDate.getFullYear() === now.getFullYear()
+                  )
+                }).length}개
+              </CardTitle>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardDescription>전송 완료</CardDescription>
+              <CardTitle className="text-3xl">
+                {reports.filter((r) => r.sent_at !== null).length}개
+              </CardTitle>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardDescription>미전송</CardDescription>
+              <CardTitle className="text-3xl">
+                {reports.filter((r) => r.sent_at === null).length}개
+              </CardTitle>
+            </CardHeader>
+          </Card>
+        </div>
+
+        {/* Send Confirmation Dialog */}
+        <ConfirmationDialog
+          open={sendDialogOpen}
+          onOpenChange={setSendDialogOpen}
+          title="리포트를 전송하시겠습니까?"
+          description={reportToSend ? `"${reportToSend.name}" 학생의 리포트가 모든 보호자에게 전송됩니다.` : ''}
+          confirmText="전송"
+          variant="default"
+          isLoading={isSending}
+          onConfirm={handleConfirmSend}
+        />
       </div>
     </PageWrapper>
   )
