@@ -61,7 +61,7 @@ export function TimeRangePicker({
   interval = 30,
 }: TimeRangePickerProps) {
   return (
-    <div className={cn('grid grid-cols-2 gap-4', className)}>
+    <div className={cn('grid grid-cols-2 gap-4 max-w-2xl', className)}>
       {/* 시작 시간 */}
       <div>
         <Label htmlFor="start-time" className="block text-sm font-medium mb-2">
