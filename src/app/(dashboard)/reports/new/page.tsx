@@ -126,7 +126,7 @@ export default function ReportsPage() {
       title="월간 리포트 생성"
       subtitle="학생별 월간 성적 리포트를 자동 생성합니다"
       actions={
-        <Button onClick={() => router.push('/reports/list')} variant="outline">
+        <Button onClick={() => router.push('/reports')} variant="outline">
           <FileText className="h-4 w-4 mr-2" />
           리포트 목록
         </Button>
