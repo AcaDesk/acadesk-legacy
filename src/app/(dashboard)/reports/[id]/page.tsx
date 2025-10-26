@@ -20,31 +20,12 @@ import { Label } from '@ui/label'
 import { Download, Send, ChevronRight, Edit2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
-import type { ReportData } from '@/core/types/report-entity'
+import type { ReportWithStudent } from '@/core/types/report.types'
 import { ReportViewer } from '@/components/features/reports/ReportViewer'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import Link from 'next/link'
-
-interface Report {
-  id: string
-  report_type: string
-  period_start: string
-  period_end: string
-  content: ReportData
-  generated_at: string
-  sent_at: string | null
-  students: {
-    id: string
-    student_code: string
-    grade: string | null
-    users: {
-      name: string
-      email: string | null
-    } | null
-  } | null
-}
 
 export default function ReportDetailPage({ params }: { params: { id: string } }) {
   // All Hooks must be called before any early returns
