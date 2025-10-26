@@ -26,6 +26,27 @@ export function formatDate(date: Date | string): string {
 }
 
 /**
+ * 한국어 날짜 포맷팅 (YYYY년 M월 D일)
+ */
+export function formatKoreanDate(date: Date | string): string {
+  const d = typeof date === "string" ? new Date(date) : date
+  const year = d.getFullYear()
+  const month = d.getMonth() + 1
+  const day = d.getDate()
+  return `${year}년 ${month}월 ${day}일`
+}
+
+/**
+ * 간단한 한국어 날짜 포맷팅 (M월 D일)
+ */
+export function formatKoreanDateShort(date: Date | string): string {
+  const d = typeof date === "string" ? new Date(date) : date
+  const month = d.getMonth() + 1
+  const day = d.getDate()
+  return `${month}월 ${day}일`
+}
+
+/**
  * 상대 시간 표시 (예: "2시간 전")
  */
 export function getRelativeTime(date: Date | string): string {

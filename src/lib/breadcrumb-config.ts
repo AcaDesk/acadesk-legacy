@@ -109,25 +109,38 @@ async function getExamName(examId: string): Promise<string> {
 }
 
 /**
- * 보고서 ID로 보고서 제목을 조회하는 함수
+ * 보고서 ID로 학생 이름을 조회하는 함수
  */
-async function getReportTitle(reportId: string): Promise<string> {
+async function getReportStudentName(reportId: string): Promise<string> {
   try {
     const supabase = createClient()
     const { data, error } = await supabase
       .from('reports')
-      .select('title')
+      .select(`
+        students (
+          users (name)
+        )
+      `)
       .eq('id', reportId)
       .single()
 
     if (error || !data) {
-      console.error('[Breadcrumb] Failed to fetch report title:', error)
+      console.error('[Breadcrumb] Failed to fetch student name from report:', error)
       return reportId
     }
 
-    return data.title
+    // Type assertion for Supabase nested relationship
+    const reportData = data as any
+    const studentName = reportData?.students?.users?.name
+
+    if (!studentName) {
+      console.error('[Breadcrumb] Student name not found in report data')
+      return reportId
+    }
+
+    return studentName
   } catch (err) {
-    console.error('[Breadcrumb] Error fetching report title:', err)
+    console.error('[Breadcrumb] Error fetching student name from report:', err)
     return reportId
   }
 }
@@ -257,7 +270,7 @@ export const BREADCRUMB_CONFIG: BreadcrumbConfig = {
   '/reports': '리포트 관리',
   '/reports/bulk': '일괄 생성',
   '/reports/new': '개별 생성',
-  '/reports/[id]': getReportTitle,
+  '/reports/[id]': getReportStudentName,
   '/reports/[id]/edit': '보고서 수정',
 
   // Payments (결제)
