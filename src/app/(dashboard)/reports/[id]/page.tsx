@@ -6,8 +6,7 @@ import { useReactToPrint } from 'react-to-print'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
-import { Separator } from '@ui/separator'
+import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import {
   Dialog,
