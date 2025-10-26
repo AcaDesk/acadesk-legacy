@@ -36,7 +36,7 @@ interface Student {
   student_code: string
   users: {
     name: string
-  }[] | null
+  } | null
 }
 
 interface ScoreEntry {
@@ -108,7 +108,7 @@ export default function BulkGradeEntryPage() {
       const studentsData: Student[] = (examScores || []).map((score: any) => ({
         id: score.students.id,
         student_code: score.students.student_code,
-        users: score.students.users ? [{ name: score.students.users.name }] : null,
+        users: score.students.users ? { name: score.students.users.name } : null,
       })).sort((a, b) => a.student_code.localeCompare(b.student_code))
 
       setStudents(studentsData)
@@ -228,20 +228,7 @@ export default function BulkGradeEntryPage() {
     }
   }, [])
 
-  function parseScore(input: string): { correct: number; total: number } | null {
-    // Support formats: "30/32", "30", "30 / 32"
-    const match = input.match(/^\s*(\d+)\s*(?:\/\s*(\d+))?\s*$/)
-    if (!match) return null
-
-    const correct = parseInt(match[1])
-    const total = match[2] ? parseInt(match[2]) : (exam?.total_questions || 100)
-
-    return { correct, total }
-  }
-
-  function handleScoreInput(studentId: string, value: string) {
-    const parsed = parseScore(value)
-
+  function handleCorrectChange(studentId: string, value: string) {
     setScores(prev => {
       const newMap = new Map(prev)
       const current = newMap.get(studentId) || {
@@ -252,22 +239,40 @@ export default function BulkGradeEntryPage() {
         feedback: '',
       }
 
-      if (parsed) {
-        const percentage = Math.round((parsed.correct / parsed.total) * 100)
-        newMap.set(studentId, {
-          ...current,
-          correct: parsed.correct.toString(),
-          total: parsed.total.toString(),
-          percentage,
-        })
-      } else {
-        newMap.set(studentId, {
-          ...current,
-          correct: value,
-          total: current.total,
-          percentage: 0,
-        })
+      const correct = parseInt(value) || 0
+      const total = parseInt(current.total) || 0
+      const percentage = total > 0 ? Math.round((correct / total) * 100) : 0
+
+      newMap.set(studentId, {
+        ...current,
+        correct: value,
+        percentage,
+      })
+
+      return newMap
+    })
+  }
+
+  function handleTotalChange(studentId: string, value: string) {
+    setScores(prev => {
+      const newMap = new Map(prev)
+      const current = newMap.get(studentId) || {
+        student_id: studentId,
+        correct: '',
+        total: '',
+        percentage: 0,
+        feedback: '',
       }
+
+      const correct = parseInt(current.correct) || 0
+      const total = parseInt(value) || 0
+      const percentage = total > 0 ? Math.round((correct / total) * 100) : 0
+
+      newMap.set(studentId, {
+        ...current,
+        total: value,
+        percentage,
+      })
 
       return newMap
     })
@@ -284,23 +289,28 @@ export default function BulkGradeEntryPage() {
     })
   }
 
-  function handleKeyDown(e: KeyboardEvent<HTMLInputElement>, studentId: string, field: 'score' | 'feedback') {
+  function handleKeyDown(e: KeyboardEvent<HTMLInputElement>, studentId: string, field: 'correct' | 'total' | 'feedback') {
     if (e.key === 'Enter' || e.key === 'Tab') {
       e.preventDefault()
 
       const currentIndex = students.findIndex(s => s.id === studentId)
-      const nextIndex = currentIndex + 1
 
-      if (field === 'score' && nextIndex < students.length) {
-        // Move to next student's score input
-        const nextStudent = students[nextIndex]
-        const nextInput = inputRefs.current.get(`score-${nextStudent.id}`)
-        nextInput?.focus()
-      } else if (field === 'feedback' && nextIndex < students.length) {
-        // Move to next student's score input
-        const nextStudent = students[nextIndex]
-        const nextInput = inputRefs.current.get(`score-${nextStudent.id}`)
-        nextInput?.focus()
+      if (field === 'correct') {
+        // Move to total input of same student
+        const totalInput = inputRefs.current.get(`total-${studentId}`)
+        totalInput?.focus()
+      } else if (field === 'total') {
+        // Move to feedback input of same student
+        const feedbackInput = inputRefs.current.get(`feedback-${studentId}`)
+        feedbackInput?.focus()
+      } else if (field === 'feedback') {
+        // Move to next student's correct input
+        const nextIndex = currentIndex + 1
+        if (nextIndex < students.length) {
+          const nextStudent = students[nextIndex]
+          const nextInput = inputRefs.current.get(`correct-${nextStudent.id}`)
+          nextInput?.focus()
+        }
       }
     }
   }
@@ -593,7 +603,7 @@ export default function BulkGradeEntryPage() {
                 <div className="ml-auto hidden lg:flex items-center gap-2">
                   <AlertCircle className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">
-                    Enter/Tab으로 다음 칸 이동 | 형식: &quot;30/32&quot; 또는 &quot;30&quot;
+                    Enter/Tab으로 다음 칸 이동 | 맞은 개수 → 전체 문항 → 피드백 순서
                   </span>
                 </div>
               </div>
@@ -643,7 +653,7 @@ export default function BulkGradeEntryPage() {
           <CardHeader className="pb-4">
             <CardTitle className="text-base font-semibold">성적 입력</CardTitle>
             <CardDescription className="text-sm">
-              맞은 개수/전체 문항 형식으로 입력하세요 (예: 30/32). 전체 문항 수가 동일하면 숫자만 입력해도 됩니다.
+              맞은 개수와 전체 문항을 입력하세요. Enter/Tab 키로 다음 칸으로 이동합니다.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -653,7 +663,8 @@ export default function BulkGradeEntryPage() {
                   <tr>
                     <th className="text-left p-3 text-xs font-medium text-muted-foreground">학번</th>
                     <th className="text-left p-3 text-xs font-medium text-muted-foreground">이름</th>
-                    <th className="text-left p-3 text-xs font-medium text-muted-foreground w-40">점수 (맞은개수/전체)</th>
+                    <th className="text-center p-3 text-xs font-medium text-muted-foreground w-24">맞은 개수</th>
+                    <th className="text-center p-3 text-xs font-medium text-muted-foreground w-24">전체 문항</th>
                     <th className="text-center p-3 text-xs font-medium text-muted-foreground w-24">득점률</th>
                     <th className="text-left p-3 text-xs font-medium text-muted-foreground">피드백</th>
                   </tr>
@@ -661,9 +672,6 @@ export default function BulkGradeEntryPage() {
                 <tbody className="divide-y">
                   {filteredStudents.map((student, index) => {
                     const score = scores.get(student.id)
-                    const scoreInput = score?.correct && score?.total
-                      ? `${score.correct}/${score.total}`
-                      : score?.correct || ''
                     const isNotEntered = !score?.correct || !score?.total
 
                     return (
@@ -687,7 +695,7 @@ export default function BulkGradeEntryPage() {
                         <td className="p-3">
                           <div className="flex items-center gap-2">
                             <span className={`text-sm font-medium ${isNotEntered ? 'text-orange-600 dark:text-orange-500' : ''}`}>
-                              {student.users?.[0]?.name || '이름 없음'}
+                              {student.users?.name || '이름 없음'}
                             </span>
                             {isNotEntered && (
                               <Badge variant="outline" className="text-xs text-orange-600 border-orange-600 dark:text-orange-500 dark:border-orange-500">
@@ -699,16 +707,32 @@ export default function BulkGradeEntryPage() {
                         <td className="p-3">
                           <Input
                             ref={(el) => {
-                              if (el) inputRefs.current.set(`score-${student.id}`, el)
+                              if (el) inputRefs.current.set(`correct-${student.id}`, el)
                             }}
-                            value={scoreInput}
-                            onChange={(e) => handleScoreInput(student.id, e.target.value)}
-                            onKeyDown={(e) => handleKeyDown(e, student.id, 'score')}
-                            placeholder="30/32"
-                            className={`h-9 font-mono text-sm ${
+                            type="number"
+                            min="0"
+                            value={score?.correct || ''}
+                            onChange={(e) => handleCorrectChange(student.id, e.target.value)}
+                            onKeyDown={(e) => handleKeyDown(e, student.id, 'correct')}
+                            placeholder="0"
+                            className={`h-9 text-sm text-center ${
                               isNotEntered ? 'border-orange-300 focus:border-orange-500 dark:border-orange-800' : ''
                             }`}
                             autoFocus={index === 0}
+                          />
+                        </td>
+                        <td className="p-3">
+                          <Input
+                            ref={(el) => {
+                              if (el) inputRefs.current.set(`total-${student.id}`, el)
+                            }}
+                            type="number"
+                            min="0"
+                            value={score?.total || ''}
+                            onChange={(e) => handleTotalChange(student.id, e.target.value)}
+                            onKeyDown={(e) => handleKeyDown(e, student.id, 'total')}
+                            placeholder={exam?.total_questions?.toString() || '0'}
+                            className="h-9 text-sm text-center"
                           />
                         </td>
                         <td className="p-3 text-center">
