@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
 import { motion } from 'motion/react'
 import { Badge } from '@ui/badge'
 import { Button } from '@ui/button'
@@ -23,6 +22,7 @@ import {
 } from '@ui/dialog'
 import { ProfileImageUpload } from '@ui/profile-image-upload'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
+import { StudentAvatar } from '@ui/student-avatar'
 import {
   Edit,
   MoreVertical,
@@ -35,7 +35,6 @@ import {
   Phone,
   Mail,
 } from 'lucide-react'
-import { getStudentAvatar } from '@/lib/avatar'
 import { differenceInYears } from 'date-fns'
 import { useToast } from '@/hooks/use-toast'
 import { RoleGuard } from '@/components/auth/role-guard'
@@ -185,22 +184,19 @@ export function StudentHeader({
         <div className="flex items-center gap-4">
           {/* Profile Image */}
           <motion.div
-            className="h-16 w-16 rounded-full bg-muted flex items-center justify-center overflow-hidden cursor-pointer relative group ring-2 ring-border"
+            className="cursor-pointer relative group"
             onClick={() => setProfileDialogOpen(true)}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
-            <Image
-              src={getStudentAvatar(
-                student.profile_image_url,
-                student.id,
-                student.users?.name || 'Student'
-              )}
-              alt={student.users?.name || '학생'}
-              fill
-              className="object-cover"
+            <StudentAvatar
+              profileImageUrl={student.profile_image_url}
+              studentId={student.id}
+              studentName={student.users?.name || 'Student'}
+              size="lg"
+              className="ring-2 ring-border"
             />
-            <div className="absolute inset-0 bg-foreground/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+            <div className="absolute inset-0 bg-foreground/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-full">
               <Edit className="h-5 w-5 text-background" />
             </div>
           </motion.div>
