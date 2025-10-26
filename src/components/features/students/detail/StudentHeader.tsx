@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from '@ui/dialog'
 import { ProfileImageUpload } from '@ui/profile-image-upload'
+import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import {
   Edit,
   MoreVertical,
@@ -56,6 +57,8 @@ export function StudentHeader({
   const router = useRouter()
   const { toast } = useToast()
   const [profileDialogOpen, setProfileDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   // const [reportDialogOpen, setReportDialogOpen] = useState(false) // DISABLED: Report feature migration pending
 
   const calculateAge = (birthDate: string | null) => {
@@ -139,32 +142,34 @@ export function StudentHeader({
     })
   }
 
-  const handleDeleteStudent = async () => {
-    if (
-      confirm(
-        '정말로 이 학생을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.'
-      )
-    ) {
-      try {
-        const result = await deleteStudent(student.id)
+  const handleDeleteClick = () => {
+    setDeleteDialogOpen(true)
+  }
 
-        if (!result.success || result.error) {
-          throw new Error(result.error || '학생 삭제에 실패했습니다')
-        }
+  const handleConfirmDelete = async () => {
+    setIsDeleting(true)
+    try {
+      const result = await deleteStudent(student.id)
 
-        toast({
-          title: '학생 삭제 완료',
-          description: '학생 정보가 성공적으로 삭제되었습니다.',
-        })
-
-        router.push('/students')
-      } catch (error) {
-        toast({
-          title: '삭제 실패',
-          description: getErrorMessage(error),
-          variant: 'destructive',
-        })
+      if (!result.success || result.error) {
+        throw new Error(result.error || '학생 삭제에 실패했습니다')
       }
+
+      toast({
+        title: '학생 삭제 완료',
+        description: '학생 정보가 성공적으로 삭제되었습니다.',
+      })
+
+      router.push('/students')
+    } catch (error) {
+      toast({
+        title: '삭제 실패',
+        description: getErrorMessage(error),
+        variant: 'destructive',
+      })
+    } finally {
+      setIsDeleting(false)
+      setDeleteDialogOpen(false)
     }
   }
 
@@ -303,7 +308,7 @@ export function StudentHeader({
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive"
-                  onClick={handleDeleteStudent}
+                  onClick={handleDeleteClick}
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
                   학생 삭제
@@ -339,6 +344,18 @@ export function StudentHeader({
         student={student}
       />
       */}
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="정말로 삭제하시겠습니까?"
+        description={`"${student.users?.name || '이 학생'}"의 모든 정보가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`}
+        confirmText="삭제"
+        variant="destructive"
+        isLoading={isDeleting}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   )
 }

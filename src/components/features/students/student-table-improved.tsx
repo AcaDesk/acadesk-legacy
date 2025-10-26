@@ -63,16 +63,7 @@ import {
   TableRow,
 } from '@ui/table'
 import { Badge } from '@ui/badge'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@ui/alert-dialog'
+import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import { getStudentAvatar } from '@/lib/avatar'
 import { cn } from '@/lib/utils'
 import { BulkActionsDialog } from './bulk-actions-dialog'
@@ -141,6 +132,7 @@ export function StudentTableImproved({
   const [bulkActionsOpen, setBulkActionsOpen] = React.useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
   const [studentToDelete, setStudentToDelete] = React.useState<{ id: string; name: string } | null>(null)
+  const [isDeleting, setIsDeleting] = React.useState(false)
 
   const isNewStudent = (enrollmentDate: string) => {
     const daysSinceEnrollment = differenceInDays(new Date(), new Date(enrollmentDate))
@@ -959,33 +951,31 @@ export function StudentTableImproved({
       />
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>학생 삭제 확인</AlertDialogTitle>
-            <AlertDialogDescription>
-              정말로 <span className="font-semibold text-foreground">{studentToDelete?.name}</span> 학생을 삭제하시겠습니까?
-              <br />
-              <br />
-              이 작업은 되돌릴 수 없으며, 학생의 모든 정보가 영구적으로 삭제됩니다.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>취소</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => {
-                if (studentToDelete) {
-                  onDelete?.(studentToDelete.id, studentToDelete.name)
-                  setStudentToDelete(null)
-                }
-              }}
-            >
-              삭제
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="정말로 삭제하시겠습니까?"
+        description={
+          studentToDelete
+            ? `"${studentToDelete.name}" 학생의 모든 정보가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`
+            : ''
+        }
+        confirmText="삭제"
+        variant="destructive"
+        isLoading={isDeleting}
+        onConfirm={async () => {
+          if (!studentToDelete) return
+
+          setIsDeleting(true)
+          try {
+            await onDelete?.(studentToDelete.id, studentToDelete.name)
+          } finally {
+            setIsDeleting(false)
+            setDeleteDialogOpen(false)
+            setStudentToDelete(null)
+          }
+        }}
+      />
     </div>
   )
 }
