@@ -5,7 +5,7 @@ import { Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from './button'
 import { Popover, PopoverContent, PopoverTrigger } from './popover'
-import { ScrollArea } from './scroll-area'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from './tabs'
 
 // ============================================================================
 // Types
@@ -52,7 +52,7 @@ export interface TimePickerProps {
   disabled?: boolean
 
   /**
-   * Time interval in minutes
+   * Time interval in minutes for minute selection
    * @default 30
    */
   interval?: number
@@ -63,29 +63,48 @@ export interface TimePickerProps {
 // ============================================================================
 
 /**
- * Generate time options based on interval
+ * Parse time string to hour and minute
  */
-function generateTimeOptions(interval: number = 30): string[] {
-  const times: string[] = []
-  for (let hour = 0; hour < 24; hour++) {
-    for (let minute = 0; minute < 60; minute += interval) {
-      const h = hour.toString().padStart(2, '0')
-      const m = minute.toString().padStart(2, '0')
-      times.push(`${h}:${m}`)
-    }
+function parseTime(time: string): { hour: number; minute: number; period: 'AM' | 'PM' } {
+  const [hourStr, minuteStr] = time.split(':')
+  const hour24 = parseInt(hourStr, 10)
+  const minute = parseInt(minuteStr, 10)
+
+  const period = hour24 >= 12 ? 'PM' : 'AM'
+  const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24
+
+  return { hour: hour12, minute, period }
+}
+
+/**
+ * Convert 12-hour format to 24-hour format
+ */
+function to24Hour(hour12: number, period: 'AM' | 'PM'): number {
+  if (period === 'AM') {
+    return hour12 === 12 ? 0 : hour12
+  } else {
+    return hour12 === 12 ? 12 : hour12 + 12
   }
-  return times
 }
 
 /**
  * Format time string for display
  */
 function formatTimeDisplay(time: string): string {
-  const [hour, minute] = time.split(':')
-  const h = parseInt(hour, 10)
-  const period = h >= 12 ? '오후' : '오전'
-  const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h
-  return `${period} ${displayHour}:${minute}`
+  const { hour, minute, period } = parseTime(time)
+  const periodText = period === 'AM' ? '오전' : '오후'
+  return `${periodText} ${hour}:${minute.toString().padStart(2, '0')}`
+}
+
+/**
+ * Generate minute options based on interval
+ */
+function generateMinuteOptions(interval: number): number[] {
+  const minutes: number[] = []
+  for (let m = 0; m < 60; m += interval) {
+    minutes.push(m)
+  }
+  return minutes
 }
 
 // ============================================================================
@@ -95,12 +114,12 @@ function formatTimeDisplay(time: string): string {
 /**
  * TimePicker Component
  *
- * 재사용 가능한 시간 선택 컴포넌트 (DatePicker와 동일한 UI/UX)
+ * 개선된 시간 선택 컴포넌트
  *
  * ## 주요 기능
- * - Popover + 시간 리스트 UI 패턴
- * - 12시간/24시간 형식 표시
- * - 시간 간격 설정 가능 (기본 30분)
+ * - 오전/오후 탭 선택
+ * - 시간 그리드 (1-12)
+ * - 분 그리드 (interval 기반)
  * - React Hook Form 완벽 호환
  *
  * ## 사용 예시
@@ -140,11 +159,56 @@ export const TimePicker = React.forwardRef<HTMLButtonElement, TimePickerProps>(
     ref
   ) => {
     const [open, setOpen] = React.useState(false)
-    const timeOptions = React.useMemo(() => generateTimeOptions(interval), [interval])
 
-    const handleSelect = (time: string) => {
-      onChange?.(time)
+    // Parse current value
+    const currentTime = value ? parseTime(value) : null
+
+    // Local state for time selection
+    const [selectedPeriod, setSelectedPeriod] = React.useState<'AM' | 'PM'>(
+      currentTime?.period || 'AM'
+    )
+    const [selectedHour, setSelectedHour] = React.useState<number | null>(
+      currentTime?.hour || null
+    )
+    const [selectedMinute, setSelectedMinute] = React.useState<number | null>(
+      currentTime?.minute ?? null
+    )
+
+    // Generate options
+    const hours = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    const minutes = React.useMemo(() => generateMinuteOptions(interval), [interval])
+
+    // Update local state when value changes
+    React.useEffect(() => {
+      if (value) {
+        const parsed = parseTime(value)
+        setSelectedPeriod(parsed.period)
+        setSelectedHour(parsed.hour)
+        setSelectedMinute(parsed.minute)
+      }
+    }, [value])
+
+    const handleTimeSelect = (hour: number, minute: number, period: 'AM' | 'PM') => {
+      const hour24 = to24Hour(hour, period)
+      const timeString = `${hour24.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
+      onChange?.(timeString)
       setOpen(false)
+    }
+
+    const handleHourClick = (hour: number) => {
+      setSelectedHour(hour)
+      // If minute is already selected, complete the selection
+      if (selectedMinute !== null) {
+        handleTimeSelect(hour, selectedMinute, selectedPeriod)
+      }
+    }
+
+    const handleMinuteClick = (minute: number) => {
+      setSelectedMinute(minute)
+      // If hour is already selected, complete the selection
+      if (selectedHour !== null) {
+        handleTimeSelect(selectedHour, minute, selectedPeriod)
+      }
     }
 
     return (
@@ -165,24 +229,63 @@ export const TimePicker = React.forwardRef<HTMLButtonElement, TimePickerProps>(
             {value ? formatTimeDisplay(value) : placeholder}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align={align}>
-          <ScrollArea className="h-[300px]">
-            <div className="p-1">
-              {timeOptions.map((time) => (
-                <Button
-                  key={time}
-                  variant={value === time ? 'default' : 'ghost'}
-                  className={cn(
-                    'w-full justify-start font-normal',
-                    value === time && 'bg-primary text-primary-foreground'
-                  )}
-                  onClick={() => handleSelect(time)}
-                >
-                  {formatTimeDisplay(time)}
-                </Button>
-              ))}
-            </div>
-          </ScrollArea>
+        <PopoverContent className="w-auto p-0" align={align}>
+          <Tabs
+            value={selectedPeriod}
+            onValueChange={(v) => setSelectedPeriod(v as 'AM' | 'PM')}
+            className="w-full"
+          >
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="AM">오전</TabsTrigger>
+              <TabsTrigger value="PM">오후</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value={selectedPeriod} className="p-3 space-y-3">
+              {/* Hour Selection */}
+              <div>
+                <p className="text-sm font-medium mb-2">시</p>
+                <div className="grid grid-cols-6 gap-1">
+                  {hours.map((hour) => (
+                    <Button
+                      key={hour}
+                      type="button"
+                      variant={selectedHour === hour ? 'default' : 'outline'}
+                      size="sm"
+                      className={cn(
+                        'h-9 px-2',
+                        selectedHour === hour && 'bg-primary text-primary-foreground'
+                      )}
+                      onClick={() => handleHourClick(hour)}
+                    >
+                      {hour}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Minute Selection */}
+              <div>
+                <p className="text-sm font-medium mb-2">분</p>
+                <div className="grid grid-cols-6 gap-1">
+                  {minutes.map((minute) => (
+                    <Button
+                      key={minute}
+                      type="button"
+                      variant={selectedMinute === minute ? 'default' : 'outline'}
+                      size="sm"
+                      className={cn(
+                        'h-9 px-2',
+                        selectedMinute === minute && 'bg-primary text-primary-foreground'
+                      )}
+                      onClick={() => handleMinuteClick(minute)}
+                    >
+                      {minute.toString().padStart(2, '0')}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
         </PopoverContent>
       </Popover>
     )
