@@ -22,6 +22,7 @@ import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import type { PaymentMethod } from '@/core/types/payment'
 import { CreditCard, Building2, Banknote } from 'lucide-react'
+import { DatePicker } from '@ui/date-picker'
 
 const paymentSchema = z.object({
   paid_amount: z.string().min(1, '입금액을 입력해주세요'),
@@ -213,10 +214,16 @@ export function ProcessPaymentDialog({
           {/* 입금일 */}
           <div className="space-y-2">
             <Label htmlFor="payment_date">입금일 *</Label>
-            <Input
-              id="payment_date"
-              type="date"
-              {...register('payment_date')}
+            <DatePicker
+              value={watch('payment_date') ? new Date(watch('payment_date')) : undefined}
+              onChange={(date) => {
+                if (date) {
+                  setValue('payment_date', date.toISOString().split('T')[0], {
+                    shouldValidate: true,
+                  });
+                }
+              }}
+              placeholder="입금일 선택"
             />
             {errors.payment_date && (
               <p className="text-sm text-destructive">{errors.payment_date.message}</p>

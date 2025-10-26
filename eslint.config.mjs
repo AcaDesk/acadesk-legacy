@@ -38,6 +38,14 @@ const eslintConfig = [
           message: "Use Dialog component with form inputs instead of native prompt().",
         },
       ],
+      // Prohibit type="date" in Input components - use DatePicker instead
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "JSXAttribute[name.name='type'][value.value='date']",
+          message: "Use DatePicker component instead of <Input type=\"date\" />. Import from @ui/date-picker.",
+        },
+      ],
     },
   },
 ];

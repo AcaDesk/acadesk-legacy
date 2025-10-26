@@ -19,6 +19,7 @@ import { createTodosForStudents } from '@/app/actions/todos'
 import { getStudents } from '@/app/actions/students'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { useCurrentUser } from '@/hooks/use-current-user'
+import { DatePicker } from '@ui/date-picker'
 
 interface TodoFormData {
   title: string
@@ -255,12 +256,15 @@ export default function NewTodoPage() {
               {/* Due Date */}
               <div className="space-y-2">
                 <Label htmlFor="due_date">마감일 *</Label>
-                <Input
-                  id="due_date"
-                  type="date"
-                  value={formData.due_date}
-                  onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-                  required
+                <DatePicker
+                  value={formData.due_date ? new Date(formData.due_date) : undefined}
+                  onChange={(date) =>
+                    setFormData({
+                      ...formData,
+                      due_date: date ? date.toISOString().split('T')[0] : '',
+                    })
+                  }
+                  placeholder="마감일 선택"
                 />
               </div>
             </CardContent>
