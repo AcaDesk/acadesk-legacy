@@ -11,7 +11,8 @@ import { Separator } from '@ui/separator'
 import { Download, Send, TrendingUp, TrendingDown, Minus, ChevronRight } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
-import type { ReportData } from '@/core/types/report.types'
+import type { ReportData } from '@/core/types/report-entity'
+import { ReportGrowthChart } from '@/components/features/reports/ReportGrowthChart'
 import Link from 'next/link'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
@@ -50,7 +51,7 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
   const handlePrint = useReactToPrint({
     contentRef,
     documentTitle: report
-      ? `${report.students?.users?.name}_${new Date(report.period_start).getFullYear()}년_${new Date(report.period_start).getMonth() + 1}월_리포트`
+      ? `${report.content.studentName || report.content.student?.name || report.students?.users?.name || '학생'}_${new Date(report.period_start).getFullYear()}년_${new Date(report.period_start).getMonth() + 1}월_리포트`
       : 'report',
     onAfterPrint: () => {
       console.log('[ReportDetailPage] Print completed')
@@ -106,7 +107,7 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
   async function handleSendToGuardian() {
     if (!report) return
 
-    const studentName = report.students?.users?.name || '학생'
+    const studentName = report.content.studentName || report.content.student?.name || report.students?.users?.name || '학생'
 
     if (!confirm(`"${studentName}" 학생의 보호자에게 리포트를 전송하시겠습니까?`)) {
       return
@@ -198,7 +199,24 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
     )
   }
 
-  const reportData = report.content
+  const reportData = report.content as any // Support both old and new format
+
+  // Get student info from either format
+  const studentName = reportData.studentName || reportData.student?.name || report.students?.users?.name || '학생'
+  const studentCode = reportData.studentCode || reportData.student?.student_code || report.students?.student_code || ''
+  const studentGrade = reportData.grade || reportData.student?.grade || report.students?.grade || ''
+
+  // Get attendance data from either format
+  const attendanceRate = reportData.attendanceRate || reportData.attendance?.rate || 0
+  const attendanceTotal = reportData.totalDays || reportData.attendance?.total || 0
+  const attendancePresent = reportData.presentDays || reportData.attendance?.present || 0
+  const attendanceLate = reportData.lateDays || reportData.attendance?.late || 0
+  const attendanceAbsent = reportData.absentDays || reportData.attendance?.absent || 0
+
+  // Get homework data from either format
+  const homeworkRate = reportData.homeworkRate || reportData.homework?.rate || 0
+  const homeworkTotal = reportData.totalTodos || reportData.homework?.total || 0
+  const homeworkCompleted = reportData.completedTodos || reportData.homework?.completed || 0
 
   return (
     <PageWrapper>
@@ -210,7 +228,13 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
               리포트 관리
             </Link>
             <ChevronRight className="h-4 w-4" />
-            <span className="text-foreground font-medium">리포트 상세</span>
+            <Link href="/reports/list" className="hover:text-foreground transition-colors">
+              리포트 목록
+            </Link>
+            <ChevronRight className="h-4 w-4" />
+            <span className="text-foreground font-medium">
+              {studentName}
+            </span>
           </nav>
 
           <div className="flex items-center justify-between">
@@ -243,10 +267,10 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-2xl">
-                  {reportData.student.name} ({reportData.student.student_code})
+                  {studentName} ({studentCode})
                 </CardTitle>
                 <CardDescription className="mt-2">
-                  {reportData.student.grade} | {report.students?.users?.email || '이메일 없음'}
+                  {studentGrade} | {report.students?.users?.email || '이메일 없음'}
                 </CardDescription>
               </div>
               {report.sent_at && (
@@ -258,6 +282,19 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
           </CardHeader>
         </Card>
 
+        {/* Growth Chart */}
+        {reportData.chartPoints && reportData.chartPoints.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>성장 추이</CardTitle>
+              <CardDescription>최근 월별 성적, 출석률, 과제 완료율 추이</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ReportGrowthChart chartPoints={reportData.chartPoints} />
+            </CardContent>
+          </Card>
+        )}
+
         {/* Attendance & Homework Summary */}
         <div className="grid gap-6 md:grid-cols-2">
           <Card>
@@ -266,29 +303,29 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
             </CardHeader>
             <CardContent>
               <div className="text-5xl font-bold text-blue-600 mb-4">
-                {reportData.attendance.rate}%
+                {Math.round(attendanceRate)}%
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">총 출석일</span>
-                  <span className="font-medium">{reportData.attendance.total}일</span>
+                  <span className="font-medium">{attendanceTotal}일</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">출석</span>
                   <span className="font-medium text-green-600">
-                    {reportData.attendance.present}일
+                    {attendancePresent}일
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">지각</span>
                   <span className="font-medium text-yellow-600">
-                    {reportData.attendance.late}일
+                    {attendanceLate}일
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">결석</span>
                   <span className="font-medium text-red-600">
-                    {reportData.attendance.absent}일
+                    {attendanceAbsent}일
                   </span>
                 </div>
               </div>
@@ -301,23 +338,23 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
             </CardHeader>
             <CardContent>
               <div className="text-5xl font-bold text-green-600 mb-4">
-                {reportData.homework.rate}%
+                {Math.round(homeworkRate)}%
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">전체 과제</span>
-                  <span className="font-medium">{reportData.homework.total}개</span>
+                  <span className="font-medium">{homeworkTotal}개</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">완료</span>
                   <span className="font-medium text-green-600">
-                    {reportData.homework.completed}개
+                    {homeworkCompleted}개
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">미완료</span>
                   <span className="font-medium text-red-600">
-                    {reportData.homework.total - reportData.homework.completed}개
+                    {homeworkTotal - homeworkCompleted}개
                   </span>
                 </div>
               </div>
@@ -393,7 +430,7 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
           </CardHeader>
           <CardContent>
             <p className="text-sm leading-relaxed whitespace-pre-line">
-              {reportData.instructorComment}
+              {reportData.overallComment || reportData.instructorComment || '코멘트가 없습니다.'}
             </p>
           </CardContent>
         </Card>
