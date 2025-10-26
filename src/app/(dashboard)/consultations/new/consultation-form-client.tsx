@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
 import { Textarea } from '@ui/textarea'
+import { DatePicker } from '@ui/date-picker'
 import { Label } from '@ui/label'
 import { Checkbox } from '@ui/checkbox'
 import {
@@ -19,16 +20,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ui/select'
-import { Calendar } from '@ui/calendar'
-import { Popover, PopoverContent, PopoverTrigger } from '@ui/popover'
-import { ArrowLeft, Calendar as CalendarIcon, Save } from 'lucide-react'
+import { ArrowLeft, Save } from 'lucide-react'
 import Link from 'next/link'
 import { PageWrapper } from '@/components/layout/page-wrapper'
 import { PAGE_LAYOUT, TEXT_STYLES } from '@/lib/constants'
 import { useToast } from '@/hooks/use-toast'
-import { cn } from '@/lib/utils'
 import { format as formatDate } from 'date-fns'
-import { ko } from 'date-fns/locale'
 import { createConsultation, updateConsultation } from '@/app/actions/consultations'
 
 const consultationSchema = z.object({
@@ -303,34 +300,11 @@ export function ConsultationFormClient({
                     <Label>
                       상담 날짜 <span className="text-red-500">*</span>
                     </Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            'w-full justify-start text-left font-normal',
-                            !form.watch('consultationDate') && 'text-muted-foreground'
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {form.watch('consultationDate') ? (
-                            formatDate(form.watch('consultationDate')!, 'yyyy년 M월 d일', {
-                              locale: ko,
-                            })
-                          ) : (
-                            <span>날짜 선택</span>
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={form.watch('consultationDate')}
-                          onSelect={(date) => date && form.setValue('consultationDate', date)}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    <DatePicker
+                      value={form.watch('consultationDate')}
+                      onChange={(date) => date && form.setValue('consultationDate', date)}
+                      dateFormat="yyyy년 M월 d일"
+                    />
                     {form.formState.errors.consultationDate && (
                       <p className="text-sm text-red-500">
                         {form.formState.errors.consultationDate.message}
@@ -411,39 +385,11 @@ export function ConsultationFormClient({
                   {followUpRequired && (
                     <div className="space-y-2 pl-6">
                       <Label>다음 상담 예정일</Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              'w-full justify-start text-left font-normal',
-                              !form.watch('nextConsultationDate') &&
-                                'text-muted-foreground'
-                            )}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {form.watch('nextConsultationDate') ? (
-                              formatDate(
-                                form.watch('nextConsultationDate')!,
-                                'yyyy년 M월 d일',
-                                { locale: ko }
-                              )
-                            ) : (
-                              <span>날짜 선택</span>
-                            )}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={form.watch('nextConsultationDate')}
-                            onSelect={(date) =>
-                              form.setValue('nextConsultationDate', date)
-                            }
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
+                      <DatePicker
+                        value={form.watch('nextConsultationDate')}
+                        onChange={(date) => form.setValue('nextConsultationDate', date)}
+                        dateFormat="yyyy년 M월 d일"
+                      />
                     </div>
                   )}
                 </div>

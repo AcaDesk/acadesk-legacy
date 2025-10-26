@@ -1,15 +1,10 @@
 import { useFormContext } from 'react-hook-form'
-import { format } from 'date-fns'
-import { Calendar as CalendarIcon } from 'lucide-react'
 import { Input } from '@ui/input'
 import { PhoneInput } from '@ui/phone-input'
+import { DatePicker } from '@ui/date-picker'
 import { Label } from '@ui/label'
-import { Button } from '@ui/button'
 import { Textarea } from '@ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
-import { Calendar } from '@ui/calendar'
-import { Popover, PopoverContent, PopoverTrigger } from '@ui/popover'
-import { cn } from '@/lib/utils'
 import type { StudentWizardFormValues } from './types'
 
 export function Step3_AdditionalInfo() {
@@ -46,28 +41,10 @@ export function Step3_AdditionalInfo() {
 
       <div className="space-y-2">
         <Label>입회일</Label>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              className={cn(
-                'w-full justify-start text-left font-normal',
-                !enrollmentDate && 'text-muted-foreground'
-              )}
-            >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {enrollmentDate ? format(enrollmentDate, 'yyyy년 MM월 dd일') : '날짜 선택'}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="single"
-              selected={enrollmentDate}
-              onSelect={(date) => setValue('enrollmentDate', date as Date)}
-              initialFocus
-            />
-          </PopoverContent>
-        </Popover>
+        <DatePicker
+          value={enrollmentDate}
+          onChange={(date) => setValue('enrollmentDate', date as Date)}
+        />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">

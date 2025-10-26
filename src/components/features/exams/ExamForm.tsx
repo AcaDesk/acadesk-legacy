@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { format, parse } from 'date-fns'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
+import { DatePicker } from '@ui/date-picker'
 import { Textarea } from '@ui/textarea'
 import {
   Form,
@@ -248,15 +250,26 @@ export function ExamForm({ mode, examId, defaultValues, onSuccess }: ExamFormPro
               <FormField
                 control={form.control}
                 name="exam_date"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>시험일</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                render={({ field }) => {
+                  // Convert string (YYYY-MM-DD) to Date for DatePicker
+                  const dateValue = field.value ? parse(field.value, 'yyyy-MM-dd', new Date()) : undefined
+
+                  return (
+                    <FormItem>
+                      <FormLabel>시험일</FormLabel>
+                      <FormControl>
+                        <DatePicker
+                          value={dateValue}
+                          onChange={(date) => {
+                            // Convert Date to string (YYYY-MM-DD) for form
+                            field.onChange(date ? format(date, 'yyyy-MM-dd') : '')
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )
+                }}
               />
 
               <FormField
