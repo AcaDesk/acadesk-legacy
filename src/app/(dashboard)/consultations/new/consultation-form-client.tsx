@@ -21,7 +21,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ui/select'
-import { ArrowLeft, Save } from 'lucide-react'
+import { RadioGroup, RadioGroupItem } from '@ui/radio-group'
+import { ArrowLeft, Save, UserPlus, Users } from 'lucide-react'
 import Link from 'next/link'
 import { PageWrapper } from '@/components/layout/page-wrapper'
 import { PAGE_LAYOUT, TEXT_STYLES } from '@/lib/constants'
@@ -30,7 +31,11 @@ import { format as formatDate } from 'date-fns'
 import { createConsultation, updateConsultation } from '@/app/actions/consultations'
 
 const consultationSchema = z.object({
-  studentId: z.string().min(1, '학생을 선택해주세요'),
+  isLead: z.boolean(),
+  studentId: z.string().optional(),
+  leadName: z.string().optional(),
+  leadGuardianName: z.string().optional(),
+  leadGuardianPhone: z.string().optional(),
   consultationDate: z.date(),
   consultationTime: z.string().regex(/^\d{2}:\d{2}$/, '시간 형식이 올바르지 않습니다'),
   consultationType: z.enum(['parent_meeting', 'phone_call', 'video_call', 'in_person']),
@@ -40,7 +45,17 @@ const consultationSchema = z.object({
   outcome: z.string().optional(),
   followUpRequired: z.boolean(),
   nextConsultationDate: z.date().optional(),
-})
+}).refine(
+  (data) => {
+    if (!data.isLead && !data.studentId) return false
+    if (data.isLead && !data.leadName) return false
+    return true
+  },
+  {
+    message: '재원생 상담은 학생을, 신규 상담은 잠재 고객 이름을 입력해주세요',
+    path: ['studentId'],
+  }
+)
 
 type ConsultationFormData = z.infer<typeof consultationSchema>
 
@@ -86,7 +101,11 @@ export function ConsultationFormClient({
   const form = useForm<ConsultationFormData>({
     resolver: zodResolver(consultationSchema),
     defaultValues: {
+      isLead: false,
       studentId: consultation?.student_id || '',
+      leadName: '',
+      leadGuardianName: '',
+      leadGuardianPhone: '',
       consultationDate: consultation
         ? new Date(consultation.consultation_date)
         : undefined,
@@ -103,6 +122,7 @@ export function ConsultationFormClient({
     },
   })
 
+  const isLead = form.watch('isLead')
   const followUpRequired = form.watch('followUpRequired')
 
   async function onSubmit(data: ConsultationFormData) {
@@ -116,7 +136,11 @@ export function ConsultationFormClient({
 
       if (mode === 'create') {
         const result = await createConsultation({
+          isLead: data.isLead,
           studentId: data.studentId,
+          leadName: data.leadName,
+          leadGuardianName: data.leadGuardianName,
+          leadGuardianPhone: data.leadGuardianPhone,
           consultationDate: dateTime.toISOString(),
           consultationType: data.consultationType,
           durationMinutes: data.durationMinutes,
@@ -224,33 +248,127 @@ export function ConsultationFormClient({
                 <CardTitle>상담 정보</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* Student Selection */}
-                <div className="space-y-2">
-                  <Label htmlFor="studentId">
-                    학생 <span className="text-red-500">*</span>
-                  </Label>
-                  <Select
-                    value={form.watch('studentId')}
-                    onValueChange={(value) => form.setValue('studentId', value)}
-                    disabled={mode === 'edit'}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="학생 선택" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {students.map((student) => (
-                        <SelectItem key={student.id} value={student.id}>
-                          {student.name} ({student.grade})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {form.formState.errors.studentId && (
-                    <p className="text-sm text-red-500">
-                      {form.formState.errors.studentId.message}
-                    </p>
-                  )}
-                </div>
+                {/* Consultation Type Selection (Create only) */}
+                {mode === 'create' && (
+                  <div className="space-y-4">
+                    <Label>상담 유형 선택</Label>
+                    <RadioGroup
+                      value={form.watch('isLead') ? 'lead' : 'student'}
+                      onValueChange={(value) => {
+                        form.setValue('isLead', value === 'lead')
+                        // Reset opposite fields
+                        if (value === 'lead') {
+                          form.setValue('studentId', '')
+                        } else {
+                          form.setValue('leadName', '')
+                          form.setValue('leadGuardianName', '')
+                          form.setValue('leadGuardianPhone', '')
+                        }
+                      }}
+                      className="grid grid-cols-2 gap-4"
+                    >
+                      <div>
+                        <RadioGroupItem value="lead" id="lead" className="peer sr-only" />
+                        <Label
+                          htmlFor="lead"
+                          className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+                        >
+                          <UserPlus className="mb-3 h-6 w-6" />
+                          <div className="text-center">
+                            <div className="font-semibold">신규 입회 상담</div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              잠재 고객
+                            </div>
+                          </div>
+                        </Label>
+                      </div>
+                      <div>
+                        <RadioGroupItem value="student" id="student" className="peer sr-only" />
+                        <Label
+                          htmlFor="student"
+                          className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+                        >
+                          <Users className="mb-3 h-6 w-6" />
+                          <div className="text-center">
+                            <div className="font-semibold">재원생 상담</div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              기존 학생
+                            </div>
+                          </div>
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+                )}
+
+                {/* Student Selection (재원생 상담) */}
+                {!isLead && (
+                  <div className="space-y-2">
+                    <Label htmlFor="studentId">
+                      학생 <span className="text-red-500">*</span>
+                    </Label>
+                    <Select
+                      value={form.watch('studentId')}
+                      onValueChange={(value) => form.setValue('studentId', value)}
+                      disabled={mode === 'edit'}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="학생 선택" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {students.map((student) => (
+                          <SelectItem key={student.id} value={student.id}>
+                            {student.name} ({student.grade})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {form.formState.errors.studentId && (
+                      <p className="text-sm text-red-500">
+                        {form.formState.errors.studentId.message}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Lead Information (신규 입회 상담) */}
+                {isLead && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="leadName">
+                        학생 이름 <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="leadName"
+                        placeholder="예: 홍길동"
+                        {...form.register('leadName')}
+                      />
+                      {form.formState.errors.leadName && (
+                        <p className="text-sm text-red-500">
+                          {form.formState.errors.leadName.message}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="leadGuardianName">학부모명</Label>
+                      <Input
+                        id="leadGuardianName"
+                        placeholder="예: 홍아무개"
+                        {...form.register('leadGuardianName')}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="leadGuardianPhone">학부모 연락처</Label>
+                      <Input
+                        id="leadGuardianPhone"
+                        placeholder="예: 010-1234-5678"
+                        {...form.register('leadGuardianPhone')}
+                      />
+                    </div>
+                  </>
+                )}
 
                 {/* Title */}
                 <div className="space-y-2">

@@ -35,7 +35,13 @@ import { cn } from '@/lib/utils'
 
 type Consultation = {
   id: string
-  student_id: string
+  is_lead: boolean
+  student_id: string | null
+  lead_name: string | null
+  lead_guardian_name: string | null
+  lead_guardian_phone: string | null
+  converted_to_student_id: string | null
+  converted_at: string | null
   consultation_date: string
   consultation_type: string
   title: string
@@ -57,7 +63,7 @@ const consultationTypeLabels: Record<string, string> = {
 export default function ConsultationsPage() {
   // All Hooks must be called before any early returns
   const [searchTerm, setSearchTerm] = useState('')
-  const [activeTab, setActiveTab] = useState<'all' | 'upcoming' | 'completed'>(
+  const [activeTab, setActiveTab] = useState<'all' | 'lead' | 'student'>(
     'all'
   )
   const [consultations, setConsultations] = useState<Consultation[]>([])
@@ -127,37 +133,25 @@ export default function ConsultationsPage() {
 
   const stats = {
     totalConsultations: consultations.length,
-    upcomingConsultations: consultations.filter(
-      (c) =>
-        c.follow_up_required &&
-        c.next_consultation_date &&
-        new Date(c.next_consultation_date) >= now
-    ).length,
-    completedThisMonth: consultations.filter((c) => {
-      const consultDate = new Date(c.consultation_date)
-      return (
-        consultDate.getMonth() === currentMonth &&
-        consultDate.getFullYear() === currentYear
-      )
-    }).length,
+    leadConsultations: consultations.filter((c) => c.is_lead && !c.converted_to_student_id).length,
+    studentConsultations: consultations.filter((c) => !c.is_lead).length,
+    convertedConsultations: consultations.filter((c) => c.is_lead && c.converted_to_student_id).length,
   }
 
   // Filter consultations
   const filteredConsultations = consultations.filter((c) => {
+    const displayName = c.is_lead ? c.lead_name : c.students?.name
     const matchesSearch =
-      c.students?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      displayName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.summary?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.lead_guardian_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       false
-
-    const consultDate = new Date(c.consultation_date)
-    const isUpcoming = c.follow_up_required && c.next_consultation_date
-    const isCompleted = !c.follow_up_required || consultDate < now
 
     const matchesTab =
       activeTab === 'all' ||
-      (activeTab === 'upcoming' && isUpcoming) ||
-      (activeTab === 'completed' && isCompleted)
+      (activeTab === 'lead' && c.is_lead) ||
+      (activeTab === 'student' && !c.is_lead)
 
     return matchesSearch && matchesTab
   })
@@ -210,8 +204,8 @@ export default function ConsultationsPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                후속 상담 예정
+                <User className="h-4 w-4" />
+                신규 입회 상담
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -219,11 +213,11 @@ export default function ConsultationsPage() {
                 {loading ? (
                   <LoadingState variant="spinner" />
                 ) : (
-                  `${stats.upcomingConsultations}건`
+                  `${stats.leadConsultations}건`
                 )}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                후속 상담 필요
+                진행 중인 입회 상담
               </p>
             </CardContent>
           </Card>
@@ -232,7 +226,7 @@ export default function ConsultationsPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 <CheckCircle className="h-4 w-4" />
-                이번 달 완료
+                입회 완료
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -240,11 +234,11 @@ export default function ConsultationsPage() {
                 {loading ? (
                   <LoadingState variant="spinner" />
                 ) : (
-                  `${stats.completedThisMonth}건`
+                  `${stats.convertedConsultations}건`
                 )}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                {now.getMonth() + 1}월 완료 상담
+                학생 등록 완료
               </p>
             </CardContent>
           </Card>
@@ -274,13 +268,13 @@ export default function ConsultationsPage() {
           <Tabs
             defaultValue="all"
             onValueChange={(value) =>
-              setActiveTab(value as 'all' | 'upcoming' | 'completed')
+              setActiveTab(value as 'all' | 'lead' | 'student')
             }
           >
             <TabsList>
               <TabsTrigger value="all">전체</TabsTrigger>
-              <TabsTrigger value="upcoming">후속 상담 예정</TabsTrigger>
-              <TabsTrigger value="completed">완료</TabsTrigger>
+              <TabsTrigger value="lead">✨ 입회 상담</TabsTrigger>
+              <TabsTrigger value="student">👤 재원생 상담</TabsTrigger>
             </TabsList>
           </Tabs>
         </section>
@@ -314,6 +308,9 @@ export default function ConsultationsPage() {
               const nextDate = consultation.next_consultation_date
                 ? new Date(consultation.next_consultation_date)
                 : null
+              const displayName = consultation.is_lead
+                ? consultation.lead_name
+                : consultation.students?.name
 
               return (
                 <div
@@ -324,10 +321,24 @@ export default function ConsultationsPage() {
                     <CardContent className="py-4">
                       <div className="flex items-center justify-between">
                         <div className="flex-1 space-y-2">
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3 flex-wrap">
                             <h3 className="font-semibold text-lg">
                               {consultation.title}
                             </h3>
+                            {consultation.is_lead ? (
+                              <Badge variant="default" className="bg-blue-600">
+                                ✨ 신규
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary">
+                                👤 재원생
+                              </Badge>
+                            )}
+                            {consultation.converted_to_student_id && (
+                              <Badge variant="default" className="bg-green-600">
+                                ✅ 등록 완료
+                              </Badge>
+                            )}
                             <Badge
                               variant={
                                 consultationTypeLabels[
@@ -353,7 +364,12 @@ export default function ConsultationsPage() {
                             <div className="flex items-center gap-2 text-muted-foreground">
                               <User className="h-4 w-4" />
                               <span>
-                                {consultation.students?.name || '학생 정보 없음'}
+                                {displayName || '이름 정보 없음'}
+                                {consultation.is_lead && consultation.lead_guardian_name && (
+                                  <span className="text-xs ml-1">
+                                    (학부모: {consultation.lead_guardian_name})
+                                  </span>
+                                )}
                               </span>
                             </div>
                             <div className="flex items-center gap-2 text-muted-foreground">
