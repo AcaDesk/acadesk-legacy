@@ -60,9 +60,20 @@ export async function getAcademyInfo() {
       }
     }
 
+    // 4. Flatten settings into top-level object for backward compatibility
+    const settings = academy.settings || {}
+    const flattened = {
+      ...academy,
+      address: settings.address || null,
+      business_number: settings.business_number || null,
+      phone: settings.phone || null,
+      email: settings.email || null,
+      website: settings.website || null,
+    }
+
     return {
       success: true,
-      data: academy,
+      data: flattened,
       error: null,
     }
   } catch (error) {
@@ -94,20 +105,43 @@ export async function updateAcademyInfo(
     // 3. Create service_role client
     const serviceClient = createServiceRoleClient()
 
-    // 4. Update tenant info
+    // 4. Get current settings
+    const { data: currentTenant } = await serviceClient
+      .from('tenants')
+      .select('settings')
+      .eq('id', tenantId)
+      .single()
+
+    // 5. Separate base fields from settings fields
+    const { name, timezone, currency, settings: inputSettings, ...detailFields } = validated
+
+    // 6. Merge settings (address, business_number, phone, email, website go into settings)
+    const updatedSettings = {
+      ...(currentTenant?.settings || {}),
+      ...inputSettings,
+      ...detailFields, // address, business_number, phone, email, website
+    }
+
+    // 7. Build update object (only base fields in columns)
+    const updateData: any = {
+      settings: updatedSettings,
+      updated_at: new Date().toISOString(),
+    }
+
+    if (name !== undefined) updateData.name = name
+    if (timezone !== undefined) updateData.timezone = timezone
+
+    // 8. Update tenant info
     const { error: updateError } = await serviceClient
       .from('tenants')
-      .update({
-        ...validated,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', tenantId)
 
     if (updateError) {
       throw updateError
     }
 
-    // 5. Revalidate pages
+    // 9. Revalidate pages
     revalidatePath('/settings')
     revalidatePath('/settings/academy')
     revalidatePath('/profile')
