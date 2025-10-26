@@ -482,3 +482,125 @@ export async function sendTodoReminder(todoId: string) {
     }
   }
 }
+
+/**
+ * Get message history
+ */
+export async function getMessageHistory(filters?: {
+  limit?: number
+  startDate?: string
+  endDate?: string
+  type?: 'SMS' | 'LMS' | 'MMS'
+}) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    // Get messaging config
+    const { data: config } = await supabase
+      .from('tenant_messaging_config')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true)
+      .single()
+
+    if (!config) {
+      return {
+        success: false,
+        data: null,
+        error: '활성화된 메시징 서비스가 없습니다',
+      }
+    }
+
+    // Create provider and get messages (currently only Solapi supports this)
+    if (config.provider === 'solapi') {
+      const { SolapiProvider } = await import('@/infra/messaging/SolapiProvider')
+      const provider = new SolapiProvider({
+        apiKey: config.api_key || '',
+        apiSecret: config.api_secret || '',
+        senderPhone: config.sender_phone || '',
+      })
+
+      const result = await provider.getMessages(filters)
+
+      return {
+        success: true,
+        data: result,
+        error: null,
+      }
+    }
+
+    return {
+      success: false,
+      data: null,
+      error: '현재 프로바이더는 메시지 이력 조회를 지원하지 않습니다',
+    }
+  } catch (error) {
+    console.error('[getMessageHistory] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * Get message statistics
+ */
+export async function getMessageStatistics(filters?: {
+  startDate?: string
+  endDate?: string
+}) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    // Get messaging config
+    const { data: config } = await supabase
+      .from('tenant_messaging_config')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true)
+      .single()
+
+    if (!config) {
+      return {
+        success: false,
+        data: null,
+        error: '활성화된 메시징 서비스가 없습니다',
+      }
+    }
+
+    // Create provider and get statistics (currently only Solapi supports this)
+    if (config.provider === 'solapi') {
+      const { SolapiProvider } = await import('@/infra/messaging/SolapiProvider')
+      const provider = new SolapiProvider({
+        apiKey: config.api_key || '',
+        apiSecret: config.api_secret || '',
+        senderPhone: config.sender_phone || '',
+      })
+
+      const result = await provider.getStatistics(filters?.startDate, filters?.endDate)
+
+      return {
+        success: true,
+        data: result,
+        error: null,
+      }
+    }
+
+    return {
+      success: false,
+      data: null,
+      error: '현재 프로바이더는 통계 조회를 지원하지 않습니다',
+    }
+  } catch (error) {
+    console.error('[getMessageStatistics] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
