@@ -5,7 +5,6 @@ import { Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from './button'
 import { Popover, PopoverContent, PopoverTrigger } from './popover'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from './tabs'
 
 // ============================================================================
 // Types
@@ -117,10 +116,15 @@ function generateMinuteOptions(interval: number): number[] {
  * 개선된 시간 선택 컴포넌트
  *
  * ## 주요 기능
- * - 오전/오후 탭 선택
+ * - 큰 오전/오후 토글 버튼 (향상된 UX)
  * - 시간 그리드 (1-12)
  * - 분 그리드 (interval 기반)
  * - React Hook Form 완벽 호환
+ *
+ * ## UI/UX 개선
+ * - 오전/오후 버튼을 크게 표시하여 선택이 쉬워짐
+ * - 탭 전환 없이 모든 선택 항목을 한 화면에 표시
+ * - 선택된 시간/분을 시각적으로 강조
  *
  * ## 사용 예시
  *
@@ -230,62 +234,82 @@ export const TimePicker = React.forwardRef<HTMLButtonElement, TimePickerProps>(
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align={align}>
-          <Tabs
-            value={selectedPeriod}
-            onValueChange={(v) => setSelectedPeriod(v as 'AM' | 'PM')}
-            className="w-full"
-          >
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="AM">오전</TabsTrigger>
-              <TabsTrigger value="PM">오후</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value={selectedPeriod} className="p-3 space-y-3">
-              {/* Hour Selection */}
-              <div>
-                <p className="text-sm font-medium mb-2">시</p>
-                <div className="grid grid-cols-6 gap-1">
-                  {hours.map((hour) => (
-                    <Button
-                      key={hour}
-                      type="button"
-                      variant={selectedHour === hour ? 'default' : 'outline'}
-                      size="sm"
-                      className={cn(
-                        'h-9 px-2',
-                        selectedHour === hour && 'bg-primary text-primary-foreground'
-                      )}
-                      onClick={() => handleHourClick(hour)}
-                    >
-                      {hour}
-                    </Button>
-                  ))}
-                </div>
+          <div className="p-4 space-y-4">
+            {/* AM/PM Toggle - 큰 버튼으로 개선 */}
+            <div>
+              <p className="text-sm font-medium mb-2 text-muted-foreground">오전/오후</p>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant={selectedPeriod === 'AM' ? 'default' : 'outline'}
+                  size="lg"
+                  className={cn(
+                    'h-12 text-base font-semibold',
+                    selectedPeriod === 'AM' && 'bg-primary text-primary-foreground'
+                  )}
+                  onClick={() => setSelectedPeriod('AM')}
+                >
+                  오전
+                </Button>
+                <Button
+                  type="button"
+                  variant={selectedPeriod === 'PM' ? 'default' : 'outline'}
+                  size="lg"
+                  className={cn(
+                    'h-12 text-base font-semibold',
+                    selectedPeriod === 'PM' && 'bg-primary text-primary-foreground'
+                  )}
+                  onClick={() => setSelectedPeriod('PM')}
+                >
+                  오후
+                </Button>
               </div>
+            </div>
 
-              {/* Minute Selection */}
-              <div>
-                <p className="text-sm font-medium mb-2">분</p>
-                <div className="grid grid-cols-6 gap-1">
-                  {minutes.map((minute) => (
-                    <Button
-                      key={minute}
-                      type="button"
-                      variant={selectedMinute === minute ? 'default' : 'outline'}
-                      size="sm"
-                      className={cn(
-                        'h-9 px-2',
-                        selectedMinute === minute && 'bg-primary text-primary-foreground'
-                      )}
-                      onClick={() => handleMinuteClick(minute)}
-                    >
-                      {minute.toString().padStart(2, '0')}
-                    </Button>
-                  ))}
-                </div>
+            {/* Hour Selection */}
+            <div>
+              <p className="text-sm font-medium mb-2 text-muted-foreground">시</p>
+              <div className="grid grid-cols-6 gap-1">
+                {hours.map((hour) => (
+                  <Button
+                    key={hour}
+                    type="button"
+                    variant={selectedHour === hour ? 'default' : 'outline'}
+                    size="sm"
+                    className={cn(
+                      'h-9 px-2',
+                      selectedHour === hour && 'bg-primary text-primary-foreground'
+                    )}
+                    onClick={() => handleHourClick(hour)}
+                  >
+                    {hour}
+                  </Button>
+                ))}
               </div>
-            </TabsContent>
-          </Tabs>
+            </div>
+
+            {/* Minute Selection */}
+            <div>
+              <p className="text-sm font-medium mb-2 text-muted-foreground">분</p>
+              <div className="grid grid-cols-6 gap-1">
+                {minutes.map((minute) => (
+                  <Button
+                    key={minute}
+                    type="button"
+                    variant={selectedMinute === minute ? 'default' : 'outline'}
+                    size="sm"
+                    className={cn(
+                      'h-9 px-2',
+                      selectedMinute === minute && 'bg-primary text-primary-foreground'
+                    )}
+                    onClick={() => handleMinuteClick(minute)}
+                  >
+                    {minute.toString().padStart(2, '0')}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
         </PopoverContent>
       </Popover>
     )
