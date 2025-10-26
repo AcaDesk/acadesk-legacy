@@ -6,6 +6,7 @@ import { Button } from '@ui/button'
 import { Input } from '@ui/input'
 import { Badge } from '@ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@ui/tabs'
 import {
   Table,
   TableBody,
@@ -14,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from '@ui/table'
-import { Bell, Send, Clock, CheckCircle, XCircle, Search, AlertCircle, FileText, MessageSquare, Settings } from 'lucide-react'
+import { Bell, Send, Clock, CheckCircle, XCircle, Search, AlertCircle, FileText, MessageSquare, Settings, History, BarChart3 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { FEATURES } from '@/lib/features.config'
@@ -23,6 +24,8 @@ import { Maintenance } from '@/components/layout/maintenance'
 import { BulkMessageDialog } from '@/components/features/notifications/bulk-message-dialog'
 import { ManageTemplatesDialog } from '@/components/features/notifications/manage-templates-dialog'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
+import { MessageHistory } from '@/components/features/notifications/message-history'
+import { MessageStatistics } from '@/components/features/notifications/message-statistics'
 
 interface NotificationLog {
   id: string
@@ -360,8 +363,26 @@ export default function NotificationsPage() {
           </div>
         </div>
 
-        {/* Auto-notification Schedules */}
-        <div className="grid gap-4 md:grid-cols-3">
+        {/* Tabs */}
+        <Tabs defaultValue="logs" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="logs" className="flex items-center gap-2">
+              <Bell className="h-4 w-4" />
+              발송 내역
+            </TabsTrigger>
+            <TabsTrigger value="history" className="flex items-center gap-2">
+              <History className="h-4 w-4" />
+              메시지 이력
+            </TabsTrigger>
+            <TabsTrigger value="stats" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              통계
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="logs" className="space-y-6">
+            {/* Auto-notification Schedules */}
+            <div className="grid gap-4 md:grid-cols-3">
           {autoNotifications.map((notification) => (
             <Card key={notification.type}>
               <CardHeader className="pb-3">
@@ -604,6 +625,16 @@ export default function NotificationsPage() {
             )}
           </CardContent>
         </Card>
+          </TabsContent>
+
+          <TabsContent value="history" className="space-y-6">
+            <MessageHistory />
+          </TabsContent>
+
+          <TabsContent value="stats" className="space-y-6">
+            <MessageStatistics />
+          </TabsContent>
+        </Tabs>
 
         {/* Message Dialogs */}
         <BulkMessageDialog
