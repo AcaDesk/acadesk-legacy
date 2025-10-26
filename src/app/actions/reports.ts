@@ -115,12 +115,22 @@ export async function generateMonthlyReport(
     // 5. 학원 정보 조회
     const { data: academyData, error: academyError } = await supabase
       .from('tenants')
-      .select('name, phone, email, address, website')
+      .select('name, settings')
       .eq('id', tenantId)
       .single()
 
     if (academyError || !academyData) {
       throw new Error('학원 정보를 찾을 수 없습니다.')
+    }
+
+    // settings에서 필드 추출
+    const settings = (academyData.settings as Record<string, any>) || {}
+    const academy = {
+      name: academyData.name,
+      phone: settings.phone || null,
+      email: settings.email || null,
+      address: settings.address || null,
+      website: settings.website || null,
     }
 
     // 6. 출석 정보 조회
@@ -140,11 +150,7 @@ export async function generateMonthlyReport(
     )
 
     // 9. 강사 코멘트 생성
-    const instructorComment = generateInstructorComment(
-      typedStudentData,
-      attendance,
-      scores
-    )
+    const instructorComment = generateInstructorComment(attendance, scores)
 
     // 10. 차트 데이터 생성
     const gradesChartData = await getGradesChartData(
@@ -168,11 +174,11 @@ export async function generateMonthlyReport(
         student_code: typedStudentData.student_code,
       },
       academy: {
-        name: academyData.name,
-        phone: academyData.phone,
-        email: academyData.email,
-        address: academyData.address,
-        website: academyData.website,
+        name: academy.name,
+        phone: academy.phone,
+        email: academy.email,
+        address: academy.address,
+        website: academy.website,
       },
       period: {
         start: periodStartStr,
@@ -589,7 +595,6 @@ async function getScoresData(
  * 강사 코멘트 자동 생성
  */
 function generateInstructorComment(
-  student: StudentDataWithUser,
   attendance: { total: number; present: number; late: number; absent: number; rate: number },
   scores: Array<{
     category: string
@@ -804,14 +809,21 @@ export async function prepareReportSending(reportId: string) {
     const supabase = createServiceRoleClient()
 
     // 3. 학원 정보 조회
-    const { data: academy, error: academyError } = await supabase
+    const { data: academyData, error: academyError } = await supabase
       .from('tenants')
-      .select('name, phone')
+      .select('name, settings')
       .eq('id', tenantId)
       .single()
 
-    if (academyError || !academy) {
+    if (academyError || !academyData) {
       throw new Error('학원 정보를 찾을 수 없습니다')
+    }
+
+    // settings에서 필드 추출
+    const settings = (academyData.settings as Record<string, any>) || {}
+    const academy = {
+      name: academyData.name,
+      phone: settings.phone || null,
     }
 
     // 4. 리포트 정보 조회
