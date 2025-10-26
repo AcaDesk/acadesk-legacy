@@ -18,7 +18,7 @@ import {
 } from '@ui/dialog'
 import { Textarea } from '@ui/textarea'
 import { Label } from '@ui/label'
-import { Download, Send, ChevronRight, Edit2 } from 'lucide-react'
+import { Download, Send, Edit2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import type { ReportWithStudent } from '@/core/types/report.types'
@@ -26,7 +26,6 @@ import { ReportViewer } from '@/components/features/reports/ReportViewer'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
-import Link from 'next/link'
 
 export default function ReportDetailPage({ params }: { params: { id: string } }) {
   // All Hooks must be called before any early returns
@@ -146,16 +145,25 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
   }
 
   function handleEditComment() {
-    const currentComment = reportData.overallComment || reportData.instructorComment || ''
-
-    // 기존 코멘트를 파싱하여 폼에 채우기 (간단한 파싱)
-    const lines = currentComment.split('\n').filter(l => l.trim())
-    setCommentForm({
-      summary: lines[0] || '',
-      strengths: lines[1] || '',
-      improvements: lines[2] || '',
-      nextGoals: lines[3] || '',
-    })
+    // Try to load from new JSON format first
+    if (reportData.comment) {
+      setCommentForm({
+        summary: reportData.comment.summary || '',
+        strengths: reportData.comment.strengths || '',
+        improvements: reportData.comment.improvements || '',
+        nextGoals: reportData.comment.nextGoals || '',
+      })
+    } else {
+      // Fallback: Parse legacy string format
+      const currentComment = reportData.overallComment || reportData.instructorComment || ''
+      const lines = currentComment.split('\n').filter(l => l.trim())
+      setCommentForm({
+        summary: lines[0] || '',
+        strengths: lines[1] || '',
+        improvements: lines[2] || '',
+        nextGoals: lines[3] || '',
+      })
+    }
 
     setCommentDialogOpen(true)
   }
@@ -165,51 +173,30 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
 
     setSavingComment(true)
     try {
-      // 구조화된 코멘트를 하나의 문자열로 합치기
-      const structuredComment = `📝 총평
-${commentForm.summary}
+      // Dynamic import to avoid bundling server action in client
+      const { updateReportComment } = await import('@/app/actions/reports')
 
-✨ 잘한 점
-${commentForm.strengths}
+      // Call server action with structured comment data
+      const result = await updateReportComment(report.id, commentForm)
 
-📈 보완할 점
-${commentForm.improvements}
-
-🎯 다음 달 목표
-${commentForm.nextGoals}`
-
-      // reportData 업데이트
-      const updatedContent = {
-        ...report.content,
-        overallComment: structuredComment,
-        instructorComment: structuredComment,
+      if (!result.success) {
+        throw new Error(result.error || '코멘트 저장에 실패했습니다.')
       }
-
-      // DB 업데이트
-      const { error } = await supabase
-        .from('reports')
-        .update({ content: updatedContent })
-        .eq('id', report.id)
-
-      if (error) throw error
-
-      // 로컬 state 업데이트
-      setReport({
-        ...report,
-        content: updatedContent,
-      })
 
       toast({
         title: '저장 완료',
         description: '강사 코멘트가 성공적으로 저장되었습니다.',
       })
 
+      // Reload report to get updated data
+      await loadReport()
+
       setCommentDialogOpen(false)
     } catch (error) {
       console.error('Error saving comment:', error)
       toast({
         title: '저장 오류',
-        description: '코멘트를 저장하는 중 오류가 발생했습니다.',
+        description: error instanceof Error ? error.message : '코멘트를 저장하는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
     } finally {
@@ -294,17 +281,6 @@ ${commentForm.nextGoals}`
   return (
     <PageWrapper>
       <div className="space-y-6">
-        {/* Breadcrumb */}
-        <nav className="flex items-center gap-2 text-sm text-muted-foreground print:hidden">
-          <Link href="/reports" className="hover:text-foreground transition-colors">
-            리포트 관리
-          </Link>
-          <ChevronRight className="h-4 w-4" />
-          <span className="text-foreground font-medium">
-            {studentName}
-          </span>
-        </nav>
-
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>

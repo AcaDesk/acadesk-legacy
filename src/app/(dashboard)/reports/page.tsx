@@ -16,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from '@ui/table'
-import { Search, Eye, Download, Send, Plus, FileText, Users } from 'lucide-react'
+import { Search, Eye, Download, Send, Plus, FileText, Users, Trash2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import type { ReportWithStudent, StudentForFilter } from '@/core/types/report.types'
@@ -37,6 +37,9 @@ export default function ReportsPage() {
   const [sendDialogOpen, setSendDialogOpen] = useState(false)
   const [reportToSend, setReportToSend] = useState<{ id: string; name: string } | null>(null)
   const [isSending, setIsSending] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [reportToDelete, setReportToDelete] = useState<{ id: string; name: string } | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const { toast } = useToast()
   const router = useRouter()
@@ -97,8 +100,10 @@ export default function ReportsPage() {
           students!inner (
             id,
             student_code,
-            user_id!inner (
-              name
+            grade,
+            users:user_id!inner (
+              name,
+              email
             )
           )
         `)
@@ -186,7 +191,7 @@ export default function ReportsPage() {
         throw new Error(result.error || '리포트 전송에 실패했습니다')
       }
 
-      const { successCount, failCount, total } = result.data!
+      const { successCount, failCount } = result.data!
 
       toast({
         title: '전송 완료',
@@ -205,6 +210,44 @@ export default function ReportsPage() {
       setIsSending(false)
       setSendDialogOpen(false)
       setReportToSend(null)
+    }
+  }
+
+  function handleDeleteClick(reportId: string, studentName: string) {
+    setReportToDelete({ id: reportId, name: studentName })
+    setDeleteDialogOpen(true)
+  }
+
+  async function handleConfirmDelete() {
+    if (!reportToDelete) return
+
+    setIsDeleting(true)
+
+    try {
+      const { error } = await supabase
+        .from('reports')
+        .delete()
+        .eq('id', reportToDelete.id)
+
+      if (error) throw error
+
+      toast({
+        title: '삭제 완료',
+        description: `${reportToDelete.name} 학생의 리포트가 삭제되었습니다.`,
+      })
+
+      loadReports(searchTerm, selectedStudent, selectedType)
+    } catch (error) {
+      console.error('Error deleting report:', error)
+      toast({
+        title: '삭제 오류',
+        description: error instanceof Error ? error.message : '리포트를 삭제하는 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsDeleting(false)
+      setDeleteDialogOpen(false)
+      setReportToDelete(null)
     }
   }
 
@@ -414,6 +457,18 @@ export default function ReportsPage() {
                                   <Send className="h-4 w-4 text-blue-600" />
                                 </Button>
                               )}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() =>
+                                  handleDeleteClick(
+                                    report.id,
+                                    report.students?.users?.name || '학생'
+                                  )
+                                }
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -477,6 +532,18 @@ export default function ReportsPage() {
           variant="default"
           isLoading={isSending}
           onConfirm={handleConfirmSend}
+        />
+
+        {/* Delete Confirmation Dialog */}
+        <ConfirmationDialog
+          open={deleteDialogOpen}
+          onOpenChange={setDeleteDialogOpen}
+          title="리포트를 삭제하시겠습니까?"
+          description={reportToDelete ? `"${reportToDelete.name}" 학생의 리포트가 영구적으로 삭제됩니다. 이 작업은 되돌릴 수 없습니다.` : ''}
+          confirmText="삭제"
+          variant="destructive"
+          isLoading={isDeleting}
+          onConfirm={handleConfirmDelete}
         />
       </div>
     </PageWrapper>

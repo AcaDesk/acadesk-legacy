@@ -90,6 +90,16 @@ export interface ReportData {
       feedback: string | null
     }>
   }[]
+
+  // Comment data (new structured format)
+  comment?: {
+    summary: string
+    strengths: string
+    improvements: string
+    nextGoals: string
+  }
+
+  // Legacy comment fields (for backward compatibility)
   instructorComment?: string
   overallComment?: string
 
