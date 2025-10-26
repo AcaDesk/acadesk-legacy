@@ -1053,7 +1053,7 @@ export async function sendReportMessage(reportSendId: string) {
       .eq('id', reportSend.report_id)
 
     // 7. Revalidate
-    revalidatePath('/reports/list')
+    revalidatePath('/reports')
     revalidatePath(`/reports/${reportSend.report_id}`)
 
     return {
