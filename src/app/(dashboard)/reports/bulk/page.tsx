@@ -11,9 +11,8 @@ import { Checkbox } from '@ui/checkbox'
 import { Label } from '@ui/label'
 import { Progress } from '@ui/progress'
 import { useToast } from '@/hooks/use-toast'
-import { FileText, Send, CheckCircle, XCircle, ChevronRight } from 'lucide-react'
+import { FileText, Send, CheckCircle, XCircle } from 'lucide-react'
 import { PageWrapper } from "@/components/layout/page-wrapper"
-import Link from 'next/link'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
@@ -276,23 +275,11 @@ export default function BulkReportsPage() {
   }
 
   return (
-    <PageWrapper>
-      <div className="space-y-6 max-w-5xl mx-auto">
-        {/* Header */}
-        <div className="space-y-4">
-          <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Link href="/reports" className="hover:text-foreground transition-colors">
-              리포트 관리
-            </Link>
-            <ChevronRight className="h-4 w-4" />
-            <span className="text-foreground font-medium">일괄 생성</span>
-          </nav>
-
-          <div>
-            <h1 className="text-3xl font-bold">리포트 일괄 생성</h1>
-            <p className="text-muted-foreground">반 또는 전체 학생의 리포트를 한 번에 생성하세요</p>
-          </div>
-        </div>
+    <PageWrapper
+      title="리포트 일괄 생성"
+      subtitle="반 또는 전체 학생의 리포트를 한 번에 생성하세요"
+    >
+      <div className="space-y-6">
 
         {/* Settings */}
         <Card>
