@@ -2,7 +2,6 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -65,7 +64,7 @@ import {
 import { Badge } from '@ui/badge'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import { EmptyState } from '@ui/empty-state'
-import { getStudentAvatar } from '@/lib/avatar'
+import { StudentAvatar } from '@ui/student-avatar'
 import { cn } from '@/lib/utils'
 import { BulkActionsDialog } from './bulk-actions-dialog'
 
@@ -268,18 +267,12 @@ export function StudentTableImproved({
 
         return (
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full overflow-hidden flex-shrink-0 bg-muted relative">
-              <Image
-                src={getStudentAvatar(
-                  student.profile_image_url,
-                  student.id,
-                  student.users?.name || 'Student'
-                )}
-                alt={student.users?.name || '학생'}
-                fill
-                className="object-cover"
-              />
-            </div>
+            <StudentAvatar
+              profileImageUrl={student.profile_image_url}
+              studentId={student.id}
+              studentName={student.users?.name || 'Student'}
+              className="flex-shrink-0"
+            />
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-medium">{student.users?.name || '이름 없음'}</span>

@@ -5,8 +5,9 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@ui/button'
 import { Label } from '@ui/label'
 import { useToast } from '@/hooks/use-toast'
-import { Upload, X, Loader2 } from 'lucide-react'
-import { getStudentAvatar } from '@/lib/avatar'
+import { Upload, X, Loader2, AlertCircle } from 'lucide-react'
+import { StudentAvatar } from '@ui/student-avatar'
+import { Alert, AlertDescription } from '@ui/alert'
 
 interface ProfileImageUploadProps {
   currentImageUrl?: string | null
@@ -106,27 +107,36 @@ export function ProfileImageUpload({
     }
   }
 
-  const displayUrl = previewUrl || (studentId ? getStudentAvatar(null, studentId, studentName) : null)
-
   return (
     <div className="space-y-4">
       <Label>프로필 사진</Label>
+
+      {/* Coming Soon Alert */}
+      <Alert>
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          프로필 이미지 업로드 기능은 현재 준비 중입니다. 곧 제공될 예정입니다.
+        </AlertDescription>
+      </Alert>
+
       <div className="flex items-center gap-4">
-        {/* Preview */}
-        <div className="h-24 w-24 rounded-full overflow-hidden bg-muted flex items-center justify-center">
-          {displayUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={displayUrl}
-              alt="프로필 사진"
-              className="h-full w-full object-cover"
+        {/* Preview - Show Current Avatar */}
+        <div className="flex items-center justify-center">
+          {studentId ? (
+            <StudentAvatar
+              profileImageUrl={currentImageUrl}
+              studentId={studentId}
+              studentName={studentName}
+              size="xl"
             />
           ) : (
-            <Upload className="h-10 w-10 text-muted-foreground" />
+            <div className="h-24 w-24 rounded-full overflow-hidden bg-muted flex items-center justify-center">
+              <Upload className="h-10 w-10 text-muted-foreground" />
+            </div>
           )}
         </div>
 
-        {/* Actions */}
+        {/* Actions - Disabled */}
         <div className="flex flex-col gap-2">
           <input
             ref={fileInputRef}
@@ -134,26 +144,17 @@ export function ProfileImageUpload({
             accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
             onChange={handleFileSelect}
             className="hidden"
-            disabled={uploading}
+            disabled
           />
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
+            disabled
           >
-            {uploading ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                업로드 중...
-              </>
-            ) : (
-              <>
-                <Upload className="h-4 w-4 mr-2" />
-                이미지 선택
-              </>
-            )}
+            <Upload className="h-4 w-4 mr-2" />
+            이미지 선택
           </Button>
           {previewUrl && (
             <Button
@@ -161,14 +162,14 @@ export function ProfileImageUpload({
               variant="ghost"
               size="sm"
               onClick={handleRemove}
-              disabled={uploading}
+              disabled
             >
               <X className="h-4 w-4 mr-2" />
               제거
             </Button>
           )}
           <p className="text-xs text-muted-foreground">
-            JPG, PNG, WebP, GIF (최대 5MB)
+            업로드 기능 준비 중
           </p>
         </div>
       </div>
