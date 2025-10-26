@@ -222,12 +222,7 @@ export function StudentDeleteButtonExample({ studentId, studentName }: { student
 
     // 📢 즉시 피드백 - 로딩 토스트
     const { dismiss } = toast({
-      title: (
-        <div className="flex items-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          삭제 중...
-        </div>
-      ),
+      title: '삭제 중...',
       duration: Infinity, // 작업 완료까지 유지
     })
 
