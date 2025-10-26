@@ -53,7 +53,7 @@ interface Student {
 export default function ReportsPage() {
   // All Hooks must be called before any early returns
   const [reports, setReports] = useState<Report[]>([])
-  const [filteredReports, setFilteredReports] = useState<Report[]>([])
+  const [allReports, setAllReports] = useState<Report[]>([]) // For statistics
   const [students, setStudents] = useState<Student[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedStudent, setSelectedStudent] = useState<string>('all')
@@ -67,21 +67,26 @@ export default function ReportsPage() {
   const router = useRouter()
   const supabase = createClient()
 
+  // Load students once on mount
   useEffect(() => {
-    loadData()
+    loadStudents()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Load reports when filters change (with debouncing for search)
   useEffect(() => {
-    filterReports()
+    const handler = setTimeout(() => {
+      loadReports(searchTerm, selectedStudent, selectedType)
+    }, searchTerm ? 300 : 0) // 300ms debounce for search, instant for filter changes
+
+    return () => {
+      clearTimeout(handler)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, selectedStudent, selectedType, reports])
+  }, [searchTerm, selectedStudent, selectedType])
 
-  async function loadData() {
+  async function loadStudents() {
     try {
-      setLoading(true)
-
-      // Load students for filter
       const { data: studentsData, error: studentsError } = await supabase
         .from('students')
         .select('id, student_code, user_id!inner(name)')
@@ -90,9 +95,21 @@ export default function ReportsPage() {
 
       if (studentsError) throw studentsError
       setStudents(studentsData as unknown as Student[])
+    } catch (error) {
+      console.error('Error loading students:', error)
+    }
+  }
 
-      // Load reports with student data
-      const { data: reportsData, error: reportsError } = await supabase
+  async function loadReports(
+    currentSearch: string,
+    currentStudent: string,
+    currentType: string
+  ) {
+    try {
+      setLoading(true)
+
+      // Build query with filters
+      let query = supabase
         .from('reports')
         .select(`
           id,
@@ -112,11 +129,40 @@ export default function ReportsPage() {
         `)
         .order('generated_at', { ascending: false })
 
+      // Apply student filter (server-side)
+      if (currentStudent !== 'all') {
+        query = query.eq('student_id', currentStudent)
+      }
+
+      // Apply type filter (server-side)
+      if (currentType !== 'all') {
+        query = query.eq('report_type', currentType)
+      }
+
+      const { data: reportsData, error: reportsError } = await query
+
       if (reportsError) throw reportsError
-      setReports(reportsData as unknown as Report[])
-      setFilteredReports(reportsData as unknown as Report[])
+
+      let filtered = reportsData as unknown as Report[]
+
+      // Apply search filter (client-side for now due to joined table complexity)
+      if (currentSearch) {
+        const search = currentSearch.toLowerCase()
+        filtered = filtered.filter((report) => {
+          const studentName = report.students?.user_id?.name?.toLowerCase() || ''
+          const studentCode = report.students?.student_code?.toLowerCase() || ''
+          return studentName.includes(search) || studentCode.includes(search)
+        })
+      }
+
+      setReports(filtered)
+
+      // Load all reports for statistics (only when no filters applied)
+      if (currentStudent === 'all' && currentType === 'all' && !currentSearch) {
+        setAllReports(filtered)
+      }
     } catch (error) {
-      console.error('Error loading data:', error)
+      console.error('Error loading reports:', error)
       toast({
         title: '데이터 로드 오류',
         description: '리포트를 불러오는 중 오류가 발생했습니다.',
@@ -125,33 +171,6 @@ export default function ReportsPage() {
     } finally {
       setLoading(false)
     }
-  }
-
-  function filterReports() {
-    let filtered = reports
-
-    // Student filter
-    if (selectedStudent !== 'all') {
-      filtered = filtered.filter((report) => report.students?.id === selectedStudent)
-    }
-
-    // Type filter
-    if (selectedType !== 'all') {
-      filtered = filtered.filter((report) => report.report_type === selectedType)
-    }
-
-    // Search filter
-    if (searchTerm) {
-      filtered = filtered.filter((report) => {
-        const studentName = report.students?.user_id?.name?.toLowerCase() || ''
-        const studentCode = report.students?.student_code?.toLowerCase() || ''
-        const search = searchTerm.toLowerCase()
-
-        return studentName.includes(search) || studentCode.includes(search)
-      })
-    }
-
-    setFilteredReports(filtered)
   }
 
   function getReportTypeBadge(type: string) {
@@ -199,7 +218,7 @@ export default function ReportsPage() {
         description: `${reportToSend.name} 학생의 보호자 ${successCount}명에게 리포트가 전송되었습니다.${failCount > 0 ? ` (${failCount}명 실패)` : ''}`,
       })
 
-      loadData()
+      loadReports(searchTerm, selectedStudent, selectedType)
     } catch (error) {
       console.error('Error sending report:', error)
       toast({
@@ -290,7 +309,7 @@ export default function ReportsPage() {
             </SelectContent>
           </Select>
           <Badge variant="secondary" className="h-10 px-4 flex items-center whitespace-nowrap">
-            {filteredReports.length}개 리포트
+            {reports.length}개 리포트
           </Badge>
         </div>
 
@@ -303,7 +322,7 @@ export default function ReportsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {filteredReports.length === 0 ? (
+            {reports.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p>생성된 리포트가 없습니다.</p>
@@ -332,7 +351,7 @@ export default function ReportsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredReports.map((report) => {
+                    {reports.map((report) => {
                       const avgScore = report.content.scores.length > 0
                         ? Math.round(
                             report.content.scores.reduce((sum, s) => sum + s.current, 0) /
@@ -437,14 +456,14 @@ export default function ReportsPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardDescription>총 리포트 수</CardDescription>
-              <CardTitle className="text-3xl">{reports.length}개</CardTitle>
+              <CardTitle className="text-3xl">{allReports.length}개</CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-3">
               <CardDescription>이번 달 생성</CardDescription>
               <CardTitle className="text-3xl">
-                {reports.filter((r) => {
+                {allReports.filter((r) => {
                   const genDate = new Date(r.generated_at)
                   const now = new Date()
                   return (
@@ -459,7 +478,7 @@ export default function ReportsPage() {
             <CardHeader className="pb-3">
               <CardDescription>전송 완료</CardDescription>
               <CardTitle className="text-3xl">
-                {reports.filter((r) => r.sent_at !== null).length}개
+                {allReports.filter((r) => r.sent_at !== null).length}개
               </CardTitle>
             </CardHeader>
           </Card>
@@ -467,7 +486,7 @@ export default function ReportsPage() {
             <CardHeader className="pb-3">
               <CardDescription>미전송</CardDescription>
               <CardTitle className="text-3xl">
-                {reports.filter((r) => r.sent_at === null).length}개
+                {allReports.filter((r) => r.sent_at === null).length}개
               </CardTitle>
             </CardHeader>
           </Card>
