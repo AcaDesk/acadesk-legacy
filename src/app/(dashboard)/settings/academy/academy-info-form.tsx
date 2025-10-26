@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
+import { PhoneInput } from '@ui/phone-input'
 import { Textarea } from '@ui/textarea'
 import {
   Form,
@@ -145,7 +146,11 @@ export function AcademyInfoForm({ initialData }: AcademyInfoFormProps) {
                   <FormItem>
                     <FormLabel>대표 전화번호</FormLabel>
                     <FormControl>
-                      <Input placeholder="예: 02-1234-5678" {...field} />
+                      <PhoneInput
+                        value={field.value || ''}
+                        onChange={field.onChange}
+                        placeholder="예: 02-1234-5678"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

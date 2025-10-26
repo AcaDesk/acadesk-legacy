@@ -129,8 +129,15 @@ export function ConsultationFormClient({
           nextConsultationDate: data.nextConsultationDate?.toISOString(),
         })
 
+        console.log('[ConsultationForm] createConsultation result:', result)
+
         if (!result.success) {
           throw new Error(result.error || '상담 기록 생성 실패')
+        }
+
+        if (!result.data?.id) {
+          console.error('[ConsultationForm] No consultation ID in result:', result)
+          throw new Error('상담 ID를 받지 못했습니다')
         }
 
         toast({
@@ -138,7 +145,8 @@ export function ConsultationFormClient({
           description: '상담 기록이 생성되었습니다.',
         })
 
-        router.push(`/consultations/${result.data?.id}`)
+        console.log('[ConsultationForm] Navigating to:', `/consultations/${result.data.id}`)
+        router.push(`/consultations/${result.data.id}`)
       } else if (consultation) {
         const result = await updateConsultation({
           id: consultation.id,
