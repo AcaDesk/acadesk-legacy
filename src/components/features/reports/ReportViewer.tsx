@@ -52,6 +52,14 @@ interface ReportViewerProps {
         feedback: string | null
       }>
     }[]
+    // New structured comment format
+    comment?: {
+      summary: string
+      strengths: string
+      improvements: string
+      nextGoals: string
+    }
+    // Legacy comment fields
     instructorComment?: string
     overallComment?: string
     gradesChartData?: Array<{
@@ -100,6 +108,31 @@ export function ReportViewer({ reportData, onEditComment, showEditButton = false
   const homeworkRate = reportData.homeworkRate ?? reportData.homework?.rate ?? 0
   const totalTodos = reportData.totalTodos ?? reportData.homework?.total ?? 0
   const completedTodos = reportData.completedTodos ?? reportData.homework?.completed ?? 0
+
+  // Format comment for display
+  function getFormattedComment(): string {
+    // Use new structured format if available
+    if (reportData.comment) {
+      return `📝 총평
+${reportData.comment.summary}
+
+✨ 잘한 점
+${reportData.comment.strengths}
+
+📈 보완할 점
+${reportData.comment.improvements}
+
+🎯 다음 달 목표
+${reportData.comment.nextGoals}`
+    }
+
+    // Fallback to legacy formats
+    return (
+      reportData.overallComment ||
+      reportData.instructorComment ||
+      '코멘트가 없습니다.\n"코멘트 수정" 버튼을 클릭하여 구조화된 피드백을 작성해보세요.'
+    )
+  }
 
   return (
     <div className="space-y-6">
