@@ -46,6 +46,7 @@ import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { SubjectSelector } from '@/components/features/common/subject-selector'
 
 const DURATION_PRESETS = [
   { label: '15분', value: 15 },
@@ -304,12 +305,11 @@ export default function NewTodoTemplatePage() {
                       과목
                       <Badge variant="outline" className="text-xs">선택</Badge>
                     </Label>
-                    <Input
-                      id="subject"
+                    <SubjectSelector
                       value={subject}
-                      onChange={(e) => setSubject(e.target.value)}
-                      placeholder="예: 영어, 수학, 과학"
-                      className="text-base"
+                      onChange={setSubject}
+                      placeholder="과목 선택"
+                      showColor={true}
                     />
                   </div>
 

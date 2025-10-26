@@ -27,6 +27,8 @@ import { createClass, getInstructors } from '@/app/actions/classes'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { PAGE_ANIMATIONS } from '@/lib/animation-config'
 import { LoadingState } from '@/components/ui/loading-state'
+import { SubjectSelector } from '@/components/features/common/subject-selector'
+import { GradeSelector } from '@/components/features/common/grade-selector'
 
 const classSchema = z.object({
   name: z.string().min(1, '수업명은 필수입니다'),
@@ -199,19 +201,20 @@ export default function NewClassPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="subject">과목</Label>
-                    <Input
-                      id="subject"
-                      placeholder="예: 수학, 영어"
-                      {...form.register('subject')}
+                    <SubjectSelector
+                      value={form.watch('subject') || ''}
+                      onChange={(value) => form.setValue('subject', value)}
+                      placeholder="과목 선택"
+                      showColor={true}
                     />
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="gradeLevel">학년</Label>
-                    <Input
-                      id="gradeLevel"
-                      placeholder="예: 초3, 중1"
-                      {...form.register('gradeLevel')}
+                    <GradeSelector
+                      value={form.watch('gradeLevel') || ''}
+                      onChange={(value) => form.setValue('gradeLevel', value)}
+                      placeholder="학년 선택"
                     />
                   </div>
                 </div>

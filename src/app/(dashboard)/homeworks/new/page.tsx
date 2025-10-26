@@ -21,6 +21,7 @@ import { createHomework } from '@/app/actions/homeworks'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { DatePicker } from '@ui/date-picker'
 import { StudentSearch } from '@/components/features/students/student-search'
+import { SubjectSelector } from '@/components/features/common/subject-selector'
 
 export default function NewHomeworkPage() {
   const [selectedStudents, setSelectedStudents] = useState<string[]>([])
@@ -155,13 +156,14 @@ export default function NewHomeworkPage() {
 
               <div>
                 <Label htmlFor="subject">과목</Label>
-                <Input
-                  id="subject"
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                  placeholder="예: 수학, 영어, 국어"
-                  className="mt-2"
-                />
+                <div className="mt-2">
+                  <SubjectSelector
+                    value={subject}
+                    onChange={setSubject}
+                    placeholder="과목 선택"
+                    showColor={true}
+                  />
+                </div>
               </div>
 
               <div>
