@@ -146,7 +146,7 @@ export function TodayTasks({ upcomingSessions, unsentReports, pendingTodos }: To
           <div className="grid gap-2 sm:grid-cols-2">
             {unsentReports > 0 && (
               <Link
-                href="/reports/list"
+                href="/reports"
                 className={cn(
                   "flex items-center justify-between p-3 rounded-lg border transition-all",
                   "hover:bg-accent hover:border-primary/30 hover:shadow-sm",
