@@ -321,6 +321,7 @@ export async function updateStudent(
       .from('students')
       .select('id, tenant_id, user_id')
       .eq('id', studentId)
+      .is('deleted_at', null)
       .maybeSingle()
 
     if (fetchError || !existingStudent) {
@@ -434,12 +435,13 @@ export async function deleteStudent(studentId: string) {
       .from('students')
       .select('id, tenant_id')
       .eq('id', studentId)
+      .is('deleted_at', null)
       .maybeSingle()
 
     if (fetchError || !existingStudent) {
       return {
         success: false,
-        error: '학생을 찾을 수 없습니다',
+        error: '학생을 찾을 수 없거나 이미 삭제되었습니다',
       }
     }
 
@@ -504,12 +506,13 @@ export async function withdrawStudent(
       .from('students')
       .select('id, tenant_id')
       .eq('id', studentId)
+      .is('deleted_at', null)
       .maybeSingle()
 
     if (fetchError || !existingStudent) {
       return {
         success: false,
-        error: '학생을 찾을 수 없습니다',
+        error: '학생을 찾을 수 없거나 이미 삭제되었습니다',
       }
     }
 
@@ -809,6 +812,7 @@ export async function getStudents(filters?: {
         )
       `)
       .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
       .order('created_at', { ascending: false })
 
     // 4. Apply filters
@@ -916,6 +920,7 @@ export async function getStudentFilterOptions() {
         .from('students')
         .select('grade')
         .eq('tenant_id', tenantId)
+        .is('deleted_at', null)
         .not('grade', 'is', null)
         .order('grade', { ascending: true }),
 
@@ -924,6 +929,7 @@ export async function getStudentFilterOptions() {
         .from('students')
         .select('school')
         .eq('tenant_id', tenantId)
+        .is('deleted_at', null)
         .not('school', 'is', null)
         .order('school', { ascending: true }),
 

@@ -407,10 +407,18 @@ export function AddStudentWizard({ open, onOpenChange, onSuccess, initialValues 
 
         <FormProvider {...form}>
           <form
-            onSubmit={handleSubmit((data) => onSubmit(data, true))}
+            onSubmit={(e) => {
+              // 마지막 단계가 아니면 submit 방지
+              if (currentStep < steps.length) {
+                e.preventDefault()
+                return
+              }
+              // 마지막 단계에서만 실제 submit
+              handleSubmit((data) => onSubmit(data, true))(e)
+            }}
             onKeyDown={(e) => {
-              // input 필드에서 Enter를 눌렀을 때 form submit 방지
-              if (e.key === 'Enter' && e.target instanceof HTMLInputElement) {
+              // 마지막 단계가 아니면 Enter 키로 submit 방지
+              if (e.key === 'Enter' && currentStep < steps.length) {
                 e.preventDefault()
               }
             }}
