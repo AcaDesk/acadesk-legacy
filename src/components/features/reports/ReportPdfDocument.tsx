@@ -9,6 +9,7 @@
 
 import { Document, Page, Text, View, StyleSheet, Font } from '@react-pdf/renderer'
 import type { ReportData } from '@/core/types/report.types'
+import { formatKoreanDateShort } from '@/lib/utils'
 
 // ⚠️ 중요: 한글 폰트 등록 필수!
 // public/fonts/ 폴더에 Noto Sans KR 폰트 파일 필요
@@ -440,7 +441,7 @@ export function ReportPdfDocument({
                       {score.tests.map((test, testIdx) => (
                         <View key={testIdx} style={styles.testItem}>
                           <Text style={styles.testName}>
-                            {test.date} - {test.name}
+                            {formatKoreanDateShort(test.date)} - {test.name}
                           </Text>
                           <Text style={styles.testScore}>{test.percentage}%</Text>
                         </View>

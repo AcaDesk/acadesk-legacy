@@ -18,6 +18,8 @@ import {
   RadialBar,
   PolarAngleAxis,
 } from 'recharts'
+import { AttendanceHeatmap } from '@/components/features/charts/attendance-heatmap'
+import { formatKoreanDateShort } from '@/lib/utils'
 import type { ReportData } from '@/core/types/report.types'
 
 interface ReportViewerProps {
@@ -176,6 +178,11 @@ ${reportData.comment.nextGoals}`
     },
   ]
 
+  // Extract year and month from period for AttendanceHeatmap
+  const periodEnd = reportData.period ? new Date(reportData.period.end) : new Date()
+  const calendarYear = periodEnd.getFullYear()
+  const calendarMonth = periodEnd.getMonth() + 1 // 0-based to 1-based
+
   return (
     <div className="space-y-6">
       {/* Academy & Student Info Card */}
@@ -294,88 +301,62 @@ ${reportData.comment.nextGoals}`
       )}
 
       {/* Section 3: Learning Status (학습 현황) */}
-      <Card>
-        <CardHeader>
-          <CardTitle>학습 현황</CardTitle>
-          <CardDescription>출석률과 과제 달성률을 한눈에 확인하세요</CardDescription>
-        </CardHeader>
-        <CardContent className="grid md:grid-cols-2 gap-6">
-          {/* Attendance Radial Chart */}
-          <div className="flex flex-col items-center">
-            <h3 className="font-medium mb-4">출석률</h3>
-            <ResponsiveContainer width="100%" height={200}>
-              <RadialBarChart
-                cx="50%"
-                cy="50%"
-                innerRadius="70%"
-                outerRadius="100%"
-                barSize={20}
-                data={attendanceRadialData}
-                startAngle={90}
-                endAngle={-270}
-              >
-                <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
-                <RadialBar
-                  background={{ fill: 'hsl(var(--muted))' }}
-                  dataKey="value"
-                  cornerRadius={10}
-                />
-                <text
-                  x="50%"
-                  y="50%"
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  className="text-3xl font-bold fill-primary"
-                >
-                  {Math.round(attendanceRate)}%
-                </text>
-              </RadialBarChart>
-            </ResponsiveContainer>
-            <p className="text-sm text-muted-foreground mt-2 text-center">
-              총 {totalDays}회 중 {presentDays}회 출석
-              {lateDays > 0 && `, ${lateDays}회 지각`}
-              {absentDays > 0 && `, ${absentDays}회 결석`}
-            </p>
-          </div>
+      <div className="space-y-6">
+        {/* Attendance Calendar Heatmap */}
+        {reportData.attendanceChartData && reportData.attendanceChartData.length > 0 && (
+          <AttendanceHeatmap
+            data={reportData.attendanceChartData}
+            title="출석 현황"
+            description="월별 출석 캘린더"
+            year={calendarYear}
+            month={calendarMonth}
+          />
+        )}
 
-          {/* Homework Radial Chart */}
-          <div className="flex flex-col items-center">
-            <h3 className="font-medium mb-4">과제 달성률</h3>
-            <ResponsiveContainer width="100%" height={200}>
-              <RadialBarChart
-                cx="50%"
-                cy="50%"
-                innerRadius="70%"
-                outerRadius="100%"
-                barSize={20}
-                data={homeworkRadialData}
-                startAngle={90}
-                endAngle={-270}
-              >
-                <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
-                <RadialBar
-                  background={{ fill: 'hsl(var(--muted))' }}
-                  dataKey="value"
-                  cornerRadius={10}
-                />
-                <text
-                  x="50%"
-                  y="50%"
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  className="text-3xl font-bold"
-                  style={{ fill: 'hsl(142.1 76.2% 36.3%)' }}
+        {/* Homework Completion Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle>과제 달성률</CardTitle>
+            <CardDescription>이번 달 과제 완료 현황</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col items-center">
+              <ResponsiveContainer width="100%" height={200}>
+                <RadialBarChart
+                  cx="50%"
+                  cy="50%"
+                  innerRadius="70%"
+                  outerRadius="100%"
+                  barSize={20}
+                  data={homeworkRadialData}
+                  startAngle={90}
+                  endAngle={-270}
                 >
-                  {Math.round(homeworkRate)}%
-                </text>
-              </RadialBarChart>
-            </ResponsiveContainer>
-            <p className="text-sm text-muted-foreground mt-2 text-center">
-              총 {totalTodos}개 중 {completedTodos}개 완료
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+                  <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
+                  <RadialBar
+                    background={{ fill: 'hsl(var(--muted))' }}
+                    dataKey="value"
+                    cornerRadius={10}
+                  />
+                  <text
+                    x="50%"
+                    y="50%"
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    className="text-3xl font-bold"
+                    style={{ fill: 'hsl(142.1 76.2% 36.3%)' }}
+                  >
+                    {Math.round(homeworkRate)}%
+                  </text>
+                </RadialBarChart>
+              </ResponsiveContainer>
+              <p className="text-sm text-muted-foreground mt-2 text-center">
+                총 {totalTodos}개 중 {completedTodos}개 완료
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Scores by Category */}
       {reportData.scores && reportData.scores.length > 0 && (
@@ -411,8 +392,10 @@ ${reportData.comment.nextGoals}`
                           className="flex items-center justify-between text-sm"
                         >
                           <div>
-                            <span className="text-muted-foreground">{test.date}</span> -{' '}
-                            {test.name}
+                            <span className="text-muted-foreground">
+                              {formatKoreanDateShort(test.date)}
+                            </span>{' '}
+                            - {test.name}
                           </div>
                           <div className="font-medium">{test.percentage}%</div>
                         </div>
