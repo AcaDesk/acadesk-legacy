@@ -109,6 +109,21 @@ export async function createStudentComplete(
       const guardianEmail = guardianData.email || null
       const guardianPhone = guardianData.phone || null
 
+      // 이메일이 있는 경우, 중복 체크
+      if (guardianEmail) {
+        const { data: existingUser } = await serviceClient
+          .from('users')
+          .select('id, name')
+          .eq('email', guardianEmail)
+          .eq('tenant_id', tenantId)
+          .is('deleted_at', null)
+          .maybeSingle()
+
+        if (existingUser) {
+          throw new Error(`이메일 '${guardianEmail}'은(는) 이미 등록되어 있습니다. 학부모 검색에서 '${existingUser.name}'을(를) 선택하거나 다른 이메일을 사용해주세요.`)
+        }
+      }
+
       const { data: userData, error: userError } = await serviceClient
         .from('users')
         .insert({
@@ -125,6 +140,10 @@ export async function createStudentComplete(
         .single()
 
       if (userError || !userData) {
+        // 중복 에러인 경우 더 자세한 메시지 제공
+        if (userError?.code === '23505' && userError?.message?.includes('uq_users_email_active')) {
+          throw new Error(`이메일이 이미 사용 중입니다. 학부모 검색에서 기존 보호자를 선택하거나 다른 이메일을 사용해주세요.`)
+        }
         throw new Error('보호자 사용자 생성에 실패했습니다: ' + userError?.message)
       }
 
