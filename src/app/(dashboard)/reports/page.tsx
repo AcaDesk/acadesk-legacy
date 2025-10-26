@@ -19,36 +19,11 @@ import {
 import { Search, Eye, Download, Send, Plus, FileText, Users } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
-import type { ReportData } from '@/core/types/report.types'
+import type { ReportWithStudent, StudentForFilter } from '@/core/types/report.types'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
-
-interface Report {
-  id: string
-  report_type: string
-  period_start: string
-  period_end: string
-  content: ReportData
-  generated_at: string
-  sent_at: string | null
-  students: {
-    id: string
-    student_code: string
-    user_id: {
-      name: string
-    } | null
-  } | null
-}
-
-interface Student {
-  id: string
-  student_code: string
-  user_id: {
-    name: string
-  } | null
-}
 
 export default function ReportsPage() {
   // All Hooks must be called before any early returns
