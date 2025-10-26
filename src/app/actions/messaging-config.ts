@@ -249,12 +249,36 @@ export async function sendTestMessage(phoneNumber: string) {
       throw new Error('메시징 서비스 설정이 없습니다. 먼저 API 키를 등록해주세요.')
     }
 
-    // TODO: 실제 메시지 발송 로직 구현
-    // 현재는 설정 검증만 수행
-    const testMessage = 'Acadesk 메시징 서비스 테스트 메시지입니다.'
+    // Create provider instance based on configured provider
+    const provider = createMessagingProvider(config)
+    if (!provider) {
+      throw new Error(`지원되지 않는 메시징 제공자: ${config.provider}`)
+    }
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    // Import MessageChannel enum
+    const { MessageChannel } = await import('@/core/domain/messaging/IMessageProvider')
+
+    // Send test message
+    const testMessage = '[Acadesk] 메시징 서비스 테스트 메시지입니다. 정상적으로 연동되었습니다.'
+
+    const result = await provider.send({
+      channel: MessageChannel.SMS,
+      recipient: {
+        name: '테스트',
+        phone: phoneNumber,
+      },
+      content: {
+        body: testMessage,
+      },
+      metadata: {
+        tenantId,
+      },
+    })
+
+    // Check send result
+    if (!result.success) {
+      throw new Error(result.error || '메시지 발송 실패')
+    }
 
     // Update verification status
     await supabase
@@ -269,7 +293,7 @@ export async function sendTestMessage(phoneNumber: string) {
 
     return {
       success: true,
-      message: '테스트 메시지가 성공적으로 발송되었습니다.',
+      message: `테스트 메시지가 성공적으로 발송되었습니다. (발송 ID: ${result.messageId})`,
       error: null,
     }
   } catch (error) {
@@ -279,6 +303,37 @@ export async function sendTestMessage(phoneNumber: string) {
       message: null,
       error: getErrorMessage(error),
     }
+  }
+}
+
+/**
+ * Create messaging provider instance from config
+ */
+function createMessagingProvider(config: MessagingConfig) {
+  switch (config.provider) {
+    case 'aligo': {
+      const { createAligoProvider } = require('@/infra/messaging/AligoProvider')
+      return createAligoProvider({
+        apiKey: config.aligo_api_key || '',
+        userId: config.aligo_user_id || '',
+        senderPhone: config.aligo_sender_phone || '',
+      })
+    }
+    case 'solapi': {
+      const { createSolapiProvider } = require('@/infra/messaging/SolapiProvider')
+      return createSolapiProvider({
+        apiKey: config.solapi_api_key || '',
+        apiSecret: config.solapi_api_secret || '',
+        senderPhone: config.solapi_sender_phone || '',
+      })
+    }
+    case 'nhncloud': {
+      // TODO: Implement NHN Cloud provider
+      console.warn('[createMessagingProvider] NHN Cloud provider not implemented yet')
+      return null
+    }
+    default:
+      return null
   }
 }
 
