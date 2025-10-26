@@ -349,253 +349,43 @@ ${commentForm.nextGoals}`
         </div>
 
         <div ref={contentRef} className="max-w-5xl mx-auto space-y-6">
+          <ReportViewer
+            reportData={{
+              ...reportData,
+              studentName,
+              studentCode,
+              grade: studentGrade,
+            }}
+            onEditComment={handleEditComment}
+            showEditButton={true}
+          />
 
-        {/* Academy & Student Info Card */}
-        <Card>
-          <CardHeader>
-            <div className="space-y-4">
-              {/* Academy Info */}
-              <div className="space-y-2">
-                <h2 className="text-2xl font-bold text-primary">{academyName}</h2>
-                <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                  {academyPhone && (
-                    <span className="flex items-center gap-1">
-                      📞 {academyPhone}
-                    </span>
-                  )}
-                  {academyAddress && (
-                    <span className="flex items-center gap-1">
-                      📍 {academyAddress}
-                    </span>
-                  )}
-                  {academyEmail && (
-                    <span className="flex items-center gap-1">
-                      ✉️ {academyEmail}
-                    </span>
-                  )}
-                  {academyWebsite && (
-                    <span className="flex items-center gap-1">
-                      🌐 {academyWebsite}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Student Info */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-2xl">
-                    {studentName} ({studentCode})
-                  </CardTitle>
-                  <CardDescription className="mt-2">
-                    {studentGrade} | {report.students?.users?.email || '이메일 없음'}
-                  </CardDescription>
-                </div>
-                {report.sent_at && (
-                  <Badge variant="outline">
-                    전송 완료: {new Date(report.sent_at).toLocaleDateString('ko-KR')}
-                  </Badge>
-                )}
-              </div>
-            </div>
-          </CardHeader>
-        </Card>
-
-        {/* Growth Chart */}
-        {reportData.chartPoints && reportData.chartPoints.length > 0 && (
+          {/* Report Metadata */}
           <Card>
             <CardHeader>
-              <CardTitle>성장 추이</CardTitle>
-              <CardDescription>최근 월별 성적, 출석률, 과제 완료율 추이</CardDescription>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                리포트 정보
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <ReportGrowthChart chartPoints={reportData.chartPoints} />
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Attendance & Homework Summary */}
-        <div className="grid gap-6 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>출석 현황</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-5xl font-bold text-blue-600 mb-4">
-                {Math.round(attendanceRate)}%
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">총 출석일</span>
-                  <span className="font-medium">{attendanceTotal}일</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">출석</span>
-                  <span className="font-medium text-green-600">
-                    {attendancePresent}일
+              <div className="grid gap-4 md:grid-cols-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">생성일</span>
+                  <span className="font-medium">
+                    {new Date(report.generated_at).toLocaleString('ko-KR')}
                   </span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">지각</span>
-                  <span className="font-medium text-yellow-600">
-                    {attendanceLate}일
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">결석</span>
-                  <span className="font-medium text-red-600">
-                    {attendanceAbsent}일
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">전송일</span>
+                  <span className="font-medium">
+                    {report.sent_at
+                      ? new Date(report.sent_at).toLocaleString('ko-KR')
+                      : '미전송'}
                   </span>
                 </div>
               </div>
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>과제 완료율</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-5xl font-bold text-green-600 mb-4">
-                {Math.round(homeworkRate)}%
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">전체 과제</span>
-                  <span className="font-medium">{homeworkTotal}개</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">완료</span>
-                  <span className="font-medium text-green-600">
-                    {homeworkCompleted}개
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">미완료</span>
-                  <span className="font-medium text-red-600">
-                    {homeworkTotal - homeworkCompleted}개
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Scores by Category */}
-        <Card>
-          <CardHeader>
-            <CardTitle>영역별 성적</CardTitle>
-            <CardDescription>이번 기간 평균 점수 및 전월 대비 변화</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              {reportData.scores.map((score, idx) => (
-                <div key={idx}>
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <h4 className="text-lg font-semibold">{score.category}</h4>
-                      {score.change !== null && (
-                        <Badge variant={score.change > 0 ? 'default' : 'destructive'}>
-                          <div className="flex items-center gap-1">
-                            {getTrendIcon(score.change)}
-                            {Math.abs(score.change)}%
-                          </div>
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="text-3xl font-bold">{score.current}%</div>
-                  </div>
-
-                  {score.tests.length > 0 && (
-                    <div className="ml-4 space-y-3 border-l-2 border-muted pl-4">
-                      {score.tests.map((test, testIdx) => (
-                        <div key={testIdx} className="space-y-1">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <span className="font-medium">{test.name}</span>
-                              <span className="text-xs text-muted-foreground ml-2">
-                                {new Date(test.date).toLocaleDateString('ko-KR')}
-                              </span>
-                            </div>
-                            <Badge variant="outline">{test.percentage}%</Badge>
-                          </div>
-                          {test.feedback && (
-                            <p className="text-sm text-muted-foreground italic">
-                              &quot;{test.feedback}&quot;
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {idx < reportData.scores.length - 1 && <Separator className="mt-6" />}
-                </div>
-              ))}
-
-              {reportData.scores.length === 0 && (
-                <p className="text-center text-muted-foreground py-8">
-                  이번 기간에 응시한 시험이 없습니다.
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Instructor Comment */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>강사 코멘트</CardTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleEditComment}
-                className="print:hidden"
-              >
-                <Edit2 className="h-4 w-4 mr-2" />
-                코멘트 수정
-              </Button>
-            </div>
-            <CardDescription>
-              학생의 성장을 위한 맞춤형 피드백을 작성하세요
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm leading-relaxed whitespace-pre-line">
-              {reportData.overallComment || reportData.instructorComment || '코멘트가 없습니다.\n"코멘트 수정" 버튼을 클릭하여 구조화된 피드백을 작성해보세요.'}
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Report Metadata */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              리포트 정보
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">생성일</span>
-                <span className="font-medium">
-                  {new Date(report.generated_at).toLocaleString('ko-KR')}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">전송일</span>
-                <span className="font-medium">
-                  {report.sent_at
-                    ? new Date(report.sent_at).toLocaleString('ko-KR')
-                    : '미전송'}
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
         </div> {/* contentRef div */}
       </div> {/* space-y-6 div */}
 
