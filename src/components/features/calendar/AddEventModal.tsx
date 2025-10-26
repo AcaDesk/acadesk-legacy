@@ -35,6 +35,7 @@ import {
 import { Switch } from '@ui/switch'
 import { EVENT_TYPE_CONFIG } from '@/core/types/calendar'
 import { Plus, Loader2 } from 'lucide-react'
+import { DatePicker } from '@ui/date-picker'
 
 const eventFormSchema = z.object({
   title: z.string().min(1, '제목을 입력해주세요'),
@@ -216,7 +217,13 @@ export function AddEventModal({
                   <FormItem>
                     <FormLabel>시작 날짜 *</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <DatePicker
+                        value={field.value ? new Date(field.value) : undefined}
+                        onChange={(date) => {
+                          field.onChange(date ? date.toISOString().split('T')[0] : '');
+                        }}
+                        placeholder="시작 날짜 선택"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -248,7 +255,13 @@ export function AddEventModal({
                   <FormItem>
                     <FormLabel>종료 날짜 *</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <DatePicker
+                        value={field.value ? new Date(field.value) : undefined}
+                        onChange={(date) => {
+                          field.onChange(date ? date.toISOString().split('T')[0] : '');
+                        }}
+                        placeholder="종료 날짜 선택"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

@@ -165,7 +165,7 @@ export const TimePicker = React.forwardRef<HTMLButtonElement, TimePickerProps>(
             {value ? formatTimeDisplay(value) : placeholder}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align={align}>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align={align}>
           <ScrollArea className="h-[300px]">
             <div className="p-1">
               {timeOptions.map((time) => (

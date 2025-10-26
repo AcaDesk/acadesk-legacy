@@ -17,11 +17,12 @@ import {
   SelectValue,
 } from '@ui/select'
 import { Badge } from '@ui/badge'
-import { Search, BookCopy, Calendar, User } from 'lucide-react'
+import { Search, BookCopy, User } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { createHomework } from '@/app/actions/homeworks'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { DatePicker } from '@ui/date-picker'
 
 interface Student {
   id: string
@@ -44,7 +45,7 @@ export default function NewHomeworkPage() {
   const [description, setDescription] = useState('')
   const [subject, setSubject] = useState('')
   const [priority, setPriority] = useState<'low' | 'normal' | 'high' | 'urgent'>('normal')
-  const [dueDate, setDueDate] = useState('')
+  const [dueDate, setDueDate] = useState<Date | undefined>(undefined)
 
   const { toast } = useToast()
   const router = useRouter()
@@ -55,7 +56,7 @@ export default function NewHomeworkPage() {
     // Set default due date to 7 days from now
     const defaultDueDate = new Date()
     defaultDueDate.setDate(defaultDueDate.getDate() + 7)
-    setDueDate(defaultDueDate.toISOString().split('T')[0])
+    setDueDate(defaultDueDate)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -158,7 +159,7 @@ export default function NewHomeworkPage() {
         description: description.trim() || undefined,
         subject: subject.trim() || undefined,
         priority,
-        dueDate,
+        dueDate: dueDate.toISOString().split('T')[0],
       })
 
       if (!result.success) {
@@ -319,14 +320,11 @@ export default function NewHomeworkPage() {
 
                 <div>
                   <Label htmlFor="dueDate">마감일 *</Label>
-                  <div className="relative mt-2">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="dueDate"
-                      type="date"
+                  <div className="mt-2">
+                    <DatePicker
                       value={dueDate}
-                      onChange={(e) => setDueDate(e.target.value)}
-                      className="pl-10"
+                      onChange={setDueDate}
+                      placeholder="마감일 선택"
                     />
                   </div>
                 </div>

@@ -29,6 +29,7 @@ import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { FileText, AlertCircle, Loader2 } from 'lucide-react'
 import { Badge } from '@ui/badge'
+import { DatePicker } from '@ui/date-picker'
 
 const createInvoicesSchema = z.object({
   billing_month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, '올바른 월 형식이 아닙니다'),
@@ -70,6 +71,7 @@ export function CreateInvoicesDialog({
     register,
     handleSubmit,
     watch,
+    setValue,
     reset,
     formState: { errors },
   } = useForm<CreateInvoicesFormValues>({
@@ -303,10 +305,16 @@ export function CreateInvoicesDialog({
 
             <div className="space-y-2">
               <Label htmlFor="issue_date">발행일 *</Label>
-              <Input
-                id="issue_date"
-                type="date"
-                {...register('issue_date')}
+              <DatePicker
+                value={watch('issue_date') ? new Date(watch('issue_date')) : undefined}
+                onChange={(date) => {
+                  if (date) {
+                    setValue('issue_date', date.toISOString().split('T')[0], {
+                      shouldValidate: true,
+                    });
+                  }
+                }}
+                placeholder="발행일 선택"
               />
               {errors.issue_date && (
                 <p className="text-sm text-destructive">{errors.issue_date.message}</p>
@@ -315,10 +323,16 @@ export function CreateInvoicesDialog({
 
             <div className="space-y-2">
               <Label htmlFor="due_date">납부 기한 *</Label>
-              <Input
-                id="due_date"
-                type="date"
-                {...register('due_date')}
+              <DatePicker
+                value={watch('due_date') ? new Date(watch('due_date')) : undefined}
+                onChange={(date) => {
+                  if (date) {
+                    setValue('due_date', date.toISOString().split('T')[0], {
+                      shouldValidate: true,
+                    });
+                  }
+                }}
+                placeholder="납부 기한 선택"
               />
               {errors.due_date && (
                 <p className="text-sm text-destructive">{errors.due_date.message}</p>

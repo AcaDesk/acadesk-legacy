@@ -8,6 +8,7 @@ import { Button } from '@ui/button';
 import { Input } from '@ui/input';
 import { Textarea } from '@ui/textarea';
 import { TimeRangePicker } from '@ui/time-range-picker';
+import { DatePicker } from '@ui/date-picker';
 
 interface AttendanceSessionFormProps {
   classes: Array<{ id: string; name: string }>;
@@ -36,6 +37,11 @@ export function AttendanceSessionForm({
       scheduled_end_at: '',
     },
   });
+
+  // Convert string date to Date object for DatePicker
+  const sessionDateValue = watch('session_date')
+    ? new Date(watch('session_date'))
+    : undefined;
 
   const onFormSubmit = async (data: CreateSessionInput) => {
     try {
@@ -86,9 +92,17 @@ export function AttendanceSessionForm({
         <label className="block text-sm font-medium mb-2">
           수업 날짜 <span className="text-red-500">*</span>
         </label>
-        <Input
-          type="date"
-          {...register('session_date')}
+        <DatePicker
+          value={sessionDateValue}
+          onChange={(date) => {
+            if (date) {
+              setValue('session_date', date.toISOString().split('T')[0], {
+                shouldValidate: true,
+              });
+            }
+          }}
+          placeholder="날짜 선택"
+          isDisabled={isSubmitting}
           className={errors.session_date ? 'border-red-500' : ''}
         />
         {errors.session_date && (
