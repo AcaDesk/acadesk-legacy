@@ -16,11 +16,10 @@ import {
   TableHeader,
   TableRow,
 } from '@ui/table'
-import { Search, Eye, Download, Send, Plus, FileText, ChevronRight } from 'lucide-react'
+import { Search, Eye, Download, Send, Plus, FileText } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import type { ReportData } from '@/core/types/report.types'
-import Link from 'next/link'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
@@ -237,29 +236,17 @@ export default function ReportsListPage() {
   }
 
   return (
-    <PageWrapper>
+    <PageWrapper
+      title="리포트 목록"
+      subtitle="생성된 모든 리포트를 조회하고 관리합니다"
+      actions={
+        <Button onClick={() => router.push('/reports')}>
+          <Plus className="h-4 w-4 mr-2" />
+          리포트 생성
+        </Button>
+      }
+    >
       <div className="space-y-6">
-        {/* Header */}
-        <div className="space-y-4">
-          <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Link href="/reports" className="hover:text-foreground transition-colors">
-              리포트 관리
-            </Link>
-            <ChevronRight className="h-4 w-4" />
-            <span className="text-foreground font-medium">리포트 목록</span>
-          </nav>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold">리포트 목록</h1>
-              <p className="text-muted-foreground">생성된 모든 리포트를 조회하고 관리합니다</p>
-            </div>
-            <Button onClick={() => router.push('/reports')}>
-              <Plus className="h-4 w-4 mr-2" />
-              리포트 생성
-            </Button>
-          </div>
-        </div>
 
         {/* Filters */}
         <div className="flex flex-col gap-4 sm:flex-row">
