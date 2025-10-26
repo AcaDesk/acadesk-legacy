@@ -103,7 +103,7 @@ export interface ReportData {
   instructorComment?: string
   overallComment?: string
 
-  // Chart data
+  // Chart data for visualization
   gradesChartData?: Array<{
     examName: string
     score: number
@@ -114,6 +114,19 @@ export interface ReportData {
     date: Date
     status: 'present' | 'late' | 'absent' | 'none'
     note?: string
+  }>
+
+  // New data for enhanced visualization
+  currentScore?: {
+    myScore: number
+    classAverage: number
+    highestScore: number
+  }
+
+  scoreTrend?: Array<{
+    name: string
+    '내 점수': number
+    '반 평균': number
   }>
 
   // Additional fields for compatibility
