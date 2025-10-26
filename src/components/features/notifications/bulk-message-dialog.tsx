@@ -148,8 +148,14 @@ export function BulkMessageDialog({
           student_code,
           grade,
           users!inner(
-            name,
-            phone
+            name
+          ),
+          student_guardians(
+            guardians(
+              users(
+                phone
+              )
+            )
           )
         `)
         .is('deleted_at', null)
@@ -157,14 +163,20 @@ export function BulkMessageDialog({
 
       if (error) throw error
 
-      const studentList = (data || []).map((s: any) => ({
-        id: s.id,
-        student_code: s.student_code,
-        name: s.users?.name || '-',
-        phone: s.users?.phone || null,
-        grade: s.grade || null,
-        selected: true, // 기본적으로 모두 선택
-      }))
+      const studentList = (data || []).map((s: any) => {
+        // Get primary guardian's phone (first guardian if available)
+        const guardians = s.student_guardians || []
+        const guardianPhone = guardians[0]?.guardians?.users?.phone || null
+
+        return {
+          id: s.id,
+          student_code: s.student_code,
+          name: s.users?.name || '-',
+          phone: guardianPhone,
+          grade: s.grade || null,
+          selected: true, // 기본적으로 모두 선택
+        }
+      })
 
       setStudents(studentList)
     } catch (error) {
@@ -383,7 +395,7 @@ export function BulkMessageDialog({
                       </TableHead>
                       <TableHead>학생</TableHead>
                       <TableHead>학년</TableHead>
-                      <TableHead>전화번호</TableHead>
+                      <TableHead>학부모 전화번호</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

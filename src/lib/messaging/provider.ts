@@ -40,6 +40,7 @@ export interface SendMessageOptions {
  * 통합 메시지 발송
  *
  * SMS, LMS, MMS를 단일 인터페이스로 발송합니다.
+ * tenant의 messaging config에 설정된 provider를 사용합니다.
  *
  * @param options.type - 'sms', 'lms', 'mms'
  * @param options.to - 수신자 전화번호
@@ -58,13 +59,88 @@ export async function sendMessage({
   success: boolean
   error?: string
 }> {
-  // All types (SMS, LMS, MMS) use the same provider
-  // The provider will automatically determine the message type based on content length
-  return await sendAligoSMS({
-    to: [to],
-    message,
-    subject,
-  })
+  try {
+    // Get tenant's messaging config
+    const { createServiceRoleClient } = await import('@/lib/supabase/service-role')
+    const { verifyStaff } = await import('@/lib/auth/verify-permission')
+
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    const { data: config, error: configError } = await supabase
+      .from('tenant_messaging_config')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true)
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (configError) {
+      throw new Error('메시징 설정을 가져오는 중 오류가 발생했습니다: ' + configError.message)
+    }
+
+    if (!config) {
+      throw new Error('활성화된 메시징 서비스가 없습니다. 설정 페이지에서 메시징 서비스를 설정하고 활성화해주세요.')
+    }
+
+    // Create provider based on config
+    if (config.provider === 'aligo') {
+      return await sendAligoSMS({
+        to: [to],
+        message,
+        subject,
+      })
+    } else if (config.provider === 'solapi') {
+      const { SolapiProvider } = await import('@/infra/messaging/SolapiProvider')
+      const { MessageChannel } = await import('@/core/domain/messaging/IMessageProvider')
+
+      const provider = new SolapiProvider({
+        apiKey: config.solapi_api_key || '',
+        apiSecret: config.solapi_api_secret || '',
+        senderPhone: config.solapi_sender_phone || '',
+      })
+
+      // Map type to MessageChannel
+      let channel: typeof MessageChannel[keyof typeof MessageChannel]
+      if (type === 'lms') {
+        channel = MessageChannel.LMS
+      } else if (type === 'mms') {
+        channel = MessageChannel.MMS
+      } else {
+        channel = MessageChannel.SMS
+      }
+
+      const result = await provider.send({
+        channel,
+        recipient: {
+          name: '', // Name not required for SMS
+          phone: to,
+        },
+        content: {
+          body: message,
+          subject: subject,
+        },
+        metadata: {
+          tenantId,
+        },
+      })
+
+      return {
+        success: result.success,
+        error: result.error,
+      }
+    } else if (config.provider === 'nhncloud') {
+      throw new Error('NHN Cloud provider는 아직 구현되지 않았습니다.')
+    }
+
+    throw new Error('지원되지 않는 메시징 provider입니다: ' + config.provider)
+  } catch (error) {
+    console.error('[sendMessage] Error:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '메시지 발송 중 오류가 발생했습니다',
+    }
+  }
 }
 
 /**

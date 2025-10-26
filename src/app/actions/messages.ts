@@ -516,9 +516,9 @@ export async function getMessageHistory(filters?: {
     if (config.provider === 'solapi') {
       const { SolapiProvider } = await import('@/infra/messaging/SolapiProvider')
       const provider = new SolapiProvider({
-        apiKey: config.api_key || '',
-        apiSecret: config.api_secret || '',
-        senderPhone: config.sender_phone || '',
+        apiKey: config.solapi_api_key || '',
+        apiSecret: config.solapi_api_secret || '',
+        senderPhone: config.solapi_sender_phone || '',
       })
 
       const result = await provider.getMessages(filters)
@@ -576,9 +576,9 @@ export async function getMessageStatistics(filters?: {
     if (config.provider === 'solapi') {
       const { SolapiProvider } = await import('@/infra/messaging/SolapiProvider')
       const provider = new SolapiProvider({
-        apiKey: config.api_key || '',
-        apiSecret: config.api_secret || '',
-        senderPhone: config.sender_phone || '',
+        apiKey: config.solapi_api_key || '',
+        apiSecret: config.solapi_api_secret || '',
+        senderPhone: config.solapi_sender_phone || '',
       })
 
       const result = await provider.getStatistics(filters?.startDate, filters?.endDate)
