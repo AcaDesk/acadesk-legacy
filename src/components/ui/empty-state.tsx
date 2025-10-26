@@ -1,4 +1,4 @@
-import { ReactNode } from 'react'
+import { ReactNode, isValidElement } from 'react'
 import { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { emptyState } from '@/lib/design-system'
@@ -111,23 +111,24 @@ export function EmptyState({
 
   const defaultIconClassName = iconClassName || emptyState.icon
 
-  // Check if icon is a LucideIcon component or ReactNode
-  const isLucideIcon = typeof icon === 'function'
+  // Check if icon is already a ReactElement (rendered component)
+  // If not, treat it as a LucideIcon component that needs to be instantiated
+  const isReactElement = isValidElement(icon)
 
   return (
     <div className={cn(containerStyles[variant], className)}>
       {/* Icon */}
       {icon && (
-        <div className={cn('mb-4', !isLucideIcon && defaultIconClassName)} aria-hidden="true">
-          {isLucideIcon ? (
-            // LucideIcon component
+        <div className={cn('mb-4', isReactElement && defaultIconClassName)} aria-hidden="true">
+          {isReactElement ? (
+            // Already rendered ReactNode
+            icon
+          ) : (
+            // LucideIcon component - need to instantiate
             (() => {
               const IconComponent = icon as LucideIcon
               return <IconComponent className={defaultIconClassName} />
             })()
-          ) : (
-            // ReactNode
-            icon
           )}
         </div>
       )}
