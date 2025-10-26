@@ -99,8 +99,8 @@ export class SolapiProvider implements IMessageProvider {
       // SDK send 메서드 호출
       const response = await this.messageService.send(messageObject)
 
-      // 성공 응답
-      if (!response.groupId) {
+      // 성공 응답 - groupInfo에서 groupId 추출
+      if (!response.groupInfo?.groupId) {
         return {
           success: false,
           error: 'Solapi API did not return a group ID',
@@ -109,7 +109,7 @@ export class SolapiProvider implements IMessageProvider {
 
       return {
         success: true,
-        messageId: response.groupId,
+        messageId: response.groupInfo.groupId,
         cost: messageType === 'SMS' ? 8 : 24, // SMS: 8원, LMS: 24원 (예상)
       }
     } catch (error) {
@@ -162,14 +162,17 @@ export class SolapiProvider implements IMessageProvider {
         groupId: messageId,
       })
 
+      // messageList는 Record<string, Message> 타입이므로 배열로 변환
+      const messageArray = messages.messageList ? Object.values(messages.messageList) : []
+
       // 첫 번째 메시지의 상태 확인
-      if (!messages || !messages.messageList || messages.messageList.length === 0) {
+      if (messageArray.length === 0) {
         return {
           status: DeliveryStatus.PENDING,
         }
       }
 
-      const message = messages.messageList[0]
+      const message: any = messageArray[0]
 
       // 상태 매핑
       switch (message.statusCode) {
@@ -180,12 +183,12 @@ export class SolapiProvider implements IMessageProvider {
         case 'COMPLETE':
           return {
             status: DeliveryStatus.DELIVERED,
-            deliveredAt: message.sentAt ? new Date(message.sentAt) : undefined,
+            deliveredAt: message.dateUpdated ? new Date(message.dateUpdated) : undefined,
           }
         case 'FAILED':
           return {
             status: DeliveryStatus.FAILED,
-            failureReason: message.reason || '전송 실패',
+            failureReason: message.reason || message.statusMessage || '전송 실패',
           }
         default:
           return { status: DeliveryStatus.PENDING }
@@ -234,9 +237,12 @@ export class SolapiProvider implements IMessageProvider {
 
       const result = await this.messageService.getMessages(params)
 
+      // messageList는 Record<string, Message> 타입이므로 배열로 변환
+      const messageArray = result.messageList ? Object.values(result.messageList) : []
+
       return {
-        messageList: result.messageList || [],
-        totalCount: result.totalCount || 0,
+        messageList: messageArray,
+        totalCount: messageArray.length,
         nextKey: result.nextKey,
       }
     } catch (error) {
