@@ -2,21 +2,15 @@
 
 import { useState, useEffect } from 'react'
 import { Button } from '@ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@ui/dialog'
-import { Checkbox } from '@ui/checkbox'
-import { Input } from '@ui/input'
 import { Badge } from '@ui/badge'
-import { Search, UserPlus, Users } from 'lucide-react'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@ui/dialog'
+import { UserPlus, Users } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { createClient } from '@/lib/supabase/client'
-import { ScrollArea } from '@ui/scroll-area'
 import { useCurrentUser } from '@/hooks/use-current-user'
+import { StudentSearch, type Student as StudentSearchStudent } from '@/components/features/students/student-search'
 
-interface Student {
-  id: string
-  student_code: string
-  name: string
-  grade: string | null
+interface Student extends StudentSearchStudent {
   isAssigned: boolean
 }
 
@@ -40,8 +34,7 @@ export function AssignStudentsDialog({
   const { user: currentUser } = useCurrentUser()
 
   const [students, setStudents] = useState<Student[]>([])
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -85,7 +78,7 @@ export function AssignStudentsDialog({
       setStudents(studentList)
 
       // Pre-select assigned students
-      setSelectedIds(assignedIds)
+      setSelectedIds(Array.from(assignedIds))
     } catch (error) {
       console.error('Error loading students:', error)
       toast({
@@ -118,18 +111,17 @@ export function AssignStudentsDialog({
 
       if (error) throw error
 
-      const classStudentIds = new Set(enrollments?.map(e => e.student_id) || [])
+      const classStudentIds = enrollments?.map(e => e.student_id) || []
 
       // Add to selected
       setSelectedIds(prev => {
-        const newSet = new Set(prev)
-        classStudentIds.forEach(id => newSet.add(id))
-        return newSet
+        const newSet = new Set([...prev, ...classStudentIds])
+        return Array.from(newSet)
       })
 
       toast({
         title: '수업 학생 배정 완료',
-        description: `${classStudentIds.size}명의 학생이 선택되었습니다.`,
+        description: `${classStudentIds.length}명의 학생이 선택되었습니다.`,
       })
     } catch (error) {
       console.error('Error loading class students:', error)
@@ -138,26 +130,6 @@ export function AssignStudentsDialog({
         description: '수업 학생을 불러오는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
-    }
-  }
-
-  function toggleStudent(studentId: string) {
-    setSelectedIds(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(studentId)) {
-        newSet.delete(studentId)
-      } else {
-        newSet.add(studentId)
-      }
-      return newSet
-    })
-  }
-
-  function toggleAll() {
-    if (selectedIds.size === filteredStudents.length) {
-      setSelectedIds(new Set())
-    } else {
-      setSelectedIds(new Set(filteredStudents.map(s => s.id)))
     }
   }
 
@@ -176,12 +148,13 @@ export function AssignStudentsDialog({
 
       // Get currently assigned students
       const currentlyAssigned = new Set(students.filter(s => s.isAssigned).map(s => s.id))
+      const selectedSet = new Set(selectedIds)
 
       // Students to add (selected but not currently assigned)
-      const toAdd = Array.from(selectedIds).filter(id => !currentlyAssigned.has(id))
+      const toAdd = selectedIds.filter(id => !currentlyAssigned.has(id))
 
       // Students to remove (currently assigned but not selected)
-      const toRemove = Array.from(currentlyAssigned).filter(id => !selectedIds.has(id))
+      const toRemove = Array.from(currentlyAssigned).filter(id => !selectedSet.has(id))
 
       // Add new students
       if (toAdd.length > 0) {
@@ -213,7 +186,7 @@ export function AssignStudentsDialog({
 
       toast({
         title: '배정 완료',
-        description: `${selectedIds.size}명의 학생이 배정되었습니다.`,
+        description: `${selectedIds.length}명의 학생이 배정되었습니다.`,
       })
 
       onSuccess()
@@ -229,15 +202,6 @@ export function AssignStudentsDialog({
     }
   }
 
-  const filteredStudents = students.filter(student => {
-    if (!searchTerm) return true
-    const search = searchTerm.toLowerCase()
-    return (
-      student.name.toLowerCase().includes(search) ||
-      student.student_code.toLowerCase().includes(search)
-    )
-  })
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[80vh]">
@@ -248,97 +212,44 @@ export function AssignStudentsDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Quick Actions */}
-          <div className="flex items-center gap-2">
-            {classId && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleAssignFromClass}
-              >
-                <Users className="h-4 w-4 mr-2" />
-                수업 학생 전체 선택
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={toggleAll}
-            >
-              {selectedIds.size === filteredStudents.length ? '전체 해제' : '전체 선택'}
-            </Button>
-            <div className="ml-auto">
-              <Badge variant="secondary">
-                {selectedIds.size}명 선택됨
+        <StudentSearch
+          mode="multiple"
+          variant="checkbox-list"
+          students={students}
+          value={selectedIds}
+          onChange={setSelectedIds}
+          loading={loading}
+          searchable={true}
+          showSelectAll={true}
+          showSelectedCount={true}
+          placeholder="학생 검색..."
+          renderBadge={(student) =>
+            (student as Student).isAssigned ? (
+              <Badge variant="outline" className="text-xs">
+                기배정
               </Badge>
-            </div>
-          </div>
-
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="학생 검색..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-
-          {/* Students List */}
-          <ScrollArea className="h-[400px] border rounded-lg p-4">
-            {loading ? (
-              <div className="text-center py-8 text-muted-foreground">
-                로딩 중...
-              </div>
-            ) : filteredStudents.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                검색 결과가 없습니다.
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {filteredStudents.map((student) => (
-                  <div
-                    key={student.id}
-                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                    onClick={() => toggleStudent(student.id)}
-                  >
-                    <Checkbox
-                      checked={selectedIds.has(student.id)}
-                      onCheckedChange={() => toggleStudent(student.id)}
-                    />
-                    <div className="flex-1">
-                      <div className="font-medium">{student.name}</div>
-                      <div className="text-sm text-muted-foreground flex items-center gap-2">
-                        <span>{student.student_code}</span>
-                        {student.grade && (
-                          <>
-                            <span>·</span>
-                            <span>{student.grade}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    {student.isAssigned && (
-                      <Badge variant="outline" className="text-xs">
-                        기배정
-                      </Badge>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </ScrollArea>
-        </div>
+            ) : null
+          }
+          quickActions={
+            classId
+              ? [
+                  {
+                    label: '수업 학생 전체 선택',
+                    icon: <Users className="h-4 w-4 mr-2" />,
+                    onClick: handleAssignFromClass,
+                  },
+                ]
+              : undefined
+          }
+        />
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             취소
           </Button>
-          <Button onClick={handleSave} disabled={saving || selectedIds.size === 0}>
+          <Button onClick={handleSave} disabled={saving || selectedIds.length === 0}>
             <UserPlus className="h-4 w-4 mr-2" />
-            {saving ? '배정 중...' : `${selectedIds.size}명 배정`}
+            {saving ? '배정 중...' : `${selectedIds.length}명 배정`}
           </Button>
         </DialogFooter>
       </DialogContent>
