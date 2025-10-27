@@ -145,79 +145,24 @@ export default async function ReportSharePage({ params }: PageProps) {
     console.error('[ReportSharePage] Error logging read:', error)
   }
 
-  // 5. Prepare data for ReportViewer (content 데이터 사용)
-  const viewerData = {
-    ...reportData,
-    // content에 이미 모든 정보가 포함되어 있음
-    academy: reportData.academy || {
-      name: '학원',
-      phone: null,
-      email: null,
-      address: null,
-      website: null,
-    },
-  }
-
-  const academyName = viewerData.academy?.name || '학원'
-  const currentYear = new Date().getFullYear()
+  // 5. Extract student info from report data
+  const studentName = reportData.studentName || reportData.student?.name || '학생'
+  const studentCode = reportData.studentCode || reportData.student?.student_code || ''
+  const studentGrade = reportData.grade || reportData.student?.grade || ''
+  const academyName = reportData.academy?.name || '학원'
 
   return (
-    <div className="min-h-screen bg-muted/20 py-4 sm:py-8 px-3 sm:px-4">
-      <div className="max-w-5xl mx-auto space-y-6">
-        {/* Page Header - Academy Branding */}
-        <div className="text-center space-y-2">
-          <h1 className="text-2xl sm:text-3xl font-bold text-primary">{academyName}</h1>
-          <p className="text-sm text-muted-foreground">학생 학습 리포트</p>
-        </div>
-
-        {/* Report Content */}
-        <ReportViewer
-          reportData={viewerData}
-          showEditButton={false}
-        />
-
-        {/* Footer - Enhanced with branding */}
-        <Card className="bg-muted/30 border-t-4 border-t-primary/20">
-          <CardContent className="pt-6 pb-6">
-            <div className="space-y-4">
-              {/* Report metadata */}
-              <div className="text-center text-xs sm:text-sm text-muted-foreground space-y-1.5 pb-4 border-b">
-                <p className="font-medium">리포트 정보</p>
-                <p>생성일: {new Date(report.generated_at).toLocaleDateString('ko-KR')}</p>
-                {reportSend.recipient_name && (
-                  <p>수신자: {reportSend.recipient_name} 님</p>
-                )}
-                {reportSend.link_expires_at && (
-                  <p className="text-[10px] sm:text-xs text-muted-foreground/80">
-                    링크 만료일: {new Date(reportSend.link_expires_at).toLocaleDateString('ko-KR')}
-                  </p>
-                )}
-              </div>
-
-              {/* Academy footer info */}
-              <div className="text-center space-y-2">
-                {viewerData.academy && (viewerData.academy.phone || viewerData.academy.email) && (
-                  <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                    {viewerData.academy.phone && (
-                      <span className="flex items-center gap-1">
-                        📞 {viewerData.academy.phone}
-                      </span>
-                    )}
-                    {viewerData.academy.email && (
-                      <span className="flex items-center gap-1">
-                        ✉️ {viewerData.academy.email}
-                      </span>
-                    )}
-                  </div>
-                )}
-                <p className="text-xs text-muted-foreground/60">
-                  © {currentYear} {academyName}. All rights reserved.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+    <ReportShareViewer
+      reportData={reportData}
+      studentName={studentName}
+      studentCode={studentCode}
+      studentGrade={studentGrade}
+      periodStart={report.period_start}
+      periodEnd={report.period_end}
+      generatedAt={report.generated_at}
+      recipientName={reportSend.recipient_name || undefined}
+      linkExpiresAt={reportSend.link_expires_at}
+      academyName={academyName}
+    />
   )
 }
