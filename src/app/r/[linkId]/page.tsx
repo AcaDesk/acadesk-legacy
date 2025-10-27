@@ -25,6 +25,7 @@ export default async function ReportSharePage({ params }: PageProps) {
   const supabase = await createClient()
 
   // 1. share_link_id로 report_send 조회
+  // Note: students, tenants JOIN은 RLS 문제로 제거
   const { data: reportSend, error: sendError } = await supabase
     .from('report_sends')
     .select(`
@@ -40,39 +41,33 @@ export default async function ReportSharePage({ params }: PageProps) {
         period_start,
         period_end,
         content,
-        generated_at,
-        students (
-          id,
-          student_code,
-          grade,
-          users (
-            name,
-            email
-          )
-        ),
-        tenants (
-          name,
-          phone,
-          email,
-          address,
-          website
-        )
+        generated_at
       )
     `)
     .eq('share_link_id', linkId)
     .is('deleted_at', null)
     .maybeSingle()
 
-  if (sendError || !reportSend) {
+  console.log('[ReportSharePage] linkId:', linkId)
+  console.log('[ReportSharePage] sendError:', sendError)
+  console.log('[ReportSharePage] reportSend:', reportSend ? 'found' : 'not found')
+
+  if (sendError) {
+    console.error('[ReportSharePage] Query error:', sendError)
+    notFound()
+  }
+
+  if (!reportSend) {
+    console.error('[ReportSharePage] No report_send found for linkId:', linkId)
     notFound()
   }
 
   // 2. 링크 만료 확인
   if (reportSend.link_expires_at && new Date(reportSend.link_expires_at) < new Date()) {
-    // Extract tenant info for expired page
+    // Extract tenant info for expired page (content에서만 가져옴)
     const expiredReport = reportSend.reports as any
-    const academyName = expiredReport?.tenants?.name || expiredReport?.content?.academy?.name || '학원'
-    const academyPhone = expiredReport?.tenants?.phone || expiredReport?.content?.academy?.phone
+    const academyName = expiredReport?.content?.academy?.name || '학원'
+    const academyPhone = expiredReport?.content?.academy?.phone
 
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
@@ -117,25 +112,10 @@ export default async function ReportSharePage({ params }: PageProps) {
     period_end: string
     content: ReportData
     generated_at: string
-    students?: {
-      id: string
-      student_code: string
-      grade: string
-      users?: {
-        name: string
-        email: string
-      }
-    }
-    tenants?: {
-      name: string
-      phone: string | null
-      email: string | null
-      address: string | null
-      website: string | null
-    }
   }
 
   if (!report) {
+    console.error('[ReportSharePage] No report data in reportSend')
     notFound()
   }
 
@@ -165,19 +145,11 @@ export default async function ReportSharePage({ params }: PageProps) {
     console.error('[ReportSharePage] Error logging read:', error)
   }
 
-  // 5. Prepare data for ReportViewer
+  // 5. Prepare data for ReportViewer (content 데이터 사용)
   const viewerData = {
     ...reportData,
-    studentName: report.students?.users?.name || reportData.studentName,
-    studentCode: report.students?.student_code || reportData.studentCode,
-    grade: report.students?.grade || reportData.grade,
-    academy: report.tenants ? {
-      name: report.tenants.name,
-      phone: report.tenants.phone,
-      email: report.tenants.email,
-      address: report.tenants.address,
-      website: report.tenants.website,
-    } : reportData.academy || {
+    // content에 이미 모든 정보가 포함되어 있음
+    academy: reportData.academy || {
       name: '학원',
       phone: null,
       email: null,
@@ -186,7 +158,7 @@ export default async function ReportSharePage({ params }: PageProps) {
     },
   }
 
-  const academyName = report.tenants?.name || viewerData.academy?.name || '학원'
+  const academyName = viewerData.academy?.name || '학원'
   const currentYear = new Date().getFullYear()
 
   return (
@@ -224,16 +196,16 @@ export default async function ReportSharePage({ params }: PageProps) {
 
               {/* Academy footer info */}
               <div className="text-center space-y-2">
-                {report.tenants && (
+                {viewerData.academy && (viewerData.academy.phone || viewerData.academy.email) && (
                   <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                    {report.tenants.phone && (
+                    {viewerData.academy.phone && (
                       <span className="flex items-center gap-1">
-                        📞 {report.tenants.phone}
+                        📞 {viewerData.academy.phone}
                       </span>
                     )}
-                    {report.tenants.email && (
+                    {viewerData.academy.email && (
                       <span className="flex items-center gap-1">
-                        ✉️ {report.tenants.email}
+                        ✉️ {viewerData.academy.email}
                       </span>
                     )}
                   </div>
