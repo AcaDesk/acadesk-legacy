@@ -390,43 +390,6 @@ export function BulkMessageDialog({
             </div>
           )}
 
-          {/* Message Content */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="message">메시지 내용 *</Label>
-              <Badge variant="outline">
-                {message.length} / {typeInfo.maxLengthKor}자
-              </Badge>
-            </div>
-            <Textarea
-              id="message"
-              placeholder="메시지 내용을 입력하세요. 변수: {학생명}, {학생번호}, {학년}, {학원명}, {보호자명}"
-              rows={6}
-              {...register('message')}
-            />
-            {errors.message && (
-              <p className="text-sm text-destructive">{errors.message.message}</p>
-            )}
-
-            {/* 변수 사용 가이드 */}
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertDescription>
-                <p className="text-xs font-medium mb-1">사용 가능한 변수</p>
-                <div className="grid grid-cols-2 gap-1 text-xs text-muted-foreground">
-                  <span>• {'{학생명}'}: 학생 이름</span>
-                  <span>• {'{학생번호}'}: 학생 코드</span>
-                  <span>• {'{학년}'}: 학년</span>
-                  <span>• {'{학원명}'}: 학원 이름</span>
-                  <span>• {'{보호자명}'}: 보호자 이름</span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  예: "안녕하세요 {'{보호자명}'}님, {'{학생명}'} 학생의 이번 주 출석률은 100%입니다."
-                </p>
-              </AlertDescription>
-            </Alert>
-          </div>
-
           {/* Student List */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -546,9 +509,24 @@ export function BulkMessageDialog({
                 </p>
               )}
             </div>
-            <p className="text-xs text-muted-foreground">
-              💡 사용 가능한 변수: {'{학생명}'}, {'{학생코드}'}, {'{학년}'}
-            </p>
+
+            {/* 변수 사용 가이드 */}
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                <p className="text-xs font-medium mb-1">사용 가능한 변수</p>
+                <div className="grid grid-cols-2 gap-1 text-xs text-muted-foreground">
+                  <span>• {'{학생명}'}: 학생 이름</span>
+                  <span>• {'{학생번호}'}: 학생 코드</span>
+                  <span>• {'{학년}'}: 학년</span>
+                  <span>• {'{학원명}'}: 학원 이름</span>
+                  <span>• {'{보호자명}'}: 보호자 이름</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  예: "안녕하세요 {'{보호자명}'}님, {'{학생명}'} 학생의 이번 주 출석률은 100%입니다."
+                </p>
+              </AlertDescription>
+            </Alert>
           </div>
 
           {/* Preview */}

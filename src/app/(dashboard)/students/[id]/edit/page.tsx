@@ -16,7 +16,9 @@ import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { getErrorMessage } from '@/lib/error-handlers'
 import { getStudentDetail, updateStudent } from '@/app/actions/students'
+import { getTenantCodes } from '@/app/actions/tenant'
 import { GradeSelector } from '@/components/features/common/grade-selector'
+import { SchoolSelector } from '@/components/features/common/school-selector'
 
 const studentSchema = z.object({
   name: z.string().min(2, '이름은 최소 2자 이상이어야 합니다'),
@@ -53,6 +55,7 @@ export default function EditStudentPage() {
   const [loading, setLoading] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
   const [student, setStudent] = useState<StudentData | null>(null)
+  const [schools, setSchools] = useState<string[]>([])
   const router = useRouter()
   const { toast } = useToast()
 
@@ -74,6 +77,34 @@ export default function EditStudentPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id])
+
+  useEffect(() => {
+    loadSchools()
+  }, [])
+
+  async function loadSchools() {
+    try {
+      const result = await getTenantCodes('school')
+
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '학교 목록 조회 실패')
+      }
+
+      // 데이터가 있으면 사용, 없으면 기본 학교 목록 사용
+      if (result.data.length > 0) {
+        setSchools(result.data)
+      } else {
+        // tenant_codes 테이블이 비어있거나 없는 경우 기본 목록 사용
+        const { DEFAULT_SCHOOLS } = await import('@/lib/constants')
+        setSchools([...DEFAULT_SCHOOLS])
+      }
+    } catch (error) {
+      // 테이블이 존재하지 않거나 RLS 에러 등이 발생하면 기본 목록 사용
+      console.warn('tenant_codes 테이블을 사용할 수 없습니다. 기본 학교 목록을 사용합니다:', error)
+      const { DEFAULT_SCHOOLS } = await import('@/lib/constants')
+      setSchools([...DEFAULT_SCHOOLS])
+    }
+  }
 
   async function loadStudentData(studentId: string) {
     try {
@@ -238,10 +269,11 @@ export default function EditStudentPage() {
               <div className="grid gap-6 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="school">학교</Label>
-                  <Input
-                    id="school"
-                    placeholder="서울초등학교"
-                    {...register('school')}
+                  <SchoolSelector
+                    value={watch('school') || ''}
+                    onChange={(value) => setValue('school', value)}
+                    schools={schools}
+                    placeholder="학교 선택 또는 입력..."
                   />
                 </div>
 
