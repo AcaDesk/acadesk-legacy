@@ -53,14 +53,14 @@ export default async function ReportSharePage({ params }: PageProps) {
   // 2. 링크 만료 확인
   if (reportSend.link_expires_at && new Date(reportSend.link_expires_at) < new Date()) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Card className="max-w-md">
-          <CardHeader>
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="max-w-md w-full">
+          <CardHeader className="space-y-3">
             <div className="flex items-center gap-2 text-destructive">
-              <AlertCircle className="h-5 w-5" />
-              <CardTitle>링크가 만료되었습니다</CardTitle>
+              <AlertCircle className="h-5 w-5 flex-shrink-0" />
+              <CardTitle className="text-base sm:text-lg">링크가 만료되었습니다</CardTitle>
             </div>
-            <CardDescription>
+            <CardDescription className="text-xs sm:text-sm">
               이 리포트 링크는 만료되었습니다. 학원에 문의하여 새로운 링크를 받아주세요.
             </CardDescription>
           </CardHeader>
@@ -114,7 +114,7 @@ export default async function ReportSharePage({ params }: PageProps) {
   const periodEnd = new Date(report.period_end)
 
   return (
-    <div className="min-h-screen bg-background py-8 px-4">
+    <div className="min-h-screen bg-background py-4 sm:py-8 px-3 sm:px-4">
       <div className="max-w-4xl mx-auto">
         <ReportPrintView
           reportData={reportData}

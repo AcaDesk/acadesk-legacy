@@ -58,13 +58,13 @@ export function TodoCompletionDonut({
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
+      <CardHeader className="pb-3 sm:pb-6">
+        <CardTitle className="text-base sm:text-lg">{title}</CardTitle>
+        <CardDescription className="text-xs sm:text-sm">{description}</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="flex flex-col items-center">
-          <ChartContainer config={chartConfig} className="h-[250px] w-full">
+          <ChartContainer config={chartConfig} className="h-[200px] sm:h-[250px] w-full">
             <PieChart>
               <ChartTooltip
                 content={<ChartTooltipContent
@@ -75,8 +75,8 @@ export function TodoCompletionDonut({
                 data={displayChartData}
                 cx="50%"
                 cy="50%"
-                innerRadius={60}
-                outerRadius={100}
+                innerRadius={50}
+                outerRadius={80}
                 paddingAngle={chartData.length > 1 ? 2 : 0}
                 dataKey="value"
                 label={false}
@@ -91,21 +91,21 @@ export function TodoCompletionDonut({
           </ChartContainer>
 
           {/* Custom Legend */}
-          <div className="flex items-center justify-center gap-6 mt-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6 mt-3 sm:mt-4">
             <div className="flex items-center gap-2">
               <div className="h-3 w-3 rounded-full" style={{ backgroundColor: 'hsl(142 76% 36%)' }} />
-              <span className="text-sm text-muted-foreground">완료 ({data.completed}개)</span>
+              <span className="text-xs sm:text-sm text-muted-foreground">완료 ({data.completed}개)</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="h-3 w-3 rounded-full bg-muted" />
-              <span className="text-sm text-muted-foreground">미완료 ({data.incomplete}개)</span>
+              <span className="text-xs sm:text-sm text-muted-foreground">미완료 ({data.incomplete}개)</span>
             </div>
           </div>
 
           {/* Completion Rate */}
-          <div className="mt-6 text-center">
-            <p className="text-3xl font-bold">{completionRate}%</p>
-            <p className="text-sm text-muted-foreground mt-1">
+          <div className="mt-4 sm:mt-6 text-center">
+            <p className="text-2xl sm:text-3xl font-bold">{completionRate}%</p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
               완료율 ({data.completed} / {total})
             </p>
           </div>
