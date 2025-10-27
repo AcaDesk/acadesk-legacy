@@ -1039,6 +1039,7 @@ async function getScoreTrendData(
     name: string
     '내 점수': number
     '반 평균': number
+    '재시험률'?: number
   }> = []
 
   // 최근 3개월 데이터 생성
@@ -1050,10 +1051,10 @@ async function getScoreTrendData(
     const periodStart = new Date(targetYear, targetMonth - 1, 1).toISOString().split('T')[0]
     const periodEnd = new Date(targetYear, targetMonth, 0).toISOString().split('T')[0]
 
-    // 해당 월의 내 점수 조회
+    // 해당 월의 내 점수 조회 (is_retest 포함)
     const { data: myScores } = await supabase
       .from('exam_scores')
-      .select('percentage')
+      .select('percentage, is_retest')
       .eq('student_id', studentId)
       .gte('created_at', periodStart)
       .lte('created_at', periodEnd)
@@ -1075,11 +1076,28 @@ async function getScoreTrendData(
         ? allScores.reduce((sum, s) => sum + s.percentage, 0) / allScores.length
         : 0
 
-    trendData.push({
+    // 재시험률 계산
+    const retestCount = myScores ? myScores.filter((s: any) => s.is_retest).length : 0
+    const totalCount = myScores ? myScores.length : 0
+    const retestRate = totalCount > 0 ? Math.round((retestCount / totalCount) * 100 * 10) / 10 : 0
+
+    const dataPoint: {
+      name: string
+      '내 점수': number
+      '반 평균': number
+      '재시험률'?: number
+    } = {
       name: `${targetMonth}월`,
       '내 점수': Math.round(myAverage * 10) / 10,
       '반 평균': Math.round(classAverage * 10) / 10,
-    })
+    }
+
+    // 재시험률이 0보다 크면 추가
+    if (retestRate > 0) {
+      dataPoint['재시험률'] = retestRate
+    }
+
+    trendData.push(dataPoint)
   }
 
   return trendData
@@ -1325,6 +1343,17 @@ export async function prepareReportSending(reportId: string) {
         messageType: type,
         shortUrl: shortUrlResult.data.shortUrl,
       })
+    }
+
+    // 6. 전송 가능한 보호자가 없는 경우 에러
+    if (reportSends.length === 0) {
+      throw new Error(
+        '전송 가능한 보호자가 없습니다.\n\n' +
+        '확인사항:\n' +
+        '1. 학생에게 등록된 보호자가 있는지 확인하세요\n' +
+        '2. 모든 보호자의 전화번호가 등록되어 있는지 확인하세요\n\n' +
+        '학생 관리 > 보호자 정보에서 전화번호를 추가할 수 있습니다.'
+      )
     }
 
     return {

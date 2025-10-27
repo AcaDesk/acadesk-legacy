@@ -274,30 +274,94 @@ ${reportData.comment.nextGoals}`
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={reportData.scoreTrend}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis domain={[0, 100]} />
-                <Tooltip />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="내 점수"
-                  strokeWidth={2}
-                  stroke="hsl(var(--primary))"
-                  dot={{ r: 4 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="반 평균"
-                  strokeWidth={2}
-                  stroke="hsl(var(--muted-foreground))"
-                  strokeDasharray="5 5"
-                  dot={{ r: 4 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={reportData.scoreTrend}>
+                  <defs>
+                    <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorAverage" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorRetest" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+                  <XAxis
+                    dataKey="name"
+                    stroke="hsl(var(--muted-foreground))"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    stroke="hsl(var(--muted-foreground))"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                    domain={[0, 100]}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--background))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '6px',
+                    }}
+                  />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="내 점수"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2}
+                    dot={{ r: 4, fill: 'hsl(var(--primary))' }}
+                    activeDot={{ r: 6 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="반 평균"
+                    stroke="#10b981"
+                    strokeWidth={2}
+                    dot={{ r: 4, fill: '#10b981' }}
+                    activeDot={{ r: 6 }}
+                  />
+                  {reportData.scoreTrend.some((d: any) => d['재시험률'] !== undefined) && (
+                    <Line
+                      type="monotone"
+                      dataKey="재시험률"
+                      stroke="#f59e0b"
+                      strokeWidth={2}
+                      dot={{ r: 4, fill: '#f59e0b' }}
+                      activeDot={{ r: 6 }}
+                      yAxisId="retest"
+                    />
+                  )}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* 범례 */}
+            <div className="flex items-center justify-center gap-4 pt-4 border-t mt-4">
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full" style={{ backgroundColor: 'hsl(var(--primary))' }} />
+                <span className="text-xs text-muted-foreground">내 점수</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-green-500" />
+                <span className="text-xs text-muted-foreground">반 평균</span>
+              </div>
+              {reportData.scoreTrend.some((d: any) => d['재시험률'] !== undefined) && (
+                <div className="flex items-center gap-2">
+                  <div className="h-2 w-2 rounded-full bg-amber-500" />
+                  <span className="text-xs text-muted-foreground">재시험률 (%)</span>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}
