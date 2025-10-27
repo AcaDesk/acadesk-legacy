@@ -40,6 +40,16 @@ export function isPublicPath(pathname: string): boolean {
     return true
   }
 
+  // 리포트 공유 링크 (학부모용 - 인증 불필요)
+  if (pathname.startsWith("/r/")) {
+    return true
+  }
+
+  // 단축 URL 리다이렉트 (인증 불필요)
+  if (pathname.startsWith("/s/") || pathname.startsWith("/short/")) {
+    return true
+  }
+
   return false
 }
 
