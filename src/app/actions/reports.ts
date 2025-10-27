@@ -1239,7 +1239,11 @@ export async function prepareReportSending(reportId: string) {
           id,
           name,
           phone,
-          relationship
+          relationship,
+          user_id,
+          users (
+            phone
+          )
         )
       `)
       .eq('student_id', report.student_id)
@@ -1263,12 +1267,19 @@ export async function prepareReportSending(reportId: string) {
       const guardian = sg.guardians as unknown as {
         id: string
         name: string
-        phone: string
+        phone: string | null
         relationship: string
+        user_id: string | null
+        users: {
+          phone: string | null
+        } | null
       }
 
-      if (!guardian.phone) {
-        console.warn(`Guardian ${guardian.id} has no phone number, skipping`)
+      // guardians.phone 또는 users.phone 중 하나라도 있으면 사용
+      const phone = guardian.phone || guardian.users?.phone
+
+      if (!phone) {
+        console.warn(`Guardian ${guardian.id} (${guardian.name}) has no phone number, skipping`)
         continue
       }
 
@@ -1284,7 +1295,7 @@ export async function prepareReportSending(reportId: string) {
           report_id: reportId,
           recipient_type: 'guardian',
           recipient_id: guardian.id,
-          recipient_phone: guardian.phone,
+          recipient_phone: phone,
           recipient_name: guardian.name,
           link_expires_at: linkExpiresAt,
           message_body: '', // 나중에 업데이트
@@ -1338,7 +1349,7 @@ export async function prepareReportSending(reportId: string) {
       reportSends.push({
         id: reportSend.id,
         recipientName: guardian.name,
-        recipientPhone: guardian.phone,
+        recipientPhone: phone,
         message,
         messageType: type,
         shortUrl: shortUrlResult.data.shortUrl,
