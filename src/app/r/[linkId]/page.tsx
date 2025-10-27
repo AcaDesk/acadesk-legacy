@@ -11,7 +11,7 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { AlertCircle } from 'lucide-react'
-import { ReportViewer } from '@/components/features/reports/ReportViewer'
+import { ReportShareViewer } from '@/components/features/reports/ReportShareViewer'
 import type { ReportData } from '@/core/types/report.types'
 
 interface PageProps {
@@ -71,11 +71,6 @@ export default async function ReportSharePage({ params }: PageProps) {
 
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
-        <style jsx global>{`
-          html, body {
-            overflow: auto !important;
-          }
-        `}</style>
         <Card className="max-w-md w-full">
           <CardHeader className="space-y-4">
             {/* Academy branding */}
@@ -167,12 +162,7 @@ export default async function ReportSharePage({ params }: PageProps) {
   const currentYear = new Date().getFullYear()
 
   return (
-    <div className="min-h-screen bg-muted/20 py-4 sm:py-8 px-3 sm:px-4 overflow-auto">
-      <style jsx global>{`
-        html, body {
-          overflow: auto !important;
-        }
-      `}</style>
+    <div className="min-h-screen bg-muted/20 py-4 sm:py-8 px-3 sm:px-4">
       <div className="max-w-5xl mx-auto space-y-6">
         {/* Page Header - Academy Branding */}
         <div className="text-center space-y-2">
