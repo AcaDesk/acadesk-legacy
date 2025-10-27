@@ -28,6 +28,7 @@ import { PageWrapper } from '@/components/layout/page-wrapper'
 import { PAGE_LAYOUT, TEXT_STYLES } from '@/lib/constants'
 import { useToast } from '@/hooks/use-toast'
 import { format as formatDate } from 'date-fns'
+import { SchoolSelector } from '@/components/features/common/school-selector'
 import { createConsultation, updateConsultation } from '@/app/actions/consultations'
 import { StudentSearch, type Student as StudentSearchStudent } from '@/components/features/students/student-search'
 
@@ -354,21 +355,12 @@ export function ConsultationFormClient({
 
                     <div className="space-y-2">
                       <Label htmlFor="leadSchool">학교</Label>
-                      <Select
+                      <SchoolSelector
                         value={form.watch('leadSchool')}
-                        onValueChange={(value) => form.setValue('leadSchool', value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="학교 선택 (선택사항)" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {schools.map((school) => (
-                            <SelectItem key={school} value={school}>
-                              {school}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        onChange={(value) => form.setValue('leadSchool', value)}
+                        schools={schools}
+                        placeholder="학교 선택 (선택사항)"
+                      />
                     </div>
 
                     <div className="space-y-2">

@@ -1,15 +1,11 @@
-import { useState, useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { useFormContext } from 'react-hook-form'
-import { Check, ChevronsUpDown } from 'lucide-react'
 import { Input } from '@ui/input'
 import { DatePicker } from '@ui/date-picker'
 import { Label } from '@ui/label'
-import { Button } from '@ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
-import { Popover, PopoverContent, PopoverTrigger } from '@ui/popover'
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@ui/command'
-import { cn } from '@/lib/utils'
 import { GradeSelector } from '@/components/features/common/grade-selector'
+import { SchoolSelector } from '@/components/features/common/school-selector'
 import type { StudentWizardFormValues } from './types'
 
 interface Step1Props {
@@ -18,8 +14,6 @@ interface Step1Props {
 
 export function Step1_StudentInfo({ schools }: Step1Props) {
   const { register, setValue, watch, formState: { errors } } = useFormContext<StudentWizardFormValues>()
-  const [schoolInput, setSchoolInput] = useState('')
-  const [isSchoolPopoverOpen, setSchoolPopoverOpen] = useState(false)
 
   const selectedGrade = watch('grade')
   const selectedSchool = watch('school')
@@ -83,80 +77,12 @@ export function Step1_StudentInfo({ schools }: Step1Props) {
 
         <div className="space-y-2">
           <Label htmlFor="school">학교 *</Label>
-          <Popover open={isSchoolPopoverOpen} onOpenChange={setSchoolPopoverOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                role="combobox"
-                aria-expanded={isSchoolPopoverOpen}
-                className="w-full justify-between"
-              >
-                {selectedSchool || '학교 선택 또는 입력...'}
-                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-              <Command>
-                <CommandInput
-                  placeholder="학교 검색 또는 입력..."
-                  value={schoolInput}
-                  onValueChange={setSchoolInput}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && schoolInput) {
-                      e.preventDefault()
-                      setValue('school', schoolInput, { shouldValidate: true })
-                      setSchoolPopoverOpen(false)
-                    }
-                  }}
-                />
-                <CommandList>
-                  <CommandEmpty>
-                    {schoolInput && (
-                      <div
-                        className="p-2 text-center text-sm cursor-pointer hover:bg-accent rounded-md transition-colors"
-                        onClick={() => {
-                          setValue('school', schoolInput, { shouldValidate: true })
-                          setSchoolPopoverOpen(false)
-                        }}
-                      >
-                        &quot;{schoolInput}&quot; 사용하기
-                      </div>
-                    )}
-                    {!schoolInput && (
-                      <div className="p-2 text-center text-sm text-muted-foreground">
-                        학교명을 입력하거나 목록에서 선택하세요
-                      </div>
-                    )}
-                  </CommandEmpty>
-                  <CommandGroup>
-                    {schools
-                      .filter((school) =>
-                        school.toLowerCase().includes(schoolInput.toLowerCase())
-                      )
-                      .map((school) => (
-                        <CommandItem
-                          key={school}
-                          value={school}
-                          onSelect={(currentValue) => {
-                            setValue('school', currentValue, { shouldValidate: true })
-                            setSchoolInput(currentValue)
-                            setSchoolPopoverOpen(false)
-                          }}
-                        >
-                          <Check
-                            className={cn(
-                              'mr-2 h-4 w-4',
-                              selectedSchool === school ? 'opacity-100' : 'opacity-0'
-                            )}
-                          />
-                          {school}
-                        </CommandItem>
-                      ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
+          <SchoolSelector
+            value={selectedSchool}
+            onChange={(value) => setValue('school', value, { shouldValidate: true })}
+            schools={schools}
+            placeholder="학교 선택 또는 입력..."
+          />
           {errors.school && (
             <p className="text-sm text-destructive">{errors.school.message}</p>
           )}
