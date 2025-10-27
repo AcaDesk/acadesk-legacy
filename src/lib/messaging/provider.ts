@@ -108,10 +108,9 @@ export async function sendMessage({
 
       // Map type to MessageChannel
       let channel: typeof MessageChannel[keyof typeof MessageChannel]
-      if (type === 'lms') {
+      if (type === 'lms' || type === 'mms') {
+        // MMS는 LMS로 처리 (장문 문자)
         channel = MessageChannel.LMS
-      } else if (type === 'mms') {
-        channel = MessageChannel.MMS
       } else {
         channel = MessageChannel.SMS
       }

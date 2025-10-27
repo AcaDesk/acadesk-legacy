@@ -140,7 +140,7 @@ export default function GradesListPage() {
         .order('student_code')
 
       if (studentsError) throw studentsError
-      setStudents(studentsData as Student[])
+      setStudents(studentsData as unknown as Student[])
     } catch (error) {
       console.error('Error loading students:', error)
     }
@@ -200,7 +200,7 @@ export default function GradesListPage() {
       if (scoresError) throw scoresError
 
       // Calculate percentage if not stored
-      const processedScores = (scoresData as ExamScore[]).map((score) => ({
+      const processedScores = (scoresData as unknown as ExamScore[]).map((score) => ({
         ...score,
         percentage: score.percentage ||
           (score.total_points && score.total_points > 0 && score.score !== null

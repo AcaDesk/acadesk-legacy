@@ -32,6 +32,7 @@ export default async function ShortUrlPage({ params }: ShortUrlPageProps) {
   }
 
   // 3. 클릭 카운트 증가 (비동기, 실패해도 무시)
+  // Note: await 하지 않으므로 리다이렉트를 차단하지 않음
   supabase
     .from('short_urls')
     .update({
@@ -39,11 +40,10 @@ export default async function ShortUrlPage({ params }: ShortUrlPageProps) {
       last_clicked_at: new Date().toISOString(),
     })
     .eq('short_code', code)
-    .then(() => {
-      // 성공적으로 업데이트됨
-    })
-    .catch((err) => {
-      console.error('Failed to update click count:', err)
+    .then(({ error: updateError }) => {
+      if (updateError) {
+        console.error('Failed to update click count:', updateError)
+      }
     })
 
   // 4. 리다이렉트

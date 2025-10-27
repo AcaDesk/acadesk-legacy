@@ -19,6 +19,18 @@ export default async function EditConsultationPage({
     notFound()
   }
 
+  // Common schools list for lead consultations
+  const SCHOOLS = [
+    '서울고등학교',
+    '경기고등학교',
+    '대원외국어고등학교',
+    '한영외국어고등학교',
+    '민족사관고등학교',
+    '상산고등학교',
+    '하나고등학교',
+    '기타',
+  ]
+
   // Fetch students list for the dropdown
   const supabase = await createServiceRoleClient()
   const { data: students } = await supabase
@@ -31,6 +43,7 @@ export default async function EditConsultationPage({
   return (
     <ConsultationFormClient
       students={students || []}
+      schools={SCHOOLS}
       mode="edit"
       consultation={result.data as any}
     />
