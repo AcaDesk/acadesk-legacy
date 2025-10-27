@@ -84,32 +84,32 @@ ${reportData.comment.nextGoals}`
   return (
     <div>
       {/* Print Button (화면에만 표시, 인쇄 시 숨김) */}
-      <div className="mb-6 print:hidden">
-        <Button onClick={handlePrint} variant="outline" size="sm">
+      <div className="mb-4 sm:mb-6 print:hidden">
+        <Button onClick={handlePrint} variant="outline" size="default" className="w-full sm:w-auto">
           <Download className="h-4 w-4 mr-2" />
           PDF 다운로드
         </Button>
       </div>
 
       {/* Print Content */}
-      <div ref={contentRef} className="space-y-6">
+      <div ref={contentRef} className="space-y-4 sm:space-y-6">
         {/* Header */}
         <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
+          <CardHeader className="space-y-3">
+            <div className="flex flex-col space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <Badge variant="secondary" className="w-fit">
+                  {reportType === 'monthly' ? '월간' : '주간'} 리포트
+                </Badge>
+                <span className="text-sm text-muted-foreground">
+                  {studentName} 님
+                </span>
+              </div>
               <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <Badge variant="secondary">
-                    {reportType === 'monthly' ? '월간' : '주간'} 리포트
-                  </Badge>
-                  <span className="text-sm text-muted-foreground">
-                    {studentName} 님
-                  </span>
-                </div>
-                <CardTitle className="text-2xl">
+                <CardTitle className="text-xl sm:text-2xl">
                   {studentName} ({studentCode})
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="mt-1.5 text-xs sm:text-sm">
                   {studentGrade} |{' '}
                   {periodStart.getFullYear()}년 {periodStart.getMonth() + 1}월{' '}
                   {periodStart.getDate()}일 ~ {periodEnd.getMonth() + 1}월{' '}
@@ -121,28 +121,32 @@ ${reportData.comment.nextGoals}`
         </Card>
 
         {/* Charts Section */}
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Grades Chart */}
           {reportData.gradesChartData && reportData.gradesChartData.length > 0 && (
-            <GradesLineChart
-              data={reportData.gradesChartData}
-              title="성적 추이"
-              description="시험별 점수 변화"
-              showClassAverage={true}
-            />
+            <div className="w-full overflow-x-auto">
+              <GradesLineChart
+                data={reportData.gradesChartData}
+                title="성적 추이"
+                description="시험별 점수 변화"
+                showClassAverage={true}
+              />
+            </div>
           )}
 
           {/* Attendance & Todo Charts */}
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2">
             {/* Attendance Heatmap */}
             {reportData.attendanceChartData && reportData.attendanceChartData.length > 0 && (
-              <AttendanceHeatmap
-                data={reportData.attendanceChartData}
-                title="출석 현황"
-                description="월별 출석 캘린더"
-                year={periodStart.getFullYear()}
-                month={periodStart.getMonth() + 1}
-              />
+              <div className="w-full overflow-x-auto">
+                <AttendanceHeatmap
+                  data={reportData.attendanceChartData}
+                  title="출석 현황"
+                  description="월별 출석 캘린더"
+                  year={periodStart.getFullYear()}
+                  month={periodStart.getMonth() + 1}
+                />
+              </div>
             )}
 
             {/* Todo Completion Donut */}
@@ -158,16 +162,16 @@ ${reportData.comment.nextGoals}`
         </div>
 
         {/* Attendance & Homework */}
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2">
           <Card>
-            <CardHeader>
-              <CardTitle>출석</CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base sm:text-lg">출석</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-4xl font-bold text-blue-600">
+              <div className="text-3xl sm:text-4xl font-bold text-blue-600">
                 {reportData.attendance.rate}%
               </div>
-              <div className="mt-2 text-sm text-muted-foreground">
+              <div className="mt-2 text-xs sm:text-sm text-muted-foreground">
                 출석: {reportData.attendance.present} / 지각: {reportData.attendance.late} /
                 결석: {reportData.attendance.absent}
               </div>
@@ -175,14 +179,14 @@ ${reportData.comment.nextGoals}`
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle>숙제 완료율</CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base sm:text-lg">숙제 완료율</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-4xl font-bold text-green-600">
+              <div className="text-3xl sm:text-4xl font-bold text-green-600">
                 {reportData.homework.rate}%
               </div>
-              <div className="mt-2 text-muted-foreground">
+              <div className="mt-2 text-xs sm:text-sm text-muted-foreground">
                 완료: {reportData.homework.completed} / 전체: {reportData.homework.total}
               </div>
             </CardContent>
@@ -191,19 +195,21 @@ ${reportData.comment.nextGoals}`
 
         {/* Scores by Category */}
         <Card>
-          <CardHeader>
-            <CardTitle>영역별 성적</CardTitle>
-            <CardDescription>이번 달 평균 점수 및 전월 대비 변화</CardDescription>
+          <CardHeader className="pb-3 sm:pb-6">
+            <CardTitle className="text-base sm:text-lg">영역별 성적</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">
+              이번 달 평균 점수 및 전월 대비 변화
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
+            <div className="space-y-4 sm:space-y-5">
               {reportData.scores.map((score, idx) => (
                 <div key={idx}>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-semibold">{score.category}</h4>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="font-semibold text-sm sm:text-base">{score.category}</h4>
                       {score.change !== null && (
-                        <Badge variant={score.change > 0 ? 'default' : 'destructive'}>
+                        <Badge variant={score.change > 0 ? 'default' : 'destructive'} className="text-xs">
                           <div className="flex items-center gap-1">
                             {getTrendIcon(score.change)}
                             {Math.abs(score.change)}%
@@ -211,19 +217,20 @@ ${reportData.comment.nextGoals}`
                         </Badge>
                       )}
                     </div>
-                    <div className="text-2xl font-bold">{score.current}%</div>
+                    <div className="text-xl sm:text-2xl font-bold">{score.current}%</div>
                   </div>
 
                   {score.tests.length > 0 && (
-                    <div className="ml-4 space-y-2">
+                    <div className="ml-0 sm:ml-4 space-y-2 mt-3">
                       {score.tests.map((test, testIdx) => (
                         <div
                           key={testIdx}
-                          className="flex items-center justify-between text-sm"
+                          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2 text-xs sm:text-sm"
                         >
-                          <div>
-                            <span className="text-muted-foreground">{test.date}</span> -{' '}
-                            {test.name}
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2">
+                            <span className="text-muted-foreground text-xs">{test.date}</span>
+                            <span className="hidden sm:inline">-</span>
+                            <span className="truncate">{test.name}</span>
                           </div>
                           <div className="font-medium">{test.percentage}%</div>
                         </div>
@@ -240,11 +247,11 @@ ${reportData.comment.nextGoals}`
 
         {/* Instructor Comment */}
         <Card>
-          <CardHeader>
-            <CardTitle>강사 코멘트</CardTitle>
+          <CardHeader className="pb-3 sm:pb-6">
+            <CardTitle className="text-base sm:text-lg">강사 코멘트</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm leading-relaxed whitespace-pre-wrap">
+            <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap">
               {getFormattedComment()}
             </p>
           </CardContent>
@@ -252,14 +259,14 @@ ${reportData.comment.nextGoals}`
 
         {/* Footer */}
         <Card className="bg-muted/30">
-          <CardContent className="pt-6">
-            <div className="text-center text-sm text-muted-foreground">
+          <CardContent className="pt-4 sm:pt-6">
+            <div className="text-center text-xs sm:text-sm text-muted-foreground space-y-1.5">
               <p>생성일: {new Date(generatedAt).toLocaleDateString('ko-KR')}</p>
               {recipientName && (
-                <p className="mt-2">이 리포트는 {recipientName} 님께 발송되었습니다.</p>
+                <p>이 리포트는 {recipientName} 님께 발송되었습니다.</p>
               )}
               {linkExpiresAt && (
-                <p className="mt-1 text-xs">
+                <p className="text-[10px] sm:text-xs">
                   링크 만료일: {new Date(linkExpiresAt).toLocaleDateString('ko-KR')}
                 </p>
               )}

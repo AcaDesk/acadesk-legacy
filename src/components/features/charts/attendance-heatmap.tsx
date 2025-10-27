@@ -94,9 +94,9 @@ export function AttendanceHeatmap({
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>
+      <CardHeader className="pb-3 sm:pb-6">
+        <CardTitle className="text-base sm:text-lg">{title}</CardTitle>
+        <CardDescription className="text-xs sm:text-sm">
           {description} - {year}년 {month}월
         </CardDescription>
       </CardHeader>
@@ -145,38 +145,38 @@ export function AttendanceHeatmap({
         </div>
 
         {/* 범례 및 통계 */}
-        <div className="mt-6 space-y-4">
-          <div className="flex items-center justify-center gap-4 text-xs">
-            <div className="flex items-center gap-2">
+        <div className="mt-4 sm:mt-6 space-y-3 sm:space-y-4">
+          <div className="flex items-center justify-center gap-3 sm:gap-4 text-xs">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <div className="h-3 w-3 rounded bg-green-500" />
               <span>출석</span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <div className="h-3 w-3 rounded bg-yellow-500" />
               <span>지각</span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <div className="h-3 w-3 rounded bg-red-500" />
               <span>결석</span>
             </div>
           </div>
 
-          <div className="rounded-lg border bg-muted/50 p-4">
-            <div className="grid grid-cols-4 gap-4 text-center">
+          <div className="rounded-lg border bg-muted/50 p-3 sm:p-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-center">
               <div>
-                <p className="text-2xl font-bold text-green-500">{stats.present}</p>
+                <p className="text-xl sm:text-2xl font-bold text-green-500">{stats.present}</p>
                 <p className="text-xs text-muted-foreground">출석</p>
               </div>
               <div>
-                <p className="text-2xl font-bold text-yellow-500">{stats.late}</p>
+                <p className="text-xl sm:text-2xl font-bold text-yellow-500">{stats.late}</p>
                 <p className="text-xs text-muted-foreground">지각</p>
               </div>
               <div>
-                <p className="text-2xl font-bold text-red-500">{stats.absent}</p>
+                <p className="text-xl sm:text-2xl font-bold text-red-500">{stats.absent}</p>
                 <p className="text-xs text-muted-foreground">결석</p>
               </div>
               <div>
-                <p className="text-2xl font-bold">{attendanceRate}%</p>
+                <p className="text-xl sm:text-2xl font-bold">{attendanceRate}%</p>
                 <p className="text-xs text-muted-foreground">출석율</p>
               </div>
             </div>
