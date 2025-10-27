@@ -57,6 +57,7 @@ export async function sendMessage({
   academyInfo,
 }: SendMessageOptions): Promise<{
   success: boolean
+  messageId?: string
   error?: string
 }> {
   try {
@@ -85,11 +86,16 @@ export async function sendMessage({
 
     // Create provider based on config
     if (config.provider === 'aligo') {
-      return await sendAligoSMS({
+      const aligoResult = await sendAligoSMS({
         to: [to],
         message,
         subject,
       })
+      return {
+        success: aligoResult.success,
+        messageId: aligoResult.success ? `ALIGO_${Date.now()}` : undefined,
+        error: aligoResult.error,
+      }
     } else if (config.provider === 'solapi') {
       const { SolapiProvider } = await import('@/infra/messaging/SolapiProvider')
       const { MessageChannel } = await import('@/core/domain/messaging/IMessageProvider')
@@ -127,6 +133,7 @@ export async function sendMessage({
 
       return {
         success: result.success,
+        messageId: result.messageId,
         error: result.error,
       }
     } else if (config.provider === 'nhncloud') {
