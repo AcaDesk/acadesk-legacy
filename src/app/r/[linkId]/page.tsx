@@ -186,27 +186,62 @@ export default async function ReportSharePage({ params }: PageProps) {
     },
   }
 
+  const academyName = report.tenants?.name || viewerData.academy?.name || '학원'
+  const currentYear = new Date().getFullYear()
+
   return (
-    <div className="min-h-screen bg-background py-4 sm:py-8 px-3 sm:px-4">
+    <div className="min-h-screen bg-muted/20 py-4 sm:py-8 px-3 sm:px-4">
       <div className="max-w-5xl mx-auto space-y-6">
+        {/* Page Header - Academy Branding */}
+        <div className="text-center space-y-2">
+          <h1 className="text-2xl sm:text-3xl font-bold text-primary">{academyName}</h1>
+          <p className="text-sm text-muted-foreground">학생 학습 리포트</p>
+        </div>
+
+        {/* Report Content */}
         <ReportViewer
           reportData={viewerData}
           showEditButton={false}
         />
 
-        {/* Footer - 공유 정보 */}
-        <Card className="bg-muted/30">
-          <CardContent className="pt-4 sm:pt-6">
-            <div className="text-center text-xs sm:text-sm text-muted-foreground space-y-1.5">
-              <p>생성일: {new Date(report.generated_at).toLocaleDateString('ko-KR')}</p>
-              {reportSend.recipient_name && (
-                <p>이 리포트는 {reportSend.recipient_name} 님께 발송되었습니다.</p>
-              )}
-              {reportSend.link_expires_at && (
-                <p className="text-[10px] sm:text-xs">
-                  링크 만료일: {new Date(reportSend.link_expires_at).toLocaleDateString('ko-KR')}
+        {/* Footer - Enhanced with branding */}
+        <Card className="bg-muted/30 border-t-4 border-t-primary/20">
+          <CardContent className="pt-6 pb-6">
+            <div className="space-y-4">
+              {/* Report metadata */}
+              <div className="text-center text-xs sm:text-sm text-muted-foreground space-y-1.5 pb-4 border-b">
+                <p className="font-medium">리포트 정보</p>
+                <p>생성일: {new Date(report.generated_at).toLocaleDateString('ko-KR')}</p>
+                {reportSend.recipient_name && (
+                  <p>수신자: {reportSend.recipient_name} 님</p>
+                )}
+                {reportSend.link_expires_at && (
+                  <p className="text-[10px] sm:text-xs text-muted-foreground/80">
+                    링크 만료일: {new Date(reportSend.link_expires_at).toLocaleDateString('ko-KR')}
+                  </p>
+                )}
+              </div>
+
+              {/* Academy footer info */}
+              <div className="text-center space-y-2">
+                {report.tenants && (
+                  <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    {report.tenants.phone && (
+                      <span className="flex items-center gap-1">
+                        📞 {report.tenants.phone}
+                      </span>
+                    )}
+                    {report.tenants.email && (
+                      <span className="flex items-center gap-1">
+                        ✉️ {report.tenants.email}
+                      </span>
+                    )}
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground/60">
+                  © {currentYear} {academyName}. All rights reserved.
                 </p>
-              )}
+              </div>
             </div>
           </CardContent>
         </Card>
