@@ -11,7 +11,7 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { AlertCircle } from 'lucide-react'
-import { ReportPrintView } from '@/components/features/reports/ReportPrintView'
+import { ReportViewer } from '@/components/features/reports/ReportViewer'
 import type { ReportData } from '@/core/types/report.types'
 
 interface PageProps {
@@ -35,11 +35,28 @@ export default async function ReportSharePage({ params }: PageProps) {
       send_status,
       reports (
         id,
+        tenant_id,
         report_type,
         period_start,
         period_end,
         content,
-        generated_at
+        generated_at,
+        students (
+          id,
+          student_code,
+          grade,
+          users (
+            name,
+            email
+          )
+        ),
+        tenants (
+          name,
+          phone,
+          email,
+          address,
+          website
+        )
       )
     `)
     .eq('share_link_id', linkId)
@@ -52,17 +69,39 @@ export default async function ReportSharePage({ params }: PageProps) {
 
   // 2. 링크 만료 확인
   if (reportSend.link_expires_at && new Date(reportSend.link_expires_at) < new Date()) {
+    // Extract tenant info for expired page
+    const expiredReport = reportSend.reports as any
+    const academyName = expiredReport?.tenants?.name || expiredReport?.content?.academy?.name || '학원'
+    const academyPhone = expiredReport?.tenants?.phone || expiredReport?.content?.academy?.phone
+
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
         <Card className="max-w-md w-full">
-          <CardHeader className="space-y-3">
-            <div className="flex items-center gap-2 text-destructive">
-              <AlertCircle className="h-5 w-5 flex-shrink-0" />
-              <CardTitle className="text-base sm:text-lg">링크가 만료되었습니다</CardTitle>
+          <CardHeader className="space-y-4">
+            {/* Academy branding */}
+            <div className="text-center">
+              <h2 className="text-xl font-bold text-primary">{academyName}</h2>
+              {academyPhone && (
+                <p className="text-sm text-muted-foreground mt-1">📞 {academyPhone}</p>
+              )}
             </div>
-            <CardDescription className="text-xs sm:text-sm">
-              이 리포트 링크는 만료되었습니다. 학원에 문의하여 새로운 링크를 받아주세요.
-            </CardDescription>
+
+            {/* Error message */}
+            <div className="space-y-3 text-center">
+              <div className="flex items-center justify-center gap-2 text-destructive">
+                <AlertCircle className="h-6 w-6 flex-shrink-0" />
+                <CardTitle className="text-lg sm:text-xl">링크가 만료되었습니다</CardTitle>
+              </div>
+              <CardDescription className="text-sm leading-relaxed">
+                요청하신 리포트 링크의 유효기간이 만료되었습니다.<br />
+                {academyName}으로 문의하여 새로운 링크를 요청해 주세요.
+              </CardDescription>
+              {reportSend.link_expires_at && (
+                <p className="text-xs text-muted-foreground">
+                  만료일: {new Date(reportSend.link_expires_at).toLocaleDateString('ko-KR')}
+                </p>
+              )}
+            </div>
           </CardHeader>
         </Card>
       </div>
@@ -78,6 +117,22 @@ export default async function ReportSharePage({ params }: PageProps) {
     period_end: string
     content: ReportData
     generated_at: string
+    students?: {
+      id: string
+      student_code: string
+      grade: string
+      users?: {
+        name: string
+        email: string
+      }
+    }
+    tenants?: {
+      name: string
+      phone: string | null
+      email: string | null
+      address: string | null
+      website: string | null
+    }
   }
 
   if (!report) {
@@ -110,21 +165,51 @@ export default async function ReportSharePage({ params }: PageProps) {
     console.error('[ReportSharePage] Error logging read:', error)
   }
 
-  const periodStart = new Date(report.period_start)
-  const periodEnd = new Date(report.period_end)
+  // 5. Prepare data for ReportViewer
+  const viewerData = {
+    ...reportData,
+    studentName: report.students?.users?.name || reportData.studentName,
+    studentCode: report.students?.student_code || reportData.studentCode,
+    grade: report.students?.grade || reportData.grade,
+    academy: report.tenants ? {
+      name: report.tenants.name,
+      phone: report.tenants.phone,
+      email: report.tenants.email,
+      address: report.tenants.address,
+      website: report.tenants.website,
+    } : reportData.academy || {
+      name: '학원',
+      phone: null,
+      email: null,
+      address: null,
+      website: null,
+    },
+  }
 
   return (
     <div className="min-h-screen bg-background py-4 sm:py-8 px-3 sm:px-4">
-      <div className="max-w-4xl mx-auto">
-        <ReportPrintView
-          reportData={reportData}
-          reportType={report.report_type}
-          periodStart={periodStart}
-          periodEnd={periodEnd}
-          generatedAt={report.generated_at}
-          recipientName={reportSend.recipient_name}
-          linkExpiresAt={reportSend.link_expires_at}
+      <div className="max-w-5xl mx-auto space-y-6">
+        <ReportViewer
+          reportData={viewerData}
+          showEditButton={false}
         />
+
+        {/* Footer - 공유 정보 */}
+        <Card className="bg-muted/30">
+          <CardContent className="pt-4 sm:pt-6">
+            <div className="text-center text-xs sm:text-sm text-muted-foreground space-y-1.5">
+              <p>생성일: {new Date(report.generated_at).toLocaleDateString('ko-KR')}</p>
+              {reportSend.recipient_name && (
+                <p>이 리포트는 {reportSend.recipient_name} 님께 발송되었습니다.</p>
+              )}
+              {reportSend.link_expires_at && (
+                <p className="text-[10px] sm:text-xs">
+                  링크 만료일: {new Date(reportSend.link_expires_at).toLocaleDateString('ko-KR')}
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
