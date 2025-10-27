@@ -1485,39 +1485,27 @@ export async function sendReportMessage(reportSendId: string) {
       throw new Error('발송 정보를 찾을 수 없습니다')
     }
 
-    // 4. 알리고 API 호출 (IMessageProvider 사용)
-    const { createAligoProvider } = await import('@/infra/messaging/AligoProvider')
-    const { MessageChannel } = await import('@/core/domain/messaging/IMessageProvider')
+    // 4. 통합 메시지 Provider 사용 (tenant 설정에 따라 알리고/솔라피 자동 선택)
+    const { sendMessage } = await import('@/lib/messaging/provider')
 
-    const messageProvider = createAligoProvider()
-
-    const sendResult = await messageProvider.send({
-      channel: reportSend.message_type === 'SMS' ? MessageChannel.SMS : MessageChannel.LMS,
-      recipient: {
-        name: reportSend.recipient_name,
-        phone: reportSend.recipient_phone,
-      },
-      content: {
-        body: reportSend.message_body,
-      },
-      metadata: {
-        tenantId: tenantId,
-        reportId: reportSend.report_id,
-      },
+    const sendResult = await sendMessage({
+      type: reportSend.message_type === 'SMS' ? 'sms' : 'lms',
+      to: reportSend.recipient_phone,
+      message: reportSend.message_body,
     })
 
-    if (!sendResult.success || !sendResult.messageId) {
+    if (!sendResult.success) {
       throw new Error(sendResult.error || '메시지 발송 실패')
     }
 
-    const aligoMsgid = sendResult.messageId
+    const messageId = sendResult.messageId || `MSG_${Date.now()}`
 
     // 5. report_sends 업데이트 (발송 완료)
     await supabase
       .from('report_sends')
       .update({
         send_status: 'sent',
-        aligo_msgid: aligoMsgid,
+        aligo_msgid: messageId,
         sent_at: new Date().toISOString(),
       })
       .eq('id', reportSendId)
@@ -1536,7 +1524,7 @@ export async function sendReportMessage(reportSendId: string) {
 
     return {
       success: true,
-      data: { msgid: aligoMsgid },
+      data: { msgid: messageId },
       error: null,
     }
   } catch (error) {
