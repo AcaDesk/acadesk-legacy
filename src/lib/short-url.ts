@@ -36,7 +36,27 @@ export function generateShortUrl(shortCode: string, baseUrl?: string): string {
  * @returns 리포트 링크 URL
  */
 export function generateReportShareUrl(shareLinkId: string, baseUrl?: string): string {
-  const base = baseUrl || process.env.NEXT_PUBLIC_APP_URL || 'https://acadesk.app'
+  if (baseUrl) {
+    return `${baseUrl}/r/${shareLinkId}`
+  }
+
+  // Vercel 자동 배포 URL (VERCEL_URL은 자동으로 설정됨)
+  const vercelUrl = process.env.VERCEL_URL
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+
+  const isLocalhost = appUrl.includes('localhost') || appUrl.includes('127.0.0.1')
+  const isPlaceholder = appUrl.includes('your-custom-domain')
+
+  // 우선순위: 1. 유효한 APP_URL, 2. Vercel URL, 3. localhost
+  let base: string
+  if (appUrl && !isLocalhost && !isPlaceholder) {
+    base = appUrl
+  } else if (vercelUrl) {
+    base = `https://${vercelUrl}`
+  } else {
+    base = 'http://localhost:3001'
+  }
+
   return `${base}/r/${shareLinkId}`
 }
 
@@ -47,11 +67,38 @@ export function generateReportShareUrl(shareLinkId: string, baseUrl?: string): s
  * @returns 문자용 짧은 도메인 URL (예: 'aca.sk/abc123')
  */
 export function generateSmsShortUrl(shortCode: string): string {
-  // 실제 운영 시에는 짧은 도메인 사용 (예: aca.sk)
-  // 개발 환경에서는 localhost 사용
   const isDev = process.env.NODE_ENV === 'development'
-  const domain = isDev ? 'localhost:3000' : process.env.NEXT_PUBLIC_SHORT_DOMAIN || 'aca.sk'
-  const protocol = isDev ? 'http://' : 'https://'
+  const vercelUrl = process.env.VERCEL_URL
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+  const shortDomain = process.env.NEXT_PUBLIC_SHORT_DOMAIN
+
+  const isLocalhost = appUrl.includes('localhost') || appUrl.includes('127.0.0.1')
+  const isPlaceholder = appUrl.includes('your-custom-domain')
+
+  // 로컬 환경 감지
+  const isLocal = isDev || isLocalhost || (!appUrl && !vercelUrl) || isPlaceholder
+
+  // 도메인 선택 우선순위: 1. SHORT_DOMAIN, 2. APP_URL, 3. Vercel URL, 4. localhost
+  let domain: string
+  let protocol: string
+
+  if (isLocal) {
+    domain = 'localhost:3001'
+    protocol = 'http://'
+  } else if (shortDomain) {
+    domain = shortDomain
+    protocol = 'https://'
+  } else if (appUrl && !isPlaceholder) {
+    // APP_URL에서 도메인 추출 (https:// 제거)
+    domain = appUrl.replace(/^https?:\/\//, '')
+    protocol = 'https://'
+  } else if (vercelUrl) {
+    domain = vercelUrl
+    protocol = 'https://'
+  } else {
+    domain = 'localhost:3001'
+    protocol = 'http://'
+  }
 
   return `${protocol}${domain}/s/${shortCode}`
 }
