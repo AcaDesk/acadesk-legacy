@@ -219,7 +219,8 @@ export async function postponeRetest(examScoreId: string) {
  */
 export async function createRetestExam(
   originalExamId: string,
-  studentIds: string[]
+  studentIds: string[],
+  retestDate?: string
 ) {
   try {
     const { tenantId } = await verifyStaff()
@@ -247,8 +248,8 @@ export async function createRetestExam(
         })
       : '날짜 미정'
 
-    // Set retest date to today
-    const today = new Date().toISOString().split('T')[0]
+    // Use provided retest date or default to today
+    const examDate = retestDate || new Date().toISOString().split('T')[0]
 
     const { data: retestExam, error: createError } = await supabase
       .from('exams')
@@ -261,8 +262,8 @@ export async function createRetestExam(
         class_id: originalExam.class_id,
         total_questions: originalExam.total_questions,
         passing_score: originalExam.passing_score,
-        description: `원본 시험: ${originalExam.name} (${originalExamDate})\n${originalExam.description || ''}\n\n재시험 대상자를 위한 시험입니다.`,
-        exam_date: today, // Set to today, can be changed later
+        description: `원본 시험: ${originalExam.name} (시험일: ${originalExamDate})\n${originalExam.description || ''}\n\n※ 이 시험은 원본 시험의 재시험입니다.`,
+        exam_date: examDate,
       })
       .select('id')
       .single()

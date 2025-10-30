@@ -22,6 +22,9 @@ import {
 import { Checkbox } from '@ui/checkbox'
 import { useToast } from '@/hooks/use-toast'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@ui/dialog'
+import { Label } from '@ui/label'
+import { Input } from '@ui/input'
 import {
   getRetestStudents,
   waiveRetest,
@@ -29,7 +32,7 @@ import {
   createRetestExam,
   type RetestStudent,
 } from '@/app/actions/retests'
-import { Loader2, MoreVertical, AlertTriangle, CheckCircle2, Clock } from 'lucide-react'
+import { Loader2, MoreVertical, AlertTriangle, CheckCircle2, Clock, Calendar } from 'lucide-react'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 
@@ -47,6 +50,10 @@ export function RetestsClient() {
   const [postponeDialogOpen, setPostponeDialogOpen] = useState(false)
   const [createRetestDialogOpen, setCreateRetestDialogOpen] = useState(false)
   const [targetStudent, setTargetStudent] = useState<RetestStudent | null>(null)
+
+  // Retest creation form
+  const [retestDate, setRetestDate] = useState('')
+  const [originalExamName, setOriginalExamName] = useState('')
 
   // Load students
   useEffect(() => {
@@ -156,8 +163,8 @@ export function RetestsClient() {
     }
   }
 
-  // Handle create retest exam for selected students
-  async function handleCreateRetest() {
+  // Open create retest dialog with validation
+  function openCreateRetestDialog() {
     if (selectedStudents.size === 0) {
       toast({
         variant: 'destructive',
@@ -182,12 +189,38 @@ export function RetestsClient() {
       return
     }
 
+    // Get original exam info
+    const firstStudent = selectedStudentData[0]
+    setOriginalExamName(firstStudent.exam_name)
+
+    // Set default retest date to today
+    const today = new Date().toISOString().split('T')[0]
+    setRetestDate(today)
+
+    setCreateRetestDialogOpen(true)
+  }
+
+  // Handle create retest exam for selected students
+  async function handleCreateRetest() {
+    if (!retestDate) {
+      toast({
+        variant: 'destructive',
+        title: '날짜를 선택하세요',
+        description: '재시험 날짜를 선택해주세요.',
+      })
+      return
+    }
+
+    // Get unique exam IDs from selected students
+    const selectedStudentData = students.filter((s) =>
+      selectedStudents.has(s.exam_score_id)
+    )
+    const examId = selectedStudentData[0].exam_id
+    const studentIds = selectedStudentData.map((s) => s.student_id)
+
     setActionLoading('create')
     try {
-      const examId = uniqueExamIds[0]
-      const studentIds = selectedStudentData.map((s) => s.student_id)
-
-      const result = await createRetestExam(examId, studentIds)
+      const result = await createRetestExam(examId, studentIds, retestDate)
 
       if (!result.success || !result.data) {
         throw new Error(result.error || '재시험 생성 실패')
@@ -210,6 +243,8 @@ export function RetestsClient() {
       setActionLoading(null)
       setCreateRetestDialogOpen(false)
       setSelectedStudents(new Set())
+      setRetestDate('')
+      setOriginalExamName('')
     }
   }
 
@@ -259,7 +294,7 @@ export function RetestsClient() {
               <p className="text-sm font-medium">
                 {selectedStudents.size}명의 학생 선택됨
               </p>
-              <Button onClick={() => setCreateRetestDialogOpen(true)}>
+              <Button onClick={openCreateRetestDialog}>
                 재시험 생성 및 배정
               </Button>
             </div>
@@ -419,17 +454,77 @@ export function RetestsClient() {
         onConfirm={handlePostponeRetest}
       />
 
-      {/* Create Retest Confirmation Dialog */}
-      <ConfirmationDialog
-        open={createRetestDialogOpen}
-        onOpenChange={setCreateRetestDialogOpen}
-        title="재시험을 생성하시겠습니까?"
-        description={`선택된 ${selectedStudents.size}명의 학생을 재시험에 배정합니다.`}
-        confirmText="생성 및 배정"
-        variant="default"
-        isLoading={actionLoading === 'create'}
-        onConfirm={handleCreateRetest}
-      />
+      {/* Create Retest Dialog */}
+      <Dialog open={createRetestDialogOpen} onOpenChange={setCreateRetestDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>재시험 생성 및 배정</DialogTitle>
+            <DialogDescription>
+              선택된 {selectedStudents.size}명의 학생을 재시험에 배정합니다.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Original Exam Info */}
+            <div className="rounded-lg bg-muted p-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-orange-500 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium mb-1">원본 시험</p>
+                  <p className="text-sm text-muted-foreground">{originalExamName}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Retest Date Input */}
+            <div className="space-y-2">
+              <Label htmlFor="retest-date" className="flex items-center gap-2">
+                <Calendar className="w-4 h-4" />
+                재시험 날짜
+              </Label>
+              <Input
+                id="retest-date"
+                type="date"
+                value={retestDate}
+                onChange={(e) => setRetestDate(e.target.value)}
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                재시험을 실시할 날짜를 선택하세요. 나중에 변경할 수 있습니다.
+              </p>
+            </div>
+
+            {/* Selected Students Count */}
+            <div className="rounded-lg border p-4">
+              <p className="text-sm text-muted-foreground">배정될 학생 수</p>
+              <p className="text-2xl font-bold text-primary">{selectedStudents.size}명</p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCreateRetestDialogOpen(false)}
+              disabled={actionLoading === 'create'}
+            >
+              취소
+            </Button>
+            <Button
+              onClick={handleCreateRetest}
+              disabled={actionLoading === 'create' || !retestDate}
+            >
+              {actionLoading === 'create' ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  생성 중...
+                </>
+              ) : (
+                '생성 및 배정'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

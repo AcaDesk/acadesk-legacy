@@ -16,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from '@ui/table'
-import { Search, TrendingUp, TrendingDown, Minus, Plus } from 'lucide-react'
+import { Search, Plus } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { PageWrapper } from "@/components/layout/page-wrapper"
@@ -42,6 +42,7 @@ interface ExamScore {
   total_points: number | null
   percentage: number | null
   feedback: string | null
+  status: 'pending' | 'completed' | 'retest_required' | 'retest_waived' | null
   is_retest: boolean
   retest_count: number
   created_at: string
@@ -74,6 +75,7 @@ export function GradesListClient() {
   const [students, setStudents] = useState<Student[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedStudent, setSelectedStudent] = useState<string>('all')
+  const [selectedStatus, setSelectedStatus] = useState<string>('all')
   const [loading, setLoading] = useState(true)
   const [studentStats, setStudentStats] = useState<{ average: number; total: number; retests: number }>({
     average: 0,
@@ -121,13 +123,13 @@ export function GradesListClient() {
       loadScores()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, searchTerm, selectedStudent, currentUser, userLoading])
+  }, [currentPage, searchTerm, selectedStudent, selectedStatus, currentUser, userLoading])
 
   // Reset to page 1 when filters change
   useEffect(() => {
     resetPage()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, selectedStudent])
+  }, [searchTerm, selectedStudent, selectedStatus])
 
   // Load student statistics when a student is selected
   useEffect(() => {
@@ -170,6 +172,7 @@ export function GradesListClient() {
           total_points,
           percentage,
           feedback,
+          status,
           is_retest,
           retest_count,
           created_at,
@@ -191,6 +194,11 @@ export function GradesListClient() {
       // Apply student filter
       if (selectedStudent !== 'all') {
         query = query.eq('student_id', selectedStudent)
+      }
+
+      // Apply status filter
+      if (selectedStatus !== 'all') {
+        query = query.eq('status', selectedStatus)
       }
 
       // Apply search filter
@@ -241,10 +249,19 @@ export function GradesListClient() {
     return 'destructive'
   }
 
-  function getScoreTrend(): 'up' | 'down' | 'same' | null {
-    // Trend calculation would need additional data fetching for accurate comparison
-    // For now, return null to avoid incorrect calculations with paginated data
-    return null
+  function getStatusBadge(status: ExamScore['status']) {
+    switch (status) {
+      case 'pending':
+        return { label: '입력 대기', variant: 'outline' as const, className: 'text-gray-500' }
+      case 'completed':
+        return { label: '완료', variant: 'default' as const, className: 'bg-green-500 hover:bg-green-600' }
+      case 'retest_required':
+        return { label: '재시험 필요', variant: 'destructive' as const, className: '' }
+      case 'retest_waived':
+        return { label: '재시험 면제', variant: 'secondary' as const, className: '' }
+      default:
+        return { label: '미정', variant: 'outline' as const, className: 'text-gray-400' }
+    }
   }
 
   async function loadStudentStats() {
@@ -348,6 +365,18 @@ export function GradesListClient() {
               ))}
             </SelectContent>
           </Select>
+          <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectValue placeholder="처리 상태" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">전체 상태</SelectItem>
+              <SelectItem value="pending">입력 대기</SelectItem>
+              <SelectItem value="completed">완료</SelectItem>
+              <SelectItem value="retest_required">재시험 필요</SelectItem>
+              <SelectItem value="retest_waived">재시험 면제</SelectItem>
+            </SelectContent>
+          </Select>
           <Badge variant="secondary" className="h-10 px-4 flex items-center whitespace-nowrap">
             {startIndex}-{endIndex} / {totalItems}개 결과
           </Badge>
@@ -430,14 +459,14 @@ export function GradesListClient() {
                       <TableHead>시험명</TableHead>
                       <TableHead>시험일</TableHead>
                       <TableHead className="text-center">점수</TableHead>
-                      <TableHead className="text-center">추세</TableHead>
+                      <TableHead className="text-center">처리 상태</TableHead>
                       <TableHead>피드백</TableHead>
                       <TableHead>입력일</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {scores.map((score, index) => {
-                      const trend = getScoreTrend()
+                    {scores.map((score) => {
+                      const statusBadge = getStatusBadge(score.status)
                       return (
                         <TableRow key={score.id}>
                           <TableCell>
@@ -476,15 +505,12 @@ export function GradesListClient() {
                             </div>
                           </TableCell>
                           <TableCell className="text-center">
-                            {trend === 'up' && (
-                              <TrendingUp className="h-4 w-4 text-green-600 mx-auto" />
-                            )}
-                            {trend === 'down' && (
-                              <TrendingDown className="h-4 w-4 text-red-600 mx-auto" />
-                            )}
-                            {trend === 'same' && (
-                              <Minus className="h-4 w-4 text-gray-400 mx-auto" />
-                            )}
+                            <Badge
+                              variant={statusBadge.variant}
+                              className={statusBadge.className}
+                            >
+                              {statusBadge.label}
+                            </Badge>
                           </TableCell>
                           <TableCell className="max-w-xs">
                             {score.feedback ? (
