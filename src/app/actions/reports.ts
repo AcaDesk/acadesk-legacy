@@ -32,8 +32,13 @@ interface ExamScoreWithDetails {
     name: string
     exam_date: string
     category_code: string
+    subject_id: string | null
     ref_exam_categories?: {
       label: string
+    } | null
+    subjects?: {
+      name: string
+      color: string
     } | null
   } | null
 }
@@ -42,6 +47,7 @@ interface ExamScoreBasicType {
   percentage: number
   exams?: {
     category_code: string
+    subject_id: string | null
   } | null
 }
 
@@ -676,7 +682,9 @@ async function getScoresData(
         name,
         exam_date,
         category_code,
-        ref_exam_categories (label)
+        subject_id,
+        ref_exam_categories (label),
+        subjects (name, color)
       )
     `)
     .eq('student_id', studentId)
@@ -689,7 +697,7 @@ async function getScoresData(
     .from('exam_scores')
     .select(`
       percentage,
-      exams (category_code)
+      exams (category_code, subject_id)
     `)
     .eq('student_id', studentId)
     .gte('created_at', prevPeriodStart)
@@ -703,6 +711,7 @@ async function getScoresData(
       is_retest,
       exams!inner (
         category_code,
+        subject_id,
         exam_date
       )
     `)
@@ -727,12 +736,22 @@ async function getScoresData(
 
   currentScores?.forEach((score) => {
     const examScore = score as unknown as ExamScoreWithDetails & { is_retest?: boolean }
-    const category = examScore.exams?.category_code || ''
-    const label = examScore.exams?.ref_exam_categories?.label || category
+    const subjectId = examScore.exams?.subject_id || null
+    const categoryCode = examScore.exams?.category_code || ''
 
-    if (!categories.has(category)) {
-      categories.set(category, {
-        category: label,
+    // 그룹화 키: subject_id가 있으면 subject 우선, 없으면 category 사용
+    const groupKey = subjectId ? `subject_${subjectId}` : `category_${categoryCode}`
+
+    // 라벨: 과목명이 있으면 "과목명 - 카테고리", 없으면 카테고리만
+    const subjectName = examScore.exams?.subjects?.name
+    const categoryLabel = examScore.exams?.ref_exam_categories?.label || categoryCode
+    const displayLabel = subjectName
+      ? (categoryLabel ? `${subjectName} - ${categoryLabel}` : subjectName)
+      : categoryLabel
+
+    if (!categories.has(groupKey)) {
+      categories.set(groupKey, {
+        category: displayLabel,
         tests: [],
         percentages: [],
         retestCount: 0,
@@ -740,7 +759,7 @@ async function getScoresData(
       })
     }
 
-    const categoryData = categories.get(category)
+    const categoryData = categories.get(groupKey)
     if (categoryData) {
       categoryData.tests.push({
         name: examScore.exams?.name || '',
@@ -760,11 +779,14 @@ async function getScoresData(
   const prevAverages = new Map<string, number[]>()
   previousScores?.forEach((score) => {
     const examScore = score as unknown as ExamScoreBasicType
-    const category = examScore.exams?.category_code || ''
-    if (!prevAverages.has(category)) {
-      prevAverages.set(category, [])
+    const subjectId = examScore.exams?.subject_id || null
+    const categoryCode = examScore.exams?.category_code || ''
+    const groupKey = subjectId ? `subject_${subjectId}` : `category_${categoryCode}`
+
+    if (!prevAverages.has(groupKey)) {
+      prevAverages.set(groupKey, [])
     }
-    const categoryScores = prevAverages.get(category)
+    const categoryScores = prevAverages.get(groupKey)
     if (categoryScores) {
       categoryScores.push(examScore.percentage)
     }
@@ -773,14 +795,16 @@ async function getScoresData(
   // 카테고리별 반 평균 및 재시험률 계산
   const classAverages = new Map<string, { percentages: number[]; retestCount: number; totalCount: number }>()
   classScores?.forEach((score) => {
-    const typedScore = score as unknown as { percentage: number; is_retest?: boolean; exams?: { category_code: string } }
-    const category = typedScore.exams?.category_code || ''
+    const typedScore = score as unknown as { percentage: number; is_retest?: boolean; exams?: { category_code: string; subject_id: string | null } }
+    const subjectId = typedScore.exams?.subject_id || null
+    const categoryCode = typedScore.exams?.category_code || ''
+    const groupKey = subjectId ? `subject_${subjectId}` : `category_${categoryCode}`
 
-    if (!classAverages.has(category)) {
-      classAverages.set(category, { percentages: [], retestCount: 0, totalCount: 0 })
+    if (!classAverages.has(groupKey)) {
+      classAverages.set(groupKey, { percentages: [], retestCount: 0, totalCount: 0 })
     }
 
-    const classData = classAverages.get(category)
+    const classData = classAverages.get(groupKey)
     if (classData) {
       classData.percentages.push(typedScore.percentage)
       classData.totalCount++
