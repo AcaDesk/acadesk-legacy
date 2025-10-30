@@ -14,6 +14,8 @@ import {
   FileText,
   UserPlus,
   Trash2,
+  Tag,
+  Repeat,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { AssignStudentsDialog } from '@/components/features/exams/assign-students-dialog'
@@ -30,6 +32,8 @@ interface Exam {
   total_questions: number | null
   passing_score: number | null
   description: string | null
+  is_recurring: boolean | null
+  recurring_schedule: string | null
   created_at: string
   classes?: {
     id: string
@@ -59,6 +63,32 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [studentToRemove, setStudentToRemove] = useState<{ id: string; name: string } | null>(null)
   const [isRemoving, setIsRemoving] = useState(false)
+
+  function getExamTypeLabel(type: string | null) {
+    if (!type) return '미선택'
+    const typeMap: Record<string, string> = {
+      vocabulary: '단어시험',
+      midterm: '중간고사',
+      final: '기말고사',
+      quiz: '퀴즈',
+      mock: '모의고사',
+      assignment: '과제',
+    }
+    return typeMap[type] || type
+  }
+
+  function getRecurringScheduleLabel(schedule: string | null) {
+    if (!schedule) return '-'
+    const scheduleMap: Record<string, string> = {
+      daily: '매일',
+      weekly_mon_wed_fri: '매주 월수금',
+      weekly_tue_thu: '매주 화목',
+      weekly: '매주 (같은 요일)',
+      biweekly: '격주',
+      monthly: '매월',
+    }
+    return scheduleMap[schedule] || schedule
+  }
 
   useEffect(() => {
     loadStudents()
@@ -168,7 +198,18 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
       </div>
 
       {/* Exam Info Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardDescription className="flex items-center gap-2">
+              <Tag className="h-4 w-4" />
+              시험 유형
+            </CardDescription>
+            <CardTitle className="text-lg">
+              {getExamTypeLabel(exam.exam_type)}
+            </CardTitle>
+          </CardHeader>
+        </Card>
         <Card>
           <CardHeader className="pb-3">
             <CardDescription className="flex items-center gap-2">
@@ -215,6 +256,19 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
             </CardTitle>
           </CardHeader>
         </Card>
+        {exam.is_recurring && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardDescription className="flex items-center gap-2">
+                <Repeat className="h-4 w-4" />
+                반복 주기
+              </CardDescription>
+              <CardTitle className="text-lg">
+                {getRecurringScheduleLabel(exam.recurring_schedule)}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+        )}
       </div>
 
       {/* Students List */}
