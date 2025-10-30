@@ -82,7 +82,7 @@ export function GradesListClient() {
   })
 
   const { toast } = useToast()
-  const { user: currentUser } = useCurrentUser()
+  const { user: currentUser, loading: userLoading } = useCurrentUser()
   const router = useRouter()
   const supabase = createClient()
 
@@ -110,14 +110,18 @@ export function GradesListClient() {
 
   // useEffect must be called before any early returns
   useEffect(() => {
-    loadStudents()
+    if (!userLoading && currentUser) {
+      loadStudents()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [currentUser, userLoading])
 
   useEffect(() => {
-    loadScores()
+    if (!userLoading && currentUser) {
+      loadScores()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, searchTerm, selectedStudent])
+  }, [currentPage, searchTerm, selectedStudent, currentUser, userLoading])
 
   // Reset to page 1 when filters change
   useEffect(() => {
@@ -294,7 +298,7 @@ export function GradesListClient() {
     return <Maintenance featureName="성적 조회" reason="성적 시스템 업데이트가 진행 중입니다." />;
   }
 
-  if (loading) {
+  if (loading || userLoading) {
     return (
       <PageWrapper>
         <div className="flex items-center justify-center h-64">
