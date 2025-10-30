@@ -184,7 +184,7 @@ export async function generateWeeklyReport(
     // 주간은 추이 데이터 생략 (최근 3주로 변경 가능)
     const scoreTrend: Array<{
       name: string
-      '내 점수': number
+      '학생 점수': number
       '반 평균': number
     }> = []
 
