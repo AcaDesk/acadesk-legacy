@@ -380,7 +380,7 @@ export function ReportPdfDocument({
                   <Text style={styles.trendMonth}>{trend.name}</Text>
                   <View style={styles.trendScores}>
                     <Text style={styles.trendScorePrimary}>
-                      내 점수: {trend['내 점수']}점
+                      내 점수: {trend['학생 점수']}점
                     </Text>
                     <Text style={styles.trendScoreMuted}>
                       반 평균: {trend['반 평균']}점
