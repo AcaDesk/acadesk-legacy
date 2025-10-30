@@ -44,19 +44,60 @@ export async function getRetestStudents() {
     const { tenantId } = await verifyStaff()
     const supabase = createServiceRoleClient()
 
+    // Query exam_scores directly with joins instead of using a view
     const { data, error } = await supabase
-      .from('students_requiring_retest')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .order('exam_date', { ascending: false })
+      .from('exam_scores')
+      .select(`
+        id,
+        exam_id,
+        student_id,
+        score,
+        percentage,
+        status,
+        retest_count,
+        exams (
+          id,
+          name,
+          exam_date,
+          passing_score
+        ),
+        students (
+          id,
+          student_code,
+          grade,
+          users (name),
+          classes (name)
+        )
+      `)
+      .eq('status', 'retest_required')
+      .eq('exams.tenant_id', tenantId)
+      .order('exams.exam_date', { ascending: false })
 
     if (error) {
       throw error
     }
 
+    // Transform data to match RetestStudent interface
+    const transformedData: RetestStudent[] = (data || []).map((item: any) => ({
+      exam_score_id: item.id,
+      exam_id: item.exams?.id || '',
+      student_id: item.students?.id || '',
+      exam_name: item.exams?.name || '',
+      exam_date: item.exams?.exam_date || '',
+      passing_score: item.exams?.passing_score || 0,
+      student_score: item.percentage || 0,
+      status: item.status,
+      retest_count: item.retest_count || 0,
+      student_code: item.students?.student_code || '',
+      student_name: item.students?.users?.name || '',
+      grade: item.students?.grade || null,
+      class_name: item.students?.classes?.name || null,
+      tenant_id: tenantId,
+    }))
+
     return {
       success: true,
-      data: (data || []) as RetestStudent[],
+      data: transformedData,
       error: null,
     }
   } catch (error) {
@@ -195,19 +236,31 @@ export async function createRetestExam(
     }
 
     // 2. Create retest exam
+    // Format original exam date for display
+    const originalExamDate = originalExam.exam_date
+      ? new Date(originalExam.exam_date).toLocaleDateString('ko-KR', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        })
+      : '날짜 미정'
+
+    // Set retest date to today
+    const today = new Date().toISOString().split('T')[0]
+
     const { data: retestExam, error: createError } = await supabase
       .from('exams')
       .insert({
         tenant_id: tenantId,
-        name: `${originalExam.name} - 재시험`,
+        name: `[재시험] ${originalExam.name}`,
         subject_id: originalExam.subject_id,
         category_code: originalExam.category_code,
         exam_type: originalExam.exam_type,
         class_id: originalExam.class_id,
         total_questions: originalExam.total_questions,
         passing_score: originalExam.passing_score,
-        description: `${originalExam.description || ''}\n[재시험]`,
-        exam_date: null, // Set later
+        description: `원본 시험: ${originalExam.name} (${originalExamDate})\n${originalExam.description || ''}\n\n재시험 대상자를 위한 시험입니다.`,
+        exam_date: today, // Set to today, can be changed later
       })
       .select('id')
       .single()
