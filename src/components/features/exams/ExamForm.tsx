@@ -10,6 +10,7 @@ import { Button } from '@ui/button'
 import { Input } from '@ui/input'
 import { DatePicker } from '@ui/date-picker'
 import { Textarea } from '@ui/textarea'
+import { Switch } from '@ui/switch'
 import {
   Form,
   FormControl,
@@ -45,6 +46,8 @@ const examFormSchema = z.object({
   total_questions: z.string().optional(),
   passing_score: z.string().optional(),
   description: z.string().optional(),
+  is_recurring: z.boolean().optional(),
+  recurring_schedule: z.string().optional(),
 })
 
 type ExamFormValues = z.infer<typeof examFormSchema>
@@ -91,6 +94,8 @@ export function ExamForm({ mode, examId, defaultValues, onSuccess }: ExamFormPro
       total_questions: '',
       passing_score: '',
       description: '',
+      is_recurring: false,
+      recurring_schedule: '',
     },
   })
 
@@ -132,6 +137,10 @@ export function ExamForm({ mode, examId, defaultValues, onSuccess }: ExamFormPro
         total_questions: values.total_questions ? parseInt(values.total_questions) : null,
         passing_score: values.passing_score ? parseFloat(values.passing_score) : null,
         description: values.description || null,
+        is_recurring: values.is_recurring || false,
+        recurring_schedule: values.is_recurring && values.recurring_schedule && values.recurring_schedule !== 'none'
+          ? values.recurring_schedule
+          : null,
       }
 
       let result
@@ -239,6 +248,7 @@ export function ExamForm({ mode, examId, defaultValues, onSuccess }: ExamFormPro
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="none">미선택</SelectItem>
+                        <SelectItem value="vocabulary">단어시험</SelectItem>
                         <SelectItem value="midterm">중간고사</SelectItem>
                         <SelectItem value="final">기말고사</SelectItem>
                         <SelectItem value="quiz">퀴즈</SelectItem>
@@ -365,6 +375,68 @@ export function ExamForm({ mode, examId, defaultValues, onSuccess }: ExamFormPro
                 </FormItem>
               )}
             />
+          </CardContent>
+        </Card>
+
+        {/* Recurring Schedule (For Vocabulary Tests) */}
+        <Card>
+          <CardHeader>
+            <CardTitle>반복 설정</CardTitle>
+            <CardDescription>정기적으로 반복되는 시험인 경우 설정하세요 (예: 단어시험)</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <FormField
+              control={form.control}
+              name="is_recurring"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-base">반복 시험</FormLabel>
+                    <FormDescription>
+                      정기적으로 반복되는 시험으로 설정합니다
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            {form.watch('is_recurring') && (
+              <FormField
+                control={form.control}
+                name="recurring_schedule"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>반복 주기</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="주기 선택" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">없음</SelectItem>
+                        <SelectItem value="daily">매일</SelectItem>
+                        <SelectItem value="weekly_mon_wed_fri">매주 월수금</SelectItem>
+                        <SelectItem value="weekly_tue_thu">매주 화목</SelectItem>
+                        <SelectItem value="weekly">매주 (같은 요일)</SelectItem>
+                        <SelectItem value="biweekly">격주</SelectItem>
+                        <SelectItem value="monthly">매월</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      반복 주기를 선택하세요. 단어시험은 보통 매일 또는 월수금으로 설정합니다.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
           </CardContent>
         </Card>
 

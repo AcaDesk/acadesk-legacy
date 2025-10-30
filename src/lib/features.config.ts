@@ -70,7 +70,7 @@ export const FEATURES = {
   parentApp: 'inactive' as FeatureStatus,
 
   /** 캘린더 통합 */
-  calendarIntegration: 'inactive' as FeatureStatus,
+  calendarIntegration: 'active' as FeatureStatus,
 
   /** 키오스크 모드 */
   kioskMode: 'active' as FeatureStatus,
