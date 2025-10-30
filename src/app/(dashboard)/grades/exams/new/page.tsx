@@ -4,7 +4,7 @@ import { requireAuth } from '@/lib/auth/helpers'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: '시험 등록',
+  title: '시험 등록 | Acadesk',
   description: '새로운 시험을 등록합니다.',
 }
 
