@@ -170,6 +170,11 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
   }
 
   function handleEditComment() {
+    if (!report) return
+
+    // Access report content data
+    const reportData = report.content as any
+
     // Try to load from new JSON format first
     if (reportData.comment) {
       setCommentForm({
