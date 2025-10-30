@@ -83,17 +83,6 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
     try {
       setLoading(true)
 
-      // Load exam details
-      const { data: examData, error: examError } = await supabase
-        .from('exams')
-        .select('id, name, total_questions, exam_date')
-        .eq('tenant_id', currentUser.tenantId)
-        .eq('id', examId)
-        .single()
-
-      if (examError) throw examError
-      setExam(examData)
-
       // Get students assigned to this exam (from exam_scores table)
       const { data: examScores, error: scoresError } = await supabase
         .from('exam_scores')
