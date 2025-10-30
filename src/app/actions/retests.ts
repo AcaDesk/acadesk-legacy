@@ -239,13 +239,24 @@ export async function createRetestExam(
     }
 
     // 4. Update original scores to mark as retest assigned
-    await supabase
+    // Get current retest counts
+    const { data: currentScores, error: fetchScoresError } = await supabase
       .from('exam_scores')
-      .update({
-        retest_count: supabase.raw('retest_count + 1'),
-      })
+      .select('id, retest_count')
       .eq('exam_id', originalExamId)
       .in('student_id', studentIds)
+
+    if (!fetchScoresError && currentScores) {
+      // Update each score with incremented retest_count
+      for (const score of currentScores) {
+        await supabase
+          .from('exam_scores')
+          .update({
+            retest_count: (score.retest_count || 0) + 1,
+          })
+          .eq('id', score.id)
+      }
+    }
 
     revalidatePath('/grades/retests')
     revalidatePath('/grades/exams')
