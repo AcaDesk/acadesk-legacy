@@ -6,7 +6,7 @@ import { getExamById } from '@/app/actions/exams'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: '시험 수정',
+  title: '시험 수정 | Acadesk',
   description: '시험 정보를 수정합니다.',
 }
 
