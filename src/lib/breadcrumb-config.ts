@@ -228,7 +228,7 @@ export const BREADCRUMB_CONFIG: BreadcrumbConfig = {
   '/classes/[id]/edit': '반 수정',
 
   // Grades (성적)
-  '/grades': '시험 목록',
+  '/grades': '성적 관리',
   '/grades/entry': '성적 입력',
   '/grades/list': '성적 목록',
   '/grades/exams': '시험 목록',
@@ -240,6 +240,7 @@ export const BREADCRUMB_CONFIG: BreadcrumbConfig = {
   '/grades/exam-templates/new': '시험 템플릿 등록',
   '/grades/exam-templates/[id]': '시험 템플릿 수정',
   '/grades/exam-templates/[id]/edit': '시험 템플릿 수정',
+  '/grades/retests': '재시험 관리',
 
   // Todos (할 일)
   '/todos': '할 일 관리',
