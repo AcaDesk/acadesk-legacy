@@ -59,8 +59,7 @@ export async function getRetestStudents() {
           id,
           name,
           exam_date,
-          passing_score,
-          tenant_id
+          passing_score
         ),
         students!inner (
           id,
@@ -72,6 +71,8 @@ export async function getRetestStudents() {
       `)
       .eq('status', 'retest_required')
       .eq('tenant_id', tenantId)
+      .eq('exams.tenant_id', tenantId)
+      .eq('students.tenant_id', tenantId)
       .order('created_at', { ascending: false })
 
     if (error) {
