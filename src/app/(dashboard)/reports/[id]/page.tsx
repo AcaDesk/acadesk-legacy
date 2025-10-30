@@ -49,26 +49,16 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
   const contentRef = useRef<HTMLDivElement>(null)
 
   // PDF generation with usePDF hook
-  // Initialize with empty data first to avoid hook order issues
+  // Only initialize PDF when report is available
   const [instance, updatePdf] = usePDF({
-    document: report ? (
-      <ReportPdfDocument
-        reportData={report.content}
-        studentName={report.students?.users?.name || report.content.studentName || report.content.student?.name || '학생'}
-        studentCode={report.students?.student_code || report.content.studentCode || report.content.student?.student_code || ''}
-        studentGrade={report.students?.grade || report.content.grade || report.content.student?.grade || ''}
-        periodStart={report.period_start}
-        periodEnd={report.period_end}
-        generatedAt={report.generated_at}
-      />
-    ) : <></>,
+    document: <></>,
   })
 
   // Update PDF when report data changes
   useEffect(() => {
     if (report) {
       try {
-        updatePdf(
+        const pdfDocument = (
           <ReportPdfDocument
             reportData={report.content}
             studentName={report.students?.users?.name || report.content.studentName || report.content.student?.name || '학생'}
@@ -79,6 +69,7 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
             generatedAt={report.generated_at}
           />
         )
+        updatePdf(pdfDocument)
       } catch (error) {
         console.error('PDF update error:', error)
         // Silently fail PDF updates to avoid crashing the UI
@@ -260,23 +251,49 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
 
   // PDF download handler
   function handlePdfDownload() {
-    if (!instance.blob || instance.loading || !report) return
+    if (instance.loading) {
+      toast({
+        title: 'PDF 생성 중',
+        description: 'PDF를 생성하는 중입니다. 잠시만 기다려주세요.',
+      })
+      return
+    }
 
-    // Create anchor tag to trigger download
-    const link = document.createElement('a')
-    link.href = URL.createObjectURL(instance.blob)
-    const studentName = report.students?.users?.name || report.content.studentName || report.content.student?.name || '학생'
-    const fileName = `${studentName}_${new Date(report.period_start).getFullYear()}년_${new Date(report.period_start).getMonth() + 1}월_리포트.pdf`
-    link.download = fileName
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(link.href)
+    if (!instance.blob) {
+      toast({
+        title: 'PDF 생성 실패',
+        description: 'PDF를 생성할 수 없습니다. 페이지를 새로고침한 후 다시 시도해주세요.',
+        variant: 'destructive',
+      })
+      return
+    }
 
-    toast({
-      title: 'PDF 다운로드 완료',
-      description: `${studentName} 학생의 리포트가 다운로드되었습니다.`,
-    })
+    if (!report) return
+
+    try {
+      // Create anchor tag to trigger download
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(instance.blob)
+      const studentName = report.students?.users?.name || report.content.studentName || report.content.student?.name || '학생'
+      const fileName = `${studentName}_${new Date(report.period_start).getFullYear()}년_${new Date(report.period_start).getMonth() + 1}월_리포트.pdf`
+      link.download = fileName
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(link.href)
+
+      toast({
+        title: 'PDF 다운로드 완료',
+        description: `${studentName} 학생의 리포트가 다운로드되었습니다.`,
+      })
+    } catch (error) {
+      console.error('PDF download error:', error)
+      toast({
+        title: '다운로드 실패',
+        description: 'PDF 다운로드 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      })
+    }
   }
 
   // Feature flag checks after all Hooks
@@ -341,10 +358,10 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
             <Button
               variant="outline"
               onClick={handlePdfDownload}
-              disabled={instance.loading || !instance.blob}
+              disabled={instance.loading && !instance.blob}
             >
               <Download className="h-4 w-4 mr-2" />
-              {instance.loading ? 'PDF 생성 중...' : 'PDF 다운로드'}
+              {instance.loading && !instance.blob ? 'PDF 준비 중...' : 'PDF 다운로드'}
             </Button>
             {!report.sent_at && (
               <Button onClick={handleSendClick} disabled={sending}>
