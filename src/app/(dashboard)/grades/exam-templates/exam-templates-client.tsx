@@ -67,13 +67,15 @@ export function ExamTemplatesClient() {
   const { toast } = useToast()
   const router = useRouter()
   const supabase = createClient()
-  const { user: currentUser } = useCurrentUser()
+  const { user: currentUser, loading: userLoading } = useCurrentUser()
 
   // useEffect must be called before any early returns
   useEffect(() => {
-    loadData()
+    if (!userLoading && currentUser) {
+      loadData()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [currentUser, userLoading])
 
   useEffect(() => {
     filterTemplates()
@@ -331,7 +333,7 @@ export function ExamTemplatesClient() {
     return <Maintenance featureName="시험 템플릿" reason="템플릿 시스템 업데이트가 진행 중입니다." />;
   }
 
-  if (loading) {
+  if (loading || userLoading) {
     return (
       <PageWrapper>
         <div className="flex items-center justify-center h-64">
