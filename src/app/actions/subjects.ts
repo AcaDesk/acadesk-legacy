@@ -54,11 +54,10 @@ export async function getSubjectsWithStatistics() {
     const { tenantId } = await verifyStaff()
     const supabase = createServiceRoleClient()
 
-    const { data, error } = await supabase
-      .from('subject_statistics')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .order('sort_order', { ascending: true })
+    // Use raw SQL query to bypass view permissions
+    const { data, error } = await supabase.rpc('get_subject_statistics', {
+      p_tenant_id: tenantId
+    })
 
     if (error) {
       throw error
