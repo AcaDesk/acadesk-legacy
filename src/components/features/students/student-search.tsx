@@ -368,10 +368,13 @@ function StudentSearchMultiple({
     }
   }
 
+  // Check if className contains 'h-full' to determine if we should use flexible height
+  const useFlexibleHeight = className?.includes('h-full')
+
   return (
-    <div className={className}>
+    <div className={`${className || ''} ${useFlexibleHeight ? 'flex flex-col' : ''}`}>
       {/* Header with quick actions */}
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-center gap-2 mb-4 flex-shrink-0">
         {quickActions?.map((action) => (
           <Button
             key={action.label}
@@ -407,7 +410,7 @@ function StudentSearchMultiple({
 
       {/* Search */}
       {searchable && (
-        <div className="relative mb-4">
+        <div className="relative mb-4 flex-shrink-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder={placeholder}
@@ -420,7 +423,7 @@ function StudentSearchMultiple({
       )}
 
       {/* Student List */}
-      <ScrollArea className="max-h-96 border rounded-lg">
+      <ScrollArea className={`border rounded-lg ${useFlexibleHeight ? 'flex-1' : 'max-h-96'}`}>
         {loading ? (
           <div className="text-center py-8 text-muted-foreground">
             <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />

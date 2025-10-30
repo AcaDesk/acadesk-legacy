@@ -212,46 +212,49 @@ export function AssignStudentsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh]">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>학생 배정</DialogTitle>
           <DialogDescription>
             이 시험에 배정할 학생을 선택하세요. 배정된 학생만 성적 입력 시 표시됩니다.
           </DialogDescription>
         </DialogHeader>
 
-        <StudentSearch
-          mode="multiple"
-          variant="checkbox-list"
-          students={students}
-          value={selectedIds}
-          onChange={setSelectedIds}
-          loading={loading}
-          searchable={true}
-          showSelectAll={true}
-          showSelectedCount={true}
-          placeholder="학생 검색..."
-          renderBadge={(student) =>
-            (student as Student).isAssigned ? (
-              <Badge variant="outline" className="text-xs">
-                기배정
-              </Badge>
-            ) : null
-          }
-          quickActions={
-            classId
-              ? [
-                  {
-                    label: '수업 학생 전체 선택',
-                    icon: <Users className="h-4 w-4 mr-2" />,
-                    onClick: handleAssignFromClass,
-                  },
-                ]
-              : undefined
-          }
-        />
+        <div className="flex-1 overflow-hidden">
+          <StudentSearch
+            mode="multiple"
+            variant="checkbox-list"
+            students={students}
+            value={selectedIds}
+            onChange={setSelectedIds}
+            loading={loading}
+            searchable={true}
+            showSelectAll={true}
+            showSelectedCount={true}
+            placeholder="학생 검색..."
+            className="h-full"
+            renderBadge={(student) =>
+              (student as Student).isAssigned ? (
+                <Badge variant="outline" className="text-xs">
+                  기배정
+                </Badge>
+              ) : null
+            }
+            quickActions={
+              classId
+                ? [
+                    {
+                      label: '수업 학생 전체 선택',
+                      icon: <Users className="h-4 w-4 mr-2" />,
+                      onClick: handleAssignFromClass,
+                    },
+                  ]
+                : undefined
+            }
+          />
+        </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-shrink-0">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             취소
           </Button>
