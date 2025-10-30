@@ -807,7 +807,7 @@ export async function getStudents(filters?: {
         enrollment_date,
         commute_method,
         marketing_source,
-        users!inner (
+        users (
           name,
           email,
           phone
@@ -823,7 +823,7 @@ export async function getStudents(filters?: {
         student_guardians (
           guardians (
             id,
-            users!inner (
+            users (
               name,
               phone
             )
@@ -862,7 +862,14 @@ export async function getStudents(filters?: {
     // 5. Execute query
     const { data: students, error } = await query
 
+    console.log('[getStudents] Query result:', {
+      studentsCount: students?.length || 0,
+      error: error?.message,
+      tenantId
+    })
+
     if (error) {
+      console.error('[getStudents] Query error:', error)
       throw new Error(`학생 조회 실패: ${error.message}`)
     }
 
@@ -898,6 +905,12 @@ export async function getStudents(filters?: {
         s.classes.some((c: any) => c.id === filters.classId)
       )
     }
+
+    console.log('[getStudents] Returning data:', {
+      totalStudents: transformedStudents.length,
+      filteredStudents: filteredStudents.length,
+      filters
+    })
 
     return {
       success: true,
