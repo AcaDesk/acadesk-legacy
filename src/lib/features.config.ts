@@ -26,7 +26,7 @@ export const FEATURES = {
   studentManagement: 'active' as FeatureStatus,
 
   /** 출석 관리 */
-  attendanceManagement: 'active' as FeatureStatus,
+  attendanceManagement: 'inactive' as FeatureStatus,
 
   /** 성적 관리 */
   gradesManagement: 'active' as FeatureStatus,
