@@ -80,7 +80,7 @@ export interface ReportData {
   }
   scores: {
     category: string
-    current: number
+    current: number | null
     previous: number | null
     change: number | null
     average: number | null
