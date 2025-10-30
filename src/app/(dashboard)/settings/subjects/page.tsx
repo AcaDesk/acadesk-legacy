@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { PageWrapper } from '@/components/layout/page-wrapper'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
@@ -33,6 +33,19 @@ import {
   TableRow,
 } from '@ui/table'
 import { Badge } from '@ui/badge'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@ui/dropdown-menu'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@ui/select'
 import { useToast } from '@/hooks/use-toast'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -43,6 +56,9 @@ import {
   Edit,
   Trash2,
   Loader2,
+  MoreVertical,
+  Search,
+  Filter,
 } from 'lucide-react'
 import type { SubjectStatistics } from '@/app/actions/subjects'
 import {
@@ -88,6 +104,10 @@ export default function SubjectsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [subjectToDelete, setSubjectToDelete] = useState<Subject | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  // Search and filter states
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
 
   const { toast } = useToast()
 
@@ -254,6 +274,30 @@ export default function SubjectsPage() {
     setIsEditModalOpen(true)
   }
 
+  // Filtered and searched subjects
+  const filteredSubjects = useMemo(() => {
+    let result = subjects
+
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      result = result.filter(subject =>
+        statusFilter === 'active' ? subject.active : !subject.active
+      )
+    }
+
+    // Apply search filter
+    if (searchTerm) {
+      const lowerSearch = searchTerm.toLowerCase()
+      result = result.filter(subject =>
+        subject.name.toLowerCase().includes(lowerSearch) ||
+        subject.code?.toLowerCase().includes(lowerSearch) ||
+        subject.description?.toLowerCase().includes(lowerSearch)
+      )
+    }
+
+    return result
+  }, [subjects, statusFilter, searchTerm])
+
   // Feature flag checks after all Hooks
   const featureStatus = FEATURES.subjectManagement;
 
@@ -299,70 +343,168 @@ export default function SubjectsPage() {
               </Button>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12"></TableHead>
-                  <TableHead>과목명</TableHead>
-                  <TableHead>과목 코드</TableHead>
-                  <TableHead>설명</TableHead>
-                  <TableHead className="text-center">수업 수</TableHead>
-                  <TableHead className="text-center">상태</TableHead>
-                  <TableHead className="text-right">작업</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {subjects.map((subject) => (
-                  <TableRow key={subject.id}>
-                    <TableCell>
-                      <div
-                        className="w-8 h-8 rounded-md"
-                        style={{ backgroundColor: subject.color }}
-                      />
-                    </TableCell>
-                    <TableCell className="font-medium">{subject.name}</TableCell>
-                    <TableCell>
-                      {subject.code ? (
-                        <Badge variant="outline">{subject.code}</Badge>
-                      ) : (
-                        <span className="text-muted-foreground text-sm">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {subject.description || '-'}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant="secondary">{subject.class_count}</Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {subject.active ? (
-                        <Badge>활성</Badge>
-                      ) : (
-                        <Badge variant="outline">비활성</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openEditModal(subject as Subject)}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteClick(subject as Subject)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <div className="space-y-4">
+              {/* Search and Filter Bar */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="과목명, 코드, 설명으로 검색..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <Select
+                  value={statusFilter}
+                  onValueChange={(value: 'all' | 'active' | 'inactive') => setStatusFilter(value)}
+                >
+                  <SelectTrigger className="w-full sm:w-[160px]">
+                    <Filter className="w-4 h-4 mr-2" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">전체 상태</SelectItem>
+                    <SelectItem value="active">활성만</SelectItem>
+                    <SelectItem value="inactive">비활성만</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Results Count */}
+              {(searchTerm || statusFilter !== 'all') && (
+                <div className="text-sm text-muted-foreground">
+                  {filteredSubjects.length}개의 과목 {searchTerm && `"${searchTerm}" 검색 결과`}
+                </div>
+              )}
+
+              {/* Table */}
+              {filteredSubjects.length === 0 ? (
+                <div className="text-center py-12">
+                  <Search className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground mb-2">검색 결과가 없습니다</p>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    다른 검색어를 입력하거나 필터를 변경해보세요
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSearchTerm('')
+                      setStatusFilter('all')
+                    }}
+                  >
+                    필터 초기화
+                  </Button>
+                </div>
+              ) : (
+                <TooltipProvider>
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>과목</TableHead>
+                          <TableHead className="hidden md:table-cell">설명</TableHead>
+                          <TableHead className="text-center">수업 수</TableHead>
+                          <TableHead className="text-center">상태</TableHead>
+                          <TableHead className="w-[50px]"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredSubjects.map((subject) => (
+                          <TableRow key={subject.id}>
+                            {/* Subject with Color */}
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className="w-10 h-10 rounded-lg flex-shrink-0"
+                                  style={{ backgroundColor: subject.color }}
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-medium">{subject.name}</p>
+                                  {subject.code && (
+                                    <Badge variant="outline" className="mt-1">
+                                      {subject.code}
+                                    </Badge>
+                                  )}
+                                  {/* Show description on mobile */}
+                                  {subject.description && (
+                                    <p className="md:hidden text-sm text-muted-foreground mt-1 line-clamp-1">
+                                      {subject.description}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </TableCell>
+
+                            {/* Description (desktop only) */}
+                            <TableCell className="hidden md:table-cell">
+                              {subject.description ? (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <p className="text-sm text-muted-foreground line-clamp-2 cursor-help">
+                                      {subject.description}
+                                    </p>
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-sm">
+                                    <p>{subject.description}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              ) : (
+                                <span className="text-muted-foreground text-sm">-</span>
+                              )}
+                            </TableCell>
+
+                            {/* Class Count */}
+                            <TableCell className="text-center">
+                              <Badge variant="secondary" className="font-mono">
+                                {subject.class_count}
+                              </Badge>
+                            </TableCell>
+
+                            {/* Status */}
+                            <TableCell className="text-center">
+                              {subject.active ? (
+                                <Badge className="bg-green-500/10 text-green-700 dark:text-green-400 hover:bg-green-500/20">
+                                  활성
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-muted-foreground">
+                                  비활성
+                                </Badge>
+                              )}
+                            </TableCell>
+
+                            {/* Actions */}
+                            <TableCell>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon">
+                                    <MoreVertical className="w-4 h-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => openEditModal(subject as Subject)}>
+                                    <Edit className="w-4 h-4 mr-2" />
+                                    수정
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    className="text-destructive focus:text-destructive"
+                                    onClick={() => handleDeleteClick(subject as Subject)}
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    삭제
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </TooltipProvider>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>
