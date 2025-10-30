@@ -12,7 +12,7 @@ import {
   Tag,
 } from 'lucide-react'
 import { format as formatDate } from 'date-fns'
-import { getGuardianRelationshipLabel } from '@/lib/constants'
+import { getGuardianRelationshipLabel, getGuardianDisplayName } from '@/lib/constants'
 import type { StudentDetail } from '@/core/types/studentDetail.types'
 
 // Extended student type with optional fields
@@ -250,15 +250,10 @@ export function StudentBasicInfo({ student: baseStudent }: StudentBasicInfoProps
                   >
                     <div className="flex-1">
                       <p className="font-medium text-sm">
-                        {sg.guardians?.users?.name || '-'}
-                        {sg.guardians?.relationship && (
-                          <span className="text-muted-foreground font-normal ml-2">
-                            (
-                            {getGuardianRelationshipLabel(
-                              sg.guardians.relationship
-                            )}
-                            )
-                          </span>
+                        {getGuardianDisplayName(
+                          student.users?.name,
+                          sg.guardians?.relationship,
+                          sg.guardians?.users?.name
                         )}
                       </p>
                       {sg.guardians?.users?.phone && (
