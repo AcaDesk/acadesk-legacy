@@ -65,8 +65,7 @@ export async function getRetestStudents() {
           id,
           student_code,
           grade,
-          users!inner (name),
-          classes (name)
+          users!inner (name)
         )
       `)
       .eq('status', 'retest_required')
@@ -77,6 +76,30 @@ export async function getRetestStudents() {
 
     if (error) {
       throw error
+    }
+
+    // Get student IDs to fetch class information
+    const studentIds = (data || []).map((item: any) => item.students?.id).filter(Boolean)
+
+    // Fetch class information separately via student_classes junction table
+    const { data: studentClassData } = await supabase
+      .from('student_classes')
+      .select(`
+        student_id,
+        classes!inner (name)
+      `)
+      .in('student_id', studentIds)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+
+    // Create a map of student_id to class_name
+    const classMap = new Map<string, string>()
+    if (studentClassData) {
+      studentClassData.forEach((sc: any) => {
+        if (!classMap.has(sc.student_id)) {
+          classMap.set(sc.student_id, sc.classes?.name || '')
+        }
+      })
     }
 
     // Transform data to match RetestStudent interface
@@ -93,7 +116,7 @@ export async function getRetestStudents() {
       student_code: item.students?.student_code || '',
       student_name: item.students?.users?.name || '',
       grade: item.students?.grade || null,
-      class_name: item.students?.classes?.name || null,
+      class_name: classMap.get(item.students?.id) || null,
       tenant_id: tenantId,
     }))
 
