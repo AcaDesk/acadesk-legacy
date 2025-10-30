@@ -985,7 +985,7 @@ async function getAttendanceChartData(
 }
 
 /**
- * 현재 성적 데이터 생성 (내 점수, 반 평균, 최고 점수)
+ * 현재 성적 데이터 생성 (학생 점수, 반 평균, 최고 점수)
  */
 async function getCurrentScoreData(
   supabase: Awaited<ReturnType<typeof createServiceRoleClient>>,
@@ -1061,7 +1061,7 @@ async function getScoreTrendData(
 ) {
   const trendData: Array<{
     name: string
-    '내 점수': number
+    '학생 점수': number
     '반 평균': number
     '재시험률'?: number
   }> = []
@@ -1075,7 +1075,7 @@ async function getScoreTrendData(
     const periodStart = new Date(targetYear, targetMonth - 1, 1).toISOString().split('T')[0]
     const periodEnd = new Date(targetYear, targetMonth, 0).toISOString().split('T')[0]
 
-    // 해당 월의 내 점수 조회 (is_retest 포함)
+    // 해당 월의 학생 점수 조회 (is_retest 포함)
     const { data: myScores } = await supabase
       .from('exam_scores')
       .select('percentage, is_retest')
@@ -1107,12 +1107,12 @@ async function getScoreTrendData(
 
     const dataPoint: {
       name: string
-      '내 점수': number
+      '학생 점수': number
       '반 평균': number
       '재시험률'?: number
     } = {
       name: `${targetMonth}월`,
-      '내 점수': Math.round(myAverage * 10) / 10,
+      '학생 점수': Math.round(myAverage * 10) / 10,
       '반 평균': Math.round(classAverage * 10) / 10,
     }
 
