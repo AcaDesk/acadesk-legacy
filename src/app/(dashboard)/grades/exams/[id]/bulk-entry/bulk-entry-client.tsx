@@ -138,7 +138,7 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
     } finally {
       setLoading(false)
     }
-  }, [examId, supabase, toast])
+  }, [exam.id, supabase, toast, currentUser])
 
   const handleSave = useCallback(async (silent = false) => {
     setSaving(true)
