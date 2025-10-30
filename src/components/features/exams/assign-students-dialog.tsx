@@ -45,6 +45,8 @@ export function AssignStudentsDialog({
   }, [open, examId])
 
   async function loadStudents() {
+    if (!currentUser || !currentUser.tenantId) return
+
     try {
       setLoading(true)
 
@@ -52,6 +54,7 @@ export function AssignStudentsDialog({
       const { data: allStudents, error: studentsError } = await supabase
         .from('students')
         .select('id, student_code, users!user_id(name), grade')
+        .eq('tenant_id', currentUser.tenantId)
         .is('deleted_at', null)
         .order('student_code')
 
@@ -61,6 +64,7 @@ export function AssignStudentsDialog({
       const { data: assignedScores, error: scoresError } = await supabase
         .from('exam_scores')
         .select('student_id')
+        .eq('tenant_id', currentUser.tenantId)
         .eq('exam_id', examId)
 
       if (scoresError) throw scoresError
@@ -101,11 +105,14 @@ export function AssignStudentsDialog({
       return
     }
 
+    if (!currentUser || !currentUser.tenantId) return
+
     try {
       // Get students enrolled in the class
       const { data: enrollments, error } = await supabase
         .from('class_enrollments')
         .select('student_id')
+        .eq('tenant_id', currentUser.tenantId)
         .eq('class_id', classId)
         .eq('status', 'active')
 
@@ -178,6 +185,7 @@ export function AssignStudentsDialog({
         const { error: deleteError } = await supabase
           .from('exam_scores')
           .delete()
+          .eq('tenant_id', currentUser.tenantId)
           .eq('exam_id', examId)
           .in('student_id', toRemove)
 
