@@ -671,7 +671,20 @@ async function getScoresData(
   prevPeriodStart: string,
   prevPeriodEnd: string
 ) {
-  // 현재 기간 성적
+  // 1. 학생의 수강 과목 조회 (student_subjects 테이블에서)
+  const { data: studentSubjects } = await supabase
+    .from('student_subjects')
+    .select(`
+      subject_id,
+      subjects!inner (
+        id,
+        name,
+        color
+      )
+    `)
+    .eq('student_id', studentId)
+
+  // 2. 현재 기간 성적
   const { data: currentScores } = await supabase
     .from('exam_scores')
     .select(`
@@ -734,6 +747,24 @@ async function getScoresData(
 
   const categories = new Map<string, CategoryDataMap>()
 
+  // 먼저 학생의 모든 수강 과목을 categories Map에 초기화
+  studentSubjects?.forEach((ss) => {
+    const typedSS = ss as unknown as { subject_id: string; subjects: { id: string; name: string; color: string } }
+    const subjectId = typedSS.subject_id
+    const groupKey = `subject_${subjectId}`
+
+    if (!categories.has(groupKey)) {
+      categories.set(groupKey, {
+        category: typedSS.subjects.name,
+        tests: [],
+        percentages: [],
+        retestCount: 0,
+        totalCount: 0,
+      })
+    }
+  })
+
+  // 이제 성적 데이터를 추가
   currentScores?.forEach((score) => {
     const examScore = score as unknown as ExamScoreWithDetails & { is_retest?: boolean }
     const subjectId = examScore.exams?.subject_id || null
@@ -816,9 +847,11 @@ async function getScoresData(
 
   // 최종 결과 생성
   return Array.from(categories.entries()).map(([category, data]) => {
+    // 성적이 없는 경우 처리
     const currentAvg =
-      data.percentages.reduce((sum: number, p: number) => sum + p, 0) /
-      data.percentages.length
+      data.percentages.length > 0
+        ? data.percentages.reduce((sum: number, p: number) => sum + p, 0) / data.percentages.length
+        : null
 
     const prevScores = prevAverages.get(category) || []
     const previousAvg =
@@ -827,7 +860,9 @@ async function getScoresData(
         : null
 
     const change =
-      previousAvg !== null ? Math.round((currentAvg - previousAvg) * 10) / 10 : null
+      currentAvg !== null && previousAvg !== null
+        ? Math.round((currentAvg - previousAvg) * 10) / 10
+        : null
 
     // 반 평균 계산
     const classData = classAverages.get(category)
@@ -842,7 +877,7 @@ async function getScoresData(
 
     return {
       category: data.category,
-      current: Math.round(currentAvg * 10) / 10,
+      current: currentAvg !== null ? Math.round(currentAvg * 10) / 10 : null,
       previous: previousAvg !== null ? Math.round(previousAvg * 10) / 10 : null,
       change,
       average,
@@ -859,7 +894,7 @@ function generateInstructorComment(
   attendance: { total: number; present: number; late: number; absent: number; rate: number },
   scores: Array<{
     category: string
-    current: number
+    current: number | null
     previous: number | null
     change: number | null
     tests: unknown[]
@@ -892,16 +927,21 @@ function generateInstructorComment(
     )
   }
 
-  // 전반적인 평가
-  const avgScore =
-    scores.reduce((sum, s) => sum + s.current, 0) / (scores.length || 1)
+  // 전반적인 평가 (성적이 있는 과목만 계산)
+  const scoresWithData = scores.filter((s) => s.current !== null)
+  if (scoresWithData.length > 0) {
+    const avgScore =
+      scoresWithData.reduce((sum, s) => sum + (s.current || 0), 0) / scoresWithData.length
 
-  if (avgScore >= 90) {
-    comments.push('전반적으로 매우 우수한 성취도를 보이고 있습니다.')
-  } else if (avgScore >= 80) {
-    comments.push('전반적으로 양호한 성취도를 보이고 있습니다.')
+    if (avgScore >= 90) {
+      comments.push('전반적으로 매우 우수한 성취도를 보이고 있습니다.')
+    } else if (avgScore >= 80) {
+      comments.push('전반적으로 양호한 성취도를 보이고 있습니다.')
+    } else {
+      comments.push('전반적인 학습 성취도 향상을 위해 함께 노력하겠습니다.')
+    }
   } else {
-    comments.push('전반적인 학습 성취도 향상을 위해 함께 노력하겠습니다.')
+    comments.push('해당 기간의 성적 데이터가 부족합니다. 정기적인 평가를 진행해주세요.')
   }
 
   return comments.join(' ')
