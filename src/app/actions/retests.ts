@@ -55,23 +55,24 @@ export async function getRetestStudents() {
         percentage,
         status,
         retest_count,
-        exams (
+        exams!inner (
           id,
           name,
           exam_date,
-          passing_score
+          passing_score,
+          tenant_id
         ),
-        students (
+        students!inner (
           id,
           student_code,
           grade,
-          users (name),
+          users!inner (name),
           classes (name)
         )
       `)
       .eq('status', 'retest_required')
-      .eq('exams.tenant_id', tenantId)
-      .order('exams.exam_date', { ascending: false })
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false })
 
     if (error) {
       throw error
