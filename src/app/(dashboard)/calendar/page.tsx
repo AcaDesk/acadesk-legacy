@@ -12,6 +12,7 @@ import { Button } from '@ui/button'
 import { Card } from '@ui/card'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import { useToast } from '@/hooks/use-toast'
+import { useCurrentUser } from '@/hooks/use-current-user'
 import { Plus, Calendar as CalendarIcon, Loader2 } from 'lucide-react'
 import type { CalendarEvent } from '@/core/types/calendar'
 import { FEATURES } from '@/lib/features.config'
@@ -32,15 +33,19 @@ export default function CalendarPage() {
   const [isDeleting, setIsDeleting] = useState(false)
 
   const { toast } = useToast()
+  const { user: currentUser } = useCurrentUser()
   const supabase = createClient()
 
   // Load events from database - Must be called before any early returns
   const loadEvents = useCallback(async () => {
+    if (!currentUser || !currentUser.tenantId) return
+
     try {
       setLoading(true)
       const { data, error } = await supabase
         .from('calendar_events')
         .select('*')
+        .eq('tenant_id', currentUser.tenantId)
         .is('deleted_at', null)
         .order('start_at', { ascending: true })
 
@@ -57,7 +62,7 @@ export default function CalendarPage() {
     } finally {
       setLoading(false)
     }
-  }, [supabase, toast])
+  }, [supabase, toast, currentUser])
 
   useEffect(() => {
     loadEvents()
@@ -132,6 +137,7 @@ export default function CalendarPage() {
       const { error } = await supabase
         .from('calendar_events')
         .insert({
+          tenant_id: currentUser.tenantId,
           title: data.title,
           description: data.description || null,
           event_type: data.event_type,
@@ -211,6 +217,7 @@ export default function CalendarPage() {
           reminder_minutes: data.reminder_minutes || null,
           color: data.color || null,
         })
+        .eq('tenant_id', currentUser.tenantId)
         .eq('id', eventId)
 
       if (error) throw error
@@ -252,6 +259,7 @@ export default function CalendarPage() {
       const { error } = await supabase
         .from('calendar_events')
         .update({ deleted_at: new Date().toISOString() })
+        .eq('tenant_id', currentUser.tenantId)
         .eq('id', eventToDelete.id)
 
       if (error) throw error
@@ -279,6 +287,8 @@ export default function CalendarPage() {
   // Handle event drop (drag and drop)
   const handleEventDrop = useCallback(
     async (data: { event: CalendarEvent; start: Date; end: Date }) => {
+      if (!currentUser || !currentUser.tenantId) return
+
       try {
         const { error } = await supabase
           .from('calendar_events')
@@ -286,6 +296,7 @@ export default function CalendarPage() {
             start_at: data.start.toISOString(),
             end_at: data.end.toISOString(),
           })
+          .eq('tenant_id', currentUser.tenantId)
           .eq('id', data.event.id)
 
         if (error) throw error
@@ -306,12 +317,14 @@ export default function CalendarPage() {
         await loadEvents() // Reload to revert UI
       }
     },
-    [supabase, loadEvents, toast]
+    [supabase, loadEvents, toast, currentUser]
   )
 
   // Handle event resize
   const handleEventResize = useCallback(
     async (data: { event: CalendarEvent; start: Date; end: Date }) => {
+      if (!currentUser || !currentUser.tenantId) return
+
       try {
         const { error } = await supabase
           .from('calendar_events')
@@ -319,6 +332,7 @@ export default function CalendarPage() {
             start_at: data.start.toISOString(),
             end_at: data.end.toISOString(),
           })
+          .eq('tenant_id', currentUser.tenantId)
           .eq('id', data.event.id)
 
         if (error) throw error
@@ -339,7 +353,7 @@ export default function CalendarPage() {
         await loadEvents() // Reload to revert UI
       }
     },
-    [supabase, loadEvents, toast]
+    [supabase, loadEvents, toast, currentUser]
   )
 
   // 피처 플래그 상태 체크 (모든 Hooks 이후에 체크)
