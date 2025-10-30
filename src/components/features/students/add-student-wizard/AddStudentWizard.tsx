@@ -122,19 +122,12 @@ export function AddStudentWizard({ open, onOpenChange, onSuccess, initialValues 
         throw new Error(result.error || '학교 목록 조회 실패')
       }
 
-      // 데이터가 있으면 사용, 없으면 기본 학교 목록 사용
-      if (result.data.length > 0) {
-        setSchools(result.data)
-      } else {
-        // tenant_codes 테이블이 비어있거나 없는 경우 기본 목록 사용
-        const { DEFAULT_SCHOOLS } = await import('@/lib/constants')
-        setSchools([...DEFAULT_SCHOOLS])
-      }
+      // 사용자가 입력한 학교 데이터만 사용
+      setSchools(result.data)
     } catch (error) {
-      // 테이블이 존재하지 않거나 RLS 에러 등이 발생하면 기본 목록 사용
-      console.warn('tenant_codes 테이블을 사용할 수 없습니다. 기본 학교 목록을 사용합니다:', error)
-      const { DEFAULT_SCHOOLS } = await import('@/lib/constants')
-      setSchools([...DEFAULT_SCHOOLS])
+      // 오류 발생 시 빈 배열 사용 (사용자가 직접 입력하도록)
+      console.warn('tenant_codes 테이블을 사용할 수 없습니다. 학교를 직접 입력해주세요:', error)
+      setSchools([])
     }
   }
 
