@@ -244,10 +244,13 @@ export function GradesListClient() {
   }
 
   async function loadStudentStats() {
+    if (!currentUser || !currentUser.tenantId) return
+
     try {
       const { data, error } = await supabase
         .from('exam_scores')
         .select('percentage, score, total_points, is_retest')
+        .eq('tenant_id', currentUser.tenantId)
         .eq('student_id', selectedStudent)
 
       if (error) throw error

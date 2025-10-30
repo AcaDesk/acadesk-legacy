@@ -81,10 +81,12 @@ export function ExamTemplatesClient() {
   }, [searchTerm, templates])
 
   async function loadData() {
+    if (!currentUser || !currentUser.tenantId) return
+
     try {
       setLoading(true)
 
-      // Load exam categories
+      // Load exam categories (reference table, no tenant_id)
       const { data: categoriesData, error: categoriesError } = await supabase
         .from('ref_exam_categories')
         .select('code, label')
@@ -112,6 +114,7 @@ export function ExamTemplatesClient() {
           classes (name),
           subjects (name, color)
         `)
+        .eq('tenant_id', currentUser.tenantId)
         .eq('is_recurring', true)
         .is('deleted_at', null)
         .order('name')
