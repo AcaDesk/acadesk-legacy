@@ -44,10 +44,20 @@ export async function authenticateKioskPin(
   try {
     const supabase = createServiceRoleClient()
 
-    // 학생 코드로 학생 조회
+    // 학생 코드로 학생 조회 (users 테이블과 조인)
     const { data: student, error: studentError } = await supabase
       .from('students')
-      .select('id, tenant_id, student_code, name, grade, profile_image_url, kiosk_pin')
+      .select(`
+        id,
+        tenant_id,
+        student_code,
+        grade,
+        profile_image_url,
+        kiosk_pin,
+        users!inner (
+          name
+        )
+      `)
       .eq('student_code', studentCode)
       .is('deleted_at', null)
       .maybeSingle()
@@ -80,8 +90,15 @@ export async function authenticateKioskPin(
       }
     }
 
-    // kiosk_pin 제거 후 반환
-    const { kiosk_pin, ...studentData } = student
+    // Transform data to match Student interface
+    const studentData: Student = {
+      id: student.id,
+      tenant_id: student.tenant_id,
+      student_code: student.student_code,
+      name: (student.users as any)?.name || '',
+      grade: student.grade,
+      profile_image_url: student.profile_image_url,
+    }
 
     return {
       success: true,
