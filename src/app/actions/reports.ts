@@ -671,20 +671,7 @@ async function getScoresData(
   prevPeriodStart: string,
   prevPeriodEnd: string
 ) {
-  // 1. 학생의 수강 과목 조회 (student_subjects 테이블에서)
-  const { data: studentSubjects } = await supabase
-    .from('student_subjects')
-    .select(`
-      subject_id,
-      subjects!inner (
-        id,
-        name,
-        color
-      )
-    `)
-    .eq('student_id', studentId)
-
-  // 2. 현재 기간 성적
+  // 현재 기간 성적
   const { data: currentScores } = await supabase
     .from('exam_scores')
     .select(`
@@ -747,24 +734,6 @@ async function getScoresData(
 
   const categories = new Map<string, CategoryDataMap>()
 
-  // 먼저 학생의 모든 수강 과목을 categories Map에 초기화
-  studentSubjects?.forEach((ss) => {
-    const typedSS = ss as unknown as { subject_id: string; subjects: { id: string; name: string; color: string } }
-    const subjectId = typedSS.subject_id
-    const groupKey = `subject_${subjectId}`
-
-    if (!categories.has(groupKey)) {
-      categories.set(groupKey, {
-        category: typedSS.subjects.name,
-        tests: [],
-        percentages: [],
-        retestCount: 0,
-        totalCount: 0,
-      })
-    }
-  })
-
-  // 이제 성적 데이터를 추가
   currentScores?.forEach((score) => {
     const examScore = score as unknown as ExamScoreWithDetails & { is_retest?: boolean }
     const subjectId = examScore.exams?.subject_id || null

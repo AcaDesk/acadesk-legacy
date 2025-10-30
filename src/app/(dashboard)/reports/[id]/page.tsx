@@ -67,17 +67,22 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
   // Update PDF when report data changes
   useEffect(() => {
     if (report) {
-      updatePdf(
-        <ReportPdfDocument
-          reportData={report.content}
-          studentName={report.students?.users?.name || report.content.studentName || report.content.student?.name || '학생'}
-          studentCode={report.students?.student_code || report.content.studentCode || report.content.student?.student_code || ''}
-          studentGrade={report.students?.grade || report.content.grade || report.content.student?.grade || ''}
-          periodStart={report.period_start}
-          periodEnd={report.period_end}
-          generatedAt={report.generated_at}
-        />
-      )
+      try {
+        updatePdf(
+          <ReportPdfDocument
+            reportData={report.content}
+            studentName={report.students?.users?.name || report.content.studentName || report.content.student?.name || '학생'}
+            studentCode={report.students?.student_code || report.content.studentCode || report.content.student?.student_code || ''}
+            studentGrade={report.students?.grade || report.content.grade || report.content.student?.grade || ''}
+            periodStart={report.period_start}
+            periodEnd={report.period_end}
+            generatedAt={report.generated_at}
+          />
+        )
+      } catch (error) {
+        console.error('PDF update error:', error)
+        // Silently fail PDF updates to avoid crashing the UI
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [report])
@@ -218,10 +223,13 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
         description: '강사 코멘트가 성공적으로 저장되었습니다.',
       })
 
-      // Reload report to get updated data
-      await loadReport()
-
+      // Close dialog first to prevent rendering conflicts
       setCommentDialogOpen(false)
+
+      // Reload report to get updated data
+      // Add small delay to allow state to stabilize
+      await new Promise(resolve => setTimeout(resolve, 100))
+      await loadReport()
     } catch (error) {
       console.error('Error saving comment:', error)
       toast({
