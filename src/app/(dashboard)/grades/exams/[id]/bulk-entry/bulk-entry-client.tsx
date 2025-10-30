@@ -375,20 +375,6 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
     )
   }
 
-  if (!exam) {
-    return (
-      <PageWrapper>
-        <EmptyState
-          icon={<AlertCircle className="h-12 w-12" />}
-          title="시험을 찾을 수 없습니다"
-          action={
-            <Button onClick={() => router.push('/grades/exams')}>목록으로 돌아가기</Button>
-          }
-        />
-      </PageWrapper>
-    )
-  }
-
   // Get unique grades from students
   const availableGrades = Array.from(new Set(students.map(s => s.grade).filter(Boolean))).sort()
 
