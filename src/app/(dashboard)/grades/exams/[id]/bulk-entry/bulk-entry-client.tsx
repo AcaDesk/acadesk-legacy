@@ -56,7 +56,7 @@ export function BulkGradeEntryClient() {
   const router = useRouter()
   const { toast } = useToast()
   const supabase = createClient()
-  const { user: currentUser } = useCurrentUser()
+  const { user: currentUser, isLoading: isUserLoading } = useCurrentUser()
 
   const [exam, setExam] = useState<Exam | null>(null)
   const [students, setStudents] = useState<Student[]>([])
@@ -75,7 +75,10 @@ export function BulkGradeEntryClient() {
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   const loadData = useCallback(async () => {
-    if (!currentUser || !currentUser.tenantId) return
+    if (!currentUser || !currentUser.tenantId) {
+      setLoading(false)
+      return
+    }
 
     try {
       setLoading(true)
@@ -206,8 +209,10 @@ export function BulkGradeEntryClient() {
 
   // useEffect must be called before any early returns
   useEffect(() => {
-    loadData()
-  }, [loadData])
+    if (!isUserLoading) {
+      loadData()
+    }
+  }, [loadData, isUserLoading])
 
   // Auto-save effect
   useEffect(() => {
@@ -358,10 +363,25 @@ export function BulkGradeEntryClient() {
     return <Maintenance featureName="성적 일괄 입력" reason="성적 입력 시스템 업데이트가 진행 중입니다." />;
   }
 
-  if (loading) {
+  if (isUserLoading || loading) {
     return (
       <PageWrapper>
         <LoadingState variant="card" message="로딩 중..." />
+      </PageWrapper>
+    )
+  }
+
+  if (!currentUser || !currentUser.tenantId) {
+    return (
+      <PageWrapper>
+        <EmptyState
+          icon={<AlertCircle className="h-12 w-12" />}
+          title="사용자 정보를 불러올 수 없습니다"
+          description="로그인이 필요하거나 권한이 없습니다."
+          action={
+            <Button onClick={() => router.push('/login')}>로그인 페이지로 이동</Button>
+          }
+        />
       </PageWrapper>
     )
   }
