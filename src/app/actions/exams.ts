@@ -18,6 +18,7 @@ import { getErrorMessage } from '@/lib/error-handlers'
 
 const examSchema = z.object({
   name: z.string().min(1, '시험명은 필수입니다'),
+  subject_id: z.string().uuid().nullable().optional(),
   category_code: z.string().nullable().optional(),
   exam_type: z.string().nullable().optional(),
   exam_date: z.string().nullable().optional(),
@@ -213,6 +214,7 @@ export async function createExam(input: z.infer<typeof examSchema>) {
       .insert({
         tenant_id: tenantId,
         name: validated.name,
+        subject_id: validated.subject_id || null,
         category_code: validated.category_code || null,
         exam_type: validated.exam_type || null,
         exam_date: validated.exam_date || null,

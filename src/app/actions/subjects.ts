@@ -46,6 +46,42 @@ export interface UpdateSubjectInput {
 }
 
 /**
+ * 모든 활성 과목 조회 (간단 버전)
+ * @returns 과목 목록
+ */
+export async function getSubjects() {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    const { data, error } = await supabase
+      .from('subjects')
+      .select('id, name, code, color, active, sort_order')
+      .eq('tenant_id', tenantId)
+      .eq('active', true)
+      .is('deleted_at', null)
+      .order('sort_order', { ascending: true })
+
+    if (error) {
+      throw error
+    }
+
+    return {
+      success: true,
+      data: data || [],
+      error: null,
+    }
+  } catch (error) {
+    console.error('[getSubjects] Error:', error)
+    return {
+      success: false,
+      data: [],
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
  * 통계와 함께 모든 과목 조회
  * @returns 과목 목록 (클래스 수 포함)
  */

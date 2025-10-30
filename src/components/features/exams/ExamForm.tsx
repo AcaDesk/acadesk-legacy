@@ -31,6 +31,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/c
 import { Loader2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { createExam, updateExam, getExamCategories, getClassesForExam } from '@/app/actions/exams'
+import { getSubjects } from '@/app/actions/subjects'
 import { ClassSelector } from '@/components/features/common/class-selector'
 
 // ============================================================================
@@ -39,6 +40,7 @@ import { ClassSelector } from '@/components/features/common/class-selector'
 
 const examFormSchema = z.object({
   name: z.string().min(1, '시험명은 필수입니다'),
+  subject_id: z.string().optional(),
   category_code: z.string().optional(),
   exam_type: z.string().optional(),
   exam_date: z.string().optional(),
@@ -71,6 +73,14 @@ interface ClassOption {
   active: boolean
 }
 
+interface Subject {
+  id: string
+  name: string
+  code: string | null
+  color: string
+  active: boolean
+}
+
 // ============================================================================
 // Component
 // ============================================================================
@@ -81,12 +91,14 @@ export function ExamForm({ mode, examId, defaultValues, onSuccess }: ExamFormPro
   const [isLoading, setIsLoading] = useState(false)
   const [categories, setCategories] = useState<ExamCategory[]>([])
   const [classes, setClasses] = useState<ClassOption[]>([])
+  const [subjects, setSubjects] = useState<Subject[]>([])
 
   // Form setup
   const form = useForm<ExamFormValues>({
     resolver: zodResolver(examFormSchema),
     defaultValues: defaultValues || {
       name: '',
+      subject_id: '',
       category_code: '',
       exam_type: '',
       exam_date: '',
@@ -99,12 +111,13 @@ export function ExamForm({ mode, examId, defaultValues, onSuccess }: ExamFormPro
     },
   })
 
-  // Load categories and classes
+  // Load categories, classes, and subjects
   useEffect(() => {
     async function loadOptions() {
-      const [categoriesResult, classesResult] = await Promise.all([
+      const [categoriesResult, classesResult, subjectsResult] = await Promise.all([
         getExamCategories(),
         getClassesForExam(),
+        getSubjects(),
       ])
 
       if (categoriesResult.success && categoriesResult.data) {
@@ -118,6 +131,10 @@ export function ExamForm({ mode, examId, defaultValues, onSuccess }: ExamFormPro
           active: ('active' in cls ? cls.active : true) as boolean
         })))
       }
+
+      if (subjectsResult.success && subjectsResult.data) {
+        setSubjects(subjectsResult.data)
+      }
     }
 
     loadOptions()
@@ -130,6 +147,7 @@ export function ExamForm({ mode, examId, defaultValues, onSuccess }: ExamFormPro
       // Convert string values to proper types
       const examData = {
         name: values.name,
+        subject_id: values.subject_id && values.subject_id !== 'none' ? values.subject_id : null,
         category_code: values.category_code && values.category_code !== 'none' ? values.category_code : null,
         exam_type: values.exam_type && values.exam_type !== 'none' ? values.exam_type : null,
         exam_date: values.exam_date || null,
@@ -202,6 +220,44 @@ export function ExamForm({ mode, examId, defaultValues, onSuccess }: ExamFormPro
                   <FormControl>
                     <Input placeholder="예: 2024년 1학기 중간고사" {...field} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="subject_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>과목</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="과목 선택" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">없음</SelectItem>
+                      {subjects.map((subject) => (
+                        <SelectItem key={subject.id} value={subject.id}>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-3 h-3 rounded"
+                              style={{ backgroundColor: subject.color }}
+                            />
+                            <span>{subject.name}</span>
+                            {subject.code && (
+                              <span className="text-muted-foreground text-xs">({subject.code})</span>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    시험이 속한 과목을 선택하세요 (Voca, Reading, Speaking 등)
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
