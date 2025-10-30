@@ -370,6 +370,32 @@ export function ExamTemplatesClient() {
           </Badge>
         </div>
 
+        {/* Quick Stats */}
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardDescription>총 템플릿 수</CardDescription>
+              <CardTitle className="text-3xl">{templates.length}개</CardTitle>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardDescription>주간 템플릿</CardDescription>
+              <CardTitle className="text-3xl">
+                {templates.filter((t) => t.recurring_schedule === 'weekly').length}개
+              </CardTitle>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardDescription>월간 템플릿</CardDescription>
+              <CardTitle className="text-3xl">
+                {templates.filter((t) => t.recurring_schedule === 'monthly').length}개
+              </CardTitle>
+            </CardHeader>
+          </Card>
+        </div>
+
         {/* Templates Table */}
         <Card>
           <CardHeader>
@@ -482,32 +508,6 @@ export function ExamTemplatesClient() {
             )}
           </CardContent>
         </Card>
-
-        {/* Quick Stats */}
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardDescription>총 템플릿 수</CardDescription>
-              <CardTitle className="text-3xl">{templates.length}개</CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardDescription>주간 템플릿</CardDescription>
-              <CardTitle className="text-3xl">
-                {templates.filter((t) => t.recurring_schedule === 'weekly').length}개
-              </CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardDescription>월간 템플릿</CardDescription>
-              <CardTitle className="text-3xl">
-                {templates.filter((t) => t.recurring_schedule === 'monthly').length}개
-              </CardTitle>
-            </CardHeader>
-          </Card>
-        </div>
       </div>
 
       {/* Delete Confirmation Dialog */}
