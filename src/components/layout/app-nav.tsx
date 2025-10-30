@@ -117,7 +117,8 @@ const navigationGroups: NavGroup[] = [
         featureFlag: "gradesManagement",
         subItems: [
           { name: "성적 조회", href: "/grades/list", icon: ClipboardCheck, featureFlag: "gradesManagement" },
-          { name: "시험 관리", href: "/grades/exams", icon: FileText, featureFlag: "gradesManagement" },
+          { name: "시험 목록", href: "/grades/exams", icon: FileText, featureFlag: "gradesManagement" },
+          { name: "재시험 관리", href: "/grades/retests", icon: ClipboardList, featureFlag: "gradesManagement" },
           { name: "시험 템플릿", href: "/grades/exam-templates", icon: BookMarked, featureFlag: "gradesManagement" },
         ]
       },
