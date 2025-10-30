@@ -411,10 +411,11 @@ export default function ReportsPage() {
                   </TableHeader>
                   <TableBody>
                     {reports.map((report) => {
-                      const avgScore = report.content.scores.length > 0
+                      const scoresWithData = report.content.scores.filter((s) => s.current !== null)
+                      const avgScore = scoresWithData.length > 0
                         ? Math.round(
-                            report.content.scores.reduce((sum, s) => sum + s.current, 0) /
-                            report.content.scores.length
+                            scoresWithData.reduce((sum, s) => sum + (s.current || 0), 0) /
+                            scoresWithData.length
                           )
                         : 0
 

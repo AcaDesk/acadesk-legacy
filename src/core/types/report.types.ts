@@ -127,7 +127,7 @@ export interface ReportData {
 
   scoreTrend?: Array<{
     name: string
-    '내 점수': number
+    '학생 점수': number
     '반 평균': number
     '재시험률'?: number
   }>
