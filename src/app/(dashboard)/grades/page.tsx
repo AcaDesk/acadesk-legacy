@@ -8,7 +8,7 @@ import { ExamsClient } from './exams/exams-client'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: '시험 관리',
+  title: '시험 관리 | Acadesk',
   description: '시험을 등록하고 관리합니다.',
 }
 
