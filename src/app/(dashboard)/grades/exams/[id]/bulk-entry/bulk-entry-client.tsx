@@ -100,7 +100,7 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
           )
         `)
         .eq('tenant_id', currentUser.tenantId)
-        .eq('exam_id', examId)
+        .eq('exam_id', exam.id)
 
       if (scoresError) throw scoresError
 
@@ -117,7 +117,7 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
       // Create scores map
       const scoresMap = new Map<string, ScoreEntry>()
       examScores?.forEach((existing: any) => {
-        const defaultTotal = examData.total_questions?.toString() || ''
+        const defaultTotal = exam.total_questions?.toString() || ''
 
         scoresMap.set(existing.student_id, {
           student_id: existing.student_id,
