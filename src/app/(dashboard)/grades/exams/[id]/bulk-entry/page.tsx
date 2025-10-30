@@ -3,20 +3,36 @@ import { PageWrapper } from '@/components/layout/page-wrapper'
 import { BulkGradeEntryClient } from './bulk-entry-client'
 import { Skeleton } from '@ui/skeleton'
 import { requireAuth } from '@/lib/auth/helpers'
+import { getExamById } from '@/app/actions/exams'
 import type { Metadata } from 'next'
+import { notFound } from 'next/navigation'
 
 export const metadata: Metadata = {
   title: '성적 일괄 입력 | Acadesk',
   description: '시험 성적을 일괄 입력합니다.',
 }
 
-export default async function BulkGradeEntryPage() {
+interface Props {
+  params: Promise<{ id: string }>
+}
+
+export default async function BulkGradeEntryPage({ params }: Props) {
   // Verify authentication
   await requireAuth()
 
+  // Get exam ID from params
+  const { id: examId } = await params
+
+  // Fetch exam data using Server Action
+  const examResult = await getExamById(examId)
+
+  if (!examResult.success || !examResult.data) {
+    notFound()
+  }
+
   return (
     <Suspense fallback={<BulkEntryPageSkeleton />}>
-      <BulkGradeEntryClient />
+      <BulkGradeEntryClient exam={examResult.data} />
     </Suspense>
   )
 }
