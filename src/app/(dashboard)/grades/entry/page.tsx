@@ -11,7 +11,7 @@ import { getExamsForGradeEntry } from '@/app/actions/grade-entry'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: '성적 입력',
+  title: '성적 입력 | Acadesk',
   description: '시험별로 성적을 입력하고 관리합니다.',
 }
 
