@@ -164,7 +164,7 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
 
       // Use Server Action
       const result = await bulkUpsertExamScores({
-        exam_id: examId,
+        exam_id: exam.id,
         scores: scoresToSave,
       })
 
@@ -194,7 +194,7 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
     } finally {
       setSaving(false)
     }
-  }, [examId, scores, toast, router])
+  }, [exam.id, scores, toast, router])
 
   // useEffect must be called before any early returns
   useEffect(() => {
