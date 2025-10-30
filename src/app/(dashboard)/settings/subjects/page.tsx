@@ -397,112 +397,106 @@ export default function SubjectsPage() {
                   </Button>
                 </div>
               ) : (
-                <TooltipProvider>
-                  <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>과목</TableHead>
-                          <TableHead className="hidden md:table-cell">설명</TableHead>
-                          <TableHead className="text-center">수업 수</TableHead>
-                          <TableHead className="text-center">상태</TableHead>
-                          <TableHead className="w-[50px]"></TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredSubjects.map((subject) => (
-                          <TableRow key={subject.id}>
-                            {/* Subject with Color */}
-                            <TableCell>
-                              <div className="flex items-center gap-3">
-                                <div
-                                  className="w-10 h-10 rounded-lg flex-shrink-0"
-                                  style={{ backgroundColor: subject.color }}
-                                />
-                                <div className="min-w-0 flex-1">
-                                  <p className="font-medium">{subject.name}</p>
-                                  {subject.code && (
-                                    <Badge variant="outline" className="mt-1">
-                                      {subject.code}
-                                    </Badge>
-                                  )}
-                                  {/* Show description on mobile */}
-                                  {subject.description && (
-                                    <p className="md:hidden text-sm text-muted-foreground mt-1 line-clamp-1">
-                                      {subject.description}
-                                    </p>
-                                  )}
-                                </div>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>과목</TableHead>
+                        <TableHead className="hidden md:table-cell">설명</TableHead>
+                        <TableHead className="text-center">수업 수</TableHead>
+                        <TableHead className="text-center">상태</TableHead>
+                        <TableHead className="w-[50px]"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredSubjects.map((subject) => (
+                        <TableRow key={subject.id}>
+                          {/* Subject with Color */}
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div
+                                className="w-10 h-10 rounded-lg flex-shrink-0"
+                                style={{ backgroundColor: subject.color }}
+                              />
+                              <div className="min-w-0 flex-1">
+                                <p className="font-medium">{subject.name}</p>
+                                {subject.code && (
+                                  <Badge variant="outline" className="mt-1">
+                                    {subject.code}
+                                  </Badge>
+                                )}
+                                {/* Show description on mobile */}
+                                {subject.description && (
+                                  <p className="md:hidden text-sm text-muted-foreground mt-1 line-clamp-1">
+                                    {subject.description}
+                                  </p>
+                                )}
                               </div>
-                            </TableCell>
+                            </div>
+                          </TableCell>
 
-                            {/* Description (desktop only) */}
-                            <TableCell className="hidden md:table-cell">
-                              {subject.description ? (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <p className="text-sm text-muted-foreground line-clamp-2 cursor-help">
-                                      {subject.description}
-                                    </p>
-                                  </TooltipTrigger>
-                                  <TooltipContent className="max-w-sm">
-                                    <p>{subject.description}</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              ) : (
-                                <span className="text-muted-foreground text-sm">-</span>
-                              )}
-                            </TableCell>
+                          {/* Description (desktop only) */}
+                          <TableCell className="hidden md:table-cell">
+                            {subject.description ? (
+                              <p
+                                className="text-sm text-muted-foreground line-clamp-2"
+                                title={subject.description}
+                              >
+                                {subject.description}
+                              </p>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">-</span>
+                            )}
+                          </TableCell>
 
-                            {/* Class Count */}
-                            <TableCell className="text-center">
-                              <Badge variant="secondary" className="font-mono">
-                                {subject.class_count}
+                          {/* Class Count */}
+                          <TableCell className="text-center">
+                            <Badge variant="secondary" className="font-mono">
+                              {subject.class_count}
+                            </Badge>
+                          </TableCell>
+
+                          {/* Status */}
+                          <TableCell className="text-center">
+                            {subject.active ? (
+                              <Badge className="bg-green-500/10 text-green-700 dark:text-green-400 hover:bg-green-500/20">
+                                활성
                               </Badge>
-                            </TableCell>
+                            ) : (
+                              <Badge variant="outline" className="text-muted-foreground">
+                                비활성
+                              </Badge>
+                            )}
+                          </TableCell>
 
-                            {/* Status */}
-                            <TableCell className="text-center">
-                              {subject.active ? (
-                                <Badge className="bg-green-500/10 text-green-700 dark:text-green-400 hover:bg-green-500/20">
-                                  활성
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline" className="text-muted-foreground">
-                                  비활성
-                                </Badge>
-                              )}
-                            </TableCell>
-
-                            {/* Actions */}
-                            <TableCell>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon">
-                                    <MoreVertical className="w-4 h-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => openEditModal(subject as Subject)}>
-                                    <Edit className="w-4 h-4 mr-2" />
-                                    수정
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    className="text-destructive focus:text-destructive"
-                                    onClick={() => handleDeleteClick(subject as Subject)}
-                                  >
-                                    <Trash2 className="w-4 h-4 mr-2" />
-                                    삭제
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </TooltipProvider>
+                          {/* Actions */}
+                          <TableCell>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreVertical className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => openEditModal(subject as Subject)}>
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  수정
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onClick={() => handleDeleteClick(subject as Subject)}
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  삭제
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </div>
           )}
