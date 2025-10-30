@@ -488,17 +488,29 @@ export async function unlinkGuardianFromStudent(
  * 보호자 검색 (이름, 전화번호, 이메일)
  * @param query - 검색어
  * @param limit - 결과 제한 수 (기본 10)
- * @returns 보호자 목록
+ * @returns 보호자 목록 (연결된 학생 정보 포함)
  */
 export async function searchGuardians(query: string, limit: number = 10) {
   try {
     const { tenantId } = await verifyStaff()
     const supabase = createServiceRoleClient()
 
-    // guardians와 users 조인하여 검색
+    // guardians와 users, student_guardians 조인하여 검색
     const { data, error } = await supabase
       .from('guardians')
-      .select('*, users!user_id(*)')
+      .select(`
+        *,
+        users!user_id(*),
+        student_guardians (
+          student_id,
+          students (
+            id,
+            users (
+              name
+            )
+          )
+        )
+      `)
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
       .or(`users.name.ilike.%${query}%,users.phone.ilike.%${query}%,users.email.ilike.%${query}%`)
