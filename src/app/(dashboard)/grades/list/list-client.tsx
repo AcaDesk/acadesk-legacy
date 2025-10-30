@@ -18,6 +18,7 @@ import {
 } from '@ui/table'
 import { Search, TrendingUp, TrendingDown, Minus, Plus } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { useCurrentUser } from '@/hooks/use-current-user'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/page-error-boundary'
 import { GradesLineChart } from '@/components/features/charts/grades-line-chart'
@@ -81,6 +82,7 @@ export function GradesListClient() {
   })
 
   const { toast } = useToast()
+  const { user: currentUser } = useCurrentUser()
   const router = useRouter()
   const supabase = createClient()
 
@@ -132,10 +134,13 @@ export function GradesListClient() {
   }, [selectedStudent])
 
   async function loadStudents() {
+    if (!currentUser || !currentUser.tenantId) return
+
     try {
       const { data: studentsData, error: studentsError } = await supabase
         .from('students')
         .select('id, student_code, users!user_id(name)')
+        .eq('tenant_id', currentUser.tenantId)
         .is('deleted_at', null)
         .order('student_code')
 
@@ -147,6 +152,8 @@ export function GradesListClient() {
   }
 
   async function loadScores() {
+    if (!currentUser || !currentUser.tenantId) return
+
     try {
       setLoading(true)
 
@@ -175,6 +182,7 @@ export function GradesListClient() {
             )
           )
         `, { count: 'exact' })
+        .eq('tenant_id', currentUser.tenantId)
 
       // Apply student filter
       if (selectedStudent !== 'all') {
