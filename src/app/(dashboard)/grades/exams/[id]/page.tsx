@@ -9,7 +9,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 
 export const metadata: Metadata = {
-  title: '시험 상세',
+  title: '시험 상세 | Acadesk',
   description: '시험 정보 및 학생 배정을 관리합니다.',
 }
 
