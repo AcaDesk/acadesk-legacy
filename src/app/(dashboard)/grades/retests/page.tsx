@@ -3,13 +3,17 @@ import { PageWrapper } from '@/components/layout/page-wrapper'
 import { RetestsClient } from './retests-client'
 import { AlertTriangle } from 'lucide-react'
 import { Skeleton } from '@ui/skeleton'
+import { requireAuth } from '@/lib/auth/helpers'
 
 export const metadata = {
-  title: '재시험 관리',
+  title: '재시험 관리 | Acadesk',
   description: '재시험 대상 학생 관리',
 }
 
-export default function RetestsPage() {
+export default async function RetestsPage() {
+  // Verify authentication
+  await requireAuth()
+
   return (
     <PageWrapper
       title="재시험 관리"
