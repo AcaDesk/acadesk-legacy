@@ -25,6 +25,8 @@ const examSchema = z.object({
   total_questions: z.number().int().positive().nullable().optional(),
   passing_score: z.number().min(0).max(100).nullable().optional(),
   description: z.string().nullable().optional(),
+  is_recurring: z.boolean().optional(),
+  recurring_schedule: z.string().nullable().optional(),
 })
 
 // ============================================================================
@@ -218,6 +220,8 @@ export async function createExam(input: z.infer<typeof examSchema>) {
         total_questions: validated.total_questions || null,
         passing_score: validated.passing_score || null,
         description: validated.description || null,
+        is_recurring: validated.is_recurring || false,
+        recurring_schedule: validated.recurring_schedule || null,
       })
       .select('id')
       .single()
