@@ -54,18 +54,30 @@ export async function getSubjectsWithStatistics() {
     const { tenantId } = await verifyStaff()
     const supabase = createServiceRoleClient()
 
-    // Use raw SQL query to bypass view permissions
-    const { data, error } = await supabase.rpc('get_subject_statistics', {
-      p_tenant_id: tenantId
-    })
+    // Query subjects with class count using service role
+    const { data, error } = await supabase
+      .from('subjects')
+      .select(`
+        *,
+        class_count:classes(count)
+      `)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .order('sort_order', { ascending: true })
 
     if (error) {
       throw error
     }
 
+    // Transform the data to match SubjectStatistics interface
+    const subjects: SubjectStatistics[] = (data || []).map((subject) => ({
+      ...subject,
+      class_count: subject.class_count?.[0]?.count || 0,
+    }))
+
     return {
       success: true,
-      data: data || [],
+      data: subjects,
       error: null,
     }
   } catch (error) {
