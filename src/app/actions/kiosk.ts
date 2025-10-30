@@ -44,19 +44,17 @@ export async function authenticateKioskPin(
   try {
     const supabase = createServiceRoleClient()
 
-    // 학생 코드로 학생 조회 (users 테이블과 조인)
+    // 학생 코드로 학생 조회
     const { data: student, error: studentError } = await supabase
       .from('students')
       .select(`
         id,
         tenant_id,
         student_code,
+        name,
         grade,
         profile_image_url,
-        kiosk_pin,
-        users!inner (
-          name
-        )
+        kiosk_pin
       `)
       .eq('student_code', studentCode)
       .is('deleted_at', null)
@@ -95,7 +93,7 @@ export async function authenticateKioskPin(
       id: student.id,
       tenant_id: student.tenant_id,
       student_code: student.student_code,
-      name: (student.users as any)?.name || '',
+      name: student.name,
       grade: student.grade,
       profile_image_url: student.profile_image_url,
     }
