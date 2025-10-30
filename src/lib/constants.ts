@@ -50,6 +50,36 @@ export function getGuardianRelationshipLabel(relationship: string | null | undef
   return relationshipMap[relationship] || relationship
 }
 
+/**
+ * 학부모 표시 이름을 생성합니다.
+ * 학원에서는 보통 학부모 성함을 직접 부르지 않고, "학생이름 + 관계"로 호칭합니다.
+ * 예: "홍길동 어머니", "김철수 아버지"
+ *
+ * @param studentName - 학생 이름
+ * @param relationship - 학부모와 학생의 관계
+ * @param guardianName - 학부모 본인 이름 (관계가 없을 때 사용)
+ * @returns 학부모 표시 이름
+ */
+export function getGuardianDisplayName(
+  studentName: string | null | undefined,
+  relationship: string | null | undefined,
+  guardianName?: string | null | undefined
+): string {
+  // 학생 이름이 없으면 학부모 본인 이름 반환
+  if (!studentName) {
+    return guardianName || '보호자'
+  }
+
+  // 관계가 있으면 "학생이름 + 관계" 형식
+  if (relationship) {
+    const relationshipLabel = getGuardianRelationshipLabel(relationship)
+    return `${studentName} ${relationshipLabel}`
+  }
+
+  // 관계가 없으면 학부모 본인 이름 반환
+  return guardianName || studentName
+}
+
 // 기본 학교 목록 (tenant_codes 테이블이 없을 때 사용)
 export const DEFAULT_SCHOOLS = [
   '서울초등학교',
