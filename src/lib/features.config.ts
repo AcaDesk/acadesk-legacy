@@ -38,7 +38,7 @@ export const FEATURES = {
   classManagement: 'active' as FeatureStatus,
 
   /** 보호자 관리 */
-  guardianManagement: 'active' as FeatureStatus,
+  guardianManagement: 'inactive' as FeatureStatus,
 
   // ========================================
   // 2차 배포: 추가 기능 (Additional Features)
@@ -48,7 +48,7 @@ export const FEATURES = {
   consultationManagement: 'active' as FeatureStatus,
 
   /** 도서관 (도서 대여) */
-  libraryManagement: 'active' as FeatureStatus,
+  libraryManagement: 'inactive' as FeatureStatus,
 
   /** 리포트 (학습 리포트) */
   reportManagement: 'active' as FeatureStatus,
@@ -57,17 +57,17 @@ export const FEATURES = {
   notificationSystem: 'active' as FeatureStatus,
 
   /** 직원 관리 */
-  staffManagement: 'active' as FeatureStatus,
+  staffManagement: 'inactive' as FeatureStatus,
 
   // ========================================
   // 3차 배포: 고급 기능 (Advanced Features)
   // ========================================
 
   /** 학원비 관리 */
-  tuitionManagement: 'active' as FeatureStatus,
+  tuitionManagement: 'inactive' as FeatureStatus,
 
   /** 학부모 앱 */
-  parentApp: 'active' as FeatureStatus,
+  parentApp: 'inactive' as FeatureStatus,
 
   /** 캘린더 통합 */
   calendarIntegration: 'inactive' as FeatureStatus,
@@ -83,7 +83,7 @@ export const FEATURES = {
   // ========================================
 
   /** AI 기반 분석 */
-  aiAnalytics: 'active' as FeatureStatus,
+  aiAnalytics: 'inactive' as FeatureStatus,
 
   /** 자동화 워크플로우 */
   automationWorkflow: 'active' as FeatureStatus,
