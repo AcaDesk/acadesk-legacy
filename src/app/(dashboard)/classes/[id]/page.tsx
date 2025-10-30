@@ -28,6 +28,7 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { useCurrentUser } from '@/hooks/use-current-user'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { GradesBarChart } from '@/components/features/charts/grades-bar-chart'
 import { TodoCompletionBar } from '@/components/features/charts/todo-completion-bar'
@@ -97,6 +98,7 @@ export default function ClassDetailPage() {
   const params = useParams()
   const router = useRouter()
   const { toast } = useToast()
+  const { user: currentUser } = useCurrentUser()
   const supabase = createClient()
 
   const [classData, setClassData] = useState<ClassDetail | null>(null)
@@ -105,11 +107,14 @@ export default function ClassDetailPage() {
 
   // Load class detail and students - defined before feature check
   const loadClassDetail = useCallback(async (classId: string) => {
+    if (!currentUser || !currentUser.tenantId) return
+
     try {
       setLoading(true)
       const { data, error } = await supabase
         .from('classes')
         .select('*')
+        .eq('tenant_id', currentUser.tenantId)
         .eq('id', classId)
         .is('deleted_at', null)
         .maybeSingle()
@@ -134,9 +139,11 @@ export default function ClassDetailPage() {
     } finally {
       setLoading(false)
     }
-  }, [supabase, toast])
+  }, [supabase, toast, currentUser])
 
   const loadStudents = useCallback(async (classId: string) => {
+    if (!currentUser || !currentUser.tenantId) return
+
     try {
       // Load students enrolled in this class
       const { data: enrollments, error: enrollError } = await supabase
@@ -151,6 +158,7 @@ export default function ClassDetailPage() {
             )
           )
         `)
+        .eq('tenant_id', currentUser.tenantId)
         .eq('class_id', classId)
         .is('deleted_at', null)
 
@@ -168,6 +176,7 @@ export default function ClassDetailPage() {
       const { data: scores, error: scoresError } = await supabase
         .from('exam_scores')
         .select('student_id, percentage')
+        .eq('tenant_id', currentUser.tenantId)
         .in('student_id', studentIds)
 
       if (scoresError) throw scoresError
@@ -176,6 +185,7 @@ export default function ClassDetailPage() {
       const { data: attendance, error: attendanceError } = await supabase
         .from('attendance')
         .select('student_id, status')
+        .eq('tenant_id', currentUser.tenantId)
         .in('student_id', studentIds)
 
       if (attendanceError) throw attendanceError
@@ -184,6 +194,7 @@ export default function ClassDetailPage() {
       const { data: todos, error: todosError } = await supabase
         .from('student_todos')
         .select('student_id, completed_at')
+        .eq('tenant_id', currentUser.tenantId)
         .in('student_id', studentIds)
 
       if (todosError) throw todosError
@@ -230,7 +241,7 @@ export default function ClassDetailPage() {
     } catch (error) {
       console.error('Error loading students:', error)
     }
-  }, [supabase])
+  }, [supabase, currentUser])
 
   // useEffect must be called before any early returns
   useEffect(() => {

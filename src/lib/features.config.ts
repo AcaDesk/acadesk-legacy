@@ -38,7 +38,7 @@ export const FEATURES = {
   classManagement: 'active' as FeatureStatus,
 
   /** 보호자 관리 */
-  guardianManagement: 'inactive' as FeatureStatus,
+  guardianManagement: 'active' as FeatureStatus,
 
   // ========================================
   // 2차 배포: 추가 기능 (Additional Features)

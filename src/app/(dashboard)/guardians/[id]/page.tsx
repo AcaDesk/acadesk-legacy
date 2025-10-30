@@ -9,6 +9,7 @@ import { Badge } from '@ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@ui/tabs'
 import { Edit, Phone, Mail, Users as UsersIcon, UserCircle, ChevronRight } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { useCurrentUser } from '@/hooks/use-current-user'
 import { RoleGuard } from '@/components/auth/role-guard'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/page-error-boundary'
@@ -42,20 +43,23 @@ export default function GuardianDetailPage() {
   const params = useParams()
   const router = useRouter()
   const { toast } = useToast()
+  const { user: currentUser } = useCurrentUser()
   const supabase = createClient()
 
   const [guardian, setGuardian] = useState<GuardianDetail | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (params.id) {
+    if (params.id && currentUser?.tenantId) {
       loadGuardianDetail(params.id as string)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.id])
+  }, [params.id, currentUser?.tenantId])
 
   // Function definitions
   async function loadGuardianDetail(guardianId: string) {
+    if (!currentUser || !currentUser.tenantId) return
+
     try {
       setLoading(true)
       const { data, error } = await supabase
@@ -80,6 +84,7 @@ export default function GuardianDetailPage() {
             )
           )
         `)
+        .eq('tenant_id', currentUser.tenantId)
         .eq('id', guardianId)
         .maybeSingle()
 
