@@ -49,16 +49,16 @@ interface ScoreEntry {
   feedback: string
 }
 
-export function BulkGradeEntryClient() {
+interface BulkGradeEntryClientProps {
+  exam: Exam
+}
+
+export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
   // All Hooks must be called before any early returns
-  const params = useParams()
-  const examId = params.id as string
   const router = useRouter()
   const { toast } = useToast()
   const supabase = createClient()
   const { user: currentUser, isLoading: isUserLoading } = useCurrentUser()
-
-  const [exam, setExam] = useState<Exam | null>(null)
   const [students, setStudents] = useState<Student[]>([])
   const [scores, setScores] = useState<Map<string, ScoreEntry>>(new Map())
   const [showLowPerformers, setShowLowPerformers] = useState(false)
