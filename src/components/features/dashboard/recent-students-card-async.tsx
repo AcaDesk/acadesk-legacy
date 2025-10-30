@@ -13,6 +13,7 @@ import {
 import { createClient } from '@/lib/supabase/server'
 import { WidgetErrorBoundary } from '@/components/features/dashboard/widget-error-boundary'
 import { WidgetSkeleton } from '@ui/widget-skeleton'
+import { getGuardianDisplayName } from '@/lib/constants'
 
 /**
  * 비동기 최근 등록 학생 카드 (Server Component)
@@ -31,6 +32,7 @@ interface Student {
   } | null
   student_guardians?: Array<{
     guardians: {
+      relationship: string | null
       users: {
         name: string
       } | null
@@ -74,6 +76,7 @@ async function RecentStudentsCardContent({ maxDisplay = 5 }: { maxDisplay?: numb
       ),
       student_guardians (
         guardians (
+          relationship,
           users (
             name
           )
@@ -134,7 +137,12 @@ async function RecentStudentsCardContent({ maxDisplay = 5 }: { maxDisplay?: numb
           {students.map((student: Student) => {
             const studentName = student.users?.name || '이름 없음'
             const gradeLevel = student.ref_grade_levels?.grade_level_name
-            const guardianName = student.student_guardians?.[0]?.guardians?.users?.name
+            const firstGuardian = student.student_guardians?.[0]?.guardians
+            const guardianDisplayName = firstGuardian ? getGuardianDisplayName(
+              student.users?.name,
+              firstGuardian.relationship,
+              firstGuardian.users?.name
+            ) : null
 
             return (
               <div
@@ -163,10 +171,10 @@ async function RecentStudentsCardContent({ maxDisplay = 5 }: { maxDisplay?: numb
                         {gradeLevel}
                       </span>
                     )}
-                    {guardianName && (
+                    {guardianDisplayName && (
                       <>
                         <span>•</span>
-                        <span className="truncate">{guardianName}</span>
+                        <span className="truncate">{guardianDisplayName}</span>
                       </>
                     )}
                   </div>
