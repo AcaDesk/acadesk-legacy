@@ -113,6 +113,19 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
     return category?.label || code
   }
 
+  function getExamTypeLabel(type: string | null) {
+    if (!type) return '-'
+    const typeMap: Record<string, string> = {
+      vocabulary: '단어시험',
+      midterm: '중간고사',
+      final: '기말고사',
+      quiz: '퀴즈',
+      mock: '모의고사',
+      assignment: '과제',
+    }
+    return typeMap[type] || type
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -164,6 +177,7 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
                 <TableHeader>
                   <TableRow>
                     <TableHead>시험명</TableHead>
+                    <TableHead>시험 유형</TableHead>
                     <TableHead>분류</TableHead>
                     <TableHead>시험일</TableHead>
                     <TableHead className="text-center">문항 수</TableHead>
@@ -182,6 +196,11 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
                         >
                           {exam.name}
                         </button>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">
+                          {getExamTypeLabel(exam.exam_type)}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">

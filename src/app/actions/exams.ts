@@ -157,6 +157,8 @@ export async function getExamById(examId: string) {
         total_questions,
         passing_score,
         description,
+        is_recurring,
+        recurring_schedule,
         created_at,
         classes (
           id,
