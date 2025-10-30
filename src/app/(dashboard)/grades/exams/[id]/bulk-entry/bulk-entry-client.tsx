@@ -75,6 +75,8 @@ export function BulkGradeEntryClient() {
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   const loadData = useCallback(async () => {
+    if (!currentUser || !currentUser.tenantId) return
+
     try {
       setLoading(true)
 
@@ -82,6 +84,7 @@ export function BulkGradeEntryClient() {
       const { data: examData, error: examError } = await supabase
         .from('exams')
         .select('id, name, total_questions, exam_date')
+        .eq('tenant_id', currentUser.tenantId)
         .eq('id', examId)
         .single()
 
@@ -104,6 +107,7 @@ export function BulkGradeEntryClient() {
             users!user_id(name)
           )
         `)
+        .eq('tenant_id', currentUser.tenantId)
         .eq('exam_id', examId)
 
       if (scoresError) throw scoresError

@@ -18,6 +18,7 @@ import {
   Repeat,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { useCurrentUser } from '@/hooks/use-current-user'
 import { AssignStudentsDialog } from '@/components/features/exams/assign-students-dialog'
 import { createClient } from '@/lib/supabase/client'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
@@ -55,6 +56,7 @@ interface ExamDetailClientProps {
 export function ExamDetailClient({ exam }: ExamDetailClientProps) {
   const router = useRouter()
   const { toast } = useToast()
+  const { user: currentUser } = useCurrentUser()
   const supabase = createClient()
 
   const [students, setStudents] = useState<Student[]>([])
@@ -95,6 +97,8 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
   }, [exam.id])
 
   async function loadStudents() {
+    if (!currentUser || !currentUser.tenantId) return
+
     try {
       setLoading(true)
 
@@ -110,6 +114,7 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
             grade
           )
         `)
+        .eq('tenant_id', currentUser.tenantId)
         .eq('exam_id', exam.id)
 
       if (error) throw error
@@ -140,13 +145,14 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
   }
 
   async function handleConfirmRemove() {
-    if (!studentToRemove) return
+    if (!currentUser || !currentUser.tenantId || !studentToRemove) return
 
     setIsRemoving(true)
     try {
       const { error } = await supabase
         .from('exam_scores')
         .delete()
+        .eq('tenant_id', currentUser.tenantId)
         .eq('exam_id', exam.id)
         .eq('student_id', studentToRemove.id)
 
