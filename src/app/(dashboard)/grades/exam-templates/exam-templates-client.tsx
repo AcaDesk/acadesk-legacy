@@ -27,9 +27,11 @@ import { Maintenance } from '@/components/layout/maintenance'
 interface ExamTemplate {
   id: string
   name: string
+  subject_id: string | null
   category_code: string | null
   exam_type: string | null
   total_questions: number | null
+  passing_score: number | null
   recurring_schedule: string | null
   is_recurring: boolean
   description: string | null
@@ -37,6 +39,10 @@ interface ExamTemplate {
   classes?: {
     name: string
   }[] | null
+  subjects?: {
+    name: string
+    color: string
+  } | null
   _count?: {
     generated: number
   }
@@ -94,14 +100,17 @@ export function ExamTemplatesClient() {
         .select(`
           id,
           name,
+          subject_id,
           category_code,
           exam_type,
           total_questions,
+          passing_score,
           recurring_schedule,
           is_recurring,
           description,
           class_id,
-          classes (name)
+          classes (name),
+          subjects (name, color)
         `)
         .eq('is_recurring', true)
         .is('deleted_at', null)
@@ -175,27 +184,95 @@ export function ExamTemplatesClient() {
     }
   }
 
+  function calculateNextExamDate(schedule: string | null): Date {
+    const now = new Date()
+    const result = new Date(now)
+
+    if (!schedule) return result
+
+    switch (schedule) {
+      case 'daily':
+        // Today
+        return result
+
+      case 'weekly_mon_wed_fri': {
+        // Find next Monday, Wednesday, or Friday
+        const day = result.getDay() // 0 = Sunday, 1 = Monday, etc.
+        if (day === 1 || day === 3 || day === 5) {
+          // Already Mon/Wed/Fri, use today
+          return result
+        } else if (day === 0 || day === 6 || day === 2 || day === 4) {
+          // Find next Mon/Wed/Fri
+          const daysToAdd = day === 0 ? 1 : // Sunday -> Monday
+                            day === 6 ? 2 : // Saturday -> Monday
+                            day === 2 ? 1 : // Tuesday -> Wednesday
+                            day === 4 ? 1 : 0 // Thursday -> Friday
+          result.setDate(result.getDate() + daysToAdd)
+        }
+        return result
+      }
+
+      case 'weekly_tue_thu': {
+        // Find next Tuesday or Thursday
+        const day = result.getDay()
+        if (day === 2 || day === 4) {
+          // Already Tue/Thu, use today
+          return result
+        } else if (day === 0 || day === 1 || day === 3 || day === 5 || day === 6) {
+          // Find next Tue/Thu
+          const daysToAdd = day === 0 ? 2 : // Sunday -> Tuesday
+                            day === 1 ? 1 : // Monday -> Tuesday
+                            day === 3 ? 1 : // Wednesday -> Thursday
+                            day === 5 ? 4 : // Friday -> Tuesday
+                            day === 6 ? 3 : 0 // Saturday -> Tuesday
+          result.setDate(result.getDate() + daysToAdd)
+        }
+        return result
+      }
+
+      case 'weekly':
+        // Next week, same day
+        result.setDate(result.getDate() + 7)
+        return result
+
+      case 'biweekly':
+        // Two weeks later, same day
+        result.setDate(result.getDate() + 14)
+        return result
+
+      case 'monthly':
+        // Next month, same day
+        result.setMonth(result.getMonth() + 1)
+        return result
+
+      default:
+        return result
+    }
+  }
+
   async function handleGenerateExam(template: ExamTemplate) {
     if (!currentUser) return
 
     try {
-      // Generate exam name with current date
-      const now = new Date()
-      const examName = `${template.name} (${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')})`
+      // Calculate next exam date based on recurring schedule
+      const examDate = calculateNextExamDate(template.recurring_schedule)
+      const examName = `${template.name} (${examDate.getFullYear()}.${String(examDate.getMonth() + 1).padStart(2, '0')}.${String(examDate.getDate()).padStart(2, '0')})`
 
       const newExam = {
         tenant_id: currentUser.tenantId,
         name: examName,
+        subject_id: template.subject_id,
         category_code: template.category_code,
         exam_type: template.exam_type,
         total_questions: template.total_questions,
+        passing_score: template.passing_score,
         class_id: template.class_id,
         description: template.description,
-        exam_date: now.toISOString().split('T')[0],
+        exam_date: examDate.toISOString().split('T')[0],
         is_recurring: false,
       }
 
-      const { error } = await supabase.from('exams').insert(newExam)
+      const { data, error } = await supabase.from('exams').insert(newExam).select('id').single()
 
       if (error) throw error
 
@@ -204,7 +281,12 @@ export function ExamTemplatesClient() {
         description: `"${examName}" 시험이 생성되었습니다.`,
       })
 
-      router.push('/grades/exams')
+      // Redirect to the created exam detail page for student assignment
+      if (data?.id) {
+        router.push(`/grades/exams/${data.id}`)
+      } else {
+        router.push('/grades')
+      }
     } catch (error: unknown) {
       console.error('Error generating exam:', error)
       const errorMessage = error instanceof Error ? error.message : '시험을 생성하는 중 오류가 발생했습니다.'
@@ -224,11 +306,13 @@ export function ExamTemplatesClient() {
 
   function getRecurrenceLabel(schedule: string | null) {
     if (!schedule) return '없음'
-    // Parse schedule string (e.g., "weekly", "monthly", etc.)
     const scheduleMap: Record<string, string> = {
-      weekly: '주간',
-      monthly: '월간',
-      quarterly: '분기별',
+      daily: '매일',
+      weekly_mon_wed_fri: '매주 월수금',
+      weekly_tue_thu: '매주 화목',
+      weekly: '매주 (같은 요일)',
+      biweekly: '격주',
+      monthly: '매월',
     }
     return scheduleMap[schedule] || schedule
   }
@@ -304,6 +388,7 @@ export function ExamTemplatesClient() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>템플릿명</TableHead>
+                      <TableHead>과목</TableHead>
                       <TableHead>분류</TableHead>
                       <TableHead>반복 주기</TableHead>
                       <TableHead className="text-center">문항 수</TableHead>
@@ -320,6 +405,19 @@ export function ExamTemplatesClient() {
                             <Repeat className="h-4 w-4 text-blue-600" />
                             <span className="font-medium">{template.name}</span>
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          {template.subjects ? (
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-3 h-3 rounded"
+                                style={{ backgroundColor: template.subjects.color }}
+                              />
+                              <span className="text-sm">{template.subjects.name}</span>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">-</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline">
@@ -349,12 +447,13 @@ export function ExamTemplatesClient() {
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
                             <Button
-                              variant="ghost"
-                              size="icon"
+                              variant="default"
+                              size="sm"
                               onClick={() => handleGenerateExam(template)}
-                              title="시험 생성"
+                              className="bg-green-600 hover:bg-green-700"
                             >
-                              <Copy className="h-4 w-4 text-green-600" />
+                              <Copy className="h-4 w-4 mr-1" />
+                              시험 생성
                             </Button>
                             <Button
                               variant="ghost"
