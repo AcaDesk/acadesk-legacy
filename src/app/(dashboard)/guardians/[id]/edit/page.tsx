@@ -20,12 +20,18 @@ import { GUARDIAN_RELATIONSHIPS } from '@/lib/constants'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
+import { PhoneInput } from '@ui/phone-input'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@ui/tabs'
+import { updateGuardian } from '@/app/actions/guardians'
+import { getErrorMessage } from '@/lib/error-handlers'
 
 const guardianSchema = z.object({
   name: z.string().min(2, '이름은 최소 2자 이상이어야 합니다'),
   email: z.string().email('올바른 이메일 형식이 아닙니다').optional().or(z.literal('')),
   phone: z.string().min(1, '연락처를 입력해주세요'),
   relationship: z.string().min(1, '관계를 선택해주세요'),
+  occupation: z.string().optional(),
+  address: z.string().optional(),
 })
 
 type GuardianFormValues = z.infer<typeof guardianSchema>
@@ -33,6 +39,8 @@ type GuardianFormValues = z.infer<typeof guardianSchema>
 interface GuardianData {
   id: string
   relationship: string | null
+  occupation: string | null
+  address: string | null
   users: {
     id: string
     name: string
