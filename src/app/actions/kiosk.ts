@@ -239,3 +239,152 @@ export async function hashKioskPin(pin: string): Promise<string> {
 export async function verifyKioskPin(pin: string, hash: string): Promise<boolean> {
   return await bcrypt.compare(pin, hash)
 }
+
+/**
+ * 테넌트별 학생 목록 조회 (키오스크용)
+ * @param tenantId 테넌트 ID
+ */
+export async function getStudentsByTenant(
+  tenantId: string
+): Promise<{ success: boolean; students?: Student[]; error?: string }> {
+  try {
+    const supabase = createServiceRoleClient()
+
+    const { data: students, error: studentsError } = await supabase
+      .from('students')
+      .select(`
+        id,
+        tenant_id,
+        student_code,
+        name,
+        grade,
+        profile_image_url
+      `)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .order('student_code')
+
+    if (studentsError) {
+      throw studentsError
+    }
+
+    return {
+      success: true,
+      students: students || [],
+    }
+  } catch (error) {
+    console.error('학생 목록 조회 오류:', error)
+    return {
+      success: false,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * 이름 + 부모님 전화번호 뒷자리로 키오스크 인증
+ * @param studentId 학생 ID
+ * @param phoneLastFour 부모님 전화번호 뒷자리 4자리
+ */
+export async function authenticateKioskByNameAndPhone(
+  studentId: string,
+  phoneLastFour: string
+): Promise<{ success: boolean; student?: Student; error?: string }> {
+  try {
+    const supabase = createServiceRoleClient()
+
+    // 학생 정보와 Primary 보호자 전화번호 조회
+    const { data: student, error: studentError } = await supabase
+      .from('students')
+      .select(`
+        id,
+        tenant_id,
+        student_code,
+        name,
+        grade,
+        profile_image_url,
+        student_guardians!inner(
+          is_primary,
+          guardians!inner(
+            phone
+          )
+        )
+      `)
+      .eq('id', studentId)
+      .eq('student_guardians.is_primary', true)
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (studentError) {
+      throw studentError
+    }
+
+    if (!student) {
+      return {
+        success: false,
+        error: '학생을 찾을 수 없습니다.',
+      }
+    }
+
+    // Primary 보호자 전화번호 가져오기
+    const guardianData = student.student_guardians as any
+    const guardianPhone = guardianData?.[0]?.guardians?.phone
+
+    if (!guardianPhone) {
+      // 보호자 전화번호가 없으면 기본 PIN 1234 사용
+      if (phoneLastFour === '1234') {
+        const studentData: Student = {
+          id: student.id,
+          tenant_id: student.tenant_id,
+          student_code: student.student_code,
+          name: student.name,
+          grade: student.grade,
+          profile_image_url: student.profile_image_url,
+        }
+
+        return {
+          success: true,
+          student: studentData,
+        }
+      }
+
+      return {
+        success: false,
+        error: '보호자 전화번호가 등록되지 않았습니다. 기본 PIN(1234)을 사용하세요.',
+      }
+    }
+
+    // 전화번호 뒷자리 4자리 추출 (하이픈 제거 후)
+    const cleanPhone = guardianPhone.replace(/-/g, '').replace(/\s/g, '')
+    const correctLastFour = cleanPhone.slice(-4)
+
+    // 입력값 검증
+    if (phoneLastFour !== correctLastFour) {
+      return {
+        success: false,
+        error: '전화번호 뒷자리가 일치하지 않습니다.',
+      }
+    }
+
+    // 인증 성공
+    const studentData: Student = {
+      id: student.id,
+      tenant_id: student.tenant_id,
+      student_code: student.student_code,
+      name: student.name,
+      grade: student.grade,
+      profile_image_url: student.profile_image_url,
+    }
+
+    return {
+      success: true,
+      student: studentData,
+    }
+  } catch (error) {
+    console.error('키오스크 인증 오류:', error)
+    return {
+      success: false,
+      error: getErrorMessage(error),
+    }
+  }
+}

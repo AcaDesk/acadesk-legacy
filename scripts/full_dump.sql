@@ -246,6 +246,40 @@ COMMENT ON FUNCTION "auth"."uid"() IS 'Deprecated. Use auth.jwt() -> ''sub'' ins
 
 
 
+CREATE OR REPLACE FUNCTION "public"."check_and_mark_retest"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+BEGIN
+  -- If score percentage is below passing_score, mark as retest_required
+  IF NEW.percentage IS NOT NULL AND NEW.status = 'submitted' THEN
+    -- Get passing_score from exams table
+    DECLARE
+      v_passing_score NUMERIC(5,2);
+    BEGIN
+      SELECT passing_score INTO v_passing_score
+      FROM public.exams
+      WHERE id = NEW.exam_id;
+
+      -- If passing_score is set and score is below it, mark for retest
+      IF v_passing_score IS NOT NULL AND NEW.percentage < v_passing_score THEN
+        NEW.status := 'retest_required';
+        NEW.is_retest := false; -- This is the original test, not a retest
+      END IF;
+    END;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."check_and_mark_retest"() OWNER TO "postgres";
+
+
+COMMENT ON FUNCTION "public"."check_and_mark_retest"() IS '합격 점수 미달 시 자동으로 재시험 대상으로 마킹';
+
+
+
 CREATE OR REPLACE FUNCTION "public"."fn_student_tasks_normalize_dow"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -258,6 +292,66 @@ END $$;
 
 
 ALTER FUNCTION "public"."fn_student_tasks_normalize_dow"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."get_monthly_subject_scores"("p_student_id" "uuid", "p_year_month" "text") RETURNS TABLE("subject_id" "uuid", "subject_name" "text", "subject_code" "text", "avg_score" numeric, "total_exams" bigint, "improvement_from_prev_month" numeric)
+    LANGUAGE "plpgsql" STABLE
+    AS $$
+BEGIN
+  RETURN QUERY
+  WITH current_month AS (
+    SELECT
+      s.id AS subject_id,
+      s.name AS subject_name,
+      s.code AS subject_code,
+      AVG(es.percentage) AS avg_score,
+      COUNT(es.id) AS total_exams
+    FROM public.subjects s
+    LEFT JOIN public.exams e ON e.subject_id = s.id
+    LEFT JOIN public.exam_scores es ON es.exam_id = e.id AND es.student_id = p_student_id
+    WHERE
+      TO_CHAR(e.exam_date, 'YYYY-MM') = p_year_month
+      AND es.deleted_at IS NULL
+      AND e.deleted_at IS NULL
+      AND s.deleted_at IS NULL
+      AND es.status = 'submitted' -- Only count submitted scores
+    GROUP BY s.id, s.name, s.code
+  ),
+  prev_month AS (
+    SELECT
+      s.id AS subject_id,
+      AVG(es.percentage) AS avg_score
+    FROM public.subjects s
+    LEFT JOIN public.exams e ON e.subject_id = s.id
+    LEFT JOIN public.exam_scores es ON es.exam_id = e.id AND es.student_id = p_student_id
+    WHERE
+      TO_CHAR(e.exam_date, 'YYYY-MM') = TO_CHAR((p_year_month || '-01')::DATE - INTERVAL '1 month', 'YYYY-MM')
+      AND es.deleted_at IS NULL
+      AND e.deleted_at IS NULL
+      AND s.deleted_at IS NULL
+      AND es.status = 'submitted'
+    GROUP BY s.id
+  )
+  SELECT
+    cm.subject_id,
+    cm.subject_name,
+    cm.subject_code,
+    ROUND(cm.avg_score, 2) AS avg_score,
+    cm.total_exams,
+    ROUND(cm.avg_score - COALESCE(pm.avg_score, 0), 2) AS improvement_from_prev_month
+  FROM current_month cm
+  LEFT JOIN prev_month pm ON pm.subject_id = cm.subject_id
+  WHERE cm.total_exams > 0
+  ORDER BY cm.subject_name;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."get_monthly_subject_scores"("p_student_id" "uuid", "p_year_month" "text") OWNER TO "postgres";
+
+
+COMMENT ON FUNCTION "public"."get_monthly_subject_scores"("p_student_id" "uuid", "p_year_month" "text") IS '학생의 월별 과목 성적 평균 및 전월 대비 변화';
+
 
 
 CREATE OR REPLACE FUNCTION "public"."get_student_detail"("p_student_id" "uuid", "p_tenant_id" "uuid") RETURNS json
@@ -2225,7 +2319,7 @@ COMMENT ON COLUMN "public"."consultation_participants"."role" IS '기타 참석�
 CREATE TABLE IF NOT EXISTS "public"."consultations" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
-    "student_id" "uuid" NOT NULL,
+    "student_id" "uuid",
     "consultation_date" timestamp with time zone DEFAULT "now"() NOT NULL,
     "consultation_type" "text" DEFAULT 'in_person'::"text" NOT NULL,
     "conducted_by" "uuid" NOT NULL,
@@ -2238,8 +2332,16 @@ CREATE TABLE IF NOT EXISTS "public"."consultations" (
     "duration_minutes" integer,
     "follow_up_required" boolean DEFAULT false NOT NULL,
     "next_consultation_date" "date",
+    "is_lead" boolean DEFAULT false NOT NULL,
+    "lead_name" "text",
+    "lead_guardian_name" "text",
+    "lead_guardian_phone" "text",
+    "converted_to_student_id" "uuid",
+    "converted_at" timestamp with time zone,
+    "lead_school" "text",
     CONSTRAINT "chk_consultations_duration" CHECK ((("duration_minutes" IS NULL) OR ("duration_minutes" > 0))),
     CONSTRAINT "chk_consultations_duration_positive" CHECK ((("duration_minutes" IS NULL) OR ("duration_minutes" > 0))),
+    CONSTRAINT "chk_consultations_student_or_lead" CHECK (((("student_id" IS NOT NULL) AND ("is_lead" = false)) OR (("student_id" IS NULL) AND ("is_lead" = true) AND ("lead_name" IS NOT NULL)))),
     CONSTRAINT "chk_consultations_type" CHECK (("consultation_type" = ANY (ARRAY['parent_meeting'::"text", 'phone_call'::"text", 'video_call'::"text", 'in_person'::"text"]))),
     CONSTRAINT "chk_consultations_type_allowed" CHECK ((("consultation_type" IS NULL) OR ("consultation_type" = ANY (ARRAY['parent_meeting'::"text", 'phone_call'::"text", 'video_call'::"text", 'in_person'::"text"]))))
 );
@@ -2284,24 +2386,62 @@ COMMENT ON COLUMN "public"."consultations"."next_consultation_date" IS '다음 �
 
 
 
+COMMENT ON COLUMN "public"."consultations"."is_lead" IS '신규 입회 상담 여부 (잠재 고객)';
+
+
+
+COMMENT ON COLUMN "public"."consultations"."lead_name" IS '잠재 고객 이름 (신규 상담 시)';
+
+
+
+COMMENT ON COLUMN "public"."consultations"."lead_guardian_name" IS '학부모명 (신규 상담 시)';
+
+
+
+COMMENT ON COLUMN "public"."consultations"."lead_guardian_phone" IS '학부모 연락처 (신규 상담 시)';
+
+
+
+COMMENT ON COLUMN "public"."consultations"."converted_to_student_id" IS '입회 처리 후 생성된 학생 ID';
+
+
+
+COMMENT ON COLUMN "public"."consultations"."converted_at" IS '입회 처리 완료 시각';
+
+
+
+COMMENT ON COLUMN "public"."consultations"."lead_school" IS 'School name for lead consultations (optional)';
+
+
+
 CREATE TABLE IF NOT EXISTS "public"."exam_scores" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
     "exam_id" "uuid" NOT NULL,
     "student_id" "uuid" NOT NULL,
-    "score" integer NOT NULL,
-    "total_points" integer NOT NULL,
-    "percentage" numeric(5,2) NOT NULL,
+    "score" integer,
+    "total_points" integer,
+    "percentage" numeric(5,2),
     "feedback" "text",
     "is_retest" boolean DEFAULT false NOT NULL,
     "retest_count" integer DEFAULT 0 NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "deleted_at" timestamp with time zone
+    "deleted_at" timestamp with time zone,
+    "status" "text" DEFAULT 'submitted'::"text",
+    CONSTRAINT "exam_scores_status_check" CHECK (("status" = ANY (ARRAY['absent'::"text", 'pending'::"text", 'submitted'::"text", 'retest_required'::"text", 'retest_waived'::"text"])))
 );
 
 
 ALTER TABLE "public"."exam_scores" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."exam_scores"."retest_count" IS '재시험 횟수';
+
+
+
+COMMENT ON COLUMN "public"."exam_scores"."status" IS '성적 상태: absent(미응시), pending(대기-연기), submitted(제출), retest_required(재시험필요), retest_waived(재시험면제)';
+
 
 
 CREATE TABLE IF NOT EXISTS "public"."exams" (
@@ -2319,14 +2459,25 @@ CREATE TABLE IF NOT EXISTS "public"."exams" (
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "deleted_at" timestamp with time zone,
-    "passing_score" numeric(5,2)
+    "passing_score" numeric(5,2),
+    "subject_id" "uuid",
+    "status" "text" DEFAULT 'scheduled'::"text",
+    CONSTRAINT "exams_status_check" CHECK (("status" = ANY (ARRAY['scheduled'::"text", 'in_progress'::"text", 'completed'::"text", 'cancelled'::"text"])))
 );
 
 
 ALTER TABLE "public"."exams" OWNER TO "postgres";
 
 
-COMMENT ON COLUMN "public"."exams"."passing_score" IS '합격 기준 점수 (백분율, 0-100)';
+COMMENT ON COLUMN "public"."exams"."passing_score" IS '합격 점수 (%). 이 점수 미달 시 자동으로 재시험 대상이 됨';
+
+
+
+COMMENT ON COLUMN "public"."exams"."subject_id" IS '과목 ID (Voca, Reading, Speaking 등)';
+
+
+
+COMMENT ON COLUMN "public"."exams"."status" IS '시험 상태: scheduled(예정), in_progress(진행중), completed(완료), cancelled(취소)';
 
 
 
@@ -2609,6 +2760,7 @@ CREATE TABLE IF NOT EXISTS "public"."report_sends" (
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "deleted_at" timestamp with time zone,
+    "send_error" "text",
     CONSTRAINT "report_sends_message_type_check" CHECK (("message_type" = ANY (ARRAY['SMS'::"text", 'LMS'::"text"]))),
     CONSTRAINT "report_sends_recipient_type_check" CHECK (("recipient_type" = ANY (ARRAY['guardian'::"text", 'student'::"text"]))),
     CONSTRAINT "report_sends_send_status_check" CHECK (("send_status" = ANY (ARRAY['pending'::"text", 'sent'::"text", 'failed'::"text", 'delivered'::"text"])))
@@ -2894,6 +3046,64 @@ CREATE TABLE IF NOT EXISTS "public"."students" (
 ALTER TABLE "public"."students" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."users" (
+    "id" "uuid" DEFAULT "public"."uuid_generate_v4"() NOT NULL,
+    "tenant_id" "uuid",
+    "email" "public"."citext",
+    "name" "text" NOT NULL,
+    "phone" "text",
+    "role_code" "text",
+    "onboarding_completed" boolean DEFAULT false NOT NULL,
+    "onboarding_completed_at" timestamp with time zone,
+    "approval_status" "text" DEFAULT 'pending'::"text" NOT NULL,
+    "approval_reason" "text",
+    "approved_at" timestamp with time zone,
+    "approved_by" "uuid",
+    "settings" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
+    "preferences" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
+    "address" "text",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "deleted_at" timestamp with time zone,
+    CONSTRAINT "users_approval_status_check" CHECK (("approval_status" = ANY (ARRAY['pending'::"text", 'approved'::"text", 'rejected'::"text"])))
+);
+
+
+ALTER TABLE "public"."users" OWNER TO "postgres";
+
+
+CREATE OR REPLACE VIEW "public"."students_requiring_retest" AS
+ SELECT "es"."id" AS "exam_score_id",
+    "es"."exam_id",
+    "es"."student_id",
+    "e"."name" AS "exam_name",
+    "e"."exam_date",
+    "e"."passing_score",
+    "es"."percentage" AS "student_score",
+    "es"."status",
+    COALESCE("es"."retest_count", 0) AS "retest_count",
+    "s"."student_code",
+    "u"."name" AS "student_name",
+    "s"."grade",
+    "c"."name" AS "class_name",
+    "e"."tenant_id"
+   FROM (((("public"."exam_scores" "es"
+     JOIN "public"."exams" "e" ON (("e"."id" = "es"."exam_id")))
+     JOIN "public"."students" "s" ON (("s"."id" = "es"."student_id")))
+     JOIN "public"."users" "u" ON (("u"."id" = "s"."user_id")))
+     LEFT JOIN "public"."classes" "c" ON (("c"."id" = "e"."class_id")))
+  WHERE (("es"."status" = 'retest_required'::"text") AND ("es"."deleted_at" IS NULL) AND ("e"."deleted_at" IS NULL) AND ("s"."deleted_at" IS NULL))
+  ORDER BY "e"."exam_date" DESC, "u"."name";
+
+
+ALTER VIEW "public"."students_requiring_retest" OWNER TO "postgres";
+
+
+COMMENT ON VIEW "public"."students_requiring_retest" IS '재시험 대상 학생 목록 뷰 - 합격 점수 미달로 재시험이 필요한 
+  학생들의 정보';
+
+
+
 CREATE TABLE IF NOT EXISTS "public"."subjects" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -2905,7 +3115,8 @@ CREATE TABLE IF NOT EXISTS "public"."subjects" (
     "meta" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "deleted_at" timestamp with time zone
+    "deleted_at" timestamp with time zone,
+    "description" "text"
 );
 
 
@@ -2913,22 +3124,22 @@ ALTER TABLE "public"."subjects" OWNER TO "postgres";
 
 
 CREATE OR REPLACE VIEW "public"."subject_statistics" AS
- SELECT "id",
-    "tenant_id",
-    "name",
-    "code",
-    "color",
-    "sort_order",
-    "active",
-    "meta",
-    "created_at",
-    "updated_at",
-    "deleted_at",
-    COALESCE(( SELECT "count"(*) AS "count"
-           FROM "public"."classes" "c"
-          WHERE (("c"."subject_id" = "s"."id") AND ("c"."deleted_at" IS NULL))), (0)::bigint) AS "class_count"
-   FROM "public"."subjects" "s"
-  WHERE ("deleted_at" IS NULL);
+ SELECT "s"."id",
+    "s"."tenant_id",
+    "s"."name",
+    "s"."description",
+    "s"."code",
+    "s"."color",
+    "s"."sort_order",
+    "s"."active",
+    "s"."created_at",
+    "s"."updated_at",
+    "s"."deleted_at",
+    "count"(DISTINCT "c"."id") AS "class_count"
+   FROM ("public"."subjects" "s"
+     LEFT JOIN "public"."classes" "c" ON ((("s"."id" = "c"."subject_id") AND ("c"."deleted_at" IS NULL))))
+  WHERE ("s"."deleted_at" IS NULL)
+  GROUP BY "s"."id", "s"."tenant_id", "s"."name", "s"."description", "s"."code", "s"."color", "s"."sort_order", "s"."active", "s"."created_at", "s"."updated_at", "s"."deleted_at";
 
 
 ALTER VIEW "public"."subject_statistics" OWNER TO "postgres";
@@ -3197,32 +3408,6 @@ CREATE OR REPLACE VIEW "public"."todos" AS
 
 
 ALTER VIEW "public"."todos" OWNER TO "postgres";
-
-
-CREATE TABLE IF NOT EXISTS "public"."users" (
-    "id" "uuid" DEFAULT "public"."uuid_generate_v4"() NOT NULL,
-    "tenant_id" "uuid",
-    "email" "public"."citext",
-    "name" "text" NOT NULL,
-    "phone" "text",
-    "role_code" "text",
-    "onboarding_completed" boolean DEFAULT false NOT NULL,
-    "onboarding_completed_at" timestamp with time zone,
-    "approval_status" "text" DEFAULT 'pending'::"text" NOT NULL,
-    "approval_reason" "text",
-    "approved_at" timestamp with time zone,
-    "approved_by" "uuid",
-    "settings" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
-    "preferences" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
-    "address" "text",
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "deleted_at" timestamp with time zone,
-    CONSTRAINT "users_approval_status_check" CHECK (("approval_status" = ANY (ARRAY['pending'::"text", 'approved'::"text", 'rejected'::"text"])))
-);
-
-
-ALTER TABLE "public"."users" OWNER TO "postgres";
 
 
 CREATE OR REPLACE VIEW "public"."v_student_siblings" AS
@@ -4120,7 +4305,15 @@ CREATE INDEX "idx_consultations_conducted_by_date" ON "public"."consultations" U
 
 
 
+CREATE INDEX "idx_consultations_converted" ON "public"."consultations" USING "btree" ("converted_to_student_id") WHERE (("deleted_at" IS NULL) AND ("converted_to_student_id" IS NOT NULL));
+
+
+
 CREATE INDEX "idx_consultations_follow_up" ON "public"."consultations" USING "btree" ("tenant_id", "follow_up_required", "next_consultation_date") WHERE (("deleted_at" IS NULL) AND ("follow_up_required" = true));
+
+
+
+CREATE INDEX "idx_consultations_lead" ON "public"."consultations" USING "btree" ("tenant_id", "is_lead", "consultation_date" DESC) WHERE (("deleted_at" IS NULL) AND ("is_lead" = true));
 
 
 
@@ -4148,6 +4341,10 @@ CREATE INDEX "idx_exam_scores_percentage" ON "public"."exam_scores" USING "btree
 
 
 
+CREATE INDEX "idx_exam_scores_status" ON "public"."exam_scores" USING "btree" ("status") WHERE ("deleted_at" IS NULL);
+
+
+
 CREATE INDEX "idx_exam_scores_student" ON "public"."exam_scores" USING "btree" ("student_id") WHERE ("deleted_at" IS NULL);
 
 
@@ -4157,6 +4354,14 @@ CREATE INDEX "idx_exams_category" ON "public"."exams" USING "btree" ("category_c
 
 
 CREATE INDEX "idx_exams_class" ON "public"."exams" USING "btree" ("class_id") WHERE ("deleted_at" IS NULL);
+
+
+
+CREATE INDEX "idx_exams_status" ON "public"."exams" USING "btree" ("status") WHERE ("deleted_at" IS NULL);
+
+
+
+CREATE INDEX "idx_exams_subject" ON "public"."exams" USING "btree" ("subject_id") WHERE ("deleted_at" IS NULL);
 
 
 
@@ -4200,7 +4405,15 @@ CREATE INDEX "idx_lendings_tenant_dates" ON "public"."book_lendings" USING "btre
 
 
 
+CREATE INDEX "idx_message_templates_deleted_at" ON "public"."message_templates" USING "btree" ("deleted_at") WHERE ("deleted_at" IS NULL);
+
+
+
 CREATE INDEX "idx_message_templates_tenant" ON "public"."message_templates" USING "btree" ("tenant_id", "deleted_at") WHERE ("deleted_at" IS NULL);
+
+
+
+CREATE INDEX "idx_message_templates_tenant_id" ON "public"."message_templates" USING "btree" ("tenant_id");
 
 
 
@@ -4281,6 +4494,10 @@ CREATE INDEX "idx_report_sends_recipient" ON "public"."report_sends" USING "btre
 
 
 CREATE INDEX "idx_report_sends_report" ON "public"."report_sends" USING "btree" ("report_id") WHERE ("deleted_at" IS NULL);
+
+
+
+CREATE INDEX "idx_report_sends_send_status" ON "public"."report_sends" USING "btree" ("tenant_id", "send_status") WHERE ("deleted_at" IS NULL);
 
 
 
@@ -4556,11 +4773,19 @@ CREATE UNIQUE INDEX "objects_bucket_id_level_idx" ON "storage"."objects" USING "
 
 
 
+CREATE OR REPLACE TRIGGER "set_message_templates_updated_at" BEFORE UPDATE ON "public"."message_templates" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
+
+
+
 CREATE OR REPLACE TRIGGER "trg_student_tasks_normalize_dow" BEFORE INSERT OR UPDATE ON "public"."student_tasks" FOR EACH ROW EXECUTE FUNCTION "public"."fn_student_tasks_normalize_dow"();
 
 
 
 CREATE OR REPLACE TRIGGER "trg_tenant_messaging_config_set_updated_at" BEFORE UPDATE ON "public"."tenant_messaging_config" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
+
+
+
+CREATE OR REPLACE TRIGGER "trigger_check_retest" BEFORE INSERT OR UPDATE OF "percentage", "status" ON "public"."exam_scores" FOR EACH ROW EXECUTE FUNCTION "public"."check_and_mark_retest"();
 
 
 
@@ -4843,6 +5068,11 @@ ALTER TABLE ONLY "public"."consultations"
 
 
 ALTER TABLE ONLY "public"."consultations"
+    ADD CONSTRAINT "consultations_converted_to_student_id_fkey" FOREIGN KEY ("converted_to_student_id") REFERENCES "public"."students"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."consultations"
     ADD CONSTRAINT "consultations_instructor_id_fkey" FOREIGN KEY ("conducted_by") REFERENCES "public"."users"("id") ON DELETE SET NULL;
 
 
@@ -4879,6 +5109,11 @@ ALTER TABLE ONLY "public"."exams"
 
 ALTER TABLE ONLY "public"."exams"
     ADD CONSTRAINT "exams_class_id_fkey" FOREIGN KEY ("class_id") REFERENCES "public"."classes"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."exams"
+    ADD CONSTRAINT "exams_subject_id_fkey" FOREIGN KEY ("subject_id") REFERENCES "public"."subjects"("id") ON DELETE SET NULL;
 
 
 
@@ -5378,6 +5613,10 @@ GRANT ALL ON FUNCTION "auth"."uid"() TO "dashboard_user";
 
 
 
+GRANT ALL ON FUNCTION "public"."get_monthly_subject_scores"("p_student_id" "uuid", "p_year_month" "text") TO "authenticated";
+
+
+
 GRANT ALL ON FUNCTION "public"."get_student_detail"("p_student_id" "uuid", "p_tenant_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."get_student_detail"("p_student_id" "uuid", "p_tenant_id" "uuid") TO "service_role";
 
@@ -5618,6 +5857,7 @@ GRANT ALL ON TABLE "public"."in_app_notifications" TO "service_role";
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."message_templates" TO "anon";
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."message_templates" TO "authenticated";
+GRANT ALL ON TABLE "public"."message_templates" TO "service_role";
 
 
 
@@ -5719,15 +5959,27 @@ GRANT ALL ON TABLE "public"."students" TO "service_role";
 
 
 
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."users" TO "authenticated";
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."users" TO "anon";
+GRANT ALL ON TABLE "public"."users" TO "service_role";
+
+
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."students_requiring_retest" TO "anon";
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."students_requiring_retest" TO "authenticated";
+GRANT SELECT ON TABLE "public"."students_requiring_retest" TO "service_role";
+
+
+
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."subjects" TO "authenticated";
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."subjects" TO "anon";
 GRANT ALL ON TABLE "public"."subjects" TO "service_role";
 
 
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."subject_statistics" TO "authenticated";
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."subject_statistics" TO "anon";
-GRANT ALL ON TABLE "public"."subject_statistics" TO "service_role";
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."subject_statistics" TO "authenticated";
+GRANT SELECT ON TABLE "public"."subject_statistics" TO "service_role";
 
 
 
@@ -5744,6 +5996,7 @@ GRANT ALL ON TABLE "public"."tenant_codes" TO "service_role";
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."tenant_messaging_config" TO "anon";
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."tenant_messaging_config" TO "authenticated";
+GRANT ALL ON TABLE "public"."tenant_messaging_config" TO "service_role";
 
 
 
@@ -5777,12 +6030,6 @@ GRANT ALL ON TABLE "public"."todo_templates" TO "service_role";
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."todos" TO "authenticated";
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."todos" TO "anon";
 GRANT ALL ON TABLE "public"."todos" TO "service_role";
-
-
-
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."users" TO "authenticated";
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."users" TO "anon";
-GRANT ALL ON TABLE "public"."users" TO "service_role";
 
 
 
