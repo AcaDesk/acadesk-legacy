@@ -14,6 +14,7 @@ import {
 import { format as formatDate } from 'date-fns'
 import { getGuardianRelationshipLabel, getGuardianDisplayName } from '@/lib/constants'
 import type { StudentDetail } from '@/core/types/studentDetail.types'
+import { formatPhoneNumber } from '@/lib/utils'
 
 // Extended student type with optional fields
 interface ExtendedStudentDetail extends StudentDetail {
@@ -159,11 +160,11 @@ export function StudentBasicInfo({ student: baseStudent }: StudentBasicInfoProps
                 <div className="pl-6 space-y-1">
                   {student.student_phone && (
                     <p className="text-xs font-medium">
-                      학생: {student.student_phone}
+                      학생: {formatPhoneNumber(student.student_phone)}
                     </p>
                   )}
                   {student.users?.phone && (
-                    <p className="text-xs">전화: {student.users.phone}</p>
+                    <p className="text-xs">전화: {formatPhoneNumber(student.users.phone)}</p>
                   )}
                   {student.users?.email && (
                     <p className="text-xs truncate">
@@ -172,7 +173,7 @@ export function StudentBasicInfo({ student: baseStudent }: StudentBasicInfoProps
                   )}
                   {student.emergency_contact && (
                     <p className="text-xs font-medium text-destructive">
-                      긴급: {student.emergency_contact}
+                      긴급: {formatPhoneNumber(student.emergency_contact)}
                     </p>
                   )}
                 </div>
@@ -258,7 +259,7 @@ export function StudentBasicInfo({ student: baseStudent }: StudentBasicInfoProps
                       </p>
                       {sg.guardians?.users?.phone && (
                         <p className="text-xs text-muted-foreground mt-1">
-                          {sg.guardians.users.phone}
+                          {formatPhoneNumber(sg.guardians.users.phone)}
                         </p>
                       )}
                     </div>

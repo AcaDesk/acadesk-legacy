@@ -23,6 +23,7 @@ import { ko } from 'date-fns/locale'
 import { useStudentDetail } from '@/hooks/use-student-detail'
 import { StudentBasicInfo } from './StudentBasicInfo'
 import { StudentSiblingsCard } from './StudentSiblingsCard'
+import { formatPhoneNumber } from '@/lib/utils'
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -204,7 +205,7 @@ export function InfoTab() {
                   <Phone className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-muted-foreground">학생 연락처</p>
-                    <p className="font-medium break-all">{student.student_phone}</p>
+                    <p className="font-medium break-all">{formatPhoneNumber(student.student_phone)}</p>
                   </div>
                 </div>
               ) : (
@@ -406,7 +407,7 @@ export function InfoTab() {
                     {sg.guardians?.phone && (
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <Phone className="h-3 w-3 shrink-0" />
-                        <span className="break-all">{sg.guardians.phone}</span>
+                        <span className="break-all">{formatPhoneNumber(sg.guardians.phone)}</span>
                       </div>
                     )}
                     {sg.guardians?.email && (

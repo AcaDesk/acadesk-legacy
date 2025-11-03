@@ -63,3 +63,32 @@ export function getRelativeTime(date: Date | string): string {
   if (diffDays < 7) return `${diffDays}일 전`
   return formatDate(d)
 }
+
+/**
+ * 전화번호 포맷팅 (010-XXXX-XXXX)
+ * @param phone - 전화번호 (하이픈 유무 상관없음)
+ * @returns 포맷된 전화번호 (예: 010-1234-5678)
+ */
+export function formatPhoneNumber(phone: string | null | undefined): string {
+  if (!phone) return ""
+
+  // 숫자만 추출
+  const cleaned = phone.replace(/\D/g, "")
+
+  // 한국 휴대폰 번호 (010-XXXX-XXXX)
+  if (cleaned.length === 11 && cleaned.startsWith("01")) {
+    return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 7)}-${cleaned.slice(7)}`
+  }
+
+  // 한국 일반전화 (02-XXXX-XXXX 또는 0XX-XXX-XXXX)
+  if (cleaned.length === 10 && cleaned.startsWith("02")) {
+    return `${cleaned.slice(0, 2)}-${cleaned.slice(2, 6)}-${cleaned.slice(6)}`
+  }
+
+  if (cleaned.length === 10 && cleaned.startsWith("0")) {
+    return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 6)}-${cleaned.slice(6)}`
+  }
+
+  // 그 외는 원본 반환
+  return phone
+}
