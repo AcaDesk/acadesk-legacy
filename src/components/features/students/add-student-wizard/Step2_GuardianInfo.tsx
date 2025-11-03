@@ -10,7 +10,7 @@ import { Button } from '@ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
 import { Badge } from '@ui/badge'
 import { Alert, AlertDescription } from '@ui/alert'
-import { cn } from '@/lib/utils'
+import { cn, formatPhoneNumber } from '@/lib/utils'
 import { GUARDIAN_RELATIONSHIPS } from '@/lib/constants'
 import type { StudentWizardFormValues, Guardian } from './types'
 import { searchGuardians as searchGuardiansAction } from '@/app/actions/guardians'
@@ -212,7 +212,7 @@ export function Step2_GuardianInfo() {
                             </Badge>
                           )}
                         </div>
-                        <p className="text-sm text-muted-foreground">{guardian.phone}</p>
+                        <p className="text-sm text-muted-foreground">{formatPhoneNumber(guardian.phone)}</p>
                         {guardian.email && (
                           <p className="text-xs text-muted-foreground">{guardian.email}</p>
                         )}

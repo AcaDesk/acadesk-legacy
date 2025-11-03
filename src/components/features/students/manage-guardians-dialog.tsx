@@ -8,6 +8,7 @@ import { Button } from '@ui/button'
 import { Label } from '@ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { formatPhoneNumber } from '@/lib/utils'
 import {
   getStudentGuardians,
   getAvailableGuardians,
@@ -393,7 +394,7 @@ export function ManageGuardiansDialog({
                             </div>
                           </TableCell>
                           <TableCell>{getRelationText(guardian.relation!)}</TableCell>
-                          <TableCell>{guardian.phone}</TableCell>
+                          <TableCell>{formatPhoneNumber(guardian.phone)}</TableCell>
                           <TableCell className="text-sm text-muted-foreground">
                             {guardian.email || '-'}
                           </TableCell>
@@ -507,7 +508,7 @@ export function ManageGuardiansDialog({
                                     />
                                     <div>
                                       <div className="font-medium">{guardian.name}</div>
-                                      <div className="text-xs text-muted-foreground">{guardian.phone}</div>
+                                      <div className="text-xs text-muted-foreground">{formatPhoneNumber(guardian.phone)}</div>
                                     </div>
                                   </CommandItem>
                                 ))}
