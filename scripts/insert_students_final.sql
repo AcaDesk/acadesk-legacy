@@ -3861,7 +3861,7 @@ BEGIN
   RETURNING id INTO v_student_id;
 
   -- Create guardians for 이광호
-  v_guardian_phones := '{0De058704684}';
+  v_guardian_phones := '{01058704684}';
   v_guardian_index := 0;
   
   FOREACH v_phone IN ARRAY v_guardian_phones
@@ -4781,7 +4781,7 @@ BEGIN
   RETURNING id INTO v_student_id;
 
   -- Create guardians for 고예진
-  v_guardian_phones := '{10229228526}';
+  v_guardian_phones := '{01022928526}';
   v_guardian_index := 0;
   
   FOREACH v_phone IN ARRAY v_guardian_phones
@@ -5931,7 +5931,7 @@ BEGIN
   RETURNING id INTO v_student_id;
 
   -- Create guardians for 조우형
-  v_guardian_phones := '{0D1045474335}';
+  v_guardian_phones := '{01045474335}';
   v_guardian_index := 0;
   
   FOREACH v_phone IN ARRAY v_guardian_phones

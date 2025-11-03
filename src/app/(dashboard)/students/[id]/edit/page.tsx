@@ -24,6 +24,7 @@ const studentSchema = z.object({
   name: z.string().min(2, '이름은 최소 2자 이상이어야 합니다'),
   email: z.string().email('올바른 이메일 형식이 아닙니다').optional().or(z.literal('')),
   phone: z.string().optional(),
+  studentPhone: z.string().optional(),
   grade: z.string().min(1, '학년을 선택해주세요'),
   school: z.string().optional(),
   emergencyContact: z.string().min(1, '비상 연락처를 입력해주세요'),
@@ -41,6 +42,7 @@ interface StudentData {
   student_code: string
   grade: string | null
   school: string | null
+  student_phone: string | null
   emergency_contact: string | null
   notes: string | null
   users: {
@@ -122,6 +124,7 @@ export default function EditStudentPage() {
         student_code: data.student_code as string,
         grade: data.grade,
         school: data.school,
+        student_phone: data.student_phone,
         emergency_contact: data.emergency_contact,
         notes: data.notes,
         users: data.users
@@ -141,6 +144,7 @@ export default function EditStudentPage() {
         setValue('email', data.users.email || '')
         setValue('phone', data.users.phone || '')
       }
+      setValue('studentPhone', data.student_phone || '')
       setValue('grade', data.grade || '')
       setValue('school', data.school || '')
       setValue('emergencyContact', data.emergency_contact || '')
@@ -166,6 +170,7 @@ export default function EditStudentPage() {
         name: data.name,
         email: data.email || null,
         phone: data.phone || null,
+        student_phone: data.studentPhone || null,
         grade: data.grade,
         school: data.school || null,
         emergency_contact: data.emergencyContact,
@@ -278,12 +283,13 @@ export default function EditStudentPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="phone">연락처</Label>
+                  <Label htmlFor="studentPhone">학생 본인 연락처</Label>
                   <Input
-                    id="phone"
+                    id="studentPhone"
                     placeholder="010-0000-0000"
-                    {...register('phone')}
+                    {...register('studentPhone')}
                   />
+                  <p className="text-xs text-muted-foreground">학생 본인의 휴대전화 번호</p>
                 </div>
               </div>
                 </TabsContent>
