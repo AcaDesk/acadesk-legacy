@@ -103,6 +103,8 @@ export default function EditGuardianPage() {
         .select(`
           id,
           relationship,
+          occupation,
+          address,
           users (
             id,
             name,
@@ -136,6 +138,8 @@ export default function EditGuardianPage() {
         setValue('phone', data.users[0].phone || '')
       }
       setValue('relationship', data.relationship || '')
+      setValue('occupation', data.occupation || '')
+      setValue('address', data.address || '')
 
       // Set selected students
       const connectedStudentIds =
@@ -183,37 +187,22 @@ export default function EditGuardianPage() {
 
     setLoading(true)
     try {
-      // 1. Update users table
-      if (guardian.users) {
-        const { error: userError } = await supabase
-          .from('users')
-          .update({
-            name: data.name,
-            email: data.email || null,
-            phone: data.phone,
-          })
-          .eq('id', guardian.users.id)
+      // 1. Update guardian info using Server Action
+      const result = await updateGuardian({
+        guardian_id: guardian.id,
+        name: data.name,
+        email: data.email || null,
+        phone: data.phone,
+        relationship: data.relationship,
+        occupation: data.occupation || null,
+        address: data.address || null,
+      })
 
-        if (userError) {
-          console.error('사용자 업데이트 오류:', userError)
-          throw new Error(`사용자 정보를 업데이트할 수 없습니다: ${userError.message}`)
-        }
+      if (!result.success) {
+        throw new Error(result.error || '보호자 정보 수정에 실패했습니다')
       }
 
-      // 2. Update guardians table
-      const { error: guardianError } = await supabase
-        .from('guardians')
-        .update({
-          relationship: data.relationship,
-        })
-        .eq('id', guardian.id)
-
-      if (guardianError) {
-        console.error('보호자 업데이트 오류:', guardianError)
-        throw guardianError
-      }
-
-      // 3. Update student connections
+      // 2. Update student connections (using client for now)
       // Delete all existing connections
       const { error: deleteError } = await supabase
         .from('student_guardians')
@@ -261,10 +250,9 @@ export default function EditGuardianPage() {
       router.refresh()
     } catch (error: unknown) {
       console.error('보호자 수정 오류:', error)
-      const errorMessage = error instanceof Error ? error.message : '보호자 정보를 수정하는 중 오류가 발생했습니다.'
       toast({
         title: '보호자 수정 실패',
-        description: errorMessage,
+        description: getErrorMessage(error),
         variant: 'destructive',
       })
     } finally {
