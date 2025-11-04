@@ -487,8 +487,8 @@ ${reportData.comment.nextGoals}`
           />
         )}
 
-        {/* Homework Completion Chart */}
-        <Card>
+        {/* 임시 숨김: 과제 달성률 차트 */}
+        {/* <Card>
           <CardHeader>
             <CardTitle>과제 달성률</CardTitle>
             <CardDescription>이번 달 과제 완료 현황</CardDescription>
@@ -529,7 +529,7 @@ ${reportData.comment.nextGoals}`
               </p>
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
       </div>
 
       {/* Detailed Scores by Category */}
