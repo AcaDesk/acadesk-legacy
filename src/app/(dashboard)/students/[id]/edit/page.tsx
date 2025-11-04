@@ -149,6 +149,8 @@ export default function EditStudentPage() {
       setValue('school', data.school || '')
       setValue('emergencyContact', data.emergency_contact || '')
       setValue('notes', data.notes || '')
+      // kiosk_pin은 보안상 조회되지 않으므로 빈 값으로 설정
+      setValue('kioskPin', '')
     } catch (error) {
       toast({
         title: '학생 조회 실패',

@@ -355,14 +355,15 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
             </p>
           </div>
           <div className="flex gap-2 print:hidden">
-            <Button
+            {/* PDF 다운로드 버튼 임시 숨김 */}
+            {/* <Button
               variant="outline"
               onClick={handlePdfDownload}
               disabled={instance.loading && !instance.blob}
             >
               <Download className="h-4 w-4 mr-2" />
               {instance.loading && !instance.blob ? 'PDF 준비 중...' : 'PDF 다운로드'}
-            </Button>
+            </Button> */}
             {!report.sent_at && (
               <Button onClick={handleSendClick} disabled={sending}>
                 <Send className="h-4 w-4 mr-2" />

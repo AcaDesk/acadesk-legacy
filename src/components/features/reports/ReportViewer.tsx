@@ -8,6 +8,8 @@ import { TrendingUp, TrendingDown, Minus, Edit2 } from 'lucide-react'
 import {
   LineChart,
   Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -307,7 +309,8 @@ ${reportData.comment.nextGoals}`
       )}
 
       {/* Section 2: At-a-Glance (한눈에 보기) */}
-      {reportData.currentScore && (
+      {/* 임시 숨김: 이번 달 평균 점수, 반평균, 출석률, 과제 달성률 KPI 카드 */}
+      {/* {reportData.currentScore && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="pb-2">
@@ -342,35 +345,92 @@ ${reportData.comment.nextGoals}`
             </CardHeader>
           </Card>
         </div>
+      )} */}
+
+      {/* Section 2-1: 과목별 점수 KPI 카드 */}
+      {reportData.scores && reportData.scores.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {/* 평균 점수 카드 */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription className="text-xs">이번달 평균</CardDescription>
+              <CardTitle className="text-3xl font-bold text-primary">
+                {Math.round(
+                  reportData.scores.reduce((sum, s) => sum + (s.current || 0), 0) /
+                  reportData.scores.length
+                )}점
+              </CardTitle>
+              {(() => {
+                const validChanges = reportData.scores.filter(s => s.change !== null)
+                if (validChanges.length === 0) return null
+                const avgChange = validChanges.reduce((sum, s) => sum + (s.change || 0), 0) / validChanges.length
+                return (
+                  <div className="flex items-center gap-1 mt-1">
+                    {getTrendIcon(avgChange)}
+                    <span className={`text-sm font-medium ${
+                      avgChange > 0 ? 'text-green-600' :
+                      avgChange < 0 ? 'text-red-600' :
+                      'text-muted-foreground'
+                    }`}>
+                      {avgChange > 0 ? '+' : ''}{Math.round(avgChange * 10) / 10}점
+                    </span>
+                  </div>
+                )
+              })()}
+            </CardHeader>
+          </Card>
+
+          {/* 과목별 점수 카드 */}
+          {reportData.scores.map((score, idx) => (
+            <Card key={idx}>
+              <CardHeader className="pb-2">
+                <CardDescription className="text-xs">{score.category}</CardDescription>
+                <CardTitle className="text-3xl font-bold text-primary">
+                  {score.current}점
+                </CardTitle>
+                {score.change !== null && (
+                  <div className="flex items-center gap-1 mt-1">
+                    {getTrendIcon(score.change)}
+                    <span className={`text-sm font-medium ${
+                      score.change > 0 ? 'text-green-600' :
+                      score.change < 0 ? 'text-red-600' :
+                      'text-muted-foreground'
+                    }`}>
+                      {score.change > 0 ? '+' : ''}{score.change}점
+                    </span>
+                  </div>
+                )}
+              </CardHeader>
+            </Card>
+          ))}
+        </div>
       )}
 
-      {/* Section 3: Score Trend (성적 분석) */}
-      {reportData.scoreTrend && reportData.scoreTrend.length > 0 && (
+      {/* Section 3: Score Trend (성적 분석) - 과목별 막대그래프 */}
+      {reportData.scores && reportData.scores.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>월간 성적 분석</CardTitle>
+            <CardTitle>과목별 성적</CardTitle>
             <CardDescription>
-              최근 3개월간 학생의 점수와 반 평균 점수 추이입니다
+              이번달 과목별 점수 및 평균입니다
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={reportData.scoreTrend}>
-                  <defs>
-                    <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                    </linearGradient>
-                    <linearGradient id="colorAverage" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                    </linearGradient>
-                    <linearGradient id="colorRetest" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
+                <BarChart data={[
+                  ...reportData.scores.map((score) => ({
+                    name: score.category,
+                    점수: score.current,
+                  })),
+                  {
+                    name: '평균',
+                    점수: Math.round(
+                      reportData.scores.reduce((sum, s) => sum + (s.current || 0), 0) /
+                      reportData.scores.length
+                    ),
+                  },
+                ]}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
                   <XAxis
                     dataKey="name"
@@ -394,34 +454,12 @@ ${reportData.comment.nextGoals}`
                     }}
                   />
                   <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="학생 점수"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth={2}
-                    dot={{ r: 4, fill: 'hsl(var(--primary))' }}
-                    activeDot={{ r: 6 }}
+                  <Bar
+                    dataKey="점수"
+                    fill="hsl(var(--primary))"
+                    radius={[8, 8, 0, 0]}
                   />
-                  <Line
-                    type="monotone"
-                    dataKey="반 평균"
-                    stroke="#10b981"
-                    strokeWidth={2}
-                    dot={{ r: 4, fill: '#10b981' }}
-                    activeDot={{ r: 6 }}
-                  />
-                  {reportData.scoreTrend.some((d: any) => d['재시험률'] !== undefined) && (
-                    <Line
-                      type="monotone"
-                      dataKey="재시험률"
-                      stroke="#f59e0b"
-                      strokeWidth={2}
-                      dot={{ r: 4, fill: '#f59e0b' }}
-                      activeDot={{ r: 6 }}
-                      yAxisId="retest"
-                    />
-                  )}
-                </LineChart>
+                </BarChart>
               </ResponsiveContainer>
             </div>
 
@@ -429,18 +467,8 @@ ${reportData.comment.nextGoals}`
             <div className="flex items-center justify-center gap-4 pt-4 border-t mt-4">
               <div className="flex items-center gap-2">
                 <div className="h-2 w-2 rounded-full" style={{ backgroundColor: 'hsl(var(--primary))' }} />
-                <span className="text-xs text-muted-foreground">학생 점수</span>
+                <span className="text-xs text-muted-foreground">점수</span>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-green-500" />
-                <span className="text-xs text-muted-foreground">반 평균</span>
-              </div>
-              {reportData.scoreTrend.some((d: any) => d['재시험률'] !== undefined) && (
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-amber-500" />
-                  <span className="text-xs text-muted-foreground">재시험률 (%)</span>
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>
