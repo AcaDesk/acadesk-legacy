@@ -85,6 +85,7 @@ export default function EditGuardianPage() {
   })
 
   const selectedRelationship = watch('relationship')
+  const guardianPhone = watch('phone')
 
   // useEffect must be called before any early returns
   useEffect(() => {
@@ -329,97 +330,135 @@ export default function EditGuardianPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              {/* 기본 정보 */}
-              <div className="grid gap-6 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="name">이름 *</Label>
-                  <Input id="name" placeholder="홍길동" {...register('name')} />
-                  {errors.name && (
-                    <p className="text-sm text-destructive">{errors.name.message}</p>
-                  )}
-                </div>
+              <Tabs defaultValue="basic" className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="basic">기본 정보</TabsTrigger>
+                  <TabsTrigger value="contact">연락처</TabsTrigger>
+                  <TabsTrigger value="students">학생 연결</TabsTrigger>
+                </TabsList>
 
-                <div className="space-y-2">
-                  <Label htmlFor="relationship">관계 *</Label>
-                  <Select
-                    onValueChange={(value) => setValue('relationship', value)}
-                    value={selectedRelationship}
-                  >
-                    <SelectTrigger id="relationship">
-                      <SelectValue placeholder="관계 선택" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {GUARDIAN_RELATIONSHIPS.map((rel) => (
-                        <SelectItem key={rel.value} value={rel.value}>
-                          {rel.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {errors.relationship && (
-                    <p className="text-sm text-destructive">{errors.relationship.message}</p>
-                  )}
-                </div>
-              </div>
-
-              {/* 연락 정보 */}
-              <div className="grid gap-6 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="phone">연락처 *</Label>
-                  <Input id="phone" placeholder="010-0000-0000" {...register('phone')} />
-                  {errors.phone && (
-                    <p className="text-sm text-destructive">{errors.phone.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="email">이메일</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="guardian@example.com"
-                    {...register('email')}
-                  />
-                  {errors.email && (
-                    <p className="text-sm text-destructive">{errors.email.message}</p>
-                  )}
-                </div>
-              </div>
-
-              {/* 학생 연결 */}
-              <div className="space-y-2">
-                <Label>연결할 학생 선택</Label>
-                <div className="border rounded-lg p-4 max-h-[300px] overflow-y-auto">
-                  {students.length > 0 ? (
-                    <div className="space-y-3">
-                      {students.map((student) => (
-                        <div key={student.id} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`student-${student.id}`}
-                            checked={selectedStudents.includes(student.id)}
-                            onCheckedChange={() => handleStudentToggle(student.id)}
-                          />
-                          <label
-                            htmlFor={`student-${student.id}`}
-                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                          >
-                            {student.users?.name || '이름 없음'} ({student.student_code})
-                          </label>
-                        </div>
-                      ))}
+                {/* Tab 1: 기본 정보 */}
+                <TabsContent value="basic" className="space-y-6 mt-6">
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">이름 *</Label>
+                      <Input id="name" placeholder="홍길동" {...register('name')} />
+                      {errors.name && (
+                        <p className="text-sm text-destructive">{errors.name.message}</p>
+                      )}
                     </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">등록된 학생이 없습니다.</p>
-                  )}
-                </div>
-                {selectedStudents.length > 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    {selectedStudents.length}명의 학생이 선택되었습니다.
-                  </p>
-                )}
-              </div>
 
-              {/* 버튼 */}
+                    <div className="space-y-2">
+                      <Label htmlFor="relationship">관계 *</Label>
+                      <Select
+                        onValueChange={(value) => setValue('relationship', value)}
+                        value={selectedRelationship}
+                      >
+                        <SelectTrigger id="relationship">
+                          <SelectValue placeholder="관계 선택" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {GUARDIAN_RELATIONSHIPS.map((rel) => (
+                            <SelectItem key={rel.value} value={rel.value}>
+                              {rel.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {errors.relationship && (
+                        <p className="text-sm text-destructive">{errors.relationship.message}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="occupation">직업</Label>
+                      <Input
+                        id="occupation"
+                        placeholder="직업"
+                        {...register('occupation')}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="address">주소</Label>
+                      <Input
+                        id="address"
+                        placeholder="주소"
+                        {...register('address')}
+                      />
+                    </div>
+                  </div>
+                </TabsContent>
+
+                {/* Tab 2: 연락처 */}
+                <TabsContent value="contact" className="space-y-6 mt-6">
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">연락처 *</Label>
+                      <PhoneInput
+                        id="phone"
+                        value={guardianPhone || ''}
+                        onChange={(value) => setValue('phone', value, { shouldValidate: true })}
+                      />
+                      {errors.phone && (
+                        <p className="text-sm text-destructive">{errors.phone.message}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="email">이메일</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="guardian@example.com"
+                        {...register('email')}
+                      />
+                      {errors.email && (
+                        <p className="text-sm text-destructive">{errors.email.message}</p>
+                      )}
+                    </div>
+                  </div>
+                </TabsContent>
+
+                {/* Tab 3: 학생 연결 */}
+                <TabsContent value="students" className="space-y-6 mt-6">
+                  <div className="space-y-2">
+                    <Label>연결할 학생 선택</Label>
+                    <div className="border rounded-lg p-4 max-h-[300px] overflow-y-auto">
+                      {students.length > 0 ? (
+                        <div className="space-y-3">
+                          {students.map((student) => (
+                            <div key={student.id} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`student-${student.id}`}
+                                checked={selectedStudents.includes(student.id)}
+                                onCheckedChange={() => handleStudentToggle(student.id)}
+                              />
+                              <label
+                                htmlFor={`student-${student.id}`}
+                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                              >
+                                {student.users?.name || '이름 없음'} ({student.student_code})
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">등록된 학생이 없습니다.</p>
+                      )}
+                    </div>
+                    {selectedStudents.length > 0 && (
+                      <p className="text-sm text-muted-foreground">
+                        {selectedStudents.length}명의 학생이 선택되었습니다.
+                      </p>
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
+
+              {/* 버튼 - Tabs 밖으로 */}
               <div className="flex gap-3 justify-end">
                 <Link href={`/guardians/${guardian.id}`}>
                   <Button type="button" variant="outline">
