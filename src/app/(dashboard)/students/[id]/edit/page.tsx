@@ -12,6 +12,8 @@ import { Label } from '@ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
 import { Textarea } from '@ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@ui/tabs'
+import { Alert, AlertDescription } from '@ui/alert'
+import { AlertCircle } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { getErrorMessage } from '@/lib/error-handlers'
@@ -66,12 +68,20 @@ export default function EditStudentPage() {
     handleSubmit,
     setValue,
     watch,
-    formState: { errors },
+    formState: { errors, isDirty, isSubmitting },
   } = useForm<StudentFormValues>({
     resolver: zodResolver(studentSchema),
+    mode: 'onChange', // Validate on change to show errors immediately
   })
 
   const selectedGrade = watch('grade')
+
+  // Debug: Log form errors when they change
+  useEffect(() => {
+    if (Object.keys(errors).length > 0) {
+      console.log('Form validation errors:', errors)
+    }
+  }, [errors])
 
   useEffect(() => {
     if (params.id) {
@@ -164,10 +174,16 @@ export default function EditStudentPage() {
   }
 
   const onSubmit = async (data: StudentFormValues) => {
-    if (!student || !student.users) return
+    console.log('onSubmit called with data:', data)
+
+    if (!student || !student.users) {
+      console.error('Student data not available')
+      return
+    }
 
     setLoading(true)
     try {
+      console.log('Calling updateStudent...')
       const result = await updateStudent(student.id, {
         name: data.name,
         email: data.email || null,
@@ -238,6 +254,21 @@ export default function EditStudentPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+              {/* Validation Errors Alert */}
+              {Object.keys(errors).length > 0 && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    입력 정보를 확인해주세요. {Object.keys(errors).length}개의 오류가 있습니다.
+                    {Object.entries(errors).map(([field, error]) => (
+                      <div key={field} className="text-sm mt-1">
+                        • {field}: {error.message as string}
+                      </div>
+                    ))}
+                  </AlertDescription>
+                </Alert>
+              )}
+
               <Tabs defaultValue="basic" className="w-full">
                 <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="basic">기본 정보</TabsTrigger>
@@ -366,11 +397,19 @@ export default function EditStudentPage() {
                   type="button"
                   variant="outline"
                   onClick={() => router.push(`/students/${student.id}`)}
+                  disabled={loading || isSubmitting}
                 >
                   취소
                 </Button>
-                <Button type="submit" disabled={loading}>
-                  {loading ? '저장 중...' : '저장'}
+                <Button
+                  type="submit"
+                  disabled={loading || isSubmitting}
+                  onClick={() => {
+                    console.log('Save button clicked')
+                    console.log('Current form errors:', errors)
+                  }}
+                >
+                  {loading || isSubmitting ? '저장 중...' : '저장'}
                 </Button>
               </div>
             </form>
