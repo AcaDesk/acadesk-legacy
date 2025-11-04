@@ -175,6 +175,8 @@ export async function updateGuardian(data: z.infer<typeof updateGuardianSchema>)
       .from('guardians')
       .update({
         relationship: validatedData.relationship,
+        occupation: validatedData.occupation || null,
+        address: validatedData.address || null,
       })
       .eq('id', validatedData.guardian_id)
       .eq('tenant_id', tenantId)
