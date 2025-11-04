@@ -42,7 +42,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ui/select'
-import { cn } from '@/lib/utils'
+import { cn, formatPhoneNumber } from '@/lib/utils'
 
 export interface Guardian {
   id: string
@@ -168,7 +168,7 @@ export function GuardianTableImproved({
       cell: ({ row }) => {
         return (
           <span className="text-sm">
-            {row.original.users?.phone || '-'}
+            {formatPhoneNumber(row.original.users?.phone) || '-'}
           </span>
         )
       },

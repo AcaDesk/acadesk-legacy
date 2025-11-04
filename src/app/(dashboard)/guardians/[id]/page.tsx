@@ -7,7 +7,7 @@ import { Button } from '@ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
 import { Badge } from '@ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@ui/tabs'
-import { Edit, Phone, Mail, Users as UsersIcon, UserCircle, ChevronRight } from 'lucide-react'
+import { Edit, Phone, Mail, Users as UsersIcon, UserCircle, ChevronRight, Briefcase, MapPin } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { RoleGuard } from '@/components/auth/role-guard'
@@ -16,10 +16,13 @@ import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/pag
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
+import { formatPhoneNumber } from '@/lib/utils'
 
 interface GuardianDetail {
   id: string
   relationship: string | null
+  occupation: string | null
+  address: string | null
   users: {
     name: string
     email: string | null
@@ -67,6 +70,8 @@ export default function GuardianDetailPage() {
         .select(`
           id,
           relationship,
+          occupation,
+          address,
           users (
             name,
             email,
@@ -160,7 +165,7 @@ export default function GuardianDetailPage() {
 
         {/* Basic Info Cards */}
         <SectionErrorBoundary sectionName="기본 정보">
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium">연락처 정보</CardTitle>
@@ -170,7 +175,7 @@ export default function GuardianDetailPage() {
                   {guardian.users?.phone && (
                     <div className="flex items-center gap-2">
                       <Phone className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">{guardian.users.phone}</span>
+                      <span className="text-sm">{formatPhoneNumber(guardian.users.phone)}</span>
                     </div>
                   )}
                   {guardian.users?.email && (
@@ -197,6 +202,31 @@ export default function GuardianDetailPage() {
                     <Badge variant="outline">{guardian.relationship}</Badge>
                   ) : (
                     <span className="text-sm text-muted-foreground">관계 정보 없음</span>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium">추가 정보</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {guardian.occupation && (
+                    <div className="flex items-center gap-2">
+                      <Briefcase className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">{guardian.occupation}</span>
+                    </div>
+                  )}
+                  {guardian.address && (
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">{guardian.address}</span>
+                    </div>
+                  )}
+                  {!guardian.occupation && !guardian.address && (
+                    <p className="text-sm text-muted-foreground">추가 정보 없음</p>
                   )}
                 </div>
               </CardContent>
