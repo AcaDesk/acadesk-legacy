@@ -29,7 +29,7 @@ const studentSchema = z.object({
   studentPhone: z.string().optional(),
   grade: z.string().min(1, '학년을 선택해주세요'),
   school: z.string().optional(),
-  emergencyContact: z.string().min(1, '비상 연락처를 입력해주세요'),
+  emergencyContact: z.string().optional(),
   notes: z.string().optional(),
   kioskPin: z.string()
     .regex(/^\d{4}$/, '4자리 숫자를 입력해주세요')
@@ -191,7 +191,7 @@ export default function EditStudentPage() {
         student_phone: data.studentPhone || null,
         grade: data.grade,
         school: data.school || null,
-        emergency_contact: data.emergencyContact,
+        emergency_contact: data.emergencyContact || null,
         notes: data.notes || null,
         kiosk_pin: data.kioskPin || null,
       })
@@ -344,12 +344,13 @@ export default function EditStudentPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="emergencyContact">비상 연락처 *</Label>
+                  <Label htmlFor="emergencyContact">비상 연락처</Label>
                   <Input
                     id="emergencyContact"
                     placeholder="010-0000-0000"
                     {...register('emergencyContact')}
                   />
+                  <p className="text-xs text-muted-foreground">필요 시 입력해주세요</p>
                   {errors.emergencyContact && (
                     <p className="text-sm text-destructive">{errors.emergencyContact.message}</p>
                   )}
