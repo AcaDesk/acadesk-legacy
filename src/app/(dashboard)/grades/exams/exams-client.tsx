@@ -140,6 +140,40 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
         </Button>
       </div>
 
+      {/* Quick Stats */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardDescription>총 시험 수</CardDescription>
+            <CardTitle className="text-3xl">{initialExams.length}개</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardDescription>이번 달 시험</CardDescription>
+            <CardTitle className="text-3xl">
+              {initialExams.filter((e) => {
+                if (!e.exam_date) return false
+                const examDate = new Date(e.exam_date)
+                const now = new Date()
+                return (
+                  examDate.getMonth() === now.getMonth() &&
+                  examDate.getFullYear() === now.getFullYear()
+                )
+              }).length}개
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardDescription>총 응시 인원</CardDescription>
+            <CardTitle className="text-3xl">
+              {initialExams.reduce((sum, exam) => sum + (exam._count?.exam_scores || 0), 0)}명
+            </CardTitle>
+          </CardHeader>
+        </Card>
+      </div>
+
       {/* Search */}
       <div className="flex items-center gap-4">
         <div className="relative flex-1">
@@ -271,40 +305,6 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
           )}
         </CardContent>
       </Card>
-
-      {/* Quick Stats */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription>총 시험 수</CardDescription>
-            <CardTitle className="text-3xl">{initialExams.length}개</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription>이번 달 시험</CardDescription>
-            <CardTitle className="text-3xl">
-              {initialExams.filter((e) => {
-                if (!e.exam_date) return false
-                const examDate = new Date(e.exam_date)
-                const now = new Date()
-                return (
-                  examDate.getMonth() === now.getMonth() &&
-                  examDate.getFullYear() === now.getFullYear()
-                )
-              }).length}개
-            </CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription>총 응시 인원</CardDescription>
-            <CardTitle className="text-3xl">
-              {initialExams.reduce((sum, exam) => sum + (exam._count?.exam_scores || 0), 0)}명
-            </CardTitle>
-          </CardHeader>
-        </Card>
-      </div>
 
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
