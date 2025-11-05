@@ -423,79 +423,81 @@ function StudentSearchMultiple({
       )}
 
       {/* Student List */}
-      <ScrollArea className={`border rounded-lg ${useFlexibleHeight ? 'flex-1' : 'max-h-96'}`}>
-        {loading ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
-            <p>로딩 중...</p>
-          </div>
-        ) : students.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            {searchTerm ? '검색 결과가 없습니다.' : emptyMessage}
-          </div>
-        ) : (
-          <div className="p-4 space-y-2">
-            {/* Select All in list */}
-            {showSelectAll && (
-              <div className="flex items-center space-x-2 pb-2 border-b mb-2">
-                <Checkbox
-                  id="select-all-checkbox"
-                  checked={allSelected}
-                  onCheckedChange={toggleAll}
-                  disabled={disabled}
-                />
-                <Label
-                  htmlFor="select-all-checkbox"
-                  className="cursor-pointer font-medium"
-                >
-                  전체 선택
-                </Label>
-              </div>
-            )}
-
-            {students.map((student) => {
-              const isSelected = selectedSet.has(student.id)
-              return (
-                <div
-                  key={student.id}
-                  className={`flex items-center justify-between p-3 rounded-lg border transition-colors cursor-pointer ${
-                    isSelected
-                      ? 'bg-primary/10 border-primary'
-                      : 'hover:bg-muted'
-                  }`}
-                  onClick={() => toggleStudent(student.id)}
-                >
-                  <label
-                    htmlFor={`student-${student.id}`}
-                    className="flex items-center space-x-3 flex-1 cursor-pointer"
+      <ScrollArea className={`border rounded-lg ${useFlexibleHeight ? 'flex-1 min-h-0' : 'max-h-96'}`}>
+        <div className={useFlexibleHeight ? 'h-[500px]' : ''}>
+          {loading ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+              <p>로딩 중...</p>
+            </div>
+          ) : students.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              {searchTerm ? '검색 결과가 없습니다.' : emptyMessage}
+            </div>
+          ) : (
+            <div className="p-4 space-y-2">
+              {/* Select All in list */}
+              {showSelectAll && (
+                <div className="flex items-center space-x-2 pb-2 border-b mb-2">
+                  <Checkbox
+                    id="select-all-checkbox"
+                    checked={allSelected}
+                    onCheckedChange={toggleAll}
+                    disabled={disabled}
+                  />
+                  <Label
+                    htmlFor="select-all-checkbox"
+                    className="cursor-pointer font-medium"
                   >
-                    <Checkbox
-                      id={`student-${student.id}`}
-                      checked={isSelected}
-                      onCheckedChange={() => toggleStudent(student.id)}
-                      disabled={disabled}
-                    />
-                    <div>
-                      <div className="font-medium">{student.name}</div>
-                      <div className="text-sm text-muted-foreground flex items-center gap-2">
-                        {showStudentCode && (
-                          <span>{student.student_code}</span>
-                        )}
-                        {showGrade && student.grade && (
-                          <>
-                            <span>·</span>
-                            <span>{student.grade}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </label>
-                  {renderBadge?.(student)}
+                    전체 선택
+                  </Label>
                 </div>
-              )
-            })}
-          </div>
-        )}
+              )}
+
+              {students.map((student) => {
+                const isSelected = selectedSet.has(student.id)
+                return (
+                  <div
+                    key={student.id}
+                    className={`flex items-center justify-between p-3 rounded-lg border transition-colors cursor-pointer ${
+                      isSelected
+                        ? 'bg-primary/10 border-primary'
+                        : 'hover:bg-muted'
+                    }`}
+                    onClick={() => toggleStudent(student.id)}
+                  >
+                    <label
+                      htmlFor={`student-${student.id}`}
+                      className="flex items-center space-x-3 flex-1 cursor-pointer"
+                    >
+                      <Checkbox
+                        id={`student-${student.id}`}
+                        checked={isSelected}
+                        onCheckedChange={() => toggleStudent(student.id)}
+                        disabled={disabled}
+                      />
+                      <div>
+                        <div className="font-medium">{student.name}</div>
+                        <div className="text-sm text-muted-foreground flex items-center gap-2">
+                          {showStudentCode && (
+                            <span>{student.student_code}</span>
+                          )}
+                          {showGrade && student.grade && (
+                            <>
+                              <span>·</span>
+                              <span>{student.grade}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </label>
+                    {renderBadge?.(student)}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </ScrollArea>
     </div>
   )
