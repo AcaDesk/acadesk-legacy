@@ -143,7 +143,7 @@ export function AddStudentWizard({ open, onOpenChange, onSuccess, initialValues 
     let fieldsToValidate: (keyof StudentWizardFormValues)[] = []
 
     if (currentStep === 1) {
-      fieldsToValidate = ['name', 'birthDate', 'grade', 'school']
+      fieldsToValidate = ['name', 'grade', 'school']
     } else if (currentStep === 2) {
       // ✨ SKIP 모드일 때는 검증 없이 바로 다음 단계로 이동
       if (guardianMode === GUARDIAN_MODES.SKIP) {
@@ -247,7 +247,7 @@ export function AddStudentWizard({ open, onOpenChange, onSuccess, initialValues 
       if (data.guardianMode === GUARDIAN_MODES.NEW && data.guardian) {
         guardianMode = 'new'
         guardianData = {
-          name: data.guardian.name,
+          name: data.guardian.name || '',
           phone: data.guardian.phone || null,
           email: data.guardian.email || null,
           relationship: data.guardian.relationship || null,

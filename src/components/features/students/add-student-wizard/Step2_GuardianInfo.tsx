@@ -280,7 +280,7 @@ export function Step2_GuardianInfo() {
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="guardian.name">이름 *</Label>
+              <Label htmlFor="guardian.name">이름</Label>
               <Input
                 id="guardian.name"
                 placeholder="김학부"

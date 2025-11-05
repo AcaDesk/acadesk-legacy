@@ -6,7 +6,7 @@ import { GUARDIAN_MODES } from '@/lib/constants'
 // ============================================================================
 
 export const guardianSchema = z.object({
-  name: z.string().min(1, '이름을 입력해주세요'),
+  name: z.string().optional(),
   phone: z.string().min(1, '연락처를 입력해주세요'),
   email: z.string().email('올바른 이메일 형식이 아닙니다').optional().or(z.literal('')),
   relationship: z.string().min(1, '관계를 선택해주세요'),
@@ -17,7 +17,7 @@ export const guardianSchema = z.object({
 export const studentWizardSchema = z.object({
   // Step 1: 필수 정보
   name: z.string().min(1, '학생 이름을 입력해주세요'),
-  birthDate: z.date({ message: '생년월일을 선택해주세요' }),
+  birthDate: z.date().optional(),
   grade: z.string().min(1, '학년을 선택해주세요'),
   school: z.string().min(1, '학교를 입력하거나 선택해주세요'),
   gender: z.enum(['male', 'female', 'other']).optional(),
