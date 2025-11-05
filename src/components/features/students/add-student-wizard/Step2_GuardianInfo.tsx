@@ -129,13 +129,26 @@ export function Step2_GuardianInfo() {
       }
 
       // Convert to Guardian type (phone must be string, not null)
-      const guardians = result.data.map((g: any) => ({
-        id: g.id,
-        name: g.users?.name || '',
-        phone: g.users?.phone || '',
-        email: g.users?.email || null,
-        relationship: g.relationship || '',
-      }))
+      const guardians = result.data.map((g: any) => {
+        // 보호자 이름이 없으면 첫 번째 학생 이름으로 대체
+        let displayName = g.users?.name || ''
+
+        if (!displayName && g.student_guardians && g.student_guardians.length > 0) {
+          const firstStudent = g.student_guardians[0]
+          const studentName = firstStudent?.students?.users?.name
+          if (studentName) {
+            displayName = `${studentName} 보호자`
+          }
+        }
+
+        return {
+          id: g.id,
+          name: displayName || '이름 없음',
+          phone: g.users?.phone || '',
+          email: g.users?.email || null,
+          relationship: g.relationship || '',
+        }
+      })
 
       dispatch({ type: 'SET_RESULTS', payload: guardians })
     } catch (error) {

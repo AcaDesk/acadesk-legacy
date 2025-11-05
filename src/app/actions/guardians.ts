@@ -487,7 +487,7 @@ export async function unlinkGuardianFromStudent(
 }
 
 /**
- * 보호자 검색 (이름, 전화번호, 이메일)
+ * 보호자 검색 (이름, 전화번호, 이메일, 학생 이름)
  * @param query - 검색어
  * @param limit - 결과 제한 수 (기본 10)
  * @returns 보호자 목록 (연결된 학생 정보 포함)
@@ -497,8 +497,10 @@ export async function searchGuardians(query: string, limit: number = 10) {
     const { tenantId } = await verifyStaff()
     const supabase = createServiceRoleClient()
 
-    // 1. users 테이블에서 검색 (이름, 전화번호, 이메일)
-    const { data: users, error: usersError } = await supabase
+    const guardianIdSet = new Set<string>()
+
+    // 1. users 테이블에서 보호자 이름/전화번호/이메일로 검색
+    const { data: guardianUsers, error: guardianUsersError } = await supabase
       .from('users')
       .select('id')
       .eq('tenant_id', tenantId)
@@ -507,15 +509,58 @@ export async function searchGuardians(query: string, limit: number = 10) {
       .or(`name.ilike.%${query}%,phone.ilike.%${query}%,email.ilike.%${query}%`)
       .limit(limit)
 
-    if (usersError) throw usersError
+    if (guardianUsersError) {
+      console.error('[searchGuardians] Guardian users search error:', guardianUsersError)
+    } else if (guardianUsers && guardianUsers.length > 0) {
+      // 보호자의 user_id를 guardian_id로 변환
+      const { data: guardiansFromUsers } = await supabase
+        .from('guardians')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .is('deleted_at', null)
+        .in('user_id', guardianUsers.map(u => u.id))
 
-    if (!users || users.length === 0) {
+      guardiansFromUsers?.forEach(g => guardianIdSet.add(g.id))
+    }
+
+    // 2. students 테이블에서 학생 이름으로 검색 후 해당 학생의 보호자 찾기
+    const { data: studentUsers, error: studentUsersError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .eq('role_code', 'student')
+      .is('deleted_at', null)
+      .ilike('name', `%${query}%`)
+      .limit(limit)
+
+    if (studentUsersError) {
+      console.error('[searchGuardians] Student users search error:', studentUsersError)
+    } else if (studentUsers && studentUsers.length > 0) {
+      // 학생의 user_id로 student_id 찾기
+      const { data: students } = await supabase
+        .from('students')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .is('deleted_at', null)
+        .in('user_id', studentUsers.map(u => u.id))
+
+      if (students && students.length > 0) {
+        // 학생의 보호자 찾기
+        const { data: studentGuardianLinks } = await supabase
+          .from('student_guardians')
+          .select('guardian_id')
+          .eq('tenant_id', tenantId)
+          .in('student_id', students.map(s => s.id))
+
+        studentGuardianLinks?.forEach(sg => guardianIdSet.add(sg.guardian_id))
+      }
+    }
+
+    // 3. 검색된 모든 guardian_id로 상세 정보 조회
+    if (guardianIdSet.size === 0) {
       return { success: true, data: [] }
     }
 
-    const userIds = users.map(u => u.id)
-
-    // 2. 검색된 user_id로 guardians 조회 (학생 정보 포함)
     const { data: guardians, error: guardiansError } = await supabase
       .from('guardians')
       .select(`
@@ -533,7 +578,8 @@ export async function searchGuardians(query: string, limit: number = 10) {
       `)
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
-      .in('user_id', userIds)
+      .in('id', Array.from(guardianIdSet))
+      .limit(limit)
 
     if (guardiansError) throw guardiansError
 
