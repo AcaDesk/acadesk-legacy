@@ -1,71 +1,30 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Label } from '@ui/label'
-import { Checkbox } from '@ui/checkbox'
-import { Badge } from '@ui/badge'
 import { useToast } from '@/hooks/use-toast'
-import { useCurrentUser } from '@/hooks/use-current-user'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { Users, UserPlus, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
-import { motion, AnimatePresence } from 'motion/react'
+import { motion } from 'motion/react'
 import {
   GuardianFormStandalone,
   type GuardianFormValues
 } from '@/components/features/guardians/guardian-form'
+import { StudentSearch } from '@/components/features/students/student-search'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { createGuardian } from '@/app/actions/guardians'
 
-interface Student {
-  id: string
-  student_code: string
-  users: {
-    name: string
-  } | null
-}
-
 export default function NewGuardianPage() {
   // All Hooks must be called before any early returns
   const [loading, setLoading] = useState(false)
-  const [students, setStudents] = useState<Student[]>([])
   const [selectedStudents, setSelectedStudents] = useState<string[]>([])
   const router = useRouter()
   const { toast } = useToast()
-  const supabase = createClient()
-  const { user: currentUser } = useCurrentUser()
-
-  useEffect(() => {
-    loadStudents()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // Function definitions
-  async function loadStudents() {
-    try {
-      const { data, error } = await supabase
-        .from('students')
-        .select(`
-          id,
-          student_code,
-          users (
-            name
-          )
-        `)
-        .is('deleted_at', null)
-        .order('student_code')
-
-      if (error) throw error
-      setStudents(data as unknown as Student[])
-    } catch (error) {
-      console.error('학생 목록 조회 오류:', error)
-    }
-  }
 
   const onSubmit = async (data: GuardianFormValues) => {
     setLoading(true)
@@ -103,14 +62,6 @@ export default function NewGuardianPage() {
     } finally {
       setLoading(false)
     }
-  }
-
-  const handleStudentToggle = (studentId: string) => {
-    setSelectedStudents((prev) =>
-      prev.includes(studentId)
-        ? prev.filter((id) => id !== studentId)
-        : [...prev, studentId]
-    )
   }
 
   // Feature flag checks after all Hooks
@@ -184,59 +135,17 @@ export default function NewGuardianPage() {
                   <Label>연결할 학생 선택 (선택사항)</Label>
                 </div>
 
-                <div className="border rounded-lg p-4 max-h-[300px] overflow-y-auto bg-muted/30">
-                  {students.length > 0 ? (
-                    <div className="space-y-2">
-                      <AnimatePresence>
-                        {students.map((student, index) => (
-                          <motion.div
-                            key={student.id}
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ duration: 0.2, delay: index * 0.03 }}
-                            className="flex items-center space-x-3 p-2 rounded-md hover:bg-background transition-colors"
-                          >
-                            <Checkbox
-                              id={`student-${student.id}`}
-                              checked={selectedStudents.includes(student.id)}
-                              onCheckedChange={() => handleStudentToggle(student.id)}
-                            />
-                            <label
-                              htmlFor={`student-${student.id}`}
-                              className="text-sm font-medium leading-none cursor-pointer flex-1"
-                            >
-                              {student.users?.name || '이름 없음'}
-                            </label>
-                            <Badge variant="outline" className="text-xs">
-                              {student.student_code}
-                            </Badge>
-                          </motion.div>
-                        ))}
-                      </AnimatePresence>
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">등록된 학생이 없습니다.</p>
-                    </div>
-                  )}
-                </div>
-
-                <AnimatePresence>
-                  {selectedStudents.length > 0 && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="flex items-center gap-2"
-                    >
-                      <Badge variant="secondary" className="px-3 py-1">
-                        {selectedStudents.length}명 선택됨
-                      </Badge>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                <StudentSearch
+                  mode="multiple"
+                  variant="checkbox-list"
+                  value={selectedStudents}
+                  onChange={setSelectedStudents}
+                  searchable={true}
+                  showSelectAll={true}
+                  showSelectedCount={true}
+                  placeholder="학생 검색..."
+                  emptyMessage="등록된 학생이 없습니다"
+                />
               </motion.div>
             </CardContent>
           </Card>
