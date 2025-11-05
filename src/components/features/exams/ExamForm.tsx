@@ -28,9 +28,11 @@ import {
   SelectValue,
 } from '@ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
-import { Loader2 } from 'lucide-react'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@ui/dialog'
+import { Loader2, Settings, Plus, X } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { createExam, updateExam, getExamCategories, getClassesForExam } from '@/app/actions/exams'
+import { addExamCategory, deleteExamCategory } from '@/app/actions/tenant'
 import { getSubjects } from '@/app/actions/subjects'
 import { ClassSelector } from '@/components/features/common/class-selector'
 
@@ -92,6 +94,10 @@ export function ExamForm({ mode, examId, defaultValues, onSuccess }: ExamFormPro
   const [categories, setCategories] = useState<ExamCategory[]>([])
   const [classes, setClasses] = useState<ClassOption[]>([])
   const [subjects, setSubjects] = useState<Subject[]>([])
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false)
+  const [newCategoryCode, setNewCategoryCode] = useState('')
+  const [newCategoryLabel, setNewCategoryLabel] = useState('')
+  const [categoryLoading, setCategoryLoading] = useState(false)
 
   // Form setup
   const form = useForm<ExamFormValues>({
@@ -139,6 +145,81 @@ export function ExamForm({ mode, examId, defaultValues, onSuccess }: ExamFormPro
 
     loadOptions()
   }, [])
+
+  // Reload categories
+  async function reloadCategories() {
+    const result = await getExamCategories()
+    if (result.success && result.data) {
+      setCategories(result.data)
+    }
+  }
+
+  // Add new category
+  async function handleAddCategory() {
+    if (!newCategoryCode || !newCategoryLabel) {
+      toast({
+        title: '입력 오류',
+        description: '코드와 이름을 모두 입력해주세요.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setCategoryLoading(true)
+    try {
+      const result = await addExamCategory(newCategoryCode, newCategoryLabel)
+
+      if (!result.success) {
+        throw new Error(result.error || '카테고리 추가 실패')
+      }
+
+      toast({
+        title: '카테고리 추가 완료',
+        description: `${newCategoryLabel} 카테고리가 추가되었습니다.`,
+      })
+
+      setNewCategoryCode('')
+      setNewCategoryLabel('')
+      await reloadCategories()
+    } catch (error) {
+      console.error('Error adding category:', error)
+      toast({
+        title: '카테고리 추가 실패',
+        description: error instanceof Error ? error.message : '카테고리 추가 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      })
+    } finally {
+      setCategoryLoading(false)
+    }
+  }
+
+  // Delete category
+  async function handleDeleteCategory(code: string) {
+    setCategoryLoading(true)
+    try {
+      const result = await deleteExamCategory(code)
+
+      if (!result.success) {
+        throw new Error(result.error || '카테고리 삭제 실패')
+      }
+
+      toast({
+        title: '카테고리 삭제 완료',
+        description: '카테고리가 삭제되었습니다.',
+      })
+
+      await reloadCategories()
+    } catch (error) {
+      console.error('Error deleting category:', error)
+      toast({
+        title: '카테고리 삭제 실패',
+        description: error instanceof Error ? error.message : '카테고리 삭제 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      })
+    } finally {
+      setCategoryLoading(false)
+    }
+  }
 
   async function onSubmit(values: ExamFormValues) {
     setIsLoading(true)
@@ -269,7 +350,91 @@ export function ExamForm({ mode, examId, defaultValues, onSuccess }: ExamFormPro
                 name="category_code"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>시험 분류</FormLabel>
+                    <div className="flex items-center justify-between">
+                      <FormLabel>시험 분류</FormLabel>
+                      <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
+                        <DialogTrigger asChild>
+                          <Button type="button" variant="ghost" size="sm">
+                            <Settings className="h-4 w-4 mr-1" />
+                            관리
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>시험 분류 관리</DialogTitle>
+                            <DialogDescription>
+                              시험 분류를 추가하거나 삭제할 수 있습니다.
+                            </DialogDescription>
+                          </DialogHeader>
+
+                          {/* Add new category */}
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <h4 className="font-medium text-sm">새 분류 추가</h4>
+                              <div className="grid gap-2">
+                                <Input
+                                  placeholder="코드 (예: custom1)"
+                                  value={newCategoryCode}
+                                  onChange={(e) => setNewCategoryCode(e.target.value)}
+                                  disabled={categoryLoading}
+                                />
+                                <Input
+                                  placeholder="이름 (예: 커스텀 분류)"
+                                  value={newCategoryLabel}
+                                  onChange={(e) => setNewCategoryLabel(e.target.value)}
+                                  disabled={categoryLoading}
+                                />
+                                <Button
+                                  type="button"
+                                  onClick={handleAddCategory}
+                                  disabled={categoryLoading || !newCategoryCode || !newCategoryLabel}
+                                >
+                                  <Plus className="h-4 w-4 mr-2" />
+                                  추가
+                                </Button>
+                              </div>
+                            </div>
+
+                            {/* Existing categories */}
+                            <div className="space-y-2">
+                              <h4 className="font-medium text-sm">기존 분류</h4>
+                              <div className="space-y-2 max-h-60 overflow-y-auto">
+                                {categories.map((category) => (
+                                  <div
+                                    key={category.code}
+                                    className="flex items-center justify-between p-2 border rounded"
+                                  >
+                                    <div>
+                                      <p className="font-medium">{category.label}</p>
+                                      <p className="text-xs text-muted-foreground">{category.code}</p>
+                                    </div>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleDeleteCategory(category.code)}
+                                      disabled={categoryLoading}
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          <DialogFooter>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => setCategoryDialogOpen(false)}
+                            >
+                              닫기
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
