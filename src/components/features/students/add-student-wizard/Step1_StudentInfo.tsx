@@ -47,7 +47,7 @@ export function Step1_StudentInfo({ schools }: Step1Props) {
         </div>
 
         <div className="space-y-2">
-          <Label>생년월일 *</Label>
+          <Label>생년월일</Label>
           <DatePicker
             value={birthDate}
             onChange={(date) => setValue('birthDate', date as Date, { shouldValidate: true })}
