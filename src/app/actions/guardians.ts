@@ -497,8 +497,26 @@ export async function searchGuardians(query: string, limit: number = 10) {
     const { tenantId } = await verifyStaff()
     const supabase = createServiceRoleClient()
 
-    // guardians와 users, student_guardians 조인하여 검색
-    const { data, error } = await supabase
+    // 1. users 테이블에서 검색 (이름, 전화번호, 이메일)
+    const { data: users, error: usersError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .eq('role_code', 'guardian')
+      .is('deleted_at', null)
+      .or(`name.ilike.%${query}%,phone.ilike.%${query}%,email.ilike.%${query}%`)
+      .limit(limit)
+
+    if (usersError) throw usersError
+
+    if (!users || users.length === 0) {
+      return { success: true, data: [] }
+    }
+
+    const userIds = users.map(u => u.id)
+
+    // 2. 검색된 user_id로 guardians 조회 (학생 정보 포함)
+    const { data: guardians, error: guardiansError } = await supabase
       .from('guardians')
       .select(`
         *,
@@ -515,13 +533,13 @@ export async function searchGuardians(query: string, limit: number = 10) {
       `)
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
-      .or(`users.name.ilike.%${query}%,users.phone.ilike.%${query}%,users.email.ilike.%${query}%`)
-      .limit(limit)
+      .in('user_id', userIds)
 
-    if (error) throw error
+    if (guardiansError) throw guardiansError
 
-    return { success: true, data: data || [] }
+    return { success: true, data: guardians || [] }
   } catch (error) {
+    console.error('[searchGuardians] Error:', error)
     return { success: false, error: getErrorMessage(error), data: [] }
   }
 }
