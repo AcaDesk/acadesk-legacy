@@ -393,27 +393,72 @@ export async function deleteExam(examId: string) {
  *
  * @returns List of exam categories or error
  */
+/**
+ * Get exam categories for current tenant
+ * Uses tenant_codes table with type 'exam_category'
+ */
 export async function getExamCategories() {
   try {
-    // No tenant verification needed for reference data
-
-    // Create service_role client
+    const { tenantId } = await verifyStaff()
     const serviceClient = createServiceRoleClient()
 
-    // Query categories
-    const { data: categories, error } = await serviceClient
-      .from('ref_exam_categories')
-      .select('code, label, sort_order')
-      .eq('active', true)
-      .order('sort_order')
+    // Default categories that should exist
+    const defaultCategories = [
+      { code: 'monthly', label: '월말평가' },
+      { code: 'weekly', label: '주간평가' },
+      { code: 'quiz', label: 'Quiz' },
+      { code: 'note', label: '쪽지시험' },
+      { code: 'level_test', label: '레벨테스트' },
+      { code: 'mock', label: '모의고사' },
+      { code: 'other', label: '기타' },
+    ]
+
+    // Query tenant_codes for exam categories
+    const { data: tenantCategories, error } = await serviceClient
+      .from('tenant_codes')
+      .select('code, label')
+      .eq('tenant_id', tenantId)
+      .eq('type', 'exam_category')
+      .is('deleted_at', null)
+      .order('label')
 
     if (error) {
-      throw new Error('카테고리 조회 실패: ' + error.message)
+      console.error('[getExamCategories] Error:', error)
+      // Return default categories on error
+      return {
+        success: true,
+        data: defaultCategories,
+        error: null,
+      }
+    }
+
+    // If no categories exist, initialize with defaults
+    if (!tenantCategories || tenantCategories.length === 0) {
+      const { error: insertError } = await serviceClient
+        .from('tenant_codes')
+        .insert(
+          defaultCategories.map((cat) => ({
+            tenant_id: tenantId,
+            type: 'exam_category',
+            code: cat.code,
+            label: cat.label,
+          }))
+        )
+
+      if (insertError) {
+        console.error('[getExamCategories] Error inserting defaults:', insertError)
+      }
+
+      return {
+        success: true,
+        data: defaultCategories,
+        error: null,
+      }
     }
 
     return {
       success: true,
-      data: categories || [],
+      data: tenantCategories,
       error: null,
     }
   } catch (error) {

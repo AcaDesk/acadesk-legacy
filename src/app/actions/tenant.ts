@@ -42,3 +42,56 @@ export async function getTenantCodes(codeType: string) {
     return { success: false, error: getErrorMessage(error), data: [] }
   }
 }
+
+/**
+ * 시험 카테고리 추가
+ * @param code - 카테고리 코드
+ * @param label - 카테고리 레이블
+ * @returns 성공 여부
+ */
+export async function addExamCategory(code: string, label: string) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    const { error } = await supabase
+      .from('tenant_codes')
+      .insert({
+        tenant_id: tenantId,
+        type: 'exam_category',
+        code,
+        label,
+      })
+
+    if (error) throw error
+
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) }
+  }
+}
+
+/**
+ * 시험 카테고리 삭제 (소프트 삭제)
+ * @param code - 카테고리 코드
+ * @returns 성공 여부
+ */
+export async function deleteExamCategory(code: string) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    const { error } = await supabase
+      .from('tenant_codes')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('tenant_id', tenantId)
+      .eq('type', 'exam_category')
+      .eq('code', code)
+
+    if (error) throw error
+
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error) }
+  }
+}
