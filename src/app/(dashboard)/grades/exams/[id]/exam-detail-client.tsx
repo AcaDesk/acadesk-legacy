@@ -93,11 +93,17 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
   }
 
   useEffect(() => {
-    loadStudents()
-  }, [exam.id])
+    if (currentUser && currentUser.tenantId) {
+      loadStudents()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exam.id, currentUser])
 
   async function loadStudents() {
-    if (!currentUser || !currentUser.tenantId) return
+    if (!currentUser || !currentUser.tenantId) {
+      setLoading(false)
+      return
+    }
 
     try {
       setLoading(true)
