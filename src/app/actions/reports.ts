@@ -1445,7 +1445,30 @@ export async function prepareReportSending(reportId: string) {
       const studentName =
         (report.students as unknown as { users: { name: string } })?.users?.name ||
         '학생'
-      const month = new Date(report.content.period.start).getMonth() + 1
+
+      // report.content에서 period 정보 추출 (타입 안전하게)
+      const reportContent = report.content as { period?: { start: string; end: string } }
+      const periodStart = reportContent?.period?.start
+
+      // 월 계산 (타임존 무관하게 문자열에서 직접 추출)
+      let month: number | undefined
+      if (periodStart) {
+        // "2024-10-01" 형식에서 월 추출
+        const match = periodStart.match(/^\d{4}-(\d{2})-\d{2}$/)
+        if (match) {
+          month = parseInt(match[1], 10)
+        } else {
+          // fallback: Date 객체 사용
+          month = new Date(periodStart).getMonth() + 1
+        }
+      }
+
+      console.log('[prepareReportSending] Message generation:', {
+        studentName,
+        periodStart,
+        month,
+        reportType: '성적'
+      })
 
       const { message, type } = generateReportSmsMessage({
         studentName,
