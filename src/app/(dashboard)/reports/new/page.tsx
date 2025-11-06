@@ -360,7 +360,9 @@ export default function ReportsPage() {
           name: s.users?.name || '이름 없음',
           grade: s.grade,
           school: s.school,
-          classes: s.class_enrollments?.map(e => e.classes?.name).filter(Boolean) || [],
+          classes: s.class_enrollments
+            ?.map(e => e.classes?.name)
+            .filter((name): name is string => Boolean(name)) || [],
         }))}
         loading={loadingStudents}
       />

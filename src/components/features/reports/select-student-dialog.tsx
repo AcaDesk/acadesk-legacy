@@ -9,7 +9,8 @@ import { useToast } from '@/hooks/use-toast'
 import { StudentSearch, type Student as StudentSearchStudent } from '@/components/features/students/student-search'
 
 interface Student extends StudentSearchStudent {
-  // Add any additional properties if needed
+  school?: string | null
+  classes?: string[]
 }
 
 interface SelectStudentDialogProps {
@@ -83,6 +84,23 @@ export function SelectStudentDialog({
             showSelectedCount={false}
             placeholder="학생 검색..."
             className="h-full"
+            renderBadge={(student) => {
+              const s = student as Student
+              return (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {s.school && (
+                    <Badge variant="outline" className="text-xs">
+                      {s.school}
+                    </Badge>
+                  )}
+                  {s.classes && s.classes.length > 0 && (
+                    <Badge variant="secondary" className="text-xs">
+                      {s.classes.join(', ')}
+                    </Badge>
+                  )}
+                </div>
+              )
+            }}
           />
         </div>
 
