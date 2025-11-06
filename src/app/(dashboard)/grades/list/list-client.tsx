@@ -35,6 +35,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@ui/pagination'
+import { getExamScores } from '@/app/actions/grades'
 
 interface ExamScore {
   id: string
@@ -103,8 +104,6 @@ export function GradesListClient() {
     startIndex,
     endIndex,
     totalItems,
-    from,
-    to,
   } = useServerPagination({
     totalCount,
     itemsPerPage,
@@ -163,73 +162,21 @@ export function GradesListClient() {
     try {
       setLoading(true)
 
-      // Build query with pagination
-      let query = supabase
-        .from('exam_scores')
-        .select(`
-          id,
-          score,
-          total_points,
-          percentage,
-          feedback,
-          status,
-          is_retest,
-          retest_count,
-          created_at,
-          exams!exam_id (
-            name,
-            exam_date,
-            category_code
-          ),
-          students!student_id (
-            id,
-            student_code,
-            users!user_id (
-              name
-            )
-          )
-        `, { count: 'exact' })
-        .eq('tenant_id', currentUser.tenantId)
+      // Server Action을 통해 데이터 조회
+      const result = await getExamScores({
+        page: currentPage,
+        limit: itemsPerPage,
+        searchTerm: searchTerm || undefined,
+        studentId: selectedStudent !== 'all' ? selectedStudent : undefined,
+        status: selectedStatus !== 'all' ? (selectedStatus as 'pending' | 'completed' | 'retest_required' | 'retest_waived') : undefined,
+      })
 
-      // Apply student filter
-      if (selectedStudent !== 'all') {
-        query = query.eq('student_id', selectedStudent)
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '성적 조회 실패')
       }
 
-      // Apply status filter
-      if (selectedStatus !== 'all') {
-        query = query.eq('status', selectedStatus)
-      }
-
-      // Apply search filter
-      if (searchTerm) {
-        query = query.or(`
-          students.users.name.ilike.%${searchTerm}%,
-          students.student_code.ilike.%${searchTerm}%,
-          exams.name.ilike.%${searchTerm}%
-        `)
-      }
-
-      // Apply pagination
-      query = query
-        .range(from, to)
-        .order('created_at', { ascending: false })
-
-      const { data: scoresData, error: scoresError, count } = await query
-
-      if (scoresError) throw scoresError
-
-      // Calculate percentage if not stored
-      const processedScores = (scoresData as unknown as ExamScore[]).map((score) => ({
-        ...score,
-        percentage: score.percentage ||
-          (score.total_points && score.total_points > 0 && score.score !== null
-            ? Math.round((score.score / score.total_points) * 10000) / 100
-            : 0)
-      }))
-
-      setScores(processedScores)
-      setTotalCount(count || 0)
+      setScores(result.data.scores as unknown as ExamScore[])
+      setTotalCount(result.data.totalCount)
     } catch (error) {
       console.error('Error loading scores:', error)
       toast({
