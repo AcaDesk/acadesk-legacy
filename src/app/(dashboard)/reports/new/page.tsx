@@ -9,12 +9,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@ui/separator'
 import { Tabs, TabsList, TabsTrigger } from '@ui/tabs'
 import { Input } from '@ui/input'
+import { Badge } from '@ui/badge'
 import { useToast } from '@/hooks/use-toast'
-import { FileText } from 'lucide-react'
+import { FileText, UserPlus, X } from 'lucide-react'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
+import { SelectStudentDialog } from '@/components/features/reports/select-student-dialog'
 
 interface Student {
   id: string
@@ -28,12 +30,15 @@ export default function ReportsPage() {
   // All Hooks must be called before any early returns
   const [students, setStudents] = useState<Student[]>([])
   const [selectedStudent, setSelectedStudent] = useState<string>('')
+  const [selectedStudentName, setSelectedStudentName] = useState<string>('')
+  const [showSelectDialog, setShowSelectDialog] = useState(false)
   const [reportType, setReportType] = useState<'weekly' | 'monthly'>('monthly')
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear())
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1)
   const [startDate, setStartDate] = useState<string>('')
   const [endDate, setEndDate] = useState<string>('')
   const [generating, setGenerating] = useState(false)
+  const [loadingStudents, setLoadingStudents] = useState(false)
 
   const { toast } = useToast()
   const router = useRouter()
@@ -48,6 +53,7 @@ export default function ReportsPage() {
 
   async function loadStudents() {
     try {
+      setLoadingStudents(true)
       const result = await getStudentsForReport()
 
       if (!result.success || !result.data) {
@@ -62,7 +68,19 @@ export default function ReportsPage() {
         description: '학생 목록을 불러오는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
+    } finally {
+      setLoadingStudents(false)
     }
+  }
+
+  function handleStudentSelect(studentId: string, studentName: string) {
+    setSelectedStudent(studentId)
+    setSelectedStudentName(studentName)
+  }
+
+  function handleClearStudent() {
+    setSelectedStudent('')
+    setSelectedStudentName('')
   }
 
   async function generateReport() {
@@ -163,18 +181,51 @@ export default function ReportsPage() {
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium mb-2 block">학생 선택</label>
-                <Select value={selectedStudent} onValueChange={setSelectedStudent}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="학생을 선택하세요" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {students.map((student) => (
-                      <SelectItem key={student.id} value={student.id}>
-                        {student.student_code} - {student.users?.name || 'Unknown'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {selectedStudent ? (
+                  <div className="flex items-center justify-between p-3 rounded-lg border bg-primary/5 border-primary/20">
+                    <div className="flex items-center gap-3">
+                      <Badge variant="default" className="text-xs">
+                        선택됨
+                      </Badge>
+                      <div>
+                        <div className="font-medium">{selectedStudentName}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {students.find(s => s.id === selectedStudent)?.student_code}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowSelectDialog(true)}
+                      >
+                        변경
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleClearStudent}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button
+                    variant="outline"
+                    className="w-full h-auto py-6 justify-start"
+                    onClick={() => setShowSelectDialog(true)}
+                  >
+                    <UserPlus className="mr-2 h-5 w-5" />
+                    <div className="text-left">
+                      <div className="font-medium">학생 선택하기</div>
+                      <div className="text-sm text-muted-foreground">
+                        리포트를 생성할 학생을 선택하세요
+                      </div>
+                    </div>
+                  </Button>
+                )}
               </div>
 
               <div>
@@ -262,6 +313,21 @@ export default function ReportsPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Select Student Dialog */}
+        <SelectStudentDialog
+          open={showSelectDialog}
+          onOpenChange={setShowSelectDialog}
+          value={selectedStudent}
+          onSelect={handleStudentSelect}
+          students={students.map(s => ({
+            id: s.id,
+            student_code: s.student_code,
+            name: s.users?.name || '이름 없음',
+            grade: null,
+          }))}
+          loading={loadingStudents}
+        />
 
         {/* Info Message */}
         <Card className="mt-6">
