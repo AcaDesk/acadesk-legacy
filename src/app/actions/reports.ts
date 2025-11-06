@@ -484,7 +484,7 @@ export async function getStudentsForReport() {
         grade,
         school,
         users!inner(name),
-        class_enrollments!inner(
+        class_enrollments(
           classes(name)
         )
       `)
