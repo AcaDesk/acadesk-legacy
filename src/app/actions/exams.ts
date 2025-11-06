@@ -217,7 +217,7 @@ export async function createExam(input: z.infer<typeof examSchema>) {
         tenant_id: tenantId,
         name: validated.name,
         subject_id: validated.subject_id || null,
-        category_code: validated.category_code || null,
+        category_code: validated.category_code && validated.category_code.trim() !== '' ? validated.category_code : null,
         exam_type: validated.exam_type || null,
         exam_date: validated.exam_date || null,
         class_id: validated.class_id || null,
