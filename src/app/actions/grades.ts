@@ -17,6 +17,14 @@ import { getErrorMessage } from '@/lib/error-handlers'
 // Validation Schemas
 // ============================================================================
 
+const getExamScoresSchema = z.object({
+  page: z.number().int().min(1).default(1),
+  limit: z.number().int().min(1).max(100).default(15),
+  searchTerm: z.string().optional(),
+  studentId: z.string().uuid().optional(),
+  status: z.enum(['pending', 'completed', 'retest_required', 'retest_waived']).optional(),
+})
+
 const createExamScoreSchema = z.object({
   exam_id: z.string().uuid('유효한 시험 ID가 아닙니다'),
   student_id: z.string().uuid('유효한 학생 ID가 아닙니다'),
@@ -43,6 +51,147 @@ const bulkUpsertExamScoresSchema = z.object({
 // ============================================================================
 // Server Actions
 // ============================================================================
+
+/**
+ * 시험 성적 조회 (검색, 필터, 페이지네이션 포함)
+ * @param params - 조회 파라미터
+ * @returns 성적 목록 및 총 개수
+ */
+export async function getExamScores(
+  params: z.infer<typeof getExamScoresSchema>
+) {
+  try {
+    // 1. 권한 검증 (staff)
+    const { tenantId } = await verifyStaff()
+
+    // 2. 입력값 검증
+    const validatedParams = getExamScoresSchema.parse(params)
+    const { page, limit, searchTerm, studentId, status } = validatedParams
+
+    // 3. Service Role 클라이언트로 DB 작업
+    const supabase = createServiceRoleClient()
+
+    // 페이지네이션 계산
+    const from = (page - 1) * limit
+    const to = from + limit - 1
+
+    // 기본 쿼리 구성
+    let query = supabase
+      .from('exam_scores')
+      .select(`
+        id,
+        score,
+        total_points,
+        percentage,
+        feedback,
+        status,
+        is_retest,
+        retest_count,
+        created_at,
+        exams!exam_id (
+          name,
+          exam_date,
+          category_code
+        ),
+        students!student_id (
+          id,
+          student_code,
+          users!user_id (
+            name
+          )
+        )
+      `, { count: 'exact' })
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+
+    // 학생 필터 적용
+    if (studentId) {
+      query = query.eq('student_id', studentId)
+    }
+
+    // 상태 필터 적용
+    if (status) {
+      query = query.eq('status', status)
+    }
+
+    // 검색어 필터 적용 (중첩 관계 검색)
+    if (searchTerm && searchTerm.trim()) {
+      // 먼저 매칭되는 학생 ID를 찾기
+      const { data: matchingStudents } = await supabase
+        .from('students')
+        .select('id, student_code, users!user_id(name)')
+        .eq('tenant_id', tenantId)
+        .is('deleted_at', null)
+        .or(`student_code.ilike.%${searchTerm}%,users.name.ilike.%${searchTerm}%`)
+
+      // 매칭되는 시험 ID를 찾기
+      const { data: matchingExams } = await supabase
+        .from('exams')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .is('deleted_at', null)
+        .ilike('name', `%${searchTerm}%`)
+
+      const studentIds = matchingStudents?.map(s => s.id) || []
+      const examIds = matchingExams?.map(e => e.id) || []
+
+      // 학생 또는 시험이 매칭되는 성적만 조회
+      if (studentIds.length > 0 || examIds.length > 0) {
+        const filters: string[] = []
+        if (studentIds.length > 0) {
+          filters.push(`student_id.in.(${studentIds.join(',')})`)
+        }
+        if (examIds.length > 0) {
+          filters.push(`exam_id.in.(${examIds.join(',')})`)
+        }
+        query = query.or(filters.join(','))
+      } else {
+        // 매칭되는 결과가 없으면 빈 배열 반환
+        return {
+          success: true,
+          data: {
+            scores: [],
+            totalCount: 0,
+          },
+        }
+      }
+    }
+
+    // 페이지네이션 및 정렬 적용
+    query = query
+      .range(from, to)
+      .order('created_at', { ascending: false })
+
+    const { data: scores, error, count } = await query
+
+    if (error) {
+      throw new Error(`성적 조회 실패: ${error.message}`)
+    }
+
+    // 퍼센트 계산 (저장되지 않은 경우)
+    const processedScores = (scores || []).map((score) => ({
+      ...score,
+      percentage: score.percentage ||
+        (score.total_points && score.total_points > 0 && score.score !== null
+          ? Math.round((score.score / score.total_points) * 10000) / 100
+          : 0)
+    }))
+
+    return {
+      success: true,
+      data: {
+        scores: processedScores,
+        totalCount: count || 0,
+      },
+    }
+  } catch (error) {
+    console.error('getExamScores error:', error)
+    return {
+      success: false,
+      error: getErrorMessage(error),
+    }
+  }
+}
 
 /**
  * 시험 성적 생성
