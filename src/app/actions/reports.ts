@@ -676,13 +676,13 @@ async function getScoresData(
   tenantId: string
 ) {
   // 현재 기간 성적 - 모든 성적을 가져온 후 exam_date로 필터링
-  const { data: allCurrentScores } = await supabase
+  const { data: allCurrentScores, error: currentScoresError } = await supabase
     .from('exam_scores')
     .select(`
       percentage,
       feedback,
       is_retest,
-      exams (
+      exams!exam_id (
         name,
         exam_date,
         category_code,
@@ -692,22 +692,54 @@ async function getScoresData(
       )
     `)
     .eq('student_id', studentId)
+    .eq('tenant_id', tenantId)
+    .is('deleted_at', null)
+
+  // 디버깅: 조회된 데이터 확인
+  console.log('[getScoresData] DEBUG - All scores for student:', {
+    studentId,
+    periodStart,
+    periodEnd,
+    scoresCount: allCurrentScores?.length || 0,
+    error: currentScoresError,
+    allScores: allCurrentScores?.map((s: any) => ({
+      exam_name: s.exams?.name,
+      exam_date: s.exams?.exam_date,
+      percentage: s.percentage
+    }))
+  })
 
   // JavaScript에서 exam_date로 필터링
   const currentScores = allCurrentScores?.filter((score: any) => {
     const examDate = score.exams?.exam_date
-    if (!examDate) return false
-    return examDate >= periodStart && examDate <= periodEnd
+    if (!examDate) {
+      console.log('[getScoresData] DEBUG - Score without exam_date:', score)
+      return false
+    }
+    const isInRange = examDate >= periodStart && examDate <= periodEnd
+    console.log('[getScoresData] DEBUG - Date filtering:', {
+      examDate,
+      periodStart,
+      periodEnd,
+      isInRange
+    })
+    return isInRange
   }) || []
+
+  console.log('[getScoresData] DEBUG - Filtered scores:', {
+    filteredCount: currentScores.length
+  })
 
   // 이전 기간 성적 - 모든 성적을 가져온 후 exam_date로 필터링
   const { data: allPreviousScores } = await supabase
     .from('exam_scores')
     .select(`
       percentage,
-      exams (category_code, subject_id, exam_date)
+      exams!exam_id (category_code, subject_id, exam_date)
     `)
     .eq('student_id', studentId)
+    .eq('tenant_id', tenantId)
+    .is('deleted_at', null)
 
   // JavaScript에서 exam_date로 필터링
   const previousScores = allPreviousScores?.filter((score: any) => {
@@ -722,13 +754,14 @@ async function getScoresData(
     .select(`
       percentage,
       is_retest,
-      exams (
+      exams!exam_id (
         category_code,
         subject_id,
         exam_date
       )
     `)
     .eq('tenant_id', tenantId)
+    .is('deleted_at', null)
 
   // JavaScript에서 exam_date로 필터링
   const classScores = allClassScores?.filter((score: any) => {
@@ -950,12 +983,13 @@ async function getGradesChartData(
       score,
       total_score,
       percentage,
-      exams (
+      exams!exam_id (
         name,
         exam_date
       )
     `)
     .eq('student_id', studentId)
+    .is('deleted_at', null)
 
   // JavaScript에서 exam_date로 필터링 및 정렬
   const examScores = allExamScores?.filter((score: any) => {
@@ -1032,8 +1066,9 @@ async function getCurrentScoreData(
   // 현재 기간 내 모든 시험 점수 조회
   const { data: allMyScores } = await supabase
     .from('exam_scores')
-    .select('percentage, exams(exam_date)')
+    .select('percentage, exams!exam_id(exam_date)')
     .eq('student_id', studentId)
+    .is('deleted_at', null)
 
   // JavaScript에서 exam_date로 필터링
   const myScores = allMyScores?.filter((score: any) => {
@@ -1057,7 +1092,8 @@ async function getCurrentScoreData(
   // 같은 기간 내 모든 학생들의 시험 점수 조회 (반 평균 계산용)
   const { data: allScoresData } = await supabase
     .from('exam_scores')
-    .select('percentage, student_id, exams(exam_date)')
+    .select('percentage, student_id, exams!exam_id(exam_date)')
+    .is('deleted_at', null)
 
   // JavaScript에서 exam_date로 필터링
   const allScores = allScoresData?.filter((score: any) => {
@@ -1126,8 +1162,9 @@ async function getScoreTrendData(
     // 해당 월의 학생 점수 조회 (is_retest 포함)
     const { data: allMyScores } = await supabase
       .from('exam_scores')
-      .select('percentage, is_retest, exams(exam_date)')
+      .select('percentage, is_retest, exams!exam_id(exam_date)')
       .eq('student_id', studentId)
+      .is('deleted_at', null)
 
     // JavaScript에서 exam_date로 필터링
     const myScores = allMyScores?.filter((score: any) => {
@@ -1139,7 +1176,8 @@ async function getScoreTrendData(
     // 해당 월의 반 평균 조회
     const { data: allScoresData } = await supabase
       .from('exam_scores')
-      .select('percentage, exams(exam_date)')
+      .select('percentage, exams!exam_id(exam_date)')
+      .is('deleted_at', null)
 
     // JavaScript에서 exam_date로 필터링
     const allScores = allScoresData?.filter((score: any) => {

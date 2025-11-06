@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@ui/button'
@@ -16,7 +16,13 @@ import {
   TableHeader,
   TableRow,
 } from '@ui/table'
-import { Search, Plus } from 'lucide-react'
+import { Search, Plus, X, ArrowUpDown } from 'lucide-react'
+import {
+  IconChevronLeft,
+  IconChevronRight,
+  IconChevronsLeft,
+  IconChevronsRight,
+} from '@tabler/icons-react'
 import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { PageWrapper } from "@/components/layout/page-wrapper"
@@ -25,17 +31,17 @@ import { GradesLineChart } from '@/components/features/charts/grades-line-chart'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
-import { useServerPagination } from '@/hooks/use-pagination'
 import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from '@ui/pagination'
-import { getExamScores } from '@/app/actions/grades'
+  ColumnDef,
+  ColumnFiltersState,
+  SortingState,
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from '@tanstack/react-table'
 
 interface ExamScore {
   id: string
@@ -72,9 +78,7 @@ interface Student {
 export function GradesListClient() {
   // All Hooks must be called before any early returns
   const [scores, setScores] = useState<ExamScore[]>([])
-  const [totalCount, setTotalCount] = useState(0)
   const [students, setStudents] = useState<Student[]>([])
-  const [searchTerm, setSearchTerm] = useState('')
   const [selectedStudent, setSelectedStudent] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
   const [loading, setLoading] = useState(true)
@@ -83,52 +87,22 @@ export function GradesListClient() {
     total: 0,
     retests: 0
   })
+  const [sorting, setSorting] = useState<SortingState>([])
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
 
   const { toast } = useToast()
   const { user: currentUser, loading: userLoading } = useCurrentUser()
   const router = useRouter()
   const supabase = createClient()
 
-  const itemsPerPage = 15
-
-  // Server-side Pagination - useServerPagination must be called before any early returns
-  const {
-    currentPage,
-    totalPages,
-    goToPage,
-    nextPage,
-    previousPage,
-    resetPage,
-    hasNextPage,
-    hasPreviousPage,
-    startIndex,
-    endIndex,
-    totalItems,
-  } = useServerPagination({
-    totalCount,
-    itemsPerPage,
-  })
-
   // useEffect must be called before any early returns
   useEffect(() => {
     if (!userLoading && currentUser) {
       loadStudents()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser, userLoading])
-
-  useEffect(() => {
-    if (!userLoading && currentUser) {
       loadScores()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, searchTerm, selectedStudent, selectedStatus, currentUser, userLoading])
-
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    resetPage()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, selectedStudent, selectedStatus])
+  }, [currentUser, userLoading])
 
   // Load student statistics when a student is selected
   useEffect(() => {
@@ -162,21 +136,39 @@ export function GradesListClient() {
     try {
       setLoading(true)
 
-      // Server Action을 통해 데이터 조회
-      const result = await getExamScores({
-        page: currentPage,
-        limit: itemsPerPage,
-        searchTerm: searchTerm || undefined,
-        studentId: selectedStudent !== 'all' ? selectedStudent : undefined,
-        status: selectedStatus !== 'all' ? (selectedStatus as 'pending' | 'completed' | 'retest_required' | 'retest_waived') : undefined,
-      })
+      // Supabase에서 모든 성적 데이터 조회 (클라이언트 사이드 필터링을 위해)
+      const { data: scoresData, error: scoresError } = await supabase
+        .from('exam_scores')
+        .select(`
+          id,
+          score,
+          total_points,
+          percentage,
+          feedback,
+          status,
+          is_retest,
+          retest_count,
+          created_at,
+          exams!exam_id (
+            name,
+            exam_date,
+            category_code
+          ),
+          students!student_id (
+            id,
+            student_code,
+            users!user_id (
+              name
+            )
+          )
+        `)
+        .eq('tenant_id', currentUser.tenantId)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
 
-      if (!result.success || !result.data) {
-        throw new Error(result.error || '성적 조회 실패')
-      }
+      if (scoresError) throw scoresError
 
-      setScores(result.data.scores as unknown as ExamScore[])
-      setTotalCount(result.data.totalCount)
+      setScores(scoresData as unknown as ExamScore[])
     } catch (error) {
       console.error('Error loading scores:', error)
       toast({
@@ -251,6 +243,176 @@ export function GradesListClient() {
     }
   }
 
+  // 필터링된 데이터 (학생 및 상태 필터 적용)
+  const filteredScores = useMemo(() => {
+    let filtered = scores
+
+    // 학생 필터
+    if (selectedStudent !== 'all') {
+      filtered = filtered.filter(score => score.students?.id === selectedStudent)
+    }
+
+    // 상태 필터
+    if (selectedStatus !== 'all') {
+      filtered = filtered.filter(score => score.status === selectedStatus)
+    }
+
+    return filtered
+  }, [scores, selectedStudent, selectedStatus])
+
+  // 테이블 컬럼 정의
+  const columns: ColumnDef<ExamScore>[] = useMemo(() => [
+    {
+      accessorKey: 'students',
+      header: '학생',
+      cell: ({ row }) => {
+        const student = row.original.students
+        return (
+          <div>
+            <div className="font-medium">
+              {student?.users?.name || '이름 없음'}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {student?.student_code}
+            </div>
+          </div>
+        )
+      },
+      filterFn: (row, columnId, filterValue) => {
+        const score = row.original
+        const searchTerm = filterValue.toLowerCase()
+
+        // 학생명, 학번, 시험명으로 검색
+        return (
+          score.students?.users?.name?.toLowerCase().includes(searchTerm) ||
+          score.students?.student_code?.toLowerCase().includes(searchTerm) ||
+          score.exams?.name?.toLowerCase().includes(searchTerm) ||
+          false
+        )
+      },
+    },
+    {
+      accessorKey: 'exams',
+      header: '시험명',
+      cell: ({ row }) => {
+        const score = row.original
+        return (
+          <div>
+            <div>{score.exams?.name || '시험 정보 없음'}</div>
+            {score.is_retest && (
+              <Badge variant="outline" className="text-xs mt-1">
+                재시험 #{score.retest_count}
+              </Badge>
+            )}
+          </div>
+        )
+      },
+    },
+    {
+      id: 'exam_date',
+      header: '시험일',
+      cell: ({ row }) => {
+        const examDate = row.original.exams?.exam_date
+        return (
+          <div className="text-sm text-muted-foreground">
+            {examDate ? new Date(examDate).toLocaleDateString('ko-KR') : '-'}
+          </div>
+        )
+      },
+    },
+    {
+      accessorKey: 'percentage',
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+            className="-ml-4 text-center w-full justify-center"
+          >
+            점수
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        )
+      },
+      cell: ({ row }) => {
+        const score = row.original
+        return (
+          <div className="flex flex-col items-center gap-1">
+            <Badge variant={getScoreBadgeVariant(score.percentage || 0)}>
+              {score.percentage || 0}%
+            </Badge>
+            <span className="text-xs text-muted-foreground">
+              {score.score || 0}/{score.total_points || 0}
+            </span>
+          </div>
+        )
+      },
+    },
+    {
+      accessorKey: 'status',
+      header: '처리 상태',
+      cell: ({ row }) => {
+        const statusBadge = getStatusBadge(row.original.status)
+        return (
+          <div className="text-center">
+            <Badge
+              variant={statusBadge.variant}
+              className={statusBadge.className}
+            >
+              {statusBadge.label}
+            </Badge>
+          </div>
+        )
+      },
+    },
+    {
+      accessorKey: 'feedback',
+      header: '피드백',
+      cell: ({ row }) => {
+        const feedback = row.getValue('feedback') as string | null
+        return feedback ? (
+          <div className="text-sm text-muted-foreground truncate max-w-xs">
+            {feedback}
+          </div>
+        ) : (
+          <span className="text-xs text-muted-foreground">-</span>
+        )
+      },
+    },
+    {
+      accessorKey: 'created_at',
+      header: '입력일',
+      cell: ({ row }) => (
+        <div className="text-sm text-muted-foreground">
+          {new Date(row.getValue('created_at')).toLocaleDateString('ko-KR')}
+        </div>
+      ),
+    },
+  ], [])
+
+  // 테이블 초기화
+  const table = useReactTable({
+    data: filteredScores,
+    columns,
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    state: {
+      sorting,
+      columnFilters,
+    },
+    initialState: {
+      pagination: {
+        pageSize: 15,
+      },
+    },
+  })
+
+  const searchValue = (table.getColumn('students')?.getFilterValue() as string) ?? ''
+
   // Feature flag checks after all Hooks
   const featureStatus = FEATURES.gradesManagement;
 
@@ -294,10 +456,20 @@ export function GradesListClient() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="학생 이름, 학번, 시험명으로 검색..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              value={searchValue}
+              onChange={(e) => table.getColumn('students')?.setFilterValue(e.target.value)}
               className="pl-10"
             />
+            {searchValue && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                onClick={() => table.getColumn('students')?.setFilterValue('')}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
           </div>
           <Select value={selectedStudent} onValueChange={setSelectedStudent}>
             <SelectTrigger className="w-full sm:w-[200px]">
@@ -325,7 +497,7 @@ export function GradesListClient() {
             </SelectContent>
           </Select>
           <Badge variant="secondary" className="h-10 px-4 flex items-center whitespace-nowrap">
-            {startIndex}-{endIndex} / {totalItems}개 결과
+            {table.getFilteredRowModel().rows.length}개 결과
           </Badge>
         </div>
 
@@ -392,143 +564,128 @@ export function GradesListClient() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {scores.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <p>등록된 성적이 없습니다.</p>
-                {searchTerm && <p className="text-sm mt-2">검색 결과가 없습니다.</p>}
-              </div>
-            ) : (
-              <div className="border rounded-lg overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>학생</TableHead>
-                      <TableHead>시험명</TableHead>
-                      <TableHead>시험일</TableHead>
-                      <TableHead className="text-center">점수</TableHead>
-                      <TableHead className="text-center">처리 상태</TableHead>
-                      <TableHead>피드백</TableHead>
-                      <TableHead>입력일</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {scores.map((score) => {
-                      const statusBadge = getStatusBadge(score.status)
-                      return (
-                        <TableRow key={score.id}>
-                          <TableCell>
-                            <div>
-                              <div className="font-medium">
-                                {score.students?.users?.name || '이름 없음'}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {score.students?.student_code}
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div>
-                              <div>{score.exams?.name || '시험 정보 없음'}</div>
-                              {score.is_retest && (
-                                <Badge variant="outline" className="text-xs mt-1">
-                                  재시험 #{score.retest_count}
-                                </Badge>
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow key={headerGroup.id}>
+                      {headerGroup.headers.map((header) => (
+                        <TableHead key={header.id}>
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(
+                                header.column.columnDef.header,
+                                header.getContext()
                               )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {score.exams?.exam_date
-                              ? new Date(score.exams.exam_date).toLocaleDateString('ko-KR')
-                              : '-'}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <div className="flex flex-col items-center gap-1">
-                              <Badge variant={getScoreBadgeVariant(score.percentage || 0)}>
-                                {score.percentage || 0}%
-                              </Badge>
-                              <span className="text-xs text-muted-foreground">
-                                {score.score || 0}/{score.total_points || 0}
-                              </span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Badge
-                              variant={statusBadge.variant}
-                              className={statusBadge.className}
-                            >
-                              {statusBadge.label}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="max-w-xs">
-                            {score.feedback ? (
-                              <div className="text-sm text-muted-foreground truncate">
-                                {score.feedback}
-                              </div>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">-</span>
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableHeader>
+                <TableBody>
+                  {table.getRowModel().rows?.length ? (
+                    table.getRowModel().rows.map((row) => (
+                      <TableRow key={row.id}>
+                        {row.getVisibleCells().map((cell) => (
+                          <TableCell key={cell.id}>
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
                             )}
                           </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {new Date(score.created_at).toLocaleDateString('ko-KR')}
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
+                        ))}
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={columns.length} className="h-24 text-center">
+                        {loading ? (
+                          <div className="text-muted-foreground">로딩 중...</div>
+                        ) : (
+                          <div className="text-center py-12 text-muted-foreground">
+                            <p>등록된 성적이 없습니다.</p>
+                            {searchValue && <p className="text-sm mt-2">검색 결과가 없습니다.</p>}
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
 
             {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between mt-4">
-                <div className="text-sm text-muted-foreground">
-                  페이지 {currentPage} / {totalPages}
+            {table.getPageCount() > 1 && (
+              <div className="flex items-center justify-between mt-4 px-2">
+                <div className="hidden flex-1 text-sm text-muted-foreground lg:flex">
+                  전체 {table.getFilteredRowModel().rows.length}개
                 </div>
-                <Pagination>
-                  <PaginationContent>
-                    <PaginationItem>
-                      <PaginationPrevious
-                        onClick={previousPage}
-                        className={!hasPreviousPage ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                      />
-                    </PaginationItem>
-
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                      if (
-                        page === 1 ||
-                        page === totalPages ||
-                        (page >= currentPage - 1 && page <= currentPage + 1)
-                      ) {
-                        return (
-                          <PaginationItem key={page}>
-                            <PaginationLink
-                              onClick={() => goToPage(page)}
-                              isActive={currentPage === page}
-                              className="cursor-pointer"
-                            >
-                              {page}
-                            </PaginationLink>
-                          </PaginationItem>
-                        )
-                      } else if (page === currentPage - 2 || page === currentPage + 2) {
-                        return (
-                          <PaginationItem key={page}>
-                            <PaginationEllipsis />
-                          </PaginationItem>
-                        )
-                      }
-                      return null
-                    })}
-
-                    <PaginationItem>
-                      <PaginationNext
-                        onClick={nextPage}
-                        className={!hasNextPage ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                      />
-                    </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
+                <div className="flex w-full items-center gap-8 lg:w-fit">
+                  <div className="hidden items-center gap-2 lg:flex">
+                    <label htmlFor="rows-per-page" className="text-sm font-medium">
+                      페이지당 행 수
+                    </label>
+                    <Select
+                      value={`${table.getState().pagination.pageSize}`}
+                      onValueChange={(value) => {
+                        table.setPageSize(Number(value))
+                      }}
+                    >
+                      <SelectTrigger className="w-20" id="rows-per-page">
+                        <SelectValue placeholder={table.getState().pagination.pageSize} />
+                      </SelectTrigger>
+                      <SelectContent side="top">
+                        {[10, 15, 20, 30, 50].map((pageSize) => (
+                          <SelectItem key={pageSize} value={`${pageSize}`}>
+                            {pageSize}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex w-fit items-center justify-center text-sm font-medium">
+                    페이지 {table.getState().pagination.pageIndex + 1} /{' '}
+                    {table.getPageCount()}
+                  </div>
+                  <div className="ml-auto flex items-center gap-2 lg:ml-0">
+                    <Button
+                      variant="outline"
+                      className="hidden h-8 w-8 p-0 lg:flex"
+                      onClick={() => table.setPageIndex(0)}
+                      disabled={!table.getCanPreviousPage()}
+                    >
+                      <span className="sr-only">첫 페이지로</span>
+                      <IconChevronsLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="h-8 w-8 p-0"
+                      onClick={() => table.previousPage()}
+                      disabled={!table.getCanPreviousPage()}
+                    >
+                      <span className="sr-only">이전 페이지</span>
+                      <IconChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="h-8 w-8 p-0"
+                      onClick={() => table.nextPage()}
+                      disabled={!table.getCanNextPage()}
+                    >
+                      <span className="sr-only">다음 페이지</span>
+                      <IconChevronRight className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="hidden h-8 w-8 p-0 lg:flex"
+                      onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                      disabled={!table.getCanNextPage()}
+                    >
+                      <span className="sr-only">마지막 페이지로</span>
+                      <IconChevronsRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
               </div>
             )}
           </CardContent>
