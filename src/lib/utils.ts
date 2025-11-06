@@ -39,8 +39,14 @@ export function formatKoreanDate(date: Date | string): string {
 /**
  * 간단한 한국어 날짜 포맷팅 (M월 D일)
  */
-export function formatKoreanDateShort(date: Date | string): string {
+export function formatKoreanDateShort(date: Date | string | null | undefined): string {
+  if (!date) return ''
+
   const d = typeof date === "string" ? new Date(date) : date
+
+  // Invalid Date 체크
+  if (isNaN(d.getTime())) return ''
+
   const month = d.getMonth() + 1
   const day = d.getDate()
   return `${month}월 ${day}일`

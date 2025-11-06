@@ -305,7 +305,7 @@ export function Step2_GuardianInfo() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="guardian.relationship">관계 *</Label>
+              <Label htmlFor="guardian.relationship">관계</Label>
               <Select onValueChange={(value) => setValue('guardian.relationship', value)}>
                 <SelectTrigger id="guardian.relationship">
                   <SelectValue placeholder="관계 선택" />
@@ -326,7 +326,7 @@ export function Step2_GuardianInfo() {
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="guardian.phone">연락처 *</Label>
+              <Label htmlFor="guardian.phone">연락처</Label>
               <PhoneInput
                 id="guardian.phone"
                 value={guardianPhone || ''}

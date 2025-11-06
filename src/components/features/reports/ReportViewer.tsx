@@ -580,10 +580,15 @@ ${reportData.comment.nextGoals}`
                           className="flex items-center justify-between text-sm"
                         >
                           <div>
-                            <span className="text-muted-foreground">
-                              {formatKoreanDateShort(test.date)}
-                            </span>{' '}
-                            - {test.name}
+                            {test.date && formatKoreanDateShort(test.date) && (
+                              <>
+                                <span className="text-muted-foreground">
+                                  {formatKoreanDateShort(test.date)}
+                                </span>{' '}
+                                -{' '}
+                              </>
+                            )}
+                            {test.name}
                           </div>
                           <div className="font-medium">{test.percentage}%</div>
                         </div>

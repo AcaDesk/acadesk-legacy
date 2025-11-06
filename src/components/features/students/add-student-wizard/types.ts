@@ -7,9 +7,9 @@ import { GUARDIAN_MODES } from '@/lib/constants'
 
 export const guardianSchema = z.object({
   name: z.string().optional(),
-  phone: z.string().min(1, '연락처를 입력해주세요'),
+  phone: z.string().optional(),
   email: z.string().email('올바른 이메일 형식이 아닙니다').optional().or(z.literal('')),
-  relationship: z.string().min(1, '관계를 선택해주세요'),
+  relationship: z.string().optional(),
   address: z.string().optional(),
   occupation: z.string().optional(),
 })

@@ -104,16 +104,16 @@ export function ExamForm({ mode, examId, defaultValues, onSuccess }: ExamFormPro
     resolver: zodResolver(examFormSchema),
     defaultValues: defaultValues || {
       name: '',
-      subject_id: '',
-      category_code: '',
-      exam_type: '',
+      subject_id: undefined,
+      category_code: undefined,
+      exam_type: undefined,
       exam_date: '',
-      class_id: '',
+      class_id: undefined,
       total_questions: '',
       passing_score: '',
       description: '',
       is_recurring: false,
-      recurring_schedule: '',
+      recurring_schedule: undefined,
     },
   })
 
@@ -228,16 +228,16 @@ export function ExamForm({ mode, examId, defaultValues, onSuccess }: ExamFormPro
       // Convert string values to proper types
       const examData = {
         name: values.name,
-        subject_id: values.subject_id && values.subject_id !== 'none' ? values.subject_id : null,
-        category_code: values.category_code && values.category_code !== 'none' ? values.category_code : null,
-        exam_type: values.exam_type && values.exam_type !== 'none' ? values.exam_type : null,
+        subject_id: values.subject_id && values.subject_id !== 'none' && values.subject_id.trim() !== '' ? values.subject_id : null,
+        category_code: values.category_code && values.category_code !== 'none' && values.category_code.trim() !== '' ? values.category_code : null,
+        exam_type: values.exam_type && values.exam_type !== 'none' && values.exam_type.trim() !== '' ? values.exam_type : null,
         exam_date: values.exam_date || null,
-        class_id: values.class_id && values.class_id !== 'none' ? values.class_id : null,
+        class_id: values.class_id && values.class_id !== 'none' && values.class_id.trim() !== '' ? values.class_id : null,
         total_questions: values.total_questions ? parseInt(values.total_questions) : null,
         passing_score: values.passing_score ? parseFloat(values.passing_score) : null,
         description: values.description || null,
         is_recurring: values.is_recurring || false,
-        recurring_schedule: values.is_recurring && values.recurring_schedule && values.recurring_schedule !== 'none'
+        recurring_schedule: values.is_recurring && values.recurring_schedule && values.recurring_schedule !== 'none' && values.recurring_schedule.trim() !== ''
           ? values.recurring_schedule
           : null,
       }
