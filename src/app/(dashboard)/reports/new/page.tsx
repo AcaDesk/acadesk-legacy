@@ -12,7 +12,6 @@ import { Input } from '@ui/input'
 import { Badge } from '@ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { FileText, UserPlus, X } from 'lucide-react'
-import { PageWrapper } from "@/components/layout/page-wrapper"
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
@@ -159,25 +158,34 @@ export default function ReportsPage() {
   }
 
   return (
-    <PageWrapper
-      title="리포트 생성"
-      subtitle="학생별 주간/월간 성적 리포트를 자동 생성합니다"
-      actions={
-        <Button onClick={() => router.push('/reports')} variant="outline">
-          <FileText className="h-4 w-4 mr-2" />
-          리포트 목록
-        </Button>
-      }
-    >
-      <div className="max-w-2xl mx-auto">
-        <Card>
-          <CardHeader>
-            <CardTitle>리포트 생성</CardTitle>
-            <CardDescription>
-              학생과 기간을 선택하면 자동으로 리포트가 생성됩니다
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
+    <div className="p-6 lg:p-8 space-y-6">
+      {/* Header */}
+      <section aria-label="페이지 헤더" className="animate-in fade-in-50 slide-in-from-top-2 duration-500">
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">리포트 생성</h1>
+            <p className="text-muted-foreground mt-1">
+              학생별 주간/월간 성적 리포트를 자동 생성합니다
+            </p>
+          </div>
+          <Button onClick={() => router.push('/reports')} variant="outline">
+            <FileText className="h-4 w-4 mr-2" />
+            리포트 목록
+          </Button>
+        </div>
+      </section>
+
+      {/* Main Content */}
+      <section aria-label="리포트 생성 폼" className="animate-in fade-in-50 slide-in-from-bottom-2 duration-500" style={{ animationDelay: '100ms' }}>
+        <div className="max-w-2xl mx-auto space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>생성 설정</CardTitle>
+              <CardDescription>
+                학생과 기간을 선택하면 자동으로 리포트가 생성됩니다
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium mb-2 block">학생 선택</label>
@@ -307,6 +315,7 @@ export default function ReportsPage() {
                 onClick={generateReport}
                 disabled={generating || !selectedStudent}
                 className="flex-1"
+                size="lg"
               >
                 {generating ? '생성 중...' : '리포트 생성'}
               </Button>
@@ -314,23 +323,8 @@ export default function ReportsPage() {
           </CardContent>
         </Card>
 
-        {/* Select Student Dialog */}
-        <SelectStudentDialog
-          open={showSelectDialog}
-          onOpenChange={setShowSelectDialog}
-          value={selectedStudent}
-          onSelect={handleStudentSelect}
-          students={students.map(s => ({
-            id: s.id,
-            student_code: s.student_code,
-            name: s.users?.name || '이름 없음',
-            grade: null,
-          }))}
-          loading={loadingStudents}
-        />
-
         {/* Info Message */}
-        <Card className="mt-6">
+        <Card className="border-primary/50 bg-primary/5">
           <CardContent className="flex items-center gap-4 py-6">
             <div className="flex-shrink-0">
               <FileText className="h-10 w-10 text-primary" />
@@ -345,6 +339,22 @@ export default function ReportsPage() {
           </CardContent>
         </Card>
       </div>
-    </PageWrapper>
+      </section>
+
+      {/* Select Student Dialog */}
+      <SelectStudentDialog
+        open={showSelectDialog}
+        onOpenChange={setShowSelectDialog}
+        value={selectedStudent}
+        onSelect={handleStudentSelect}
+        students={students.map(s => ({
+          id: s.id,
+          student_code: s.student_code,
+          name: s.users?.name || '이름 없음',
+          grade: null,
+        }))}
+        loading={loadingStudents}
+      />
+    </div>
   )
 }
