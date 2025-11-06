@@ -20,9 +20,16 @@ import { SelectStudentDialog } from '@/components/features/reports/select-studen
 interface Student {
   id: string
   student_code: string
+  grade: string | null
+  school: string | null
   users: {
     name: string
   } | null
+  class_enrollments?: Array<{
+    classes: {
+      name: string
+    } | null
+  }>
 }
 
 export default function ReportsPage() {
@@ -351,7 +358,9 @@ export default function ReportsPage() {
           id: s.id,
           student_code: s.student_code,
           name: s.users?.name || '이름 없음',
-          grade: null,
+          grade: s.grade,
+          school: s.school,
+          classes: s.class_enrollments?.map(e => e.classes?.name).filter(Boolean) || [],
         }))}
         loading={loadingStudents}
       />

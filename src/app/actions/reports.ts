@@ -475,10 +475,19 @@ export async function getStudentsForReport() {
     // 2. Create service_role client
     const supabase = createServiceRoleClient()
 
-    // 3. Query students
+    // 3. Query students with additional info
     const { data, error } = await supabase
       .from('students')
-      .select('id, student_code, users!inner(name)')
+      .select(`
+        id,
+        student_code,
+        grade,
+        school,
+        users!inner(name),
+        class_enrollments!inner(
+          classes(name)
+        )
+      `)
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
       .order('student_code')
