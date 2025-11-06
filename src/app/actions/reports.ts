@@ -678,7 +678,7 @@ async function getScoresData(
       percentage,
       feedback,
       is_retest,
-      exams (
+      exams!inner (
         name,
         exam_date,
         category_code,
@@ -688,20 +688,20 @@ async function getScoresData(
       )
     `)
     .eq('student_id', studentId)
-    .gte('created_at', periodStart)
-    .lte('created_at', periodEnd)
-    .order('created_at', { ascending: false })
+    .gte('exams.exam_date', periodStart)
+    .lte('exams.exam_date', periodEnd)
+    .order('exams.exam_date', { ascending: false })
 
   // 이전 기간 성적
   const { data: previousScores } = await supabase
     .from('exam_scores')
     .select(`
       percentage,
-      exams (category_code, subject_id)
+      exams!inner (category_code, subject_id, exam_date)
     `)
     .eq('student_id', studentId)
-    .gte('created_at', prevPeriodStart)
-    .lte('created_at', prevPeriodEnd)
+    .gte('exams.exam_date', prevPeriodStart)
+    .lte('exams.exam_date', prevPeriodEnd)
 
   // 현재 기간의 반 평균 및 재시험률 조회 (카테고리별)
   const { data: classScores } = await supabase
@@ -715,8 +715,8 @@ async function getScoresData(
         exam_date
       )
     `)
-    .gte('created_at', periodStart)
-    .lte('created_at', periodEnd)
+    .gte('exams.exam_date', periodStart)
+    .lte('exams.exam_date', periodEnd)
 
   // 카테고리별로 그룹화
   interface CategoryDataMap {
@@ -931,15 +931,15 @@ async function getGradesChartData(
       score,
       total_score,
       percentage,
-      exams (
+      exams!inner (
         name,
         exam_date
       )
     `)
     .eq('student_id', studentId)
-    .gte('created_at', periodStart)
-    .lte('created_at', periodEnd)
-    .order('created_at', { ascending: true })
+    .gte('exams.exam_date', periodStart)
+    .lte('exams.exam_date', periodEnd)
+    .order('exams.exam_date', { ascending: true })
 
   if (!examScores || examScores.length === 0) {
     return []
@@ -1005,10 +1005,10 @@ async function getCurrentScoreData(
   // 현재 기간 내 모든 시험 점수 조회
   const { data: myScores } = await supabase
     .from('exam_scores')
-    .select('percentage')
+    .select('percentage, exams!inner(exam_date)')
     .eq('student_id', studentId)
-    .gte('created_at', periodStart)
-    .lte('created_at', periodEnd)
+    .gte('exams.exam_date', periodStart)
+    .lte('exams.exam_date', periodEnd)
 
   if (!myScores || myScores.length === 0) {
     return {
@@ -1025,9 +1025,9 @@ async function getCurrentScoreData(
   // 같은 기간 내 모든 학생들의 시험 점수 조회 (반 평균 계산용)
   const { data: allScores } = await supabase
     .from('exam_scores')
-    .select('percentage, student_id')
-    .gte('created_at', periodStart)
-    .lte('created_at', periodEnd)
+    .select('percentage, student_id, exams!inner(exam_date)')
+    .gte('exams.exam_date', periodStart)
+    .lte('exams.exam_date', periodEnd)
 
   let classAverage = myAverage
   let highestScore = myAverage
@@ -1087,17 +1087,17 @@ async function getScoreTrendData(
     // 해당 월의 학생 점수 조회 (is_retest 포함)
     const { data: myScores } = await supabase
       .from('exam_scores')
-      .select('percentage, is_retest')
+      .select('percentage, is_retest, exams!inner(exam_date)')
       .eq('student_id', studentId)
-      .gte('created_at', periodStart)
-      .lte('created_at', periodEnd)
+      .gte('exams.exam_date', periodStart)
+      .lte('exams.exam_date', periodEnd)
 
     // 해당 월의 반 평균 조회
     const { data: allScores } = await supabase
       .from('exam_scores')
-      .select('percentage')
-      .gte('created_at', periodStart)
-      .lte('created_at', periodEnd)
+      .select('percentage, exams!inner(exam_date)')
+      .gte('exams.exam_date', periodStart)
+      .lte('exams.exam_date', periodEnd)
 
     const myAverage =
       myScores && myScores.length > 0
