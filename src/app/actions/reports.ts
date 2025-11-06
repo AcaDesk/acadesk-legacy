@@ -153,7 +153,8 @@ export async function generateWeeklyReport(
       periodStartStr,
       periodEndStr,
       prevPeriodStartStr,
-      prevPeriodEndStr
+      prevPeriodEndStr,
+      tenantId
     )
 
     // 9. 강사 코멘트 생성
@@ -186,6 +187,7 @@ export async function generateWeeklyReport(
       name: string
       '학생 점수': number
       '반 평균': number
+      '재시험률'?: number
     }> = []
 
     const reportData: ReportData = {
@@ -251,17 +253,17 @@ export async function generateMonthlyReport(
     // 2. Create service_role client
     const supabase = createServiceRoleClient()
 
-    // 3. 기간 설정
-    const periodStart = new Date(year, month - 1, 1)
-    const periodEnd = new Date(year, month, 0)
-    const periodStartStr = periodStart.toISOString().split('T')[0]
-    const periodEndStr = periodEnd.toISOString().split('T')[0]
+    // 3. 기간 설정 (타임존 무관하게 날짜 문자열 직접 생성)
+    const lastDay = new Date(year, month, 0).getDate()
+    const periodStartStr = `${year}-${String(month).padStart(2, '0')}-01`
+    const periodEndStr = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
 
     // 이전 달 기간
-    const prevPeriodStart = new Date(year, month - 2, 1)
-    const prevPeriodEnd = new Date(year, month - 1, 0)
-    const prevPeriodStartStr = prevPeriodStart.toISOString().split('T')[0]
-    const prevPeriodEndStr = prevPeriodEnd.toISOString().split('T')[0]
+    const prevMonth = month === 1 ? 12 : month - 1
+    const prevYear = month === 1 ? year - 1 : year
+    const prevLastDay = new Date(prevYear, prevMonth, 0).getDate()
+    const prevPeriodStartStr = `${prevYear}-${String(prevMonth).padStart(2, '0')}-01`
+    const prevPeriodEndStr = `${prevYear}-${String(prevMonth).padStart(2, '0')}-${String(prevLastDay).padStart(2, '0')}`
 
     // 4. 학생 정보 조회
     const { data: studentData, error: studentError } = await supabase
@@ -312,7 +314,8 @@ export async function generateMonthlyReport(
       periodStartStr,
       periodEndStr,
       prevPeriodStartStr,
-      prevPeriodEndStr
+      prevPeriodEndStr,
+      tenantId
     )
 
     // 9. 강사 코멘트 생성
@@ -623,10 +626,10 @@ async function getAttendanceData(
 ) {
   const { data } = await supabase
     .from('attendance')
-    .select('status')
+    .select('status, attendance_date')
     .eq('student_id', studentId)
-    .gte('created_at', periodStart)
-    .lte('created_at', periodEnd)
+    .gte('attendance_date', periodStart)
+    .lte('attendance_date', periodEnd)
 
   const total = data?.length || 0
   const present = data?.filter((a) => a.status === 'present').length || 0
@@ -669,7 +672,8 @@ async function getScoresData(
   periodStart: string,
   periodEnd: string,
   prevPeriodStart: string,
-  prevPeriodEnd: string
+  prevPeriodEnd: string,
+  tenantId: string
 ) {
   // 현재 기간 성적 - 모든 성적을 가져온 후 exam_date로 필터링
   const { data: allCurrentScores } = await supabase
@@ -724,6 +728,7 @@ async function getScoresData(
         exam_date
       )
     `)
+    .eq('tenant_id', tenantId)
 
   // JavaScript에서 exam_date로 필터링
   const classScores = allClassScores?.filter((score: any) => {
@@ -1113,8 +1118,10 @@ async function getScoreTrendData(
     const targetYear = targetDate.getFullYear()
     const targetMonth = targetDate.getMonth() + 1
 
-    const periodStart = new Date(targetYear, targetMonth - 1, 1).toISOString().split('T')[0]
-    const periodEnd = new Date(targetYear, targetMonth, 0).toISOString().split('T')[0]
+    // 타임존 무관하게 날짜 문자열 직접 생성
+    const lastDay = new Date(targetYear, targetMonth, 0).getDate()
+    const periodStart = `${targetYear}-${String(targetMonth).padStart(2, '0')}-01`
+    const periodEnd = `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
 
     // 해당 월의 학생 점수 조회 (is_retest 포함)
     const { data: allMyScores } = await supabase
