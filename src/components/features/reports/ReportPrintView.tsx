@@ -228,8 +228,12 @@ ${reportData.comment.nextGoals}`
                           className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2 text-xs sm:text-sm"
                         >
                           <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2">
-                            <span className="text-muted-foreground text-xs">{test.date}</span>
-                            <span className="hidden sm:inline">-</span>
+                            {test.date && (
+                              <>
+                                <span className="text-muted-foreground text-xs">{test.date}</span>
+                                <span className="hidden sm:inline">-</span>
+                              </>
+                            )}
                             <span className="truncate">{test.name}</span>
                           </div>
                           <div className="font-medium">{test.percentage}%</div>

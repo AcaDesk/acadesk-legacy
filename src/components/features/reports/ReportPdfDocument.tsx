@@ -468,7 +468,7 @@ export function ReportPdfDocument({
                       {score.tests.map((test, testIdx) => (
                         <View key={testIdx} style={styles.testItem}>
                           <Text style={styles.testName}>
-                            {formatKoreanDateShort(test.date)} - {test.name}
+                            {test.date && formatKoreanDateShort(test.date) ? `${formatKoreanDateShort(test.date)} - ` : ''}{test.name}
                           </Text>
                           <Text style={styles.testScore}>{test.percentage}%</Text>
                         </View>
