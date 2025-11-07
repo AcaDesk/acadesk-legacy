@@ -558,11 +558,12 @@ ${reportData.comment.nextGoals}`
                     <div className="flex items-center gap-4">
                       <div className="text-right">
                         <div className="text-2xl font-bold">{score.current}%</div>
-                        {score.average !== null && (
+                        {/* 임시 숨김: 반 평균 */}
+                        {/* {score.average !== null && (
                           <div className="text-xs text-muted-foreground">
                             반 평균: {score.average}%
                           </div>
-                        )}
+                        )} */}
                         {score.retestRate !== null && score.retestRate > 0 && (
                           <div className="text-xs text-orange-600">
                             재시험률: {score.retestRate}%
