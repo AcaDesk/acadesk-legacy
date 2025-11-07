@@ -311,16 +311,12 @@ export function ReportPdfDocument({
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        {/* Header: Academy & Student Info */}
+        {/* Header: Report Title & Period */}
         <View>
-          <Text style={styles.academyName}>{reportData.academy.name}</Text>
-          {(reportData.academy.phone || reportData.academy.address) && (
-            <Text style={styles.academyInfo}>
-              {reportData.academy.phone && `📞 ${reportData.academy.phone}`}
-              {reportData.academy.phone && reportData.academy.address && ' • '}
-              {reportData.academy.address && `📍 ${reportData.academy.address}`}
-            </Text>
-          )}
+          <Text style={styles.academyName}>월간 리포트</Text>
+          <Text style={styles.academyInfo}>
+            {formatDate(periodStart)} ~ {formatDate(periodEnd)}
+          </Text>
         </View>
 
         <View style={styles.separator} />
@@ -330,7 +326,7 @@ export function ReportPdfDocument({
             {studentName} ({studentCode})
           </Text>
           <Text style={styles.studentSubHeader}>
-            {studentGrade} | {formatDate(periodStart)} ~ {formatDate(periodEnd)}
+            {studentGrade}
           </Text>
         </View>
 

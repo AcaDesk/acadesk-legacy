@@ -86,15 +86,28 @@ export function ReportShareViewer(props: ReportShareViewerProps) {
     },
   }
 
+  // Format period dates
+  const formatPeriodDate = (dateStr: string) => {
+    const date = new Date(dateStr)
+    const year = date.getFullYear()
+    const month = date.getMonth() + 1
+    const day = date.getDate()
+    return `${year}년 ${month}월 ${day}일`
+  }
+
+  const periodStartFormatted = formatPeriodDate(props.periodStart)
+  const periodEndFormatted = formatPeriodDate(props.periodEnd)
+
   return (
     <div className="min-h-screen bg-muted/20 py-4 sm:py-8 px-3 sm:px-4">
       <div className="max-w-5xl mx-auto space-y-6">
         <div className="text-center space-y-2">
-          <h1 className="text-2xl sm:text-3xl font-bold text-primary">{props.academyName}</h1>
-          <p className="text-sm text-muted-foreground">학생 학습 리포트</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-primary">월간 리포트</h1>
+          <p className="text-sm text-muted-foreground">{periodStartFormatted} ~ {periodEndFormatted}</p>
         </div>
 
-        <div className="flex justify-end print:hidden">
+        {/* PDF 다운로드 기능 임시 비활성화 */}
+        {/* <div className="flex justify-end print:hidden">
           <Button
             variant="outline"
             onClick={handlePdfDownload}
@@ -104,7 +117,7 @@ export function ReportShareViewer(props: ReportShareViewerProps) {
             <Download className="h-4 w-4" />
             {instance.loading ? 'PDF 생성 중...' : 'PDF 다운로드'}
           </Button>
-        </div>
+        </div> */}
 
         <ReportViewer
           reportData={viewerData}
