@@ -813,12 +813,10 @@ async function getScoresData(
     // 그룹화 키: subject_id가 있으면 subject 우선, 없으면 category 사용
     const groupKey = subjectId ? `subject_${subjectId}` : `category_${categoryCode}`
 
-    // 라벨: 과목명이 있으면 "과목명 - 카테고리", 없으면 카테고리만
+    // 라벨: 과목명이 있으면 과목명만, 없으면 카테고리명
     const subjectName = examScore.exams?.subjects?.name
     const categoryLabel = examScore.exams?.ref_exam_categories?.label || categoryCode || ''
-    const displayLabel = subjectName
-      ? (categoryLabel ? `${subjectName} - ${categoryLabel}` : subjectName)
-      : categoryLabel
+    const displayLabel = subjectName || categoryLabel
 
     if (!categories.has(groupKey)) {
       categories.set(groupKey, {
