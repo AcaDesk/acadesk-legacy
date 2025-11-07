@@ -59,9 +59,9 @@ export default function EditExamTemplatePage() {
 
   // All Hooks must be called before any early returns
   const [name, setName] = useState('')
-  const [subjectId, setSubjectId] = useState('')
-  const [categoryCode, setCategoryCode] = useState('')
-  const [examType, setExamType] = useState('')
+  const [subjectId, setSubjectId] = useState('none')
+  const [categoryCode, setCategoryCode] = useState('none')
+  const [examType, setExamType] = useState('none')
   const [totalQuestions, setTotalQuestions] = useState('')
   const [passingScore, setPassingScore] = useState('')
   const [recurringSchedule, setRecurringSchedule] = useState('weekly')
@@ -106,9 +106,9 @@ export default function EditExamTemplatePage() {
 
       // Populate form fields
       setName(data.name || '')
-      setSubjectId(data.subject_id || '')
-      setCategoryCode(data.category_code || '')
-      setExamType(data.exam_type || '')
+      setSubjectId(data.subject_id || 'none')
+      setCategoryCode(data.category_code || 'none')
+      setExamType(data.exam_type || 'none')
       setTotalQuestions(data.total_questions?.toString() || '')
       setPassingScore(data.passing_score?.toString() || '')
       setRecurringSchedule(data.recurring_schedule || 'weekly')
@@ -195,9 +195,9 @@ export default function EditExamTemplatePage() {
     try {
       const templateData: Partial<ExamTemplateData> = {
         name,
-        subject_id: subjectId || null,
-        category_code: categoryCode || null,
-        exam_type: examType || null,
+        subject_id: subjectId && subjectId !== 'none' ? subjectId : null,
+        category_code: categoryCode && categoryCode !== 'none' ? categoryCode : null,
+        exam_type: examType && examType !== 'none' ? examType : null,
         total_questions: totalQuestions ? parseInt(totalQuestions) : null,
         passing_score: passingScore ? parseFloat(passingScore) : null,
         recurring_schedule: recurringSchedule,
