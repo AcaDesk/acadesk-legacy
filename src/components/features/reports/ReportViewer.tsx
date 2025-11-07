@@ -116,6 +116,41 @@ interface ReportViewerProps {
   showEditButton?: boolean
 }
 
+const CustomAxisTick = (props: any) => {
+  const { x, y, payload } = props;
+  const { value } = payload; // value가 "국어", "영어" 등 라벨 텍스트입니다.
+
+  // 텍스트를 공백 기준으로 나눕니다.
+  const words = String(value).split(' ');
+
+  // 단어가 1개이거나(예: "평균") 빈 값이면 그냥 한 줄로 표시
+  if (words.length === 1 || !value) {
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <text x={0} y={0} dy={16} textAnchor="middle" fill="hsl(var(--muted-foreground))" fontSize={12}>
+          {value}
+        </text>
+      </g>
+    );
+  }
+
+  // 2단어 이상이면 (예: "데이터 과학") 2줄로 나눔
+  // 첫 번째 단어만 첫 줄에, 나머지는 두 번째 줄에 표시
+  const line1 = words[0];
+  const line2 = words.slice(1).join(' ');
+
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text x={0} y={0} dy={16} textAnchor="middle" fill="hsl(var(--muted-foreground))" fontSize={12}>
+        {/* 첫 번째 줄 */}
+        <tspan x={0} dy="0em">{line1}</tspan>
+        {/* 두 번째 줄 (1.2em 만큼 아래로 내림) */}
+        <tspan x={0} dy="1.2em">{line2}</tspan>
+      </text>
+    </g>
+  );
+};
+
 export function ReportViewer({ reportData, onEditComment, showEditButton = false }: ReportViewerProps) {
   function getTrendIcon(change: number | null) {
     if (change === null) return <Minus className="h-4 w-4" />
@@ -416,7 +451,8 @@ ${reportData.comment.nextGoals}`
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-64">
+            {/* 1. 차트 높이를 h-64에서 h-72로 늘려줍니다 (2줄 라벨 공간 확보) */}
+            <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={[
                   ...reportData.scores.map((score) => ({
@@ -432,13 +468,19 @@ ${reportData.comment.nextGoals}`
                   },
                 ]}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+                  
+                  {/* 2. XAxis 컴포넌트를 아래와 같이 수정합니다. */}
                   <XAxis
                     dataKey="name"
                     stroke="hsl(var(--muted-foreground))"
-                    fontSize={12}
+                    // fontSize={12} // 이 속성은 CustomAxisTick에서 제어하므로 삭제 가능
                     tickLine={false}
                     axisLine={false}
+                    interval={0} // 모든 라벨 표시
+                    tick={<CustomAxisTick />} // ★★★ 커스텀 틱 적용
+                    height={30} // ★★★ 2줄 라벨을 위한 X축 높이 지정
                   />
+                  
                   <YAxis
                     stroke="hsl(var(--muted-foreground))"
                     fontSize={12}
