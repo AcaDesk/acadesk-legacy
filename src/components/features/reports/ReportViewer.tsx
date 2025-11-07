@@ -276,7 +276,7 @@ ${reportData.comment.nextGoals}`
                     <td className="py-4 px-2 text-center">
                       <span className="text-3xl font-bold text-primary">
                         {Math.round(
-                          reportData.scores.reduce((sum, s) => sum + s.current, 0) /
+                          reportData.scores.reduce((sum, s) => sum + (s.current || 0), 0) /
                           reportData.scores.length
                         )}
                       </span>

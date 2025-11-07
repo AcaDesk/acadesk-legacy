@@ -798,14 +798,24 @@ async function getScoresData(
   currentScores?.forEach((score) => {
     const examScore = score as unknown as ExamScoreWithDetails & { is_retest?: boolean }
     const subjectId = examScore.exams?.subject_id || null
-    const categoryCode = examScore.exams?.category_code || ''
+    const categoryCode = examScore.exams?.category_code || null
+
+    // category_code와 subject_id가 모두 null인 시험은 건너뛰기
+    // (미분류 시험은 리포트에 포함하지 않음)
+    if (!subjectId && !categoryCode) {
+      console.log('[getScoresData] Skipping exam without category or subject:', {
+        examName: examScore.exams?.name,
+        percentage: examScore.percentage,
+      })
+      return
+    }
 
     // 그룹화 키: subject_id가 있으면 subject 우선, 없으면 category 사용
     const groupKey = subjectId ? `subject_${subjectId}` : `category_${categoryCode}`
 
     // 라벨: 과목명이 있으면 "과목명 - 카테고리", 없으면 카테고리만
     const subjectName = examScore.exams?.subjects?.name
-    const categoryLabel = examScore.exams?.ref_exam_categories?.label || categoryCode
+    const categoryLabel = examScore.exams?.ref_exam_categories?.label || categoryCode || ''
     const displayLabel = subjectName
       ? (categoryLabel ? `${subjectName} - ${categoryLabel}` : subjectName)
       : categoryLabel
@@ -841,7 +851,13 @@ async function getScoresData(
   previousScores?.forEach((score) => {
     const examScore = score as unknown as ExamScoreBasicType
     const subjectId = examScore.exams?.subject_id || null
-    const categoryCode = examScore.exams?.category_code || ''
+    const categoryCode = examScore.exams?.category_code || null
+
+    // category_code와 subject_id가 모두 null인 시험은 건너뛰기
+    if (!subjectId && !categoryCode) {
+      return
+    }
+
     const groupKey = subjectId ? `subject_${subjectId}` : `category_${categoryCode}`
 
     if (!prevAverages.has(groupKey)) {
@@ -858,7 +874,13 @@ async function getScoresData(
   classScores?.forEach((score) => {
     const typedScore = score as unknown as { percentage: number; is_retest?: boolean; exams?: { category_code: string; subject_id: string | null } }
     const subjectId = typedScore.exams?.subject_id || null
-    const categoryCode = typedScore.exams?.category_code || ''
+    const categoryCode = typedScore.exams?.category_code || null
+
+    // category_code와 subject_id가 모두 null인 시험은 건너뛰기
+    if (!subjectId && !categoryCode) {
+      return
+    }
+
     const groupKey = subjectId ? `subject_${subjectId}` : `category_${categoryCode}`
 
     if (!classAverages.has(groupKey)) {
