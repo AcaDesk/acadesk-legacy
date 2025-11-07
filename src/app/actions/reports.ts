@@ -797,26 +797,30 @@ async function getScoresData(
 
   currentScores?.forEach((score) => {
     const examScore = score as unknown as ExamScoreWithDetails & { is_retest?: boolean }
-    const subjectId = examScore.exams?.subject_id || null
-    const categoryCode = examScore.exams?.category_code || null
 
-    // category_code와 subject_id가 모두 null인 시험은 건너뛰기
-    // (미분류 시험은 리포트에 포함하지 않음)
-    if (!subjectId && !categoryCode) {
-      console.log('[getScoresData] Skipping exam without category or subject:', {
+    // percentage가 null인 시험은 건너뛰기 (점수 미입력)
+    if (examScore.percentage === null) {
+      console.log('[getScoresData] Skipping exam without score:', {
         examName: examScore.exams?.name,
-        percentage: examScore.percentage,
       })
       return
     }
 
-    // 그룹화 키: subject_id가 있으면 subject 우선, 없으면 category 사용
-    const groupKey = subjectId ? `subject_${subjectId}` : `category_${categoryCode}`
+    const subjectId = examScore.exams?.subject_id || null
+    const categoryCode = examScore.exams?.category_code || null
+    const examName = examScore.exams?.name || '시험'
 
-    // 라벨: 과목명이 있으면 과목명만, 없으면 카테고리명
+    // 그룹화 키: subject_id가 있으면 subject 우선, category 있으면 category, 없으면 시험명 사용
+    const groupKey = subjectId
+      ? `subject_${subjectId}`
+      : categoryCode
+        ? `category_${categoryCode}`
+        : `exam_${examName}`
+
+    // 라벨: 과목명 > 카테고리명 > 시험명 우선순위
     const subjectName = examScore.exams?.subjects?.name
     const categoryLabel = examScore.exams?.ref_exam_categories?.label || categoryCode || ''
-    const displayLabel = subjectName || categoryLabel
+    const displayLabel = subjectName || categoryLabel || examName
 
     if (!categories.has(groupKey)) {
       categories.set(groupKey, {
@@ -848,15 +852,21 @@ async function getScoresData(
   const prevAverages = new Map<string, number[]>()
   previousScores?.forEach((score) => {
     const examScore = score as unknown as ExamScoreBasicType
-    const subjectId = examScore.exams?.subject_id || null
-    const categoryCode = examScore.exams?.category_code || null
 
-    // category_code와 subject_id가 모두 null인 시험은 건너뛰기
-    if (!subjectId && !categoryCode) {
+    // percentage가 null인 시험은 건너뛰기
+    if (examScore.percentage === null) {
       return
     }
 
-    const groupKey = subjectId ? `subject_${subjectId}` : `category_${categoryCode}`
+    const subjectId = examScore.exams?.subject_id || null
+    const categoryCode = examScore.exams?.category_code || null
+    const examName = (examScore.exams as any)?.name || '시험'
+
+    const groupKey = subjectId
+      ? `subject_${subjectId}`
+      : categoryCode
+        ? `category_${categoryCode}`
+        : `exam_${examName}`
 
     if (!prevAverages.has(groupKey)) {
       prevAverages.set(groupKey, [])
@@ -870,16 +880,22 @@ async function getScoresData(
   // 카테고리별 반 평균 및 재시험률 계산
   const classAverages = new Map<string, { percentages: number[]; retestCount: number; totalCount: number }>()
   classScores?.forEach((score) => {
-    const typedScore = score as unknown as { percentage: number; is_retest?: boolean; exams?: { category_code: string; subject_id: string | null } }
-    const subjectId = typedScore.exams?.subject_id || null
-    const categoryCode = typedScore.exams?.category_code || null
+    const typedScore = score as unknown as { percentage: number; is_retest?: boolean; exams?: { category_code: string; subject_id: string | null; name?: string } }
 
-    // category_code와 subject_id가 모두 null인 시험은 건너뛰기
-    if (!subjectId && !categoryCode) {
+    // percentage가 null인 시험은 건너뛰기
+    if (typedScore.percentage === null) {
       return
     }
 
-    const groupKey = subjectId ? `subject_${subjectId}` : `category_${categoryCode}`
+    const subjectId = typedScore.exams?.subject_id || null
+    const categoryCode = typedScore.exams?.category_code || null
+    const examName = typedScore.exams?.name || '시험'
+
+    const groupKey = subjectId
+      ? `subject_${subjectId}`
+      : categoryCode
+        ? `category_${categoryCode}`
+        : `exam_${examName}`
 
     if (!classAverages.has(groupKey)) {
       classAverages.set(groupKey, { percentages: [], retestCount: 0, totalCount: 0 })
