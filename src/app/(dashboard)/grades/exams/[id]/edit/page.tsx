@@ -32,13 +32,16 @@ export default async function EditExamPage({ params }: PageProps) {
   // Convert to form default values
   const defaultValues = {
     name: exam.name,
-    category_code: exam.category_code || '',
-    exam_type: exam.exam_type || '',
+    subject_id: exam.subject_id || undefined,
+    category_code: exam.category_code || undefined,
+    exam_type: exam.exam_type || undefined,
     exam_date: exam.exam_date || '',
-    class_id: exam.class_id || '',
+    class_id: exam.class_id || undefined,
     total_questions: exam.total_questions?.toString() || '',
     passing_score: exam.passing_score?.toString() || '',
     description: exam.description || '',
+    is_recurring: exam.is_recurring || false,
+    recurring_schedule: exam.recurring_schedule || undefined,
   }
 
   return (

@@ -312,7 +312,7 @@ export function ExamForm({ mode, examId, defaultValues, onSuccess }: ExamFormPro
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>과목</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value || undefined}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="과목 선택" />
@@ -435,7 +435,7 @@ export function ExamForm({ mode, examId, defaultValues, onSuccess }: ExamFormPro
                         </DialogContent>
                       </Dialog>
                     </div>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value || undefined}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="분류 선택" />
@@ -461,7 +461,7 @@ export function ExamForm({ mode, examId, defaultValues, onSuccess }: ExamFormPro
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>시험 유형</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value || undefined}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="유형 선택" />
@@ -634,7 +634,7 @@ export function ExamForm({ mode, examId, defaultValues, onSuccess }: ExamFormPro
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>반복 주기</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value || undefined}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="주기 선택" />
