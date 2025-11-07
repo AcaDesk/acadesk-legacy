@@ -57,9 +57,9 @@ interface ExamTemplateData {
 export default function NewExamTemplatePage() {
   // All Hooks must be called before any early returns
   const [name, setName] = useState('')
-  const [subjectId, setSubjectId] = useState('')
-  const [categoryCode, setCategoryCode] = useState('')
-  const [examType, setExamType] = useState('')
+  const [subjectId, setSubjectId] = useState('none')
+  const [categoryCode, setCategoryCode] = useState('none')
+  const [examType, setExamType] = useState('none')
   const [totalQuestions, setTotalQuestions] = useState('')
   const [passingScore, setPassingScore] = useState('')
   const [recurringSchedule, setRecurringSchedule] = useState('weekly')
@@ -241,7 +241,7 @@ export default function NewExamTemplatePage() {
 
             <div className="space-y-2">
               <Label htmlFor="subject">과목</Label>
-              <Select value={subjectId || undefined} onValueChange={setSubjectId}>
+              <Select value={subjectId} onValueChange={setSubjectId}>
                 <SelectTrigger id="subject">
                   <SelectValue placeholder="과목 선택" />
                 </SelectTrigger>
@@ -272,8 +272,8 @@ export default function NewExamTemplatePage() {
               <div className="space-y-2">
                 <Label htmlFor="category">시험 분류</Label>
                 <Select
-                  value={categoryCode || undefined}
-                  onValueChange={(value) => setCategoryCode(value === 'none' ? '' : value)}
+                  value={categoryCode}
+                  onValueChange={setCategoryCode}
                 >
                   <SelectTrigger id="category">
                     <SelectValue placeholder="분류 선택" />
@@ -292,8 +292,8 @@ export default function NewExamTemplatePage() {
               <div className="space-y-2">
                 <Label htmlFor="examType">시험 유형</Label>
                 <Select
-                  value={examType || undefined}
-                  onValueChange={(value) => setExamType(value === 'none' ? '' : value)}
+                  value={examType}
+                  onValueChange={setExamType}
                 >
                   <SelectTrigger id="examType">
                     <SelectValue placeholder="유형 선택" />
