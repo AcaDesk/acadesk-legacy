@@ -150,6 +150,7 @@ export async function getExamById(examId: string) {
       .select(`
         id,
         name,
+        subject_id,
         category_code,
         exam_type,
         exam_date,
