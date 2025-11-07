@@ -293,20 +293,39 @@ export async function updateExam(
       }
     }
 
-    // 4. Update exam
+    // 4. Prepare update data (convert empty strings to null)
+    const updateData: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    }
+
+    // Only include fields that are provided and convert empty strings to null
+    if (input.name !== undefined) updateData.name = input.name
+    if (input.subject_id !== undefined) updateData.subject_id = input.subject_id || null
+    if (input.category_code !== undefined) {
+      updateData.category_code = input.category_code && input.category_code.trim() !== ''
+        ? input.category_code
+        : null
+    }
+    if (input.exam_type !== undefined) updateData.exam_type = input.exam_type || null
+    if (input.exam_date !== undefined) updateData.exam_date = input.exam_date || null
+    if (input.class_id !== undefined) updateData.class_id = input.class_id || null
+    if (input.total_questions !== undefined) updateData.total_questions = input.total_questions || null
+    if (input.passing_score !== undefined) updateData.passing_score = input.passing_score || null
+    if (input.description !== undefined) updateData.description = input.description || null
+    if (input.is_recurring !== undefined) updateData.is_recurring = input.is_recurring || false
+    if (input.recurring_schedule !== undefined) updateData.recurring_schedule = input.recurring_schedule || null
+
+    // 5. Update exam
     const { error: updateError } = await serviceClient
       .from('exams')
-      .update({
-        ...input,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', examId)
 
     if (updateError) {
       throw updateError
     }
 
-    // 5. Revalidate pages
+    // 6. Revalidate pages
     revalidatePath('/grades/exams')
     revalidatePath(`/grades/exams/${examId}`)
     revalidatePath('/grades')
