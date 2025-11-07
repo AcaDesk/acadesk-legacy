@@ -138,9 +138,9 @@ export default function NewExamTemplatePage() {
       const templateData: ExamTemplateData = {
         tenant_id: currentUser.tenantId,
         name,
-        subject_id: subjectId || null,
-        category_code: categoryCode || null,
-        exam_type: examType || null,
+        subject_id: subjectId && subjectId !== 'none' ? subjectId : null,
+        category_code: categoryCode && categoryCode !== 'none' ? categoryCode : null,
+        exam_type: examType && examType !== 'none' ? examType : null,
         total_questions: totalQuestions ? parseInt(totalQuestions) : null,
         passing_score: passingScore ? parseFloat(passingScore) : null,
         recurring_schedule: recurringSchedule,
