@@ -138,7 +138,7 @@ export function generateReportSmsMessage(params: {
   const contactInfo = academyPhone ? `\n문의: ${academyPhone}` : ''
 
   // SMS 버전 (90바이트 이내)
-  const smsMessage = `[${academyInfo}] ${studentName} ${month ? `${month}월 ` : ''}${reportType}표가 도착했습니다.\n확인: ${shortUrl}${contactInfo}`
+  const smsMessage = `[${academyInfo}] ${studentName} ${month ? `${month}월 ` : ''}${reportType}표\n${shortUrl}`
 
   // LMS 버전 (더 상세한 안내)
   const lmsMessage = `[${academyInfo} 성적 리포트]

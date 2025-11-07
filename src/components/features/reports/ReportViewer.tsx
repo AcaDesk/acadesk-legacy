@@ -591,7 +591,11 @@ ${reportData.comment.nextGoals}`
                             )}
                             {test.name}
                           </div>
-                          <div className="font-medium">{test.percentage}%</div>
+                          <div className="font-medium">
+                            {test.percentage !== null ? `${test.percentage}%` : (
+                              <span className="text-muted-foreground">미입력</span>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
