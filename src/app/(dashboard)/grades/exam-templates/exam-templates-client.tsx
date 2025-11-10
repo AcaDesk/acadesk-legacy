@@ -259,9 +259,14 @@ export function ExamTemplatesClient() {
     if (!currentUser) return
 
     try {
-      // Calculate next exam date based on recurring schedule
-      const examDate = calculateNextExamDate(template.recurring_schedule)
+      // Use today's date for manual exam creation (not calculateNextExamDate)
+      // recurring_schedule is for automatic recurring generation, not manual creation
+      const examDate = new Date()
       const examName = `${template.name} (${examDate.getFullYear()}.${String(examDate.getMonth() + 1).padStart(2, '0')}.${String(examDate.getDate()).padStart(2, '0')})`
+
+      // Format date for database (YYYY-MM-DD) without timezone issues
+      // Do NOT use toISOString() as it converts to UTC and can change the date
+      const examDateStr = `${examDate.getFullYear()}-${String(examDate.getMonth() + 1).padStart(2, '0')}-${String(examDate.getDate()).padStart(2, '0')}`
 
       const newExam = {
         tenant_id: currentUser.tenantId,
@@ -273,7 +278,7 @@ export function ExamTemplatesClient() {
         passing_score: template.passing_score,
         class_id: template.class_id,
         description: template.description,
-        exam_date: examDate.toISOString().split('T')[0],
+        exam_date: examDateStr,
         is_recurring: false,
       }
 
