@@ -489,7 +489,10 @@ export function ExamForm({ mode, examId, defaultValues, onSuccess }: ExamFormPro
                 name="exam_date"
                 render={({ field }) => {
                   // Convert string (YYYY-MM-DD) to Date for DatePicker
-                  const dateValue = field.value ? parse(field.value, 'yyyy-MM-dd', new Date()) : undefined
+                  // Handle empty strings safely
+                  const dateValue = field.value && field.value.trim() !== ''
+                    ? parse(field.value, 'yyyy-MM-dd', new Date())
+                    : undefined
 
                   return (
                     <FormItem>
