@@ -228,7 +228,7 @@ export const BREADCRUMB_CONFIG: BreadcrumbConfig = {
   '/classes/[id]/edit': '반 수정',
 
   // Grades (성적)
-  '/grades': '성적 관리',
+  '/grades': '시험 관리',
   '/grades/entry': '성적 입력',
   '/grades/list': '성적 목록',
   '/grades/exams': '시험 목록',

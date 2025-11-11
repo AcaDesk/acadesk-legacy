@@ -11,17 +11,20 @@ export const metadata: Metadata = {
 }
 
 interface PageProps {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
 export default async function EditExamPage({ params }: PageProps) {
   // Verify authentication
   await requireAuth()
 
+  // Get exam ID from params
+  const { id: examId } = await params
+
   // Fetch exam data
-  const result = await getExamById(params.id)
+  const result = await getExamById(examId)
 
   if (!result.success || !result.data) {
     notFound()
@@ -54,7 +57,7 @@ export default async function EditExamPage({ params }: PageProps) {
         </div>
 
         {/* Form */}
-        <ExamForm mode="edit" examId={params.id} defaultValues={defaultValues} />
+        <ExamForm mode="edit" examId={examId} defaultValues={defaultValues} />
       </div>
     </PageWrapper>
   )
