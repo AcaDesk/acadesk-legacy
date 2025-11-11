@@ -38,7 +38,7 @@ export default async function EditExamPage({ params }: PageProps) {
     subject_id: exam.subject_id || undefined,
     category_code: exam.category_code || undefined,
     exam_type: exam.exam_type || undefined,
-    exam_date: exam.exam_date || '',
+    exam_date: exam.exam_date || undefined,
     class_id: exam.class_id || undefined,
     total_questions: exam.total_questions?.toString() || '',
     passing_score: exam.passing_score?.toString() || '',
