@@ -31,6 +31,8 @@ import { GradesLineChart } from '@/components/features/charts/grades-line-chart'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
+import { EmptyState, NoSearchResultsEmptyState } from '@ui/empty-state'
+import { FileText, ClipboardList } from 'lucide-react'
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -451,54 +453,73 @@ export function GradesListClient() {
         </div>
 
         {/* Filters */}
-        <div className="flex flex-col gap-4 sm:flex-row">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="학생 이름, 학번, 시험명으로 검색..."
-              value={searchValue}
-              onChange={(e) => table.getColumn('students')?.setFilterValue(e.target.value)}
-              className="pl-10"
-            />
-            {searchValue && (
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="학생 이름, 학번, 시험명으로 검색..."
+                value={searchValue}
+                onChange={(e) => table.getColumn('students')?.setFilterValue(e.target.value)}
+                className="pl-10"
+              />
+              {searchValue && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                  onClick={() => table.getColumn('students')?.setFilterValue('')}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+            <Badge variant="secondary" className="h-10 px-4 flex items-center whitespace-nowrap">
+              {table.getFilteredRowModel().rows.length}개 결과
+            </Badge>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">필터:</span>
+            <Select value={selectedStudent} onValueChange={setSelectedStudent}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="학생 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">전체 학생</SelectItem>
+                {students.map((student) => (
+                  <SelectItem key={student.id} value={student.id}>
+                    {student.student_code} - {student.users?.name || '이름 없음'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="처리 상태" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">전체 상태</SelectItem>
+                <SelectItem value="pending">입력 대기</SelectItem>
+                <SelectItem value="completed">완료</SelectItem>
+                <SelectItem value="retest_required">재시험 필요</SelectItem>
+                <SelectItem value="retest_waived">재시험 면제</SelectItem>
+              </SelectContent>
+            </Select>
+            {(selectedStudent !== 'all' || selectedStatus !== 'all') && (
               <Button
                 variant="ghost"
-                size="icon"
-                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-                onClick={() => table.getColumn('students')?.setFilterValue('')}
+                size="sm"
+                onClick={() => {
+                  setSelectedStudent('all')
+                  setSelectedStatus('all')
+                }}
+                className="text-muted-foreground"
               >
-                <X className="h-4 w-4" />
+                <X className="h-4 w-4 mr-1" />
+                필터 초기화
               </Button>
             )}
           </div>
-          <Select value={selectedStudent} onValueChange={setSelectedStudent}>
-            <SelectTrigger className="w-full sm:w-[200px]">
-              <SelectValue placeholder="학생 선택" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">전체 학생</SelectItem>
-              {students.map((student) => (
-                <SelectItem key={student.id} value={student.id}>
-                  {student.student_code} - {student.users?.name || '이름 없음'}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <SelectValue placeholder="처리 상태" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">전체 상태</SelectItem>
-              <SelectItem value="pending">입력 대기</SelectItem>
-              <SelectItem value="completed">완료</SelectItem>
-              <SelectItem value="retest_required">재시험 필요</SelectItem>
-              <SelectItem value="retest_waived">재시험 면제</SelectItem>
-            </SelectContent>
-          </Select>
-          <Badge variant="secondary" className="h-10 px-4 flex items-center whitespace-nowrap">
-            {table.getFilteredRowModel().rows.length}개 결과
-          </Badge>
         </div>
 
         {/* Statistics Cards */}
@@ -601,11 +622,24 @@ export function GradesListClient() {
                       <TableCell colSpan={columns.length} className="h-24 text-center">
                         {loading ? (
                           <div className="text-muted-foreground">로딩 중...</div>
+                        ) : searchValue ? (
+                          <NoSearchResultsEmptyState
+                            searchTerm={searchValue}
+                            onClearSearch={() => table.getColumn('students')?.setFilterValue('')}
+                            icon={Search}
+                          />
                         ) : (
-                          <div className="text-center py-12 text-muted-foreground">
-                            <p>등록된 성적이 없습니다.</p>
-                            {searchValue && <p className="text-sm mt-2">검색 결과가 없습니다.</p>}
-                          </div>
+                          <EmptyState
+                            icon={ClipboardList}
+                            title="등록된 성적이 없습니다"
+                            description="시험을 등록하고 학생들의 성적을 입력하세요"
+                            action={
+                              <Button onClick={() => router.push('/grades')}>
+                                <Plus className="h-4 w-4 mr-2" />
+                                시험 관리로 이동
+                              </Button>
+                            }
+                          />
                         )}
                       </TableCell>
                     </TableRow>
