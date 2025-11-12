@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
+import { Input } from '@ui/input'
 import {
   Edit,
   PenSquare,
@@ -16,12 +17,15 @@ import {
   Trash2,
   Tag,
   Repeat,
+  Search,
+  X,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { AssignStudentsDialog } from '@/components/features/exams/assign-students-dialog'
 import { createClient } from '@/lib/supabase/client'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
+import { EmptyState } from '@ui/empty-state'
 
 interface Exam {
   id: string
@@ -65,6 +69,20 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [studentToRemove, setStudentToRemove] = useState<{ id: string; name: string } | null>(null)
   const [isRemoving, setIsRemoving] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+
+  // Filter students based on search
+  const filteredStudents = useMemo(() => {
+    if (!searchTerm) return students
+
+    return students.filter((student) => {
+      const name = student.name?.toLowerCase() || ''
+      const code = student.student_code?.toLowerCase() || ''
+      const search = searchTerm.toLowerCase()
+
+      return name.includes(search) || code.includes(search)
+    })
+  }, [students, searchTerm])
 
   function getExamTypeLabel(type: string | null) {
     if (!type) return '미선택'
@@ -210,7 +228,7 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
       </div>
 
       {/* Exam Info Cards */}
-      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
         <Card>
           <CardHeader className="pb-3">
             <CardDescription className="flex items-center gap-2">
@@ -286,17 +304,45 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
       {/* Students List */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>배정된 학생</CardTitle>
-              <CardDescription>
-                이 시험에 배정된 학생들입니다. 성적 입력 시 이 학생들만 표시됩니다.
-              </CardDescription>
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>배정된 학생</CardTitle>
+                <CardDescription>
+                  이 시험에 배정된 학생들입니다. 성적 입력 시 이 학생들만 표시됩니다.
+                </CardDescription>
+              </div>
+              <Button onClick={() => setShowAssignDialog(true)}>
+                <UserPlus className="h-4 w-4 mr-2" />
+                학생 배정
+              </Button>
             </div>
-            <Button onClick={() => setShowAssignDialog(true)}>
-              <UserPlus className="h-4 w-4 mr-2" />
-              학생 배정
-            </Button>
+            {students.length > 0 && (
+              <div className="flex items-center gap-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="학생 이름, 학번으로 검색..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                  {searchTerm && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                      onClick={() => setSearchTerm('')}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                <Badge variant="secondary" className="h-10 px-4 flex items-center whitespace-nowrap">
+                  {filteredStudents.length}명
+                </Badge>
+              </div>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -305,17 +351,24 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
               로딩 중...
             </div>
           ) : students.length === 0 ? (
-            <div className="text-center py-12">
-              <Users className="h-12 w-12 mx-auto mb-4 opacity-50 text-muted-foreground" />
-              <p className="text-muted-foreground mb-4">아직 배정된 학생이 없습니다.</p>
-              <Button onClick={() => setShowAssignDialog(true)}>
-                <UserPlus className="h-4 w-4 mr-2" />
-                학생 배정하기
-              </Button>
+            <EmptyState
+              icon={Users}
+              title="배정된 학생이 없습니다"
+              description="학생을 배정하면 성적을 입력할 수 있습니다"
+              action={
+                <Button onClick={() => setShowAssignDialog(true)}>
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  학생 배정하기
+                </Button>
+              }
+            />
+          ) : filteredStudents.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <p>검색 결과가 없습니다.</p>
             </div>
           ) : (
             <div className="space-y-2">
-              {students.map((student) => (
+              {filteredStudents.map((student) => (
                 <div
                   key={student.id}
                   className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
