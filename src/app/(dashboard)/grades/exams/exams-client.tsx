@@ -14,10 +14,25 @@ import {
   TableHeader,
   TableRow,
 } from '@ui/table'
-import { Plus, Edit, Trash2, FileText, Search, PenSquare, UserPlus } from 'lucide-react'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@ui/select'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@ui/dropdown-menu'
+import { Plus, Edit, Trash2, FileText, Search, PenSquare, UserPlus, ClipboardList, X, MoreVertical } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { deleteExam } from '@/app/actions/exams'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
+import { EmptyState, NoSearchResultsEmptyState } from '@ui/empty-state'
 
 interface Exam {
   id: string
@@ -54,22 +69,39 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState<string>('all')
+  const [selectedType, setSelectedType] = useState<string>('all')
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [examToDelete, setExamToDelete] = useState<{ id: string; name: string } | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  // Filter exams based on search
+  // Filter exams based on search, category, and type
   const filteredExams = useMemo(() => {
-    if (!searchTerm) return initialExams
+    let filtered = initialExams
 
-    return initialExams.filter((exam) => {
-      const name = exam.name?.toLowerCase() || ''
-      const description = exam.description?.toLowerCase() || ''
-      const search = searchTerm.toLowerCase()
+    // Search filter
+    if (searchTerm) {
+      filtered = filtered.filter((exam) => {
+        const name = exam.name?.toLowerCase() || ''
+        const description = exam.description?.toLowerCase() || ''
+        const search = searchTerm.toLowerCase()
 
-      return name.includes(search) || description.includes(search)
-    })
-  }, [initialExams, searchTerm])
+        return name.includes(search) || description.includes(search)
+      })
+    }
+
+    // Category filter
+    if (selectedCategory !== 'all') {
+      filtered = filtered.filter((exam) => exam.category_code === selectedCategory)
+    }
+
+    // Type filter
+    if (selectedType !== 'all') {
+      filtered = filtered.filter((exam) => exam.exam_type === selectedType)
+    }
+
+    return filtered
+  }, [initialExams, searchTerm, selectedCategory, selectedType])
 
   function handleDeleteClick(id: string, name: string) {
     setExamToDelete({ id, name })
@@ -174,20 +206,79 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
         </Card>
       </div>
 
-      {/* Search */}
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="시험명, 설명으로 검색..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
+      {/* Search and Filters */}
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="시험명, 설명으로 검색..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+            {searchTerm && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                onClick={() => setSearchTerm('')}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+          <Badge variant="secondary" className="h-10 px-4 flex items-center whitespace-nowrap">
+            {filteredExams.length}개 시험
+          </Badge>
         </div>
-        <Badge variant="secondary" className="h-10 px-4 flex items-center">
-          {filteredExams.length}개 시험
-        </Badge>
+
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-muted-foreground whitespace-nowrap">필터:</span>
+          <Select value={selectedType} onValueChange={setSelectedType}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="시험 유형" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">전체 유형</SelectItem>
+              <SelectItem value="vocabulary">단어시험</SelectItem>
+              <SelectItem value="midterm">중간고사</SelectItem>
+              <SelectItem value="final">기말고사</SelectItem>
+              <SelectItem value="quiz">퀴즈</SelectItem>
+              <SelectItem value="mock">모의고사</SelectItem>
+              <SelectItem value="assignment">과제</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="시험 분류" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">전체 분류</SelectItem>
+              {categories.map((category) => (
+                <SelectItem key={category.code} value={category.code}>
+                  {category.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {(selectedType !== 'all' || selectedCategory !== 'all') && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSelectedType('all')
+                setSelectedCategory('all')
+              }}
+              className="text-muted-foreground"
+            >
+              <X className="h-4 w-4 mr-1" />
+              필터 초기화
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Exams Table */}
@@ -200,11 +291,25 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
         </CardHeader>
         <CardContent>
           {filteredExams.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>등록된 시험이 없습니다.</p>
-              {searchTerm && <p className="text-sm mt-2">검색 결과가 없습니다.</p>}
-            </div>
+            searchTerm ? (
+              <NoSearchResultsEmptyState
+                searchTerm={searchTerm}
+                onClearSearch={() => setSearchTerm('')}
+                icon={Search}
+              />
+            ) : (
+              <EmptyState
+                icon={ClipboardList}
+                title="등록된 시험이 없습니다"
+                description="새로운 시험을 등록하여 학생들의 성적을 관리하세요"
+                action={
+                  <Button onClick={() => router.push('/grades/exams/new')}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    시험 등록
+                  </Button>
+                }
+              />
+            )
           ) : (
             <div className="border rounded-lg overflow-hidden">
               <Table>
@@ -264,38 +369,36 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => router.push(`/grades/exams/${exam.id}`)}
-                          >
-                            <UserPlus className="h-4 w-4 mr-2" />
-                            학생 배정
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => router.push(`/grades/exams/${exam.id}/bulk-entry`)}
-                          >
-                            <PenSquare className="h-4 w-4 mr-2" />
-                            성적 입력
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => router.push(`/grades/exams/${exam.id}/edit`)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteClick(exam.id, exam.name)}
-                          >
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                          </Button>
-                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreVertical className="h-4 w-4" />
+                              <span className="sr-only">메뉴 열기</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => router.push(`/grades/exams/${exam.id}`)}>
+                              <UserPlus className="h-4 w-4 mr-2" />
+                              학생 배정
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => router.push(`/grades/exams/${exam.id}/bulk-entry`)}>
+                              <PenSquare className="h-4 w-4 mr-2" />
+                              성적 입력
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => router.push(`/grades/exams/${exam.id}/edit`)}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              시험 수정
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => handleDeleteClick(exam.id, exam.name)}
+                              className="text-red-600 focus:text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              시험 삭제
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))}
