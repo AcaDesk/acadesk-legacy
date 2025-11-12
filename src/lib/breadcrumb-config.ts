@@ -238,7 +238,6 @@ export const BREADCRUMB_CONFIG: BreadcrumbConfig = {
   '/grades/exams/[examId]/bulk-entry': '성적 일괄 입력',
   '/grades/exam-templates': '시험 템플릿',
   '/grades/exam-templates/new': '시험 템플릿 등록',
-  '/grades/exam-templates/[id]': '시험 템플릿 수정',
   '/grades/exam-templates/[id]/edit': '시험 템플릿 수정',
   '/grades/retests': '재시험 관리',
 
