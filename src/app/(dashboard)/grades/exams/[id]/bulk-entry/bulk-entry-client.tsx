@@ -519,7 +519,7 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
         {/* Header - Sticky */}
         <section
           aria-label="페이지 헤더"
-          className={`${PAGE_ANIMATIONS.header} flex items-start justify-between sticky top-0 z-20 -mt-6 pt-6 pb-4 px-6 mb-2 bg-background/95 backdrop-blur-sm border rounded-xl shadow-md transition-all duration-200`}
+          className={`${PAGE_ANIMATIONS.header} flex items-start justify-between sticky top-0 z-20 py-4 px-6 -mx-6 bg-background/95 backdrop-blur-sm border-b shadow-sm transition-all duration-200`}
         >
           <div className="space-y-1">
             <h1 className="text-2xl font-bold">성적 일괄 입력</h1>
@@ -829,7 +829,7 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
           <CardContent>
             <div className="border rounded-lg max-h-[560px] overflow-auto">
               <table className="w-full">
-                <thead className="sticky top-0 z-10 bg-muted">
+                <thead className="sticky top-0 z-10 bg-background border-b">
                   <tr>
                     <th className="text-left p-3 text-xs font-medium text-muted-foreground">학번</th>
                     <th className="text-left p-3 text-xs font-medium text-muted-foreground">이름</th>
@@ -853,9 +853,9 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
                         {...getListItemAnimation(index, 20)}
                         className={cn(
                           'hover:bg-muted/30 transition-colors',
-                          isNotEntered && 'bg-orange-50/50 dark:bg-orange-950/10',
-                          isOver && 'bg-red-50/60 dark:bg-red-950/20',
-                          activeStudentId === student.id && 'bg-primary/5 border-l-2 border-primary'
+                          isNotEntered && !isOver && activeStudentId !== student.id && 'bg-orange-50/50 dark:bg-orange-950/10',
+                          isOver && activeStudentId !== student.id && 'bg-red-50/60 dark:bg-red-950/20',
+                          activeStudentId === student.id && 'bg-primary/10 border-l-4 border-primary shadow-sm'
                         )}
                       >
                         <td className="p-3">
