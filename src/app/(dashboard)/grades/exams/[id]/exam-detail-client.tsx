@@ -600,9 +600,9 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
               <p>검색 결과가 없습니다.</p>
             </div>
           ) : (
-            <div className="rounded-md border">
+            <div className="rounded-md border max-h-[560px] overflow-auto">
               <Table>
-                <TableHeader>
+                <TableHeader className="sticky top-0 bg-background z-10">
                   <TableRow>
                     <TableHead className="w-[180px]">학생</TableHead>
                     <TableHead className="w-[120px]">학번</TableHead>
