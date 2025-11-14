@@ -526,9 +526,19 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
             <p className="text-base text-muted-foreground">{exam.name}</p>
           </div>
           <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="autoSaveHeader"
+                checked={autoSave}
+                onCheckedChange={(checked) => setAutoSave(checked as boolean)}
+              />
+              <Label htmlFor="autoSaveHeader" className="text-sm cursor-pointer">
+                자동 저장
+              </Label>
+            </div>
             {autoSave && (
-              <span className="text-xs text-muted-foreground hidden md:block">
-                입력 후 3초 동안 변경이 없으면 자동 저장됨
+              <span className="text-xs text-muted-foreground hidden lg:block">
+                (3초마다)
               </span>
             )}
             {lastSaved && (
@@ -536,6 +546,7 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
                 마지막 저장: {lastSaved.toLocaleTimeString('ko-KR')}
               </span>
             )}
+            <Separator orientation="vertical" className="h-6" />
             <Button
               variant="outline"
               onClick={() => handleSave(false, false)}
@@ -750,19 +761,6 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
 
                 <Separator orientation="vertical" className="h-6" />
 
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="autoSave"
-                    checked={autoSave}
-                    onCheckedChange={(checked) => setAutoSave(checked as boolean)}
-                  />
-                  <Label htmlFor="autoSave" className="text-sm cursor-pointer">
-                    자동 저장 (3초마다)
-                  </Label>
-                </div>
-
-                <Separator orientation="vertical" className="h-6" />
-
                 <Button
                   variant="outline"
                   size="sm"
@@ -772,7 +770,7 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
                   코멘트 일괄 적용
                 </Button>
 
-                <div className="ml-auto hidden lg:flex items-center gap-2">
+                <div className="hidden lg:flex items-center gap-2">
                   <AlertCircle className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">
                     Enter/Tab으로 다음 칸 이동 | 맞은 개수 → 전체 문항 → 피드백 순서
@@ -831,7 +829,7 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
           <CardContent>
             <div className="border rounded-lg max-h-[560px] overflow-auto">
               <table className="w-full">
-                <thead className="sticky top-0 z-10 bg-muted/70 backdrop-blur-sm">
+                <thead className="sticky top-0 z-10 bg-muted">
                   <tr>
                     <th className="text-left p-3 text-xs font-medium text-muted-foreground">학번</th>
                     <th className="text-left p-3 text-xs font-medium text-muted-foreground">이름</th>
@@ -908,7 +906,7 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
                               isNotEntered && 'border-orange-300 focus:border-orange-500 dark:border-orange-800',
                               state === 'over' && 'border-red-500 focus-visible:ring-red-500'
                             )}
-                            autoFocus={index === 0}
+                            autoFocus={index === 0 && !searchTerm && gradeFilter === 'all' && statusFilter === 'all'}
                           />
                         </td>
                         <td className="p-3">
