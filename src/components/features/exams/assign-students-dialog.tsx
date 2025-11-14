@@ -66,6 +66,13 @@ export function AssignStudentsDialog({
     }
   }, [open, examId])
 
+  // Reset state when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setSelectedIds([])
+    }
+  }, [open])
+
   async function loadStudents() {
     if (!currentUser || !currentUser.tenantId) return
 
@@ -290,7 +297,7 @@ export function AssignStudentsDialog({
               classId
                 ? [
                     {
-                      label: '수업 학생 전체 선택',
+                      label: '수업 배정 학생 모두 선택',
                       icon: <Users className="h-4 w-4 mr-2" />,
                       onClick: handleAssignFromClass,
                     },
