@@ -141,6 +141,41 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
     })
   }, [students, scores, gradeFilter, statusFilter, searchTerm])
 
+  // Calculate score statistics
+  const totalAssigned = students.length
+  const enteredCount = useMemo(() => {
+    return Array.from(scores.values()).filter(
+      (s) => s.score !== null && s.total_points !== null
+    ).length
+  }, [scores])
+
+  const notEnteredCount = totalAssigned - enteredCount
+  const hasAnyScore = enteredCount > 0
+  const hasQuestions = typeof exam.total_questions === 'number' && exam.total_questions > 0
+
+  const averagePercentage = useMemo(() => {
+    if (enteredCount === 0) return 0
+    const scoresWithPercentage = Array.from(scores.values()).filter(
+      (s) => s.percentage !== null
+    )
+    if (scoresWithPercentage.length === 0) return 0
+    const sum = scoresWithPercentage.reduce((acc, s) => acc + (s.percentage || 0), 0)
+    return Math.round(sum / scoresWithPercentage.length)
+  }, [scores, enteredCount])
+
+  const progressLabel =
+    totalAssigned === 0
+      ? '학생 미배정'
+      : enteredCount === 0
+      ? '성적 미입력'
+      : enteredCount === totalAssigned
+      ? '성적 입력 완료'
+      : `성적 입력 중 (${enteredCount}/${totalAssigned})`
+
+  const passingLabel = exam.passing_score
+    ? `${exam.passing_score}점 이상`
+    : '미설정 (기본 70점 사용)'
+
   function getExamTypeLabel(type: string | null) {
     if (!type) return '미선택'
     const typeMap: Record<string, string> = {
