@@ -154,8 +154,8 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
         .filter(score => score.correct && score.total)
         .map(score => ({
           student_id: score.student_id,
-          score: parseInt(score.correct),
-          total_points: parseInt(score.total),
+          score: safeParseInt(score.correct),
+          total_points: safeParseInt(score.total),
           percentage: score.percentage,
           feedback: score.feedback || null,
         }))
@@ -251,8 +251,8 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
         feedback: '',
       }
 
-      const correct = parseInt(value) || 0
-      const total = parseInt(current.total) || 0
+      const correct = safeParseInt(value)
+      const total = safeParseInt(current.total)
       const percentage = total > 0 ? Math.round((correct / total) * 100) : 0
 
       newMap.set(studentId, {
@@ -276,8 +276,8 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
         feedback: '',
       }
 
-      const correct = parseInt(current.correct) || 0
-      const total = parseInt(value) || 0
+      const correct = safeParseInt(current.correct)
+      const total = safeParseInt(value)
       const percentage = total > 0 ? Math.round((correct / total) * 100) : 0
 
       newMap.set(studentId, {
@@ -385,64 +385,93 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
   }
 
   // Get unique grades from students
-  const availableGrades = Array.from(new Set(students.map(s => s.grade).filter(Boolean))).sort()
+  const availableGrades = useMemo(
+    () => Array.from(new Set(students.map(s => s.grade).filter(Boolean))).sort(),
+    [students]
+  )
 
-  const filteredStudents = students.filter(student => {
-    // Grade filter
-    if (gradeFilter !== 'all' && student.grade !== gradeFilter) {
-      return false
+  // Memoize score list to avoid repeated Array.from calls
+  const scoreList = useMemo(() => Array.from(scores.values()), [scores])
+
+  // Memoize stats calculation
+  const stats = useMemo(() => {
+    const enteredList = scoreList.filter(s => s.correct && s.total)
+    const enteredCount = enteredList.length
+
+    const passedCount = enteredList.filter(s => s.percentage >= 70).length
+    const failedCount = enteredList.filter(
+      s => s.percentage > 0 && s.percentage < 70
+    ).length
+
+    return {
+      total: students.length,
+      entered: enteredCount,
+      passed: passedCount,
+      failed: failedCount,
+      notEntered: students.length - enteredCount,
     }
+  }, [scoreList, students])
 
-    // Status filter
-    const score = scores.get(student.id)
-    const hasScore = score && score.correct && score.total
+  // Memoize progress percentage
+  const progressPercentage = useMemo(
+    () => (stats.total > 0 ? Math.round((stats.entered / stats.total) * 100) : 0),
+    [stats]
+  )
 
-    switch (statusFilter) {
-      case 'not-entered':
-        // 미입력만 보기
-        return !hasScore
-      case 'entered':
-        // 입력 완료만 보기
-        return hasScore
-      case 'passed':
-        // 합격만 보기 (70점 이상)
-        return hasScore && score.percentage >= 70
-      case 'failed':
-        // 미달만 보기 (70점 미만)
-        return hasScore && score.percentage > 0 && score.percentage < 70
-      case 'excellent':
-        // 우수만 보기 (90점 이상)
-        return hasScore && score.percentage >= 90
-      default:
-        // 전체 보기
-        return true
+  // Memoize distribution calculation
+  const distribution = useMemo(() => {
+    return {
+      range90: scoreList.filter(s => s.percentage >= 90).length,
+      range80: scoreList.filter(s => s.percentage >= 80 && s.percentage < 90).length,
+      range70: scoreList.filter(s => s.percentage >= 70 && s.percentage < 80).length,
+      range60: scoreList.filter(s => s.percentage >= 60 && s.percentage < 70).length,
+      range0: scoreList.filter(s => s.percentage > 0 && s.percentage < 60).length,
     }
-  })
+  }, [scoreList])
 
-  const stats = {
-    total: students.length,
-    entered: Array.from(scores.values()).filter(s => s.correct && s.total).length,
-    passed: Array.from(scores.values()).filter(s => s.percentage >= 70).length,
-    failed: Array.from(scores.values()).filter(s => s.percentage > 0 && s.percentage < 70).length,
-    notEntered: students.length - Array.from(scores.values()).filter(s => s.correct && s.total).length,
-  }
+  // Memoize average score
+  const averageScore = useMemo(() => {
+    if (stats.entered === 0) return 0
+    const sum = scoreList
+      .filter(s => s.percentage > 0)
+      .reduce((acc, s) => acc + s.percentage, 0)
+    return Math.round(sum / stats.entered)
+  }, [scoreList, stats.entered])
 
-  const progressPercentage = stats.total > 0 ? Math.round((stats.entered / stats.total) * 100) : 0
+  // Filter students based on grade and status
+  const filteredStudents = useMemo(() => {
+    return students.filter(student => {
+      // Grade filter
+      if (gradeFilter !== 'all' && student.grade !== gradeFilter) {
+        return false
+      }
 
-  // 성적 분포 계산
-  const distribution = {
-    range90: Array.from(scores.values()).filter(s => s.percentage >= 90).length,
-    range80: Array.from(scores.values()).filter(s => s.percentage >= 80 && s.percentage < 90).length,
-    range70: Array.from(scores.values()).filter(s => s.percentage >= 70 && s.percentage < 80).length,
-    range60: Array.from(scores.values()).filter(s => s.percentage >= 60 && s.percentage < 70).length,
-    range0: Array.from(scores.values()).filter(s => s.percentage > 0 && s.percentage < 60).length,
-  }
+      // Status filter
+      const score = scores.get(student.id)
+      const hasScore = score && score.correct && score.total
 
-  const averageScore = stats.entered > 0
-    ? Math.round(Array.from(scores.values())
-        .filter(s => s.percentage > 0)
-        .reduce((sum, s) => sum + s.percentage, 0) / stats.entered)
-    : 0
+      switch (statusFilter) {
+        case 'not-entered':
+          // 미입력만 보기
+          return !hasScore
+        case 'entered':
+          // 입력 완료만 보기
+          return hasScore
+        case 'passed':
+          // 합격만 보기 (70점 이상)
+          return hasScore && score.percentage >= 70
+        case 'failed':
+          // 미달만 보기 (70점 미만)
+          return hasScore && score.percentage > 0 && score.percentage < 70
+        case 'excellent':
+          // 우수만 보기 (90점 이상)
+          return hasScore && score.percentage >= 90
+        default:
+          // 전체 보기
+          return true
+      }
+    })
+  }, [students, gradeFilter, statusFilter, scores])
 
   return (
     <PageWrapper>
