@@ -226,6 +226,7 @@ export function AssignStudentsDialog({
       })
 
       onSuccess()
+      onOpenChange(false)
     } catch (error) {
       console.error('Error assigning students:', error)
       toast({
@@ -233,6 +234,7 @@ export function AssignStudentsDialog({
         description: '학생을 배정하는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
+      // Error case: keep dialog open so user can retry
     } finally {
       setSaving(false)
     }
