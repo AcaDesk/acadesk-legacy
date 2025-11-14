@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef, KeyboardEvent, useCallback } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useState, useEffect, useRef, KeyboardEvent, useCallback, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
@@ -53,11 +53,16 @@ interface BulkGradeEntryClientProps {
   exam: Exam
 }
 
+// Safe number parsing utility
+const safeParseInt = (value: string): number => {
+  const n = parseInt(value, 10)
+  return Number.isNaN(n) ? 0 : n
+}
+
 export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
   // All Hooks must be called before any early returns
   const router = useRouter()
   const { toast } = useToast()
-  const supabase = createClient()
   const { user: currentUser, isLoading: isUserLoading } = useCurrentUser()
   const [students, setStudents] = useState<Student[]>([])
   const [scores, setScores] = useState<Map<string, ScoreEntry>>(new Map())
@@ -82,6 +87,8 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
 
     try {
       setLoading(true)
+
+      const supabase = createClient()
 
       // Get students assigned to this exam (from exam_scores table)
       const { data: examScores, error: scoresError } = await supabase
@@ -138,7 +145,7 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
     } finally {
       setLoading(false)
     }
-  }, [exam.id, supabase, toast, currentUser])
+  }, [exam.id, toast, currentUser])
 
   const handleSave = useCallback(async (navigateAfterSave = false, silent = false) => {
     setSaving(true)
