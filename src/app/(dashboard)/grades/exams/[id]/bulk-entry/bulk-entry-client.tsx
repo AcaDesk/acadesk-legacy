@@ -75,6 +75,7 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
   const [showBulkFeedback, setShowBulkFeedback] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [showDistribution, setShowDistribution] = useState(true)
+  const [activeStudentId, setActiveStudentId] = useState<string | null>(null)
 
   const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map())
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
@@ -486,6 +487,11 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
             <p className="text-base text-muted-foreground">{exam.name}</p>
           </div>
           <div className="flex items-center gap-3">
+            {autoSave && (
+              <span className="text-xs text-muted-foreground hidden md:block">
+                입력 후 3초 동안 변경이 없으면 자동 저장됨
+              </span>
+            )}
             {lastSaved && (
               <span className="text-sm text-muted-foreground">
                 마지막 저장: {lastSaved.toLocaleTimeString('ko-KR')}
@@ -497,7 +503,7 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
               disabled={saving}
             >
               <Save className="h-4 w-4 mr-2" />
-              {saving ? '저장 중...' : '저장'}
+              {saving ? '저장 중...' : autoSave ? '지금 바로 저장' : '저장'}
             </Button>
             <Button onClick={() => handleSave(true, false)} disabled={saving}>
               <Save className="h-4 w-4 mr-2" />
@@ -787,9 +793,11 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
                       <tr
                         key={student.id}
                         {...getListItemAnimation(index, 20)}
-                        className={`hover:bg-muted/30 transition-colors ${
-                          isNotEntered ? 'bg-orange-50/50 dark:bg-orange-950/10' : ''
-                        }`}
+                        className={cn(
+                          'hover:bg-muted/30 transition-colors',
+                          isNotEntered && 'bg-orange-50/50 dark:bg-orange-950/10',
+                          activeStudentId === student.id && 'bg-primary/5 border-l-2 border-primary'
+                        )}
                       >
                         <td className="p-3">
                           <div className="flex items-center gap-2">
@@ -832,6 +840,7 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
                             value={score?.correct || ''}
                             onChange={(e) => handleCorrectChange(student.id, e.target.value)}
                             onKeyDown={(e) => handleKeyDown(e, student.id, 'correct')}
+                            onFocus={() => setActiveStudentId(student.id)}
                             placeholder="0"
                             className={`h-9 text-sm text-center ${
                               isNotEntered ? 'border-orange-300 focus:border-orange-500 dark:border-orange-800' : ''
@@ -849,6 +858,7 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
                             value={score?.total || ''}
                             onChange={(e) => handleTotalChange(student.id, e.target.value)}
                             onKeyDown={(e) => handleKeyDown(e, student.id, 'total')}
+                            onFocus={() => setActiveStudentId(student.id)}
                             placeholder={exam?.total_questions?.toString() || '0'}
                             className="h-9 text-sm text-center"
                           />
@@ -877,6 +887,7 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
                             value={score?.feedback || ''}
                             onChange={(e) => handleFeedbackChange(student.id, e.target.value)}
                             onKeyDown={(e) => handleKeyDown(e, student.id, 'feedback')}
+                            onFocus={() => setActiveStudentId(student.id)}
                             placeholder="선택사항"
                             className="h-9 text-sm"
                           />
