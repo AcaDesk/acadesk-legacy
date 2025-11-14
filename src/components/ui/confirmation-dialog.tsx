@@ -36,7 +36,7 @@ export interface ConfirmationDialogProps {
    * 모달 설명 (부가 설명)
    * @example "이 작업은 되돌릴 수 없습니다."
    */
-  description?: string
+  description?: React.ReactNode
 
   /**
    * [확인] 버튼 클릭 시 실행될 함수

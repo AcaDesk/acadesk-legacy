@@ -92,11 +92,17 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
   const [loading, setLoading] = useState(true)
   const [showAssignDialog, setShowAssignDialog] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [studentToRemove, setStudentToRemove] = useState<{ id: string; name: string } | null>(null)
+  const [studentToRemove, setStudentToRemove] = useState<{
+    id: string
+    name: string
+    hasScore: boolean
+    scoreData?: ScoreData
+  } | null>(null)
   const [isRemoving, setIsRemoving] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [gradeFilter, setGradeFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [undoTimeoutId, setUndoTimeoutId] = useState<NodeJS.Timeout | null>(null)
 
   // Get unique grades from students
   const availableGrades = useMemo(() => {
@@ -265,14 +271,66 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
   }
 
   function handleRemoveClick(studentId: string, studentName: string) {
-    setStudentToRemove({ id: studentId, name: studentName })
+    const score = scores.get(studentId)
+    const hasScore = score && score.correct !== null && score.total !== null
+
+    setStudentToRemove({
+      id: studentId,
+      name: studentName,
+      hasScore: !!hasScore,
+      scoreData: hasScore ? score : undefined,
+    })
     setDeleteDialogOpen(true)
+  }
+
+  async function handleUndo(removedData: {
+    id: string
+    name: string
+    scoreData?: ScoreData
+  }) {
+    if (!currentUser || !currentUser.tenantId) return
+
+    // Clear any existing undo timeout
+    if (undoTimeoutId) {
+      clearTimeout(undoTimeoutId)
+      setUndoTimeoutId(null)
+    }
+
+    try {
+      // Restore the student score record
+      const { error } = await supabase.from('exam_scores').insert({
+        tenant_id: currentUser.tenantId,
+        exam_id: exam.id,
+        student_id: removedData.id,
+        correct: removedData.scoreData?.correct || null,
+        total: removedData.scoreData?.total || null,
+        percentage: removedData.scoreData?.percentage || null,
+      })
+
+      if (error) throw error
+
+      toast({
+        title: '복구 완료',
+        description: `${removedData.name} 학생이 복구되었습니다.`,
+      })
+
+      loadStudents()
+    } catch (error) {
+      console.error('Error undoing removal:', error)
+      toast({
+        title: '복구 오류',
+        description: '학생을 복구하는 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      })
+    }
   }
 
   async function handleConfirmRemove() {
     if (!currentUser || !currentUser.tenantId || !studentToRemove) return
 
+    const removedData = { ...studentToRemove }
     setIsRemoving(true)
+
     try {
       const { error } = await supabase
         .from('exam_scores')
@@ -283,10 +341,29 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
 
       if (error) throw error
 
-      toast({
+      // Show toast with undo button
+      const { dismiss } = toast({
         title: '제외 완료',
         description: `${studentToRemove.name} 학생이 시험에서 제외되었습니다.`,
+        action: (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              dismiss()
+              handleUndo(removedData)
+            }}
+          >
+            되돌리기
+          </Button>
+        ),
       })
+
+      // Set timeout to prevent undo after 10 seconds
+      const timeoutId = setTimeout(() => {
+        setUndoTimeoutId(null)
+      }, 10000)
+      setUndoTimeoutId(timeoutId)
 
       loadStudents()
     } catch (error) {
@@ -658,7 +735,26 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         title="학생을 시험에서 제외하시겠습니까?"
-        description={studentToRemove ? `"${studentToRemove.name}" 학생의 성적 데이터도 함께 삭제됩니다. 이 작업은 되돌릴 수 없습니다.` : ''}
+        description={
+          studentToRemove ? (
+            <div className="space-y-2">
+              <p>"{studentToRemove.name}" 학생을 시험에서 제외합니다.</p>
+              {studentToRemove.hasScore && studentToRemove.scoreData && (
+                <div className="p-3 rounded-md bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800">
+                  <p className="text-sm font-semibold text-red-800 dark:text-red-200 mb-1">
+                    ⚠️ 입력된 성적도 함께 삭제됩니다
+                  </p>
+                  <p className="text-sm text-red-700 dark:text-red-300">
+                    득점률: {studentToRemove.scoreData.percentage}% ({studentToRemove.scoreData.correct}/{studentToRemove.scoreData.total})
+                  </p>
+                </div>
+              )}
+              <p className="text-sm text-muted-foreground">
+                제외 후 10초 이내에 "되돌리기" 버튼으로 복구할 수 있습니다.
+              </p>
+            </div>
+          ) : ''
+        }
         confirmText="제외"
         variant="destructive"
         isLoading={isRemoving}
