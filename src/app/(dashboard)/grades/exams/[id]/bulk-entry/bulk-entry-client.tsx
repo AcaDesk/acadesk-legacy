@@ -12,7 +12,7 @@ import { Label } from '@ui/label'
 import { Progress } from '@ui/progress'
 import { Textarea } from '@ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
-import { Save, AlertCircle, Copy, TrendingUp, BarChart } from 'lucide-react'
+import { Save, AlertCircle, Copy, TrendingUp, BarChart, ChevronDown, ChevronUp } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { PageWrapper } from "@/components/layout/page-wrapper"
@@ -69,6 +69,7 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
   const [bulkFeedback, setBulkFeedback] = useState('')
   const [showBulkFeedback, setShowBulkFeedback] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  const [showDistribution, setShowDistribution] = useState(true)
 
   const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map())
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
@@ -539,52 +540,66 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
         {stats.entered > 0 && (
           <section aria-label="성적 분포" {...PAGE_ANIMATIONS.getSection(2)}>
             <Card>
-              <CardHeader className="pb-4">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <BarChart className="h-4 w-4" />
-                  성적 분포
-                </CardTitle>
-                <CardDescription className="text-sm">점수 구간별 학생 수</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium">90~100점</span>
-                      <span className="text-sm text-muted-foreground">{distribution.range90}명</span>
-                    </div>
-                    <Progress value={(distribution.range90 / stats.entered) * 100} className="h-2" />
+              <CardHeader
+                className="pb-4 cursor-pointer hover:bg-muted/50 transition-colors rounded-t-lg"
+                onClick={() => setShowDistribution(!showDistribution)}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <BarChart className="h-4 w-4" />
+                    <CardTitle className="text-base font-semibold">성적 분포</CardTitle>
                   </div>
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium">80~89점</span>
-                      <span className="text-sm text-muted-foreground">{distribution.range80}명</span>
-                    </div>
-                    <Progress value={(distribution.range80 / stats.entered) * 100} className="h-2" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium">70~79점</span>
-                      <span className="text-sm text-muted-foreground">{distribution.range70}명</span>
-                    </div>
-                    <Progress value={(distribution.range70 / stats.entered) * 100} className="h-2" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium">60~69점</span>
-                      <span className="text-sm text-muted-foreground">{distribution.range60}명</span>
-                    </div>
-                    <Progress value={(distribution.range60 / stats.entered) * 100} className="h-2" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium">0~59점</span>
-                      <span className="text-sm text-muted-foreground">{distribution.range0}명</span>
-                    </div>
-                    <Progress value={(distribution.range0 / stats.entered) * 100} className="h-2" />
-                  </div>
+                  {showDistribution ? (
+                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  )}
                 </div>
-              </CardContent>
+                {showDistribution && (
+                  <CardDescription className="text-sm">점수 구간별 학생 수</CardDescription>
+                )}
+              </CardHeader>
+              {showDistribution && (
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-medium">90~100점</span>
+                        <span className="text-sm text-muted-foreground">{distribution.range90}명</span>
+                      </div>
+                      <Progress value={(distribution.range90 / stats.entered) * 100} className="h-2" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-medium">80~89점</span>
+                        <span className="text-sm text-muted-foreground">{distribution.range80}명</span>
+                      </div>
+                      <Progress value={(distribution.range80 / stats.entered) * 100} className="h-2" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-medium">70~79점</span>
+                        <span className="text-sm text-muted-foreground">{distribution.range70}명</span>
+                      </div>
+                      <Progress value={(distribution.range70 / stats.entered) * 100} className="h-2" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-medium">60~69점</span>
+                        <span className="text-sm text-muted-foreground">{distribution.range60}명</span>
+                      </div>
+                      <Progress value={(distribution.range60 / stats.entered) * 100} className="h-2" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-medium">0~59점</span>
+                        <span className="text-sm text-muted-foreground">{distribution.range0}명</span>
+                      </div>
+                      <Progress value={(distribution.range0 / stats.entered) * 100} className="h-2" />
+                    </div>
+                  </div>
+                </CardContent>
+              )}
             </Card>
           </section>
         )}
