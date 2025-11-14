@@ -49,6 +49,14 @@ interface ScoreEntry {
   feedback: string
 }
 
+type StatusFilter =
+  | 'all'
+  | 'not-entered'
+  | 'entered'
+  | 'passed'
+  | 'failed'
+  | 'excellent'
+
 interface BulkGradeEntryClientProps {
   exam: Exam
 }
@@ -85,8 +93,9 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
   const { user: currentUser, isLoading: isUserLoading } = useCurrentUser()
   const [students, setStudents] = useState<Student[]>([])
   const [scores, setScores] = useState<Map<string, ScoreEntry>>(new Map())
-  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [gradeFilter, setGradeFilter] = useState<string>('all')
+  const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [autoSave, setAutoSave] = useState(false)
@@ -259,6 +268,23 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
       }
     }
   }, [])
+
+  // Keyboard shortcut: Ctrl+S / Cmd+S
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.toLowerCase().includes('mac')
+      const saveKey = isMac ? e.metaKey : e.ctrlKey
+
+      if (saveKey && e.key === 's') {
+        e.preventDefault()
+        // 자동저장 중이라도 수동 저장은 바로 실행
+        handleSave(false, false)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown as any)
+    return () => window.removeEventListener('keydown', handleKeyDown as any)
+  }, [handleSave])
 
   function handleCorrectChange(studentId: string, value: string) {
     setScores(prev => {
@@ -443,11 +469,22 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
           .reduce((acc, s) => acc + s.percentage, 0) / stats.entered
       )
 
-  // Filter students based on grade and status
+  // Filter students based on grade, search, and status
   const filteredStudents = students.filter(student => {
     // Grade filter
     if (gradeFilter !== 'all' && student.grade !== gradeFilter) {
       return false
+    }
+
+    // Search filter
+    if (searchTerm.trim()) {
+      const keyword = searchTerm.trim().toLowerCase()
+      const code = student.student_code.toLowerCase()
+      const name = (student.users?.name || '').toLowerCase()
+
+      if (!code.includes(keyword) && !name.includes(keyword)) {
+        return false
+      }
     }
 
     // Status filter
@@ -503,9 +540,13 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
               variant="outline"
               onClick={() => handleSave(false, false)}
               disabled={saving}
+              title="Ctrl+S 또는 Cmd+S"
             >
               <Save className="h-4 w-4 mr-2" />
               {saving ? '저장 중...' : autoSave ? '지금 바로 저장' : '저장'}
+              <span className="ml-1 text-xs text-muted-foreground hidden lg:inline">
+                (Ctrl+S)
+              </span>
             </Button>
             <Button onClick={() => handleSave(true, false)} disabled={saving}>
               <Save className="h-4 w-4 mr-2" />
@@ -690,6 +731,21 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
                       <SelectItem value="failed">미달 (70점 미만)</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+
+                <Separator orientation="vertical" className="h-6" />
+
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="studentSearch" className="text-sm">
+                    학생 검색:
+                  </Label>
+                  <Input
+                    id="studentSearch"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="학번 또는 이름 입력"
+                    className="h-9 w-48 text-sm"
+                  />
                 </div>
 
                 <Separator orientation="vertical" className="h-6" />
@@ -923,7 +979,16 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
             {filteredStudents.length === 0 && (
               <div className="text-center py-12 text-muted-foreground">
                 <AlertCircle className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p className="text-sm">표시할 학생이 없습니다.</p>
+                <p className="text-sm">
+                  {students.length === 0
+                    ? '등록된 학생이 없습니다'
+                    : '현재 선택한 필터 조건에 해당하는 학생이 없습니다'}
+                </p>
+                {students.length > 0 && (searchTerm || gradeFilter !== 'all' || statusFilter !== 'all') && (
+                  <p className="text-xs mt-2">
+                    필터를 변경하거나 검색어를 수정해보세요
+                  </p>
+                )}
               </div>
             )}
           </CardContent>
