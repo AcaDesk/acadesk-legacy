@@ -419,9 +419,20 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between">
-        <div>
+        <div className="space-y-2">
           <h1 className="text-3xl font-bold">{exam.name}</h1>
-          <p className="text-muted-foreground mt-1">{exam.description || '시험 정보 및 학생 배정'}</p>
+          <p className="text-muted-foreground">{exam.description || '시험 정보 및 학생 배정'}</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge variant="outline" className="text-xs">
+              {getExamTypeLabel(exam.exam_type)}
+            </Badge>
+            <Badge
+              variant={enteredCount === totalAssigned && totalAssigned > 0 ? 'default' : 'secondary'}
+              className="text-xs"
+            >
+              {progressLabel}
+            </Badge>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -497,13 +508,51 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
+            {/* 문항 수 */}
+            <div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <FileText className="h-4 w-4" />
+                  <span>문항 수</span>
+                </div>
+
+                {hasQuestions ? (
+                  <span className="font-medium text-lg">
+                    {exam.total_questions}문항
+                  </span>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs text-orange-600 border-orange-600">
+                      문항 수 미입력
+                    </Badge>
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0 text-xs text-muted-foreground"
+                      onClick={() => router.push(`/grades/exams/${exam.id}/edit`)}
+                    >
+                      설정하러 가기 →
+                    </Button>
+                  </div>
+                )}
+              </div>
+              {!hasQuestions && (
+                <p className="mt-1 text-xs text-muted-foreground px-3">
+                  문항 수를 설정하면 성적 입력 화면에서 전체 문항이 자동으로 채워져요
+                </p>
+              )}
+            </div>
+
+            {/* 합격 기준 */}
             <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <FileText className="h-4 w-4" />
-                <span>문항 수</span>
+                <BarChart3 className="h-4 w-4" />
+                <span>합격 기준</span>
               </div>
-              <span className="font-medium text-lg">{exam.total_questions || '-'}문항</span>
+              <span className="font-medium text-lg">{passingLabel}</span>
             </div>
+
+            {/* 배정 인원 */}
             <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Users className="h-4 w-4" />
@@ -609,6 +658,18 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
                     {filteredStudents.length}명
                   </Badge>
                 </div>
+
+                {/* Summary Stats */}
+                <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t">
+                  <span>
+                    입력 완료 {enteredCount}명 · 미입력 {notEnteredCount}명
+                  </span>
+                  {hasAnyScore && (
+                    <span>
+                      평균 득점률 {averagePercentage}%
+                    </span>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -622,7 +683,7 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
             <EmptyState
               icon={Users}
               title="배정된 학생이 없습니다"
-              description="시험 생성 후 학생을 배정해 주세요. 학생을 배정하면 성적 입력이 가능합니다."
+              description="위에 있는 [학생 배정] 버튼을 눌러 학생을 배정하면 성적 입력이 가능합니다."
               action={
                 <Button onClick={() => setShowAssignDialog(true)}>
                   <UserPlus className="h-4 w-4 mr-2" />
@@ -716,6 +777,27 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* No Scores Alert - Only show when students exist but no scores entered */}
+      {students.length > 0 && !hasAnyScore && (
+        <Card className="border-dashed border-amber-300 bg-amber-50/60 dark:bg-amber-950/20">
+          <CardContent className="py-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm text-amber-800 dark:text-amber-200">
+              <Info className="h-4 w-4 flex-shrink-0" />
+              <span>아직 입력된 성적이 없어요. 성적 일괄 입력 화면에서 빠르게 입력할 수 있습니다</span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push(`/grades/exams/${exam.id}/bulk-entry`)}
+              className="flex-shrink-0"
+            >
+              <PenSquare className="h-4 w-4 mr-2" />
+              성적 입력하기
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Progress Steps Guide */}
       {students.length > 0 && (
