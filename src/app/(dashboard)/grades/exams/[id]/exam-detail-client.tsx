@@ -10,6 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@ui/label'
 import { Separator } from '@ui/separator'
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@ui/table'
+import {
   Edit,
   PenSquare,
   Users,
@@ -151,6 +159,38 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
       monthly: '매월',
     }
     return scheduleMap[schedule] || schedule
+  }
+
+  function getScoreStatus(percentage: number | null) {
+    if (percentage === null) {
+      return {
+        label: '미입력',
+        color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+        badgeVariant: 'secondary' as const,
+      }
+    }
+
+    if (percentage >= 90) {
+      return {
+        label: '우수',
+        color: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
+        badgeVariant: 'default' as const,
+      }
+    }
+
+    if (percentage >= 70) {
+      return {
+        label: '합격',
+        color: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
+        badgeVariant: 'default' as const,
+      }
+    }
+
+    return {
+      label: '미달',
+      color: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
+      badgeVariant: 'destructive' as const,
+    }
   }
 
   useEffect(() => {
@@ -483,52 +523,83 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
               <p>검색 결과가 없습니다.</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {filteredStudents.map((student) => {
-                const score = scores.get(student.id)
-                const hasScore = score && score.correct !== null && score.total !== null
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[180px]">학생</TableHead>
+                    <TableHead className="w-[120px]">학번</TableHead>
+                    <TableHead className="w-[80px] text-center">학년</TableHead>
+                    <TableHead className="w-[100px] text-center hidden md:table-cell">맞은/전체</TableHead>
+                    <TableHead className="w-[100px] text-center">득점률</TableHead>
+                    <TableHead className="w-[100px] text-center">상태</TableHead>
+                    <TableHead className="w-[60px] text-center">제거</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredStudents.map((student) => {
+                    const score = scores.get(student.id)
+                    const hasScore = score && score.correct !== null && score.total !== null
+                    const scoreStatus = getScoreStatus(hasScore ? score.percentage : null)
 
-                return (
-                  <div
-                    key={student.id}
-                    className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex flex-col">
-                        <span className="font-medium">{student.name}</span>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
-                          <span>{student.student_code}</span>
-                          {student.grade && (
-                            <>
-                              <span>·</span>
-                              <Badge variant="outline" className="text-xs">
-                                {student.grade}
-                              </Badge>
-                            </>
-                          )}
-                          <span>·</span>
-                          {hasScore ? (
-                            <Badge variant="default" className="text-xs bg-green-600 hover:bg-green-700">
-                              성적 입력 완료
+                    return (
+                      <TableRow key={student.id} className="hover:bg-muted/50">
+                        {/* 학생 이름 */}
+                        <TableCell className="font-medium">{student.name}</TableCell>
+
+                        {/* 학번 */}
+                        <TableCell className="text-muted-foreground">{student.student_code}</TableCell>
+
+                        {/* 학년 */}
+                        <TableCell className="text-center">
+                          {student.grade ? (
+                            <Badge variant="outline" className="text-xs">
+                              {student.grade}
                             </Badge>
                           ) : (
-                            <Badge variant="secondary" className="text-xs">
-                              미입력
-                            </Badge>
+                            <span className="text-muted-foreground text-xs">-</span>
                           )}
-                        </div>
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleRemoveClick(student.id, student.name)}
-                    >
-                      <Trash2 className="h-4 w-4 text-red-500" />
-                    </Button>
-                  </div>
-                )
-              })}
+                        </TableCell>
+
+                        {/* 맞은 개수/전체 (모바일에서는 숨김) */}
+                        <TableCell className="text-center text-sm text-muted-foreground hidden md:table-cell">
+                          {hasScore ? `${score.correct}/${score.total}` : '-'}
+                        </TableCell>
+
+                        {/* 득점률 */}
+                        <TableCell className="text-center">
+                          {hasScore ? (
+                            <div className={`inline-block px-3 py-1 rounded-md font-semibold text-sm ${scoreStatus.color}`}>
+                              {score.percentage}%
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">-</span>
+                          )}
+                        </TableCell>
+
+                        {/* 상태 */}
+                        <TableCell className="text-center">
+                          <Badge variant={scoreStatus.badgeVariant} className="text-xs">
+                            {scoreStatus.label}
+                          </Badge>
+                        </TableCell>
+
+                        {/* 제거 버튼 */}
+                        <TableCell className="text-center">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveClick(student.id, student.name)}
+                            className="h-8 w-8"
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
             </div>
           )}
         </CardContent>
