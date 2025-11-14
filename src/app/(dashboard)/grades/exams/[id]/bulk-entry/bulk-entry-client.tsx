@@ -61,8 +61,7 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
   const { user: currentUser, isLoading: isUserLoading } = useCurrentUser()
   const [students, setStudents] = useState<Student[]>([])
   const [scores, setScores] = useState<Map<string, ScoreEntry>>(new Map())
-  const [showLowPerformers, setShowLowPerformers] = useState(false)
-  const [lowPerformerThreshold, setLowPerformerThreshold] = useState(80)
+  const [statusFilter, setStatusFilter] = useState<string>('all')
   const [gradeFilter, setGradeFilter] = useState<string>('all')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -386,13 +385,30 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
       return false
     }
 
-    // Low performers filter
-    if (showLowPerformers) {
-      const score = scores.get(student.id)
-      return score && score.percentage > 0 && score.percentage < lowPerformerThreshold
-    }
+    // Status filter
+    const score = scores.get(student.id)
+    const hasScore = score && score.correct && score.total
 
-    return true
+    switch (statusFilter) {
+      case 'not-entered':
+        // 미입력만 보기
+        return !hasScore
+      case 'entered':
+        // 입력 완료만 보기
+        return hasScore
+      case 'passed':
+        // 합격만 보기 (70점 이상)
+        return hasScore && score.percentage >= 70
+      case 'failed':
+        // 미달만 보기 (70점 미만)
+        return hasScore && score.percentage > 0 && score.percentage < 70
+      case 'excellent':
+        // 우수만 보기 (90점 이상)
+        return hasScore && score.percentage >= 90
+      default:
+        // 전체 보기
+        return true
+    }
   })
 
   const stats = {
@@ -601,30 +617,21 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
                 )}
 
                 <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="showLowPerformers"
-                    checked={showLowPerformers}
-                    onCheckedChange={(checked) => setShowLowPerformers(checked as boolean)}
-                  />
-                  <Label htmlFor="showLowPerformers" className="text-sm cursor-pointer">
-                    미달 학생만 보기
-                  </Label>
+                  <Label htmlFor="statusFilter" className="text-sm">상태:</Label>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger id="statusFilter" className="w-40 h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">전체 보기</SelectItem>
+                      <SelectItem value="not-entered">미입력만 보기</SelectItem>
+                      <SelectItem value="entered">입력 완료만 보기</SelectItem>
+                      <SelectItem value="excellent">우수 (90점 이상)</SelectItem>
+                      <SelectItem value="passed">합격 (70점 이상)</SelectItem>
+                      <SelectItem value="failed">미달 (70점 미만)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                {showLowPerformers && (
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="threshold" className="text-sm">기준:</Label>
-                    <Input
-                      id="threshold"
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={lowPerformerThreshold}
-                      onChange={(e) => setLowPerformerThreshold(parseInt(e.target.value) || 80)}
-                      className="w-20 h-9"
-                    />
-                    <span className="text-sm text-muted-foreground">점 미만</span>
-                  </div>
-                )}
 
                 <Separator orientation="vertical" className="h-6" />
 
