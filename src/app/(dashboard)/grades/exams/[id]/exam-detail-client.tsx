@@ -206,7 +206,6 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
     if (percentage === null) {
       return {
         label: '미입력',
-        color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
         badgeVariant: 'secondary' as const,
       }
     }
@@ -214,7 +213,6 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
     if (percentage >= 90) {
       return {
         label: '우수',
-        color: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
         badgeVariant: 'default' as const,
       }
     }
@@ -222,14 +220,12 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
     if (percentage >= 70) {
       return {
         label: '합격',
-        color: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
-        badgeVariant: 'default' as const,
+        badgeVariant: 'outline' as const,
       }
     }
 
     return {
       label: '미달',
-      color: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
       badgeVariant: 'destructive' as const,
     }
   }
@@ -421,7 +417,7 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
       <div className="flex items-start justify-between">
         <div className="space-y-2">
           <h1 className="text-3xl font-bold">{exam.name}</h1>
-          <p className="text-muted-foreground">{exam.description || '시험 정보 및 학생 배정'}</p>
+          <p className="text-muted-foreground leading-relaxed">{exam.description || '시험 정보 및 학생 배정'}</p>
           <div className="flex items-center gap-2 flex-wrap">
             <Badge variant="outline" className="text-xs">
               {getExamTypeLabel(exam.exam_type)}
@@ -461,15 +457,18 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
               <CardTitle className="text-base">기본 정보</CardTitle>
             </div>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Tag className="h-4 w-4" />
                 <span>시험 유형</span>
               </div>
               <span className="font-medium">{getExamTypeLabel(exam.exam_type)}</span>
             </div>
-            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+
+            <Separator />
+
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Calendar className="h-4 w-4" />
                 <span>시험일</span>
@@ -480,21 +479,28 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
                   : '미정'}
               </span>
             </div>
-            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+
+            <Separator />
+
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <BookOpen className="h-4 w-4" />
                 <span>수업</span>
               </div>
               <span className="font-medium">{exam.classes?.[0]?.name || '미배정'}</span>
             </div>
+
             {exam.is_recurring && (
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Repeat className="h-4 w-4" />
-                  <span>반복 주기</span>
+              <>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Repeat className="h-4 w-4" />
+                    <span>반복 주기</span>
+                  </div>
+                  <span className="font-medium">{getRecurringScheduleLabel(exam.recurring_schedule)}</span>
                 </div>
-                <span className="font-medium">{getRecurringScheduleLabel(exam.recurring_schedule)}</span>
-              </div>
+              </>
             )}
           </CardContent>
         </Card>
@@ -507,10 +513,10 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
               <CardTitle className="text-base">성적 관련 정보</CardTitle>
             </div>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-4">
             {/* 문항 수 */}
             <div>
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <FileText className="h-4 w-4" />
                   <span>문항 수</span>
@@ -537,14 +543,16 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
                 )}
               </div>
               {!hasQuestions && (
-                <p className="mt-1 text-xs text-muted-foreground px-3">
+                <p className="mt-1 text-xs text-muted-foreground">
                   문항 수를 설정하면 성적 입력 화면에서 전체 문항이 자동으로 채워져요
                 </p>
               )}
             </div>
 
+            <Separator />
+
             {/* 합격 기준 */}
-            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <BarChart3 className="h-4 w-4" />
                 <span>합격 기준</span>
@@ -552,8 +560,10 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
               <span className="font-medium text-lg">{passingLabel}</span>
             </div>
 
+            <Separator />
+
             {/* 배정 인원 */}
-            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Users className="h-4 w-4" />
                 <span>배정 인원</span>
@@ -660,7 +670,7 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
                 </div>
 
                 {/* Summary Stats */}
-                <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t">
+                <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
                   <span>
                     입력 완료 {enteredCount}명 · 미입력 {notEnteredCount}명
                   </span>
@@ -716,7 +726,7 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
                     const scoreStatus = getScoreStatus(hasScore ? score.percentage : null)
 
                     return (
-                      <TableRow key={student.id} className="hover:bg-muted/50">
+                      <TableRow key={student.id} className="hover:bg-muted/50 text-sm">
                         {/* 학생 이름 */}
                         <TableCell className="font-medium">{student.name}</TableCell>
 
@@ -742,9 +752,9 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
                         {/* 득점률 */}
                         <TableCell className="text-center">
                           {hasScore ? (
-                            <div className={`inline-block px-3 py-1 rounded-md font-semibold text-sm ${scoreStatus.color}`}>
+                            <Badge variant={scoreStatus.badgeVariant} className="px-3 py-1 text-xs font-semibold">
                               {score.percentage}%
-                            </div>
+                            </Badge>
                           ) : (
                             <span className="text-muted-foreground text-sm">-</span>
                           )}
@@ -799,8 +809,8 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
         </Card>
       )}
 
-      {/* Progress Steps Guide */}
-      {students.length > 0 && (
+      {/* Progress Steps Guide - Only show when scores exist */}
+      {students.length > 0 && hasAnyScore && (
         <Card className="border-primary bg-gradient-to-r from-primary/10 to-transparent">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between gap-8">
@@ -857,17 +867,17 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
             <div className="space-y-2">
               <p>"{studentToRemove.name}" 학생을 시험에서 제외합니다.</p>
               {studentToRemove.hasScore && studentToRemove.scoreData && (
-                <div className="p-3 rounded-md bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800">
-                  <p className="text-sm font-semibold text-red-800 dark:text-red-200 mb-1">
-                    ⚠️ 입력된 성적도 함께 삭제됩니다
+                <div className="p-3 rounded-md bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-800">
+                  <p className="text-sm font-medium text-red-800 dark:text-red-100 mb-1">
+                    이 학생의 성적 기록도 함께 삭제됩니다
                   </p>
-                  <p className="text-sm text-red-700 dark:text-red-300">
-                    득점률: {studentToRemove.scoreData.percentage}% ({studentToRemove.scoreData.score}/{studentToRemove.scoreData.total_points})
+                  <p className="text-xs text-red-700 dark:text-red-300">
+                    득점률 {studentToRemove.scoreData.percentage}% ({studentToRemove.scoreData.score}/{studentToRemove.scoreData.total_points})
                   </p>
                 </div>
               )}
-              <p className="text-sm text-muted-foreground">
-                제외 후 10초 이내에 "되돌리기" 버튼으로 복구할 수 있습니다.
+              <p className="text-xs text-muted-foreground">
+                제외 후 10초 이내에 알림의 "되돌리기" 버튼으로 복구할 수 있어요
               </p>
             </div>
           ) : ''
