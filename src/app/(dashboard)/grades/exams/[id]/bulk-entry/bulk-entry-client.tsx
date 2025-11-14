@@ -426,7 +426,7 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
         {/* Header - Sticky */}
         <section
           aria-label="페이지 헤더"
-          className={`${PAGE_ANIMATIONS.header} flex items-start justify-between sticky top-0 z-20 bg-background pb-4 border-b`}
+          className={`${PAGE_ANIMATIONS.header} flex items-start justify-between sticky top-0 z-20 -mx-6 px-6 -mt-6 pt-6 pb-4 bg-background/95 backdrop-blur-sm border-b shadow-sm transition-all duration-200`}
         >
           <div className="space-y-1">
             <h1 className="text-2xl font-bold">성적 일괄 입력</h1>
