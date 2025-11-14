@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@ui/dialog'
@@ -37,6 +37,28 @@ export function AssignStudentsDialog({
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+
+  // Calculate currently assigned student IDs
+  const currentlyAssignedIds = useMemo(
+    () => students.filter(s => s.isAssigned).map(s => s.id),
+    [students]
+  )
+
+  // Check if there are any changes from the initial state
+  const hasChanges = useMemo(() => {
+    const prev = new Set(currentlyAssignedIds)
+    const next = new Set(selectedIds)
+
+    // If sizes are different, there are changes
+    if (prev.size !== next.size) return true
+
+    // Check if all previous IDs are in the new set
+    for (const id of prev) {
+      if (!next.has(id)) return true
+    }
+
+    return false
+  }, [currentlyAssignedIds, selectedIds])
 
   useEffect(() => {
     if (open) {
@@ -258,7 +280,7 @@ export function AssignStudentsDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             취소
           </Button>
-          <Button onClick={handleSave} disabled={saving || selectedIds.length === 0}>
+          <Button onClick={handleSave} disabled={saving || !hasChanges}>
             <UserPlus className="h-4 w-4 mr-2" />
             {saving ? '배정 중...' : `${selectedIds.length}명 배정`}
           </Button>

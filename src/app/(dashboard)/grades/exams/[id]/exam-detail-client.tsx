@@ -70,8 +70,8 @@ interface Student {
 
 interface ScoreData {
   student_id: string
-  correct: number | null
-  total: number | null
+  score: number | null
+  total_points: number | null
   percentage: number | null
 }
 
@@ -119,7 +119,7 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
 
       // Status filter (성적 입력 여부)
       const score = scores.get(student.id)
-      const hasScore = score && score.correct !== null && score.total !== null
+      const hasScore = score && score.score !== null && score.total_points !== null
 
       if (statusFilter === 'entered' && !hasScore) {
         return false
@@ -220,8 +220,8 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
         .from('exam_scores')
         .select(`
           student_id,
-          correct,
-          total,
+          score,
+          total_points,
           percentage,
           students (
             id,
@@ -249,8 +249,8 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
 
           scoreMap.set(record.student_id, {
             student_id: record.student_id,
-            correct: record.correct,
-            total: record.total,
+            score: record.score,
+            total_points: record.total_points,
             percentage: record.percentage,
           })
         }
@@ -272,7 +272,7 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
 
   function handleRemoveClick(studentId: string, studentName: string) {
     const score = scores.get(studentId)
-    const hasScore = score && score.correct !== null && score.total !== null
+    const hasScore = score && score.score !== null && score.total_points !== null
 
     setStudentToRemove({
       id: studentId,
@@ -302,8 +302,8 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
         tenant_id: currentUser.tenantId,
         exam_id: exam.id,
         student_id: removedData.id,
-        correct: removedData.scoreData?.correct || null,
-        total: removedData.scoreData?.total || null,
+        score: removedData.scoreData?.score || null,
+        total_points: removedData.scoreData?.total_points || null,
         percentage: removedData.scoreData?.percentage || null,
       })
 
@@ -616,7 +616,7 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
                 <TableBody>
                   {filteredStudents.map((student) => {
                     const score = scores.get(student.id)
-                    const hasScore = score && score.correct !== null && score.total !== null
+                    const hasScore = score && score.score !== null && score.total_points !== null
                     const scoreStatus = getScoreStatus(hasScore ? score.percentage : null)
 
                     return (
@@ -640,7 +640,7 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
 
                         {/* 맞은 개수/전체 (모바일에서는 숨김) */}
                         <TableCell className="text-center text-sm text-muted-foreground hidden md:table-cell">
-                          {hasScore ? `${score.correct}/${score.total}` : '-'}
+                          {hasScore ? `${score.score}/${score.total_points}` : '-'}
                         </TableCell>
 
                         {/* 득점률 */}
@@ -745,7 +745,7 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
                     ⚠️ 입력된 성적도 함께 삭제됩니다
                   </p>
                   <p className="text-sm text-red-700 dark:text-red-300">
-                    득점률: {studentToRemove.scoreData.percentage}% ({studentToRemove.scoreData.correct}/{studentToRemove.scoreData.total})
+                    득점률: {studentToRemove.scoreData.percentage}% ({studentToRemove.scoreData.score}/{studentToRemove.scoreData.total_points})
                   </p>
                 </div>
               )}
