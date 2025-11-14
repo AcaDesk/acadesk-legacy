@@ -6,6 +6,9 @@ import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Input } from '@ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
+import { Label } from '@ui/label'
+import { Separator } from '@ui/separator'
 import {
   Edit,
   PenSquare,
@@ -19,6 +22,10 @@ import {
   Repeat,
   Search,
   X,
+  CheckCircle2,
+  ArrowRight,
+  Info,
+  BarChart3,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
@@ -53,6 +60,15 @@ interface Student {
   grade: string | null
 }
 
+interface ScoreData {
+  student_id: string
+  correct: number | null
+  total: number | null
+  percentage: number | null
+}
+
+type StatusFilter = 'all' | 'entered' | 'not-entered'
+
 interface ExamDetailClientProps {
   exam: Exam
 }
@@ -64,25 +80,52 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
   const supabase = createClient()
 
   const [students, setStudents] = useState<Student[]>([])
+  const [scores, setScores] = useState<Map<string, ScoreData>>(new Map())
   const [loading, setLoading] = useState(true)
   const [showAssignDialog, setShowAssignDialog] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [studentToRemove, setStudentToRemove] = useState<{ id: string; name: string } | null>(null)
   const [isRemoving, setIsRemoving] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+  const [gradeFilter, setGradeFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
 
-  // Filter students based on search
+  // Get unique grades from students
+  const availableGrades = useMemo(() => {
+    return Array.from(new Set(students.map(s => s.grade).filter(Boolean))).sort()
+  }, [students])
+
+  // Filter students based on grade, status, and search
   const filteredStudents = useMemo(() => {
-    if (!searchTerm) return students
-
     return students.filter((student) => {
-      const name = student.name?.toLowerCase() || ''
-      const code = student.student_code?.toLowerCase() || ''
-      const search = searchTerm.toLowerCase()
+      // Grade filter
+      if (gradeFilter !== 'all' && student.grade !== gradeFilter) {
+        return false
+      }
 
-      return name.includes(search) || code.includes(search)
+      // Status filter (성적 입력 여부)
+      const score = scores.get(student.id)
+      const hasScore = score && score.correct !== null && score.total !== null
+
+      if (statusFilter === 'entered' && !hasScore) {
+        return false
+      }
+      if (statusFilter === 'not-entered' && hasScore) {
+        return false
+      }
+
+      // Search filter
+      if (searchTerm.trim()) {
+        const name = student.name?.toLowerCase() || ''
+        const code = student.student_code?.toLowerCase() || ''
+        const search = searchTerm.toLowerCase()
+
+        return name.includes(search) || code.includes(search)
+      }
+
+      return true
     })
-  }, [students, searchTerm])
+  }, [students, scores, gradeFilter, statusFilter, searchTerm])
 
   function getExamTypeLabel(type: string | null) {
     if (!type) return '미선택'
@@ -127,10 +170,13 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
       setLoading(true)
 
       // Get students who have scores for this exam
-      const { data: scores, error } = await supabase
+      const { data: scoreRecords, error } = await supabase
         .from('exam_scores')
         .select(`
           student_id,
+          correct,
+          total,
+          percentage,
           students (
             id,
             student_code,
@@ -143,14 +189,29 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
 
       if (error) throw error
 
-      const studentList: Student[] = (scores || []).map((score: any) => ({
-        id: score.students.id,
-        student_code: score.students.student_code,
-        name: score.students.users?.name || '이름 없음',
-        grade: score.students.grade,
-      }))
+      const studentList: Student[] = []
+      const scoreMap = new Map<string, ScoreData>()
+
+      ;(scoreRecords || []).forEach((record: any) => {
+        if (record.students) {
+          studentList.push({
+            id: record.students.id,
+            student_code: record.students.student_code,
+            name: record.students.users?.name || '이름 없음',
+            grade: record.students.grade,
+          })
+
+          scoreMap.set(record.student_id, {
+            student_id: record.student_id,
+            correct: record.correct,
+            total: record.total,
+            percentage: record.percentage,
+          })
+        }
+      })
 
       setStudents(studentList)
+      setScores(scoreMap)
     } catch (error) {
       console.error('Error loading students:', error)
       toast({
@@ -227,78 +288,79 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
         </div>
       </div>
 
-      {/* Exam Info Cards */}
-      <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+      {/* Exam Info Cards - Grouped */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* 기본 정보 그룹 */}
         <Card>
           <CardHeader className="pb-3">
-            <CardDescription className="flex items-center gap-2">
-              <Tag className="h-4 w-4" />
-              시험 유형
-            </CardDescription>
-            <CardTitle className="text-lg">
-              {getExamTypeLabel(exam.exam_type)}
-            </CardTitle>
+            <div className="flex items-center gap-2">
+              <Info className="h-4 w-4 text-primary" />
+              <CardTitle className="text-base">기본 정보</CardTitle>
+            </div>
           </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Tag className="h-4 w-4" />
+                <span>시험 유형</span>
+              </div>
+              <span className="font-medium">{getExamTypeLabel(exam.exam_type)}</span>
+            </div>
+            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Calendar className="h-4 w-4" />
+                <span>시험일</span>
+              </div>
+              <span className="font-medium">
+                {exam.exam_date
+                  ? new Date(exam.exam_date).toLocaleDateString('ko-KR')
+                  : '미정'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <BookOpen className="h-4 w-4" />
+                <span>수업</span>
+              </div>
+              <span className="font-medium">{exam.classes?.[0]?.name || '미배정'}</span>
+            </div>
+            {exam.is_recurring && (
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Repeat className="h-4 w-4" />
+                  <span>반복 주기</span>
+                </div>
+                <span className="font-medium">{getRecurringScheduleLabel(exam.recurring_schedule)}</span>
+              </div>
+            )}
+          </CardContent>
         </Card>
+
+        {/* 성적 관련 정보 그룹 */}
         <Card>
           <CardHeader className="pb-3">
-            <CardDescription className="flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              시험일
-            </CardDescription>
-            <CardTitle className="text-lg">
-              {exam.exam_date
-                ? new Date(exam.exam_date).toLocaleDateString('ko-KR')
-                : '미정'}
-            </CardTitle>
+            <div className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-primary" />
+              <CardTitle className="text-base">성적 관련 정보</CardTitle>
+            </div>
           </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <FileText className="h-4 w-4" />
+                <span>문항 수</span>
+              </div>
+              <span className="font-medium text-lg">{exam.total_questions || '-'}문항</span>
+            </div>
+            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Users className="h-4 w-4" />
+                <span>배정 인원</span>
+              </div>
+              <span className="font-medium text-lg text-primary">{students.length}명</span>
+            </div>
+          </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription className="flex items-center gap-2">
-              <BookOpen className="h-4 w-4" />
-              수업
-            </CardDescription>
-            <CardTitle className="text-lg">
-              {exam.classes?.[0]?.name || '미배정'}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              문항 수
-            </CardDescription>
-            <CardTitle className="text-lg">
-              {exam.total_questions || '-'}문항
-            </CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              배정 인원
-            </CardDescription>
-            <CardTitle className="text-lg text-primary">
-              {students.length}명
-            </CardTitle>
-          </CardHeader>
-        </Card>
-        {exam.is_recurring && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardDescription className="flex items-center gap-2">
-                <Repeat className="h-4 w-4" />
-                반복 주기
-              </CardDescription>
-              <CardTitle className="text-lg">
-                {getRecurringScheduleLabel(exam.recurring_schedule)}
-              </CardTitle>
-            </CardHeader>
-          </Card>
-        )}
       </div>
 
       {/* Students List */}
@@ -312,35 +374,89 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
                   이 시험에 배정된 학생들입니다. 성적 입력 시 이 학생들만 표시됩니다.
                 </CardDescription>
               </div>
-              <Button onClick={() => setShowAssignDialog(true)}>
-                <UserPlus className="h-4 w-4 mr-2" />
-                학생 배정
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => setShowAssignDialog(true)}>
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  학생 배정
+                </Button>
+                {students.length > 0 && (
+                  <Button onClick={() => router.push(`/grades/exams/${exam.id}/bulk-entry`)}>
+                    <PenSquare className="h-4 w-4 mr-2" />
+                    성적 입력
+                  </Button>
+                )}
+              </div>
             </div>
             {students.length > 0 && (
-              <div className="flex items-center gap-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="학생 이름, 학번으로 검색..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                  {searchTerm && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-                      onClick={() => setSearchTerm('')}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
+              <div className="space-y-3">
+                {/* Filters */}
+                <div className="flex items-center gap-3 flex-wrap">
+                  {availableGrades.length > 0 && (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="gradeFilter" className="text-sm whitespace-nowrap">
+                          학년:
+                        </Label>
+                        <Select value={gradeFilter} onValueChange={setGradeFilter}>
+                          <SelectTrigger id="gradeFilter" className="w-32 h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">전체</SelectItem>
+                            {availableGrades.map((grade) => (
+                              <SelectItem key={grade} value={grade as string}>
+                                {grade}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Separator orientation="vertical" className="h-6" />
+                    </>
                   )}
+
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="statusFilter" className="text-sm whitespace-nowrap">
+                      성적 입력:
+                    </Label>
+                    <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
+                      <SelectTrigger id="statusFilter" className="w-36 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">전체</SelectItem>
+                        <SelectItem value="entered">입력 완료</SelectItem>
+                        <SelectItem value="not-entered">미입력</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <Badge variant="secondary" className="h-10 px-4 flex items-center whitespace-nowrap">
-                  {filteredStudents.length}명
-                </Badge>
+
+                {/* Search & Count */}
+                <div className="flex items-center gap-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="학생 이름, 학번으로 검색..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                    {searchTerm && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                        onClick={() => setSearchTerm('')}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                  <Badge variant="secondary" className="h-10 px-4 flex items-center whitespace-nowrap">
+                    {filteredStudents.length}명
+                  </Badge>
+                </div>
               </div>
             )}
           </div>
@@ -354,7 +470,7 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
             <EmptyState
               icon={Users}
               title="배정된 학생이 없습니다"
-              description="학생을 배정하면 성적을 입력할 수 있습니다"
+              description="시험 생성 후 학생을 배정해 주세요. 학생을 배정하면 성적 입력이 가능합니다."
               action={
                 <Button onClick={() => setShowAssignDialog(true)}>
                   <UserPlus className="h-4 w-4 mr-2" />
@@ -368,53 +484,84 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
             </div>
           ) : (
             <div className="space-y-2">
-              {filteredStudents.map((student) => (
-                <div
-                  key={student.id}
-                  className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex flex-col">
-                      <span className="font-medium">{student.name}</span>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <span>{student.student_code}</span>
-                        {student.grade && (
-                          <>
-                            <span>·</span>
-                            <Badge variant="outline" className="text-xs">
-                              {student.grade}
+              {filteredStudents.map((student) => {
+                const score = scores.get(student.id)
+                const hasScore = score && score.correct !== null && score.total !== null
+
+                return (
+                  <div
+                    key={student.id}
+                    className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex flex-col">
+                        <span className="font-medium">{student.name}</span>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
+                          <span>{student.student_code}</span>
+                          {student.grade && (
+                            <>
+                              <span>·</span>
+                              <Badge variant="outline" className="text-xs">
+                                {student.grade}
+                              </Badge>
+                            </>
+                          )}
+                          <span>·</span>
+                          {hasScore ? (
+                            <Badge variant="default" className="text-xs bg-green-600 hover:bg-green-700">
+                              성적 입력 완료
                             </Badge>
-                          </>
-                        )}
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">
+                              미입력
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleRemoveClick(student.id, student.name)}
+                    >
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </Button>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleRemoveClick(student.id, student.name)}
-                  >
-                    <Trash2 className="h-4 w-4 text-red-500" />
-                  </Button>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Quick Actions */}
+      {/* Progress Steps Guide */}
       {students.length > 0 && (
-        <Card className="border-primary/50 bg-primary/5">
+        <Card className="border-primary bg-gradient-to-r from-primary/10 to-transparent">
           <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold mb-1">다음 단계</h3>
-                <p className="text-sm text-muted-foreground">
-                  {students.length}명의 학생이 배정되었습니다. 성적을 입력하세요.
-                </p>
+            <div className="flex items-center justify-between gap-8">
+              <div className="space-y-3 flex-1">
+                <div className="flex items-center gap-3">
+                  <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
+                  <span className="font-medium text-green-700">시험 생성 완료</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
+                  <span className="font-medium text-green-700">
+                    학생 배정 완료 ({students.length}명)
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 pt-2 border-t">
+                  <ArrowRight className="h-5 w-5 text-primary flex-shrink-0 animate-pulse" />
+                  <span className="font-semibold text-primary">
+                    다음 단계: 성적 입력하기
+                  </span>
+                </div>
               </div>
-              <Button size="lg" onClick={() => router.push(`/grades/exams/${exam.id}/bulk-entry`)}>
+              <Button
+                size="lg"
+                onClick={() => router.push(`/grades/exams/${exam.id}/bulk-entry`)}
+                className="flex-shrink-0"
+              >
                 <PenSquare className="h-5 w-5 mr-2" />
                 성적 입력 시작
               </Button>
