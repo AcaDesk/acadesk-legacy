@@ -142,15 +142,21 @@ export function AssignStudentsDialog({
 
       const classStudentIds = enrollments?.map(e => e.student_id) || []
 
-      // Add to selected
+      // Add to selected and calculate how many were newly added
       setSelectedIds(prev => {
+        const prevSet = new Set(prev)
         const newSet = new Set([...prev, ...classStudentIds])
-        return Array.from(newSet)
-      })
+        const addedCount = newSet.size - prevSet.size
 
-      toast({
-        title: '수업 학생 배정 완료',
-        description: `${classStudentIds.length}명의 학생이 선택되었습니다.`,
+        toast({
+          title: '수업 학생 배정',
+          description:
+            addedCount === 0
+              ? '이미 모든 수업 학생이 선택되어 있습니다.'
+              : `${addedCount}명의 학생이 새로 선택되었습니다.`,
+        })
+
+        return Array.from(newSet)
       })
     } catch (error) {
       console.error('Error loading class students:', error)
@@ -232,14 +238,30 @@ export function AssignStudentsDialog({
     }
   }
 
+  const totalCount = students.length
+  const assignedCount = students.filter(s => s.isAssigned).length
+  const selectedCount = selectedIds.length
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-        <DialogHeader className="flex-shrink-0">
+        <DialogHeader className="flex-shrink-0 space-y-3">
           <DialogTitle>학생 배정</DialogTitle>
           <DialogDescription>
             이 시험에 배정할 학생을 선택하세요. 배정된 학생만 성적 입력 시 표시됩니다.
           </DialogDescription>
+
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <Badge variant="outline">
+              전체 {totalCount}명
+            </Badge>
+            <Badge variant="outline">
+              기배정 {assignedCount}명
+            </Badge>
+            <Badge variant="secondary">
+              현재 선택 {selectedCount}명
+            </Badge>
+          </div>
         </DialogHeader>
 
         <div className="flex-1 min-h-0 overflow-hidden">
