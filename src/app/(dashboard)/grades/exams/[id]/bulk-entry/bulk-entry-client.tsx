@@ -140,7 +140,7 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
     }
   }, [exam.id, supabase, toast, currentUser])
 
-  const handleSave = useCallback(async (silent = false) => {
+  const handleSave = useCallback(async (navigateAfterSave = false, silent = false) => {
     setSaving(true)
     try {
       const scoresToSave = Array.from(scores.values())
@@ -180,7 +180,9 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
           description: `${scoresToSave.length}명의 성적이 저장되었습니다.`,
         })
 
-        router.push(`/grades/exams`)
+        if (navigateAfterSave) {
+          router.push(`/grades/exams`)
+        }
       }
     } catch (error) {
       console.error('Error saving scores:', error)
@@ -212,7 +214,7 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
     }
 
     autoSaveTimerRef.current = setTimeout(() => {
-      handleSave(true) // silent save
+      handleSave(false, true) // navigateAfterSave=false, silent=true
     }, 3000) // 3초 후 자동 저장
 
     return () => {
@@ -433,9 +435,17 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
                 마지막 저장: {lastSaved.toLocaleTimeString('ko-KR')}
               </span>
             )}
-            <Button onClick={() => handleSave(false)} disabled={saving}>
+            <Button
+              variant="outline"
+              onClick={() => handleSave(false, false)}
+              disabled={saving}
+            >
               <Save className="h-4 w-4 mr-2" />
-              {saving ? '저장 중...' : '저장하고 나가기'}
+              {saving ? '저장 중...' : '저장'}
+            </Button>
+            <Button onClick={() => handleSave(true, false)} disabled={saving}>
+              <Save className="h-4 w-4 mr-2" />
+              저장하고 나가기
             </Button>
           </div>
         </section>
