@@ -59,6 +59,25 @@ const safeParseInt = (value: string): number => {
   return Number.isNaN(n) ? 0 : n
 }
 
+// Percentage calculation helper
+const computePercentage = (correct: number, total: number): number => {
+  if (total <= 0) return 0
+  return Math.round((correct / total) * 100)
+}
+
+// Score state helper
+const getScoreState = (score?: ScoreEntry): 'empty' | 'no-total' | 'over' | 'ok' => {
+  if (!score?.correct || !score?.total) return 'empty'
+
+  const correctNumber = safeParseInt(score.correct)
+  const totalNumber = safeParseInt(score.total)
+
+  if (totalNumber === 0) return 'no-total'
+  if (correctNumber > totalNumber) return 'over' // 맞은 개수가 문항 수보다 많음
+
+  return 'ok'
+}
+
 export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
   // All Hooks must be called before any early returns
   const router = useRouter()
@@ -252,13 +271,13 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
         feedback: '',
       }
 
-      const correct = safeParseInt(value)
-      const total = safeParseInt(current.total)
-      const percentage = total > 0 ? Math.round((correct / total) * 100) : 0
+      const correctNumber = Math.max(0, safeParseInt(value))
+      const totalNumber = safeParseInt(current.total)
+      const percentage = computePercentage(correctNumber, totalNumber)
 
       newMap.set(studentId, {
         ...current,
-        correct: value,
+        correct: value, // 사용자가 입력한 raw 값 (문자열) 유지
         percentage,
       })
 
@@ -277,9 +296,9 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
         feedback: '',
       }
 
-      const correct = safeParseInt(current.correct)
-      const total = safeParseInt(value)
-      const percentage = total > 0 ? Math.round((correct / total) * 100) : 0
+      const totalNumber = Math.max(0, safeParseInt(value))
+      const correctNumber = safeParseInt(current.correct)
+      const percentage = computePercentage(correctNumber, totalNumber)
 
       newMap.set(studentId, {
         ...current,
@@ -787,7 +806,9 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
                 <tbody className="divide-y">
                   {filteredStudents.map((student, index) => {
                     const score = scores.get(student.id)
-                    const isNotEntered = !score?.correct || !score?.total
+                    const state = getScoreState(score)
+                    const isNotEntered = state === 'empty'
+                    const isOver = state === 'over'
 
                     return (
                       <tr
@@ -796,6 +817,7 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
                         className={cn(
                           'hover:bg-muted/30 transition-colors',
                           isNotEntered && 'bg-orange-50/50 dark:bg-orange-950/10',
+                          isOver && 'bg-red-50/60 dark:bg-red-950/20',
                           activeStudentId === student.id && 'bg-primary/5 border-l-2 border-primary'
                         )}
                       >
@@ -842,34 +864,50 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
                             onKeyDown={(e) => handleKeyDown(e, student.id, 'correct')}
                             onFocus={() => setActiveStudentId(student.id)}
                             placeholder="0"
-                            className={`h-9 text-sm text-center ${
-                              isNotEntered ? 'border-orange-300 focus:border-orange-500 dark:border-orange-800' : ''
-                            }`}
+                            className={cn(
+                              'h-9 text-sm text-center',
+                              isNotEntered && 'border-orange-300 focus:border-orange-500 dark:border-orange-800',
+                              state === 'over' && 'border-red-500 focus-visible:ring-red-500'
+                            )}
                             autoFocus={index === 0}
                           />
                         </td>
                         <td className="p-3">
-                          <Input
-                            ref={(el) => {
-                              if (el) inputRefs.current.set(`total-${student.id}`, el)
-                            }}
-                            type="number"
-                            min="0"
-                            value={score?.total || ''}
-                            onChange={(e) => handleTotalChange(student.id, e.target.value)}
-                            onKeyDown={(e) => handleKeyDown(e, student.id, 'total')}
-                            onFocus={() => setActiveStudentId(student.id)}
-                            placeholder={exam?.total_questions?.toString() || '0'}
-                            className="h-9 text-sm text-center"
-                          />
+                          <div className="space-y-1">
+                            <Input
+                              ref={(el) => {
+                                if (el) inputRefs.current.set(`total-${student.id}`, el)
+                              }}
+                              type="number"
+                              min="0"
+                              value={score?.total || ''}
+                              onChange={(e) => handleTotalChange(student.id, e.target.value)}
+                              onKeyDown={(e) => handleKeyDown(e, student.id, 'total')}
+                              onFocus={() => setActiveStudentId(student.id)}
+                              placeholder={exam?.total_questions?.toString() || '0'}
+                              className={cn(
+                                'h-9 text-sm text-center',
+                                state === 'over' && 'border-red-500 focus-visible:ring-red-500'
+                              )}
+                            />
+                            {state === 'over' && (
+                              <p className="text-[11px] text-red-600 dark:text-red-500">
+                                맞은 개수가 문항 수보다 많습니다
+                              </p>
+                            )}
+                          </div>
                         </td>
                         <td className="p-3 text-center">
                           {score && score.percentage > 0 ? (
                             <Badge
                               variant={
-                                score.percentage >= 90 ? 'default' :
-                                score.percentage >= 70 ? 'secondary' :
-                                'destructive'
+                                state === 'over'
+                                  ? 'destructive' // 100% 초과 케이스는 무조건 빨간색
+                                  : score.percentage >= 90
+                                    ? 'default'
+                                    : score.percentage >= 70
+                                      ? 'secondary'
+                                      : 'destructive'
                               }
                               className="text-sm font-semibold"
                             >
