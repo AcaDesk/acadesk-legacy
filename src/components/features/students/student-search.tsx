@@ -475,10 +475,7 @@ function StudentSearchMultiple({
                       }
                     }}
                   >
-                    <label
-                      htmlFor={`student-${student.id}`}
-                      className="flex items-center space-x-3 flex-1 cursor-pointer"
-                    >
+                    <div className="flex items-center space-x-3 flex-1">
                       <Checkbox
                         id={`student-${student.id}`}
                         checked={isSelected}
@@ -500,7 +497,7 @@ function StudentSearchMultiple({
                           )}
                         </div>
                       </div>
-                    </label>
+                    </div>
                     <div className="flex items-center gap-2">
                       {renderBadge?.(student)}
                       {isSelected && (
