@@ -790,9 +790,9 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="border rounded-lg overflow-hidden">
+            <div className="border rounded-lg max-h-[560px] overflow-auto">
               <table className="w-full">
-                <thead className="bg-muted/50">
+                <thead className="sticky top-0 z-10 bg-muted/70 backdrop-blur-sm">
                   <tr>
                     <th className="text-left p-3 text-xs font-medium text-muted-foreground">학번</th>
                     <th className="text-left p-3 text-xs font-medium text-muted-foreground">이름</th>
