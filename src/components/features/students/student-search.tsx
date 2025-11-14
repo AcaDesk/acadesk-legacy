@@ -465,6 +465,15 @@ function StudentSearchMultiple({
                         : 'hover:bg-muted'
                     }`}
                     onClick={() => toggleStudent(student.id)}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={isSelected}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        toggleStudent(student.id)
+                      }
+                    }}
                   >
                     <label
                       htmlFor={`student-${student.id}`}
@@ -473,6 +482,7 @@ function StudentSearchMultiple({
                       <Checkbox
                         id={`student-${student.id}`}
                         checked={isSelected}
+                        onClick={(e) => e.stopPropagation()}
                         onCheckedChange={() => toggleStudent(student.id)}
                         disabled={disabled}
                       />
@@ -491,7 +501,14 @@ function StudentSearchMultiple({
                         </div>
                       </div>
                     </label>
-                    {renderBadge?.(student)}
+                    <div className="flex items-center gap-2">
+                      {renderBadge?.(student)}
+                      {isSelected && (
+                        <Badge variant="secondary" className="text-[11px]">
+                          선택됨
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 )
               })}
