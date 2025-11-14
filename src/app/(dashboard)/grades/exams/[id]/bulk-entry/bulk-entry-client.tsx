@@ -423,8 +423,11 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
   return (
     <PageWrapper>
       <div className="space-y-6 max-w-7xl mx-auto">
-        {/* Header */}
-        <section aria-label="페이지 헤더" className={`${PAGE_ANIMATIONS.header} flex items-start justify-between`}>
+        {/* Header - Sticky */}
+        <section
+          aria-label="페이지 헤더"
+          className={`${PAGE_ANIMATIONS.header} flex items-start justify-between sticky top-0 z-20 bg-background pb-4 border-b`}
+        >
           <div className="space-y-1">
             <h1 className="text-2xl font-bold">성적 일괄 입력</h1>
             <p className="text-base text-muted-foreground">{exam.name}</p>
