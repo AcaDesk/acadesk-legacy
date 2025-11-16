@@ -84,3 +84,13 @@ Thumbs.db
 .mcp.json
 /internal/*
 
+# -------------------------
+# Sensitive Data / PII
+# -------------------------
+# Never commit files containing real user data
+student_info.json
+scripts/full_dump.sql
+scripts/*_dump.sql
+*.backup
+*.dump
+

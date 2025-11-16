@@ -56,20 +56,10 @@ export function createServiceRoleClient() {
     )
   }
 
-  // 디버깅: 키가 올바른지 확인
-  const keyPrefix = supabaseServiceRoleKey.substring(0, 20)
-  const keyLength = supabaseServiceRoleKey.length
-
-  console.log('[createServiceRoleClient] Debug:', {
-    urlPresent: !!supabaseUrl,
-    keyLength,
-    keyPrefix,
-    isAnonKey: keyPrefix.startsWith('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9'), // anon key는 보통 이렇게 시작
-  })
-
-  // ⚠️ 경고: anon key를 service role로 사용하고 있는지 확인
-  if (keyPrefix.startsWith('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9')) {
-    console.error('[createServiceRoleClient] WARNING: Using JWT key (possibly anon key) instead of service_role key!')
+  // Security: Never log service_role key details in production
+  // Validate key format without exposing actual values
+  if (supabaseServiceRoleKey.startsWith('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9')) {
+    console.warn('[createServiceRoleClient] WARNING: Detected JWT format key. Ensure you are using service_role key, not anon key.')
   }
 
   return createClient(supabaseUrl, supabaseServiceRoleKey, {
