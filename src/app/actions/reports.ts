@@ -685,15 +685,18 @@ async function getScoresData(
   tenantId: string
 ) {
   // 현재 기간 성적 - 모든 성적을 가져온 후 exam_date로 필터링
+  // created_at도 함께 조회하여 exam_date가 NULL인 경우 fallback으로 사용
   const { data: allCurrentScores, error: currentScoresError } = await supabase
     .from('exam_scores')
     .select(`
       percentage,
       feedback,
       is_retest,
+      created_at,
       exams!exam_id (
         name,
         exam_date,
+        created_at,
         category_code,
         subject_id,
         ref_exam_categories (label),
@@ -714,23 +717,35 @@ async function getScoresData(
     allScores: allCurrentScores?.map((s: any) => ({
       exam_name: s.exams?.name,
       exam_date: s.exams?.exam_date,
+      exam_created_at: s.exams?.created_at,
       percentage: s.percentage
     }))
   })
 
-  // JavaScript에서 exam_date로 필터링
+  // 날짜 비교 헬퍼 함수: timestamptz 문자열에서 날짜 부분만 추출 (YYYY-MM-DD)
+  const extractDatePart = (dateStr: string): string => {
+    // "2025-11-30 00:00:00+00" 또는 "2025-11-30T00:00:00.000Z" 형식에서 앞 10자리만 추출
+    return dateStr.slice(0, 10)
+  }
+
+  // JavaScript에서 exam_date로 필터링 (exam_date가 NULL이면 exam.created_at으로 fallback)
   const currentScores = allCurrentScores?.filter((score: any) => {
-    const examDate = score.exams?.exam_date
+    // exam_date가 없으면 시험의 created_at을 fallback으로 사용
+    const examDate = score.exams?.exam_date || score.exams?.created_at
     if (!examDate) {
-      console.log('[getScoresData] DEBUG - Score without exam_date:', score)
+      console.log('[getScoresData] DEBUG - Score without exam_date and created_at:', score)
       return false
     }
-    const isInRange = examDate >= periodStart && examDate <= periodEnd
+    // 날짜 부분만 추출하여 비교 (월말 날짜 비교 버그 해결)
+    const examDatePart = extractDatePart(examDate)
+    const isInRange = examDatePart >= periodStart && examDatePart <= periodEnd
     console.log('[getScoresData] DEBUG - Date filtering:', {
       examDate,
+      examDatePart,
       periodStart,
       periodEnd,
-      isInRange
+      isInRange,
+      usedFallback: !score.exams?.exam_date
     })
     return isInRange
   }) || []
@@ -744,17 +759,18 @@ async function getScoresData(
     .from('exam_scores')
     .select(`
       percentage,
-      exams!exam_id (category_code, subject_id, exam_date)
+      exams!exam_id (category_code, subject_id, exam_date, created_at)
     `)
     .eq('student_id', studentId)
     .eq('tenant_id', tenantId)
     .is('deleted_at', null)
 
-  // JavaScript에서 exam_date로 필터링
+  // JavaScript에서 exam_date로 필터링 (fallback: created_at)
   const previousScores = allPreviousScores?.filter((score: any) => {
-    const examDate = score.exams?.exam_date
+    const examDate = score.exams?.exam_date || score.exams?.created_at
     if (!examDate) return false
-    return examDate >= prevPeriodStart && examDate <= prevPeriodEnd
+    const examDatePart = extractDatePart(examDate)
+    return examDatePart >= prevPeriodStart && examDatePart <= prevPeriodEnd
   }) || []
 
   // 현재 기간의 반 평균 및 재시험률 조회 (카테고리별) - 모든 성적을 가져온 후 필터링
@@ -766,17 +782,19 @@ async function getScoresData(
       exams!exam_id (
         category_code,
         subject_id,
-        exam_date
+        exam_date,
+        created_at
       )
     `)
     .eq('tenant_id', tenantId)
     .is('deleted_at', null)
 
-  // JavaScript에서 exam_date로 필터링
+  // JavaScript에서 exam_date로 필터링 (fallback: created_at)
   const classScores = allClassScores?.filter((score: any) => {
-    const examDate = score.exams?.exam_date
+    const examDate = score.exams?.exam_date || score.exams?.created_at
     if (!examDate) return false
-    return examDate >= periodStart && examDate <= periodEnd
+    const examDatePart = extractDatePart(examDate)
+    return examDatePart >= periodStart && examDatePart <= periodEnd
   }) || []
 
   // 카테고리별로 그룹화
@@ -1030,20 +1048,25 @@ async function getGradesChartData(
       percentage,
       exams!exam_id (
         name,
-        exam_date
+        exam_date,
+        created_at
       )
     `)
     .eq('student_id', studentId)
     .is('deleted_at', null)
 
-  // JavaScript에서 exam_date로 필터링 및 정렬
+  // 날짜 비교 헬퍼 함수
+  const extractDatePart = (dateStr: string): string => dateStr.slice(0, 10)
+
+  // JavaScript에서 exam_date로 필터링 및 정렬 (fallback: created_at)
   const examScores = allExamScores?.filter((score: any) => {
-    const examDate = score.exams?.exam_date
+    const examDate = score.exams?.exam_date || score.exams?.created_at
     if (!examDate) return false
-    return examDate >= periodStart && examDate <= periodEnd
+    const examDatePart = extractDatePart(examDate)
+    return examDatePart >= periodStart && examDatePart <= periodEnd
   }).sort((a: any, b: any) => {
-    const dateA = a.exams?.exam_date || ''
-    const dateB = b.exams?.exam_date || ''
+    const dateA = a.exams?.exam_date || a.exams?.created_at || ''
+    const dateB = b.exams?.exam_date || b.exams?.created_at || ''
     return dateA.localeCompare(dateB)
   }) || []
 
@@ -1108,18 +1131,22 @@ async function getCurrentScoreData(
   periodStart: string,
   periodEnd: string
 ) {
+  // 날짜 비교 헬퍼 함수
+  const extractDatePart = (dateStr: string): string => dateStr.slice(0, 10)
+
   // 현재 기간 내 모든 시험 점수 조회
   const { data: allMyScores } = await supabase
     .from('exam_scores')
-    .select('percentage, exams!exam_id(exam_date)')
+    .select('percentage, exams!exam_id(exam_date, created_at)')
     .eq('student_id', studentId)
     .is('deleted_at', null)
 
-  // JavaScript에서 exam_date로 필터링
+  // JavaScript에서 exam_date로 필터링 (fallback: created_at)
   const myScores = allMyScores?.filter((score: any) => {
-    const examDate = score.exams?.exam_date
+    const examDate = score.exams?.exam_date || score.exams?.created_at
     if (!examDate) return false
-    return examDate >= periodStart && examDate <= periodEnd
+    const examDatePart = extractDatePart(examDate)
+    return examDatePart >= periodStart && examDatePart <= periodEnd
   }) || []
 
   if (!myScores || myScores.length === 0) {
@@ -1137,14 +1164,15 @@ async function getCurrentScoreData(
   // 같은 기간 내 모든 학생들의 시험 점수 조회 (반 평균 계산용)
   const { data: allScoresData } = await supabase
     .from('exam_scores')
-    .select('percentage, student_id, exams!exam_id(exam_date)')
+    .select('percentage, student_id, exams!exam_id(exam_date, created_at)')
     .is('deleted_at', null)
 
-  // JavaScript에서 exam_date로 필터링
+  // JavaScript에서 exam_date로 필터링 (fallback: created_at)
   const allScores = allScoresData?.filter((score: any) => {
-    const examDate = score.exams?.exam_date
+    const examDate = score.exams?.exam_date || score.exams?.created_at
     if (!examDate) return false
-    return examDate >= periodStart && examDate <= periodEnd
+    const examDatePart = extractDatePart(examDate)
+    return examDatePart >= periodStart && examDatePart <= periodEnd
   }) || []
 
   let classAverage = myAverage
@@ -1204,31 +1232,36 @@ async function getScoreTrendData(
     const periodStart = `${targetYear}-${String(targetMonth).padStart(2, '0')}-01`
     const periodEnd = `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
 
+    // 날짜 비교 헬퍼 함수
+    const extractDatePart = (dateStr: string): string => dateStr.slice(0, 10)
+
     // 해당 월의 학생 점수 조회 (is_retest 포함)
     const { data: allMyScores } = await supabase
       .from('exam_scores')
-      .select('percentage, is_retest, exams!exam_id(exam_date)')
+      .select('percentage, is_retest, exams!exam_id(exam_date, created_at)')
       .eq('student_id', studentId)
       .is('deleted_at', null)
 
-    // JavaScript에서 exam_date로 필터링
+    // JavaScript에서 exam_date로 필터링 (fallback: created_at)
     const myScores = allMyScores?.filter((score: any) => {
-      const examDate = score.exams?.exam_date
+      const examDate = score.exams?.exam_date || score.exams?.created_at
       if (!examDate) return false
-      return examDate >= periodStart && examDate <= periodEnd
+      const examDatePart = extractDatePart(examDate)
+      return examDatePart >= periodStart && examDatePart <= periodEnd
     }) || []
 
     // 해당 월의 반 평균 조회
     const { data: allScoresData } = await supabase
       .from('exam_scores')
-      .select('percentage, exams!exam_id(exam_date)')
+      .select('percentage, exams!exam_id(exam_date, created_at)')
       .is('deleted_at', null)
 
-    // JavaScript에서 exam_date로 필터링
+    // JavaScript에서 exam_date로 필터링 (fallback: created_at)
     const allScores = allScoresData?.filter((score: any) => {
-      const examDate = score.exams?.exam_date
+      const examDate = score.exams?.exam_date || score.exams?.created_at
       if (!examDate) return false
-      return examDate >= periodStart && examDate <= periodEnd
+      const examDatePart = extractDatePart(examDate)
+      return examDatePart >= periodStart && examDatePart <= periodEnd
     }) || []
 
     const myAverage =

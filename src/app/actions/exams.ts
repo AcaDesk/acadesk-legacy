@@ -212,6 +212,9 @@ export async function createExam(input: z.infer<typeof examSchema>) {
     const serviceClient = createServiceRoleClient()
 
     // 4. Insert exam
+    // exam_date가 없으면 현재 날짜로 자동 설정 (리포트 필터링을 위해 필요)
+    const examDate = validated.exam_date || new Date().toISOString().slice(0, 10)
+
     const { data: exam, error } = await serviceClient
       .from('exams')
       .insert({
@@ -220,7 +223,7 @@ export async function createExam(input: z.infer<typeof examSchema>) {
         subject_id: validated.subject_id || null,
         category_code: validated.category_code && validated.category_code.trim() !== '' ? validated.category_code : null,
         exam_type: validated.exam_type || null,
-        exam_date: validated.exam_date || null,
+        exam_date: examDate,
         class_id: validated.class_id || null,
         total_questions: validated.total_questions || null,
         passing_score: validated.passing_score || null,
