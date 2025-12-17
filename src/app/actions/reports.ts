@@ -68,6 +68,74 @@ interface AttendanceRecordType {
 }
 
 // ============================================================================
+// Helper Functions for Subject Grouping
+// ============================================================================
+
+/**
+ * 시험명에서 과목 키워드를 추출하여 정규화된 그룹 키를 반환
+ * subject_id가 없는 시험도 전월대비 비교가 가능하도록 함
+ */
+const SUBJECT_KEYWORDS: Record<string, string> = {
+  // Reading 관련
+  'reading': 'subject_reading',
+  'phonics': 'subject_reading',
+  // Grammar 관련
+  'grammar': 'subject_grammar',
+  'writing': 'subject_grammar',
+  // Speaking 관련
+  'speaking': 'subject_speaking',
+  'listening': 'subject_speaking',
+  // Vocabulary 관련
+  'vocabulary': 'subject_vocabulary',
+  'vocab': 'subject_vocabulary',
+  '단어': 'subject_vocabulary',
+}
+
+/**
+ * 시험명에서 과목 키워드를 추출하여 그룹 키 반환
+ */
+function extractSubjectKeyFromName(examName: string): string | null {
+  const lowerName = examName.toLowerCase()
+
+  for (const [keyword, groupKey] of Object.entries(SUBJECT_KEYWORDS)) {
+    if (lowerName.includes(keyword)) {
+      return groupKey
+    }
+  }
+
+  return null
+}
+
+/**
+ * 그룹 키 생성 함수
+ * 우선순위: subject_id > 시험명 키워드 추출 > category_code > 시험명
+ */
+function createGroupKey(
+  subjectId: string | null,
+  categoryCode: string | null,
+  examName: string
+): string {
+  // 1. subject_id가 있으면 사용
+  if (subjectId) {
+    return `subject_${subjectId}`
+  }
+
+  // 2. 시험명에서 과목 키워드 추출 시도
+  const extractedKey = extractSubjectKeyFromName(examName)
+  if (extractedKey) {
+    return extractedKey
+  }
+
+  // 3. category_code가 있으면 사용
+  if (categoryCode) {
+    return `category_${categoryCode}`
+  }
+
+  // 4. 최후의 수단으로 시험명 사용
+  return `exam_${examName}`
+}
+
+// ============================================================================
 // Server Actions
 // ============================================================================
 
@@ -759,7 +827,7 @@ async function getScoresData(
     .from('exam_scores')
     .select(`
       percentage,
-      exams!exam_id (category_code, subject_id, exam_date, created_at)
+      exams!exam_id (name, category_code, subject_id, exam_date, created_at)
     `)
     .eq('student_id', studentId)
     .eq('tenant_id', tenantId)
@@ -780,6 +848,7 @@ async function getScoresData(
       percentage,
       is_retest,
       exams!exam_id (
+        name,
         category_code,
         subject_id,
         exam_date,
@@ -828,12 +897,8 @@ async function getScoresData(
     const categoryCode = examScore.exams?.category_code || null
     const examName = examScore.exams?.name || '시험'
 
-    // 그룹화 키: subject_id가 있으면 subject 우선, category 있으면 category, 없으면 시험명 사용
-    const groupKey = subjectId
-      ? `subject_${subjectId}`
-      : categoryCode
-        ? `category_${categoryCode}`
-        : `exam_${examName}`
+    // 그룹화 키: subject_id > 시험명 키워드 추출 > category_code > 시험명
+    const groupKey = createGroupKey(subjectId, categoryCode, examName)
 
     // 라벨: 과목명 > 카테고리명 > 시험명 우선순위
     const subjectName = examScore.exams?.subjects?.name
@@ -880,11 +945,8 @@ async function getScoresData(
     const categoryCode = examScore.exams?.category_code || null
     const examName = (examScore.exams as any)?.name || '시험'
 
-    const groupKey = subjectId
-      ? `subject_${subjectId}`
-      : categoryCode
-        ? `category_${categoryCode}`
-        : `exam_${examName}`
+    // 그룹화 키: subject_id > 시험명 키워드 추출 > category_code > 시험명
+    const groupKey = createGroupKey(subjectId, categoryCode, examName)
 
     if (!prevAverages.has(groupKey)) {
       prevAverages.set(groupKey, [])
@@ -909,11 +971,8 @@ async function getScoresData(
     const categoryCode = typedScore.exams?.category_code || null
     const examName = typedScore.exams?.name || '시험'
 
-    const groupKey = subjectId
-      ? `subject_${subjectId}`
-      : categoryCode
-        ? `category_${categoryCode}`
-        : `exam_${examName}`
+    // 그룹화 키: subject_id > 시험명 키워드 추출 > category_code > 시험명
+    const groupKey = createGroupKey(subjectId, categoryCode, examName)
 
     if (!classAverages.has(groupKey)) {
       classAverages.set(groupKey, { percentages: [], retestCount: 0, totalCount: 0 })
