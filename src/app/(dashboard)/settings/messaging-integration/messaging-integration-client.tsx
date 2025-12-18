@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/c
 import { Alert, AlertDescription } from '@ui/alert'
 import { Switch } from '@ui/switch'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
-import { Separator } from '@ui/separator'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@ui/tabs'
 import {
   Select,
   SelectContent,
@@ -30,6 +30,7 @@ import {
   Trash2,
   Info,
   ShieldCheck,
+  Settings,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import {
@@ -116,14 +117,7 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
 
   const hasKakaoChannel = !!kakaoChannelConfig?.channelId
   const isSolapiProvider = config?.provider === 'solapi'
-
-  // DEBUG: 카카오 섹션 표시 조건 확인
-  console.log('[MessagingIntegration] Debug:', {
-    provider: config?.provider,
-    is_verified: config?.is_verified,
-    isSolapiProvider,
-    shouldShowKakao: isSolapiProvider && config?.is_verified,
-  })
+  const showKakaoTab = isSolapiProvider && config?.is_verified
 
   const [formData, setFormData] = useState<FormData>({
     provider: config?.provider || 'aligo',
@@ -303,30 +297,17 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
         </p>
       </div>
 
-      {/* Info Alert */}
-      <Alert className="border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/20">
-        <Info className="h-4 w-4 text-blue-600" />
-        <AlertDescription className="text-sm text-blue-900 dark:text-blue-100">
-          <p className="font-medium mb-2">셀프 서비스 안내</p>
-          <ul className="list-disc list-inside space-y-1 text-xs text-blue-700 dark:text-blue-300">
-            <li>원장님이 직접 메시징 서비스(알리고, 솔라피 등)에 가입하고 API 키를 발급받아 등록합니다</li>
-            <li>발송 비용은 원장님의 메시징 서비스 계정에서 직접 차감됩니다</li>
-            <li>발신번호는 반드시 해당 서비스에서 사전 등록 및 인증을 받아야 합니다</li>
-            <li>API 키는 암호화되어 안전하게 저장됩니다</li>
-          </ul>
-        </AlertDescription>
-      </Alert>
-
-      {/* Status Card */}
+      {/* Status Card - Always visible */}
       {hasConfig && (
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-lg">서비스 상태</CardTitle>
                 <CardDescription>현재 메시징 서비스 연동 상태</CardDescription>
               </div>
               <div className="flex items-center gap-2">
+                <Badge variant="outline">{providerInfo[config.provider].name}</Badge>
                 {isVerified && (
                   <Badge variant="default" className="gap-1">
                     <ShieldCheck className="h-3 w-3" />
@@ -348,360 +329,402 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
               </div>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">메시징 서비스 사용</p>
-                  <p className="text-xs text-muted-foreground">
-                    {isActive
-                      ? '현재 메시지를 발송할 수 있습니다'
-                      : isVerified
-                        ? '테스트 인증이 완료되었습니다. 활성화하여 사용을 시작하세요'
-                        : '먼저 테스트 메시지를 발송하여 설정을 인증해주세요'}
-                  </p>
-                </div>
-                <Switch
-                  checked={isActive}
-                  onCheckedChange={handleToggleActive}
-                  disabled={!isVerified || toggling}
-                />
+          <CardContent className="pt-0">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">메시징 서비스 사용</p>
+                <p className="text-xs text-muted-foreground">
+                  {isActive
+                    ? '현재 메시지를 발송할 수 있습니다'
+                    : isVerified
+                      ? '테스트 인증이 완료되었습니다. 활성화하여 사용을 시작하세요'
+                      : '먼저 테스트 메시지를 발송하여 설정을 인증해주세요'}
+                </p>
               </div>
+              <Switch
+                checked={isActive}
+                onCheckedChange={handleToggleActive}
+                disabled={!isVerified || toggling}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-              {config.last_test_at && (
-                <div className="text-xs text-muted-foreground">
-                  마지막 테스트: {new Date(config.last_test_at).toLocaleString('ko-KR')}
+      {/* Tabs */}
+      <Tabs defaultValue="api" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
+          <TabsTrigger value="api" className="gap-2">
+            <Settings className="h-4 w-4" />
+            API 설정
+          </TabsTrigger>
+          <TabsTrigger value="kakao" className="gap-2" disabled={!showKakaoTab}>
+            <MessageSquare className="h-4 w-4" />
+            카카오 알림톡
+            {!showKakaoTab && (
+              <span className="text-xs text-muted-foreground ml-1">(솔라피 인증 필요)</span>
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        {/* API 설정 Tab */}
+        <TabsContent value="api" className="space-y-6">
+          {/* Info Alert */}
+          <Alert className="border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/20">
+            <Info className="h-4 w-4 text-blue-600" />
+            <AlertDescription className="text-sm text-blue-900 dark:text-blue-100">
+              <p className="font-medium mb-2">셀프 서비스 안내</p>
+              <ul className="list-disc list-inside space-y-1 text-xs text-blue-700 dark:text-blue-300">
+                <li>원장님이 직접 메시징 서비스(알리고, 솔라피 등)에 가입하고 API 키를 발급받아 등록합니다</li>
+                <li>발송 비용은 원장님의 메시징 서비스 계정에서 직접 차감됩니다</li>
+                <li>발신번호는 반드시 해당 서비스에서 사전 등록 및 인증을 받아야 합니다</li>
+                <li>API 키는 암호화되어 안전하게 저장됩니다</li>
+              </ul>
+            </AlertDescription>
+          </Alert>
+
+          {/* Provider Selection */}
+          <Card>
+            <CardHeader>
+              <CardTitle>메시징 서비스 선택</CardTitle>
+              <CardDescription>사용할 SMS/알림톡 서비스를 선택하세요</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <Label>서비스 제공사</Label>
+                  <Select
+                    value={formData.provider}
+                    onValueChange={(value) => setFormData({ ...formData, provider: value as MessagingProvider })}
+                  >
+                    <SelectTrigger className="mt-2">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="aligo">알리고 (Aligo)</SelectItem>
+                      <SelectItem value="solapi">솔라피 (Solapi) - 알림톡 지원</SelectItem>
+                      <SelectItem value="nhncloud">NHN Cloud</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Alert>
+                  <selectedProvider.icon className="h-4 w-4" />
+                  <AlertDescription>
+                    <p className="font-medium mb-1">{selectedProvider.name}</p>
+                    <p className="text-xs text-muted-foreground mb-2">{selectedProvider.description}</p>
+                    {formData.provider === 'solapi' && (
+                      <p className="text-xs text-green-600 dark:text-green-400 mb-2">
+                        * 솔라피는 카카오 알림톡 연동을 지원합니다
+                      </p>
+                    )}
+                    <div className="flex gap-2">
+                      <a
+                        href={selectedProvider.signupUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                      >
+                        회원가입 <ExternalLink className="h-3 w-3" />
+                      </a>
+                      <span className="text-xs text-muted-foreground">|</span>
+                      <a
+                        href={selectedProvider.docsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                      >
+                        API 문서 <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Credentials Form */}
+          <Card>
+            <CardHeader>
+              <CardTitle>API 인증 정보</CardTitle>
+              <CardDescription>
+                {selectedProvider.name}에서 발급받은 API 키를 입력하세요
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {formData.provider === 'aligo' && (
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="aligo_user_id">Aligo User ID *</Label>
+                    <Input
+                      id="aligo_user_id"
+                      type="text"
+                      value={formData.aligo_user_id}
+                      onChange={(e) => setFormData({ ...formData, aligo_user_id: e.target.value })}
+                      placeholder="알리고 사이트에서 확인"
+                      className="mt-2"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="aligo_api_key">Aligo API Key *</Label>
+                    <Input
+                      id="aligo_api_key"
+                      type="password"
+                      value={formData.aligo_api_key}
+                      onChange={(e) => setFormData({ ...formData, aligo_api_key: e.target.value })}
+                      placeholder="API Key"
+                      className="mt-2"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="aligo_sender_phone">발신번호 *</Label>
+                    <PhoneInput
+                      id="aligo_sender_phone"
+                      value={formData.aligo_sender_phone}
+                      onChange={(value) => setFormData({ ...formData, aligo_sender_phone: value })}
+                      placeholder="010-0000-0000"
+                      className="mt-2"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      알리고에 등록 및 인증된 발신번호를 입력하세요
+                    </p>
+                  </div>
                 </div>
               )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
-      {/* Provider Selection */}
-      <Card>
-        <CardHeader>
-          <CardTitle>메시징 서비스 선택</CardTitle>
-          <CardDescription>사용할 SMS/알림톡 서비스를 선택하세요</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div>
-              <Label>서비스 제공사</Label>
-              <Select
-                value={formData.provider}
-                onValueChange={(value) => setFormData({ ...formData, provider: value as MessagingProvider })}
-              >
-                <SelectTrigger className="mt-2">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="aligo">알리고 (Aligo)</SelectItem>
-                  <SelectItem value="solapi">솔라피 (Solapi)</SelectItem>
-                  <SelectItem value="nhncloud">NHN Cloud</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Alert>
-              <selectedProvider.icon className="h-4 w-4" />
-              <AlertDescription>
-                <p className="font-medium mb-1">{selectedProvider.name}</p>
-                <p className="text-xs text-muted-foreground mb-2">{selectedProvider.description}</p>
-                <div className="flex gap-2">
-                  <a
-                    href={selectedProvider.signupUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-blue-600 hover:underline flex items-center gap-1"
-                  >
-                    회원가입 <ExternalLink className="h-3 w-3" />
-                  </a>
-                  <span className="text-xs text-muted-foreground">|</span>
-                  <a
-                    href={selectedProvider.docsUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-blue-600 hover:underline flex items-center gap-1"
-                  >
-                    API 문서 <ExternalLink className="h-3 w-3" />
-                  </a>
+              {formData.provider === 'solapi' && (
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="solapi_api_key">Solapi API Key *</Label>
+                    <Input
+                      id="solapi_api_key"
+                      type="text"
+                      value={formData.solapi_api_key}
+                      onChange={(e) => setFormData({ ...formData, solapi_api_key: e.target.value })}
+                      placeholder="API Key"
+                      className="mt-2"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="solapi_api_secret">Solapi API Secret *</Label>
+                    <Input
+                      id="solapi_api_secret"
+                      type="password"
+                      value={formData.solapi_api_secret}
+                      onChange={(e) => setFormData({ ...formData, solapi_api_secret: e.target.value })}
+                      placeholder="API Secret"
+                      className="mt-2"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="solapi_sender_phone">발신번호 *</Label>
+                    <PhoneInput
+                      id="solapi_sender_phone"
+                      value={formData.solapi_sender_phone}
+                      onChange={(value) => setFormData({ ...formData, solapi_sender_phone: value })}
+                      placeholder="010-0000-0000"
+                      className="mt-2"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      솔라피에 등록 및 인증된 발신번호를 입력하세요
+                    </p>
+                  </div>
                 </div>
-              </AlertDescription>
-            </Alert>
-          </div>
-        </CardContent>
-      </Card>
+              )}
 
-      {/* Credentials Form */}
-      <Card>
-        <CardHeader>
-          <CardTitle>API 인증 정보</CardTitle>
-          <CardDescription>
-            {selectedProvider.name}에서 발급받은 API 키를 입력하세요
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {formData.provider === 'aligo' && (
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="aligo_user_id">Aligo User ID *</Label>
-                <Input
-                  id="aligo_user_id"
-                  type="text"
-                  value={formData.aligo_user_id}
-                  onChange={(e) => setFormData({ ...formData, aligo_user_id: e.target.value })}
-                  placeholder="알리고 사이트에서 확인"
-                  className="mt-2"
-                />
+              {formData.provider === 'nhncloud' && (
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="nhncloud_app_key">NHN Cloud App Key *</Label>
+                    <Input
+                      id="nhncloud_app_key"
+                      type="text"
+                      value={formData.nhncloud_app_key}
+                      onChange={(e) => setFormData({ ...formData, nhncloud_app_key: e.target.value })}
+                      placeholder="App Key"
+                      className="mt-2"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="nhncloud_secret_key">NHN Cloud Secret Key *</Label>
+                    <Input
+                      id="nhncloud_secret_key"
+                      type="password"
+                      value={formData.nhncloud_secret_key}
+                      onChange={(e) => setFormData({ ...formData, nhncloud_secret_key: e.target.value })}
+                      placeholder="Secret Key"
+                      className="mt-2"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="nhncloud_sender_phone">발신번호 *</Label>
+                    <PhoneInput
+                      id="nhncloud_sender_phone"
+                      value={formData.nhncloud_sender_phone}
+                      onChange={(value) => setFormData({ ...formData, nhncloud_sender_phone: value })}
+                      placeholder="010-0000-0000"
+                      className="mt-2"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      NHN Cloud에 등록 및 인증된 발신번호를 입력하세요
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 mt-6">
+                <Button onClick={handleSave} disabled={saving}>
+                  <Save className="h-4 w-4 mr-2" />
+                  {saving ? '저장 중...' : '저장'}
+                </Button>
+                {hasConfig && (
+                  <Button variant="outline" onClick={handleDeleteClick} disabled={deleting}>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    설정 삭제
+                  </Button>
+                )}
               </div>
-              <div>
-                <Label htmlFor="aligo_api_key">Aligo API Key *</Label>
-                <Input
-                  id="aligo_api_key"
-                  type="password"
-                  value={formData.aligo_api_key}
-                  onChange={(e) => setFormData({ ...formData, aligo_api_key: e.target.value })}
-                  placeholder="API Key"
-                  className="mt-2"
-                />
-              </div>
-              <div>
-                <Label htmlFor="aligo_sender_phone">발신번호 *</Label>
-                <PhoneInput
-                  id="aligo_sender_phone"
-                  value={formData.aligo_sender_phone}
-                  onChange={(value) => setFormData({ ...formData, aligo_sender_phone: value })}
-                  placeholder="010-0000-0000"
-                  className="mt-2"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  알리고에 등록 및 인증된 발신번호를 입력하세요
-                </p>
-              </div>
-            </div>
+            </CardContent>
+          </Card>
+
+          {/* Test Message */}
+          {hasConfig && !isVerified && (
+            <Card className="border-orange-200 bg-orange-50/50 dark:border-orange-900 dark:bg-orange-950/20">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-orange-600" />
+                  <div>
+                    <CardTitle className="text-lg">테스트 메시지 발송 필요</CardTitle>
+                    <CardDescription>
+                      설정을 인증하기 위해 테스트 메시지를 발송해주세요
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="test_phone">테스트 수신 번호</Label>
+                    <PhoneInput
+                      id="test_phone"
+                      value={testPhone}
+                      onChange={setTestPhone}
+                      placeholder="010-0000-0000"
+                      className="mt-2"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      테스트 메시지를 받을 전화번호를 입력하세요
+                    </p>
+                  </div>
+                  <Button onClick={handleTestMessage} disabled={testing}>
+                    <Send className="h-4 w-4 mr-2" />
+                    {testing ? '발송 중...' : '테스트 메시지 발송'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           )}
 
-          {formData.provider === 'solapi' && (
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="solapi_api_key">Solapi API Key *</Label>
-                <Input
-                  id="solapi_api_key"
-                  type="text"
-                  value={formData.solapi_api_key}
-                  onChange={(e) => setFormData({ ...formData, solapi_api_key: e.target.value })}
-                  placeholder="API Key"
-                  className="mt-2"
-                />
+          {/* Help */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">도움말</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3 text-sm">
+                <div>
+                  <p className="font-medium mb-1">1. 메시징 서비스 가입</p>
+                  <p className="text-muted-foreground text-xs">
+                    알리고, 솔라피, NHN Cloud 중 원하는 서비스에 가입하고 발신번호를 등록·인증받으세요.
+                  </p>
+                </div>
+                <div>
+                  <p className="font-medium mb-1">2. API 키 발급</p>
+                  <p className="text-muted-foreground text-xs">
+                    각 서비스의 관리자 페이지에서 API 키를 발급받으세요.
+                  </p>
+                </div>
+                <div>
+                  <p className="font-medium mb-1">3. Acadesk 설정</p>
+                  <p className="text-muted-foreground text-xs">
+                    위 폼에 API 키와 발신번호를 입력하고 저장한 후, 테스트 메시지를 발송하여 인증하세요.
+                  </p>
+                </div>
+                <div>
+                  <p className="font-medium mb-1">4. 서비스 활성화</p>
+                  <p className="text-muted-foreground text-xs">
+                    테스트가 성공하면 서비스를 활성화하여 실제 메시지 발송을 시작할 수 있습니다.
+                  </p>
+                </div>
               </div>
-              <div>
-                <Label htmlFor="solapi_api_secret">Solapi API Secret *</Label>
-                <Input
-                  id="solapi_api_secret"
-                  type="password"
-                  value={formData.solapi_api_secret}
-                  onChange={(e) => setFormData({ ...formData, solapi_api_secret: e.target.value })}
-                  placeholder="API Secret"
-                  className="mt-2"
-                />
-              </div>
-              <div>
-                <Label htmlFor="solapi_sender_phone">발신번호 *</Label>
-                <PhoneInput
-                  id="solapi_sender_phone"
-                  value={formData.solapi_sender_phone}
-                  onChange={(value) => setFormData({ ...formData, solapi_sender_phone: value })}
-                  placeholder="010-0000-0000"
-                  className="mt-2"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  솔라피에 등록 및 인증된 발신번호를 입력하세요
-                </p>
-              </div>
-            </div>
-          )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-          {formData.provider === 'nhncloud' && (
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="nhncloud_app_key">NHN Cloud App Key *</Label>
-                <Input
-                  id="nhncloud_app_key"
-                  type="text"
-                  value={formData.nhncloud_app_key}
-                  onChange={(e) => setFormData({ ...formData, nhncloud_app_key: e.target.value })}
-                  placeholder="App Key"
-                  className="mt-2"
+        {/* 카카오 알림톡 Tab */}
+        <TabsContent value="kakao" className="space-y-6">
+          {showKakaoTab ? (
+            <>
+              {/* Kakao Channel Status or Registration */}
+              {hasKakaoChannel && kakaoChannelConfig ? (
+                <KakaoChannelStatus
+                  config={kakaoChannelConfig}
+                  onChannelRemoved={() => router.refresh()}
                 />
-              </div>
-              <div>
-                <Label htmlFor="nhncloud_secret_key">NHN Cloud Secret Key *</Label>
-                <Input
-                  id="nhncloud_secret_key"
-                  type="password"
-                  value={formData.nhncloud_secret_key}
-                  onChange={(e) => setFormData({ ...formData, nhncloud_secret_key: e.target.value })}
-                  placeholder="Secret Key"
-                  className="mt-2"
+              ) : (
+                <KakaoChannelRegistration
+                  onRegistrationComplete={() => router.refresh()}
                 />
-              </div>
-              <div>
-                <Label htmlFor="nhncloud_sender_phone">발신번호 *</Label>
-                <PhoneInput
-                  id="nhncloud_sender_phone"
-                  value={formData.nhncloud_sender_phone}
-                  onChange={(value) => setFormData({ ...formData, nhncloud_sender_phone: value })}
-                  placeholder="010-0000-0000"
-                  className="mt-2"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  NHN Cloud에 등록 및 인증된 발신번호를 입력하세요
-                </p>
-              </div>
-            </div>
-          )}
+              )}
 
-          <div className="flex items-center gap-2 mt-6">
-            <Button onClick={handleSave} disabled={saving}>
-              <Save className="h-4 w-4 mr-2" />
-              {saving ? '저장 중...' : '저장'}
-            </Button>
-            {hasConfig && (
-              <Button variant="outline" onClick={handleDeleteClick} disabled={deleting}>
-                <Trash2 className="h-4 w-4 mr-2" />
-                설정 삭제
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Test Message */}
-      {hasConfig && !isVerified && (
-        <Card className="border-orange-200 bg-orange-50/50 dark:border-orange-900 dark:bg-orange-950/20">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-orange-600" />
-              <div>
-                <CardTitle className="text-lg">테스트 메시지 발송 필요</CardTitle>
-                <CardDescription>
-                  설정을 인증하기 위해 테스트 메시지를 발송해주세요
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="test_phone">테스트 수신 번호</Label>
-                <PhoneInput
-                  id="test_phone"
-                  value={testPhone}
-                  onChange={setTestPhone}
-                  placeholder="010-0000-0000"
-                  className="mt-2"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  테스트 메시지를 받을 전화번호를 입력하세요
-                </p>
-              </div>
-              <Button onClick={handleTestMessage} disabled={testing}>
-                <Send className="h-4 w-4 mr-2" />
-                {testing ? '발송 중...' : '테스트 메시지 발송'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Help */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">도움말</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3 text-sm">
-            <div>
-              <p className="font-medium mb-1">1. 메시징 서비스 가입</p>
-              <p className="text-muted-foreground text-xs">
-                알리고, 솔라피, NHN Cloud 중 원하는 서비스에 가입하고 발신번호를 등록·인증받으세요.
-              </p>
-            </div>
-            <div>
-              <p className="font-medium mb-1">2. API 키 발급</p>
-              <p className="text-muted-foreground text-xs">
-                각 서비스의 관리자 페이지에서 API 키를 발급받으세요.
-              </p>
-            </div>
-            <div>
-              <p className="font-medium mb-1">3. Acadesk 설정</p>
-              <p className="text-muted-foreground text-xs">
-                위 폼에 API 키와 발신번호를 입력하고 저장한 후, 테스트 메시지를 발송하여 인증하세요.
-              </p>
-            </div>
-            <div>
-              <p className="font-medium mb-1">4. 서비스 활성화</p>
-              <p className="text-muted-foreground text-xs">
-                테스트가 성공하면 서비스를 활성화하여 실제 메시지 발송을 시작할 수 있습니다.
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Kakao Alimtalk Section - Only show for Solapi provider */}
-      {isSolapiProvider && config?.is_verified && (
-        <>
-          <Separator className="my-8" />
-
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold">카카오 알림톡</h2>
-              <p className="text-muted-foreground">
-                카카오 비즈니스 채널을 연동하여 알림톡을 발송합니다
-              </p>
-            </div>
-
-            {/* Kakao Channel Status or Registration */}
-            {hasKakaoChannel && kakaoChannelConfig ? (
-              <KakaoChannelStatus
-                config={kakaoChannelConfig}
-                onChannelRemoved={() => router.refresh()}
+              {/* Kakao Templates */}
+              <KakaoTemplateList
+                hasChannel={hasKakaoChannel}
+                onCreateTemplate={() => {
+                  setEditingTemplate(null)
+                  setTemplateFormOpen(true)
+                }}
+                onEditTemplate={(template) => {
+                  setEditingTemplate(template)
+                  setTemplateFormOpen(true)
+                }}
               />
-            ) : (
-              <KakaoChannelRegistration
-                onRegistrationComplete={() => router.refresh()}
+
+              {/* Template Form Dialog */}
+              <KakaoTemplateForm
+                open={templateFormOpen}
+                onOpenChange={setTemplateFormOpen}
+                template={editingTemplate}
+                onSuccess={() => {
+                  setTemplateFormOpen(false)
+                  setEditingTemplate(null)
+                  router.refresh()
+                }}
               />
-            )}
-
-            {/* Kakao Templates */}
-            <KakaoTemplateList
-              hasChannel={hasKakaoChannel}
-              onCreateTemplate={() => {
-                setEditingTemplate(null)
-                setTemplateFormOpen(true)
-              }}
-              onEditTemplate={(template) => {
-                setEditingTemplate(template)
-                setTemplateFormOpen(true)
-              }}
-            />
-
-            {/* Template Form Dialog */}
-            <KakaoTemplateForm
-              open={templateFormOpen}
-              onOpenChange={setTemplateFormOpen}
-              template={editingTemplate}
-              onSuccess={() => {
-                setTemplateFormOpen(false)
-                setEditingTemplate(null)
-                router.refresh()
-              }}
-            />
-          </div>
-        </>
-      )}
+            </>
+          ) : (
+            <Card>
+              <CardContent className="py-12">
+                <div className="text-center space-y-4">
+                  <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground" />
+                  <div>
+                    <h3 className="font-semibold text-lg">카카오 알림톡을 사용하려면</h3>
+                    <p className="text-muted-foreground text-sm mt-1">
+                      솔라피(Solapi)를 선택하고 API 인증을 완료해주세요
+                    </p>
+                  </div>
+                  <Button variant="outline" onClick={() => {
+                    const apiTab = document.querySelector('[data-state="inactive"][value="api"]') as HTMLElement
+                    apiTab?.click()
+                  }}>
+                    API 설정으로 이동
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
