@@ -1814,10 +1814,21 @@ export async function sendReportMessage(reportSendId: string) {
     // 2. Create service_role client
     const supabase = createServiceRoleClient()
 
-    // 3. report_send 정보 조회
+    // 3. report_send 정보 조회 (리포트 및 학생 정보 포함)
     const { data: reportSend, error } = await supabase
       .from('report_sends')
-      .select('*')
+      .select(`
+        *,
+        reports (
+          id,
+          student_id,
+          students (
+            id,
+            student_code,
+            users (name)
+          )
+        )
+      `)
       .eq('id', reportSendId)
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
@@ -1826,6 +1837,9 @@ export async function sendReportMessage(reportSendId: string) {
     if (error || !reportSend) {
       throw new Error('발송 정보를 찾을 수 없습니다')
     }
+
+    const studentId = (reportSend.reports as any)?.student_id
+    const studentName = (reportSend.reports as any)?.students?.users?.name || '학생'
 
     // 4. 통합 메시지 Provider 사용 (tenant 설정에 따라 알리고/솔라피 자동 선택)
     const { sendMessage } = await import('@/lib/messaging/provider')
@@ -1860,9 +1874,23 @@ export async function sendReportMessage(reportSendId: string) {
       })
       .eq('id', reportSend.report_id)
 
-    // 7. Revalidate
+    // 7. notification_logs에 기록 (메시지 관리에서 추적 가능하도록)
+    const notificationType = reportSend.message_type === 'KAKAO' ? 'kakao' :
+                            reportSend.message_type === 'LMS' ? 'lms' : 'sms'
+
+    await supabase.from('notification_logs').insert({
+      tenant_id: tenantId,
+      student_id: studentId,
+      notification_type: notificationType,
+      status: 'sent',
+      message: `[리포트 발송] ${studentName} 학생 리포트를 ${reportSend.recipient_name}(${reportSend.recipient_phone})에게 발송`,
+      sent_at: new Date().toISOString(),
+    })
+
+    // 8. Revalidate
     revalidatePath('/reports')
     revalidatePath(`/reports/${reportSend.report_id}`)
+    revalidatePath('/notifications')
 
     return {
       success: true,
