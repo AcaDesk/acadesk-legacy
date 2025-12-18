@@ -594,6 +594,10 @@ export async function generateAndSendReport(params: {
   recipientContact: string
   academyName: string
   academyPhone: string
+  /** 카카오 알림톡용 템플릿 ID (channel이 'kakao'일 때 필수) */
+  kakaoTemplateId?: string
+  /** 카카오 알림톡용 변수 (템플릿에 #{변수명} 형식) */
+  kakaoVariables?: Record<string, string>
 }): Promise<{ success: boolean; error: string | null }> {
   try {
     // 1. Verify authentication and get tenant
@@ -650,12 +654,70 @@ export async function generateAndSendReport(params: {
 숙제 완료율: ${homework.rate}% (완료 ${homework.completed}/${homework.total}건)
 
 ${params.comment ? `💬 종합평가\n${params.comment}\n\n` : ''}문의: ${params.academyName} ${params.academyPhone}`
+    } else if (params.channel === 'kakao') {
+      // 카카오 알림톡: 템플릿 ID 필수
+      if (!params.kakaoTemplateId) {
+        throw new Error('카카오 알림톡 발송에는 템플릿을 선택해야 합니다.')
+      }
+
+      // 기본 변수 구성 (사용자 입력 변수 + 자동 생성 변수)
+      const variables: Record<string, string> = {
+        // 자동 생성 변수
+        학생명: studentName,
+        보호자명: params.recipientName,
+        기간: `${params.startDate} ~ ${params.endDate}`,
+        출석률: `${attendance.rate}%`,
+        숙제완료율: `${homework.rate}%`,
+        학원명: params.academyName,
+        학원연락처: params.academyPhone,
+        ...(params.comment && { 종합평가: params.comment }),
+        // 사용자 입력 변수 (자동 생성 변수를 덮어쓸 수 있음)
+        ...params.kakaoVariables,
+      }
+
+      // 알림톡 발송
+      const { sendAlimtalk } = await import('@/lib/messaging/provider')
+      const alimtalkResult = await sendAlimtalk({
+        to: params.recipientContact,
+        templateId: params.kakaoTemplateId,
+        variables,
+      })
+
+      if (!alimtalkResult.success) {
+        throw new Error(alimtalkResult.error || '알림톡 발송에 실패했습니다.')
+      }
+
+      // notification_logs에 기록
+      const { error: logError } = await supabase.from('notification_logs').insert({
+        tenant_id: tenantId,
+        student_id: params.studentId,
+        session_id: null,
+        notification_type: 'kakao',
+        status: 'sent',
+        message: `[알림톡 발송] 템플릿ID: ${params.kakaoTemplateId}, 수신자: ${params.recipientName} ${params.recipientContact}`,
+        sent_at: new Date().toISOString(),
+      })
+
+      if (logError) {
+        console.error('[generateAndSendReport] Kakao log error:', logError)
+      }
+
+      // 캐시 무효화
+      revalidatePath(`/students/${params.studentId}`)
+      revalidatePath('/reports')
+
+      return {
+        success: true,
+        error: null,
+      }
+    } else if (params.channel === 'email') {
+      // 이메일: 준비 중
+      throw new Error('이메일 채널은 준비 중입니다.')
     } else {
-      // Email/Kakao: 준비 중
-      throw new Error(`${params.channel} 채널은 준비 중입니다.`)
+      throw new Error(`지원되지 않는 채널입니다: ${params.channel}`)
     }
 
-    // 6. notification_logs에 기록 (실제 발송은 외부 시스템 연동 필요)
+    // 6. SMS/LMS 발송 - notification_logs에 기록
     const { error: logError } = await supabase.from('notification_logs').insert({
       tenant_id: tenantId,
       student_id: params.studentId,

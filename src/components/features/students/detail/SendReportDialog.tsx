@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -39,11 +39,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@ui/popover'
+import { Alert, AlertDescription } from '@ui/alert'
 import { useToast } from '@/hooks/use-toast'
-import { CalendarIcon, Loader2, Send, Eye } from 'lucide-react'
+import { CalendarIcon, Loader2, Send, Eye, Info, MessageSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { generateAndSendReport } from '@/app/actions/reports'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { getKakaoTemplates, type KakaoTemplate } from '@/app/actions/kakao-templates'
+import { getKakaoChannelConfig } from '@/app/actions/kakao-channel'
 import type { StudentDetail } from '@/core/types/studentDetail.types'
 
 const reportSchema = z.object({
@@ -60,6 +63,17 @@ const reportSchema = z.object({
   recipientContact: z.string().min(1, '수신자 연락처를 입력해주세요.'),
   academyName: z.string().min(1, '학원 이름을 입력해주세요.'),
   academyPhone: z.string().min(1, '학원 연락처를 입력해주세요.'),
+  /** 카카오 알림톡 템플릿 ID (channel이 'kakao'일 때 필수) */
+  kakaoTemplateId: z.string().optional(),
+}).refine((data) => {
+  // kakao 채널 선택 시 템플릿 ID 필수
+  if (data.channel === 'kakao' && !data.kakaoTemplateId) {
+    return false
+  }
+  return true
+}, {
+  message: '알림톡 발송에는 템플릿을 선택해야 합니다.',
+  path: ['kakaoTemplateId'],
 })
 
 type ReportFormData = z.infer<typeof reportSchema>
@@ -78,6 +92,12 @@ export function SendReportDialog({
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const [previewContent, setPreviewContent] = useState<string | null>(null)
+
+  // 카카오 알림톡 관련 상태
+  const [kakaoTemplates, setKakaoTemplates] = useState<KakaoTemplate[]>([])
+  const [loadingTemplates, setLoadingTemplates] = useState(false)
+  const [hasKakaoChannel, setHasKakaoChannel] = useState(false)
+  const [kakaoChannelChecked, setKakaoChannelChecked] = useState(false)
 
   // 기본값: 지난달 1일 ~ 말일
   const lastMonthStart = startOfMonth(subMonths(new Date(), 1))
@@ -100,8 +120,54 @@ export function SendReportDialog({
       recipientContact: guardianPhone,
       academyName: '',
       academyPhone: '',
+      kakaoTemplateId: undefined,
     },
   })
+
+  const selectedChannel = form.watch('channel')
+
+  // 카카오 채널 연동 확인 (다이얼로그 열릴 때)
+  useEffect(() => {
+    if (open && !kakaoChannelChecked) {
+      checkKakaoChannel()
+    }
+  }, [open, kakaoChannelChecked])
+
+  // 카카오 채널 선택 시 템플릿 로드
+  useEffect(() => {
+    if (selectedChannel === 'kakao' && hasKakaoChannel && kakaoTemplates.length === 0) {
+      loadKakaoTemplates()
+    }
+  }, [selectedChannel, hasKakaoChannel])
+
+  async function checkKakaoChannel() {
+    try {
+      const result = await getKakaoChannelConfig()
+      if (result.success && result.data?.channelId) {
+        setHasKakaoChannel(true)
+      }
+    } catch (error) {
+      console.error('Failed to check Kakao channel:', error)
+    } finally {
+      setKakaoChannelChecked(true)
+    }
+  }
+
+  async function loadKakaoTemplates() {
+    setLoadingTemplates(true)
+    try {
+      const result = await getKakaoTemplates()
+      if (result.success && result.data) {
+        // 승인된 템플릿만 필터링
+        const approvedTemplates = result.data.filter((t) => t.status === 'approved')
+        setKakaoTemplates(approvedTemplates)
+      }
+    } catch (error) {
+      console.error('Failed to load Kakao templates:', error)
+    } finally {
+      setLoadingTemplates(false)
+    }
+  }
 
   const handlePreview = () => {
     const values = form.getValues()
@@ -134,15 +200,22 @@ ${values.comment ? `\n💬 종합평가\n${values.comment}\n` : ''}
         recipientContact: data.recipientContact,
         academyName: data.academyName,
         academyPhone: data.academyPhone,
+        // 카카오 알림톡 관련 파라미터
+        ...(data.channel === 'kakao' && data.kakaoTemplateId && {
+          kakaoTemplateId: data.kakaoTemplateId,
+        }),
       })
 
       if (!result.success) {
         throw new Error(result.error || '리포트 발송에 실패했습니다.')
       }
 
+      // 채널에 따른 메시지 다르게 표시
+      const channelLabel = data.channel === 'kakao' ? '알림톡' : data.channel.toUpperCase()
+
       toast({
         title: '리포트 발송 완료',
-        description: `${data.recipientName}님께 ${data.channel.toUpperCase()} 메시지가 발송되었습니다.`,
+        description: `${data.recipientName}님께 ${channelLabel} 메시지가 발송되었습니다.`,
       })
 
       onOpenChange(false)
@@ -315,7 +388,13 @@ ${values.comment ? `\n💬 종합평가\n${values.comment}\n` : ''}
                 <FormItem>
                   <FormLabel>발송 채널</FormLabel>
                   <Select
-                    onValueChange={field.onChange}
+                    onValueChange={(value) => {
+                      field.onChange(value)
+                      // 카카오 외 채널 선택 시 템플릿 ID 초기화
+                      if (value !== 'kakao') {
+                        form.setValue('kakaoTemplateId', undefined)
+                      }
+                    }}
                     defaultValue={field.value}
                   >
                     <FormControl>
@@ -326,17 +405,101 @@ ${values.comment ? `\n💬 종합평가\n${values.comment}\n` : ''}
                     <SelectContent>
                       <SelectItem value="sms">SMS (90자 이내)</SelectItem>
                       <SelectItem value="lms">LMS (2000자 이내)</SelectItem>
-                      <SelectItem value="kakao">카카오톡 (준비중)</SelectItem>
-                      <SelectItem value="email">이메일 (준비중)</SelectItem>
+                      <SelectItem value="kakao" disabled={!hasKakaoChannel}>
+                        <span className="flex items-center gap-2">
+                          <MessageSquare className="h-4 w-4" />
+                          카카오 알림톡
+                          {!hasKakaoChannel && ' (채널 연동 필요)'}
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="email" disabled>
+                        이메일 (준비중)
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                   <FormDescription>
-                    SMS는 90자, LMS는 2000자까지 전송 가능합니다.
+                    {selectedChannel === 'kakao'
+                      ? '승인된 템플릿을 선택하면 알림톡이 발송됩니다.'
+                      : 'SMS는 90자, LMS는 2000자까지 전송 가능합니다.'}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
+
+            {/* 카카오 알림톡 템플릿 선택 (kakao 채널 선택 시) */}
+            {selectedChannel === 'kakao' && (
+              <FormField
+                control={form.control}
+                name="kakaoTemplateId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>알림톡 템플릿 *</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="템플릿 선택" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {loadingTemplates ? (
+                          <SelectItem value="loading" disabled>
+                            <span className="flex items-center gap-2">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              로딩 중...
+                            </span>
+                          </SelectItem>
+                        ) : kakaoTemplates.length === 0 ? (
+                          <SelectItem value="none" disabled>
+                            승인된 템플릿이 없습니다
+                          </SelectItem>
+                        ) : (
+                          kakaoTemplates.map((template) => (
+                            <SelectItem key={template.id} value={template.id}>
+                              {template.name}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      카카오 검수를 통과한 템플릿만 발송할 수 있습니다.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
+            {/* 선택된 템플릿 미리보기 */}
+            {selectedChannel === 'kakao' && form.watch('kakaoTemplateId') && (
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  {(() => {
+                    const selectedTemplate = kakaoTemplates.find(
+                      (t) => t.id === form.watch('kakaoTemplateId')
+                    )
+                    if (!selectedTemplate) return null
+                    return (
+                      <div className="space-y-2">
+                        <p className="font-medium text-sm">{selectedTemplate.name}</p>
+                        <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                          {selectedTemplate.content.substring(0, 200)}
+                          {selectedTemplate.content.length > 200 && '...'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          자동 치환 변수: #{'{'} 학생명{'}'}, #{'{'} 보호자명{'}'}, #{'{'} 기간{'}'}, #{'{'} 출석률{'}'}, #{'{'} 숙제완료율{'}'}, #{'{'} 학원명{'}'}, #{'{'} 학원연락처{'}'}, #{'{'} 종합평가{'}'}
+                        </p>
+                      </div>
+                    )
+                  })()}
+                </AlertDescription>
+              </Alert>
+            )}
 
             {/* 수신자 정보 */}
             <div className="grid grid-cols-2 gap-4">
