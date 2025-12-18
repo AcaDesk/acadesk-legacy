@@ -1,5 +1,5 @@
 /**
- * Solapi SMS/LMS Provider - Infrastructure Layer
+ * Solapi SMS/LMS/Kakao Alimtalk Provider - Infrastructure Layer
  *
  * IMessageProvider 인터페이스 구현체 (솔라피 SDK 사용)
  * @see https://developers.solapi.com/sdk-list/Node.js
@@ -14,6 +14,21 @@ import {
   MessageChannel,
   DeliveryStatus,
 } from '@/core/domain/messaging/IMessageProvider'
+import type {
+  KakaoChannel,
+  KakaoChannelCategory,
+  KakaoChannelTokenRequest,
+  KakaoChannelTokenResponse,
+  KakaoChannelCreateRequest,
+  KakaoTemplateCategory,
+  KakaoAlimtalkTemplate,
+  CreateKakaoTemplateRequest,
+  UpdateKakaoTemplateRequest,
+  SendAlimtalkRequest,
+  SendAlimtalkResponse,
+  KakaoTemplateStatus,
+  KakaoButton,
+} from './types/kakao.types'
 
 interface SolapiConfig {
   apiKey: string
@@ -304,6 +319,541 @@ export class SolapiProvider implements IMessageProvider {
    */
   private sanitizePhoneNumber(phone: string): string {
     return phone.replace(/[^0-9]/g, '')
+  }
+
+  // ============================================================================
+  // Kakao Channel Management (카카오 채널 관리)
+  // ============================================================================
+
+  /**
+   * 카카오 채널 인증 토큰 요청
+   * 대표자 전화번호로 카카오톡 인증 메시지가 발송됨
+   */
+  async requestKakaoChannelToken(
+    data: KakaoChannelTokenRequest
+  ): Promise<KakaoChannelTokenResponse> {
+    try {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[SolapiProvider TEST MODE] requestKakaoChannelToken:', data)
+        return { success: true }
+      }
+
+      await this.messageService.requestKakaoChannelToken({
+        searchId: data.searchId,
+        phoneNumber: this.sanitizePhoneNumber(data.phoneNumber),
+      })
+
+      return { success: true }
+    } catch (error) {
+      console.error('[SolapiProvider.requestKakaoChannelToken] Error:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : '채널 토큰 요청 실패',
+      }
+    }
+  }
+
+  /**
+   * 카카오 채널 카테고리 목록 조회
+   */
+  async getKakaoChannelCategories(): Promise<KakaoChannelCategory[]> {
+    try {
+      if (process.env.NODE_ENV === 'development') {
+        return [
+          { code: '001', name: '음식점' },
+          { code: '002', name: '교육/학원' },
+          { code: '003', name: '의료/건강' },
+          { code: '004', name: '금융/보험' },
+          { code: '005', name: '쇼핑/유통' },
+        ]
+      }
+
+      const categories = await this.messageService.getKakaoChannelCategories()
+      return categories.map((cat: any) => ({
+        code: cat.code,
+        name: cat.name,
+      }))
+    } catch (error) {
+      console.error('[SolapiProvider.getKakaoChannelCategories] Error:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 카카오 채널 생성 (연동)
+   */
+  async createKakaoChannel(data: KakaoChannelCreateRequest): Promise<KakaoChannel> {
+    try {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[SolapiProvider TEST MODE] createKakaoChannel:', data)
+        return {
+          channelId: `TEST_CHANNEL_${Date.now()}`,
+          searchId: data.searchId,
+          name: `테스트 채널 (${data.searchId})`,
+          status: 'active',
+          verifiedAt: new Date(),
+        }
+      }
+
+      const result = await this.messageService.createKakaoChannel({
+        searchId: data.searchId,
+        phoneNumber: this.sanitizePhoneNumber(data.phoneNumber),
+        token: data.token,
+        categoryCode: data.categoryCode,
+      })
+
+      return {
+        channelId: result.channelId,
+        searchId: data.searchId,
+        name: data.searchId, // createKakaoChannel response doesn't include name
+        status: 'active',
+        categoryCode: data.categoryCode,
+        verifiedAt: new Date(),
+      }
+    } catch (error) {
+      console.error('[SolapiProvider.createKakaoChannel] Error:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 등록된 카카오 채널 목록 조회
+   */
+  async getKakaoChannels(): Promise<KakaoChannel[]> {
+    try {
+      if (process.env.NODE_ENV === 'development') {
+        return []
+      }
+
+      const response = await this.messageService.getKakaoChannels()
+      return (response.channelList || []).map((ch: any) => ({
+        channelId: ch.channelId,
+        searchId: ch.searchId,
+        name: ch.name,
+        status: (ch.status?.toLowerCase() || 'active') as 'pending' | 'active' | 'suspended',
+        categoryCode: ch.categoryCode,
+        verifiedAt: ch.dateCreated ? new Date(ch.dateCreated) : undefined,
+      }))
+    } catch (error) {
+      console.error('[SolapiProvider.getKakaoChannels] Error:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 카카오 채널 삭제 (연동 해제)
+   * 연결된 모든 템플릿도 삭제됨
+   */
+  async removeKakaoChannel(channelId: string): Promise<void> {
+    try {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[SolapiProvider TEST MODE] removeKakaoChannel:', channelId)
+        return
+      }
+
+      await this.messageService.removeKakaoChannel(channelId)
+    } catch (error) {
+      console.error('[SolapiProvider.removeKakaoChannel] Error:', error)
+      throw error
+    }
+  }
+
+  // ============================================================================
+  // Kakao Alimtalk Template Management (알림톡 템플릿 관리)
+  // ============================================================================
+
+  /**
+   * 알림톡 템플릿 카테고리 목록 조회
+   */
+  async getKakaoAlimtalkTemplateCategories(): Promise<KakaoTemplateCategory[]> {
+    try {
+      if (process.env.NODE_ENV === 'development') {
+        return [
+          { code: '001001', name: '예약 안내' },
+          { code: '001002', name: '배송 안내' },
+          { code: '001003', name: '결제 안내' },
+          { code: '001004', name: '회원 안내' },
+          { code: '001005', name: '학습 안내' },
+        ]
+      }
+
+      const categories = await this.messageService.getKakaoAlimtalkTemplateCategories()
+      return categories.map((cat: any) => ({
+        code: cat.code,
+        name: cat.name,
+      }))
+    } catch (error) {
+      console.error('[SolapiProvider.getKakaoAlimtalkTemplateCategories] Error:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 알림톡 템플릿 생성 (검수 요청)
+   */
+  async createKakaoAlimtalkTemplate(
+    data: CreateKakaoTemplateRequest
+  ): Promise<{ solapiTemplateId: string; status: KakaoTemplateStatus }> {
+    try {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[SolapiProvider TEST MODE] createKakaoAlimtalkTemplate:', data)
+        return {
+          solapiTemplateId: `TEST_TPL_${Date.now()}`,
+          status: 'inspecting',
+        }
+      }
+
+      // Cast to any to avoid SDK type mismatch (discriminated union types)
+      const templateRequest: any = {
+        channelId: data.channelId,
+        name: data.name,
+        content: data.content,
+        categoryCode: data.categoryCode,
+        messageType: data.messageType || 'BA',
+        emphasizeType: data.emphasizeType || 'NONE',
+        securityFlag: data.securityFlag || false,
+      }
+
+      if (data.emphasizeTitle) templateRequest.emphasizeTitle = data.emphasizeTitle
+      if (data.emphasizeSubtitle) templateRequest.emphasizeSubTitle = data.emphasizeSubtitle
+      if (data.buttons && data.buttons.length > 0) templateRequest.buttons = data.buttons
+      if (data.quickReplies && data.quickReplies.length > 0) templateRequest.quickReplies = data.quickReplies
+      if (data.extraContent) templateRequest.extra = data.extraContent
+      if (data.adContent) templateRequest.ad = data.adContent
+
+      const result = await this.messageService.createKakaoAlimtalkTemplate(templateRequest)
+
+      return {
+        solapiTemplateId: result.templateId,
+        status: this.mapTemplateStatus(result.status),
+      }
+    } catch (error) {
+      console.error('[SolapiProvider.createKakaoAlimtalkTemplate] Error:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 알림톡 템플릿 목록 조회
+   */
+  async getKakaoAlimtalkTemplates(
+    channelId: string,
+    filters?: { status?: KakaoTemplateStatus; name?: string }
+  ): Promise<Array<{
+    solapiTemplateId: string
+    name: string
+    content: string
+    status: KakaoTemplateStatus
+    messageType: string
+    buttons: KakaoButton[]
+    dateCreated: Date
+    dateUpdated: Date
+  }>> {
+    try {
+      if (process.env.NODE_ENV === 'development') {
+        return []
+      }
+
+      const params: any = { channelId }
+      if (filters?.status) params.status = filters.status.toUpperCase()
+      if (filters?.name) params.name = filters.name
+
+      const result = await this.messageService.getKakaoAlimtalkTemplates(params)
+      const templates = result.templateList || []
+
+      return templates.map((tpl: any) => ({
+        solapiTemplateId: tpl.templateId,
+        name: tpl.name,
+        content: tpl.content,
+        status: this.mapTemplateStatus(tpl.status),
+        messageType: tpl.messageType || 'BA',
+        buttons: tpl.buttons || [],
+        dateCreated: new Date(tpl.dateCreated),
+        dateUpdated: new Date(tpl.dateUpdated),
+      }))
+    } catch (error) {
+      console.error('[SolapiProvider.getKakaoAlimtalkTemplates] Error:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 알림톡 템플릿 상세 조회
+   */
+  async getKakaoAlimtalkTemplate(templateId: string): Promise<{
+    solapiTemplateId: string
+    name: string
+    content: string
+    status: KakaoTemplateStatus
+    messageType: string
+    emphasizeType: string
+    emphasizeTitle?: string
+    emphasizeSubtitle?: string
+    buttons: KakaoButton[]
+    rejectionReason?: string
+    dateCreated: Date
+    dateUpdated: Date
+  }> {
+    try {
+      if (process.env.NODE_ENV === 'development') {
+        return {
+          solapiTemplateId: templateId,
+          name: '테스트 템플릿',
+          content: '#{학생명}님의 학습 리포트가 도착했습니다.',
+          status: 'approved',
+          messageType: 'BA',
+          emphasizeType: 'NONE',
+          buttons: [],
+          dateCreated: new Date(),
+          dateUpdated: new Date(),
+        }
+      }
+
+      const result = await this.messageService.getKakaoAlimtalkTemplate(templateId)
+
+      return {
+        solapiTemplateId: result.templateId,
+        name: result.name,
+        content: result.content ?? '',
+        status: this.mapTemplateStatus(result.status),
+        messageType: result.messageType || 'BA',
+        emphasizeType: result.emphasizeType || 'NONE',
+        emphasizeTitle: result.emphasizeTitle ?? undefined,
+        emphasizeSubtitle: result.emphasizeSubtitle ?? undefined,
+        buttons: (result.buttons || []) as KakaoButton[],
+        rejectionReason: result.comments?.[0]?.content ?? undefined,
+        dateCreated: result.dateCreated,
+        dateUpdated: result.dateUpdated,
+      }
+    } catch (error) {
+      console.error('[SolapiProvider.getKakaoAlimtalkTemplate] Error:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 알림톡 템플릿 수정 (재검수 요청)
+   */
+  async updateKakaoAlimtalkTemplate(
+    templateId: string,
+    data: UpdateKakaoTemplateRequest
+  ): Promise<{ status: KakaoTemplateStatus }> {
+    try {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[SolapiProvider TEST MODE] updateKakaoAlimtalkTemplate:', {
+          templateId,
+          data,
+        })
+        return { status: 'inspecting' }
+      }
+
+      const updateData: any = {}
+      if (data.name) updateData.name = data.name
+      if (data.content) updateData.content = data.content
+      if (data.categoryCode) updateData.categoryCode = data.categoryCode
+      if (data.messageType) updateData.messageType = data.messageType
+      if (data.emphasizeType) updateData.emphasizeType = data.emphasizeType
+      if (data.emphasizeTitle) updateData.emphasizeTitle = data.emphasizeTitle
+      if (data.emphasizeSubtitle) updateData.emphasizeSubtitle = data.emphasizeSubtitle
+      if (data.buttons) updateData.buttons = data.buttons
+      if (data.quickReplies) updateData.quickReplies = data.quickReplies
+      if (data.extraContent) updateData.extra = data.extraContent
+      if (data.adContent) updateData.ad = data.adContent
+      if (typeof data.securityFlag === 'boolean') updateData.securityFlag = data.securityFlag
+
+      const result = await this.messageService.updateKakaoAlimtalkTemplate(templateId, updateData)
+
+      return {
+        status: this.mapTemplateStatus(result.status),
+      }
+    } catch (error) {
+      console.error('[SolapiProvider.updateKakaoAlimtalkTemplate] Error:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 알림톡 템플릿 삭제
+   */
+  async deleteKakaoAlimtalkTemplate(templateId: string): Promise<void> {
+    try {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[SolapiProvider TEST MODE] deleteKakaoAlimtalkTemplate:', templateId)
+        return
+      }
+
+      await this.messageService.removeKakaoAlimtalkTemplate(templateId)
+    } catch (error) {
+      console.error('[SolapiProvider.deleteKakaoAlimtalkTemplate] Error:', error)
+      throw error
+    }
+  }
+
+  // ============================================================================
+  // Kakao Alimtalk Message Sending (알림톡 발송)
+  // ============================================================================
+
+  /**
+   * 알림톡 메시지 발송
+   */
+  async sendAlimtalk(request: SendAlimtalkRequest): Promise<SendAlimtalkResponse> {
+    try {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[SolapiProvider TEST MODE] sendAlimtalk:', request)
+        return {
+          success: true,
+          messageId: `TEST_ATA_${Date.now()}`,
+          groupId: `TEST_GROUP_${Date.now()}`,
+          cost: 10,
+          fallbackToSms: false,
+        }
+      }
+
+      // 알림톡 메시지 객체 구성
+      const messageObject: any = {
+        to: this.sanitizePhoneNumber(request.to),
+        from: this.sanitizePhoneNumber(request.senderPhone || this.config.senderPhone),
+        type: 'ATA', // Alimtalk
+        kakaoOptions: {
+          pfId: request.channelId,
+          templateId: request.templateId,
+          disableSms: request.disableSms ?? false, // 기본: SMS fallback 활성화
+        },
+      }
+
+      // 변수 치환
+      if (request.variables && Object.keys(request.variables).length > 0) {
+        messageObject.kakaoOptions.variables = request.variables
+      }
+
+      // 버튼 (템플릿 오버라이드)
+      if (request.buttons && request.buttons.length > 0) {
+        messageObject.kakaoOptions.buttons = request.buttons
+      }
+
+      // SDK send 메서드 호출
+      const response = await this.messageService.send(messageObject)
+
+      // 결과 확인
+      const groupId = response.groupInfo?.groupId
+
+      if (!groupId) {
+        return {
+          success: false,
+          error: 'Solapi API did not return a group ID',
+        }
+      }
+
+      // SMS fallback 발생 여부 확인 (실제로는 발송 후 상태 조회 필요)
+      const fallbackToSms = false // TODO: 실제 발송 결과에서 확인
+
+      return {
+        success: true,
+        messageId: groupId,
+        groupId,
+        cost: 10, // 알림톡 비용 (예상)
+        fallbackToSms,
+      }
+    } catch (error) {
+      console.error('[SolapiProvider.sendAlimtalk] Error:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : '알림톡 발송 실패',
+        errorCode: (error as any)?.code,
+      }
+    }
+  }
+
+  /**
+   * 알림톡 대량 발송
+   */
+  async sendBulkAlimtalk(
+    templateId: string,
+    channelId: string,
+    recipients: Array<{ to: string; variables?: Record<string, string> }>,
+    options?: { disableSms?: boolean; senderPhone?: string }
+  ): Promise<{
+    success: boolean
+    groupId?: string
+    totalCount: number
+    successCount: number
+    failCount: number
+  }> {
+    try {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[SolapiProvider TEST MODE] sendBulkAlimtalk:', {
+          templateId,
+          channelId,
+          recipients,
+          options,
+        })
+        return {
+          success: true,
+          groupId: `TEST_BULK_GROUP_${Date.now()}`,
+          totalCount: recipients.length,
+          successCount: recipients.length,
+          failCount: 0,
+        }
+      }
+
+      const senderPhone = options?.senderPhone || this.config.senderPhone
+
+      // 1. 그룹 생성 (returns groupId as string)
+      const groupId = await this.messageService.createGroup()
+
+      // 2. 메시지 배열 구성
+      const messages = recipients.map((recipient) => ({
+        to: this.sanitizePhoneNumber(recipient.to),
+        from: this.sanitizePhoneNumber(senderPhone),
+        type: 'ATA' as const,
+        kakaoOptions: {
+          pfId: channelId,
+          templateId,
+          disableSms: options?.disableSms ?? false,
+          ...(recipient.variables && { variables: recipient.variables }),
+        },
+      }))
+
+      // 3. 그룹에 메시지 추가
+      await this.messageService.addMessagesToGroup(groupId, messages)
+
+      // 4. 그룹 발송
+      const response = await this.messageService.sendGroup(groupId)
+
+      return {
+        success: true,
+        groupId: response.groupId,
+        totalCount: response.count?.total || recipients.length,
+        successCount: response.count?.registeredSuccess || 0,
+        failCount: response.count?.registeredFailed || 0,
+      }
+    } catch (error) {
+      console.error('[SolapiProvider.sendBulkAlimtalk] Error:', error)
+      return {
+        success: false,
+        totalCount: recipients.length,
+        successCount: 0,
+        failCount: recipients.length,
+      }
+    }
+  }
+
+  // ============================================================================
+  // Helper Methods
+  // ============================================================================
+
+  /**
+   * 솔라피 템플릿 상태를 내부 상태로 매핑
+   */
+  private mapTemplateStatus(status: string): KakaoTemplateStatus {
+    const statusMap: Record<string, KakaoTemplateStatus> = {
+      PENDING: 'pending',
+      INSPECTING: 'inspecting',
+      APPROVED: 'approved',
+      REJECTED: 'rejected',
+      SUSPENDED: 'suspended',
+    }
+    return statusMap[status?.toUpperCase()] || 'pending'
   }
 }
 
