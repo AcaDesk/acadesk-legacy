@@ -45,7 +45,7 @@ export default function NotificationsPage() {
   const [logs, setLogs] = useState<NotificationLog[]>([])
   const [filteredLogs, setFilteredLogs] = useState<NotificationLog[]>([])
   const [searchTerm, setSearchTerm] = useState('')
-  const [filterType, setFilterType] = useState<'all' | 'sms'>('all')
+  const [filterType, setFilterType] = useState<'all' | 'sms' | 'lms' | 'kakao'>('all')
   const [filterStatus, setFilterStatus] = useState<'all' | 'sent' | 'failed'>('all')
   const [loading, setLoading] = useState(true)
   const [sendMessageOpen, setSendMessageOpen] = useState(false)
@@ -164,6 +164,10 @@ export default function NotificationsPage() {
         return <Badge variant="default" className="bg-blue-600">LMS</Badge>
       case 'mms':
         return <Badge variant="default" className="bg-purple-600">MMS</Badge>
+      case 'kakao':
+        return <Badge variant="default" className="bg-yellow-500 text-black">알림톡</Badge>
+      case 'email':
+        return <Badge variant="default" className="bg-gray-600">이메일</Badge>
       default:
         return <Badge variant="secondary">{type.toUpperCase()}</Badge>
     }
@@ -195,6 +199,9 @@ export default function NotificationsPage() {
     sent: logs.filter((l) => l.status === 'sent').length,
     failed: logs.filter((l) => l.status === 'failed').length,
     sms: logs.filter((l) => l.notification_type === 'sms').length,
+    lms: logs.filter((l) => l.notification_type === 'lms').length,
+    kakao: logs.filter((l) => l.notification_type === 'kakao').length,
+    email: logs.filter((l) => l.notification_type === 'email').length,
   }
 
   return (
@@ -230,6 +237,15 @@ export default function NotificationsPage() {
               <CardDescription>전체 전송</CardDescription>
               <CardTitle className="text-3xl">{stats.total}건</CardTitle>
             </CardHeader>
+            <CardContent className="pt-0">
+              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                <span>SMS {stats.sms}</span>
+                <span>·</span>
+                <span>LMS {stats.lms}</span>
+                <span>·</span>
+                <span className="text-yellow-600">알림톡 {stats.kakao}</span>
+              </div>
+            </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-3">
@@ -264,7 +280,7 @@ export default function NotificationsPage() {
               className="pl-10"
             />
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button
               variant={filterType === 'all' ? 'default' : 'outline'}
               size="sm"
@@ -277,7 +293,22 @@ export default function NotificationsPage() {
               size="sm"
               onClick={() => setFilterType('sms')}
             >
-              SMS
+              SMS ({stats.sms})
+            </Button>
+            <Button
+              variant={filterType === 'lms' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilterType('lms')}
+            >
+              LMS ({stats.lms})
+            </Button>
+            <Button
+              variant={filterType === 'kakao' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilterType('kakao')}
+              className={filterType === 'kakao' ? 'bg-yellow-500 hover:bg-yellow-600 text-black' : ''}
+            >
+              알림톡 ({stats.kakao})
             </Button>
           </div>
           <div className="flex gap-2">

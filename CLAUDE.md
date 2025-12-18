@@ -458,10 +458,12 @@ export function useStudentDetail() {
 ### Git Workflow
 
 - **Branch naming**: `feature/*`, `fix/*`, `chore/*`
-- **Commits**: Follow Conventional Commits
+- **Commits**: **반드시 한국어로 작성** (Conventional Commits 형식)
   - `feat: 학생 등록 폼 추가`
   - `fix: RLS 정책 누락 수정`
   - `chore: 리포지토리 구조 개선`
+  - `feat(알림): 카카오 알림톡 연동 추가`
+  - `fix(리포트): 월간 리포트 성적 누락 수정`
 - **PRs**: Include summary, migration file links if schema changed, screenshots
 
 ### Database Migrations
