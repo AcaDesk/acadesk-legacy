@@ -94,3 +94,6 @@ scripts/*_dump.sql
 *.backup
 *.dump
 
+# Test data with credentials
+create-test-user.sql
+
