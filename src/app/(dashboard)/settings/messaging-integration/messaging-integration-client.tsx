@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/c
 import { Alert, AlertDescription } from '@ui/alert'
 import { Switch } from '@ui/switch'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
+import { Separator } from '@ui/separator'
 import {
   Select,
   SelectContent,
@@ -38,6 +39,10 @@ import {
   deleteMessagingConfig,
   type MessagingProvider
 } from '@/app/actions/messaging-config'
+import { KakaoChannelStatus, KakaoChannelRegistration } from '@/components/features/settings/kakao-channel'
+import { KakaoTemplateList, KakaoTemplateForm } from '@/components/features/settings/kakao-templates'
+import type { KakaoChannelConfig } from '@/app/actions/kakao-channel'
+import type { KakaoTemplate } from '@/app/actions/kakao-templates'
 
 interface MessagingConfig {
   id: string
@@ -61,6 +66,7 @@ interface MessagingConfig {
 
 interface MessagingIntegrationClientProps {
   config: MessagingConfig | null
+  kakaoChannelConfig: KakaoChannelConfig | null
 }
 
 type FormData = {
@@ -100,9 +106,16 @@ const providerInfo = {
   },
 }
 
-export function MessagingIntegrationClient({ config }: MessagingIntegrationClientProps) {
+export function MessagingIntegrationClient({ config, kakaoChannelConfig }: MessagingIntegrationClientProps) {
   const router = useRouter()
   const { toast } = useToast()
+
+  // Kakao state
+  const [templateFormOpen, setTemplateFormOpen] = useState(false)
+  const [editingTemplate, setEditingTemplate] = useState<KakaoTemplate | null>(null)
+
+  const hasKakaoChannel = !!kakaoChannelConfig?.channelId
+  const isSolapiProvider = config?.provider === 'solapi'
 
   const [formData, setFormData] = useState<FormData>({
     provider: config?.provider || 'aligo',
@@ -628,6 +641,59 @@ export function MessagingIntegrationClient({ config }: MessagingIntegrationClien
           </div>
         </CardContent>
       </Card>
+
+      {/* Kakao Alimtalk Section - Only show for Solapi provider */}
+      {isSolapiProvider && config?.is_verified && (
+        <>
+          <Separator className="my-8" />
+
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold">카카오 알림톡</h2>
+              <p className="text-muted-foreground">
+                카카오 비즈니스 채널을 연동하여 알림톡을 발송합니다
+              </p>
+            </div>
+
+            {/* Kakao Channel Status or Registration */}
+            {hasKakaoChannel && kakaoChannelConfig ? (
+              <KakaoChannelStatus
+                config={kakaoChannelConfig}
+                onChannelRemoved={() => router.refresh()}
+              />
+            ) : (
+              <KakaoChannelRegistration
+                onRegistrationComplete={() => router.refresh()}
+              />
+            )}
+
+            {/* Kakao Templates */}
+            <KakaoTemplateList
+              hasChannel={hasKakaoChannel}
+              onCreateTemplate={() => {
+                setEditingTemplate(null)
+                setTemplateFormOpen(true)
+              }}
+              onEditTemplate={(template) => {
+                setEditingTemplate(template)
+                setTemplateFormOpen(true)
+              }}
+            />
+
+            {/* Template Form Dialog */}
+            <KakaoTemplateForm
+              open={templateFormOpen}
+              onOpenChange={setTemplateFormOpen}
+              template={editingTemplate}
+              onSuccess={() => {
+                setTemplateFormOpen(false)
+                setEditingTemplate(null)
+                router.refresh()
+              }}
+            />
+          </div>
+        </>
+      )}
 
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog

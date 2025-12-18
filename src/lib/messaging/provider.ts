@@ -36,6 +36,14 @@ export interface SendMessageOptions {
   academyInfo?: AcademyInfo
 }
 
+export interface SendAlimtalkOptions {
+  to: string
+  templateId: string
+  variables?: Record<string, string>
+  /** SMS fallback 비활성화 (기본: false, 즉 fallback 활성화) */
+  disableSms?: boolean
+}
+
 /**
  * 통합 메시지 발송
  *
@@ -160,4 +168,119 @@ export async function sendMessage({
 export async function checkSMSBalance() {
   const { getAligoBalance } = await import('./aligo-sms')
   return await getAligoBalance()
+}
+
+/**
+ * 카카오 알림톡 발송
+ *
+ * 등록된 카카오 채널 + 승인된 템플릿을 사용하여 알림톡을 발송합니다.
+ * Solapi 연동 필수 (알리고는 알림톡 미지원)
+ *
+ * @param options.to - 수신자 전화번호
+ * @param options.templateId - 템플릿 ID (kakao_alimtalk_templates.id)
+ * @param options.variables - 템플릿 변수 (#{변수명} 치환)
+ * @param options.disableSms - SMS fallback 비활성화
+ * @returns 발송 결과
+ */
+export async function sendAlimtalk({
+  to,
+  templateId,
+  variables,
+  disableSms,
+}: SendAlimtalkOptions): Promise<{
+  success: boolean
+  messageId?: string
+  error?: string
+}> {
+  try {
+    // 1. Get tenant context
+    const { createServiceRoleClient } = await import('@/lib/supabase/service-role')
+    const { verifyStaff } = await import('@/lib/auth/verify-permission')
+
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    // 2. Get messaging config
+    const { data: config, error: configError } = await supabase
+      .from('tenant_messaging_config')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true)
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (configError) {
+      throw new Error('메시징 설정을 가져오는 중 오류가 발생했습니다: ' + configError.message)
+    }
+
+    if (!config) {
+      throw new Error('활성화된 메시징 서비스가 없습니다.')
+    }
+
+    // 3. Check if provider is Solapi (only Solapi supports Alimtalk)
+    if (config.provider !== 'solapi') {
+      throw new Error('알림톡은 솔라피(Solapi) 연동 시에만 사용할 수 있습니다.')
+    }
+
+    // 4. Check Kakao channel is registered
+    if (!config.kakao_channel_id) {
+      throw new Error('카카오 채널이 연동되어 있지 않습니다. 설정 페이지에서 카카오 채널을 연동해주세요.')
+    }
+
+    // 5. Get template from database
+    const { data: template, error: templateError } = await supabase
+      .from('kakao_alimtalk_templates')
+      .select('*')
+      .eq('id', templateId)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .single()
+
+    if (templateError || !template) {
+      throw new Error('템플릿을 찾을 수 없습니다.')
+    }
+
+    if (template.status !== 'approved') {
+      throw new Error('승인된 템플릿만 발송할 수 있습니다. 현재 상태: ' + template.status)
+    }
+
+    // 6. Determine SMS fallback setting
+    // Priority: function param > manual fallback disabled > auto fallback disabled
+    let shouldDisableSms = disableSms ?? false
+    if (!shouldDisableSms && config.kakao_manual_fallback_enabled === false && config.kakao_sms_fallback_enabled === false) {
+      shouldDisableSms = true
+    }
+
+    // 7. Create Solapi provider and send
+    const { SolapiProvider } = await import('@/infra/messaging/SolapiProvider')
+
+    const provider = new SolapiProvider({
+      apiKey: config.solapi_api_key || '',
+      apiSecret: config.solapi_api_secret || '',
+      senderPhone: config.solapi_sender_phone || '',
+    })
+
+    const result = await provider.sendAlimtalk({
+      to,
+      channelId: config.kakao_channel_id,
+      templateId: template.solapi_template_id,
+      variables,
+      disableSms: shouldDisableSms,
+    })
+
+    if (!result.success) {
+      throw new Error(result.error || '알림톡 발송 실패')
+    }
+
+    return {
+      success: true,
+      messageId: result.messageId,
+    }
+  } catch (error) {
+    console.error('[sendAlimtalk] Error:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '알림톡 발송 중 오류가 발생했습니다',
+    }
+  }
 }
