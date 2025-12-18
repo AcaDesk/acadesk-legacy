@@ -117,6 +117,14 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
   const hasKakaoChannel = !!kakaoChannelConfig?.channelId
   const isSolapiProvider = config?.provider === 'solapi'
 
+  // DEBUG: 카카오 섹션 표시 조건 확인
+  console.log('[MessagingIntegration] Debug:', {
+    provider: config?.provider,
+    is_verified: config?.is_verified,
+    isSolapiProvider,
+    shouldShowKakao: isSolapiProvider && config?.is_verified,
+  })
+
   const [formData, setFormData] = useState<FormData>({
     provider: config?.provider || 'aligo',
     aligo_user_id: config?.aligo_user_id || '',
