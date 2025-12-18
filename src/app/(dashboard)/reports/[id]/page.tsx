@@ -6,7 +6,15 @@ import { usePDF } from '@react-pdf/renderer'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@ui/table'
 import { Separator } from '@ui/separator'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import {
@@ -18,7 +26,7 @@ import {
 } from '@ui/dialog'
 import { Textarea } from '@ui/textarea'
 import { Label } from '@ui/label'
-import { Download, Send, Edit2 } from 'lucide-react'
+import { Download, Send, Edit2, CheckCircle, XCircle, Clock, MessageSquare } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import type { ReportWithStudent } from '@/core/types/report.types'
@@ -28,9 +36,20 @@ import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 
+interface ReportSend {
+  id: string
+  recipient_name: string
+  recipient_phone: string
+  message_type: 'SMS' | 'LMS' | 'KAKAO'
+  send_status: 'pending' | 'sent' | 'failed' | 'delivered'
+  sent_at: string | null
+  send_error: string | null
+}
+
 export default function ReportDetailPage({ params }: { params: { id: string } }) {
   // All Hooks must be called before any early returns
   const [report, setReport] = useState<ReportWithStudent | null>(null)
+  const [reportSends, setReportSends] = useState<ReportSend[]>([])
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [sendDialogOpen, setSendDialogOpen] = useState(false)
@@ -87,6 +106,7 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
     try {
       setLoading(true)
 
+      // 리포트 조회
       const { data, error } = await supabase
         .from('reports')
         .select(`
@@ -112,6 +132,26 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
 
       if (error) throw error
       setReport(data as unknown as ReportWithStudent)
+
+      // 전송 이력 조회
+      const { data: sendsData, error: sendsError } = await supabase
+        .from('report_sends')
+        .select(`
+          id,
+          recipient_name,
+          recipient_phone,
+          message_type,
+          send_status,
+          sent_at,
+          send_error
+        `)
+        .eq('report_id', params.id)
+        .is('deleted_at', null)
+        .order('sent_at', { ascending: false, nullsFirst: false })
+
+      if (!sendsError && sendsData) {
+        setReportSends(sendsData as ReportSend[])
+      }
     } catch (error) {
       console.error('Error loading report:', error)
       toast({
@@ -409,6 +449,102 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
                   </span>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* 전송 이력 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                전송 이력
+              </CardTitle>
+              <CardDescription>
+                이 리포트의 발송 내역입니다
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {reportSends.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-30" />
+                  <p>아직 전송 이력이 없습니다.</p>
+                  <p className="text-sm mt-1">보호자에게 리포트를 전송하면 이곳에 기록됩니다.</p>
+                </div>
+              ) : (
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>수신자</TableHead>
+                        <TableHead>채널</TableHead>
+                        <TableHead>상태</TableHead>
+                        <TableHead>발송일시</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {reportSends.map((send) => (
+                        <TableRow key={send.id}>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">{send.recipient_name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {send.recipient_phone}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {send.message_type === 'SMS' && (
+                              <Badge variant="default">SMS</Badge>
+                            )}
+                            {send.message_type === 'LMS' && (
+                              <Badge variant="default" className="bg-blue-600">LMS</Badge>
+                            )}
+                            {send.message_type === 'KAKAO' && (
+                              <Badge variant="default" className="bg-yellow-500 text-black">알림톡</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {send.send_status === 'sent' && (
+                              <Badge variant="outline" className="bg-green-50">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                전송 완료
+                              </Badge>
+                            )}
+                            {send.send_status === 'delivered' && (
+                              <Badge variant="outline" className="bg-green-100">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                수신 확인
+                              </Badge>
+                            )}
+                            {send.send_status === 'pending' && (
+                              <Badge variant="outline" className="bg-yellow-50">
+                                <Clock className="h-3 w-3 mr-1" />
+                                대기중
+                              </Badge>
+                            )}
+                            {send.send_status === 'failed' && (
+                              <Badge variant="destructive">
+                                <XCircle className="h-3 w-3 mr-1" />
+                                실패
+                              </Badge>
+                            )}
+                            {send.send_error && (
+                              <div className="text-xs text-red-600 mt-1">
+                                {send.send_error}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {send.sent_at
+                              ? new Date(send.sent_at).toLocaleString('ko-KR')
+                              : '-'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div> {/* contentRef div */}
