@@ -73,6 +73,7 @@ interface ReportTableImprovedProps {
   onSendClick: (reportId: string, studentName: string) => void
   onDeleteClick: (reportId: string, studentName: string) => void
   onBulkDeleteClick?: (selectedReports: ReportWithStudent[]) => void
+  onBulkSendClick?: (selectedReports: ReportWithStudent[]) => void
 }
 
 export function ReportTableImproved({
@@ -81,6 +82,7 @@ export function ReportTableImproved({
   onSendClick,
   onDeleteClick,
   onBulkDeleteClick,
+  onBulkSendClick,
 }: ReportTableImprovedProps) {
   const router = useRouter()
   const [sorting, setSorting] = React.useState<SortingState>([
@@ -423,6 +425,21 @@ export function ReportTableImproved({
     }
   }
 
+  function handleBulkSend() {
+    if (onBulkSendClick && selectedCount > 0) {
+      // 미전송 리포트만 필터링
+      const selectedReports = selectedRows
+        .map((row) => row.original)
+        .filter((report) => report.sent_at === null)
+      if (selectedReports.length > 0) {
+        onBulkSendClick(selectedReports)
+      }
+    }
+  }
+
+  // 미전송 리포트 수 계산
+  const unsendableCount = selectedRows.filter((row) => row.original.sent_at === null).length
+
   // 데이터가 변경되면 선택 상태 초기화
   React.useEffect(() => {
     setRowSelection({})
@@ -469,7 +486,23 @@ export function ReportTableImproved({
             >
               <Badge variant="secondary" className="h-8 px-3">
                 {selectedCount}개 선택됨
+                {unsendableCount > 0 && unsendableCount < selectedCount && (
+                  <span className="ml-1 text-muted-foreground">
+                    (미전송 {unsendableCount}개)
+                  </span>
+                )}
               </Badge>
+              {unsendableCount > 0 && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleBulkSend}
+                  className="gap-2"
+                >
+                  <Send className="h-4 w-4" />
+                  일괄 전송 ({unsendableCount})
+                </Button>
+              )}
               <Button
                 variant="destructive"
                 size="sm"

@@ -38,6 +38,9 @@ export default function ReportsPage() {
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
   const [reportsToDelete, setReportsToDelete] = useState<ReportWithStudent[]>([])
   const [isBulkDeleting, setIsBulkDeleting] = useState(false)
+  const [bulkSendDialogOpen, setBulkSendDialogOpen] = useState(false)
+  const [reportsToSend, setReportsToSend] = useState<ReportWithStudent[]>([])
+  const [isBulkSending, setIsBulkSending] = useState(false)
 
   const { toast } = useToast()
   const router = useRouter()
@@ -310,6 +313,67 @@ export default function ReportsPage() {
     }
   }
 
+  function handleBulkSendClick(selectedReports: ReportWithStudent[]) {
+    setReportsToSend(selectedReports)
+    setBulkSendDialogOpen(true)
+  }
+
+  async function handleConfirmBulkSend() {
+    if (reportsToSend.length === 0) return
+
+    setIsBulkSending(true)
+
+    try {
+      // Dynamic import to avoid bundling server action in client
+      const { sendReportToAllGuardians } = await import('@/app/actions/reports')
+
+      let totalSuccess = 0
+      let totalFail = 0
+      const errors: string[] = []
+
+      // 순차적으로 전송 (병렬 처리 시 서버 부하 고려)
+      for (const report of reportsToSend) {
+        try {
+          const result = await sendReportToAllGuardians(report.id)
+          if (result.success && result.data) {
+            totalSuccess += result.data.successCount
+            totalFail += result.data.failCount
+          } else {
+            errors.push(`${report.students?.users?.name || '알 수 없음'}: ${result.error}`)
+          }
+        } catch (err) {
+          errors.push(`${report.students?.users?.name || '알 수 없음'}: 전송 실패`)
+        }
+      }
+
+      if (errors.length > 0) {
+        toast({
+          title: '일부 전송 실패',
+          description: `${reportsToSend.length}개 중 ${errors.length}개 리포트 전송에 문제가 있었습니다. 성공: ${totalSuccess}명, 실패: ${totalFail}명`,
+          variant: 'destructive',
+        })
+      } else {
+        toast({
+          title: '일괄 전송 완료',
+          description: `${reportsToSend.length}개의 리포트가 총 ${totalSuccess}명의 보호자에게 전송되었습니다.${totalFail > 0 ? ` (${totalFail}명 실패)` : ''}`,
+        })
+      }
+
+      loadReports(selectedStudent, selectedType)
+    } catch (error) {
+      console.error('Error bulk sending reports:', error)
+      toast({
+        title: '전송 오류',
+        description: error instanceof Error ? error.message : '리포트를 전송하는 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsBulkSending(false)
+      setBulkSendDialogOpen(false)
+      setReportsToSend([])
+    }
+  }
+
   // Feature flag checks after all Hooks
   const featureStatus = FEATURES.reportManagement;
 
@@ -512,6 +576,7 @@ export default function ReportsPage() {
               onSendClick={handleSendClick}
               onDeleteClick={handleDeleteClick}
               onBulkDeleteClick={handleBulkDeleteClick}
+              onBulkSendClick={handleBulkSendClick}
             />
           </CardContent>
         </Card>
@@ -572,6 +637,40 @@ export default function ReportsPage() {
           variant="destructive"
           isLoading={isBulkDeleting}
           onConfirm={handleConfirmBulkDelete}
+        />
+
+        {/* Bulk Send Confirmation Dialog */}
+        <ConfirmationDialog
+          open={bulkSendDialogOpen}
+          onOpenChange={setBulkSendDialogOpen}
+          title={`${reportsToSend.length}개의 리포트를 전송하시겠습니까?`}
+          description={
+            <div className="space-y-2">
+              <p>선택한 리포트가 각 학생의 모든 보호자에게 전송됩니다.</p>
+              {reportsToSend.length > 0 && (
+                <div className="mt-3 p-3 bg-muted rounded-md text-sm max-h-32 overflow-y-auto">
+                  <p className="font-medium mb-1 flex items-center gap-2">
+                    <Send className="h-4 w-4 text-primary" />
+                    전송될 리포트:
+                  </p>
+                  <ul className="list-disc list-inside space-y-0.5 text-muted-foreground">
+                    {reportsToSend.slice(0, 5).map((report) => (
+                      <li key={report.id}>
+                        {report.students?.users?.name || '이름 없음'} - {report.report_type === 'weekly' ? '주간' : report.report_type === 'monthly' ? '월간' : '분기'}
+                      </li>
+                    ))}
+                    {reportsToSend.length > 5 && (
+                      <li>외 {reportsToSend.length - 5}개...</li>
+                    )}
+                  </ul>
+                </div>
+              )}
+            </div>
+          }
+          confirmText={`${reportsToSend.length}개 전송`}
+          variant="default"
+          isLoading={isBulkSending}
+          onConfirm={handleConfirmBulkSend}
         />
       </div>
     </PageWrapper>
