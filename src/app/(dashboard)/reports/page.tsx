@@ -7,11 +7,20 @@ import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
-import { Plus, Users, FileText, Calendar, Send, Clock } from 'lucide-react'
+import { Plus, Users, FileText, Calendar, Send, Clock, Settings2, Wrench, RefreshCw, ExternalLink } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import type { ReportWithStudent, StudentForFilter } from '@/core/types/report.types'
 import { AlertTriangle } from 'lucide-react'
+import { classifyReportSendError, type ReportSendErrorInfo } from '@/lib/report-send-errors'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@ui/dialog'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
@@ -41,6 +50,11 @@ export default function ReportsPage() {
   const [bulkSendDialogOpen, setBulkSendDialogOpen] = useState(false)
   const [reportsToSend, setReportsToSend] = useState<ReportWithStudent[]>([])
   const [isBulkSending, setIsBulkSending] = useState(false)
+  const [errorDialogOpen, setErrorDialogOpen] = useState(false)
+  const [errorInfo, setErrorInfo] = useState<ReportSendErrorInfo | null>(null)
+  const [failedReportName, setFailedReportName] = useState<string>('')
+  const [bulkSendErrors, setBulkSendErrors] = useState<Array<{ name: string; error: ReportSendErrorInfo }>>([])
+  const [bulkErrorDialogOpen, setBulkErrorDialogOpen] = useState(false)
 
   const { toast } = useToast()
   const router = useRouter()
@@ -224,11 +238,12 @@ export default function ReportsPage() {
       loadReports(selectedStudent, selectedType)
     } catch (error) {
       console.error('Error sending report:', error)
-      toast({
-        title: '전송 오류',
-        description: error instanceof Error ? error.message : '리포트를 전송하는 중 오류가 발생했습니다.',
-        variant: 'destructive',
-      })
+      const errorMessage = error instanceof Error ? error.message : '리포트를 전송하는 중 오류가 발생했습니다.'
+      const classified = classifyReportSendError(errorMessage)
+
+      setFailedReportName(reportToSend.name)
+      setErrorInfo(classified)
+      setErrorDialogOpen(true)
     } finally {
       setIsSending(false)
       setSendDialogOpen(false)
@@ -329,29 +344,39 @@ export default function ReportsPage() {
 
       let totalSuccess = 0
       let totalFail = 0
-      const errors: string[] = []
+      const classifiedErrors: Array<{ name: string; error: ReportSendErrorInfo }> = []
 
       // 순차적으로 전송 (병렬 처리 시 서버 부하 고려)
       for (const report of reportsToSend) {
+        const studentName = report.students?.users?.name || '알 수 없음'
         try {
           const result = await sendReportToAllGuardians(report.id)
           if (result.success && result.data) {
             totalSuccess += result.data.successCount
             totalFail += result.data.failCount
           } else {
-            errors.push(`${report.students?.users?.name || '알 수 없음'}: ${result.error}`)
+            const errorMessage = result.error || '전송 실패'
+            const classified = classifyReportSendError(errorMessage)
+            classifiedErrors.push({ name: studentName, error: classified })
           }
         } catch (err) {
-          errors.push(`${report.students?.users?.name || '알 수 없음'}: 전송 실패`)
+          const errorMessage = err instanceof Error ? err.message : '전송 실패'
+          const classified = classifyReportSendError(errorMessage)
+          classifiedErrors.push({ name: studentName, error: classified })
         }
       }
 
-      if (errors.length > 0) {
-        toast({
-          title: '일부 전송 실패',
-          description: `${reportsToSend.length}개 중 ${errors.length}개 리포트 전송에 문제가 있었습니다. 성공: ${totalSuccess}명, 실패: ${totalFail}명`,
-          variant: 'destructive',
-        })
+      if (classifiedErrors.length > 0) {
+        setBulkSendErrors(classifiedErrors)
+        setBulkErrorDialogOpen(true)
+
+        // 일부 성공한 경우에만 성공 토스트 표시
+        if (totalSuccess > 0) {
+          toast({
+            title: '일부 전송 완료',
+            description: `${totalSuccess}명의 보호자에게 전송되었습니다. ${classifiedErrors.length}개의 리포트에서 문제가 발생했습니다.`,
+          })
+        }
       } else {
         toast({
           title: '일괄 전송 완료',
@@ -362,11 +387,11 @@ export default function ReportsPage() {
       loadReports(selectedStudent, selectedType)
     } catch (error) {
       console.error('Error bulk sending reports:', error)
-      toast({
-        title: '전송 오류',
-        description: error instanceof Error ? error.message : '리포트를 전송하는 중 오류가 발생했습니다.',
-        variant: 'destructive',
-      })
+      const errorMessage = error instanceof Error ? error.message : '리포트를 전송하는 중 오류가 발생했습니다.'
+      const classified = classifyReportSendError(errorMessage)
+      setErrorInfo(classified)
+      setFailedReportName('')
+      setErrorDialogOpen(true)
     } finally {
       setIsBulkSending(false)
       setBulkSendDialogOpen(false)
@@ -672,6 +697,207 @@ export default function ReportsPage() {
           isLoading={isBulkSending}
           onConfirm={handleConfirmBulkSend}
         />
+
+        {/* Error Information Dialog */}
+        <Dialog open={errorDialogOpen} onOpenChange={setErrorDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                {errorInfo?.type === 'structural' && <Settings2 className="h-5 w-5 text-orange-600" />}
+                {errorInfo?.type === 'recoverable' && <Wrench className="h-5 w-5 text-blue-600" />}
+                {errorInfo?.type === 'temporary' && <RefreshCw className="h-5 w-5 text-yellow-600" />}
+                {errorInfo?.title || '전송 실패'}
+              </DialogTitle>
+              <DialogDescription asChild>
+                <div className="space-y-4 pt-2">
+                  {failedReportName && (
+                    <p className="text-sm text-muted-foreground">
+                      <span className="font-medium">{failedReportName}</span> 학생의 리포트 전송 중 문제가 발생했습니다.
+                    </p>
+                  )}
+
+                  <div className="rounded-lg border p-4 space-y-3">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">문제 원인</p>
+                      <p className="text-sm text-muted-foreground mt-1">{errorInfo?.description}</p>
+                    </div>
+
+                    <div>
+                      <p className="text-sm font-medium text-foreground">해결 방법</p>
+                      <p className="text-sm text-muted-foreground mt-1">{errorInfo?.solution}</p>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-2 border-t">
+                      {errorInfo?.type === 'structural' && (
+                        <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                          설정 필요
+                        </Badge>
+                      )}
+                      {errorInfo?.type === 'recoverable' && (
+                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                          조치 필요
+                        </Badge>
+                      )}
+                      {errorInfo?.type === 'temporary' && (
+                        <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                          일시적 오류
+                        </Badge>
+                      )}
+                      {errorInfo?.canRetry && (
+                        <span className="text-xs text-muted-foreground">다시 시도 가능</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              {errorInfo?.helpLink && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    router.push(errorInfo.helpLink!)
+                    setErrorDialogOpen(false)
+                  }}
+                  className="w-full sm:w-auto"
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  설정으로 이동
+                </Button>
+              )}
+              <Button
+                onClick={() => setErrorDialogOpen(false)}
+                className="w-full sm:w-auto"
+              >
+                확인
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Bulk Send Errors Dialog */}
+        <Dialog open={bulkErrorDialogOpen} onOpenChange={setBulkErrorDialogOpen}>
+          <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+                일괄 전송 중 오류 발생
+              </DialogTitle>
+              <DialogDescription>
+                {bulkSendErrors.length}개의 리포트 전송 중 문제가 발생했습니다.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex-1 overflow-y-auto space-y-3 pr-2">
+              {/* 에러 유형별 그룹핑 */}
+              {(() => {
+                const structural = bulkSendErrors.filter(e => e.error.type === 'structural')
+                const recoverable = bulkSendErrors.filter(e => e.error.type === 'recoverable')
+                const temporary = bulkSendErrors.filter(e => e.error.type === 'temporary')
+
+                return (
+                  <>
+                    {structural.length > 0 && (
+                      <div className="rounded-lg border border-orange-200 bg-orange-50 p-3 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Settings2 className="h-4 w-4 text-orange-600" />
+                          <span className="font-medium text-orange-700 text-sm">
+                            설정 필요 ({structural.length}건)
+                          </span>
+                        </div>
+                        <p className="text-xs text-orange-600">{structural[0].error.solution}</p>
+                        <div className="text-xs text-orange-700">
+                          {structural.map((e, i) => (
+                            <span key={i}>
+                              {e.name}{i < structural.length - 1 ? ', ' : ''}
+                            </span>
+                          ))}
+                        </div>
+                        {structural[0].error.helpLink && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs border-orange-300 text-orange-700 hover:bg-orange-100"
+                            onClick={() => {
+                              router.push(structural[0].error.helpLink!)
+                              setBulkErrorDialogOpen(false)
+                            }}
+                          >
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            설정으로 이동
+                          </Button>
+                        )}
+                      </div>
+                    )}
+
+                    {recoverable.length > 0 && (
+                      <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Wrench className="h-4 w-4 text-blue-600" />
+                          <span className="font-medium text-blue-700 text-sm">
+                            조치 필요 ({recoverable.length}건)
+                          </span>
+                        </div>
+                        <p className="text-xs text-blue-600">{recoverable[0].error.solution}</p>
+                        <div className="text-xs text-blue-700">
+                          {recoverable.map((e, i) => (
+                            <span key={i}>
+                              {e.name}{i < recoverable.length - 1 ? ', ' : ''}
+                            </span>
+                          ))}
+                        </div>
+                        {recoverable[0].error.helpLink && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs border-blue-300 text-blue-700 hover:bg-blue-100"
+                            onClick={() => {
+                              router.push(recoverable[0].error.helpLink!)
+                              setBulkErrorDialogOpen(false)
+                            }}
+                          >
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            설정으로 이동
+                          </Button>
+                        )}
+                      </div>
+                    )}
+
+                    {temporary.length > 0 && (
+                      <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <RefreshCw className="h-4 w-4 text-yellow-600" />
+                          <span className="font-medium text-yellow-700 text-sm">
+                            일시적 오류 ({temporary.length}건)
+                          </span>
+                        </div>
+                        <p className="text-xs text-yellow-600">{temporary[0].error.solution}</p>
+                        <div className="text-xs text-yellow-700">
+                          {temporary.map((e, i) => (
+                            <span key={i}>
+                              {e.name}{i < temporary.length - 1 ? ', ' : ''}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )
+              })()}
+            </div>
+
+            <DialogFooter className="pt-4 border-t">
+              <Button
+                onClick={() => {
+                  setBulkErrorDialogOpen(false)
+                  setBulkSendErrors([])
+                }}
+              >
+                확인
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </PageWrapper>
   )
