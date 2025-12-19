@@ -97,6 +97,8 @@ export default function CalendarPage() {
     reminder_minutes?: number
     color?: string
   }) => {
+    if (!currentUser) return
+
     try {
       // Construct ISO timestamp
       const startAt = data.all_day
@@ -195,6 +197,8 @@ export default function CalendarPage() {
       color?: string
     }
   ) => {
+    if (!currentUser) return
+
     try {
       // Construct ISO timestamp
       const startAt = data.all_day
@@ -252,7 +256,7 @@ export default function CalendarPage() {
 
   // Handle confirm delete
   const handleConfirmDelete = async () => {
-    if (!eventToDelete) return
+    if (!eventToDelete || !currentUser) return
 
     setIsDeleting(true)
     try {

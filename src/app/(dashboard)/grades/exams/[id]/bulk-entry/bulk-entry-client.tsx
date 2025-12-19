@@ -729,7 +729,7 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
 
                 <div className="flex items-center gap-2">
                   <Label htmlFor="statusFilter" className="text-sm">상태:</Label>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
                     <SelectTrigger id="statusFilter" className="w-40 h-9">
                       <SelectValue />
                     </SelectTrigger>

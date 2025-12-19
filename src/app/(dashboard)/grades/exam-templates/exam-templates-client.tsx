@@ -122,8 +122,8 @@ export function ExamTemplatesClient() {
         .order('name')
 
       if (templatesError) throw templatesError
-      setTemplates(templatesData as ExamTemplate[])
-      setFilteredTemplates(templatesData as ExamTemplate[])
+      setTemplates(templatesData as unknown as ExamTemplate[])
+      setFilteredTemplates(templatesData as unknown as ExamTemplate[])
     } catch (error) {
       console.error('Error loading data:', error)
       toast({
