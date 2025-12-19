@@ -440,10 +440,17 @@ export function ReportTableImproved({
   // 미전송 리포트 수 계산
   const unsendableCount = selectedRows.filter((row) => row.original.sent_at === null).length
 
-  // 데이터가 변경되면 선택 상태 초기화
+  // 데이터가 변경되면 선택 상태 초기화 및 페이지 조정
   React.useEffect(() => {
     setRowSelection({})
-  }, [data])
+
+    // 현재 페이지가 데이터 범위를 벗어나면 마지막 유효 페이지로 이동
+    const pageCount = table.getPageCount()
+    const currentPage = table.getState().pagination.pageIndex
+    if (pageCount > 0 && currentPage >= pageCount) {
+      table.setPageIndex(pageCount - 1)
+    }
+  }, [data, table])
 
   const searchValue = (table.getColumn('students')?.getFilterValue() as string) ?? ''
 

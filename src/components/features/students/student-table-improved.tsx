@@ -590,6 +590,15 @@ export function StudentTableImproved({
 
   const searchValue = (table.getColumn('users')?.getFilterValue() as string) ?? ''
 
+  // 데이터가 변경되면 페이지 조정 (삭제 후 빈 페이지 방지)
+  React.useEffect(() => {
+    const pageCount = table.getPageCount()
+    const currentPage = table.getState().pagination.pageIndex
+    if (pageCount > 0 && currentPage >= pageCount) {
+      table.setPageIndex(pageCount - 1)
+    }
+  }, [filteredData, table])
+
   // 선택된 학생 목록 가져오기
   const selectedStudents = table.getFilteredSelectedRowModel().rows.map(row => row.original)
 

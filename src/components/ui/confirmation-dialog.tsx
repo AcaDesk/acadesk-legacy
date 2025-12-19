@@ -122,9 +122,20 @@ export function ConfirmationDialog({
     await onConfirm()
   }
 
+  // Enter 키로 확인 가능하도록
+  const handleKeyDown = React.useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' && !disabled && !isLoading) {
+        e.preventDefault()
+        handleConfirm()
+      }
+    },
+    [disabled, isLoading, handleConfirm]
+  )
+
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
+      <AlertDialogContent onKeyDown={handleKeyDown}>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           {description && <AlertDialogDescription>{description}</AlertDialogDescription>}

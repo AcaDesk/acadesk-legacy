@@ -9,7 +9,7 @@ import type {
 } from "@ui/toast"
 
 const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 5000 // 5초 후 자동 제거 (1000000ms에서 개선)
+const TOAST_REMOVE_DELAY = 3000 // 3초 후 자동 제거 (기본값)
 
 type ToasterToast = ToastProps & {
   id: string

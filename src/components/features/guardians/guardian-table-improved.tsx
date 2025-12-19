@@ -265,6 +265,15 @@ export function GuardianTableImproved({
     },
   })
 
+  // 데이터가 변경되면 페이지 조정 (삭제 후 빈 페이지 방지)
+  React.useEffect(() => {
+    const pageCount = table.getPageCount()
+    const currentPage = table.getState().pagination.pageIndex
+    if (pageCount > 0 && currentPage >= pageCount) {
+      table.setPageIndex(pageCount - 1)
+    }
+  }, [data, table])
+
   return (
     <div className="space-y-4">
       {/* Search */}
