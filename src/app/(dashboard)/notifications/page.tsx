@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '@ui/table'
-import { Bell, CheckCircle, XCircle, Search, AlertCircle, MessageSquare, Settings } from 'lucide-react'
+import { Bell, CheckCircle, XCircle, Search, AlertCircle, MessageSquare, Settings, Wallet, RefreshCw } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { FEATURES } from '@/lib/features.config'
@@ -22,6 +22,7 @@ import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { BulkMessageDialog } from '@/components/features/notifications/bulk-message-dialog'
 import { ManageTemplatesDialog } from '@/components/features/notifications/manage-templates-dialog'
+import { getMessagingBalance } from '@/app/actions/messaging-config'
 
 interface NotificationLog {
   id: string
@@ -40,6 +41,12 @@ interface NotificationLog {
   } | null
 }
 
+interface BalanceInfo {
+  balance: number
+  currency: string
+  provider: string
+}
+
 export default function NotificationsPage() {
   // All Hooks must be called before any early returns
   const [logs, setLogs] = useState<NotificationLog[]>([])
@@ -50,12 +57,15 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true)
   const [sendMessageOpen, setSendMessageOpen] = useState(false)
   const [manageTemplatesOpen, setManageTemplatesOpen] = useState(false)
+  const [balance, setBalance] = useState<BalanceInfo | null>(null)
+  const [balanceLoading, setBalanceLoading] = useState(false)
 
   const { toast } = useToast()
   const supabase = createClient()
 
   useEffect(() => {
     loadNotificationLogs()
+    loadBalance()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -98,6 +108,25 @@ export default function NotificationsPage() {
       })
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function loadBalance() {
+    try {
+      setBalanceLoading(true)
+      const result = await getMessagingBalance()
+
+      if (result.success && result.data) {
+        setBalance(result.data)
+      } else {
+        // 설정이 없거나 활성화되지 않은 경우 - 에러 표시하지 않음
+        setBalance(null)
+      }
+    } catch (error) {
+      console.error('Error loading balance:', error)
+      setBalance(null)
+    } finally {
+      setBalanceLoading(false)
     }
   }
 
@@ -213,20 +242,43 @@ export default function NotificationsPage() {
             <h1 className="text-3xl font-bold">메시지 관리</h1>
             <p className="text-muted-foreground">메시지 전송 이력과 통계를 확인하세요</p>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setManageTemplatesOpen(true)}
-            >
-              <Settings className="h-4 w-4 mr-2" />
-              템플릿 관리
-            </Button>
-            <Button
-              onClick={() => setSendMessageOpen(true)}
-            >
-              <MessageSquare className="h-4 w-4 mr-2" />
-              메시지 전송
-            </Button>
+          <div className="flex items-center gap-4">
+            {/* 잔액 정보 */}
+            {balance && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-muted/50 rounded-lg border">
+                <Wallet className="h-4 w-4 text-muted-foreground" />
+                <div className="text-sm">
+                  <span className="text-muted-foreground">잔액</span>
+                  <span className="ml-2 font-semibold">
+                    {balance.balance.toLocaleString()}원
+                  </span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={loadBalance}
+                  disabled={balanceLoading}
+                >
+                  <RefreshCw className={`h-3 w-3 ${balanceLoading ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setManageTemplatesOpen(true)}
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                템플릿 관리
+              </Button>
+              <Button
+                onClick={() => setSendMessageOpen(true)}
+              >
+                <MessageSquare className="h-4 w-4 mr-2" />
+                메시지 전송
+              </Button>
+            </div>
           </div>
         </div>
 
