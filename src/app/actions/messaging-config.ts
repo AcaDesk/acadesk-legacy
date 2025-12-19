@@ -416,3 +416,75 @@ export async function deleteMessagingConfig() {
     }
   }
 }
+
+/**
+ * Get messaging service balance (Solapi only for now)
+ * 연동된 메시징 서비스 계정의 잔액을 조회합니다.
+ */
+export async function getMessagingBalance() {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    // Get messaging config
+    const { data: config, error: configError } = await supabase
+      .from('tenant_messaging_config')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (configError) throw configError
+    if (!config) {
+      return {
+        success: false,
+        data: null,
+        error: '메시징 서비스 설정이 없습니다.',
+      }
+    }
+
+    if (!config.is_active || !config.is_verified) {
+      return {
+        success: false,
+        data: null,
+        error: '메시징 서비스가 활성화되지 않았습니다.',
+      }
+    }
+
+    // Currently only Solapi supports balance check
+    if (config.provider !== 'solapi') {
+      return {
+        success: false,
+        data: null,
+        error: `${config.provider} 제공자는 잔액 조회를 지원하지 않습니다.`,
+      }
+    }
+
+    // Create Solapi provider and check balance
+    const { SolapiProvider } = await import('@/infra/messaging/SolapiProvider')
+    const provider = new SolapiProvider({
+      apiKey: config.solapi_api_key || '',
+      apiSecret: config.solapi_api_secret || '',
+      senderPhone: config.solapi_sender_phone || '',
+    })
+
+    const balanceData = await provider.checkBalance()
+
+    return {
+      success: true,
+      data: {
+        balance: balanceData.balance,
+        currency: balanceData.currency,
+        provider: config.provider,
+      },
+      error: null,
+    }
+  } catch (error) {
+    console.error('[getMessagingBalance] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
