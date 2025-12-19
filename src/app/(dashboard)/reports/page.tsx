@@ -7,7 +7,7 @@ import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
-import { Plus, Users } from 'lucide-react'
+import { Plus, Users, FileText, Calendar, Send, Clock } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import type { ReportWithStudent, StudentForFilter } from '@/core/types/report.types'
@@ -26,6 +26,8 @@ export default function ReportsPage() {
   const [students, setStudents] = useState<StudentForFilter[]>([])
   const [selectedStudent, setSelectedStudent] = useState<string>('all')
   const [selectedType, setSelectedType] = useState<string>('all')
+  const [selectedSchoolLevel, setSelectedSchoolLevel] = useState<string>('all')
+  const [activeStatFilter, setActiveStatFilter] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [sendDialogOpen, setSendDialogOpen] = useState(false)
   const [reportToSend, setReportToSend] = useState<{ id: string; name: string } | null>(null)
@@ -47,11 +49,67 @@ export default function ReportsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Load reports when filters change
+  // Load reports when server-side filters change
   useEffect(() => {
     loadReports(selectedStudent, selectedType)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStudent, selectedType])
+
+  // Apply client-side filters (school level, stat card filter)
+  useEffect(() => {
+    let filtered = reports
+
+    // Filter by school level
+    if (selectedSchoolLevel !== 'all') {
+      filtered = filtered.filter((report) => {
+        const grade = report.students?.grade || ''
+        const schoolLevel = getSchoolLevel(grade)
+        return schoolLevel === selectedSchoolLevel
+      })
+    }
+
+    // Filter by stat card selection
+    if (activeStatFilter) {
+      const now = new Date()
+      switch (activeStatFilter) {
+        case 'thisMonth':
+          filtered = filtered.filter((r) => {
+            const genDate = new Date(r.generated_at)
+            return genDate.getMonth() === now.getMonth() && genDate.getFullYear() === now.getFullYear()
+          })
+          break
+        case 'sent':
+          filtered = filtered.filter((r) => r.sent_at !== null)
+          break
+        case 'notSent':
+          filtered = filtered.filter((r) => r.sent_at === null)
+          break
+      }
+    }
+
+    setFilteredReports(filtered)
+  }, [reports, selectedSchoolLevel, activeStatFilter])
+
+  // Helper function to determine school level from grade
+  function getSchoolLevel(grade: string): 'elementary' | 'middle' | 'high' | 'unknown' {
+    if (!grade) return 'unknown'
+    const normalizedGrade = grade.toLowerCase().trim()
+
+    // Check for Korean format (초1, 초2, 중1, 중2, 고1, 고2)
+    if (normalizedGrade.startsWith('초') || normalizedGrade.includes('초등')) return 'elementary'
+    if (normalizedGrade.startsWith('중') || normalizedGrade.includes('중학')) return 'middle'
+    if (normalizedGrade.startsWith('고') || normalizedGrade.includes('고등')) return 'high'
+
+    // Check for number format (1-6: elementary, 7-9: middle, 10-12: high)
+    const gradeNum = parseInt(normalizedGrade.replace(/[^0-9]/g, ''))
+    if (!isNaN(gradeNum)) {
+      if (gradeNum >= 1 && gradeNum <= 6) return 'elementary'
+      if (gradeNum >= 7 && gradeNum <= 9) return 'middle'
+      if (gradeNum >= 10 && gradeNum <= 12) return 'high'
+    }
+
+    return 'unknown'
+  }
 
   async function loadStudents() {
     try {
@@ -112,14 +170,14 @@ export default function ReportsPage() {
 
       if (reportsError) throw reportsError
 
-      const filtered = reportsData as unknown as ReportWithStudent[]
+      const fetchedReports = reportsData as unknown as ReportWithStudent[]
 
-      setReports(filtered)
-      setFilteredReports(filtered)
+      setReports(fetchedReports)
+      // Note: filteredReports will be set by the useEffect that handles client-side filtering
 
       // Load all reports for statistics (only when no filters applied)
       if (currentStudent === 'all' && currentType === 'all') {
-        setAllReports(filtered)
+        setAllReports(fetchedReports)
       }
     } catch (error) {
       console.error('Error loading reports:', error)
@@ -292,17 +350,33 @@ export default function ReportsPage() {
     >
       <div className="space-y-6">
 
-        {/* Statistics */}
+        {/* Statistics - Clickable Cards */}
         <div className="grid gap-4 md:grid-cols-4">
-          <Card>
+          <Card
+            className={`cursor-pointer transition-all hover:shadow-md ${
+              activeStatFilter === null ? 'ring-2 ring-primary' : 'hover:border-primary/50'
+            }`}
+            onClick={() => setActiveStatFilter(null)}
+          >
             <CardHeader className="pb-3">
-              <CardDescription>총 리포트 수</CardDescription>
+              <div className="flex items-center justify-between">
+                <CardDescription>총 리포트 수</CardDescription>
+                <FileText className="h-4 w-4 text-muted-foreground" />
+              </div>
               <CardTitle className="text-3xl">{allReports.length}개</CardTitle>
             </CardHeader>
           </Card>
-          <Card>
+          <Card
+            className={`cursor-pointer transition-all hover:shadow-md ${
+              activeStatFilter === 'thisMonth' ? 'ring-2 ring-primary' : 'hover:border-primary/50'
+            }`}
+            onClick={() => setActiveStatFilter(activeStatFilter === 'thisMonth' ? null : 'thisMonth')}
+          >
             <CardHeader className="pb-3">
-              <CardDescription>이번 달 생성</CardDescription>
+              <div className="flex items-center justify-between">
+                <CardDescription>이번 달 생성</CardDescription>
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+              </div>
               <CardTitle className="text-3xl">
                 {allReports.filter((r) => {
                   const genDate = new Date(r.generated_at)
@@ -315,18 +389,34 @@ export default function ReportsPage() {
               </CardTitle>
             </CardHeader>
           </Card>
-          <Card>
+          <Card
+            className={`cursor-pointer transition-all hover:shadow-md ${
+              activeStatFilter === 'sent' ? 'ring-2 ring-primary' : 'hover:border-primary/50'
+            }`}
+            onClick={() => setActiveStatFilter(activeStatFilter === 'sent' ? null : 'sent')}
+          >
             <CardHeader className="pb-3">
-              <CardDescription>전송 완료</CardDescription>
-              <CardTitle className="text-3xl">
+              <div className="flex items-center justify-between">
+                <CardDescription>전송 완료</CardDescription>
+                <Send className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <CardTitle className="text-3xl text-green-600">
                 {allReports.filter((r) => r.sent_at !== null).length}개
               </CardTitle>
             </CardHeader>
           </Card>
-          <Card>
+          <Card
+            className={`cursor-pointer transition-all hover:shadow-md ${
+              activeStatFilter === 'notSent' ? 'ring-2 ring-primary' : 'hover:border-primary/50'
+            }`}
+            onClick={() => setActiveStatFilter(activeStatFilter === 'notSent' ? null : 'notSent')}
+          >
             <CardHeader className="pb-3">
-              <CardDescription>미전송</CardDescription>
-              <CardTitle className="text-3xl">
+              <div className="flex items-center justify-between">
+                <CardDescription>미전송</CardDescription>
+                <Clock className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <CardTitle className="text-3xl text-amber-600">
                 {allReports.filter((r) => r.sent_at === null).length}개
               </CardTitle>
             </CardHeader>
@@ -334,7 +424,18 @@ export default function ReportsPage() {
         </div>
 
         {/* Filters */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:flex-wrap">
+          <Select value={selectedSchoolLevel} onValueChange={setSelectedSchoolLevel}>
+            <SelectTrigger className="w-full sm:w-[130px]">
+              <SelectValue placeholder="학교급" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">전체 학교급</SelectItem>
+              <SelectItem value="elementary">초등</SelectItem>
+              <SelectItem value="middle">중등</SelectItem>
+              <SelectItem value="high">고등</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={selectedStudent} onValueChange={setSelectedStudent}>
             <SelectTrigger className="w-full sm:w-[200px]">
               <SelectValue placeholder="학생 선택" />
@@ -349,7 +450,7 @@ export default function ReportsPage() {
             </SelectContent>
           </Select>
           <Select value={selectedType} onValueChange={setSelectedType}>
-            <SelectTrigger className="w-full sm:w-[150px]">
+            <SelectTrigger className="w-full sm:w-[130px]">
               <SelectValue placeholder="유형 선택" />
             </SelectTrigger>
             <SelectContent>
@@ -359,7 +460,39 @@ export default function ReportsPage() {
               <SelectItem value="quarterly">분기</SelectItem>
             </SelectContent>
           </Select>
-          <Badge variant="secondary" className="h-10 px-4 flex items-center whitespace-nowrap">
+
+          {/* Active filters display */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {activeStatFilter && (
+              <Badge
+                variant="outline"
+                className="h-8 px-3 cursor-pointer hover:bg-destructive/10"
+                onClick={() => setActiveStatFilter(null)}
+              >
+                {activeStatFilter === 'thisMonth' && '이번 달'}
+                {activeStatFilter === 'sent' && '전송 완료'}
+                {activeStatFilter === 'notSent' && '미전송'}
+                <span className="ml-1 text-muted-foreground">×</span>
+              </Badge>
+            )}
+            {(selectedSchoolLevel !== 'all' || selectedStudent !== 'all' || selectedType !== 'all' || activeStatFilter) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSelectedSchoolLevel('all')
+                  setSelectedStudent('all')
+                  setSelectedType('all')
+                  setActiveStatFilter(null)
+                }}
+                className="h-8 text-muted-foreground hover:text-foreground"
+              >
+                필터 초기화
+              </Button>
+            )}
+          </div>
+
+          <Badge variant="secondary" className="h-10 px-4 flex items-center whitespace-nowrap ml-auto">
             {filteredReports.length}개 리포트
           </Badge>
         </div>
