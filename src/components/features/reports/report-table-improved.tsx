@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   ColumnDef,
   ColumnFiltersState,
+  RowSelectionState,
   SortingState,
   VisibilityState,
   flexRender,
@@ -36,6 +37,7 @@ import { format } from 'date-fns'
 import { motion } from 'motion/react'
 
 import { Button } from '@ui/button'
+import { Checkbox } from '@ui/checkbox'
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -70,6 +72,7 @@ interface ReportTableImprovedProps {
   loading?: boolean
   onSendClick: (reportId: string, studentName: string) => void
   onDeleteClick: (reportId: string, studentName: string) => void
+  onBulkDeleteClick?: (selectedReports: ReportWithStudent[]) => void
 }
 
 export function ReportTableImproved({
@@ -77,6 +80,7 @@ export function ReportTableImproved({
   loading = false,
   onSendClick,
   onDeleteClick,
+  onBulkDeleteClick,
 }: ReportTableImprovedProps) {
   const router = useRouter()
   const [sorting, setSorting] = React.useState<SortingState>([
@@ -84,6 +88,7 @@ export function ReportTableImproved({
   ])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
+  const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
 
   function getReportTypeBadge(type: string) {
     const types: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
@@ -104,6 +109,31 @@ export function ReportTableImproved({
   }
 
   const columns: ColumnDef<ReportWithStudent>[] = [
+    {
+      id: 'select',
+      header: ({ table }) => (
+        <Checkbox
+          checked={
+            table.getIsAllPageRowsSelected() ||
+            (table.getIsSomePageRowsSelected() && 'indeterminate')
+          }
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          aria-label="전체 선택"
+          className="translate-y-[2px]"
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
+          onClick={(e) => e.stopPropagation()}
+          aria-label="행 선택"
+          className="translate-y-[2px]"
+        />
+      ),
+      enableSorting: false,
+      enableHiding: false,
+    },
     {
       accessorKey: 'students',
       header: ({ column }) => {
@@ -363,15 +393,18 @@ export function ReportTableImproved({
     columns,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
+    onRowSelectionChange: setRowSelection,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
+    enableRowSelection: true,
     state: {
       sorting,
       columnFilters,
       columnVisibility,
+      rowSelection,
     },
     initialState: {
       pagination: {
@@ -379,6 +412,21 @@ export function ReportTableImproved({
       },
     },
   })
+
+  const selectedRows = table.getFilteredSelectedRowModel().rows
+  const selectedCount = selectedRows.length
+
+  function handleBulkDelete() {
+    if (onBulkDeleteClick && selectedCount > 0) {
+      const selectedReports = selectedRows.map((row) => row.original)
+      onBulkDeleteClick(selectedReports)
+    }
+  }
+
+  // 데이터가 변경되면 선택 상태 초기화
+  React.useEffect(() => {
+    setRowSelection({})
+  }, [data])
 
   const searchValue = (table.getColumn('students')?.getFilterValue() as string) ?? ''
 
@@ -412,6 +460,34 @@ export function ReportTableImproved({
               </Button>
             )}
           </div>
+          {selectedCount > 0 && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="flex items-center gap-2"
+            >
+              <Badge variant="secondary" className="h-8 px-3">
+                {selectedCount}개 선택됨
+              </Badge>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleBulkDelete}
+                className="gap-2"
+              >
+                <Trash2 className="h-4 w-4" />
+                일괄 삭제
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => table.toggleAllRowsSelected(false)}
+              >
+                선택 해제
+              </Button>
+            </motion.div>
+          )}
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -573,7 +649,11 @@ export function ReportTableImproved({
         className="flex items-center justify-between px-2"
       >
         <div className="hidden flex-1 text-sm text-muted-foreground lg:flex">
-          전체 {table.getFilteredRowModel().rows.length}개
+          {selectedCount > 0 ? (
+            <span>{selectedCount}개 선택됨 / 전체 {table.getFilteredRowModel().rows.length}개</span>
+          ) : (
+            <span>전체 {table.getFilteredRowModel().rows.length}개</span>
+          )}
         </div>
         <div className="flex w-full items-center gap-8 lg:w-fit">
           <div className="hidden items-center gap-2 lg:flex">

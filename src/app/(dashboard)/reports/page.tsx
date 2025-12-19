@@ -11,6 +11,7 @@ import { Plus, Users } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import type { ReportWithStudent, StudentForFilter } from '@/core/types/report.types'
+import { AlertTriangle } from 'lucide-react'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
@@ -32,6 +33,9 @@ export default function ReportsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [reportToDelete, setReportToDelete] = useState<{ id: string; name: string } | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
+  const [reportsToDelete, setReportsToDelete] = useState<ReportWithStudent[]>([])
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false)
 
   const { toast } = useToast()
   const router = useRouter()
@@ -209,6 +213,45 @@ export default function ReportsPage() {
     }
   }
 
+  function handleBulkDeleteClick(selectedReports: ReportWithStudent[]) {
+    setReportsToDelete(selectedReports)
+    setBulkDeleteDialogOpen(true)
+  }
+
+  async function handleConfirmBulkDelete() {
+    if (reportsToDelete.length === 0) return
+
+    setIsBulkDeleting(true)
+
+    try {
+      const reportIds = reportsToDelete.map((r) => r.id)
+      const { error } = await supabase
+        .from('reports')
+        .delete()
+        .in('id', reportIds)
+
+      if (error) throw error
+
+      toast({
+        title: '일괄 삭제 완료',
+        description: `${reportsToDelete.length}개의 리포트가 삭제되었습니다.`,
+      })
+
+      loadReports(selectedStudent, selectedType)
+    } catch (error) {
+      console.error('Error bulk deleting reports:', error)
+      toast({
+        title: '삭제 오류',
+        description: error instanceof Error ? error.message : '리포트를 삭제하는 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsBulkDeleting(false)
+      setBulkDeleteDialogOpen(false)
+      setReportsToDelete([])
+    }
+  }
+
   // Feature flag checks after all Hooks
   const featureStatus = FEATURES.reportManagement;
 
@@ -335,6 +378,7 @@ export default function ReportsPage() {
               loading={loading}
               onSendClick={handleSendClick}
               onDeleteClick={handleDeleteClick}
+              onBulkDeleteClick={handleBulkDeleteClick}
             />
           </CardContent>
         </Card>
@@ -361,6 +405,40 @@ export default function ReportsPage() {
           variant="destructive"
           isLoading={isDeleting}
           onConfirm={handleConfirmDelete}
+        />
+
+        {/* Bulk Delete Confirmation Dialog */}
+        <ConfirmationDialog
+          open={bulkDeleteDialogOpen}
+          onOpenChange={setBulkDeleteDialogOpen}
+          title={`${reportsToDelete.length}개의 리포트를 삭제하시겠습니까?`}
+          description={
+            <div className="space-y-2">
+              <p>선택한 리포트가 영구적으로 삭제됩니다. 이 작업은 되돌릴 수 없습니다.</p>
+              {reportsToDelete.length > 0 && (
+                <div className="mt-3 p-3 bg-muted rounded-md text-sm max-h-32 overflow-y-auto">
+                  <p className="font-medium mb-1 flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                    삭제될 리포트:
+                  </p>
+                  <ul className="list-disc list-inside space-y-0.5 text-muted-foreground">
+                    {reportsToDelete.slice(0, 5).map((report) => (
+                      <li key={report.id}>
+                        {report.students?.users?.name || '이름 없음'} - {report.report_type === 'weekly' ? '주간' : report.report_type === 'monthly' ? '월간' : '분기'}
+                      </li>
+                    ))}
+                    {reportsToDelete.length > 5 && (
+                      <li>외 {reportsToDelete.length - 5}개...</li>
+                    )}
+                  </ul>
+                </div>
+              )}
+            </div>
+          }
+          confirmText={`${reportsToDelete.length}개 삭제`}
+          variant="destructive"
+          isLoading={isBulkDeleting}
+          onConfirm={handleConfirmBulkDelete}
         />
       </div>
     </PageWrapper>
