@@ -35,13 +35,11 @@ export default async function AttendancePage() {
   // Get today's date for default filter
   const today = new Date().toISOString().split('T')[0];
 
-  // Get recent sessions using Server Action
-  const sessionsResult = await getAttendanceSessions({
-    startDate: today,
-  });
-
-  // Get all active classes using Server Action
-  const classesResult = await getActiveClasses();
+  // 병렬로 세션과 클래스 데이터를 동시에 로드
+  const [sessionsResult, classesResult] = await Promise.all([
+    getAttendanceSessions({ startDate: today }),
+    getActiveClasses()
+  ]);
 
   // Handle errors with clear messaging
   if (!sessionsResult.success || !classesResult.success) {
