@@ -24,7 +24,7 @@ import {
 } from '@ui/select'
 import { Badge } from '@ui/badge'
 import { Separator } from '@ui/separator'
-import { Alert, AlertDescription } from '@ui/alert'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ui/tooltip'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import { useToast } from '@/hooks/use-toast'
 import {
@@ -238,18 +238,66 @@ export function ReportTemplatesClient({
       </div>
 
       {/* Variable Help */}
-      <Alert>
-        <Info className="h-4 w-4" />
-        <AlertDescription>
-          <span className="font-medium">사용 가능한 변수:</span>{' '}
-          {TEMPLATE_VARIABLES.map((v, i) => (
-            <span key={v.key}>
-              <code className="bg-muted px-1 rounded text-xs">{v.key}</code>
-              {i < TEMPLATE_VARIABLES.length - 1 && ', '}
-            </span>
-          ))}
-        </AlertDescription>
-      </Alert>
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Info className="h-4 w-4" />
+            변수 사용법
+          </CardTitle>
+          <CardDescription>
+            템플릿에 변수를 사용하면 리포트 작성 시 학생 정보로 자동 치환됩니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Variable Table */}
+          <div className="rounded-lg border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="text-left px-3 py-2 font-medium">변수</th>
+                  <th className="text-left px-3 py-2 font-medium">설명</th>
+                  <th className="text-left px-3 py-2 font-medium">예시 값</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {TEMPLATE_VARIABLES.map((v) => (
+                  <tr key={v.key}>
+                    <td className="px-3 py-2">
+                      <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">
+                        {v.key}
+                      </code>
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">{v.label}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{v.example}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Example */}
+          <div className="space-y-2">
+            <p className="text-sm font-medium">사용 예시</p>
+            <div className="grid gap-2">
+              <div className="rounded-lg bg-muted/50 p-3">
+                <p className="text-xs text-muted-foreground mb-1">작성한 템플릿</p>
+                <p className="text-sm font-mono">
+                  {'{studentName}'} 학생은 출석률 {'{attendanceRate}'}%로 성실하게 수업에 참여했습니다.
+                </p>
+              </div>
+              <div className="flex justify-center">
+                <span className="text-muted-foreground text-xs">↓ 리포트 작성 시 자동 변환</span>
+              </div>
+              <div className="rounded-lg bg-primary/5 border-primary/20 border p-3">
+                <p className="text-xs text-muted-foreground mb-1">실제 출력 결과</p>
+                <p className="text-sm">
+                  <span className="text-primary font-medium">홍길동</span> 학생은 출석률 <span className="text-primary font-medium">95</span>%로 성실하게 수업에 참여했습니다.
+                </p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Templates by Category */}
       {CATEGORIES.map((category) => {
@@ -420,22 +468,31 @@ export function ReportTemplatesClient({
                 rows={4}
                 maxLength={500}
               />
-              <div className="flex flex-wrap gap-1 mt-2">
-                {TEMPLATE_VARIABLES.map((v) => (
-                  <Button
-                    key={v.key}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="text-xs h-6"
-                    onClick={() => insertVariable(v.key)}
-                  >
-                    {v.key}
-                  </Button>
-                ))}
-              </div>
+              <TooltipProvider delayDuration={200}>
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {TEMPLATE_VARIABLES.map((v) => (
+                    <Tooltip key={v.key}>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-6"
+                          onClick={() => insertVariable(v.key)}
+                        >
+                          {v.key}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="font-medium">{v.label}</p>
+                        <p className="text-muted-foreground">예: {v.example}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  ))}
+                </div>
+              </TooltipProvider>
               <p className="text-xs text-muted-foreground">
-                변수 버튼을 클릭하면 자동으로 삽입됩니다. (최대 500자)
+                변수 버튼을 클릭하면 자동으로 삽입됩니다. 마우스를 올려 설명을 확인하세요. (최대 500자)
               </p>
             </div>
           </div>
