@@ -33,13 +33,74 @@ export function StudentList() {
 
   const { toast } = useToast()
 
-  // Load filter options
+  // Load filter options and initial students in parallel on mount
   useEffect(() => {
-    loadFilterOptions()
-  }, [])
+    async function loadInitialData() {
+      setLoading(true)
+      try {
+        // 병렬로 필터 옵션과 학생 데이터를 동시에 로드
+        const [filterResult, studentsResult] = await Promise.all([
+          getStudentFilterOptions(),
+          getStudents({})
+        ])
 
-  // Load students when filters change
+        // 필터 옵션 설정
+        if (filterResult.success && filterResult.data) {
+          setGrades(filterResult.data.grades)
+          setSchools(filterResult.data.schools)
+          setClasses(filterResult.data.classes)
+        } else {
+          console.error('[StudentList] Failed to load filter options:', filterResult.error)
+        }
+
+        // 학생 데이터 설정
+        if (studentsResult.success && studentsResult.data) {
+          const formattedStudents = studentsResult.data.map(s => ({
+            id: s.id,
+            student_code: s.student_code,
+            grade: s.grade,
+            school: s.school,
+            enrollment_date: s.enrollment_date,
+            birth_date: null,
+            gender: null,
+            student_phone: null,
+            profile_image_url: null,
+            users: {
+              name: s.name,
+              email: s.email,
+              phone: s.phone,
+            },
+            class_enrollments: s.classes.map((c: { id?: string; name: string }) => ({
+              classes: { name: c.name }
+            })),
+            recentAttendance: [],
+          }))
+          setStudents(formattedStudents as Student[])
+        } else {
+          console.error('[StudentList] Failed to load students:', studentsResult.error)
+        }
+      } catch (error) {
+        console.error('[StudentList] Failed to load initial data:', error)
+        toast({
+          title: '데이터 로드 실패',
+          description: getErrorMessage(error),
+          variant: 'destructive',
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadInitialData()
+  }, [toast])
+
+  // Load students when filters change (skip initial load)
+  const [isInitialLoad, setIsInitialLoad] = useState(true)
   useEffect(() => {
+    if (isInitialLoad) {
+      setIsInitialLoad(false)
+      return
+    }
     loadStudents()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedGrade, selectedClass, selectedSchool, selectedCommuteMethod, selectedMarketingSource, enrollmentDateFrom, enrollmentDateTo])
