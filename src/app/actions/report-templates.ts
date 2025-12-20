@@ -8,7 +8,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
-import { verifyStaff } from '@/lib/auth/verify-permission'
+import { verifyStaff, verifyPermission } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
 import type {
@@ -207,7 +207,8 @@ export async function getTenantReportTemplates(): Promise<
   ReportTemplateResult<ReportTemplate[]>
 > {
   try {
-    const { tenantId } = await verifyStaff()
+    // 임시: verifyStaff 대신 verifyPermission 직접 사용하여 디버깅
+    const { tenantId } = await verifyPermission()
     const supabase = createServiceRoleClient()
 
     const { data, error } = await supabase
