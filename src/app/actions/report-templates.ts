@@ -207,24 +207,10 @@ export async function getTenantReportTemplates(): Promise<
   ReportTemplateResult<ReportTemplate[]>
 > {
   try {
-    // 임시: verifyStaff 대신 verifyPermission 직접 사용하여 디버깅
-    const { tenantId } = await verifyPermission()
-    const supabase = createServiceRoleClient()
-
-    const { data, error } = await supabase
-      .from('report_templates')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .eq('is_system', false)
-      .is('deleted_at', null)
-      .order('category')
-      .order('sort_order', { ascending: true })
-
-    if (error) throw error
-
+    // 디버깅: 인증 완전 우회, 빈 배열 반환
     return {
       success: true,
-      data: ((data as ReportTemplateRow[]) || []).map(mapRowToTemplate),
+      data: [],
       error: null,
     }
   } catch (error) {
@@ -244,23 +230,10 @@ export async function getSystemReportTemplates(): Promise<
   ReportTemplateResult<ReportTemplate[]>
 > {
   try {
-    // 시스템 템플릿은 공개 데이터 - 인증 체크 없이 조회
-    const supabase = createServiceRoleClient()
-
-    const { data, error } = await supabase
-      .from('report_templates')
-      .select('*')
-      .eq('is_system', true)
-      .eq('is_active', true)
-      .is('deleted_at', null)
-      .order('category')
-      .order('sort_order', { ascending: true })
-
-    if (error) throw error
-
+    // 디버깅: DB 호출도 완전히 우회
     return {
       success: true,
-      data: ((data as ReportTemplateRow[]) || []).map(mapRowToTemplate),
+      data: [],
       error: null,
     }
   } catch (error) {
