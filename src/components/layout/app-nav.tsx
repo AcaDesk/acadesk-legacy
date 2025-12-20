@@ -142,6 +142,10 @@ const navigationGroups: NavGroup[] = [
         href: "/reports",
         icon: FileBarChart,
         featureFlag: "reportManagement",
+        subItems: [
+          { name: "리포트 목록", href: "/reports", icon: FileText, featureFlag: "reportManagement" },
+          { name: "리포트 템플릿", href: "/settings/report-templates", icon: LibraryBig, featureFlag: "reportManagement" },
+        ]
       },
       { name: "학원비 관리", href: "/payments", icon: HandCoins, featureFlag: "tuitionManagement" },
       { name: "직원 관리", href: "/staff", icon: Briefcase, featureFlag: "staffManagement" },
