@@ -2,8 +2,11 @@
 
 import { Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { ReportTemplate, ReportContextData } from '@/core/types/report-template.types'
-import { replaceTemplateVariables } from '@/app/actions/report-templates'
+import {
+  replaceTemplateVariables,
+  type ReportTemplate,
+  type ReportContextData,
+} from '@/core/types/report-template.types'
 
 interface TemplateChipProps {
   template: ReportTemplate

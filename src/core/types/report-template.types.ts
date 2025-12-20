@@ -159,6 +159,25 @@ export const TEMPLATE_VARIABLES = [
 ] as const
 
 // ============================================================================
+// 헬퍼 함수
+// ============================================================================
+
+/**
+ * 템플릿 변수를 실제 데이터로 치환
+ */
+export function replaceTemplateVariables(
+  template: string,
+  context: ReportContextData
+): string {
+  return template
+    .replace(/{studentName}/g, context.studentName)
+    .replace(/{attendanceRate}/g, String(context.attendanceRate))
+    .replace(/{homeworkRate}/g, String(context.homeworkRate))
+    .replace(/{averageScore}/g, String(context.averageScore))
+    .replace(/{scoreChange}/g, String(Math.abs(context.scoreChange)))
+}
+
+// ============================================================================
 // 그룹화된 템플릿
 // ============================================================================
 
