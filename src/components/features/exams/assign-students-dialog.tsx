@@ -4,11 +4,50 @@ import { useState, useEffect, useMemo } from 'react'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@ui/dialog'
+import { Tabs, TabsList, TabsTrigger } from '@ui/tabs'
 import { UserPlus, Users } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { createClient } from '@/lib/supabase/client'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { StudentSearch, type Student as StudentSearchStudent } from '@/components/features/students/student-search'
+
+type SchoolLevel = 'all' | 'kindergarten' | 'elementary' | 'middle' | 'high'
+
+// 학년 문자열에서 학교급 추출
+function getSchoolLevel(grade: string | null | undefined): SchoolLevel {
+  if (!grade) return 'all'
+  const normalizedGrade = grade.toLowerCase().trim()
+
+  // 유치원
+  if (normalizedGrade.includes('유치') || normalizedGrade.includes('유아') || normalizedGrade.includes('7세') || normalizedGrade.includes('6세') || normalizedGrade.includes('5세')) {
+    return 'kindergarten'
+  }
+
+  // 초등 (초1, 초2, 초등1, 초등학교 1학년 등)
+  if (normalizedGrade.startsWith('초') || normalizedGrade.includes('초등')) {
+    return 'elementary'
+  }
+
+  // 중등 (중1, 중2, 중학교 1학년 등)
+  if (normalizedGrade.startsWith('중') || normalizedGrade.includes('중학')) {
+    return 'middle'
+  }
+
+  // 고등 (고1, 고2, 고등학교 1학년 등)
+  if (normalizedGrade.startsWith('고') || normalizedGrade.includes('고등')) {
+    return 'high'
+  }
+
+  // 숫자로만 된 학년 (1~6: 초등, 7~9: 중등, 10~12: 고등)
+  const gradeNum = parseInt(normalizedGrade.replace(/[^0-9]/g, ''))
+  if (!isNaN(gradeNum)) {
+    if (gradeNum >= 1 && gradeNum <= 6) return 'elementary'
+    if (gradeNum >= 7 && gradeNum <= 9) return 'middle'
+    if (gradeNum >= 10 && gradeNum <= 12) return 'high'
+  }
+
+  return 'all'
+}
 
 interface Student extends StudentSearchStudent {
   isAssigned: boolean
@@ -37,6 +76,7 @@ export function AssignStudentsDialog({
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [schoolLevelFilter, setSchoolLevelFilter] = useState<SchoolLevel>('all')
 
   // Calculate currently assigned student IDs
   const currentlyAssignedIds = useMemo(
@@ -59,6 +99,30 @@ export function AssignStudentsDialog({
 
     return false
   }, [currentlyAssignedIds, selectedIds])
+
+  // 학교급별 필터링된 학생 목록
+  const filteredStudents = useMemo(() => {
+    if (schoolLevelFilter === 'all') return students
+    return students.filter(s => getSchoolLevel(s.grade) === schoolLevelFilter)
+  }, [students, schoolLevelFilter])
+
+  // 각 학교급별 학생 수 계산
+  const schoolLevelCounts = useMemo(() => {
+    const counts = {
+      all: students.length,
+      kindergarten: 0,
+      elementary: 0,
+      middle: 0,
+      high: 0,
+    }
+    students.forEach(s => {
+      const level = getSchoolLevel(s.grade)
+      if (level !== 'all') {
+        counts[level]++
+      }
+    })
+    return counts
+  }, [students])
 
   useEffect(() => {
     if (open) {
@@ -271,13 +335,34 @@ export function AssignStudentsDialog({
               현재 선택 {selectedCount}명
             </Badge>
           </div>
+
+          {/* 학교급 필터 탭 */}
+          <Tabs value={schoolLevelFilter} onValueChange={(v) => setSchoolLevelFilter(v as SchoolLevel)} className="mt-3">
+            <TabsList className="grid w-full grid-cols-5 h-9">
+              <TabsTrigger value="all" className="text-xs px-2">
+                전체 ({schoolLevelCounts.all})
+              </TabsTrigger>
+              <TabsTrigger value="kindergarten" className="text-xs px-2" disabled={schoolLevelCounts.kindergarten === 0}>
+                유치 ({schoolLevelCounts.kindergarten})
+              </TabsTrigger>
+              <TabsTrigger value="elementary" className="text-xs px-2" disabled={schoolLevelCounts.elementary === 0}>
+                초등 ({schoolLevelCounts.elementary})
+              </TabsTrigger>
+              <TabsTrigger value="middle" className="text-xs px-2" disabled={schoolLevelCounts.middle === 0}>
+                중등 ({schoolLevelCounts.middle})
+              </TabsTrigger>
+              <TabsTrigger value="high" className="text-xs px-2" disabled={schoolLevelCounts.high === 0}>
+                고등 ({schoolLevelCounts.high})
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </DialogHeader>
 
         <div className="flex-1 min-h-0 overflow-hidden">
           <StudentSearch
             mode="multiple"
             variant="checkbox-list"
-            students={students}
+            students={filteredStudents}
             value={selectedIds}
             onChange={setSelectedIds}
             loading={loading}
