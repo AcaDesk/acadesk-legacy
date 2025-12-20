@@ -243,7 +243,13 @@ export async function getSystemReportTemplates(): Promise<
   ReportTemplateResult<ReportTemplate[]>
 > {
   try {
-    await verifyStaff()
+    console.log('[getSystemReportTemplates] Starting...')
+    const context = await verifyStaff()
+    console.log('[getSystemReportTemplates] Auth success:', {
+      userId: context.userId,
+      roleCode: context.roleCode,
+      tenantId: context.tenantId
+    })
     const supabase = createServiceRoleClient()
 
     const { data, error } = await supabase
@@ -263,7 +269,11 @@ export async function getSystemReportTemplates(): Promise<
       error: null,
     }
   } catch (error) {
-    console.error('[getSystemReportTemplates] Error:', error)
+    console.error('[getSystemReportTemplates] Error:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      error
+    })
     return {
       success: false,
       data: null,
