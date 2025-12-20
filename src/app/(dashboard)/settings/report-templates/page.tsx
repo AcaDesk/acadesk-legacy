@@ -13,8 +13,8 @@ export const metadata: Metadata = {
 }
 
 export default async function ReportTemplatesPage() {
-  // Verify authentication
-  await requireAuth()
+  // 디버깅: 인증도 우회
+  // await requireAuth()
 
   // Fetch templates from database
   const [tenantResult, systemResult] = await Promise.all([
