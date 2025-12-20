@@ -19,8 +19,21 @@ export default async function ReportTemplatesPage() {
     getSystemReportTemplates(),
   ])
 
+  // Debug logging
+  if (!tenantResult.success) {
+    console.error('[ReportTemplatesPage] Tenant templates error:', tenantResult.error)
+  }
+  if (!systemResult.success) {
+    console.error('[ReportTemplatesPage] System templates error:', systemResult.error)
+  }
+
   const tenantTemplates = tenantResult.success && tenantResult.data ? tenantResult.data : []
   const systemTemplates = systemResult.success && systemResult.data ? systemResult.data : []
+
+  console.log('[ReportTemplatesPage] Loaded templates:', {
+    tenantCount: tenantTemplates.length,
+    systemCount: systemTemplates.length,
+  })
 
   return (
     <PageWrapper>
