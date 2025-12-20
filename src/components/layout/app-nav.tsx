@@ -226,7 +226,7 @@ function SimpleNavItem({
   const Icon = item.icon
 
   return (
-    <Link href={item.href} onClick={onClick}>
+    <Link href={item.href} prefetch={true} onClick={onClick}>
       <div
         className={cn(
           "relative flex items-center rounded-lg text-sm font-medium transition-all duration-200 overflow-hidden",
