@@ -30,8 +30,10 @@ import { Download, Send, Edit2, CheckCircle, XCircle, Clock, MessageSquare } fro
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import type { ReportWithStudent } from '@/core/types/report.types'
+import type { CategoryTemplates, ReportContextData } from '@/core/types/report-template.types'
 import { ReportViewer } from '@/components/features/reports/ReportViewer'
 import { ReportPdfDocument } from '@/components/features/reports/ReportPdfDocument'
+import { TemplateSection } from '@/components/features/reports/template-section'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
@@ -61,6 +63,8 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
     nextGoals: '',
   })
   const [savingComment, setSavingComment] = useState(false)
+  const [categoryTemplates, setCategoryTemplates] = useState<CategoryTemplates[]>([])
+  const [reportContext, setReportContext] = useState<ReportContextData | null>(null)
 
   const { toast } = useToast()
   const router = useRouter()
@@ -205,7 +209,7 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
     }
   }
 
-  function handleEditComment() {
+  async function handleEditComment() {
     if (!report) return
 
     // Access report content data
@@ -222,13 +226,34 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
     } else {
       // Fallback: Parse legacy string format
       const currentComment = reportData.overallComment || reportData.instructorComment || ''
-      const lines = currentComment.split('\n').filter(l => l.trim())
+      const lines = currentComment.split('\n').filter((l: string) => l.trim())
       setCommentForm({
         summary: lines[0] || '',
         strengths: lines[1] || '',
         improvements: lines[2] || '',
         nextGoals: lines[3] || '',
       })
+    }
+
+    // 리포트 데이터에서 컨텍스트 생성
+    const context: ReportContextData = {
+      studentName: reportData.studentName || report.students?.users?.name || '학생',
+      attendanceRate: reportData.attendance?.rate ?? 0,
+      homeworkRate: reportData.homework?.rate ?? 0,
+      averageScore: reportData.currentScore ?? 0,
+      scoreChange: reportData.scoreTrend ?? 0,
+    }
+    setReportContext(context)
+
+    // 템플릿 로드
+    try {
+      const { getReportTemplates } = await import('@/app/actions/report-templates')
+      const result = await getReportTemplates(context)
+      if (result.success && result.data) {
+        setCategoryTemplates(result.data)
+      }
+    } catch (error) {
+      console.error('Failed to load templates:', error)
     }
 
     setCommentDialogOpen(true)
@@ -582,6 +607,18 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
               <Label htmlFor="summary" className="text-base font-semibold">
                 📝 총평
               </Label>
+              {reportContext && categoryTemplates.find(c => c.category === 'summary') && (
+                <TemplateSection
+                  categoryData={categoryTemplates.find(c => c.category === 'summary')!}
+                  context={reportContext}
+                  onSelect={(content) => {
+                    setCommentForm(prev => ({
+                      ...prev,
+                      summary: prev.summary ? `${prev.summary}\n\n${content}` : content
+                    }))
+                  }}
+                />
+              )}
               <Textarea
                 id="summary"
                 placeholder="이번 달 학생의 전반적인 학습 상황을 간략히 요약해주세요..."
@@ -604,6 +641,18 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
               <Label htmlFor="strengths" className="text-base font-semibold">
                 ✨ 잘한 점
               </Label>
+              {reportContext && categoryTemplates.find(c => c.category === 'strengths') && (
+                <TemplateSection
+                  categoryData={categoryTemplates.find(c => c.category === 'strengths')!}
+                  context={reportContext}
+                  onSelect={(content) => {
+                    setCommentForm(prev => ({
+                      ...prev,
+                      strengths: prev.strengths ? `${prev.strengths}\n\n${content}` : content
+                    }))
+                  }}
+                />
+              )}
               <Textarea
                 id="strengths"
                 placeholder="학생이 특히 잘한 점이나 긍정적인 변화를 구체적으로 적어주세요..."
@@ -626,6 +675,18 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
               <Label htmlFor="improvements" className="text-base font-semibold">
                 📈 보완할 점
               </Label>
+              {reportContext && categoryTemplates.find(c => c.category === 'improvements') && (
+                <TemplateSection
+                  categoryData={categoryTemplates.find(c => c.category === 'improvements')!}
+                  context={reportContext}
+                  onSelect={(content) => {
+                    setCommentForm(prev => ({
+                      ...prev,
+                      improvements: prev.improvements ? `${prev.improvements}\n\n${content}` : content
+                    }))
+                  }}
+                />
+              )}
               <Textarea
                 id="improvements"
                 placeholder="개선이 필요한 부분을 긍정적으로 표현해주세요..."
@@ -648,6 +709,18 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
               <Label htmlFor="nextGoals" className="text-base font-semibold">
                 🎯 다음 달 목표
               </Label>
+              {reportContext && categoryTemplates.find(c => c.category === 'nextGoals') && (
+                <TemplateSection
+                  categoryData={categoryTemplates.find(c => c.category === 'nextGoals')!}
+                  context={reportContext}
+                  onSelect={(content) => {
+                    setCommentForm(prev => ({
+                      ...prev,
+                      nextGoals: prev.nextGoals ? `${prev.nextGoals}\n\n${content}` : content
+                    }))
+                  }}
+                />
+              )}
               <Textarea
                 id="nextGoals"
                 placeholder="다음 달 학습 목표나 권장 사항을 적어주세요..."
