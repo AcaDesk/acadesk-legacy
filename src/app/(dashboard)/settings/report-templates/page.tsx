@@ -4,8 +4,8 @@ import { ReportTemplatesClient } from './report-templates-client'
 import { getTenantReportTemplates, getSystemReportTemplates } from '@/app/actions/report-templates'
 import type { Metadata } from 'next'
 
-// 캐싱 비활성화 - 항상 최신 데이터 fetch
-export const dynamic = 'force-dynamic'
+// ISR: 60초마다 재생성 + 서버 액션에서 revalidatePath로 즉시 갱신
+export const revalidate = 60
 
 export const metadata: Metadata = {
   title: '리포트 템플릿 관리',
