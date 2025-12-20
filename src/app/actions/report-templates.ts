@@ -243,13 +243,7 @@ export async function getSystemReportTemplates(): Promise<
   ReportTemplateResult<ReportTemplate[]>
 > {
   try {
-    console.log('[getSystemReportTemplates] Starting...')
-    const context = await verifyStaff()
-    console.log('[getSystemReportTemplates] Auth success:', {
-      userId: context.userId,
-      roleCode: context.roleCode,
-      tenantId: context.tenantId
-    })
+    // 시스템 템플릿은 공개 데이터 - 인증 체크 없이 조회
     const supabase = createServiceRoleClient()
 
     const { data, error } = await supabase
