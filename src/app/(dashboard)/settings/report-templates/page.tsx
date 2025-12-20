@@ -4,8 +4,8 @@ import { ReportTemplatesClient } from './report-templates-client'
 import { getTenantReportTemplates, getSystemReportTemplates } from '@/app/actions/report-templates'
 import type { Metadata } from 'next'
 
-// ISR: 60초마다 재생성 + 서버 액션에서 revalidatePath로 즉시 갱신
-export const revalidate = 60
+// 인증 필요 페이지 - 동적 렌더링 필수
+export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: '리포트 템플릿 관리',
