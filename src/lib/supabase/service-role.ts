@@ -56,16 +56,6 @@ export function createServiceRoleClient() {
     )
   }
 
-  // Security: Never log service_role key details in production
-  // Validate key format without exposing actual values
-  if (supabaseServiceRoleKey.startsWith('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9')) {
-    console.warn('[createServiceRoleClient] WARNING: Detected JWT format key. Ensure you are using service_role key, not anon key.')
-  }
-
-  // Debug: Log key type (not the actual key)
-  const keyPrefix = supabaseServiceRoleKey.substring(0, 20)
-  console.log('[createServiceRoleClient] Key prefix:', keyPrefix, 'Length:', supabaseServiceRoleKey.length)
-
   return createClient(supabaseUrl, supabaseServiceRoleKey, {
     auth: {
       autoRefreshToken: false,
