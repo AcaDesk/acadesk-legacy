@@ -7,9 +7,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { verifyStaff } from '@/lib/auth/verify-permission'
-import { createServiceRoleClient } from '@/lib/supabase/service-role'
-import { getErrorMessage } from '@/lib/error-handlers'
+import { withServerAction, withServerActionVoid } from '@/lib/server-action-helpers'
 
 export interface Subject {
   id: string
@@ -50,35 +48,21 @@ export interface UpdateSubjectInput {
  * @returns 과목 목록
  */
 export async function getSubjects() {
-  try {
-    const { tenantId } = await verifyStaff()
-    const supabase = createServiceRoleClient()
+  return withServerAction(
+    async ({ tenantId, serviceClient }) => {
+      const { data, error } = await serviceClient
+        .from('subjects')
+        .select('id, name, code, color, active, sort_order')
+        .eq('tenant_id', tenantId)
+        .eq('active', true)
+        .is('deleted_at', null)
+        .order('sort_order', { ascending: true })
 
-    const { data, error } = await supabase
-      .from('subjects')
-      .select('id, name, code, color, active, sort_order')
-      .eq('tenant_id', tenantId)
-      .eq('active', true)
-      .is('deleted_at', null)
-      .order('sort_order', { ascending: true })
-
-    if (error) {
-      throw error
-    }
-
-    return {
-      success: true,
-      data: data || [],
-      error: null,
-    }
-  } catch (error) {
-    console.error('[getSubjects] Error:', error)
-    return {
-      success: false,
-      data: [],
-      error: getErrorMessage(error),
-    }
-  }
+      if (error) throw error
+      return data || []
+    },
+    { actionName: 'getSubjects', defaultValue: [] }
+  )
 }
 
 /**
@@ -86,44 +70,30 @@ export async function getSubjects() {
  * @returns 과목 목록 (클래스 수 포함)
  */
 export async function getSubjectsWithStatistics() {
-  try {
-    const { tenantId } = await verifyStaff()
-    const supabase = createServiceRoleClient()
+  return withServerAction(
+    async ({ tenantId, serviceClient }) => {
+      const { data, error } = await serviceClient
+        .from('subjects')
+        .select(`
+          *,
+          class_count:classes(count)
+        `)
+        .eq('tenant_id', tenantId)
+        .is('deleted_at', null)
+        .order('sort_order', { ascending: true })
 
-    // Query subjects with class count using service role
-    const { data, error } = await supabase
-      .from('subjects')
-      .select(`
-        *,
-        class_count:classes(count)
-      `)
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
-      .order('sort_order', { ascending: true })
+      if (error) throw error
 
-    if (error) {
-      throw error
-    }
+      // Transform the data to match SubjectStatistics interface
+      const subjects: SubjectStatistics[] = (data || []).map((subject) => ({
+        ...subject,
+        class_count: subject.class_count?.[0]?.count || 0,
+      }))
 
-    // Transform the data to match SubjectStatistics interface
-    const subjects: SubjectStatistics[] = (data || []).map((subject) => ({
-      ...subject,
-      class_count: subject.class_count?.[0]?.count || 0,
-    }))
-
-    return {
-      success: true,
-      data: subjects,
-      error: null,
-    }
-  } catch (error) {
-    console.error('[getSubjectsWithStatistics] Error:', error)
-    return {
-      success: false,
-      data: [],
-      error: getErrorMessage(error),
-    }
-  }
+      return subjects
+    },
+    { actionName: 'getSubjectsWithStatistics', defaultValue: [] as SubjectStatistics[] }
+  )
 }
 
 /**
@@ -132,43 +102,29 @@ export async function getSubjectsWithStatistics() {
  * @returns 생성된 과목 또는 에러
  */
 export async function createSubject(input: CreateSubjectInput) {
-  try {
-    const { tenantId } = await verifyStaff()
-    const supabase = createServiceRoleClient()
+  return withServerAction(
+    async ({ tenantId, serviceClient }) => {
+      const { data, error } = await serviceClient
+        .from('subjects')
+        .insert({
+          tenant_id: tenantId,
+          name: input.name,
+          description: input.description || null,
+          code: input.code || null,
+          color: input.color,
+          active: input.active,
+          sort_order: input.sort_order ?? 0,
+        })
+        .select()
+        .single()
 
-    const { data, error } = await supabase
-      .from('subjects')
-      .insert({
-        tenant_id: tenantId,
-        name: input.name,
-        description: input.description || null,
-        code: input.code || null,
-        color: input.color,
-        active: input.active,
-        sort_order: input.sort_order ?? 0,
-      })
-      .select()
-      .single()
+      if (error) throw error
 
-    if (error) {
-      throw error
-    }
-
-    revalidatePath('/settings/subjects')
-
-    return {
-      success: true,
-      data,
-      error: null,
-    }
-  } catch (error) {
-    console.error('[createSubject] Error:', error)
-    return {
-      success: false,
-      data: null,
-      error: getErrorMessage(error),
-    }
-  }
+      revalidatePath('/settings/subjects')
+      return data
+    },
+    { actionName: 'createSubject' }
+  )
 }
 
 /**
@@ -178,44 +134,30 @@ export async function createSubject(input: CreateSubjectInput) {
  * @returns 수정된 과목 또는 에러
  */
 export async function updateSubject(id: string, input: UpdateSubjectInput) {
-  try {
-    const { tenantId } = await verifyStaff()
-    const supabase = createServiceRoleClient()
+  return withServerAction(
+    async ({ tenantId, serviceClient }) => {
+      const { data, error } = await serviceClient
+        .from('subjects')
+        .update({
+          name: input.name,
+          description: input.description,
+          code: input.code,
+          color: input.color,
+          active: input.active,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .eq('tenant_id', tenantId)
+        .select()
+        .single()
 
-    const { data, error } = await supabase
-      .from('subjects')
-      .update({
-        name: input.name,
-        description: input.description,
-        code: input.code,
-        color: input.color,
-        active: input.active,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .eq('tenant_id', tenantId)
-      .select()
-      .single()
+      if (error) throw error
 
-    if (error) {
-      throw error
-    }
-
-    revalidatePath('/settings/subjects')
-
-    return {
-      success: true,
-      data,
-      error: null,
-    }
-  } catch (error) {
-    console.error('[updateSubject] Error:', error)
-    return {
-      success: false,
-      data: null,
-      error: getErrorMessage(error),
-    }
-  }
+      revalidatePath('/settings/subjects')
+      return data
+    },
+    { actionName: 'updateSubject' }
+  )
 }
 
 /**
@@ -224,31 +166,18 @@ export async function updateSubject(id: string, input: UpdateSubjectInput) {
  * @returns 성공 여부
  */
 export async function deleteSubject(id: string) {
-  try {
-    const { tenantId } = await verifyStaff()
-    const supabase = createServiceRoleClient()
+  return withServerActionVoid(
+    async ({ tenantId, serviceClient }) => {
+      const { error } = await serviceClient
+        .from('subjects')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', id)
+        .eq('tenant_id', tenantId)
 
-    const { error } = await supabase
-      .from('subjects')
-      .update({ deleted_at: new Date().toISOString() })
-      .eq('id', id)
-      .eq('tenant_id', tenantId)
+      if (error) throw error
 
-    if (error) {
-      throw error
-    }
-
-    revalidatePath('/settings/subjects')
-
-    return {
-      success: true,
-      error: null,
-    }
-  } catch (error) {
-    console.error('[deleteSubject] Error:', error)
-    return {
-      success: false,
-      error: getErrorMessage(error),
-    }
-  }
+      revalidatePath('/settings/subjects')
+    },
+    { actionName: 'deleteSubject' }
+  )
 }
