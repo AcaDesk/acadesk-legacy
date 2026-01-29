@@ -15,7 +15,7 @@ import {
 import { Award, TrendingUp, TrendingDown, History, Plus } from 'lucide-react'
 import { format as formatDate } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { getStudentPointBalance, getStudentPointHistory } from '@/app/actions/students'
+import { getStudentPointBalance, getStudentPointHistory } from '@/app/actions/student-points'
 
 interface PointHistory {
   id: string

@@ -8,7 +8,7 @@ import { Skeleton } from '@ui/skeleton'
 import { format as formatDate } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { motion, AnimatePresence } from 'motion/react'
-import { getStudentActivityLogs } from '@/app/actions/students'
+import { getStudentActivityLogs } from '@/app/actions/student-points'
 import {
   GraduationCap,
   CheckCircle,
