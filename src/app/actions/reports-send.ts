@@ -165,14 +165,31 @@ export async function prepareReportSending(reportId: string) {
       throw new Error('보호자 정보를 찾을 수 없습니다')
     }
 
-    // 5. 각 보호자별로 발송 레코드 생성
-    const reportSends: Array<{
+    // 5. 보호자 데이터 준비
+    const studentName =
+      (report.students as unknown as { users: { name: string } })?.users?.name ||
+      '학생'
+
+    // report.content에서 period 정보 추출 (타입 안전하게)
+    const reportContent = report.content as { period?: { start: string; end: string } }
+    const periodStart = reportContent?.period?.start
+
+    // 월 계산 (타임존 무관하게 문자열에서 직접 추출)
+    let month: number | undefined
+    if (periodStart) {
+      const match = periodStart.match(/^\d{4}-(\d{2})-\d{2}$/)
+      if (match) {
+        month = parseInt(match[1], 10)
+      } else {
+        month = new Date(periodStart).getMonth() + 1
+      }
+    }
+
+    // 유효한 보호자 목록 필터링
+    const validGuardians: Array<{
       id: string
-      recipientName: string
-      recipientPhone: string
-      message: string
-      messageType: 'SMS' | 'LMS'
-      shortUrl: string
+      name: string
+      phone: string
     }> = []
 
     for (const sg of guardians) {
@@ -187,7 +204,6 @@ export async function prepareReportSending(reportId: string) {
         } | null
       }
 
-      // guardians.phone 또는 users.phone 중 하나라도 있으면 사용
       const phone = guardian.phone || guardian.users?.phone
 
       if (!phone) {
@@ -195,104 +211,14 @@ export async function prepareReportSending(reportId: string) {
         continue
       }
 
-      // 5-1. share_link_id 생성 (UUID 자동 생성됨)
-      // 만료일 설정 (7일)
-      const linkExpiresAt = calculateLinkExpiry(7)
-
-      // 5-2. report_sends 레코드 생성
-      const { data: reportSend, error: sendError } = await supabase
-        .from('report_sends')
-        .insert({
-          tenant_id: tenantId,
-          report_id: reportId,
-          recipient_type: 'guardian',
-          recipient_id: guardian.id,
-          recipient_phone: phone,
-          recipient_name: guardian.name,
-          link_expires_at: linkExpiresAt,
-          message_body: '', // 나중에 업데이트
-          message_type: 'SMS',
-          send_status: 'pending',
-        })
-        .select('id, share_link_id')
-        .single()
-
-      if (sendError) {
-        console.error('[prepareReportSending] Error creating report_send:', sendError)
-        continue
-      }
-
-      // 5-3. 실제 리포트 URL 생성
-      const reportUrl = generateReportShareUrl(reportSend.share_link_id)
-
-      // 5-4. 단축 URL 생성
-      const shortUrlResult = await createShortUrl(reportSend.id, reportUrl, tenantId)
-
-      if (!shortUrlResult.success || !shortUrlResult.data) {
-        console.error('[prepareReportSending] Error creating short URL')
-        continue
-      }
-
-      // 5-5. 문자 메시지 본문 생성
-      const studentName =
-        (report.students as unknown as { users: { name: string } })?.users?.name ||
-        '학생'
-
-      // report.content에서 period 정보 추출 (타입 안전하게)
-      const reportContent = report.content as { period?: { start: string; end: string } }
-      const periodStart = reportContent?.period?.start
-
-      // 월 계산 (타임존 무관하게 문자열에서 직접 추출)
-      let month: number | undefined
-      if (periodStart) {
-        // "2024-10-01" 형식에서 월 추출
-        const match = periodStart.match(/^\d{4}-(\d{2})-\d{2}$/)
-        if (match) {
-          month = parseInt(match[1], 10)
-        } else {
-          // fallback: Date 객체 사용
-          month = new Date(periodStart).getMonth() + 1
-        }
-      }
-
-      console.log('[prepareReportSending] Message generation:', {
-        studentName,
-        periodStart,
-        month,
-        reportType: '성적'
-      })
-
-      const { message, type } = generateReportSmsMessage({
-        studentName,
-        month,
-        reportType: '성적',
-        shortUrl: shortUrlResult.data.shortUrl,
-        academyName: academy.name,
-        academyPhone: academy.phone || undefined,
-      })
-
-      // 5-6. report_sends 업데이트 (메시지 본문, 단축 URL ID)
-      await supabase
-        .from('report_sends')
-        .update({
-          message_body: message,
-          message_type: type,
-          short_url_id: shortUrlResult.data.id,
-        })
-        .eq('id', reportSend.id)
-
-      reportSends.push({
-        id: reportSend.id,
-        recipientName: guardian.name,
-        recipientPhone: phone,
-        message,
-        messageType: type,
-        shortUrl: shortUrlResult.data.shortUrl,
+      validGuardians.push({
+        id: guardian.id,
+        name: guardian.name,
+        phone,
       })
     }
 
-    // 6. 전송 가능한 보호자가 없는 경우 에러
-    if (reportSends.length === 0) {
+    if (validGuardians.length === 0) {
       throw new Error(
         '전송 가능한 보호자가 없습니다.\n\n' +
         '확인사항:\n' +
@@ -300,6 +226,105 @@ export async function prepareReportSending(reportId: string) {
         '2. 모든 보호자의 전화번호가 등록되어 있는지 확인하세요\n\n' +
         '학생 관리 > 보호자 정보에서 전화번호를 추가할 수 있습니다.'
       )
+    }
+
+    // 5-1. 배치 INSERT: report_sends
+    const linkExpiresAt = calculateLinkExpiry(7)
+    const reportSendInserts = validGuardians.map(guardian => ({
+      tenant_id: tenantId,
+      report_id: reportId,
+      recipient_type: 'guardian',
+      recipient_id: guardian.id,
+      recipient_phone: guardian.phone,
+      recipient_name: guardian.name,
+      link_expires_at: linkExpiresAt,
+      message_body: '',
+      message_type: 'SMS',
+      send_status: 'pending',
+    }))
+
+    const { data: insertedReportSends, error: insertError } = await supabase
+      .from('report_sends')
+      .insert(reportSendInserts)
+      .select('id, share_link_id, recipient_id, recipient_name, recipient_phone')
+
+    if (insertError || !insertedReportSends) {
+      throw new Error('발송 레코드 생성 실패: ' + insertError?.message)
+    }
+
+    // 5-2. 배치 INSERT: short_urls
+    const shortUrlInserts = insertedReportSends.map(rs => ({
+      tenant_id: tenantId,
+      short_code: generateShortCode(6),
+      target_url: generateReportShareUrl(rs.share_link_id),
+      report_send_id: rs.id,
+      expires_at: linkExpiresAt,
+      is_active: true,
+    }))
+
+    const { data: insertedShortUrls, error: shortUrlError } = await supabase
+      .from('short_urls')
+      .insert(shortUrlInserts)
+      .select('id, short_code, report_send_id')
+
+    if (shortUrlError || !insertedShortUrls) {
+      throw new Error('단축 URL 생성 실패: ' + shortUrlError?.message)
+    }
+
+    // short_url을 report_send_id로 매핑
+    const shortUrlMap = new Map<string, { id: string; shortCode: string }>(
+      insertedShortUrls.map(su => [su.report_send_id, { id: su.id, shortCode: su.short_code }])
+    )
+
+    // 5-3. 메시지 생성 및 배치 UPDATE 준비
+    const reportSends: Array<{
+      id: string
+      recipientName: string
+      recipientPhone: string
+      message: string
+      messageType: 'SMS' | 'LMS'
+      shortUrl: string
+    }> = []
+
+    const updatePromises = insertedReportSends.map(rs => {
+      const shortUrlInfo = shortUrlMap.get(rs.id)
+      if (!shortUrlInfo) return null
+
+      const shortUrl = generateSmsShortUrl(shortUrlInfo.shortCode)
+      const { message, type } = generateReportSmsMessage({
+        studentName,
+        month,
+        reportType: '성적',
+        shortUrl,
+        academyName: academy.name,
+        academyPhone: academy.phone || undefined,
+      })
+
+      reportSends.push({
+        id: rs.id,
+        recipientName: rs.recipient_name,
+        recipientPhone: rs.recipient_phone,
+        message,
+        messageType: type,
+        shortUrl,
+      })
+
+      return supabase
+        .from('report_sends')
+        .update({
+          message_body: message,
+          message_type: type,
+          short_url_id: shortUrlInfo.id,
+        })
+        .eq('id', rs.id)
+    }).filter(Boolean)
+
+    // 5-4. 배치 UPDATE 실행 (Promise.all)
+    await Promise.all(updatePromises)
+
+    // 6. 모든 레코드 처리 실패 시 에러
+    if (reportSends.length === 0) {
+      throw new Error('발송 레코드 처리 중 오류가 발생했습니다.')
     }
 
     return {
