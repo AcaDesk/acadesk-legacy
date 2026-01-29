@@ -292,39 +292,40 @@ async function fetchStudentAlerts(supabase: any, tenantId: string, today: string
 
   try {
     // 1. 장기 결석자 - 최근 7일간 출석 기록이 없는 학생
-    const { data: allStudents } = await supabase
-      .from('students')
-      .select('id, users!inner(name), grade')
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
+    // ✅ N+1 쿼리 제거: 2개 쿼리로 통합 (학생 목록 + 출석 기록)
+    const [studentsResult, attendanceResult] = await Promise.all([
+      supabase
+        .from('students')
+        .select('id, users!inner(name), grade')
+        .eq('tenant_id', tenantId)
+        .is('deleted_at', null),
+      supabase
+        .from('attendance_records')
+        .select('student_id')
+        .eq('tenant_id', tenantId)
+        .gte('attendance_date', sevenDaysAgo)
+        .lte('attendance_date', today),
+    ])
 
-    const longAbsence: Array<{
-      id: string
-      name: string
-      grade: string
-      reason: string
-      days: number
-    }> = []
-    if (allStudents && allStudents.length > 0) {
-      for (const student of allStudents) {
-        const { count } = await supabase
-          .from('attendance_records')
-          .select('id', { count: 'exact', head: true })
-          .eq('student_id', student.id)
-          .gte('attendance_date', sevenDaysAgo)
-          .lte('attendance_date', today)
+    const allStudents = studentsResult.data || []
+    const attendanceRecords = attendanceResult.data || []
 
-        if (count === 0) {
-          longAbsence.push({
-            id: student.id,
-            name: student.users?.name || 'Unknown',
-            grade: student.grade || '',
-            reason: '최근 7일간 출석 기록 없음',
-            days: 7,
-          })
-        }
-      }
-    }
+    // Set으로 출석 기록이 있는 학생 ID 저장 (O(1) 조회)
+    const studentsWithAttendance = new Set(
+      attendanceRecords.map((r: any) => r.student_id)
+    )
+
+    // 출석 기록이 없는 학생 필터링
+    const longAbsence = allStudents
+      .filter((student: any) => !studentsWithAttendance.has(student.id))
+      .map((student: any) => ({
+        id: student.id,
+        name: student.users?.name || 'Unknown',
+        grade: student.grade || '',
+        reason: '최근 7일간 출석 기록 없음',
+        days: 7,
+      }))
+      .slice(0, 10) // 상위 10명만
 
     // 2. 미완료 과제가 많은 학생 - 미완료 과제 3개 이상
     const { data: studentsWithPendingTodos } = await supabase
@@ -371,7 +372,7 @@ async function fetchStudentAlerts(supabase: any, tenantId: string, today: string
       .slice(0, 10) // 상위 10명만
 
     return {
-      longAbsence: longAbsence.slice(0, 10), // 상위 10명만
+      longAbsence,
       pendingAssignments,
     }
   } catch (error) {
