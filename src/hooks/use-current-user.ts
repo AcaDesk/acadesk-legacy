@@ -4,13 +4,18 @@
  * Client-side hook to get current authenticated user information
  * Uses Supabase client (with RLS) for safe client-side queries
  *
+ * ✅ React Query 기반으로 리팩토링됨:
+ * - 자동 캐싱 (5분)
+ * - 백그라운드 refetch
+ * - 에러 재시도
+ *
  * @example
  * const { user, tenant, isLoading, error } = useCurrentUser()
  */
 
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 
 export interface CurrentUser {
@@ -31,74 +36,73 @@ export interface UseCurrentUserReturn {
   refetch: () => Promise<void>
 }
 
-export function useCurrentUser(): UseCurrentUserReturn {
-  const [user, setUser] = useState<CurrentUser | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<Error | null>(null)
+/**
+ * Query key for current user
+ */
+export const CURRENT_USER_QUERY_KEY = ['currentUser']
 
-  const fetchUser = async () => {
-    try {
-      setIsLoading(true)
-      setError(null)
+/**
+ * Fetch current user from Supabase
+ */
+async function fetchCurrentUser(): Promise<CurrentUser | null> {
+  const supabase = createClient()
 
-      const supabase = createClient()
+  // 1. Get authenticated user
+  const {
+    data: { user: authUser },
+    error: authError,
+  } = await supabase.auth.getUser()
 
-      // 1. Get authenticated user
-      const {
-        data: { user: authUser },
-        error: authError,
-      } = await supabase.auth.getUser()
-
-      if (authError || !authUser) {
-        setUser(null)
-        setIsLoading(false)
-        return
-      }
-
-      // 2. Get user profile
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id, email, name, tenant_id, role_code, approval_status, onboarding_completed')
-        .eq('id', authUser.id)
-        .maybeSingle()
-
-      if (userError) {
-        throw userError
-      }
-
-      if (!userData) {
-        setUser(null)
-        setIsLoading(false)
-        return
-      }
-
-      setUser({
-        id: userData.id,
-        email: userData.email,
-        name: userData.name,
-        tenantId: userData.tenant_id || '',
-        roleCode: userData.role_code || '',
-        approvalStatus: userData.approval_status,
-        onboardingCompleted: userData.onboarding_completed,
-      })
-    } catch (err) {
-      console.error('[useCurrentUser] Error:', err)
-      setError(err instanceof Error ? err : new Error('Failed to fetch user'))
-      setUser(null)
-    } finally {
-      setIsLoading(false)
-    }
+  if (authError || !authUser) {
+    return null
   }
 
-  useEffect(() => {
-    fetchUser()
-  }, [])
+  // 2. Get user profile
+  const { data: userData, error: userError } = await supabase
+    .from('users')
+    .select('id, email, name, tenant_id, role_code, approval_status, onboarding_completed')
+    .eq('id', authUser.id)
+    .maybeSingle()
+
+  if (userError) {
+    throw userError
+  }
+
+  if (!userData) {
+    return null
+  }
 
   return {
-    user,
+    id: userData.id,
+    email: userData.email,
+    name: userData.name,
+    tenantId: userData.tenant_id || '',
+    roleCode: userData.role_code || '',
+    approvalStatus: userData.approval_status,
+    onboardingCompleted: userData.onboarding_completed,
+  }
+}
+
+export function useCurrentUser(): UseCurrentUserReturn {
+  const {
+    data: user,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: CURRENT_USER_QUERY_KEY,
+    queryFn: fetchCurrentUser,
+    staleTime: 5 * 60 * 1000, // 5분간 캐시 유지
+    gcTime: 30 * 60 * 1000,   // 30분간 가비지 컬렉션 대기
+    refetchOnWindowFocus: true,
+    retry: 1,
+  })
+
+  return {
+    user: user ?? null,
     isLoading,
     loading: isLoading,  // Alias for backward compatibility
-    error,
-    refetch: fetchUser,
+    error: error as Error | null,
+    refetch: async () => { await refetch() },
   }
 }
