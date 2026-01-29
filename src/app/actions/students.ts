@@ -655,22 +655,28 @@ export async function bulkUpdateStudents(
     // 2. Create service_role client
     const serviceClient = createServiceRoleClient()
 
-    // 3. Update each student
-    for (const update of updates) {
-      const { error } = await serviceClient
-        .from('students')
-        .update({
-          grade: update.grade,
-          school: update.school,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', update.id)
-        .eq('tenant_id', tenantId)
+    // 3. Update all students in parallel (N+1 순차 → N번 병렬)
+    const now = new Date().toISOString()
+    const updateResults = await Promise.all(
+      updates.map(update =>
+        serviceClient
+          .from('students')
+          .update({
+            grade: update.grade,
+            school: update.school,
+            updated_at: now,
+          })
+          .eq('id', update.id)
+          .eq('tenant_id', tenantId)
+      )
+    )
 
-      if (error) {
-        console.error(`Failed to update student ${update.id}:`, error)
+    // 에러 로깅
+    updateResults.forEach((result, idx) => {
+      if (result.error) {
+        console.error(`Failed to update student ${updates[idx].id}:`, result.error)
       }
-    }
+    })
 
     // 4. Revalidate
     revalidatePath('/students')
