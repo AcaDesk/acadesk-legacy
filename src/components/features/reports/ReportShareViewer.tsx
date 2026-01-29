@@ -1,13 +1,7 @@
 'use client'
 
-import { useEffect } from 'react'
-import { usePDF } from '@react-pdf/renderer'
-import { Button } from '@ui/button'
 import { Card, CardContent } from '@ui/card'
-import { Download } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
 import { ReportViewer } from './ReportViewer'
-import { ReportPdfDocument } from './ReportPdfDocument'
 import type { ReportData } from '@/core/types/report.types'
 
 interface ReportShareViewerProps {
@@ -23,57 +17,11 @@ interface ReportShareViewerProps {
   academyName: string
 }
 
+// NOTE: PDF generation removed - see ReportPdfDocument.tsx if needed
+// PDF download feature is disabled, so usePDF hook removed to save ~400KB bundle
+
 export function ReportShareViewer(props: ReportShareViewerProps) {
-  const { toast } = useToast()
   const currentYear = new Date().getFullYear()
-
-  const [instance, updatePdf] = usePDF({
-    document: (
-      <ReportPdfDocument
-        reportData={props.reportData}
-        studentName={props.studentName}
-        studentCode={props.studentCode}
-        studentGrade={props.studentGrade}
-        periodStart={props.periodStart}
-        periodEnd={props.periodEnd}
-        generatedAt={props.generatedAt}
-      />
-    ),
-  })
-
-  useEffect(() => {
-    updatePdf(
-      <ReportPdfDocument
-        reportData={props.reportData}
-        studentName={props.studentName}
-        studentCode={props.studentCode}
-        studentGrade={props.studentGrade}
-        periodStart={props.periodStart}
-        periodEnd={props.periodEnd}
-        generatedAt={props.generatedAt}
-      />
-    )
-  }, [updatePdf, props])
-
-  function handlePdfDownload() {
-    if (!instance.blob || instance.loading) return
-
-    const link = document.createElement('a')
-    link.href = URL.createObjectURL(instance.blob)
-    const year = new Date(props.periodStart).getFullYear()
-    const month = new Date(props.periodStart).getMonth() + 1
-    const fileName = `${props.studentName}_${year}년_${month}월_리포트.pdf`
-    link.download = fileName
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(link.href)
-
-    toast({
-      title: 'PDF 다운로드 완료',
-      description: `${props.studentName} 학생의 리포트가 다운로드되었습니다.`,
-    })
-  }
 
   const viewerData = {
     ...props.reportData,
@@ -105,19 +53,6 @@ export function ReportShareViewer(props: ReportShareViewerProps) {
           <h1 className="text-2xl sm:text-3xl font-bold text-primary">월간 리포트</h1>
           <p className="text-sm text-muted-foreground">{periodStartFormatted} ~ {periodEndFormatted}</p>
         </div>
-
-        {/* PDF 다운로드 기능 임시 비활성화 */}
-        {/* <div className="flex justify-end print:hidden">
-          <Button
-            variant="outline"
-            onClick={handlePdfDownload}
-            disabled={instance.loading || !instance.blob}
-            className="gap-2"
-          >
-            <Download className="h-4 w-4" />
-            {instance.loading ? 'PDF 생성 중...' : 'PDF 다운로드'}
-          </Button>
-        </div> */}
 
         <ReportViewer
           reportData={viewerData}
