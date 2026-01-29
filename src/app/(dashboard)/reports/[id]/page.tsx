@@ -151,7 +151,7 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
     setSending(true)
     try {
       // Dynamic import to avoid bundling server action in client
-      const { sendReportToAllGuardians } = await import('@/app/actions/reports')
+      const { sendReportToAllGuardians } = await import('@/app/actions/reports-send')
 
       const result = await sendReportToAllGuardians(params.id)
 
@@ -236,7 +236,7 @@ export default function ReportDetailPage({ params }: { params: { id: string } })
     setSavingComment(true)
     try {
       // Dynamic import to avoid bundling server action in client
-      const { updateReportComment } = await import('@/app/actions/reports')
+      const { updateReportComment } = await import('@/app/actions/reports-send')
 
       // Call server action with structured comment data
       const result = await updateReportComment(report.id, commentForm)

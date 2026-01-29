@@ -1007,15 +1007,6 @@ export async function getStudentFilterOptions() {
 }
 
 // ============================================================================
-// Re-exports from student-points.ts (for backward compatibility)
-// ============================================================================
-export {
-  getStudentPointBalance,
-  getStudentPointHistory,
-  getStudentActivityLogs,
-} from './student-points'
-
-// ============================================================================
 // Class Enrollments
 // ============================================================================
 
