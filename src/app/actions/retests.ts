@@ -318,23 +318,25 @@ export async function createRetestExam(
     }
 
     // 4. Update original scores to mark as retest assigned
-    // Get current retest counts
+    // ✅ N+1 쿼리 제거: 순차 UPDATE → 병렬 UPDATE (Promise.all)
     const { data: currentScores, error: fetchScoresError } = await supabase
       .from('exam_scores')
       .select('id, retest_count')
       .eq('exam_id', originalExamId)
       .in('student_id', studentIds)
 
-    if (!fetchScoresError && currentScores) {
-      // Update each score with incremented retest_count
-      for (const score of currentScores) {
-        await supabase
-          .from('exam_scores')
-          .update({
-            retest_count: (score.retest_count || 0) + 1,
-          })
-          .eq('id', score.id)
-      }
+    if (!fetchScoresError && currentScores && currentScores.length > 0) {
+      // 병렬로 모든 점수 업데이트 (N번 순차 → N번 병렬)
+      await Promise.all(
+        currentScores.map(score =>
+          supabase
+            .from('exam_scores')
+            .update({
+              retest_count: (score.retest_count || 0) + 1,
+            })
+            .eq('id', score.id)
+        )
+      )
     }
 
     revalidatePath('/grades/retests')
