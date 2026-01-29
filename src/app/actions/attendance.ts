@@ -392,6 +392,8 @@ export async function updateAttendanceSessionStatus(
  * 결석 학생 보호자에게 일괄 알림 전송
  * @param notifications - 알림 데이터 배열
  * @returns 전송 성공 개수
+ *
+ * ✅ N+1 쿼리 제거: 학생별 개별 조회 → IN 연산자로 배치 조회
  */
 export async function bulkNotifyAbsentStudents(
   notifications: Array<{
@@ -408,60 +410,84 @@ export async function bulkNotifyAbsentStudents(
     // 2. Service Role 클라이언트로 DB 작업
     const supabase = createServiceRoleClient()
 
-    // 각 학생의 보호자 정보를 가져와서 알림 생성
-    let successCount = 0
+    // 빈 배열 체크
+    if (notifications.length === 0) {
+      return { success: true, successCount: 0 }
+    }
 
-    for (const notification of notifications) {
-      try {
-        // 학생의 보호자 찾기 (FK 힌트 사용)
-        const { data: guardians, error: guardianError } = await supabase
-          .from('student_guardians')
-          .select(`
-            guardian_id,
-            guardians!student_guardians_guardian_id_fkey (
-              user_id,
-              users (
-                id,
-                name,
-                phone
-              )
-            )
-          `)
-          .eq('student_id', notification.student_id)
-          .eq('tenant_id', tenantId)
-          .limit(1)
+    // 3. 모든 학생의 보호자 정보를 한 번에 조회 (N+1 → 1 쿼리)
+    const studentIds = notifications.map(n => n.student_id)
+    const { data: allGuardians, error: guardianError } = await supabase
+      .from('student_guardians')
+      .select(`
+        student_id,
+        guardian_id,
+        guardians!student_guardians_guardian_id_fkey (
+          user_id,
+          users (
+            id,
+            name,
+            phone
+          )
+        )
+      `)
+      .in('student_id', studentIds)
+      .eq('tenant_id', tenantId)
 
-        if (guardianError || !guardians || guardians.length === 0) {
-          console.warn(`No guardians found for student ${notification.student_id}`)
-          continue
+    if (guardianError) {
+      console.error('Failed to fetch guardians:', guardianError)
+      return { success: false, error: '보호자 정보 조회 실패', successCount: 0 }
+    }
+
+    // 4. 학생 ID별 보호자 Map 생성 (O(1) 조회)
+    const guardiansByStudent = new Map<string, { user_id: string }>()
+    for (const sg of allGuardians || []) {
+      // 첫 번째 보호자만 사용 (기존 로직과 동일)
+      if (!guardiansByStudent.has(sg.student_id)) {
+        const guardian = sg.guardians as any
+        if (guardian?.user_id) {
+          guardiansByStudent.set(sg.student_id, { user_id: guardian.user_id })
         }
-
-        // 알림 생성 (notifications 테이블에 저장)
-        const { error: notificationError } = await supabase
-          .from('notifications')
-          .insert({
-            tenant_id: tenantId,
-            user_id: (guardians[0].guardians as any).user_id,
-            type: 'attendance_alert',
-            title: '결석 알림',
-            message: `${notification.student_name} 학생이 ${notification.session_date} 수업에 결석했습니다.`,
-            metadata: {
-              student_id: notification.student_id,
-              session_id: notification.session_id,
-              session_date: notification.session_date,
-            },
-          })
-
-        if (!notificationError) {
-          successCount++
-        }
-      } catch (err) {
-        console.error(`Failed to notify for student ${notification.student_id}:`, err)
-        // 개별 실패는 무시하고 계속 진행
       }
     }
 
-    // 3. 캐시 무효화
+    // 5. 알림 데이터 배치 생성
+    const notificationsToInsert = notifications
+      .filter(n => guardiansByStudent.has(n.student_id))
+      .map(n => ({
+        tenant_id: tenantId,
+        user_id: guardiansByStudent.get(n.student_id)!.user_id,
+        type: 'attendance_alert',
+        title: '결석 알림',
+        message: `${n.student_name} 학생이 ${n.session_date} 수업에 결석했습니다.`,
+        metadata: {
+          student_id: n.student_id,
+          session_id: n.session_id,
+          session_date: n.session_date,
+        },
+      }))
+
+    // 보호자가 없는 학생 로깅
+    const studentsWithoutGuardian = notifications.filter(n => !guardiansByStudent.has(n.student_id))
+    if (studentsWithoutGuardian.length > 0) {
+      console.warn(`No guardians found for students: ${studentsWithoutGuardian.map(s => s.student_id).join(', ')}`)
+    }
+
+    // 6. 알림 배치 INSERT (N번 → 1번 쿼리)
+    let successCount = 0
+    if (notificationsToInsert.length > 0) {
+      const { error: insertError } = await supabase
+        .from('notifications')
+        .insert(notificationsToInsert)
+
+      if (!insertError) {
+        successCount = notificationsToInsert.length
+      } else {
+        console.error('Failed to insert notifications:', insertError)
+      }
+    }
+
+    // 7. 캐시 무효화
     revalidatePath('/attendance')
 
     return { success: true, successCount }
