@@ -1422,13 +1422,3 @@ async function getScoreTrendData(
   return trendData
 }
 
-// ============================================================================
-// Re-exports from reports-send.ts (for backward compatibility)
-// ============================================================================
-export {
-  createShortUrl,
-  prepareReportSending,
-  updateReportComment,
-  sendReportMessage,
-  sendReportToAllGuardians,
-} from './reports-send'

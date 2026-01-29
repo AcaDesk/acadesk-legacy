@@ -220,7 +220,7 @@ export default function ReportsPage() {
 
     try {
       // Dynamic import to avoid bundling server action in client
-      const { sendReportToAllGuardians } = await import('@/app/actions/reports')
+      const { sendReportToAllGuardians } = await import('@/app/actions/reports-send')
 
       const result = await sendReportToAllGuardians(reportToSend.id)
 
@@ -340,7 +340,7 @@ export default function ReportsPage() {
 
     try {
       // Dynamic import to avoid bundling server action in client
-      const { sendReportToAllGuardians } = await import('@/app/actions/reports')
+      const { sendReportToAllGuardians } = await import('@/app/actions/reports-send')
 
       let totalSuccess = 0
       let totalFail = 0
