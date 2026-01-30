@@ -525,6 +525,119 @@ export async function getInstructors() {
 }
 
 /**
+ * Get students enrolled in a class with their statistics
+ *
+ * @param classId - Class ID
+ * @returns List of students with stats or error
+ */
+export async function getClassStudents(classId: string) {
+  try {
+    // 1. Verify authentication and get tenant
+    const { tenantId } = await verifyStaff()
+
+    // 2. Create service_role client
+    const supabase = createServiceRoleClient()
+
+    // 3. Load students enrolled in this class
+    const { data: enrollments, error: enrollError } = await supabase
+      .from('class_enrollments')
+      .select(`
+        student_id,
+        students!inner (
+          id,
+          student_code,
+          users!inner (
+            name
+          )
+        )
+      `)
+      .eq('tenant_id', tenantId)
+      .eq('class_id', classId)
+      .is('deleted_at', null)
+
+    if (enrollError) throw enrollError
+
+    if (!enrollments || enrollments.length === 0) {
+      return { success: true, data: [], error: null }
+    }
+
+    // 4. Calculate stats for each student
+    // TODO(any): Supabase nested query types
+    const studentIds = enrollments.map((e: any) => e.student_id).filter(Boolean)
+
+    // Get exam scores
+    const { data: scores } = await supabase
+      .from('exam_scores')
+      .select('student_id, percentage')
+      .eq('tenant_id', tenantId)
+      .in('student_id', studentIds)
+
+    // Get attendance records
+    const { data: attendance } = await supabase
+      .from('attendance')
+      .select('student_id, status')
+      .eq('tenant_id', tenantId)
+      .in('student_id', studentIds)
+
+    // Get homework completion
+    const { data: todos } = await supabase
+      .from('student_todos')
+      .select('student_id, completed_at')
+      .eq('tenant_id', tenantId)
+      .in('student_id', studentIds)
+
+    // 5. Calculate stats per student
+    // TODO(any): Supabase nested query types
+    const studentsWithStats = enrollments.map((enrollment: any) => {
+      const student = enrollment.students
+      const studentId = enrollment.student_id
+
+      // Calculate average score
+      const studentScores = (scores || []).filter((s: any) => s.student_id === studentId)
+      const avgScore = studentScores.length > 0
+        ? Math.round(studentScores.reduce((sum: number, s: any) => sum + (s.percentage || 0), 0) / studentScores.length)
+        : 0
+
+      // Calculate attendance rate
+      const studentAttendance = (attendance || []).filter((a: any) => a.student_id === studentId)
+      const presentCount = studentAttendance.filter((a: any) => a.status === 'present').length
+      const attendanceRate = studentAttendance.length > 0
+        ? Math.round((presentCount / studentAttendance.length) * 100)
+        : 0
+
+      // Calculate homework completion rate
+      const studentTodos = (todos || []).filter((t: any) => t.student_id === studentId)
+      const completedCount = studentTodos.filter((t: any) => t.completed_at).length
+      const homeworkRate = studentTodos.length > 0
+        ? Math.round((completedCount / studentTodos.length) * 100)
+        : 0
+
+      return {
+        id: student?.id || '',
+        studentCode: student?.student_code || '',
+        name: student?.users?.name || '이름 없음',
+        avgScore,
+        attendanceRate,
+        homeworkRate,
+      }
+    })
+
+    return {
+      success: true,
+      data: studentsWithStats,
+      error: null,
+    }
+  } catch (error) {
+    console.error('[getClassStudents] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
  * Delete a class (soft delete)
  *
  * @param classId - Class ID
