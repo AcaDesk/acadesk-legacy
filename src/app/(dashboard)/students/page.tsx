@@ -1,103 +1,63 @@
-'use client'
-
-import { Suspense, useState, useEffect } from 'react'
-import { Plus, Upload } from 'lucide-react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { Button } from '@ui/button'
+import { Suspense } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
 import { PageHeader } from '@ui/page-header'
 import { StudentList } from '@/components/features/students/student-list'
 import { StudentListSkeleton } from '@/components/features/students/student-list-skeleton'
-import { AddStudentWizard, type StudentInitialValues } from '@/components/features/students/add-student-wizard'
-import { RoleGuard } from '@/components/auth/role-guard'
 import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/page-error-boundary'
+import { StudentsPageClient } from './students-page-client'
 
-export default function StudentsPage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const [addDialogOpen, setAddDialogOpen] = useState(false)
-  const [refreshKey, setRefreshKey] = useState(0)
-  const [initialValues, setInitialValues] = useState<StudentInitialValues | undefined>()
+interface StudentsPageProps {
+  searchParams: Promise<{
+    fromConsultation?: string
+    name?: string
+    guardianName?: string
+    guardianPhone?: string
+  }>
+}
 
-  // Check for query parameters from consultation
-  useEffect(() => {
-    const fromConsultation = searchParams.get('fromConsultation')
-    const name = searchParams.get('name')
-    const guardianName = searchParams.get('guardianName')
-    const guardianPhone = searchParams.get('guardianPhone')
+export default async function StudentsPage({ searchParams }: StudentsPageProps) {
+  const params = await searchParams
 
-    if (fromConsultation) {
-      // Set initial values
-      setInitialValues({
-        consultationId: fromConsultation,
-        name: name || undefined,
-        guardianName: guardianName || undefined,
-        guardianPhone: guardianPhone || undefined,
-      })
-
-      // Auto-open dialog
-      setAddDialogOpen(true)
-
-      // Clear query parameters to avoid re-opening on refresh
-      router.replace('/students', { scroll: false })
-    }
-  }, [searchParams, router])
-
-  const handleStudentAdded = () => {
-    // Trigger refresh of student list
-    setRefreshKey(prev => prev + 1)
-    // Clear initial values after adding
-    setInitialValues(undefined)
-  }
+  // Extract consultation parameters for client component
+  const initialValues = params.fromConsultation
+    ? {
+        consultationId: params.fromConsultation,
+        name: params.name,
+        guardianName: params.guardianName,
+        guardianPhone: params.guardianPhone,
+      }
+    : undefined
 
   return (
     <PageErrorBoundary pageName="학생 관리">
       <div className="p-6 lg:p-8 space-y-6">
-        {/* Header */}
-        <section aria-label="페이지 헤더" className="animate-in fade-in-50 slide-in-from-top-2 duration-500">
-          <PageHeader
-          title="학생 관리"
-          description="학생 정보 및 성적을 관리합니다"
-          action={
-            <RoleGuard allowedRoles={['owner', 'instructor']}>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => router.push('/students/import')}>
-                  <Upload className="mr-2 h-4 w-4" />
-                  일괄 등록
-                </Button>
-                <Button onClick={() => setAddDialogOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  학생 추가
-                </Button>
-              </div>
-            </RoleGuard>
-          }
-        />
-      </section>
+        {/* Header with Client-side interactions */}
+        <StudentsPageClient initialValues={initialValues}>
+          {/* Header */}
+          <section aria-label="페이지 헤더" className="animate-in fade-in-50 slide-in-from-top-2 duration-500">
+            <PageHeader
+              title="학생 관리"
+              description="학생 정보 및 성적을 관리합니다"
+            />
+          </section>
 
-      {/* Student List */}
-      <section aria-label="학생 목록" className="animate-in fade-in-50 slide-in-from-bottom-2 duration-500" style={{ animationDelay: '100ms' }}>
-        <SectionErrorBoundary sectionName="학생 목록">
-          <Card>
-            <CardHeader>
-              <CardTitle>전체 학생 목록</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Suspense fallback={<StudentListSkeleton />}>
-                <StudentList key={refreshKey} />
-              </Suspense>
-            </CardContent>
-          </Card>
-        </SectionErrorBoundary>
-      </section>
-
-      <AddStudentWizard
-        open={addDialogOpen}
-        onOpenChange={setAddDialogOpen}
-        onSuccess={handleStudentAdded}
-        initialValues={initialValues}
-      />
-    </div>
+          {/* Student List */}
+          <section aria-label="학생 목록" className="animate-in fade-in-50 slide-in-from-bottom-2 duration-500" style={{ animationDelay: '100ms' }}>
+            <SectionErrorBoundary sectionName="학생 목록">
+              <Card>
+                <CardHeader>
+                  <CardTitle>전체 학생 목록</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Suspense fallback={<StudentListSkeleton />}>
+                    <StudentList />
+                  </Suspense>
+                </CardContent>
+              </Card>
+            </SectionErrorBoundary>
+          </section>
+        </StudentsPageClient>
+      </div>
     </PageErrorBoundary>
   )
 }

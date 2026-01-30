@@ -1,5 +1,3 @@
-'use client'
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
 
@@ -23,7 +21,7 @@ import { EmptyState } from '@/components/ui/loading-state'
 import { cn } from '@/lib/utils'
 
 export default function LibraryPage() {
-  // Feature flag checks after all Hooks
+  // Feature flag checks
   const featureStatus = FEATURES.libraryManagement;
 
   if (featureStatus === 'inactive') {
