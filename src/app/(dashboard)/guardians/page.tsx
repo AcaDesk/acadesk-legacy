@@ -1,5 +1,3 @@
-'use client'
-
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { Plus } from 'lucide-react'
@@ -15,7 +13,7 @@ import { Maintenance } from '@/components/layout/maintenance'
 import { PAGE_ANIMATIONS } from '@/lib/animation-config'
 import { LoadingState } from '@/components/ui/loading-state'
 
-export default function GuardiansPage() {
+export default async function GuardiansPage() {
   // 피처 플래그 체크
   const featureStatus = FEATURES.guardianManagement;
 
@@ -26,6 +24,7 @@ export default function GuardiansPage() {
   if (featureStatus === 'maintenance') {
     return <Maintenance featureName="보호자 관리" reason="보호자 관리 시스템 개선 작업이 진행 중입니다." />;
   }
+
   return (
     <PageErrorBoundary pageName="보호자 관리">
       <PageWrapper>

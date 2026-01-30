@@ -351,6 +351,65 @@ export async function getGuardiansWithDetails() {
 }
 
 /**
+ * 보호자 상세 정보 조회
+ * @param guardianId - 보호자 ID
+ * @returns 보호자 상세 정보 (연결된 학생 정보 포함)
+ */
+export async function getGuardianDetail(guardianId: string) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    const { data, error } = await supabase
+      .from('guardians')
+      .select(`
+        id,
+        relationship,
+        occupation,
+        address,
+        users (
+          name,
+          email,
+          phone
+        ),
+        student_guardians (
+          is_primary,
+          students (
+            id,
+            student_code,
+            grade,
+            users (
+              name
+            )
+          )
+        )
+      `)
+      .eq('tenant_id', tenantId)
+      .eq('id', guardianId)
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (error) {
+      console.error('[getGuardianDetail] Error:', error)
+      throw error
+    }
+
+    if (!data) {
+      return { success: false, data: null, error: '보호자 정보를 찾을 수 없습니다' }
+    }
+
+    return { success: true, data, error: null }
+  } catch (error) {
+    console.error('[getGuardianDetail] Exception:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
  * 학생의 보호자 목록 조회
  * @param studentId - 학생 ID
  * @returns 보호자 목록
