@@ -100,20 +100,29 @@ export async function getExams(filters?: {
       throw new Error(`시험 조회 실패: ${error.message}`)
     }
 
-    // 6. Get score counts for each exam
-    const examsWithCounts = await Promise.all(
-      (exams || []).map(async (exam) => {
-        const { count } = await serviceClient
-          .from('exam_scores')
-          .select('*', { count: 'exact', head: true })
-          .eq('exam_id', exam.id)
+    // 6. Get score counts for all exams in one query
+    const examIds = (exams || []).map(e => e.id)
 
-        return {
-          ...exam,
-          _count: { exam_scores: count || 0 },
-        }
-      })
-    )
+    // 배치 조회: 모든 시험의 점수 카운트를 한 번에
+    const { data: scoreCounts } = examIds.length > 0
+      ? await serviceClient
+          .from('exam_scores')
+          .select('exam_id')
+          .in('exam_id', examIds)
+          .is('deleted_at', null)
+      : { data: [] }
+
+    // exam_id별 카운트 집계
+    const countMap = new Map<string, number>()
+    for (const sc of scoreCounts || []) {
+      countMap.set(sc.exam_id, (countMap.get(sc.exam_id) || 0) + 1)
+    }
+
+    // 시험에 카운트 매핑
+    const examsWithCounts = (exams || []).map(exam => ({
+      ...exam,
+      _count: { exam_scores: countMap.get(exam.id) || 0 },
+    }))
 
     return {
       success: true,

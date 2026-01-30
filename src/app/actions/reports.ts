@@ -814,16 +814,18 @@ async function getScoresData(
   prevPeriodEnd: string,
   tenantId: string
 ) {
-  // 현재 기간 성적 - 모든 성적을 가져온 후 exam_date로 필터링
-  // created_at도 함께 조회하여 exam_date가 NULL인 경우 fallback으로 사용
-  const { data: allCurrentScores, error: currentScoresError } = await supabase
+  // 날짜 비교 헬퍼 함수
+  const extractDatePart = (dateStr: string): string => dateStr.slice(0, 10)
+
+  // 현재 기간 성적 - DB에서 날짜 필터링
+  const { data: currentScoresWithDate } = await supabase
     .from('exam_scores')
     .select(`
       percentage,
       feedback,
       is_retest,
       created_at,
-      exams!exam_id (
+      exams!inner!exam_id (
         name,
         exam_date,
         created_at,
@@ -836,80 +838,82 @@ async function getScoresData(
     .eq('student_id', studentId)
     .eq('tenant_id', tenantId)
     .is('deleted_at', null)
+    .gte('exams.exam_date', periodStart)
+    .lte('exams.exam_date', periodEnd)
 
-  // 디버깅: 조회된 데이터 확인
-  console.log('[getScoresData] DEBUG - All scores for student:', {
-    studentId,
-    periodStart,
-    periodEnd,
-    scoresCount: allCurrentScores?.length || 0,
-    error: currentScoresError,
-    allScores: allCurrentScores?.map((s: any) => ({
-      exam_name: s.exams?.name,
-      exam_date: s.exams?.exam_date,
-      exam_created_at: s.exams?.created_at,
-      percentage: s.percentage
-    }))
-  })
-
-  // 날짜 비교 헬퍼 함수: timestamptz 문자열에서 날짜 부분만 추출 (YYYY-MM-DD)
-  const extractDatePart = (dateStr: string): string => {
-    // "2025-11-30 00:00:00+00" 또는 "2025-11-30T00:00:00.000Z" 형식에서 앞 10자리만 추출
-    return dateStr.slice(0, 10)
-  }
-
-  // JavaScript에서 exam_date로 필터링 (exam_date가 NULL이면 exam.created_at으로 fallback)
-  const currentScores = allCurrentScores?.filter((score: any) => {
-    // exam_date가 없으면 시험의 created_at을 fallback으로 사용
-    const examDate = score.exams?.exam_date || score.exams?.created_at
-    if (!examDate) {
-      console.log('[getScoresData] DEBUG - Score without exam_date and created_at:', score)
-      return false
-    }
-    // 날짜 부분만 추출하여 비교 (월말 날짜 비교 버그 해결)
-    const examDatePart = extractDatePart(examDate)
-    const isInRange = examDatePart >= periodStart && examDatePart <= periodEnd
-    console.log('[getScoresData] DEBUG - Date filtering:', {
-      examDate,
-      examDatePart,
-      periodStart,
-      periodEnd,
-      isInRange,
-      usedFallback: !score.exams?.exam_date
-    })
-    return isInRange
-  }) || []
-
-  console.log('[getScoresData] DEBUG - Filtered scores:', {
-    filteredCount: currentScores.length
-  })
-
-  // 이전 기간 성적 - 모든 성적을 가져온 후 exam_date로 필터링
-  const { data: allPreviousScores } = await supabase
+  // exam_date가 NULL인 레거시 데이터 (created_at으로 필터링)
+  const { data: currentLegacyScores } = await supabase
     .from('exam_scores')
     .select(`
       percentage,
-      exams!exam_id (name, category_code, subject_id, exam_date, created_at)
+      feedback,
+      is_retest,
+      created_at,
+      exams!inner!exam_id (
+        name,
+        exam_date,
+        created_at,
+        category_code,
+        subject_id,
+        ref_exam_categories (label),
+        subjects (name, color)
+      )
     `)
     .eq('student_id', studentId)
     .eq('tenant_id', tenantId)
     .is('deleted_at', null)
+    .is('exams.exam_date', null)
 
-  // JavaScript에서 exam_date로 필터링 (fallback: created_at)
-  const previousScores = allPreviousScores?.filter((score: any) => {
-    const examDate = score.exams?.exam_date || score.exams?.created_at
-    if (!examDate) return false
-    const examDatePart = extractDatePart(examDate)
-    return examDatePart >= prevPeriodStart && examDatePart <= prevPeriodEnd
-  }) || []
+  const filteredLegacy = (currentLegacyScores || []).filter((score: any) => {
+    const createdAt = score.exams?.created_at
+    if (!createdAt) return false
+    const datePart = extractDatePart(createdAt)
+    return datePart >= periodStart && datePart <= periodEnd
+  })
 
-  // 현재 기간의 반 평균 및 재시험률 조회 (카테고리별) - 모든 성적을 가져온 후 필터링
-  const { data: allClassScores } = await supabase
+  const currentScores = [...(currentScoresWithDate || []), ...filteredLegacy]
+
+  // 이전 기간 성적 - DB에서 날짜 필터링
+  const { data: prevScoresWithDate } = await supabase
+    .from('exam_scores')
+    .select(`
+      percentage,
+      exams!inner!exam_id (name, category_code, subject_id, exam_date, created_at)
+    `)
+    .eq('student_id', studentId)
+    .eq('tenant_id', tenantId)
+    .is('deleted_at', null)
+    .gte('exams.exam_date', prevPeriodStart)
+    .lte('exams.exam_date', prevPeriodEnd)
+
+  // 이전 기간 레거시 데이터
+  const { data: prevLegacyScores } = await supabase
+    .from('exam_scores')
+    .select(`
+      percentage,
+      exams!inner!exam_id (name, category_code, subject_id, exam_date, created_at)
+    `)
+    .eq('student_id', studentId)
+    .eq('tenant_id', tenantId)
+    .is('deleted_at', null)
+    .is('exams.exam_date', null)
+
+  const filteredPrevLegacy = (prevLegacyScores || []).filter((score: any) => {
+    const createdAt = score.exams?.created_at
+    if (!createdAt) return false
+    const datePart = extractDatePart(createdAt)
+    return datePart >= prevPeriodStart && datePart <= prevPeriodEnd
+  })
+
+  const previousScores = [...(prevScoresWithDate || []), ...filteredPrevLegacy]
+
+  // 현재 기간의 반 평균 및 재시험률 조회 (카테고리별) - DB에서 날짜 필터링
+  const { data: classScoresWithDate } = await supabase
     .from('exam_scores')
     .select(`
       percentage,
       is_retest,
-      exams!exam_id (
+      exams!inner!exam_id (
         name,
         category_code,
         subject_id,
@@ -919,14 +923,35 @@ async function getScoresData(
     `)
     .eq('tenant_id', tenantId)
     .is('deleted_at', null)
+    .gte('exams.exam_date', periodStart)
+    .lte('exams.exam_date', periodEnd)
 
-  // JavaScript에서 exam_date로 필터링 (fallback: created_at)
-  const classScores = allClassScores?.filter((score: any) => {
-    const examDate = score.exams?.exam_date || score.exams?.created_at
-    if (!examDate) return false
-    const examDatePart = extractDatePart(examDate)
-    return examDatePart >= periodStart && examDatePart <= periodEnd
-  }) || []
+  // exam_date가 NULL인 레거시 데이터
+  const { data: classLegacyScores } = await supabase
+    .from('exam_scores')
+    .select(`
+      percentage,
+      is_retest,
+      exams!inner!exam_id (
+        name,
+        category_code,
+        subject_id,
+        exam_date,
+        created_at
+      )
+    `)
+    .eq('tenant_id', tenantId)
+    .is('deleted_at', null)
+    .is('exams.exam_date', null)
+
+  const filteredClassLegacy = (classLegacyScores || []).filter((score: any) => {
+    const createdAt = score.exams?.created_at
+    if (!createdAt) return false
+    const datePart = extractDatePart(createdAt)
+    return datePart >= periodStart && datePart <= periodEnd
+  })
+
+  const classScores = [...(classScoresWithDate || []), ...filteredClassLegacy]
 
   // 카테고리별로 그룹화
   interface CategoryDataMap {
@@ -1255,20 +1280,32 @@ async function getCurrentScoreData(
   // 날짜 비교 헬퍼 함수
   const extractDatePart = (dateStr: string): string => dateStr.slice(0, 10)
 
-  // 현재 기간 내 모든 시험 점수 조회
+  // 현재 기간 내 시험 점수 조회 (DB에서 날짜 필터링)
   const { data: allMyScores } = await supabase
     .from('exam_scores')
-    .select('percentage, exams!exam_id(exam_date, created_at)')
+    .select('percentage, exams!inner!exam_id(exam_date, created_at)')
     .eq('student_id', studentId)
     .is('deleted_at', null)
+    .gte('exams.exam_date', periodStart)
+    .lte('exams.exam_date', periodEnd)
 
-  // JavaScript에서 exam_date로 필터링 (fallback: created_at)
-  const myScores = allMyScores?.filter((score: any) => {
-    const examDate = score.exams?.exam_date || score.exams?.created_at
-    if (!examDate) return false
-    const examDatePart = extractDatePart(examDate)
-    return examDatePart >= periodStart && examDatePart <= periodEnd
-  }) || []
+  // exam_date가 NULL인 레거시 데이터 추가 조회 (created_at으로 필터링)
+  const { data: legacyScores } = await supabase
+    .from('exam_scores')
+    .select('percentage, exams!inner!exam_id(exam_date, created_at)')
+    .eq('student_id', studentId)
+    .is('deleted_at', null)
+    .is('exams.exam_date', null)
+
+  // 레거시 데이터 중 created_at이 범위 내인 것만 포함
+  const filteredLegacyScores = (legacyScores || []).filter((score: any) => {
+    const createdAt = score.exams?.created_at
+    if (!createdAt) return false
+    const datePart = extractDatePart(createdAt)
+    return datePart >= periodStart && datePart <= periodEnd
+  })
+
+  const myScores = [...(allMyScores || []), ...filteredLegacyScores]
 
   if (!myScores || myScores.length === 0) {
     return {
@@ -1282,19 +1319,30 @@ async function getCurrentScoreData(
   const myAverage =
     myScores.reduce((sum, score) => sum + score.percentage, 0) / myScores.length
 
-  // 같은 기간 내 모든 학생들의 시험 점수 조회 (반 평균 계산용)
+  // 같은 기간 내 모든 학생들의 시험 점수 조회 (반 평균 계산용) - DB에서 날짜 필터링
   const { data: allScoresData } = await supabase
     .from('exam_scores')
-    .select('percentage, student_id, exams!exam_id(exam_date, created_at)')
+    .select('percentage, student_id, exams!inner!exam_id(exam_date, created_at)')
     .is('deleted_at', null)
+    .gte('exams.exam_date', periodStart)
+    .lte('exams.exam_date', periodEnd)
 
-  // JavaScript에서 exam_date로 필터링 (fallback: created_at)
-  const allScores = allScoresData?.filter((score: any) => {
-    const examDate = score.exams?.exam_date || score.exams?.created_at
-    if (!examDate) return false
-    const examDatePart = extractDatePart(examDate)
-    return examDatePart >= periodStart && examDatePart <= periodEnd
-  }) || []
+  // exam_date가 NULL인 레거시 데이터 추가 조회
+  const { data: allLegacyScores } = await supabase
+    .from('exam_scores')
+    .select('percentage, student_id, exams!inner!exam_id(exam_date, created_at)')
+    .is('deleted_at', null)
+    .is('exams.exam_date', null)
+
+  // 레거시 데이터 중 created_at이 범위 내인 것만 포함
+  const filteredAllLegacy = (allLegacyScores || []).filter((score: any) => {
+    const createdAt = score.exams?.created_at
+    if (!createdAt) return false
+    const datePart = extractDatePart(createdAt)
+    return datePart >= periodStart && datePart <= periodEnd
+  })
+
+  const allScores = [...(allScoresData || []), ...filteredAllLegacy]
 
   let classAverage = myAverage
   let highestScore = myAverage

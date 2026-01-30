@@ -92,35 +92,38 @@ export async function getClassesWithDetails() {
 
     if (error) throw error
 
-    // 4. For each class, get student count from enrollments
-    const classesWithDetails = await Promise.all(
-      (classesData || []).map(async (classItem) => {
-        const { count, error: countError } = await supabase
+    // 4. 배치 조회: 모든 클래스의 학생 수를 한 번에
+    const classIds = (classesData || []).map(c => c.id)
+
+    const { data: enrollments } = classIds.length > 0
+      ? await supabase
           .from('class_enrollments')
-          .select('*', { count: 'exact', head: true })
-          .eq('class_id', classItem.id)
+          .select('class_id')
+          .in('class_id', classIds)
           .eq('status', 'active')
+      : { data: [] }
 
-        if (countError) {
-          console.error('[getClassesWithDetails] Error counting students:', countError)
-        }
+    // class_id별 카운트 집계
+    const countMap = new Map<string, number>()
+    for (const e of enrollments || []) {
+      countMap.set(e.class_id, (countMap.get(e.class_id) || 0) + 1)
+    }
 
-        return {
-          id: classItem.id,
-          name: classItem.name,
-          description: classItem.description,
-          subject: classItem.subject,
-          gradeLevel: classItem.grade_level,
-          instructorName: (classItem.users as { name: string } | null)?.name || null,
-          studentCount: count || 0,
-          schedule: classItem.schedule,
-          room: classItem.room,
-          status: classItem.status,
-          active: classItem.active,
-          createdAt: classItem.created_at,
-        } as ClassWithDetails
-      })
-    )
+    // 클래스에 카운트 매핑
+    const classesWithDetails = (classesData || []).map(classItem => ({
+      id: classItem.id,
+      name: classItem.name,
+      description: classItem.description,
+      subject: classItem.subject,
+      gradeLevel: classItem.grade_level,
+      instructorName: (classItem.users as { name: string } | null)?.name || null,
+      studentCount: countMap.get(classItem.id) || 0,
+      schedule: classItem.schedule,
+      room: classItem.room,
+      status: classItem.status,
+      active: classItem.active,
+      createdAt: classItem.created_at,
+    } as ClassWithDetails))
 
     return {
       success: true,
