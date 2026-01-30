@@ -569,41 +569,60 @@ export async function syncKakaoTemplates(): Promise<{
       (localTemplates || []).map((t) => [t.solapi_template_id, t.id])
     )
 
-    let syncedCount = 0
+    // 업데이트할 템플릿과 새로 삽입할 템플릿 분류
+    const templatesToUpdate: Array<{ id: string; status: string }> = []
+    const templatesToInsert: Array<{
+      tenant_id: string
+      solapi_template_id: string
+      channel_id: string
+      name: string
+      content: string
+      category_code: string
+      message_type: string
+      emphasize_type: string
+      buttons: any[]
+      status: string
+    }> = []
 
-    // Update existing templates and insert new ones
     for (const solapiTemplate of solapiTemplates) {
       const localId = localTemplateMap.get(solapiTemplate.solapiTemplateId)
 
       if (localId) {
-        // Update existing template status
-        await supabase
-          .from('kakao_alimtalk_templates')
-          .update({
-            status: solapiTemplate.status,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', localId)
-
-        syncedCount++
+        templatesToUpdate.push({ id: localId, status: solapiTemplate.status })
       } else {
-        // Insert new template (was created externally)
-        await supabase.from('kakao_alimtalk_templates').insert({
+        templatesToInsert.push({
           tenant_id: tenantId,
           solapi_template_id: solapiTemplate.solapiTemplateId,
           channel_id: channelId,
           name: solapiTemplate.name,
           content: solapiTemplate.content,
-          category_code: 'unknown', // Will need to fetch full details
+          category_code: 'unknown',
           message_type: solapiTemplate.messageType,
           emphasize_type: 'NONE',
           buttons: solapiTemplate.buttons || [],
           status: solapiTemplate.status,
         })
-
-        syncedCount++
       }
     }
+
+    // 병렬 처리: 업데이트와 삽입
+    const now = new Date().toISOString()
+
+    await Promise.all([
+      // 업데이트: Promise.all로 병렬 처리
+      ...templatesToUpdate.map(t =>
+        supabase
+          .from('kakao_alimtalk_templates')
+          .update({ status: t.status, updated_at: now })
+          .eq('id', t.id)
+      ),
+      // 삽입: 배치 INSERT (1회)
+      templatesToInsert.length > 0
+        ? supabase.from('kakao_alimtalk_templates').insert(templatesToInsert)
+        : Promise.resolve(),
+    ])
+
+    const syncedCount = templatesToUpdate.length + templatesToInsert.length
 
     revalidatePath('/settings/messaging-integration')
 

@@ -270,7 +270,7 @@ export async function confirmStudentImport(input: z.infer<typeof confirmImportSc
     const serviceClient = createServiceRoleClient()
 
     const result: ImportConfirmResult = {
-      total_processed: 0,
+      total_processed: validated.items.length,
       created_count: 0,
       updated_count: 0,
       skipped_count: 0,
@@ -278,89 +278,121 @@ export async function confirmStudentImport(input: z.infer<typeof confirmImportSc
       errors: [],
     }
 
-    // 각 학생을 처리
+    // 1. 배치 조회: 모든 student_code의 기존 학생을 한 번에 확인
+    const studentCodes = validated.items
+      .map(item => item.student.student_code)
+      .filter((code): code is string => !!code)
+
+    const existingStudentsMap = new Map<string, string>()
+
+    if (studentCodes.length > 0) {
+      const { data: existingStudents } = await serviceClient
+        .from('students')
+        .select('id, student_code')
+        .eq('tenant_id', tenant_id)
+        .in('student_code', studentCodes)
+
+      for (const student of existingStudents || []) {
+        existingStudentsMap.set(student.student_code, student.id)
+      }
+    }
+
+    // 2. 항목 분류: 업데이트 vs 생성 vs 스킵
+    const now = new Date().toISOString()
+    const itemsToUpdate: Array<{ idx: number; id: string; item: typeof validated.items[0] }> = []
+    const itemsToCreate: Array<{ idx: number; item: typeof validated.items[0]; student_code: string }> = []
+
     for (let idx = 0; idx < validated.items.length; idx++) {
       const item = validated.items[idx]
-      result.total_processed++
+      const existingId = item.student.student_code
+        ? existingStudentsMap.get(item.student.student_code)
+        : undefined
 
-      try {
-        // student_code 중복 확인
-        let existing: { id: string } | null = null
-        if (item.student.student_code) {
-          const { data } = await serviceClient
-            .from('students')
-            .select('id')
-            .eq('tenant_id', tenant_id)
-            .eq('student_code', item.student.student_code)
-            .maybeSingle()
-
-          existing = data as { id: string } | null
-        }
-
-        // 중복 처리
-        if (existing) {
-          if (validated.onDuplicate === 'skip') {
-            result.skipped_count++
-            continue
-          } else {
-            // Update
-            const { error: updateError } = await serviceClient
-              .from('students')
-              .update({
-                name: item.student.name,
-                birth_date: item.student.birth_date || null,
-                grade: item.student.grade || null,
-                school: item.student.school || null,
-                student_phone: item.student.student_phone || null,
-                notes: item.student.notes || null,
-                updated_at: new Date().toISOString(),
-              })
-              .eq('id', existing.id)
-
-            if (updateError) {
-              throw updateError
-            }
-
-            result.updated_count++
-          }
+      if (existingId) {
+        if (validated.onDuplicate === 'skip') {
+          result.skipped_count++
         } else {
-          // Create new student
-          const now = new Date().toISOString()
-
-          // Generate student_code if not provided
-          const student_code =
-            item.student.student_code ||
-            `STU-${Date.now()}-${Math.random().toString(36).substring(7).toUpperCase()}`
-
-          const { error: insertError } = await serviceClient.from('students').insert({
-            tenant_id,
-            student_code,
-            name: item.student.name,
-            birth_date: item.student.birth_date || null,
-            grade: item.student.grade || null,
-            school: item.student.school || null,
-            student_phone: item.student.student_phone || null,
-            notes: item.student.notes || null,
-            created_at: now,
-            updated_at: now,
-          })
-
-          if (insertError) {
-            throw insertError
-          }
-
-          result.created_count++
-
-          // TODO: 보호자 정보가 있으면 보호자도 생성
-          // 현재는 학생만 생성
+          itemsToUpdate.push({ idx, id: existingId, item })
         }
-      } catch (err) {
-        result.error_count++
-        result.errors.push({
-          row: idx + 1,
-          message: getErrorMessage(err),
+      } else {
+        const student_code =
+          item.student.student_code ||
+          `STU-${Date.now()}-${idx}-${Math.random().toString(36).substring(7).toUpperCase()}`
+        itemsToCreate.push({ idx, item, student_code })
+      }
+    }
+
+    // 3. 병렬 업데이트 (Promise.allSettled로 개별 에러 추적)
+    if (itemsToUpdate.length > 0) {
+      const updateResults = await Promise.allSettled(
+        itemsToUpdate.map(({ id, item }) =>
+          serviceClient
+            .from('students')
+            .update({
+              name: item.student.name,
+              birth_date: item.student.birth_date || null,
+              grade: item.student.grade || null,
+              school: item.student.school || null,
+              student_phone: item.student.student_phone || null,
+              notes: item.student.notes || null,
+              updated_at: now,
+            })
+            .eq('id', id)
+        )
+      )
+
+      updateResults.forEach((res, i) => {
+        if (res.status === 'fulfilled' && !res.value.error) {
+          result.updated_count++
+        } else {
+          result.error_count++
+          const errMsg = res.status === 'rejected'
+            ? getErrorMessage(res.reason)
+            : getErrorMessage(res.value.error)
+          result.errors.push({ row: itemsToUpdate[i].idx + 1, message: errMsg })
+        }
+      })
+    }
+
+    // 4. 배치 생성 (에러 발생 시 개별 처리로 폴백)
+    if (itemsToCreate.length > 0) {
+      const insertData = itemsToCreate.map(({ item, student_code }) => ({
+        tenant_id,
+        student_code,
+        name: item.student.name,
+        birth_date: item.student.birth_date || null,
+        grade: item.student.grade || null,
+        school: item.student.school || null,
+        student_phone: item.student.student_phone || null,
+        notes: item.student.notes || null,
+        created_at: now,
+        updated_at: now,
+      }))
+
+      const { error: batchInsertError } = await serviceClient
+        .from('students')
+        .insert(insertData)
+
+      if (batchInsertError) {
+        // 배치 실패 시 개별 삽입으로 폴백
+        console.warn('[confirmStudentImport] Batch insert failed, falling back to individual inserts')
+        const insertResults = await Promise.allSettled(
+          insertData.map(data => serviceClient.from('students').insert(data))
+        )
+
+        insertResults.forEach((res, i) => {
+          if (res.status === 'fulfilled' && !res.value.error) {
+            result.created_count++
+          } else {
+            result.error_count++
+            const errMsg = res.status === 'rejected'
+              ? getErrorMessage(res.reason)
+              : getErrorMessage(res.value.error)
+            result.errors.push({ row: itemsToCreate[i].idx + 1, message: errMsg })
+          }
         })
-        console.error(`[confirmStudentImport] Error processing row ${idx + 1}:`, err)
+      } else {
+        result.created_count = itemsToCreate.length
       }
     }
 
