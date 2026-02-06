@@ -40,7 +40,7 @@ import {
   deleteMessagingConfig,
   type MessagingProvider
 } from '@/app/actions/messaging-config'
-import { KakaoChannelStatus, KakaoChannelRegistration } from '@/components/features/settings/kakao-channel'
+import { KakaoChannelStatus, KakaoChannelRegistration, KakaoPrerequisitesChecklist } from '@/components/features/settings/kakao-channel'
 import { KakaoTemplateList, KakaoTemplateForm } from '@/components/features/settings/kakao-templates'
 import type { KakaoChannelConfig } from '@/app/actions/kakao-channel'
 import type { KakaoTemplate } from '@/app/actions/kakao-templates'
@@ -676,6 +676,7 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
               ) : (
                 <KakaoChannelRegistration
                   onRegistrationComplete={() => router.refresh()}
+                  onOpenTemplateForm={() => setTemplateFormOpen(true)}
                 />
               )}
 
@@ -706,21 +707,29 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
             </>
           ) : (
             <Card>
-              <CardContent className="py-12">
-                <div className="text-center space-y-4">
-                  <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground" />
-                  <div>
+              <CardContent className="py-8">
+                <div className="space-y-6">
+                  <div className="text-center space-y-2">
+                    <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground" />
                     <h3 className="font-semibold text-lg">카카오 알림톡을 사용하려면</h3>
-                    <p className="text-muted-foreground text-sm mt-1">
-                      솔라피(Solapi)를 선택하고 API 인증을 완료해주세요
+                    <p className="text-muted-foreground text-sm">
+                      아래 준비 사항을 완료해주세요
                     </p>
                   </div>
-                  <Button variant="outline" onClick={() => {
-                    const apiTab = document.querySelector('[data-state="inactive"][value="api"]') as HTMLElement
-                    apiTab?.click()
-                  }}>
-                    API 설정으로 이동
-                  </Button>
+
+                  <KakaoPrerequisitesChecklist
+                    isSolapiSelected={isSolapiProvider}
+                    isSolapiVerified={isVerified && isSolapiProvider}
+                  />
+
+                  <div className="text-center">
+                    <Button variant="outline" onClick={() => {
+                      const apiTab = document.querySelector('[data-state="inactive"][value="api"]') as HTMLElement
+                      apiTab?.click()
+                    }}>
+                      API 설정으로 이동
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>

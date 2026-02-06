@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
@@ -23,6 +23,8 @@ import {
   Send,
   AlertCircle,
   Loader2,
+  RefreshCw,
+  FileText,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import {
@@ -30,15 +32,20 @@ import {
   createKakaoChannel,
   getKakaoChannelCategories,
 } from '@/app/actions/kakao-channel'
+import { translateSolapiError } from '@/lib/solapi-error-translator'
 import type { KakaoChannelCategory } from '@/infra/messaging/types/kakao.types'
 
 interface KakaoChannelRegistrationProps {
   onRegistrationComplete?: () => void
+  onOpenTemplateForm?: () => void
 }
 
 type Step = 1 | 2 | 3
 
-export function KakaoChannelRegistration({ onRegistrationComplete }: KakaoChannelRegistrationProps) {
+export function KakaoChannelRegistration({
+  onRegistrationComplete,
+  onOpenTemplateForm,
+}: KakaoChannelRegistrationProps) {
   const { toast } = useToast()
   const router = useRouter()
 
@@ -46,6 +53,7 @@ export function KakaoChannelRegistration({ onRegistrationComplete }: KakaoChanne
   const [isLoading, setIsLoading] = useState(false)
   const [categories, setCategories] = useState<KakaoChannelCategory[]>([])
   const [loadingCategories, setLoadingCategories] = useState(false)
+  const [categoryLoadError, setCategoryLoadError] = useState<string | null>(null)
 
   // Form data
   const [searchId, setSearchId] = useState('')
@@ -53,23 +61,66 @@ export function KakaoChannelRegistration({ onRegistrationComplete }: KakaoChanne
   const [token, setToken] = useState('')
   const [categoryCode, setCategoryCode] = useState('')
 
+  // Validation warnings
+  const [searchIdWarning, setSearchIdWarning] = useState<string | null>(null)
+  const [phoneError, setPhoneError] = useState<string | null>(null)
+
+  // Search ID 입력 핸들러 - @ 없으면 경고 표시
+  function handleSearchIdChange(value: string) {
+    setSearchId(value)
+    if (value && !value.startsWith('@')) {
+      setSearchIdWarning('@ 기호가 자동으로 추가됩니다')
+    } else {
+      setSearchIdWarning(null)
+    }
+  }
+
+  // 전화번호 검증 핸들러
+  function handlePhoneChange(value: string) {
+    setPhoneNumber(value)
+    const digitsOnly = value.replace(/-/g, '')
+    if (value && digitsOnly.length > 0) {
+      if (!digitsOnly.startsWith('010')) {
+        setPhoneError('010으로 시작하는 번호를 입력해주세요')
+      } else if (digitsOnly.length !== 11) {
+        setPhoneError('11자리 번호를 입력해주세요')
+      } else {
+        setPhoneError(null)
+      }
+    } else {
+      setPhoneError(null)
+    }
+  }
+
+  // 검색 ID 정규화 함수
+  function normalizeSearchId(value: string): string {
+    const trimmed = value.trim()
+    return trimmed.startsWith('@') ? trimmed : `@${trimmed}`
+  }
+
+  // 카테고리 로딩 함수
+  const loadCategories = useCallback(async () => {
+    setLoadingCategories(true)
+    setCategoryLoadError(null)
+    try {
+      const result = await getKakaoChannelCategories()
+      if (result.success && result.data) {
+        setCategories(result.data)
+      } else {
+        setCategoryLoadError(result.error || '카테고리를 불러올 수 없습니다')
+      }
+    } catch (error) {
+      console.error('Failed to load categories:', error)
+      setCategoryLoadError('카테고리 로딩에 실패했습니다')
+    } finally {
+      setLoadingCategories(false)
+    }
+  }, [])
+
   // Load categories on mount
   useEffect(() => {
-    async function loadCategories() {
-      setLoadingCategories(true)
-      try {
-        const result = await getKakaoChannelCategories()
-        if (result.success && result.data) {
-          setCategories(result.data)
-        }
-      } catch (error) {
-        console.error('Failed to load categories:', error)
-      } finally {
-        setLoadingCategories(false)
-      }
-    }
     loadCategories()
-  }, [])
+  }, [loadCategories])
 
   // Step 1: Request token
   async function handleRequestToken() {
@@ -82,14 +133,25 @@ export function KakaoChannelRegistration({ onRegistrationComplete }: KakaoChanne
       return
     }
 
+    // 전화번호 유효성 검사
+    const digitsOnly = phoneNumber.replace(/-/g, '')
+    if (!digitsOnly.startsWith('010') || digitsOnly.length !== 11) {
+      toast({
+        title: '입력 오류',
+        description: '010으로 시작하는 11자리 전화번호를 입력해주세요.',
+        variant: 'destructive',
+      })
+      return
+    }
+
     // Ensure searchId starts with @
-    const normalizedSearchId = searchId.startsWith('@') ? searchId : `@${searchId}`
+    const normalizedSearchId = normalizeSearchId(searchId)
 
     setIsLoading(true)
     try {
       const result = await requestKakaoChannelToken({
         searchId: normalizedSearchId,
-        phoneNumber: phoneNumber.replace(/-/g, ''),
+        phoneNumber: digitsOnly,
       })
 
       if (!result.success) {
@@ -102,11 +164,12 @@ export function KakaoChannelRegistration({ onRegistrationComplete }: KakaoChanne
       })
 
       setSearchId(normalizedSearchId)
+      setSearchIdWarning(null)
       setStep(2)
     } catch (error) {
       toast({
         title: '토큰 요청 실패',
-        description: error instanceof Error ? error.message : '알 수 없는 오류',
+        description: translateSolapiError(error),
         variant: 'destructive',
       })
     } finally {
@@ -148,7 +211,7 @@ export function KakaoChannelRegistration({ onRegistrationComplete }: KakaoChanne
     } catch (error) {
       toast({
         title: '채널 연동 실패',
-        description: error instanceof Error ? error.message : '알 수 없는 오류',
+        description: translateSolapiError(error),
         variant: 'destructive',
       })
     } finally {
@@ -228,13 +291,19 @@ export function KakaoChannelRegistration({ onRegistrationComplete }: KakaoChanne
                   id="searchId"
                   type="text"
                   value={searchId}
-                  onChange={(e) => setSearchId(e.target.value)}
+                  onChange={(e) => handleSearchIdChange(e.target.value)}
                   placeholder="@channelname"
                   className="mt-2"
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  카카오톡 채널 검색 ID를 입력하세요 (@ 포함)
-                </p>
+                {searchIdWarning ? (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                    {searchIdWarning}
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    카카오톡 채널 검색 ID를 입력하세요 (@ 포함)
+                  </p>
+                )}
               </div>
 
               <div>
@@ -242,18 +311,22 @@ export function KakaoChannelRegistration({ onRegistrationComplete }: KakaoChanne
                 <PhoneInput
                   id="phoneNumber"
                   value={phoneNumber}
-                  onChange={setPhoneNumber}
+                  onChange={handlePhoneChange}
                   placeholder="010-0000-0000"
                   className="mt-2"
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  채널 관리자로 등록된 휴대폰 번호를 입력하세요
-                </p>
+                {phoneError ? (
+                  <p className="text-xs text-destructive mt-1">{phoneError}</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    채널 관리자로 등록된 휴대폰 번호를 입력하세요
+                  </p>
+                )}
               </div>
             </div>
 
             <div className="flex justify-end">
-              <Button onClick={handleRequestToken} disabled={isLoading}>
+              <Button onClick={handleRequestToken} disabled={isLoading || !!phoneError}>
                 {isLoading ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
@@ -316,9 +389,26 @@ export function KakaoChannelRegistration({ onRegistrationComplete }: KakaoChanne
                     )}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground mt-1">
-                  채널의 업종 카테고리를 선택하세요
-                </p>
+                {categoryLoadError ? (
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-xs text-destructive">{categoryLoadError}</p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs"
+                      onClick={loadCategories}
+                      disabled={loadingCategories}
+                    >
+                      <RefreshCw className="h-3 w-3 mr-1" />
+                      다시 시도
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    채널의 업종 카테고리를 선택하세요
+                  </p>
+                )}
               </div>
             </div>
 
@@ -358,9 +448,18 @@ export function KakaoChannelRegistration({ onRegistrationComplete }: KakaoChanne
               </p>
             </div>
 
-            <Button onClick={handleComplete}>
-              완료
-            </Button>
+            <div className="flex gap-2 justify-center">
+              <Button onClick={() => {
+                handleComplete()
+                onOpenTemplateForm?.()
+              }}>
+                <FileText className="h-4 w-4 mr-2" />
+                템플릿 등록하기
+              </Button>
+              <Button variant="outline" onClick={handleComplete}>
+                완료
+              </Button>
+            </div>
           </div>
         )}
       </CardContent>
