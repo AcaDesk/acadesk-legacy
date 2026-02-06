@@ -64,7 +64,7 @@ interface ExamScoreChartType {
 interface AttendanceRecordType {
   attendance_date: string
   status: 'present' | 'late' | 'absent' | 'none'
-  note?: string | null
+  notes?: string | null
 }
 
 // ============================================================================
@@ -1248,7 +1248,7 @@ async function getAttendanceChartData(
 ) {
   const { data: attendanceRecords } = await supabase
     .from('attendance')
-    .select('attendance_date, status, note')
+    .select('attendance_date, status, notes')
     .eq('student_id', studentId)
     .gte('attendance_date', periodStart)
     .lte('attendance_date', periodEnd)
@@ -1263,7 +1263,7 @@ async function getAttendanceChartData(
     return {
       date: new Date(attendanceRecord.attendance_date),
       status: attendanceRecord.status,
-      note: attendanceRecord.note || undefined,
+      note: attendanceRecord.notes || undefined,
     }
   })
 }
