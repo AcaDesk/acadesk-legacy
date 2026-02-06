@@ -92,10 +92,18 @@ async function getSolapiProvider(tenantId: string): Promise<SolapiProvider | nul
 
 /**
  * Get Kakao channel configuration for current tenant
+ * Returns channel config along with provider/verification status for UI validation
  */
 export async function getKakaoChannelConfig(): Promise<{
   success: boolean
-  data: KakaoChannelConfig | null
+  data: (KakaoChannelConfig & {
+    /** Whether the messaging provider is Solapi (only Solapi supports Kakao) */
+    isSolapiProvider: boolean
+    /** Whether the messaging config is verified */
+    isProviderVerified: boolean
+    /** Whether Kakao is fully usable (Solapi + verified + channel configured) */
+    isKakaoUsable: boolean
+  }) | null
   error: string | null
 }> {
   try {
@@ -105,6 +113,8 @@ export async function getKakaoChannelConfig(): Promise<{
     const { data, error } = await supabase
       .from('tenant_messaging_config')
       .select(`
+        provider,
+        is_verified,
         kakao_channel_id,
         kakao_channel_search_id,
         kakao_channel_name,
@@ -127,6 +137,11 @@ export async function getKakaoChannelConfig(): Promise<{
       }
     }
 
+    const isSolapiProvider = data.provider === 'solapi'
+    const isProviderVerified = data.is_verified === true
+    const hasKakaoChannel = !!data.kakao_channel_id
+    const isKakaoUsable = isSolapiProvider && isProviderVerified && hasKakaoChannel
+
     return {
       success: true,
       data: {
@@ -137,6 +152,9 @@ export async function getKakaoChannelConfig(): Promise<{
         smsFallbackEnabled: data.kakao_sms_fallback_enabled ?? true,
         manualFallbackEnabled: data.kakao_manual_fallback_enabled ?? false,
         verifiedAt: data.kakao_channel_verified_at,
+        isSolapiProvider,
+        isProviderVerified,
+        isKakaoUsable,
       },
       error: null,
     }
