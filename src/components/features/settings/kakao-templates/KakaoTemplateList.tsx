@@ -21,20 +21,7 @@ import {
   DropdownMenuTrigger,
 } from '@ui/dropdown-menu'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
-import {
-  Plus,
-  MoreHorizontal,
-  FileText,
-  RefreshCw,
-  Trash2,
-  Edit,
-  Eye,
-  Check,
-  Clock,
-  XCircle,
-  AlertCircle,
-  Loader2,
-} from 'lucide-react'
+import { Plus, MoreHorizontal, FileText, RefreshCw, Trash2, Edit, Loader2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import {
   getKakaoTemplates,
@@ -43,23 +30,15 @@ import {
   refreshTemplateStatus,
   type KakaoTemplate,
 } from '@/app/actions/kakao-templates'
-import type { KakaoTemplateStatus } from '@/infra/messaging/types/kakao.types'
+import {
+  kakaoTemplateStatusConfig,
+  kakaoMessageTypeLabels,
+} from '@/lib/kakao/kakao-status-config'
 
 interface KakaoTemplateListProps {
   hasChannel: boolean
   onCreateTemplate?: () => void
   onEditTemplate?: (template: KakaoTemplate) => void
-}
-
-const statusConfig: Record<
-  KakaoTemplateStatus,
-  { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive'; icon: typeof Check }
-> = {
-  approved: { label: '승인됨', variant: 'default', icon: Check },
-  inspecting: { label: '검수 중', variant: 'secondary', icon: Clock },
-  pending: { label: '대기', variant: 'outline', icon: AlertCircle },
-  rejected: { label: '반려됨', variant: 'destructive', icon: XCircle },
-  suspended: { label: '중지됨', variant: 'destructive', icon: XCircle },
 }
 
 export function KakaoTemplateList({
@@ -263,7 +242,8 @@ export function KakaoTemplateList({
               </TableHeader>
               <TableBody>
                 {templates.map((template) => {
-                  const status = statusConfig[template.status]
+                  const status = kakaoTemplateStatusConfig[template.status]
+                  const StatusIcon = status.icon
                   return (
                     <TableRow key={template.id}>
                       <TableCell>
@@ -277,16 +257,13 @@ export function KakaoTemplateList({
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">
-                          {template.messageType === 'BA' && '기본형'}
-                          {template.messageType === 'EX' && '부가정보형'}
-                          {template.messageType === 'AD' && '광고추가형'}
-                          {template.messageType === 'MI' && '복합형'}
+                          {kakaoMessageTypeLabels[template.messageType]}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
                           <Badge variant={status.variant} className="w-fit gap-1">
-                            <status.icon className="h-3 w-3" />
+                            <StatusIcon className="h-3 w-3" />
                             {status.label}
                           </Badge>
                           {template.status === 'rejected' && template.rejectionReason && (

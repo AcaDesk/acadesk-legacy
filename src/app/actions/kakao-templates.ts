@@ -21,6 +21,10 @@ import type {
   KakaoEmphasizeType,
   KakaoButton,
 } from '@/infra/messaging/types/kakao.types'
+import {
+  kakaoTemplateSchema,
+  kakaoTemplateUpdateSchema,
+} from '@/lib/kakao/kakao-validation'
 
 // ============================================================================
 // Types
@@ -48,33 +52,11 @@ export interface KakaoTemplate {
 }
 
 // ============================================================================
-// Validation Schemas
+// Validation Schemas (re-exported from shared module)
 // ============================================================================
 
-const kakaoButtonSchema = z.object({
-  buttonType: z.enum(['WL', 'AL', 'BK', 'MD', 'DS', 'BC', 'BT', 'AC']),
-  buttonName: z.string().min(1).max(14),
-  linkMo: z.string().optional(),
-  linkPc: z.string().optional(),
-  linkAnd: z.string().optional(),
-  linkIos: z.string().optional(),
-})
-
-const createTemplateSchema = z.object({
-  name: z.string().min(1, '템플릿 이름은 필수입니다').max(150),
-  content: z.string().min(1, '템플릿 내용은 필수입니다').max(1000),
-  categoryCode: z.string().min(1, '카테고리 선택은 필수입니다'),
-  messageType: z.enum(['BA', 'EX', 'AD', 'MI']).default('BA'),
-  emphasizeType: z.enum(['NONE', 'TEXT', 'IMAGE', 'ITEM_LIST']).default('NONE'),
-  emphasizeTitle: z.string().max(23).optional(),
-  emphasizeSubtitle: z.string().max(23).optional(),
-  buttons: z.array(kakaoButtonSchema).max(5).optional(),
-  extraContent: z.string().max(500).optional(),
-  adContent: z.string().max(500).optional(),
-  securityFlag: z.boolean().default(false),
-})
-
-const updateTemplateSchema = createTemplateSchema.partial()
+const createTemplateSchema = kakaoTemplateSchema
+const updateTemplateSchema = kakaoTemplateUpdateSchema
 
 // ============================================================================
 // Helper Functions
