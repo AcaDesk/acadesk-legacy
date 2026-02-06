@@ -86,21 +86,21 @@ type FormData = {
 const providerInfo = {
   aligo: {
     name: '알리고 (Aligo)',
-    description: '국내 대표 SMS/알림톡 서비스',
+    description: '국내 대표 SMS/LMS 서비스',
     signupUrl: 'https://smartsms.aligo.in/join.html',
     docsUrl: 'https://smartsms.aligo.in/admin/api/spec.html',
     icon: MessageSquare,
   },
   solapi: {
     name: '솔라피 (Solapi)',
-    description: '개발자 친화적 메시징 API',
+    description: 'SMS/LMS 및 카카오 알림톡 지원',
     signupUrl: 'https://solapi.com',
     docsUrl: 'https://docs.solapi.com',
     icon: MessageSquare,
   },
   nhncloud: {
     name: 'NHN Cloud',
-    description: 'NHN의 엔터프라이즈 메시징 서비스',
+    description: 'NHN의 엔터프라이즈 메시징 서비스 (준비 중)',
     signupUrl: 'https://www.nhncloud.com',
     docsUrl: 'https://docs.nhncloud.com',
     icon: MessageSquare,
@@ -387,7 +387,7 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
           <Card>
             <CardHeader>
               <CardTitle>메시징 서비스 선택</CardTitle>
-              <CardDescription>사용할 SMS/알림톡 서비스를 선택하세요</CardDescription>
+              <CardDescription>사용할 메시징 서비스를 선택하세요 (알림톡은 솔라피만 지원)</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -403,7 +403,9 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
                     <SelectContent>
                       <SelectItem value="aligo">알리고 (Aligo)</SelectItem>
                       <SelectItem value="solapi">솔라피 (Solapi) - 알림톡 지원</SelectItem>
-                      <SelectItem value="nhncloud">NHN Cloud</SelectItem>
+                      <SelectItem value="nhncloud" disabled>
+                        NHN Cloud (준비 중)
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -635,7 +637,7 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
                 <div>
                   <p className="font-medium mb-1">1. 메시징 서비스 가입</p>
                   <p className="text-muted-foreground text-xs">
-                    알리고, 솔라피, NHN Cloud 중 원하는 서비스에 가입하고 발신번호를 등록·인증받으세요.
+                    알리고 또는 솔라피 중 원하는 서비스에 가입하고 발신번호를 등록·인증받으세요.
                   </p>
                 </div>
                 <div>
