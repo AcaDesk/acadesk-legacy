@@ -81,16 +81,7 @@ const navigationGroups: NavGroup[] = [
     items: [
       { name: "학생 목록", href: "/students", icon: Users, featureFlag: "studentManagement" },
       { name: "보호자 관리", href: "/guardians", icon: UserCircle, featureFlag: "guardianManagement" },
-      {
-        name: "출결 관리",
-        href: "/attendance",
-        icon: Calendar,
-        featureFlag: "attendanceManagement",
-        subItems: [
-          { name: "일일 출석부", href: "/attendance/daily", icon: CheckSquare, featureFlag: "attendanceManagement" },
-          { name: "출석 현황", href: "/attendance", icon: Calendar, featureFlag: "attendanceManagement" },
-        ]
-      },
+      { name: "출석 관리", href: "/attendance", icon: ClipboardCheck, featureFlag: "attendanceManagement" },
     ]
   },
   {
