@@ -40,8 +40,8 @@ const requestTokenSchema = z.object({
 })
 
 const createChannelSchema = z.object({
-  searchId: z.string().min(1),
-  phoneNumber: z.string().min(1),
+  searchId: z.string().min(1, '채널 검색 ID는 필수입니다').regex(/^@/, '검색 ID는 @로 시작해야 합니다'),
+  phoneNumber: z.string().regex(/^010\d{8}$/, '올바른 휴대폰 번호 형식이 아닙니다 (예: 01012345678)'),
   token: z.string().min(1, '인증 토큰은 필수입니다'),
   categoryCode: z.string().min(1, '카테고리 선택은 필수입니다'),
 })
@@ -316,15 +316,22 @@ export async function removeKakaoChannel(): Promise<{
       throw new Error('연동된 카카오 채널이 없습니다.')
     }
 
-    // Remove channel from Solapi
+    // Remove channel from Solapi (must succeed before clearing DB)
     const provider = await getSolapiProvider(tenantId)
-    if (provider) {
-      try {
-        await provider.removeKakaoChannel(config.kakao_channel_id)
-      } catch (solapiError) {
-        console.warn('[removeKakaoChannel] Solapi API error (continuing):', solapiError)
-        // Continue even if Solapi API fails - we still want to clear our DB
-      }
+    if (!provider) {
+      throw new Error(
+        'Solapi API 설정이 없어 원격 채널을 삭제할 수 없습니다. ' +
+          '설정 페이지에서 Solapi 연동을 먼저 확인해주세요.'
+      )
+    }
+
+    try {
+      await provider.removeKakaoChannel(config.kakao_channel_id)
+    } catch (solapiError) {
+      console.error('[removeKakaoChannel] Solapi API error:', solapiError)
+      throw new Error(
+        'Solapi에서 채널 삭제에 실패했습니다. 잠시 후 다시 시도하거나 Solapi 대시보드에서 직접 삭제해주세요.'
+      )
     }
 
     // Clear channel info from tenant_messaging_config
