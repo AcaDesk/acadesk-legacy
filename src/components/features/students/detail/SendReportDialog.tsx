@@ -143,7 +143,8 @@ export function SendReportDialog({
   async function checkKakaoChannel() {
     try {
       const result = await getKakaoChannelConfig()
-      if (result.success && result.data?.channelId) {
+      // Kakao is only usable when: Solapi provider + verified + channel configured
+      if (result.success && result.data?.isKakaoUsable) {
         setHasKakaoChannel(true)
       }
     } catch (error) {

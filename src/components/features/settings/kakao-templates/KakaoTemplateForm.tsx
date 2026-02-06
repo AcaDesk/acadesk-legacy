@@ -285,8 +285,9 @@ export function KakaoTemplateForm({
               <SelectContent>
                 <SelectItem value="NONE">없음</SelectItem>
                 <SelectItem value="TEXT">텍스트 강조</SelectItem>
-                <SelectItem value="IMAGE">이미지 강조</SelectItem>
-                <SelectItem value="ITEM_LIST">아이템 리스트</SelectItem>
+                {/* IMAGE/ITEM_LIST는 추가 필드(이미지 업로드, 아이템 목록)가 필요하므로 현재 비활성화 */}
+                <SelectItem value="IMAGE" disabled>이미지 강조 (준비 중)</SelectItem>
+                <SelectItem value="ITEM_LIST" disabled>아이템 리스트 (준비 중)</SelectItem>
               </SelectContent>
             </Select>
           </div>
