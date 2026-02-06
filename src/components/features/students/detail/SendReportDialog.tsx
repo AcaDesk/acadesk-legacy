@@ -41,12 +41,12 @@ import {
 } from '@ui/popover'
 import { Alert, AlertDescription } from '@ui/alert'
 import { useToast } from '@/hooks/use-toast'
+import { useKakaoMessaging } from '@/hooks/use-kakao-messaging'
 import { CalendarIcon, Loader2, Send, Eye, Info, MessageSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { generateAndSendReport } from '@/app/actions/reports'
 import { getErrorMessage } from '@/lib/error-handlers'
-import { getKakaoTemplates, type KakaoTemplate } from '@/app/actions/kakao-templates'
-import { getKakaoChannelConfig } from '@/app/actions/kakao-channel'
+import { KAKAO_REPORT_VARIABLES } from '@/lib/kakao/kakao-constants'
 import type { StudentDetail } from '@/core/types/studentDetail.types'
 
 const reportSchema = z.object({
@@ -93,11 +93,15 @@ export function SendReportDialog({
   const [isLoading, setIsLoading] = useState(false)
   const [previewContent, setPreviewContent] = useState<string | null>(null)
 
-  // 카카오 알림톡 관련 상태
-  const [kakaoTemplates, setKakaoTemplates] = useState<KakaoTemplate[]>([])
-  const [loadingTemplates, setLoadingTemplates] = useState(false)
-  const [hasKakaoChannel, setHasKakaoChannel] = useState(false)
-  const [kakaoChannelChecked, setKakaoChannelChecked] = useState(false)
+  // 카카오 알림톡 관련 상태 (커스텀 훅 사용)
+  const {
+    hasKakaoChannel,
+    isChannelChecked: kakaoChannelChecked,
+    templates: kakaoTemplates,
+    isLoadingTemplates: loadingTemplates,
+    checkChannel: checkKakaoChannel,
+    loadTemplates: loadKakaoTemplates,
+  } = useKakaoMessaging({ approvedOnly: true })
 
   // 기본값: 지난달 1일 ~ 말일
   const lastMonthStart = startOfMonth(subMonths(new Date(), 1))
@@ -131,44 +135,14 @@ export function SendReportDialog({
     if (open && !kakaoChannelChecked) {
       checkKakaoChannel()
     }
-  }, [open, kakaoChannelChecked])
+  }, [open, kakaoChannelChecked, checkKakaoChannel])
 
   // 카카오 채널 선택 시 템플릿 로드
   useEffect(() => {
     if (selectedChannel === 'kakao' && hasKakaoChannel && kakaoTemplates.length === 0) {
       loadKakaoTemplates()
     }
-  }, [selectedChannel, hasKakaoChannel])
-
-  async function checkKakaoChannel() {
-    try {
-      const result = await getKakaoChannelConfig()
-      // Kakao is only usable when: Solapi provider + verified + channel configured
-      if (result.success && result.data?.isKakaoUsable) {
-        setHasKakaoChannel(true)
-      }
-    } catch (error) {
-      console.error('Failed to check Kakao channel:', error)
-    } finally {
-      setKakaoChannelChecked(true)
-    }
-  }
-
-  async function loadKakaoTemplates() {
-    setLoadingTemplates(true)
-    try {
-      const result = await getKakaoTemplates()
-      if (result.success && result.data) {
-        // 승인된 템플릿만 필터링
-        const approvedTemplates = result.data.filter((t) => t.status === 'approved')
-        setKakaoTemplates(approvedTemplates)
-      }
-    } catch (error) {
-      console.error('Failed to load Kakao templates:', error)
-    } finally {
-      setLoadingTemplates(false)
-    }
-  }
+  }, [selectedChannel, hasKakaoChannel, kakaoTemplates.length, loadKakaoTemplates])
 
   const handlePreview = () => {
     const values = form.getValues()
@@ -493,7 +467,7 @@ ${values.comment ? `\n💬 종합평가\n${values.comment}\n` : ''}
                           {selectedTemplate.content.length > 200 && '...'}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          자동 치환 변수: #{'{'} 학생명{'}'}, #{'{'} 보호자명{'}'}, #{'{'} 기간{'}'}, #{'{'} 출석률{'}'}, #{'{'} 숙제완료율{'}'}, #{'{'} 학원명{'}'}, #{'{'} 학원연락처{'}'}, #{'{'} 종합평가{'}'}
+                          자동 치환 변수: {KAKAO_REPORT_VARIABLES.map((v) => `#{${v.key}}`).join(', ')}
                         </p>
                       </div>
                     )

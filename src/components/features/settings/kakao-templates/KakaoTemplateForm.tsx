@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import {
   Dialog,
   DialogContent,
@@ -31,11 +33,12 @@ import {
   getKakaoTemplateCategories,
   type KakaoTemplate,
 } from '@/app/actions/kakao-templates'
-import type {
-  KakaoTemplateCategory,
-  KakaoMessageType,
-  KakaoEmphasizeType,
-} from '@/infra/messaging/types/kakao.types'
+import {
+  kakaoTemplateFormSchema,
+  type KakaoTemplateFormInput,
+} from '@/lib/kakao/kakao-validation'
+import { kakaoMessageTypeLabels } from '@/lib/kakao/kakao-status-config'
+import type { KakaoTemplateCategory } from '@/infra/messaging/types/kakao.types'
 
 interface KakaoTemplateFormProps {
   open: boolean
@@ -44,12 +47,12 @@ interface KakaoTemplateFormProps {
   onSuccess?: () => void
 }
 
-interface FormData {
+type FormData = {
   name: string
   content: string
   categoryCode: string
-  messageType: KakaoMessageType
-  emphasizeType: KakaoEmphasizeType
+  messageType: 'BA' | 'EX' | 'AD' | 'MI'
+  emphasizeType: 'NONE' | 'TEXT' | 'IMAGE' | 'ITEM_LIST'
   emphasizeTitle: string
   emphasizeSubtitle: string
   securityFlag: boolean
@@ -131,28 +134,16 @@ export function KakaoTemplateForm({
   }
 
   async function handleSubmit() {
-    // Validation
-    if (!formData.name.trim()) {
-      toast({ title: '입력 오류', description: '템플릿 이름을 입력해주세요.', variant: 'destructive' })
+    // Zod validation
+    const validationResult = kakaoTemplateFormSchema.safeParse(formData)
+    if (!validationResult.success) {
+      const firstError = validationResult.error.issues[0]
+      toast({
+        title: '입력 오류',
+        description: firstError.message,
+        variant: 'destructive',
+      })
       return
-    }
-    if (!formData.content.trim()) {
-      toast({ title: '입력 오류', description: '템플릿 내용을 입력해주세요.', variant: 'destructive' })
-      return
-    }
-    if (!formData.categoryCode) {
-      toast({ title: '입력 오류', description: '카테고리를 선택해주세요.', variant: 'destructive' })
-      return
-    }
-    if (formData.emphasizeType === 'TEXT') {
-      if (!formData.emphasizeTitle.trim()) {
-        toast({ title: '입력 오류', description: '강조 제목을 입력해주세요.', variant: 'destructive' })
-        return
-      }
-      if (!formData.emphasizeSubtitle.trim()) {
-        toast({ title: '입력 오류', description: '강조 부제목을 입력해주세요.', variant: 'destructive' })
-        return
-      }
     }
 
     setIsSubmitting(true)
@@ -258,16 +249,17 @@ export function KakaoTemplateForm({
             <Label>메시지 유형</Label>
             <Select
               value={formData.messageType}
-              onValueChange={(v) => handleChange('messageType', v as KakaoMessageType)}
+              onValueChange={(v) => handleChange('messageType', v as FormData['messageType'])}
             >
               <SelectTrigger className="mt-2">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="BA">기본형</SelectItem>
-                <SelectItem value="EX">부가정보형</SelectItem>
-                <SelectItem value="AD">광고추가형</SelectItem>
-                <SelectItem value="MI">복합형</SelectItem>
+                {Object.entries(kakaoMessageTypeLabels).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -277,7 +269,7 @@ export function KakaoTemplateForm({
             <Label>강조 유형</Label>
             <Select
               value={formData.emphasizeType}
-              onValueChange={(v) => handleChange('emphasizeType', v as KakaoEmphasizeType)}
+              onValueChange={(v) => handleChange('emphasizeType', v as FormData['emphasizeType'])}
             >
               <SelectTrigger className="mt-2">
                 <SelectValue />

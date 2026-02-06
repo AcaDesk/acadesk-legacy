@@ -6,7 +6,7 @@ import { Badge } from '@ui/badge'
 import { Button } from '@ui/button'
 import { Switch } from '@ui/switch'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
-import { MessageCircle, Check, X, Trash2, Settings2 } from 'lucide-react'
+import { MessageCircle, Trash2, AlertTriangle } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useRouter } from 'next/navigation'
 import {
@@ -14,6 +14,8 @@ import {
   updateKakaoFallbackSettings,
   type KakaoChannelConfig,
 } from '@/app/actions/kakao-channel'
+import { translateSolapiError, isPartialDeletionError } from '@/lib/solapi-error-translator'
+import { kakaoChannelStatusConfig } from '@/lib/kakao/kakao-status-config'
 
 interface KakaoChannelStatusProps {
   config: KakaoChannelConfig
@@ -28,6 +30,7 @@ export function KakaoChannelStatus({ config, onChannelRemoved }: KakaoChannelSta
   const [smsFallback, setSmsFallback] = useState(config.smsFallbackEnabled)
   const [manualFallback, setManualFallback] = useState(config.manualFallbackEnabled)
   const [updatingFallback, setUpdatingFallback] = useState(false)
+  const [partialDeletionWarning, setPartialDeletionWarning] = useState(false)
 
   async function handleRemoveChannel() {
     setIsRemoving(true)
@@ -35,7 +38,18 @@ export function KakaoChannelStatus({ config, onChannelRemoved }: KakaoChannelSta
       const result = await removeKakaoChannel()
 
       if (!result.success) {
-        throw new Error(result.error || '채널 삭제 실패')
+        const error = new Error(result.error || '채널 삭제 실패')
+        // 부분 삭제인 경우 (로컬은 삭제됐지만 원격 삭제 실패)
+        if (isPartialDeletionError(error)) {
+          setPartialDeletionWarning(true)
+          toast({
+            title: '부분 삭제 완료',
+            description: '로컬 설정은 삭제되었으나 Solapi 원격 채널 삭제에 실패했습니다. Solapi 대시보드에서 직접 확인해주세요.',
+          })
+          router.refresh()
+          return
+        }
+        throw error
       }
 
       toast({
@@ -46,9 +60,20 @@ export function KakaoChannelStatus({ config, onChannelRemoved }: KakaoChannelSta
       router.refresh()
       onChannelRemoved?.()
     } catch (error) {
+      // 부분 삭제 에러 체크
+      if (isPartialDeletionError(error)) {
+        setPartialDeletionWarning(true)
+        toast({
+          title: '부분 삭제 완료',
+          description: '로컬 설정은 삭제되었으나 원격 채널 정리가 필요합니다.',
+        })
+        router.refresh()
+        return
+      }
+
       toast({
         title: '삭제 실패',
-        description: error instanceof Error ? error.message : '알 수 없는 오류',
+        description: translateSolapiError(error),
         variant: 'destructive',
       })
     } finally {
@@ -86,7 +111,7 @@ export function KakaoChannelStatus({ config, onChannelRemoved }: KakaoChannelSta
     } catch (error) {
       toast({
         title: '저장 실패',
-        description: error instanceof Error ? error.message : '알 수 없는 오류',
+        description: translateSolapiError(error),
         variant: 'destructive',
       })
     } finally {
@@ -94,13 +119,10 @@ export function KakaoChannelStatus({ config, onChannelRemoved }: KakaoChannelSta
     }
   }
 
-  const statusBadge = {
-    active: { variant: 'default' as const, label: '활성', icon: Check },
-    pending: { variant: 'secondary' as const, label: '대기', icon: Settings2 },
-    suspended: { variant: 'destructive' as const, label: '중지', icon: X },
-  }
-
-  const status = config.channelStatus ? statusBadge[config.channelStatus] : statusBadge.pending
+  const status = config.channelStatus
+    ? kakaoChannelStatusConfig[config.channelStatus]
+    : kakaoChannelStatusConfig.pending
+  const StatusIcon = status.icon
 
   return (
     <>
@@ -116,10 +138,18 @@ export function KakaoChannelStatus({ config, onChannelRemoved }: KakaoChannelSta
                 <CardDescription>카카오 비즈니스 채널 연동 상태</CardDescription>
               </div>
             </div>
-            <Badge variant={status.variant} className="gap-1">
-              <status.icon className="h-3 w-3" />
-              {status.label}
-            </Badge>
+            <div className="flex items-center gap-2">
+              {partialDeletionWarning && (
+                <Badge variant="warning" className="gap-1">
+                  <AlertTriangle className="h-3 w-3" />
+                  원격 정리 필요
+                </Badge>
+              )}
+              <Badge variant={status.variant} className="gap-1">
+                <StatusIcon className="h-3 w-3" />
+                {status.label}
+              </Badge>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
