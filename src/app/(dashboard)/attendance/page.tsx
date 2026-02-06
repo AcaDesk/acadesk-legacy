@@ -1,16 +1,11 @@
-import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import { getAttendanceSessions } from '@/app/actions/attendance';
-import { getActiveClasses } from '@/app/actions/classes';
-import { AttendanceList } from '@/components/features/attendance/AttendanceList';
 import { PageHeader } from '@ui/page-header';
-import { Card, CardContent } from '@ui/card';
 import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/page-error-boundary';
 import { FEATURES } from '@/lib/features.config';
 import { ComingSoon } from '@/components/layout/coming-soon';
 import { Maintenance } from '@/components/layout/maintenance';
 import { PAGE_ANIMATIONS } from '@/lib/animation-config';
-import { LoadingState } from '@/components/ui/loading-state';
+import { AttendanceCheckPage } from '@/components/features/attendance/attendance-check-page';
 
 export const metadata: Metadata = {
   title: "출석 관리",
@@ -32,54 +27,9 @@ export default async function AttendancePage() {
     return <Maintenance featureName="출석 관리" reason="출석 시스템 개선 작업이 진행 중입니다." />;
   }
 
-  // Get today's date for default filter
-  const today = new Date().toISOString().split('T')[0];
-
-  // 병렬로 세션과 클래스 데이터를 동시에 로드
-  const [sessionsResult, classesResult] = await Promise.all([
-    getAttendanceSessions({ startDate: today }),
-    getActiveClasses()
-  ]);
-
-  // Handle errors with clear messaging
-  if (!sessionsResult.success || !classesResult.success) {
-    const errorMessage = sessionsResult.error || classesResult.error || '데이터를 불러올 수 없습니다';
-
-    return (
-      <PageErrorBoundary pageName="출석 관리">
-        <div className="p-6 lg:p-8 space-y-6">
-          <section aria-label="페이지 헤더" className={PAGE_ANIMATIONS.header}>
-            <PageHeader
-              title="출석 관리"
-              description="수업별 출석 세션을 생성하고 학생들의 출석 현황을 관리합니다"
-            />
-          </section>
-
-          <section aria-label="오류 메시지" {...PAGE_ANIMATIONS.getSection(0)}>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-                  <h2 className="text-xl font-semibold text-yellow-800 mb-2">
-                    데이터 로딩 오류
-                  </h2>
-                  <p className="text-yellow-700 mb-4">{errorMessage}</p>
-                  <p className="text-sm text-yellow-600">
-                    {!sessionsResult.success && '• 출석 세션 로딩 실패'}
-                    {!sessionsResult.success && !classesResult.success && <br />}
-                    {!classesResult.success && '• 클래스 목록 로딩 실패'}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </section>
-        </div>
-      </PageErrorBoundary>
-    );
-  }
-
   return (
     <PageErrorBoundary pageName="출석 관리">
-      <div className="p-6 lg:p-8 space-y-6">
+      <div className="p-6 lg:p-8 space-y-6 h-full flex flex-col">
         {/* Header */}
         <section aria-label="페이지 헤더" className={PAGE_ANIMATIONS.header}>
           <PageHeader
@@ -88,17 +38,14 @@ export default async function AttendancePage() {
           />
         </section>
 
-        {/* Attendance List */}
-        <section aria-label="출석 목록" {...PAGE_ANIMATIONS.getSection(0)}>
-          <SectionErrorBoundary sectionName="출석 목록">
-            <Suspense
-              fallback={<LoadingState variant="card" message="출석 목록을 불러오는 중..." />}
-            >
-              <AttendanceList
-                initialSessions={sessionsResult.data || []}
-                classes={classesResult.data || []}
-              />
-            </Suspense>
+        {/* Attendance Check */}
+        <section
+          aria-label="출석 체크"
+          className={`flex-1 min-h-0 ${PAGE_ANIMATIONS.getSection(0).className}`}
+          style={PAGE_ANIMATIONS.getSection(0).style}
+        >
+          <SectionErrorBoundary sectionName="출석 체크">
+            <AttendanceCheckPage />
           </SectionErrorBoundary>
         </section>
       </div>
