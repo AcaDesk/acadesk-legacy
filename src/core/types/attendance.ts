@@ -6,9 +6,21 @@ export const AttendanceStatus = {
   LATE: 'late',
   ABSENT: 'absent',
   EXCUSED: 'excused',
+  LEFT_EARLY: 'left_early',
 } as const;
 
 export type AttendanceStatusType = typeof AttendanceStatus[keyof typeof AttendanceStatus];
+
+// UI status (사용자 친화적인 한글 상태) → DB status 매핑
+export const UI_TO_DB_STATUS = {
+  present: 'present',
+  late: 'late',
+  early_leave: 'left_early',  // UI: early_leave → DB: left_early
+  absent: 'absent',
+  excused: 'excused',
+} as const;
+
+export type UIAttendanceStatus = keyof typeof UI_TO_DB_STATUS;
 
 // Session status enum
 export const SessionStatus = {
@@ -45,6 +57,12 @@ export interface Attendance {
   check_in_at?: string;
   check_out_at?: string;
   notes?: string;
+  reason?: string;
+  is_self_study?: boolean;
+  is_makeup_class?: boolean;
+  late_minutes?: number;
+  early_leave_minutes?: number;
+  attendance_date?: string;
   created_at: string;
   updated_at: string;
 }
@@ -66,12 +84,17 @@ export const createSessionSchema = z.object({
 });
 
 export const updateAttendanceSchema = z.object({
-  status: z.enum(["present", "late", "absent", "excused"], {
+  status: z.enum(["present", "late", "absent", "excused", "left_early"], {
     message: "올바른 출석 상태를 선택해주세요"
   }),
   check_in_at: z.string().optional(),
   check_out_at: z.string().optional(),
   notes: z.string().max(500, '메모는 500자 이내로 입력해주세요').optional(),
+  reason: z.string().max(500, '사유는 500자 이내로 입력해주세요').optional(),
+  is_self_study: z.boolean().optional(),
+  is_makeup_class: z.boolean().optional(),
+  late_minutes: z.number().int().min(0).optional(),
+  early_leave_minutes: z.number().int().min(0).optional(),
 }).refine((data) => {
   if (data.check_in_at && data.check_out_at) {
     const checkIn = new Date(data.check_in_at);
@@ -89,9 +112,14 @@ export const bulkAttendanceSchema = z.object({
   attendances: z.array(
     z.object({
       student_id: z.string().uuid(),
-      status: z.enum(['present', 'late', 'absent', 'excused']),
+      status: z.enum(['present', 'late', 'absent', 'excused', 'left_early']),
       check_in_at: z.string().optional(),
       notes: z.string().max(500).optional(),
+      reason: z.string().max(500).optional(),
+      is_self_study: z.boolean().optional(),
+      is_makeup_class: z.boolean().optional(),
+      late_minutes: z.number().int().min(0).optional(),
+      early_leave_minutes: z.number().int().min(0).optional(),
     })
   ).min(1, '최소 1명 이상의 출석을 기록해주세요'),
 });
