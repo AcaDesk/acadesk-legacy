@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
 import { Calendar } from '@ui/calendar'
@@ -94,44 +94,9 @@ export function StudentList() {
     loadInitialData()
   }, [toast])
 
-  // Load students when filters change (skip initial load)
-  const [isInitialLoad, setIsInitialLoad] = useState(true)
-  useEffect(() => {
-    if (isInitialLoad) {
-      setIsInitialLoad(false)
-      return
-    }
-    loadStudents()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedGrade, selectedClass, selectedSchool, selectedCommuteMethod, selectedMarketingSource, enrollmentDateFrom, enrollmentDateTo])
-
-  async function loadFilterOptions() {
-    try {
-      console.log('[StudentList] Loading filter options...')
-      const result = await getStudentFilterOptions()
-
-      if (!result.success || !result.data) {
-        throw new Error(result.error || 'Failed to load filter options')
-      }
-
-      console.log('[StudentList] Filter options loaded:', result.data)
-      setGrades(result.data.grades)
-      setSchools(result.data.schools)
-      setClasses(result.data.classes)
-    } catch (error) {
-      console.error('[StudentList] Failed to load filter options:', error)
-      toast({
-        title: '필터 옵션 로드 실패',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    }
-  }
-
-  async function loadStudents() {
+  const loadStudents = useCallback(async () => {
     try {
       setLoading(true)
-      console.log('[StudentList] Loading students with filters...')
 
       const result = await getStudents({
         grade: selectedGrade !== 'all' ? selectedGrade : undefined,
@@ -147,19 +112,16 @@ export function StudentList() {
         throw new Error(result.error || 'Failed to load students')
       }
 
-      console.log('[StudentList] Students loaded:', result.data.length)
-
-      // Transform to Student type for table
       const formattedStudents = result.data.map(s => ({
         id: s.id,
         student_code: s.student_code,
         grade: s.grade,
         school: s.school,
         enrollment_date: s.enrollment_date,
-        birth_date: null, // Not included in query
-        gender: null, // Not included in query
-        student_phone: null, // Not included in query
-        profile_image_url: null, // Not included in query
+        birth_date: null,
+        gender: null,
+        student_phone: null,
+        profile_image_url: null,
         users: {
           name: s.name,
           email: s.email,
@@ -168,7 +130,7 @@ export function StudentList() {
         class_enrollments: s.classes.map((c: { id?: string; name: string }) => ({
           classes: { name: c.name }
         })),
-        recentAttendance: [], // TODO: Add if needed
+        recentAttendance: [],
       }))
 
       setStudents(formattedStudents as Student[])
@@ -182,7 +144,17 @@ export function StudentList() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedGrade, selectedClass, selectedSchool, selectedCommuteMethod, selectedMarketingSource, enrollmentDateFrom, enrollmentDateTo, toast])
+
+  // Load students when filters change (skip initial load)
+  const [isInitialLoad, setIsInitialLoad] = useState(true)
+  useEffect(() => {
+    if (isInitialLoad) {
+      setIsInitialLoad(false)
+      return
+    }
+    loadStudents()
+  }, [loadStudents, isInitialLoad])
 
   async function handleDelete(studentId: string, studentName: string) {
     try {

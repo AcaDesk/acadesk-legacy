@@ -17,25 +17,16 @@ export function useMediaQuery(query: string): boolean {
     const media = window.matchMedia(query)
 
     // 초기값 설정
-    if (media.matches !== matches) {
-      setMatches(media.matches)
-    }
+    setMatches(media.matches)
 
     // 변경 감지 리스너
     const listener = (event: MediaQueryListEvent) => {
       setMatches(event.matches)
     }
 
-    // 최신 브라우저 API
-    if (media.addEventListener) {
-      media.addEventListener('change', listener)
-      return () => media.removeEventListener('change', listener)
-    } else {
-      // 구형 브라우저 호환성
-      media.addListener(listener)
-      return () => media.removeListener(listener)
-    }
-  }, [matches, query])
+    media.addEventListener('change', listener)
+    return () => media.removeEventListener('change', listener)
+  }, [query])
 
   return matches
 }
