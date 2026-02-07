@@ -144,8 +144,34 @@ export async function getAttendanceByDate(params: {
 
     if (enrollmentError) throw enrollmentError
 
-    // 4. 등록 학생이 없으면 빈 결과 반환
-    if (!enrollments || enrollments.length === 0) {
+    // 4. 등록 학생이 없고 전체 조회인 경우, 미배정 학생도 표시를 위해 학생 목록으로 폴백
+    let normalizedEnrollments = enrollments || []
+    if (normalizedEnrollments.length === 0 && !params.classId) {
+      const { data: fallbackStudents, error: fallbackError } = await supabase
+        .from('students')
+        .select(`
+          id,
+          student_code,
+          grade,
+          school_name,
+          users (
+            name
+          )
+        `)
+        .eq('tenant_id', tenantId)
+        .is('deleted_at', null)
+
+      if (fallbackError) throw fallbackError
+
+      normalizedEnrollments = (fallbackStudents || []).map((s: any) => ({
+        class_id: null,
+        student_id: s.id,
+        students: s,
+      }))
+    }
+
+    // classId가 지정된 조회에서 등록 학생이 없으면 빈 결과 반환
+    if (normalizedEnrollments.length === 0) {
       return {
         success: true,
         data: {
@@ -156,7 +182,7 @@ export async function getAttendanceByDate(params: {
     }
 
     // 5. 등록 학생의 student_id 목록으로 출석 기록 조회
-    const studentIds = [...new Set(enrollments.map(e => e.student_id))]
+    const studentIds = [...new Set(normalizedEnrollments.map((e: any) => e.student_id))]
 
     const { data: attendanceData, error: attendanceError } = await supabase
       .from('attendance')
@@ -183,7 +209,7 @@ export async function getAttendanceByDate(params: {
       success: true,
       data: {
         attendances: attendanceData || [],
-        students: enrollments,
+        students: normalizedEnrollments,
       },
     }
   } catch (error) {
@@ -200,7 +226,7 @@ export async function getAttendanceByDate(params: {
  * 단일 출석 저장 (UI에서 개별 변경 시)
  */
 export async function saveAttendance(params: {
-  classId: string
+  classId?: string | null
   date: string
   studentId: string
   status: string
@@ -215,9 +241,51 @@ export async function saveAttendance(params: {
     // 1. 권한 검증 (staff)
     const { tenantId } = await verifyStaff()
 
-    // 2. 세션 찾거나 생성
+    // 2. Service Role 클라이언트로 DB 작업
+    const supabase = createServiceRoleClient()
+
+    // 3. 클래스 ID 결정 (미배정 학생은 테넌트 기본 출석 클래스로 저장)
+    let effectiveClassId = params.classId || null
+    if (!effectiveClassId) {
+      const { data: defaultClasses, error: defaultClassSelectError } = await supabase
+        .from('classes')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .contains('meta', { attendance_default: true })
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+
+      if (defaultClassSelectError) throw defaultClassSelectError
+
+      if (defaultClasses && defaultClasses.length > 0) {
+        effectiveClassId = defaultClasses[0].id
+      } else {
+        const { data: createdClass, error: defaultClassInsertError } = await supabase
+          .from('classes')
+          .insert({
+            tenant_id: tenantId,
+            name: '미배정 출석',
+            description: '클래스 미배정 학생 출석 저장용 기본 클래스',
+            status: 'active',
+            active: true,
+            meta: { attendance_default: true },
+          })
+          .select('id')
+          .single()
+
+        if (defaultClassInsertError) throw defaultClassInsertError
+        effectiveClassId = createdClass.id
+      }
+    }
+
+    if (!effectiveClassId) {
+      throw new Error('출석 저장용 클래스를 찾을 수 없습니다.')
+    }
+
+    // 4. 세션 찾거나 생성
     const sessionResult = await findOrCreateSession({
-      class_id: params.classId,
+      class_id: effectiveClassId,
       session_date: params.date,
     })
 
@@ -225,10 +293,7 @@ export async function saveAttendance(params: {
       throw new Error(sessionResult.error || '세션 생성 실패')
     }
 
-    // 3. Service Role 클라이언트로 DB 작업
-    const supabase = createServiceRoleClient()
-
-    // 4. 출석 upsert
+    // 5. 출석 upsert
     const { data, error } = await supabase
       .from('attendance')
       .upsert({

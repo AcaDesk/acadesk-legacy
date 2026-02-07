@@ -44,7 +44,7 @@ interface StudentAttendance {
   name: string
   school: string
   grade: string
-  classId: string
+  classId: string | null
   className: string
   status: UIAttendanceStatus | null
   arrivalTime?: string
@@ -116,11 +116,17 @@ export function AttendanceCheckPage() {
           return [`${classId}:${a.student_id}`, a]
         })
       )
+      const attendanceByStudentId = new Map(
+        attendances.map((a: any) => [a.student_id, a])
+      )
 
       // 학생 목록 구성
       const studentList: StudentAttendance[] = enrollments.map((e: any) => {
         const student = e.students
-        const attendance = attendanceMap.get(`${e.class_id}:${e.student_id}`) as any
+        const attendance = (
+          attendanceMap.get(`${e.class_id}:${e.student_id}`) ||
+          (e.class_id ? undefined : attendanceByStudentId.get(e.student_id))
+        ) as any
 
         // 클래스 이름 찾기
         const classInfo = classes.find(c => c.id === e.class_id)
@@ -131,8 +137,8 @@ export function AttendanceCheckPage() {
           name: student?.users?.name || '이름 없음',
           school: student?.school_name || '',
           grade: student?.grade || '',
-          classId: e.class_id,
-          className: classInfo?.name || '',
+          classId: e.class_id || null,
+          className: classInfo?.name || (e.class_id ? '' : '미배정'),
           status: attendance?.status ? DB_TO_UI_STATUS[attendance.status] || null : null,
           arrivalTime: attendance?.check_in_at
             ? new Date(attendance.check_in_at).toLocaleTimeString('ko-KR', {
@@ -161,10 +167,8 @@ export function AttendanceCheckPage() {
 
   // 날짜/클래스 변경 시 데이터 리로드
   useEffect(() => {
-    if (classes.length > 0) {
-      loadAttendanceData()
-    }
-  }, [loadAttendanceData, classes.length])
+    loadAttendanceData()
+  }, [loadAttendanceData])
 
   // Date Logic
   const handlePrevDay = () => {
