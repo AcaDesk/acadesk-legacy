@@ -17,31 +17,6 @@ import { getErrorMessage } from '@/lib/error-handlers'
 // Validation Schemas
 // ============================================================================
 
-const createSessionSchema = z.object({
-  class_id: z.string().uuid('유효한 클래스 ID가 아닙니다'),
-  session_date: z.string().min(1, '수업 날짜는 필수입니다'),
-  scheduled_start_at: z.string().min(1, '시작 시간은 필수입니다'),
-  scheduled_end_at: z.string().min(1, '종료 시간은 필수입니다'),
-  notes: z.string().optional(),
-})
-
-const bulkUpsertAttendanceSchema = z.object({
-  session_id: z.string().uuid('유효한 세션 ID가 아닙니다'),
-  attendances: z.array(
-    z.object({
-      student_id: z.string().uuid('유효한 학생 ID가 아닙니다'),
-      status: z.string().min(1, '출석 상태는 필수입니다'),
-      check_in_at: z.string().optional(),
-      notes: z.string().optional(),
-      reason: z.string().optional(),
-      is_self_study: z.boolean().optional(),
-      is_makeup_class: z.boolean().optional(),
-      late_minutes: z.number().int().min(0).optional(),
-      early_leave_minutes: z.number().int().min(0).optional(),
-    })
-  ),
-})
-
 const findOrCreateSessionSchema = z.object({
   class_id: z.string().uuid('유효한 클래스 ID가 아닙니다'),
   session_date: z.string().min(1, '날짜는 필수입니다'),
@@ -50,371 +25,6 @@ const findOrCreateSessionSchema = z.object({
 // ============================================================================
 // Server Actions
 // ============================================================================
-
-/**
- * 출석 세션 단건 조회
- * @param sessionId - 세션 ID
- * @returns 세션 또는 에러
- */
-export async function getAttendanceSessionById(sessionId: string) {
-  try {
-    // 1. 권한 검증 (staff)
-    const { tenantId } = await verifyStaff()
-
-    // 2. Service Role 클라이언트로 DB 작업
-    const supabase = createServiceRoleClient()
-
-    // 3. 세션 조회
-    const { data, error } = await supabase
-      .from('attendance_sessions')
-      .select(`
-        *,
-        class:classes!class_id(
-          id,
-          name,
-          subject
-        )
-      `)
-      .eq('id', sessionId)
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
-      .single()
-
-    if (error) throw error
-
-    return {
-      success: true,
-      data,
-      error: null,
-    }
-  } catch (error) {
-    console.error('[getAttendanceSessionById] Error:', error)
-    return {
-      success: false,
-      data: null,
-      error: getErrorMessage(error),
-    }
-  }
-}
-
-/**
- * 특정 세션의 출석 기록 조회
- * @param sessionId - 세션 ID
- * @returns 출석 기록 목록 또는 에러
- */
-export async function getAttendanceBySession(sessionId: string) {
-  try {
-    // 1. 권한 검증 (staff)
-    const { tenantId } = await verifyStaff()
-
-    // 2. Service Role 클라이언트로 DB 작업
-    const supabase = createServiceRoleClient()
-
-    // 3. 출석 기록 조회 (P3 Fix: 필요한 컬럼만 선택)
-    const { data, error } = await supabase
-      .from('attendance')
-      .select(`
-        id,
-        session_id,
-        student_id,
-        status,
-        check_in_at,
-        check_out_at,
-        notes,
-        reason,
-        is_self_study,
-        is_makeup_class,
-        late_minutes,
-        early_leave_minutes
-      `)
-      .eq('session_id', sessionId)
-      .eq('tenant_id', tenantId)
-
-    if (error) throw error
-
-    return {
-      success: true,
-      data: data || [],
-      error: null,
-    }
-  } catch (error) {
-    console.error('[getAttendanceBySession] Error:', error)
-    return {
-      success: false,
-      data: [],
-      error: getErrorMessage(error),
-    }
-  }
-}
-
-/**
- * 출석 세션 목록 조회
- * @param startDate - 시작 날짜 (선택)
- * @param endDate - 종료 날짜 (선택)
- * @param classId - 클래스 ID (선택)
- * @returns 세션 목록 또는 에러
- */
-export async function getAttendanceSessions(params?: {
-  startDate?: string
-  endDate?: string
-  classId?: string
-}) {
-  try {
-    // 1. 권한 검증 (staff)
-    const { tenantId } = await verifyStaff()
-
-    // 2. Service Role 클라이언트로 DB 작업
-    const supabase = createServiceRoleClient()
-
-    // 3. 출석 세션 조회
-    let query = supabase
-      .from('attendance_sessions')
-      .select(`
-        *,
-        class:classes!class_id(
-          id,
-          name,
-          subject
-        )
-      `)
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
-      .order('session_date', { ascending: false })
-      .order('scheduled_start_at', { ascending: false })
-
-    // 날짜 필터
-    if (params?.startDate) {
-      query = query.gte('session_date', params.startDate)
-    }
-    if (params?.endDate) {
-      query = query.lte('session_date', params.endDate)
-    }
-
-    // 클래스 필터
-    if (params?.classId) {
-      query = query.eq('class_id', params.classId)
-    }
-
-    const { data, error } = await query
-
-    if (error) throw error
-
-    return {
-      success: true,
-      data: data || [],
-      error: null,
-    }
-  } catch (error) {
-    console.error('[getAttendanceSessions] Error:', error)
-    return {
-      success: false,
-      data: [],
-      error: getErrorMessage(error),
-    }
-  }
-}
-
-/**
- * 출석 세션 생성
- * @param data - 세션 데이터
- * @returns 생성된 세션 또는 에러
- */
-export async function createAttendanceSession(
-  data: z.infer<typeof createSessionSchema>
-) {
-  try {
-    // 1. 권한 검증 (staff)
-    const { tenantId } = await verifyStaff()
-
-    // 2. 입력값 검증
-    const validatedData = createSessionSchema.parse(data)
-
-    // 3. Service Role 클라이언트로 DB 작업
-    const supabase = createServiceRoleClient()
-
-    const { data: session, error } = await supabase
-      .from('attendance_sessions')
-      .insert({
-        tenant_id: tenantId,
-        class_id: validatedData.class_id,
-        session_date: validatedData.session_date,
-        scheduled_start_at: validatedData.scheduled_start_at,
-        scheduled_end_at: validatedData.scheduled_end_at,
-        notes: validatedData.notes,
-        status: 'scheduled',
-      })
-      .select(`
-        *,
-        class:classes!class_id(id, name)
-      `)
-      .single()
-
-    if (error) {
-      throw new Error(`출석 세션 생성 실패: ${error.message}`)
-    }
-
-    // 4. 캐시 무효화
-    revalidatePath('/attendance')
-
-    return { success: true, data: session }
-  } catch (error) {
-    console.error('createAttendanceSession error:', error)
-    return {
-      success: false,
-      error: getErrorMessage(error),
-    }
-  }
-}
-
-/**
- * 출석 일괄 기록/수정
- * @param data - 출석 데이터 배열
- * @returns 생성/수정된 출석 기록 또는 에러
- */
-export async function bulkUpsertAttendance(
-  data: z.infer<typeof bulkUpsertAttendanceSchema>
-) {
-  try {
-    // 1. 권한 검증 (staff)
-    const { tenantId } = await verifyStaff()
-
-    // 2. 입력값 검증
-    const validatedData = bulkUpsertAttendanceSchema.parse(data)
-
-    // 3. Service Role 클라이언트로 DB 작업
-    const supabase = createServiceRoleClient()
-
-    // 각 출석 기록을 upsert (session_id + student_id 기준)
-    const records = validatedData.attendances.map((attendance) => ({
-      tenant_id: tenantId,
-      session_id: validatedData.session_id,
-      student_id: attendance.student_id,
-      status: attendance.status,
-      check_in_at: attendance.check_in_at,
-      notes: attendance.notes,
-      reason: attendance.reason,
-      is_self_study: attendance.is_self_study ?? false,
-      is_makeup_class: attendance.is_makeup_class ?? false,
-      late_minutes: attendance.late_minutes,
-      early_leave_minutes: attendance.early_leave_minutes,
-    }))
-
-    const { data: attendanceRecords, error } = await supabase
-      .from('attendance')
-      .upsert(records, {
-        onConflict: 'session_id,student_id',
-      })
-      .select()
-
-    if (error) {
-      throw new Error(`출석 기록 실패: ${error.message}`)
-    }
-
-    // 4. 캐시 무효화
-    revalidatePath(`/attendance/${validatedData.session_id}`)
-
-    return { success: true, data: attendanceRecords }
-  } catch (error) {
-    console.error('bulkUpsertAttendance error:', error)
-    return {
-      success: false,
-      error: getErrorMessage(error),
-    }
-  }
-}
-
-/**
- * 출석 세션 삭제 (Soft Delete)
- * @param sessionId - 세션 ID
- * @returns 성공 여부
- */
-export async function deleteAttendanceSession(sessionId: string) {
-  try {
-    // 1. 권한 검증 (staff)
-    const { tenantId } = await verifyStaff()
-
-    // 2. Service Role 클라이언트로 DB 작업
-    const supabase = createServiceRoleClient()
-
-    const { error } = await supabase
-      .from('attendance_sessions')
-      .update({ deleted_at: new Date().toISOString() })
-      .eq('id', sessionId)
-      .eq('tenant_id', tenantId)
-
-    if (error) {
-      throw new Error(`출석 세션 삭제 실패: ${error.message}`)
-    }
-
-    // 3. 캐시 무효화
-    revalidatePath('/attendance')
-
-    return { success: true }
-  } catch (error) {
-    console.error('deleteAttendanceSession error:', error)
-    return {
-      success: false,
-      error: getErrorMessage(error),
-    }
-  }
-}
-
-/**
- * 출석 세션 상태 업데이트
- * @param sessionId - 세션 ID
- * @param status - 새 상태 (scheduled, in_progress, completed, cancelled)
- * @param actualStartAt - 실제 시작 시간 (선택)
- * @param actualEndAt - 실제 종료 시간 (선택)
- * @returns 성공 여부
- */
-export async function updateAttendanceSessionStatus(
-  sessionId: string,
-  status: string,
-  actualStartAt?: string,
-  actualEndAt?: string
-) {
-  try {
-    // 1. 권한 검증 (staff)
-    const { tenantId } = await verifyStaff()
-
-    // 2. Service Role 클라이언트로 DB 작업
-    const supabase = createServiceRoleClient()
-
-    const updateData: Record<string, unknown> = {
-      status,
-      updated_at: new Date().toISOString(),
-    }
-
-    if (actualStartAt) {
-      updateData.actual_start_at = actualStartAt
-    }
-    if (actualEndAt) {
-      updateData.actual_end_at = actualEndAt
-    }
-
-    const { error } = await supabase
-      .from('attendance_sessions')
-      .update(updateData)
-      .eq('id', sessionId)
-      .eq('tenant_id', tenantId)
-
-    if (error) {
-      throw new Error(`세션 상태 업데이트 실패: ${error.message}`)
-    }
-
-    // 3. 캐시 무효화
-    revalidatePath(`/attendance/${sessionId}`)
-    revalidatePath('/attendance')
-
-    return { success: true }
-  } catch (error) {
-    console.error('updateAttendanceSessionStatus error:', error)
-    return {
-      success: false,
-      error: getErrorMessage(error),
-    }
-  }
-}
 
 /**
  * 날짜 + 클래스 기준으로 세션 조회 또는 생성
@@ -487,6 +97,10 @@ export async function findOrCreateSession(
 
 /**
  * 날짜 + 클래스 기준으로 출석 데이터 조회 (UI용)
+ *
+ * 등록 학생을 먼저 조회하고, attendance 테이블의 attendance_date 컬럼으로 직접 조회.
+ * 세션 테이블에 의존하지 않으므로 세션 미존재 시에도 정상 동작.
+ *
  * @param date - 날짜 (YYYY-MM-DD)
  * @param classId - 클래스 ID (optional, 전체면 생략)
  * @returns 학생별 출석 현황
@@ -502,56 +116,7 @@ export async function getAttendanceByDate(params: {
     // 2. Service Role 클라이언트로 DB 작업
     const supabase = createServiceRoleClient()
 
-    // 3. 해당 날짜의 세션들 조회
-    let sessionsQuery = supabase
-      .from('attendance_sessions')
-      .select(`
-        id,
-        class_id,
-        session_date,
-        classes!class_id (
-          id,
-          name,
-          subject
-        )
-      `)
-      .eq('tenant_id', tenantId)
-      .eq('session_date', params.date)
-      .is('deleted_at', null)
-
-    if (params.classId) {
-      sessionsQuery = sessionsQuery.eq('class_id', params.classId)
-    }
-
-    const { data: sessions, error: sessionsError } = await sessionsQuery
-
-    if (sessionsError) throw sessionsError
-
-    // 4. 세션이 있으면 출석 기록 조회
-    let attendances: any[] = []
-    if (sessions && sessions.length > 0) {
-      const sessionIds = sessions.map(s => s.id)
-
-      const { data: attendanceData, error: attendanceError } = await supabase
-        .from('attendance')
-        .select(`
-          *,
-          students!student_id (
-            id,
-            student_code,
-            users!inner (
-              name
-            )
-          )
-        `)
-        .eq('tenant_id', tenantId)
-        .in('session_id', sessionIds)
-
-      if (attendanceError) throw attendanceError
-      attendances = attendanceData || []
-    }
-
-    // 5. 등록 학생 조회 (세션 유무와 관계없이 항상 조회)
+    // 3. 등록 학생 조회 (classId 필터 기반)
     let enrollmentsQuery = supabase
       .from('class_enrollments')
       .select(`
@@ -573,21 +138,49 @@ export async function getAttendanceByDate(params: {
 
     if (params.classId) {
       enrollmentsQuery = enrollmentsQuery.eq('class_id', params.classId)
-    } else if (sessions && sessions.length > 0) {
-      const classIds = sessions.map(s => s.class_id)
-      enrollmentsQuery = enrollmentsQuery.in('class_id', classIds)
     }
 
     const { data: enrollments, error: enrollmentError } = await enrollmentsQuery
 
     if (enrollmentError) throw enrollmentError
 
+    // 4. 등록 학생이 없으면 빈 결과 반환
+    if (!enrollments || enrollments.length === 0) {
+      return {
+        success: true,
+        data: {
+          attendances: [],
+          students: [],
+        },
+      }
+    }
+
+    // 5. 등록 학생의 student_id 목록으로 출석 기록 조회
+    const studentIds = [...new Set(enrollments.map(e => e.student_id))]
+
+    const { data: attendanceData, error: attendanceError } = await supabase
+      .from('attendance')
+      .select(`
+        *,
+        students!student_id (
+          id,
+          student_code,
+          users!inner (
+            name
+          )
+        )
+      `)
+      .eq('tenant_id', tenantId)
+      .eq('attendance_date', params.date)
+      .in('student_id', studentIds)
+
+    if (attendanceError) throw attendanceError
+
     return {
       success: true,
       data: {
-        sessions: sessions || [],
-        attendances,
-        students: enrollments || [],
+        attendances: attendanceData || [],
+        students: enrollments,
       },
     }
   } catch (error) {
