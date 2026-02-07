@@ -192,6 +192,9 @@ export const TimePicker = React.forwardRef<HTMLButtonElement, TimePickerProps>(
         const parsed = parseTime(value)
         setSelectedHour24(parsed.hour24)
         setSelectedMinute(parsed.minute)
+      } else {
+        setSelectedHour24(null)
+        setSelectedMinute(null)
       }
     }, [value])
 
