@@ -29,6 +29,15 @@ import {
 import { getActiveClasses } from '@/app/actions/classes'
 import { UI_TO_DB_STATUS, type UIAttendanceStatus } from '@/core/types/attendance'
 
+type SchoolLevel = 'all' | 'elementary' | 'middle' | 'high'
+
+function getSchoolLevel(grade: string): SchoolLevel {
+  if (grade.startsWith('초')) return 'elementary'
+  if (grade.startsWith('중')) return 'middle'
+  if (grade.startsWith('고')) return 'high'
+  return 'all'
+}
+
 // DB status → UI status 역매핑
 const DB_TO_UI_STATUS: Record<string, UIAttendanceStatus> = {
   present: 'present',
@@ -68,6 +77,7 @@ export function AttendanceCheckPage() {
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'present' | 'absent'>('all')
+  const [selectedSchoolLevel, setSelectedSchoolLevel] = useState<SchoolLevel>('all')
 
   const [classes, setClasses] = useState<ClassInfo[]>([])
   const [students, setStudents] = useState<StudentAttendance[]>([])
@@ -314,6 +324,8 @@ export function AttendanceCheckPage() {
   // 필터링된 학생 목록
   const filteredStudents = students.filter((s) => {
     const matchesClass = !selectedClassId || s.classId === selectedClassId
+    const matchesSchoolLevel =
+      selectedSchoolLevel === 'all' || getSchoolLevel(s.grade) === selectedSchoolLevel
     const matchesSearch =
       s.name.includes(searchTerm) ||
       s.school.includes(searchTerm) ||
@@ -325,7 +337,7 @@ export function AttendanceCheckPage() {
           s.status === 'late' ||
           s.status === 'early_leave')) ||
       (filterStatus === 'absent' && (s.status === 'absent' || s.status === null))
-    return matchesClass && matchesSearch && matchesFilter
+    return matchesClass && matchesSchoolLevel && matchesSearch && matchesFilter
   })
 
   const presentCount = filteredStudents.filter(
@@ -445,6 +457,27 @@ export function AttendanceCheckPage() {
 
         {/* Filter & Search */}
         <div className="flex flex-col sm:flex-row gap-2 w-full xl:w-auto">
+          <div className="flex bg-card p-1 rounded-lg border border-border shadow-sm shrink-0">
+            {([
+              { value: 'all', label: '전체' },
+              { value: 'elementary', label: '초등' },
+              { value: 'middle', label: '중등' },
+              { value: 'high', label: '고등' },
+            ] as const).map(({ value, label }) => (
+              <button
+                key={value}
+                onClick={() => setSelectedSchoolLevel(value)}
+                className={cn(
+                  'flex-1 sm:flex-none px-3 py-1.5 rounded-md text-xs font-semibold transition-all',
+                  selectedSchoolLevel === value
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <div className="flex bg-card p-1 rounded-lg border border-border shadow-sm shrink-0">
             {(['all', 'present', 'absent'] as const).map((filter) => (
               <button
