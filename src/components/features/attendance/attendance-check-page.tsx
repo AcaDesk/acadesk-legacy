@@ -135,7 +135,7 @@ export function AttendanceCheckPage() {
           id: attendance?.id || `new-${e.student_id}-${e.class_id}`,
           studentId: e.student_id,
           name: student?.users?.name || '이름 없음',
-          school: student?.school_name || '',
+          school: student?.school || '',
           grade: student?.grade || '',
           classId: e.class_id || null,
           className: classInfo?.name || (e.class_id ? '' : '미배정'),

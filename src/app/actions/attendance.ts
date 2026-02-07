@@ -127,7 +127,7 @@ export async function getAttendanceByDate(params: {
           id,
           student_code,
           grade,
-          school_name,
+          school,
           users (
             name
           )
@@ -153,7 +153,7 @@ export async function getAttendanceByDate(params: {
           id,
           student_code,
           grade,
-          school_name,
+          school,
           users (
             name
           )
