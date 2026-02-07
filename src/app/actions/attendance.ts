@@ -44,21 +44,22 @@ export async function findOrCreateSession(
     // 3. Service Role 클라이언트로 DB 작업
     const supabase = createServiceRoleClient()
 
-    // 4. 기존 세션 조회
-    const { data: existingSession, error: selectError } = await supabase
+    // 4. 기존 세션 조회 (중복 세션 존재 가능성 대비, 최신 1건 선택)
+    const { data: existingSessions, error: selectError } = await supabase
       .from('attendance_sessions')
       .select('*')
       .eq('tenant_id', tenantId)
       .eq('class_id', validatedData.class_id)
       .eq('session_date', validatedData.session_date)
       .is('deleted_at', null)
-      .maybeSingle()
+      .order('created_at', { ascending: false })
+      .limit(1)
 
     if (selectError) throw selectError
 
     // 5. 세션이 이미 존재하면 반환
-    if (existingSession) {
-      return { success: true, data: existingSession }
+    if (existingSessions && existingSessions.length > 0) {
+      return { success: true, data: existingSessions[0] }
     }
 
     // 6. 세션이 없으면 생성 (기본 시간 설정)
@@ -161,6 +162,9 @@ export async function getAttendanceByDate(params: {
       .from('attendance')
       .select(`
         *,
+        attendance_sessions!session_id (
+          class_id
+        ),
         students!student_id (
           id,
           student_code,

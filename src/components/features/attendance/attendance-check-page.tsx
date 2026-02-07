@@ -109,15 +109,18 @@ export function AttendanceCheckPage() {
 
       const { attendances, students: enrollments } = result.data
 
-      // 출석 기록을 student_id로 맵핑
+      // 출석 기록을 class_id + student_id 복합키로 맵핑
       const attendanceMap = new Map(
-        attendances.map((a: any) => [a.student_id, a])
+        attendances.map((a: any) => {
+          const classId = a.attendance_sessions?.class_id
+          return [`${classId}:${a.student_id}`, a]
+        })
       )
 
       // 학생 목록 구성
       const studentList: StudentAttendance[] = enrollments.map((e: any) => {
         const student = e.students
-        const attendance = attendanceMap.get(e.student_id) as any
+        const attendance = attendanceMap.get(`${e.class_id}:${e.student_id}`) as any
 
         // 클래스 이름 찾기
         const classInfo = classes.find(c => c.id === e.class_id)
