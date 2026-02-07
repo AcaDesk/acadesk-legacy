@@ -527,34 +527,32 @@ export async function getAttendanceByDate(params: {
 
     if (sessionsError) throw sessionsError
 
-    if (!sessions || sessions.length === 0) {
-      return { success: true, data: { sessions: [], attendances: [], students: [] } }
+    // 4. 세션이 있으면 출석 기록 조회
+    let attendances: any[] = []
+    if (sessions && sessions.length > 0) {
+      const sessionIds = sessions.map(s => s.id)
+
+      const { data: attendanceData, error: attendanceError } = await supabase
+        .from('attendance')
+        .select(`
+          *,
+          students!student_id (
+            id,
+            student_code,
+            users!inner (
+              name
+            )
+          )
+        `)
+        .eq('tenant_id', tenantId)
+        .in('session_id', sessionIds)
+
+      if (attendanceError) throw attendanceError
+      attendances = attendanceData || []
     }
 
-    // 4. 세션 ID들로 출석 기록 조회
-    const sessionIds = sessions.map(s => s.id)
-
-    const { data: attendances, error: attendanceError } = await supabase
-      .from('attendance')
-      .select(`
-        *,
-        students!student_id (
-          id,
-          student_code,
-          users!inner (
-            name
-          )
-        )
-      `)
-      .eq('tenant_id', tenantId)
-      .in('session_id', sessionIds)
-
-    if (attendanceError) throw attendanceError
-
-    // 5. 해당 클래스들의 등록 학생 조회
-    const classIds = sessions.map(s => s.class_id)
-
-    const { data: enrollments, error: enrollmentError } = await supabase
+    // 5. 등록 학생 조회 (세션 유무와 관계없이 항상 조회)
+    let enrollmentsQuery = supabase
       .from('class_enrollments')
       .select(`
         class_id,
@@ -570,17 +568,25 @@ export async function getAttendanceByDate(params: {
         )
       `)
       .eq('tenant_id', tenantId)
-      .in('class_id', classIds)
       .eq('status', 'active')
       .is('deleted_at', null)
+
+    if (params.classId) {
+      enrollmentsQuery = enrollmentsQuery.eq('class_id', params.classId)
+    } else if (sessions && sessions.length > 0) {
+      const classIds = sessions.map(s => s.class_id)
+      enrollmentsQuery = enrollmentsQuery.in('class_id', classIds)
+    }
+
+    const { data: enrollments, error: enrollmentError } = await enrollmentsQuery
 
     if (enrollmentError) throw enrollmentError
 
     return {
       success: true,
       data: {
-        sessions,
-        attendances: attendances || [],
+        sessions: sessions || [],
+        attendances,
         students: enrollments || [],
       },
     }
