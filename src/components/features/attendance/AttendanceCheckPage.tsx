@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -16,11 +16,21 @@ import {
   updateAttendanceSessionStatus,
   bulkNotifyAbsentStudents,
 } from '@/app/actions/attendance';
-import type {
-  AttendanceSessionWithClass,
-  AttendanceWithStudent,
-} from '@/core/types/attendance';
+import type { AttendanceSessionWithClass } from '@/core/types/attendance';
 import { ConfirmationDialog } from '@ui/confirmation-dialog';
+
+// 출석 기록에서 실제 사용되는 필드만 정의
+interface AttendanceRecord {
+  id: string;
+  student_id: string;
+  status: string;
+  check_in_at?: string | null;
+  check_out_at?: string | null;
+  notes?: string | null;
+  reason?: string | null;
+  is_self_study?: boolean;
+  is_makeup_class?: boolean;
+}
 
 interface AttendanceCheckPageProps {
   session: AttendanceSessionWithClass;
@@ -31,7 +41,7 @@ interface AttendanceCheckPageProps {
       name: string;
     } | null;
   }>;
-  existingRecords: AttendanceWithStudent[];
+  existingRecords: AttendanceRecord[];
   tenantId?: string;
 }
 
@@ -138,9 +148,15 @@ export function AttendanceCheckPage({
     }
   };
 
+  // P3 Fix: O(1) lookup을 위한 Map 생성 (useMemo로 캐싱)
+  const recordByStudentId = useMemo(
+    () => new Map(existingRecords.map(r => [r.student_id, r])),
+    [existingRecords]
+  );
+
   const handleBulkNotifyClick = () => {
     const absentStudents = students.filter(student => {
-      const record = existingRecords.find(r => r.student_id === student.id);
+      const record = recordByStudentId.get(student.id);
       return record?.status === 'absent' || !record;
     });
 
@@ -158,7 +174,7 @@ export function AttendanceCheckPage({
 
   const handleConfirmNotify = async () => {
     const absentStudents = students.filter(student => {
-      const record = existingRecords.find(r => r.student_id === student.id);
+      const record = recordByStudentId.get(student.id);
       return record?.status === 'absent' || !record;
     });
 
@@ -381,7 +397,7 @@ export function AttendanceCheckPage({
           {students.length > 0 ? (
             <div className="grid gap-2">
               {students.map((student) => {
-                const record = existingRecords.find((r) => r.student_id === student.id);
+                const record = recordByStudentId.get(student.id);
                 return (
                   <div
                     key={student.id}

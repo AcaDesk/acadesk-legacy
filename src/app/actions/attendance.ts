@@ -110,10 +110,23 @@ export async function getAttendanceBySession(sessionId: string) {
     // 2. Service Role 클라이언트로 DB 작업
     const supabase = createServiceRoleClient()
 
-    // 3. 출석 기록 조회
+    // 3. 출석 기록 조회 (P3 Fix: 필요한 컬럼만 선택)
     const { data, error } = await supabase
       .from('attendance')
-      .select('*')
+      .select(`
+        id,
+        session_id,
+        student_id,
+        status,
+        check_in_at,
+        check_out_at,
+        notes,
+        reason,
+        is_self_study,
+        is_makeup_class,
+        late_minutes,
+        early_leave_minutes
+      `)
       .eq('session_id', sessionId)
       .eq('tenant_id', tenantId)
 

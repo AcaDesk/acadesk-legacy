@@ -23,56 +23,38 @@ export default async function AttendanceSessionPage({
   const session = sessionResult.data;
   const supabase = await createClient();
 
-  // Get students enrolled in this class
-  const { data: enrollments, error: enrollmentError } = await supabase
-    .from('class_enrollments')
-    .select('student_id')
-    .eq('class_id', session.class_id)
-    .eq('status', 'active');
+  // P2 Fix: 병렬 조회 - enrollments + attendance 동시 조회
+  // class_enrollments -> students -> users를 한 번의 join 쿼리로 합침
+  const [enrollmentsResult, recordsResult] = await Promise.all([
+    supabase
+      .from('class_enrollments')
+      .select(`
+        student_id,
+        students!inner (
+          id,
+          student_code,
+          users!inner (
+            name
+          )
+        )
+      `)
+      .eq('class_id', session.class_id)
+      .eq('status', 'active'),
+    getAttendanceBySession(id),
+  ]);
 
-  if (enrollmentError) {
-    console.error('Failed to fetch enrollments:', enrollmentError);
+  if (enrollmentsResult.error) {
+    console.error('Failed to fetch enrollments:', enrollmentsResult.error);
     redirect('/attendance');
   }
 
-  const studentIds = enrollments?.map((e) => e.student_id) || [];
+  // 조인된 데이터에서 학생 정보 추출
+  const students = (enrollmentsResult.data || []).map((enrollment: any) => ({
+    id: enrollment.students.id,
+    student_code: enrollment.students.student_code,
+    users: enrollment.students.users,
+  }));
 
-  let students: Array<{
-    id: string
-    student_code: string
-    users: {
-      name: string
-    } | null
-  }> = [];
-
-  if (studentIds.length > 0) {
-    const { data: studentsData, error: studentsError } = await supabase
-      .from('students')
-      .select(`
-        id,
-        student_code,
-        users (
-          name
-        )
-      `)
-      .in('id', studentIds);
-
-    if (studentsError) {
-      console.error('Failed to fetch students:', studentsError);
-      redirect('/attendance');
-    }
-
-    students = (studentsData as unknown as Array<{
-      id: string
-      student_code: string
-      users: {
-        name: string
-      } | null
-    }>) || [];
-  }
-
-  // Get existing attendance records using Server Action
-  const recordsResult = await getAttendanceBySession(id);
   const existingRecords = recordsResult.success ? recordsResult.data : [];
 
   return (
