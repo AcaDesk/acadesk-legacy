@@ -88,7 +88,11 @@ export function AttendanceCheckPage() {
       try {
         const result = await getActiveClasses()
         if (result.success && result.data && result.data.length > 0) {
-          setClasses(result.data.map(c => ({ id: c.id, name: c.name })))
+          setClasses(
+            result.data
+              .filter(c => c.name !== '미배정 출석')
+              .map(c => ({ id: c.id, name: c.name }))
+          )
         } else {
           setIsLoading(false)
         }
