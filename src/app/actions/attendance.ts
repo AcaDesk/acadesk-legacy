@@ -122,19 +122,18 @@ export async function getAttendanceByDate(params: {
       .select(`
         class_id,
         student_id,
-        students!inner (
+        students (
           id,
           student_code,
           grade,
           school_name,
-          users!inner (
+          users (
             name
           )
         )
       `)
       .eq('tenant_id', tenantId)
       .eq('status', 'active')
-      .is('deleted_at', null)
 
     if (params.classId) {
       enrollmentsQuery = enrollmentsQuery.eq('class_id', params.classId)
@@ -165,7 +164,7 @@ export async function getAttendanceByDate(params: {
         students!student_id (
           id,
           student_code,
-          users!inner (
+          users (
             name
           )
         )
