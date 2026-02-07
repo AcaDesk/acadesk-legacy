@@ -75,10 +75,14 @@ export function AttendanceCheckPage() {
   // 클래스 목록 로드
   useEffect(() => {
     async function loadClasses() {
-      const result = await getActiveClasses()
-      if (result.success && result.data && result.data.length > 0) {
-        setClasses(result.data.map(c => ({ id: c.id, name: c.name })))
-      } else {
+      try {
+        const result = await getActiveClasses()
+        if (result.success && result.data && result.data.length > 0) {
+          setClasses(result.data.map(c => ({ id: c.id, name: c.name })))
+        } else {
+          setIsLoading(false)
+        }
+      } catch {
         setIsLoading(false)
       }
     }
