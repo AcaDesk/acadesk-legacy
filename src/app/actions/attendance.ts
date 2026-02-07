@@ -33,8 +33,18 @@ const bulkUpsertAttendanceSchema = z.object({
       status: z.string().min(1, '출석 상태는 필수입니다'),
       check_in_at: z.string().optional(),
       notes: z.string().optional(),
+      reason: z.string().optional(),
+      is_self_study: z.boolean().optional(),
+      is_makeup_class: z.boolean().optional(),
+      late_minutes: z.number().int().min(0).optional(),
+      early_leave_minutes: z.number().int().min(0).optional(),
     })
   ),
+})
+
+const findOrCreateSessionSchema = z.object({
+  class_id: z.string().uuid('유효한 클래스 ID가 아닙니다'),
+  session_date: z.string().min(1, '날짜는 필수입니다'),
 })
 
 // ============================================================================
@@ -269,6 +279,11 @@ export async function bulkUpsertAttendance(
       status: attendance.status,
       check_in_at: attendance.check_in_at,
       notes: attendance.notes,
+      reason: attendance.reason,
+      is_self_study: attendance.is_self_study ?? false,
+      is_makeup_class: attendance.is_makeup_class ?? false,
+      late_minutes: attendance.late_minutes,
+      early_leave_minutes: attendance.early_leave_minutes,
     }))
 
     const { data: attendanceRecords, error } = await supabase
@@ -381,6 +396,250 @@ export async function updateAttendanceSessionStatus(
     return { success: true }
   } catch (error) {
     console.error('updateAttendanceSessionStatus error:', error)
+    return {
+      success: false,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * 날짜 + 클래스 기준으로 세션 조회 또는 생성
+ * @param data - class_id, session_date
+ * @returns 세션 또는 에러
+ */
+export async function findOrCreateSession(
+  data: z.infer<typeof findOrCreateSessionSchema>
+) {
+  try {
+    // 1. 권한 검증 (staff)
+    const { tenantId } = await verifyStaff()
+
+    // 2. 입력값 검증
+    const validatedData = findOrCreateSessionSchema.parse(data)
+
+    // 3. Service Role 클라이언트로 DB 작업
+    const supabase = createServiceRoleClient()
+
+    // 4. 기존 세션 조회
+    const { data: existingSession, error: selectError } = await supabase
+      .from('attendance_sessions')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('class_id', validatedData.class_id)
+      .eq('session_date', validatedData.session_date)
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (selectError) throw selectError
+
+    // 5. 세션이 이미 존재하면 반환
+    if (existingSession) {
+      return { success: true, data: existingSession }
+    }
+
+    // 6. 세션이 없으면 생성 (기본 시간 설정)
+    const sessionDate = new Date(validatedData.session_date)
+    const startTime = new Date(sessionDate)
+    startTime.setHours(9, 0, 0, 0)
+    const endTime = new Date(sessionDate)
+    endTime.setHours(18, 0, 0, 0)
+
+    const { data: newSession, error: insertError } = await supabase
+      .from('attendance_sessions')
+      .insert({
+        tenant_id: tenantId,
+        class_id: validatedData.class_id,
+        session_date: validatedData.session_date,
+        scheduled_start_at: startTime.toISOString(),
+        scheduled_end_at: endTime.toISOString(),
+        status: 'in_progress',
+      })
+      .select()
+      .single()
+
+    if (insertError) throw insertError
+
+    revalidatePath('/attendance')
+
+    return { success: true, data: newSession }
+  } catch (error) {
+    console.error('findOrCreateSession error:', error)
+    return {
+      success: false,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * 날짜 + 클래스 기준으로 출석 데이터 조회 (UI용)
+ * @param date - 날짜 (YYYY-MM-DD)
+ * @param classId - 클래스 ID (optional, 전체면 생략)
+ * @returns 학생별 출석 현황
+ */
+export async function getAttendanceByDate(params: {
+  date: string
+  classId?: string
+}) {
+  try {
+    // 1. 권한 검증 (staff)
+    const { tenantId } = await verifyStaff()
+
+    // 2. Service Role 클라이언트로 DB 작업
+    const supabase = createServiceRoleClient()
+
+    // 3. 해당 날짜의 세션들 조회
+    let sessionsQuery = supabase
+      .from('attendance_sessions')
+      .select(`
+        id,
+        class_id,
+        session_date,
+        classes!class_id (
+          id,
+          name,
+          subject
+        )
+      `)
+      .eq('tenant_id', tenantId)
+      .eq('session_date', params.date)
+      .is('deleted_at', null)
+
+    if (params.classId) {
+      sessionsQuery = sessionsQuery.eq('class_id', params.classId)
+    }
+
+    const { data: sessions, error: sessionsError } = await sessionsQuery
+
+    if (sessionsError) throw sessionsError
+
+    if (!sessions || sessions.length === 0) {
+      return { success: true, data: { sessions: [], attendances: [], students: [] } }
+    }
+
+    // 4. 세션 ID들로 출석 기록 조회
+    const sessionIds = sessions.map(s => s.id)
+
+    const { data: attendances, error: attendanceError } = await supabase
+      .from('attendance')
+      .select(`
+        *,
+        students!student_id (
+          id,
+          student_code,
+          users!inner (
+            name
+          )
+        )
+      `)
+      .eq('tenant_id', tenantId)
+      .in('session_id', sessionIds)
+
+    if (attendanceError) throw attendanceError
+
+    // 5. 해당 클래스들의 등록 학생 조회
+    const classIds = sessions.map(s => s.class_id)
+
+    const { data: enrollments, error: enrollmentError } = await supabase
+      .from('class_enrollments')
+      .select(`
+        class_id,
+        student_id,
+        students!inner (
+          id,
+          student_code,
+          grade,
+          school_name,
+          users!inner (
+            name
+          )
+        )
+      `)
+      .eq('tenant_id', tenantId)
+      .in('class_id', classIds)
+      .eq('status', 'active')
+      .is('deleted_at', null)
+
+    if (enrollmentError) throw enrollmentError
+
+    return {
+      success: true,
+      data: {
+        sessions,
+        attendances: attendances || [],
+        students: enrollments || [],
+      },
+    }
+  } catch (error) {
+    console.error('getAttendanceByDate error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * 단일 출석 저장 (UI에서 개별 변경 시)
+ */
+export async function saveAttendance(params: {
+  classId: string
+  date: string
+  studentId: string
+  status: string
+  checkInAt?: string
+  reason?: string
+  isSelfStudy?: boolean
+  isMakeupClass?: boolean
+  lateMinutes?: number
+  earlyLeaveMinutes?: number
+}) {
+  try {
+    // 1. 권한 검증 (staff)
+    const { tenantId } = await verifyStaff()
+
+    // 2. 세션 찾거나 생성
+    const sessionResult = await findOrCreateSession({
+      class_id: params.classId,
+      session_date: params.date,
+    })
+
+    if (!sessionResult.success || !sessionResult.data) {
+      throw new Error(sessionResult.error || '세션 생성 실패')
+    }
+
+    // 3. Service Role 클라이언트로 DB 작업
+    const supabase = createServiceRoleClient()
+
+    // 4. 출석 upsert
+    const { data, error } = await supabase
+      .from('attendance')
+      .upsert({
+        tenant_id: tenantId,
+        session_id: sessionResult.data.id,
+        student_id: params.studentId,
+        status: params.status,
+        check_in_at: params.checkInAt,
+        reason: params.reason,
+        is_self_study: params.isSelfStudy ?? false,
+        is_makeup_class: params.isMakeupClass ?? false,
+        late_minutes: params.lateMinutes,
+        early_leave_minutes: params.earlyLeaveMinutes,
+      }, {
+        onConflict: 'session_id,student_id',
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+
+    revalidatePath('/attendance')
+
+    return { success: true, data }
+  } catch (error) {
+    console.error('saveAttendance error:', error)
     return {
       success: false,
       error: getErrorMessage(error),
