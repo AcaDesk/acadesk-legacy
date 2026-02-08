@@ -33,6 +33,22 @@ export function getTodayKST(): string {
 }
 
 /**
+ * 한국 시간 기준으로 오늘에서 offset일 만큼 이동한 날짜 (YYYY-MM-DD)
+ */
+export function getDateKST(offsetDays: number): string {
+  const d = new Date(getTodayKST() + "T00:00:00+09:00")
+  d.setDate(d.getDate() + offsetDays)
+  return d.toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" })
+}
+
+/**
+ * 한국 시간 기준 현재 월 (YYYY-MM)
+ */
+export function getCurrentMonthKST(): string {
+  return getTodayKST().slice(0, 7)
+}
+
+/**
  * 한국어 날짜 포맷팅 (YYYY년 M월 D일)
  */
 export function formatKoreanDate(date: Date | string): string {

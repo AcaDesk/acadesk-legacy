@@ -10,6 +10,7 @@ import { revalidatePath } from 'next/cache'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { getTodayKST } from '@/lib/utils'
 
 // ============================================================================
 // Types
@@ -272,7 +273,7 @@ export async function createRetestExam(
       : '날짜 미정'
 
     // Use provided retest date or default to today
-    const examDate = retestDate || new Date().toISOString().split('T')[0]
+    const examDate = retestDate || getTodayKST()
 
     const { data: retestExam, error: createError } = await supabase
       .from('exams')

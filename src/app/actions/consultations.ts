@@ -13,6 +13,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
+import { getTodayKST, getDateKST } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/error-handlers'
 
 // ============================================================================
@@ -700,10 +701,8 @@ export async function getUpcomingFollowUps(daysAhead = 7) {
     const { tenantId } = await verifyStaff()
     const supabase = createServiceRoleClient()
 
-    const today = new Date().toISOString().split('T')[0]
-    const futureDate = new Date()
-    futureDate.setDate(futureDate.getDate() + daysAhead)
-    const endDate = futureDate.toISOString().split('T')[0]
+    const today = getTodayKST()
+    const endDate = getDateKST(daysAhead)
 
     const { data, error } = await supabase
       .from('consultations')

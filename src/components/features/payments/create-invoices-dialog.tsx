@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { createClient } from '@/lib/supabase/client'
+import { getTodayKST, getDateKST, getCurrentMonthKST } from '@/lib/utils'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
 import { Label } from '@ui/label'
@@ -77,9 +78,9 @@ export function CreateInvoicesDialog({
   } = useForm<CreateInvoicesFormValues>({
     resolver: zodResolver(createInvoicesSchema),
     defaultValues: {
-      billing_month: new Date().toISOString().slice(0, 7),
-      issue_date: new Date().toISOString().split('T')[0],
-      due_date: new Date(new Date().setDate(new Date().getDate() + 5)).toISOString().split('T')[0],
+      billing_month: getCurrentMonthKST(),
+      issue_date: getTodayKST(),
+      due_date: getDateKST(5),
       default_tuition: '500000',
     },
   })

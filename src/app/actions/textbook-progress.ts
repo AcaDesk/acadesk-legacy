@@ -11,6 +11,7 @@ import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { getTodayKST } from '@/lib/utils'
 
 // ============================================================================
 // Validation Schemas
@@ -82,7 +83,7 @@ export async function addProgress(input: z.infer<typeof addProgressSchema>) {
         student_id: validated.studentId,
         textbook_id: validated.textbookId,
         unit_id: validated.unitId ?? null,
-        date: validated.date || new Date().toISOString().split('T')[0],
+        date: validated.date || getTodayKST(),
         pages_done: validated.pagesDone ?? null,
         percent_done: validated.percentDone ?? null,
         memo: validated.memo || null,
