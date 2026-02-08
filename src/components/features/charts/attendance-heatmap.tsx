@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils'
 type AttendanceStatus = 'present' | 'late' | 'absent' | 'none'
 
 interface AttendanceDay {
-  date: Date
+  date: Date | string
   status: AttendanceStatus
   note?: string
 }
@@ -52,15 +52,22 @@ export function AttendanceHeatmap({
   const daysInMonth = lastDay.getDate()
   const startDayOfWeek = firstDay.getDay() // 0 (일) ~ 6 (토)
 
+  // date 필드를 Date 객체로 정규화 (서버에서 JSON 직렬화 시 문자열로 내려올 수 있음)
+  const normalizedData = data.map((item) => ({
+    ...item,
+    date: item.date instanceof Date ? item.date : new Date(item.date),
+  }))
+
   // 데이터를 맵으로 변환 (빠른 조회)
-  const dataMap = new Map<string, AttendanceDay>()
-  data.forEach((item) => {
+  const dataMap = new Map<string, typeof normalizedData[number]>()
+  normalizedData.forEach((item) => {
     const key = item.date.toISOString().split('T')[0]
     dataMap.set(key, item)
   })
 
   // 달력 그리드 생성
-  const calendarDays: (AttendanceDay | null)[] = []
+  type NormalizedDay = { date: Date; status: AttendanceStatus; note?: string }
+  const calendarDays: (NormalizedDay | null)[] = []
 
   // 첫 주의 빈 칸 추가
   for (let i = 0; i < startDayOfWeek; i++) {
@@ -83,9 +90,9 @@ export function AttendanceHeatmap({
 
   // 통계 계산
   const stats = {
-    present: data.filter((d) => d.status === 'present').length,
-    late: data.filter((d) => d.status === 'late').length,
-    absent: data.filter((d) => d.status === 'absent').length,
+    present: normalizedData.filter((d) => d.status === 'present').length,
+    late: normalizedData.filter((d) => d.status === 'late').length,
+    absent: normalizedData.filter((d) => d.status === 'absent').length,
   }
 
   const totalDays = stats.present + stats.late + stats.absent
