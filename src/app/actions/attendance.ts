@@ -144,10 +144,12 @@ export async function getAttendanceByDate(params: {
 
     if (enrollmentError) throw enrollmentError
 
-    // 4. 등록 학생이 없고 전체 조회인 경우, 미배정 학생도 표시를 위해 학생 목록으로 폴백
+    // 4. 전체 조회(!classId)인 경우, 미배정 학생도 항상 병합
     let normalizedEnrollments = enrollments || []
-    if (normalizedEnrollments.length === 0 && !params.classId) {
-      const { data: fallbackStudents, error: fallbackError } = await supabase
+    if (!params.classId) {
+      const enrolledStudentIds = new Set(normalizedEnrollments.map((e: any) => e.student_id))
+
+      const { data: allStudents, error: allStudentsError } = await supabase
         .from('students')
         .select(`
           id,
@@ -161,13 +163,17 @@ export async function getAttendanceByDate(params: {
         .eq('tenant_id', tenantId)
         .is('deleted_at', null)
 
-      if (fallbackError) throw fallbackError
+      if (allStudentsError) throw allStudentsError
 
-      normalizedEnrollments = (fallbackStudents || []).map((s: any) => ({
-        class_id: null,
-        student_id: s.id,
-        students: s,
-      }))
+      const unassignedStudents = (allStudents || [])
+        .filter((s: any) => !enrolledStudentIds.has(s.id))
+        .map((s: any) => ({
+          class_id: null,
+          student_id: s.id,
+          students: s,
+        }))
+
+      normalizedEnrollments = [...normalizedEnrollments, ...unassignedStudents]
     }
 
     // classId가 지정된 조회에서 등록 학생이 없으면 빈 결과 반환
@@ -187,16 +193,14 @@ export async function getAttendanceByDate(params: {
     const { data: attendanceData, error: attendanceError } = await supabase
       .from('attendance')
       .select(`
-        *,
+        id,
+        student_id,
+        status,
+        check_in_at,
+        is_self_study,
+        is_makeup_class,
         attendance_sessions!session_id (
           class_id
-        ),
-        students!student_id (
-          id,
-          student_code,
-          users (
-            name
-          )
         )
       `)
       .eq('tenant_id', tenantId)

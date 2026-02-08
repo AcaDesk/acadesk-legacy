@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useTransition } from 'react'
+import { useState, useEffect, useCallback, useTransition, useRef } from 'react'
 import {
   CheckCircle2,
   Clock,
@@ -70,6 +70,8 @@ export function AttendanceCheckPage() {
   const { toast } = useToast()
   const [isPending, startTransition] = useTransition()
   const [isLoading, setIsLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const hasLoadedOnce = useRef(false)
 
   const [currentDate, setCurrentDate] = useState(
     new Date().toISOString().split('T')[0]
@@ -80,6 +82,8 @@ export function AttendanceCheckPage() {
   const [selectedSchoolLevel, setSelectedSchoolLevel] = useState<SchoolLevel>('all')
 
   const [classes, setClasses] = useState<ClassInfo[]>([])
+  const [classesLoaded, setClassesLoaded] = useState(false)
+  const classesRef = useRef<ClassInfo[]>([])
   const [students, setStudents] = useState<StudentAttendance[]>([])
 
   // 클래스 목록 로드
@@ -88,16 +92,16 @@ export function AttendanceCheckPage() {
       try {
         const result = await getActiveClasses()
         if (result.success && result.data && result.data.length > 0) {
-          setClasses(
-            result.data
-              .filter(c => c.name !== '미배정 출석')
-              .map(c => ({ id: c.id, name: c.name }))
-          )
-        } else {
-          setIsLoading(false)
+          const filtered = result.data
+            .filter(c => c.name !== '미배정 출석')
+            .map(c => ({ id: c.id, name: c.name }))
+          classesRef.current = filtered
+          setClasses(filtered)
         }
       } catch {
-        setIsLoading(false)
+        // 클래스 로드 실패해도 출석 데이터는 로드 시도
+      } finally {
+        setClassesLoaded(true)
       }
     }
     loadClasses()
@@ -105,7 +109,9 @@ export function AttendanceCheckPage() {
 
   // 출석 데이터 로드
   const loadAttendanceData = useCallback(async () => {
-    setIsLoading(true)
+    if (hasLoadedOnce.current) {
+      setIsRefreshing(true)
+    }
     try {
       const result = await getAttendanceByDate({
         date: currentDate,
@@ -135,6 +141,7 @@ export function AttendanceCheckPage() {
       )
 
       // 학생 목록 구성
+      const currentClasses = classesRef.current
       const studentList: StudentAttendance[] = enrollments.map((e: any) => {
         const student = e.students
         const attendance = (
@@ -143,7 +150,7 @@ export function AttendanceCheckPage() {
         ) as any
 
         // 클래스 이름 찾기
-        const classInfo = classes.find(c => c.id === e.class_id)
+        const classInfo = currentClasses.find(c => c.id === e.class_id)
 
         return {
           id: attendance?.id || `new-${e.student_id}-${e.class_id}`,
@@ -175,14 +182,17 @@ export function AttendanceCheckPage() {
         variant: 'destructive',
       })
     } finally {
+      hasLoadedOnce.current = true
       setIsLoading(false)
+      setIsRefreshing(false)
     }
-  }, [currentDate, selectedClassId, classes, toast])
+  }, [currentDate, selectedClassId, toast])
 
-  // 날짜/클래스 변경 시 데이터 리로드
+  // 클래스 로딩 완료 후 + 날짜/클래스 변경 시 데이터 리로드
   useEffect(() => {
+    if (!classesLoaded) return
     loadAttendanceData()
-  }, [loadAttendanceData])
+  }, [classesLoaded, loadAttendanceData])
 
   // Date Logic
   const handlePrevDay = () => {
@@ -246,7 +256,9 @@ export function AttendanceCheckPage() {
       if (!result.success) {
         toast({
           title: '저장 실패',
-          description: result.error || '출석 저장에 실패했습니다.',
+          description: result.error
+            ? `${student.name} 학생 출석 저장에 실패했습니다. (${result.error})`
+            : `${student.name} 학생 출석 저장에 실패했습니다.`,
           variant: 'destructive',
         })
         // Rollback on error
@@ -282,7 +294,9 @@ export function AttendanceCheckPage() {
       if (!result.success) {
         toast({
           title: '저장 실패',
-          description: result.error || '자습 상태 저장에 실패했습니다.',
+          description: result.error
+            ? `${student.name} 학생 자습 상태 저장에 실패했습니다. (${result.error})`
+            : `${student.name} 학생 자습 상태 저장에 실패했습니다.`,
           variant: 'destructive',
         })
         loadAttendanceData()
@@ -317,7 +331,9 @@ export function AttendanceCheckPage() {
       if (!result.success) {
         toast({
           title: '저장 실패',
-          description: result.error || '보강 상태 저장에 실패했습니다.',
+          description: result.error
+            ? `${student.name} 학생 보강 상태 저장에 실패했습니다. (${result.error})`
+            : `${student.name} 학생 보강 상태 저장에 실패했습니다.`,
           variant: 'destructive',
         })
         loadAttendanceData()
@@ -402,7 +418,7 @@ export function AttendanceCheckPage() {
               출석 현황
             </p>
             <p className="text-sm font-semibold text-foreground flex items-center gap-1">
-              {isLoading ? (
+              {isLoading || isRefreshing ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <>
@@ -525,6 +541,12 @@ export function AttendanceCheckPage() {
         </div>
       ) : (
         <>
+          {isRefreshing && (
+            <div className="flex items-center gap-2 text-muted-foreground text-sm shrink-0">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              불러오는 중...
+            </div>
+          )}
           {/* --- Mobile View (Cards) --- */}
           <div className="block md:hidden space-y-4 flex-1 overflow-y-auto">
             {filteredStudents.map((student) => (
