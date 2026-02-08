@@ -526,6 +526,7 @@ ${reportData.comment.nextGoals}`
             description="월별 출석 캘린더"
             year={calendarYear}
             month={calendarMonth}
+            compact
           />
         )}
 

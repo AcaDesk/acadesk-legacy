@@ -145,6 +145,7 @@ ${reportData.comment.nextGoals}`
                   description="월별 출석 캘린더"
                   year={periodStart.getFullYear()}
                   month={periodStart.getMonth() + 1}
+                  compact
                 />
               </div>
             )}
