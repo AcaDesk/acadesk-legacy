@@ -259,7 +259,8 @@ export function ReportTableImproved({
         )
       },
       cell: ({ row }) => {
-        const scores = row.original.content?.scores ?? []
+        const rawScores = row.original.content?.scores
+        const scores = Array.isArray(rawScores) ? rawScores : []
         const scoresWithData = scores.filter((s) => s.current !== null)
         const avgScore = scoresWithData.length > 0
           ? Math.round(
@@ -286,7 +287,8 @@ export function ReportTableImproved({
       },
       sortingFn: (rowA, rowB) => {
         const getAvgScore = (report: ReportWithStudent) => {
-          const scores = report.content?.scores ?? []
+          const rawScores = report.content?.scores
+          const scores = Array.isArray(rawScores) ? rawScores : []
           const scoresWithData = scores.filter((s) => s.current !== null)
           return scoresWithData.length > 0
             ? scoresWithData.reduce((sum, s) => sum + (s.current || 0), 0) / scoresWithData.length
@@ -309,11 +311,17 @@ export function ReportTableImproved({
           </Button>
         )
       },
-      cell: ({ row }) => (
-        <div className="text-sm text-muted-foreground">
-          {format(new Date(row.getValue('generated_at')), 'yyyy-MM-dd')}
-        </div>
-      ),
+      cell: ({ row }) => {
+        const raw = row.getValue('generated_at') as string | null
+        if (!raw) return <span className="text-muted-foreground text-xs">-</span>
+        const date = new Date(raw)
+        if (isNaN(date.getTime())) return <span className="text-muted-foreground text-xs">-</span>
+        return (
+          <div className="text-sm text-muted-foreground">
+            {format(date, 'yyyy-MM-dd')}
+          </div>
+        )
+      },
     },
     {
       accessorKey: 'sent_at',
