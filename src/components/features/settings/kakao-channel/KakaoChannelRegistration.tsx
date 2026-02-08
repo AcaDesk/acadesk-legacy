@@ -66,7 +66,7 @@ export function KakaoChannelRegistration({
   const [searchIdWarning, setSearchIdWarning] = useState<string | null>(null)
   const [phoneError, setPhoneError] = useState<string | null>(null)
 
-  // Search ID 입력 핸들러 - @ 없으면 경고 표시
+  // Search ID 입력 핸들러
   function handleSearchIdChange(value: string) {
     setSearchId(value)
     const compact = value.trim().replace(/[\s\u200B-\u200D\uFEFF]/g, '')
@@ -86,12 +86,7 @@ export function KakaoChannelRegistration({
       setSearchIdWarning('15자 이내 한글/영문 소문자/숫자만 입력할 수 있습니다')
       return
     }
-
-    if (value && !value.startsWith('@')) {
-      setSearchIdWarning('@ 기호가 자동으로 추가됩니다')
-    } else {
-      setSearchIdWarning(null)
-    }
+    setSearchIdWarning(null)
   }
 
   // 전화번호 검증 핸들러
@@ -298,7 +293,7 @@ export function KakaoChannelRegistration({
                 <ul className="list-disc list-inside space-y-0.5">
                   <li>카카오 비즈니스 채널 개설 및 활성 상태 확인</li>
                   <li>채널 관리자 휴대폰 번호(010...) 확인</li>
-                  <li>채널 검색용 ID(@...) 확인 후 그대로 입력</li>
+                  <li>채널 검색용 아이디 확인 (입력 시 @는 자동 처리)</li>
                   <li>Solapi API 설정 저장 및 테스트 메시지 인증 완료</li>
                 </ul>
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -341,7 +336,7 @@ export function KakaoChannelRegistration({
                   type="text"
                   value={searchId}
                   onChange={(e) => handleSearchIdChange(e.target.value)}
-                  placeholder="@channelname"
+                  placeholder="검색용 아이디 입력 (예: 진영오름영어)"
                   className="mt-2"
                 />
                 {searchIdWarning ? (
@@ -350,7 +345,7 @@ export function KakaoChannelRegistration({
                   </p>
                 ) : (
                   <p className="text-xs text-muted-foreground mt-1">
-                    카카오톡 채널 검색 ID를 입력하세요 (@ 포함)
+                    채널 검색용 아이디만 입력하세요. @는 자동으로 처리됩니다.
                   </p>
                 )}
               </div>
