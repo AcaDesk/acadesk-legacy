@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@ui/button'
@@ -56,7 +56,6 @@ interface ExamCategory {
 export function ExamTemplatesClient() {
   // All Hooks must be called before any early returns
   const [templates, setTemplates] = useState<ExamTemplate[]>([])
-  const [filteredTemplates, setFilteredTemplates] = useState<ExamTemplate[]>([])
   const [categories, setCategories] = useState<ExamCategory[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(true)
@@ -77,9 +76,16 @@ export function ExamTemplatesClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser, userLoading])
 
-  useEffect(() => {
-    filterTemplates()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const filteredTemplates = useMemo(() => {
+    if (!searchTerm) return templates
+
+    return templates.filter((template) => {
+      const name = template.name?.toLowerCase() || ''
+      const description = template.description?.toLowerCase() || ''
+      const search = searchTerm.toLowerCase()
+
+      return name.includes(search) || description.includes(search)
+    })
   }, [searchTerm, templates])
 
   async function loadData() {
@@ -123,7 +129,6 @@ export function ExamTemplatesClient() {
 
       if (templatesError) throw templatesError
       setTemplates(templatesData as unknown as ExamTemplate[])
-      setFilteredTemplates(templatesData as unknown as ExamTemplate[])
     } catch (error) {
       console.error('Error loading data:', error)
       toast({
@@ -134,22 +139,6 @@ export function ExamTemplatesClient() {
     } finally {
       setLoading(false)
     }
-  }
-
-  function filterTemplates() {
-    let filtered = templates
-
-    if (searchTerm) {
-      filtered = filtered.filter((template) => {
-        const name = template.name?.toLowerCase() || ''
-        const description = template.description?.toLowerCase() || ''
-        const search = searchTerm.toLowerCase()
-
-        return name.includes(search) || description.includes(search)
-      })
-    }
-
-    setFilteredTemplates(filtered)
   }
 
   function handleDelete(id: string, name: string) {

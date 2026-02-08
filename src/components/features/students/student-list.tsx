@@ -70,8 +70,8 @@ export function StudentList() {
               email: s.email,
               phone: s.phone,
             },
-            class_enrollments: s.classes.map((c: { id?: string; name: string }) => ({
-              classes: { name: c.name }
+            class_enrollments: s.classes.map((c) => ({
+              classes: { name: c.name || '' }
             })),
             recentAttendance: [],
           }))
@@ -127,8 +127,8 @@ export function StudentList() {
           email: s.email,
           phone: s.phone,
         },
-        class_enrollments: s.classes.map((c: { id?: string; name: string }) => ({
-          classes: { name: c.name }
+        class_enrollments: s.classes.map((c) => ({
+          classes: { name: c.name || '' }
         })),
         recentAttendance: [],
       }))

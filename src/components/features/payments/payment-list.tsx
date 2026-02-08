@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@ui/button'
@@ -75,17 +75,7 @@ export function PaymentList({ month, onPaymentClick }: PaymentListProps) {
     itemsPerPage,
   })
 
-  useEffect(() => {
-    loadInvoices()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, searchTerm, statusFilter, month])
-
-  useEffect(() => {
-    resetPage()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, statusFilter, month])
-
-  async function loadInvoices() {
+  const loadInvoices = useCallback(async () => {
     try {
       setLoading(true)
 
@@ -173,7 +163,15 @@ export function PaymentList({ month, onPaymentClick }: PaymentListProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [searchTerm, statusFilter, month, toast])
+
+  useEffect(() => {
+    loadInvoices()
+  }, [loadInvoices, currentPage])
+
+  useEffect(() => {
+    resetPage()
+  }, [searchTerm, statusFilter, month, resetPage])
 
   function getStatusBadge(status: InvoiceStatus, daysOverdue: number) {
     switch (status) {
