@@ -74,6 +74,11 @@ export async function getBookLendings() {
   )
 }
 
+/** KST 기준 오늘 날짜 문자열 (YYYY-MM-DD) */
+function getKSTDateString(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
+}
+
 /**
  * 도서 반납 처리
  * @param lendingId - 대출 ID
@@ -85,7 +90,7 @@ export async function returnBook(lendingId: string) {
       const { error } = await serviceClient
         .from('book_lendings')
         .update({
-          returned_at: new Date().toISOString().split('T')[0],
+          returned_at: getKSTDateString(),
           return_condition: 'good',
         })
         .eq('id', lendingId)
@@ -100,31 +105,56 @@ export async function returnBook(lendingId: string) {
 }
 
 /**
- * 반납 알림 전송
- * @param lending - 대출 정보
+ * 반납 알림 전송 (서버에서 대출 정보를 재조회하여 무결성 보장)
+ * @param lendingId - 대출 ID
  * @returns 성공 여부
  */
-export async function sendReminder(lending: BookLending) {
+export async function sendReminder(lendingId: string) {
   return withServerActionVoid(
     async ({ tenantId, serviceClient }) => {
+      // 서버에서 대출 정보 재조회 (클라이언트 데이터 불신)
+      const { data: lending, error: fetchError } = await serviceClient
+        .from('book_lendings')
+        .select(`
+          id, due_date, returned_at,
+          books (title),
+          students (id)
+        `)
+        .eq('id', lendingId)
+        .eq('tenant_id', tenantId)
+        .single()
+
+      if (fetchError || !lending) {
+        throw new Error('대출 정보를 찾을 수 없습니다.')
+      }
+
+      if (lending.returned_at) {
+        throw new Error('이미 반납된 도서입니다.')
+      }
+
+      const book = lending.books as unknown as { title: string } | null
+      const student = lending.students as unknown as { id: string } | null
+
       // Log the reminder
-      await serviceClient.from('notification_logs').insert({
+      const { error: logError } = await serviceClient.from('notification_logs').insert({
         tenant_id: tenantId,
-        student_id: lending.students?.id,
+        student_id: student?.id,
         notification_type: 'sms',
         status: 'sent',
-        message: `${lending.books?.title} 도서 반납일(${lending.due_date})이 도래했습니다.`,
+        message: `${book?.title} 도서 반납일(${lending.due_date})이 도래했습니다.`,
         sent_at: new Date().toISOString(),
       })
 
+      if (logError) throw logError
+
       // Update reminder_sent_at
-      const { error } = await serviceClient
+      const { error: updateError } = await serviceClient
         .from('book_lendings')
         .update({ reminder_sent_at: new Date().toISOString() })
-        .eq('id', lending.id)
+        .eq('id', lendingId)
         .eq('tenant_id', tenantId)
 
-      if (error) throw error
+      if (updateError) throw updateError
 
       revalidatePath('/library/lendings')
     },
@@ -133,36 +163,64 @@ export async function sendReminder(lending: BookLending) {
 }
 
 /**
- * 연체 도서 일괄 알림 전송
- * @param lendings - 연체 대출 목록
- * @returns 성공 여부
+ * 연체 도서 일괄 알림 전송 (서버에서 대출 정보를 재조회하여 무결성 보장)
+ * @param lendingIds - 대출 ID 목록
+ * @returns 전송 성공 건수
  */
-export async function sendBulkReminder(lendings: BookLending[]) {
+export async function sendBulkReminder(lendingIds: string[]) {
   return withServerAction(
     async ({ tenantId, serviceClient }) => {
+      // 서버에서 대출 정보 일괄 재조회
+      const { data: lendings, error: fetchError } = await serviceClient
+        .from('book_lendings')
+        .select(`
+          id, due_date, returned_at, reminder_sent_at,
+          books (title),
+          students (id)
+        `)
+        .in('id', lendingIds)
+        .eq('tenant_id', tenantId)
+
+      if (fetchError) throw fetchError
+
+      const today = getKSTDateString()
+      // 서버에서 연체 + 미반납 + 미알림 조건 재검증
+      const overdueLendings = (lendings || []).filter(
+        (l) => !l.returned_at && l.due_date < today && !l.reminder_sent_at
+      )
+
       let sentCount = 0
 
-      for (const lending of lendings) {
-        try {
-          await serviceClient.from('notification_logs').insert({
-            tenant_id: tenantId,
-            student_id: lending.students?.id,
-            notification_type: 'sms',
-            status: 'sent',
-            message: `${lending.books?.title} 도서 반납일(${lending.due_date})이 지났습니다. 반납 부탁드립니다.`,
-            sent_at: new Date().toISOString(),
-          })
+      for (const lending of overdueLendings) {
+        const book = lending.books as unknown as { title: string } | null
+        const student = lending.students as unknown as { id: string } | null
 
-          await serviceClient
-            .from('book_lendings')
-            .update({ reminder_sent_at: new Date().toISOString() })
-            .eq('id', lending.id)
-            .eq('tenant_id', tenantId)
+        const { error: logError } = await serviceClient.from('notification_logs').insert({
+          tenant_id: tenantId,
+          student_id: student?.id,
+          notification_type: 'sms',
+          status: 'sent',
+          message: `${book?.title} 도서 반납일(${lending.due_date})이 지났습니다. 반납 부탁드립니다.`,
+          sent_at: new Date().toISOString(),
+        })
 
-          sentCount++
-        } catch {
-          console.error(`Failed to send reminder for lending ${lending.id}`)
+        if (logError) {
+          console.error(`Failed to insert notification log for lending ${lending.id}:`, logError)
+          continue
         }
+
+        const { error: updateError } = await serviceClient
+          .from('book_lendings')
+          .update({ reminder_sent_at: new Date().toISOString() })
+          .eq('id', lending.id)
+          .eq('tenant_id', tenantId)
+
+        if (updateError) {
+          console.error(`Failed to update reminder_sent_at for lending ${lending.id}:`, updateError)
+          continue
+        }
+
+        sentCount++
       }
 
       revalidatePath('/library/lendings')
