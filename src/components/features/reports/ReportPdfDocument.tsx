@@ -401,11 +401,11 @@ export function ReportPdfDocument({
                 {Math.round(reportData.attendance.rate)}%
               </Text>
               <Text style={styles.learningDetail}>
-                총 {reportData.attendance.total}회 중 {reportData.attendance.present}회 출석
+                총 {reportData.attendance.total}일 중 {reportData.attendance.present}일 출석
                 {reportData.attendance.late > 0 &&
-                  `, ${reportData.attendance.late}회 지각`}
+                  `, ${reportData.attendance.late}일 지각`}
                 {reportData.attendance.absent > 0 &&
-                  `, ${reportData.attendance.absent}회 결석`}
+                  `, ${reportData.attendance.absent}일 결석`}
               </Text>
             </View>
             <View style={styles.learningCard}>
