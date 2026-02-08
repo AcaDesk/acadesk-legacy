@@ -13,7 +13,7 @@ import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
-import { SolapiProvider } from '@/infra/messaging/SolapiProvider'
+import { getSolapiProvider } from '@/lib/messaging/get-solapi-provider'
 import type {
   KakaoTemplateCategory,
   KakaoTemplateStatus,
@@ -61,35 +61,6 @@ const updateTemplateSchema = kakaoTemplateUpdateSchema
 // ============================================================================
 // Helper Functions
 // ============================================================================
-
-/**
- * Get SolapiProvider instance with tenant config
- */
-async function getSolapiProvider(tenantId: string): Promise<SolapiProvider | null> {
-  const supabase = createServiceRoleClient()
-
-  const { data: config, error } = await supabase
-    .from('tenant_messaging_config')
-    .select('provider, solapi_api_key, solapi_api_secret, solapi_sender_phone')
-    .eq('tenant_id', tenantId)
-    .eq('provider', 'solapi')
-    .is('deleted_at', null)
-    .maybeSingle()
-
-  if (error || !config) {
-    return null
-  }
-
-  if (!config.solapi_api_key || !config.solapi_api_secret) {
-    return null
-  }
-
-  return new SolapiProvider({
-    apiKey: config.solapi_api_key,
-    apiSecret: config.solapi_api_secret,
-    senderPhone: config.solapi_sender_phone || '',
-  })
-}
 
 /**
  * Get tenant's Kakao channel ID
