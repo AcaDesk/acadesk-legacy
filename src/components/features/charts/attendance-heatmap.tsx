@@ -23,6 +23,7 @@ interface AttendanceHeatmapProps {
   description?: string
   year?: number
   month?: number // 1-12
+  compact?: boolean
 }
 
 const statusColors: Record<AttendanceStatus, string> = {
@@ -45,6 +46,7 @@ export function AttendanceHeatmap({
   description = '월별 출석 현황',
   year = new Date().getFullYear(),
   month = new Date().getMonth() + 1,
+  compact = false,
 }: AttendanceHeatmapProps) {
   // 해당 월의 첫날과 마지막날 계산
   const firstDay = new Date(year, month - 1, 1)
@@ -101,24 +103,36 @@ export function AttendanceHeatmap({
 
   return (
     <Card>
-      <CardHeader className="pb-3 sm:pb-6">
-        <CardTitle className="text-base sm:text-lg">{title}</CardTitle>
-        <CardDescription className="text-xs sm:text-sm">
-          {description} - {year}년 {month}월
-        </CardDescription>
+      <CardHeader className={compact ? 'pb-2 px-4 pt-4' : 'pb-3 sm:pb-6'}>
+        <div className={compact ? 'flex items-center justify-between' : ''}>
+          <div>
+            <CardTitle className={compact ? 'text-sm' : 'text-base sm:text-lg'}>{title}</CardTitle>
+            <CardDescription className="text-xs">
+              {description} - {year}년 {month}월
+            </CardDescription>
+          </div>
+          {compact && (
+            <div className="flex items-center gap-3 text-xs">
+              <span className="font-semibold text-green-600">{stats.present}출석</span>
+              <span className="font-semibold text-yellow-600">{stats.late}지각</span>
+              <span className="font-semibold text-red-600">{stats.absent}결석</span>
+              <span className="font-semibold">{attendanceRate}%</span>
+            </div>
+          )}
+        </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className={compact ? 'px-4 pb-4' : ''}>
         {/* 요일 헤더 */}
-        <div className="mb-2 grid grid-cols-7 gap-2">
+        <div className={cn('mb-1 grid grid-cols-7', compact ? 'gap-1' : 'gap-2 mb-2')}>
           {['일', '월', '화', '수', '목', '금', '토'].map((day) => (
-            <div key={day} className="text-center text-xs font-medium text-muted-foreground">
+            <div key={day} className={cn('text-center font-medium text-muted-foreground', compact ? 'text-[10px]' : 'text-xs')}>
               {day}
             </div>
           ))}
         </div>
 
         {/* 달력 그리드 */}
-        <div className="grid grid-cols-7 gap-2">
+        <div className={cn('grid grid-cols-7', compact ? 'gap-1' : 'gap-2')}>
           {calendarDays.map((day, index) => {
             if (!day) {
               return <div key={`empty-${index}`} className="aspect-square" />
@@ -128,7 +142,8 @@ export function AttendanceHeatmap({
               <div
                 key={day.date.toISOString()}
                 className={cn(
-                  'group relative flex aspect-square items-center justify-center rounded-md text-xs font-medium transition-colors cursor-pointer',
+                  'group relative flex aspect-square items-center justify-center font-medium transition-colors cursor-pointer',
+                  compact ? 'rounded text-[10px]' : 'rounded-md text-xs',
                   statusColors[day.status]
                 )}
                 title={`${day.date.getDate()}일 - ${statusLabels[day.status]}${day.note ? `: ${day.note}` : ''}`}
@@ -151,44 +166,61 @@ export function AttendanceHeatmap({
           })}
         </div>
 
-        {/* 범례 및 통계 */}
-        <div className="mt-4 sm:mt-6 space-y-3 sm:space-y-4">
-          <div className="flex items-center justify-center gap-3 sm:gap-4 text-xs">
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <div className="h-3 w-3 rounded bg-green-500" />
+        {/* 범례 (compact에서는 헤더에 통계를 표시하므로 범례만 간략히) */}
+        {compact ? (
+          <div className="mt-2 flex items-center justify-center gap-3 text-[10px] text-muted-foreground">
+            <div className="flex items-center gap-1">
+              <div className="h-2 w-2 rounded-sm bg-green-500" />
               <span>출석</span>
             </div>
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <div className="h-3 w-3 rounded bg-yellow-500" />
+            <div className="flex items-center gap-1">
+              <div className="h-2 w-2 rounded-sm bg-yellow-500" />
               <span>지각</span>
             </div>
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <div className="h-3 w-3 rounded bg-red-500" />
+            <div className="flex items-center gap-1">
+              <div className="h-2 w-2 rounded-sm bg-red-500" />
               <span>결석</span>
             </div>
           </div>
+        ) : (
+          <div className="mt-4 sm:mt-6 space-y-3 sm:space-y-4">
+            <div className="flex items-center justify-center gap-3 sm:gap-4 text-xs">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <div className="h-3 w-3 rounded bg-green-500" />
+                <span>출석</span>
+              </div>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <div className="h-3 w-3 rounded bg-yellow-500" />
+                <span>지각</span>
+              </div>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <div className="h-3 w-3 rounded bg-red-500" />
+                <span>결석</span>
+              </div>
+            </div>
 
-          <div className="rounded-lg border bg-muted/50 p-3 sm:p-4">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-center">
-              <div>
-                <p className="text-xl sm:text-2xl font-bold text-green-500">{stats.present}</p>
-                <p className="text-xs text-muted-foreground">출석</p>
-              </div>
-              <div>
-                <p className="text-xl sm:text-2xl font-bold text-yellow-500">{stats.late}</p>
-                <p className="text-xs text-muted-foreground">지각</p>
-              </div>
-              <div>
-                <p className="text-xl sm:text-2xl font-bold text-red-500">{stats.absent}</p>
-                <p className="text-xs text-muted-foreground">결석</p>
-              </div>
-              <div>
-                <p className="text-xl sm:text-2xl font-bold">{attendanceRate}%</p>
-                <p className="text-xs text-muted-foreground">출석율</p>
+            <div className="rounded-lg border bg-muted/50 p-3 sm:p-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-center">
+                <div>
+                  <p className="text-xl sm:text-2xl font-bold text-green-500">{stats.present}</p>
+                  <p className="text-xs text-muted-foreground">출석</p>
+                </div>
+                <div>
+                  <p className="text-xl sm:text-2xl font-bold text-yellow-500">{stats.late}</p>
+                  <p className="text-xs text-muted-foreground">지각</p>
+                </div>
+                <div>
+                  <p className="text-xl sm:text-2xl font-bold text-red-500">{stats.absent}</p>
+                  <p className="text-xs text-muted-foreground">결석</p>
+                </div>
+                <div>
+                  <p className="text-xl sm:text-2xl font-bold">{attendanceRate}%</p>
+                  <p className="text-xs text-muted-foreground">출석율</p>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
       </CardContent>
     </Card>
   )
