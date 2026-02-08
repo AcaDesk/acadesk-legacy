@@ -18,11 +18,18 @@ export function getInitials(name: string): string {
 }
 
 /**
- * 날짜 포맷팅 (YYYY-MM-DD)
+ * 날짜 포맷팅 (YYYY-MM-DD, KST 기준)
  */
 export function formatDate(date: Date | string): string {
   const d = typeof date === "string" ? new Date(date) : date
-  return d.toISOString().split("T")[0]
+  return d.toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" })
+}
+
+/**
+ * 오늘 날짜 문자열 반환 (YYYY-MM-DD, KST 기준)
+ */
+export function getTodayKST(): string {
+  return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" })
 }
 
 /**

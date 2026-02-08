@@ -96,24 +96,6 @@ from public.attendance_sessions s
 where a.session_id = s.id
   and a.attendance_date is null;
 
--- Trigger: attendance_date 자동 채움 (session_date에서)
-create or replace function public.set_attendance_date()
-returns trigger as $$
-begin
-  if new.session_id is not null then
-    select session_date into new.attendance_date
-    from public.attendance_sessions
-    where id = new.session_id;
-  end if;
-  return new;
-end;
-$$ language plpgsql;
-
-drop trigger if exists trg_set_attendance_date on public.attendance;
-create trigger trg_set_attendance_date
-  before insert or update on public.attendance
-  for each row
-  execute function public.set_attendance_date();
 
 -- RLS: attendance_sessions
 alter table public.attendance_sessions enable row level security;

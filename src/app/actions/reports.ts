@@ -10,7 +10,7 @@ import { revalidatePath } from 'next/cache'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
-import type { ReportData } from '@/core/types/report.types'
+import type { ReportData, ReportWithStudent } from '@/core/types/report.types'
 
 // ============================================================================
 // Helper Types
@@ -48,6 +48,7 @@ interface ExamScoreBasicType {
   exams?: {
     category_code: string
     subject_id: string | null
+    name?: string
   } | null
 }
 
@@ -838,7 +839,7 @@ async function getScoresData(
       feedback,
       is_retest,
       created_at,
-      exams!inner!exam_id (
+      exams!inner (
         name,
         exam_date,
         created_at,
@@ -862,7 +863,7 @@ async function getScoresData(
       feedback,
       is_retest,
       created_at,
-      exams!inner!exam_id (
+      exams!inner (
         name,
         exam_date,
         created_at,
@@ -891,7 +892,7 @@ async function getScoresData(
     .from('exam_scores')
     .select(`
       percentage,
-      exams!inner!exam_id (name, category_code, subject_id, exam_date, created_at)
+      exams!inner (name, category_code, subject_id, exam_date, created_at)
     `)
     .eq('student_id', studentId)
     .eq('tenant_id', tenantId)
@@ -904,7 +905,7 @@ async function getScoresData(
     .from('exam_scores')
     .select(`
       percentage,
-      exams!inner!exam_id (name, category_code, subject_id, exam_date, created_at)
+      exams!inner (name, category_code, subject_id, exam_date, created_at)
     `)
     .eq('student_id', studentId)
     .eq('tenant_id', tenantId)
@@ -926,7 +927,7 @@ async function getScoresData(
     .select(`
       percentage,
       is_retest,
-      exams!inner!exam_id (
+      exams!inner (
         name,
         category_code,
         subject_id,
@@ -945,7 +946,7 @@ async function getScoresData(
     .select(`
       percentage,
       is_retest,
-      exams!inner!exam_id (
+      exams!inner (
         name,
         category_code,
         subject_id,
@@ -1043,7 +1044,7 @@ async function getScoresData(
 
     const subjectId = examScore.exams?.subject_id || null
     const categoryCode = examScore.exams?.category_code || null
-    const examName = (examScore.exams as any)?.name || '시험'
+    const examName = examScore.exams?.name || '시험'
 
     // 그룹화 키: subject_id > 시험명 키워드 추출 > category_code > 시험명
     const groupKey = createGroupKey(subjectId, categoryCode, examName)
@@ -1205,7 +1206,7 @@ async function getGradesChartData(
       score,
       total_score,
       percentage,
-      exams!exam_id (
+      exams (
         name,
         exam_date,
         created_at
@@ -1310,7 +1311,7 @@ async function getCurrentScoreData(
   // 현재 기간 내 시험 점수 조회 (DB에서 날짜 필터링)
   const { data: allMyScores } = await supabase
     .from('exam_scores')
-    .select('percentage, exams!inner!exam_id(exam_date, created_at)')
+    .select('percentage, exams!inner(exam_date, created_at)')
     .eq('student_id', studentId)
     .is('deleted_at', null)
     .gte('exams.exam_date', periodStart)
@@ -1319,7 +1320,7 @@ async function getCurrentScoreData(
   // exam_date가 NULL인 레거시 데이터 추가 조회 (created_at으로 필터링)
   const { data: legacyScores } = await supabase
     .from('exam_scores')
-    .select('percentage, exams!inner!exam_id(exam_date, created_at)')
+    .select('percentage, exams!inner(exam_date, created_at)')
     .eq('student_id', studentId)
     .is('deleted_at', null)
     .is('exams.exam_date', null)
@@ -1349,7 +1350,7 @@ async function getCurrentScoreData(
   // 같은 기간 내 모든 학생들의 시험 점수 조회 (반 평균 계산용) - DB에서 날짜 필터링
   const { data: allScoresData } = await supabase
     .from('exam_scores')
-    .select('percentage, student_id, exams!inner!exam_id(exam_date, created_at)')
+    .select('percentage, student_id, exams!inner(exam_date, created_at)')
     .is('deleted_at', null)
     .gte('exams.exam_date', periodStart)
     .lte('exams.exam_date', periodEnd)
@@ -1357,7 +1358,7 @@ async function getCurrentScoreData(
   // exam_date가 NULL인 레거시 데이터 추가 조회
   const { data: allLegacyScores } = await supabase
     .from('exam_scores')
-    .select('percentage, student_id, exams!inner!exam_id(exam_date, created_at)')
+    .select('percentage, student_id, exams!inner(exam_date, created_at)')
     .is('deleted_at', null)
     .is('exams.exam_date', null)
 
@@ -1434,7 +1435,7 @@ async function getScoreTrendData(
     // 해당 월의 학생 점수 조회 (is_retest 포함)
     const { data: allMyScores } = await supabase
       .from('exam_scores')
-      .select('percentage, is_retest, exams!exam_id(exam_date, created_at)')
+      .select('percentage, is_retest, exams(exam_date, created_at)')
       .eq('student_id', studentId)
       .is('deleted_at', null)
 
@@ -1449,7 +1450,7 @@ async function getScoreTrendData(
     // 해당 월의 반 평균 조회
     const { data: allScoresData } = await supabase
       .from('exam_scores')
-      .select('percentage, exams!exam_id(exam_date, created_at)')
+      .select('percentage, exams(exam_date, created_at)')
       .is('deleted_at', null)
 
     // JavaScript에서 exam_date로 필터링 (fallback: created_at)
@@ -1558,14 +1559,14 @@ export async function getReports(options?: {
     }
 
     return {
-      success: true,
-      data: data || [],
+      success: true as const,
+      data: (data || []) as unknown as ReportWithStudent[],
       error: null,
     }
   } catch (error) {
     console.error('[getReports] Error:', error)
     return {
-      success: false,
+      success: false as const,
       data: null,
       error: getErrorMessage(error),
     }
@@ -1605,6 +1606,70 @@ export async function getStudentsForFilter() {
       data: null,
       error: getErrorMessage(error),
     }
+  }
+}
+
+/**
+ * 리포트 단건 삭제
+ *
+ * @param reportId - 삭제할 리포트 ID
+ * @returns Success or error
+ */
+export async function deleteReport(
+  reportId: string
+): Promise<{ success: boolean; error: string | null }> {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    const { error } = await supabase
+      .from('reports')
+      .delete()
+      .eq('id', reportId)
+      .eq('tenant_id', tenantId)
+
+    if (error) throw error
+
+    revalidatePath('/reports')
+
+    return { success: true, error: null }
+  } catch (error) {
+    console.error('[deleteReport] Error:', error)
+    return { success: false, error: getErrorMessage(error) }
+  }
+}
+
+/**
+ * 리포트 일괄 삭제
+ *
+ * @param reportIds - 삭제할 리포트 ID 배열
+ * @returns Success or error
+ */
+export async function deleteReports(
+  reportIds: string[]
+): Promise<{ success: boolean; error: string | null }> {
+  try {
+    if (reportIds.length === 0) {
+      return { success: true, error: null }
+    }
+
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    const { error } = await supabase
+      .from('reports')
+      .delete()
+      .in('id', reportIds)
+      .eq('tenant_id', tenantId)
+
+    if (error) throw error
+
+    revalidatePath('/reports')
+
+    return { success: true, error: null }
+  } catch (error) {
+    console.error('[deleteReports] Error:', error)
+    return { success: false, error: getErrorMessage(error) }
   }
 }
 

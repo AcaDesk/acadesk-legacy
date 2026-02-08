@@ -18,6 +18,7 @@ import {
   generateReportSmsMessage,
   calculateLinkExpiry,
 } from '@/lib/short-url'
+import { classifyReportSendError, type ReportSendErrorInfo } from '@/lib/report-send-errors'
 
 // ============================================================================
 // Short URL Functions
@@ -464,8 +465,13 @@ export async function sendReportMessage(reportSendId: string) {
       throw new Error('발송 정보를 찾을 수 없습니다')
     }
 
-    const studentId = (reportSend.reports as any)?.student_id
-    const studentName = (reportSend.reports as any)?.students?.users?.name || '학생'
+    const typedReports = reportSend.reports as {
+      id: string
+      student_id: string
+      students: { id: string; student_code: string; users: { name: string } | null } | null
+    } | null
+    const studentId = typedReports?.student_id
+    const studentName = typedReports?.students?.users?.name || '학생'
 
     // 4. 통합 메시지 Provider 사용 (tenant 설정에 따라 알리고/솔라피 자동 선택)
     const { sendMessage } = await import('@/lib/messaging/provider')
@@ -554,7 +560,24 @@ export async function sendReportMessage(reportSendId: string) {
  * @param reportId - 리포트 ID
  * @returns 전송 결과
  */
-export async function sendReportToAllGuardians(reportId: string) {
+export async function sendReportToAllGuardians(reportId: string): Promise<
+  | {
+      success: true
+      data: {
+        total: number
+        successCount: number
+        failCount: number
+        details: Array<{ recipientName: string; success: boolean; error: string | null }>
+      }
+      error: null
+    }
+  | {
+      success: false
+      data: null
+      error: string
+      errorInfo: ReportSendErrorInfo
+    }
+> {
   try {
     // 1. 발송 준비 (레코드 생성 + 단축 URL 생성)
     const prepareResult = await prepareReportSending(reportId)
@@ -600,10 +623,12 @@ export async function sendReportToAllGuardians(reportId: string) {
     }
   } catch (error) {
     console.error('[sendReportToAllGuardians] Error:', error)
+    const errorMessage = getErrorMessage(error)
     return {
       success: false,
       data: null,
-      error: getErrorMessage(error),
+      error: errorMessage,
+      errorInfo: classifyReportSendError(errorMessage),
     }
   }
 }

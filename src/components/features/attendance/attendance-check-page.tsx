@@ -23,11 +23,11 @@ import { Badge } from '@ui/badge'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import {
-  getAttendanceByDate,
+  getAttendanceRecordsByDate,
   saveAttendance,
 } from '@/app/actions/attendance'
-import { getActiveClasses } from '@/app/actions/classes'
 import { UI_TO_DB_STATUS, type UIAttendanceStatus } from '@/core/types/attendance'
+import { getTodayKST } from '@/lib/utils'
 
 type SchoolLevel = 'all' | 'elementary' | 'middle' | 'high'
 
@@ -44,7 +44,7 @@ const DB_TO_UI_STATUS: Record<string, UIAttendanceStatus> = {
   late: 'late',
   left_early: 'early_leave',
   absent: 'absent',
-  excused: 'absent', // excused도 UI에서는 결석으로 표시
+  excused: 'excused',
 }
 
 interface StudentAttendance {
@@ -66,30 +66,130 @@ interface ClassInfo {
   name: string
 }
 
-export function AttendanceCheckPage() {
+// 서버에서 전달받는 초기 데이터 타입
+interface AttendanceCheckPageProps {
+  initialRoster?: any[]
+  initialClasses?: any[]
+  initialRecords?: any[]
+  initialDate?: string
+}
+
+/**
+ * 로스터 + 출석기록을 결합하여 StudentAttendance 리스트 생성
+ */
+function buildStudentList(
+  enrollments: any[],
+  attendances: any[],
+  classesMap: ClassInfo[]
+): StudentAttendance[] {
+  // 출석 기록을 class_id + student_id 복합키로 맵핑 (status priority 기반 dedup)
+  const STATUS_PRIORITY: Record<string, number> = { present: 2, late: 1, left_early: 1, absent: 0, excused: 0 }
+
+  const attendanceMap = new Map<string, any>()
+  const attendanceByStudentId = new Map<string, any>()
+
+  for (const a of attendances) {
+    const classId = a.attendance_sessions?.class_id
+    const compositeKey = `${classId}:${a.student_id}`
+    const existing = attendanceMap.get(compositeKey)
+    if (!existing || (STATUS_PRIORITY[a.status] ?? 0) > (STATUS_PRIORITY[existing.status] ?? 0)) {
+      attendanceMap.set(compositeKey, a)
+    }
+    const existingById = attendanceByStudentId.get(a.student_id)
+    if (!existingById || (STATUS_PRIORITY[a.status] ?? 0) > (STATUS_PRIORITY[existingById.status] ?? 0)) {
+      attendanceByStudentId.set(a.student_id, a)
+    }
+  }
+
+  return enrollments.map((e: any) => {
+    const student = e.students
+    const attendance = (
+      attendanceMap.get(`${e.class_id}:${e.student_id}`) ||
+      (e.class_id ? undefined : attendanceByStudentId.get(e.student_id))
+    ) as any
+
+    const classInfo = classesMap.find(c => c.id === e.class_id)
+
+    return {
+      id: attendance?.id || `new-${e.student_id}-${e.class_id}`,
+      studentId: e.student_id,
+      name: student?.users?.name || '이름 없음',
+      school: student?.school || '',
+      grade: student?.grade || '',
+      classId: e.class_id || null,
+      className: classInfo?.name || (e.class_id ? '' : '미배정'),
+      status: attendance?.status ? DB_TO_UI_STATUS[attendance.status] || null : null,
+      arrivalTime: attendance?.check_in_at
+        ? new Date(attendance.check_in_at).toLocaleTimeString('ko-KR', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+          })
+        : undefined,
+      isSelfStudy: attendance?.is_self_study || false,
+      isMakeupClass: attendance?.is_makeup_class || false,
+    }
+  })
+}
+
+export function AttendanceCheckPage({
+  initialRoster,
+  initialClasses,
+  initialRecords,
+  initialDate,
+}: AttendanceCheckPageProps) {
   const { toast } = useToast()
   const [isPending, startTransition] = useTransition()
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(!initialRoster)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const hasLoadedOnce = useRef(false)
 
   const [currentDate, setCurrentDate] = useState(
-    new Date().toISOString().split('T')[0]
+    initialDate || getTodayKST()
   )
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'present' | 'absent'>('all')
   const [selectedSchoolLevel, setSelectedSchoolLevel] = useState<SchoolLevel>('all')
 
-  const [classes, setClasses] = useState<ClassInfo[]>([])
-  const [classesLoaded, setClassesLoaded] = useState(false)
-  const classesRef = useRef<ClassInfo[]>([])
-  const [students, setStudents] = useState<StudentAttendance[]>([])
+  // 로스터: 한 번만 로드하고 ref에 고정
+  const rosterRef = useRef<any[]>(initialRoster || [])
+  const rosterLoadedRef = useRef(!!initialRoster)
 
-  // 클래스 목록 로드
+  // 클래스 목록
+  const classesRef = useRef<ClassInfo[]>(
+    initialClasses
+      ? initialClasses
+          .filter((c: any) => !(c as any).meta?.attendance_default)
+          .map((c: any) => ({ id: c.id, name: c.name }))
+      : []
+  )
+  const [classes, setClasses] = useState<ClassInfo[]>(classesRef.current)
+  const [classesLoaded, setClassesLoaded] = useState(!!initialClasses)
+
+  // 출석기록 메모리 캐시: key = date, value = attendance records
+  const recordsCacheRef = useRef(new Map<string, any[]>())
+
+  // 학생 목록 (뷰용)
+  const [students, setStudents] = useState<StudentAttendance[]>(() => {
+    if (initialRoster && initialRecords) {
+      return buildStudentList(initialRoster, initialRecords, classesRef.current)
+    }
+    return []
+  })
+
+  // 초기 레코드를 캐시에 삽입
   useEffect(() => {
+    if (initialRecords && initialDate) {
+      recordsCacheRef.current.set(initialDate, initialRecords)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 클래스 목록 로드 (초기 데이터가 없을 때만)
+  useEffect(() => {
+    if (initialClasses) return
     async function loadClasses() {
       try {
+        const { getActiveClasses } = await import('@/app/actions/classes')
         const result = await getActiveClasses()
         if (result.success && result.data && result.data.length > 0) {
           const filtered = result.data
@@ -105,102 +205,108 @@ export function AttendanceCheckPage() {
       }
     }
     loadClasses()
-  }, [])
+  }, [initialClasses])
 
-  // 출석 데이터 로드
-  const loadAttendanceData = useCallback(async () => {
-    if (hasLoadedOnce.current) {
+  // 로스터 로드 (초기 데이터가 없을 때만)
+  useEffect(() => {
+    if (initialRoster) return
+    async function loadRoster() {
+      try {
+        const { getAttendanceRoster } = await import('@/app/actions/attendance')
+        const result = await getAttendanceRoster()
+        if (result.success && result.data) {
+          rosterRef.current = result.data.students
+          rosterLoadedRef.current = true
+        }
+      } catch (error) {
+        console.error('Load roster error:', error)
+        toast({
+          title: '데이터 로딩 실패',
+          description: '학생 목록을 불러올 수 없습니다.',
+          variant: 'destructive',
+        })
+      }
+    }
+    loadRoster()
+  }, [initialRoster, toast])
+
+  // 출석기록 로드 (날짜 변경 시)
+  const loadRecordsForDate = useCallback(async (date: string) => {
+    const roster = rosterRef.current
+    if (roster.length === 0) return
+
+    const studentIds = [...new Set(roster.map((e: any) => e.student_id))]
+
+    // 캐시 hit → 즉시 렌더 + 백그라운드 refresh
+    const cached = recordsCacheRef.current.get(date)
+    if (cached) {
+      setStudents(buildStudentList(roster, cached, classesRef.current))
+      // 백그라운드 refresh
+      setIsRefreshing(true)
+    } else {
       setIsRefreshing(true)
     }
+
     try {
-      const result = await getAttendanceByDate({
-        date: currentDate,
-        classId: selectedClassId || undefined,
+      const result = await getAttendanceRecordsByDate({
+        date,
+        studentIds,
       })
 
       if (!result.success || !result.data) {
-        toast({
-          title: '데이터 로딩 실패',
-          description: result.error || '출석 데이터를 불러올 수 없습니다.',
-          variant: 'destructive',
-        })
+        // 캐시가 있으면 캐시 데이터로 유지
+        if (!cached) {
+          toast({
+            title: '데이터 로딩 실패',
+            description: result.error || '출석 데이터를 불러올 수 없습니다.',
+            variant: 'destructive',
+          })
+        }
         return
       }
 
-      const { attendances, students: enrollments } = result.data
-
-      // 출석 기록을 class_id + student_id 복합키로 맵핑 (status priority 기반 dedup)
-      const STATUS_PRIORITY: Record<string, number> = { present: 2, late: 1, left_early: 1, absent: 0, excused: 0 }
-
-      const attendanceMap = new Map<string, any>()
-      const attendanceByStudentId = new Map<string, any>()
-
-      for (const a of attendances as any[]) {
-        const classId = a.attendance_sessions?.class_id
-        const compositeKey = `${classId}:${a.student_id}`
-        const existing = attendanceMap.get(compositeKey)
-        if (!existing || (STATUS_PRIORITY[a.status] ?? 0) > (STATUS_PRIORITY[existing.status] ?? 0)) {
-          attendanceMap.set(compositeKey, a)
-        }
-        const existingById = attendanceByStudentId.get(a.student_id)
-        if (!existingById || (STATUS_PRIORITY[a.status] ?? 0) > (STATUS_PRIORITY[existingById.status] ?? 0)) {
-          attendanceByStudentId.set(a.student_id, a)
-        }
-      }
-
-      // 학생 목록 구성
-      const currentClasses = classesRef.current
-      const studentList: StudentAttendance[] = enrollments.map((e: any) => {
-        const student = e.students
-        const attendance = (
-          attendanceMap.get(`${e.class_id}:${e.student_id}`) ||
-          (e.class_id ? undefined : attendanceByStudentId.get(e.student_id))
-        ) as any
-
-        // 클래스 이름 찾기
-        const classInfo = currentClasses.find(c => c.id === e.class_id)
-
-        return {
-          id: attendance?.id || `new-${e.student_id}-${e.class_id}`,
-          studentId: e.student_id,
-          name: student?.users?.name || '이름 없음',
-          school: student?.school || '',
-          grade: student?.grade || '',
-          classId: e.class_id || null,
-          className: classInfo?.name || (e.class_id ? '' : '미배정'),
-          status: attendance?.status ? DB_TO_UI_STATUS[attendance.status] || null : null,
-          arrivalTime: attendance?.check_in_at
-            ? new Date(attendance.check_in_at).toLocaleTimeString('ko-KR', {
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: false,
-              })
-            : undefined,
-          isSelfStudy: attendance?.is_self_study || false,
-          isMakeupClass: attendance?.is_makeup_class || false,
-        }
-      })
-
-      setStudents(studentList)
+      const attendances = result.data.attendances
+      recordsCacheRef.current.set(date, attendances)
+      setStudents(buildStudentList(roster, attendances, classesRef.current))
     } catch (error) {
-      console.error('Load attendance error:', error)
-      toast({
-        title: '오류 발생',
-        description: '출석 데이터를 불러오는 중 오류가 발생했습니다.',
-        variant: 'destructive',
-      })
+      console.error('Load records error:', error)
+      if (!cached) {
+        toast({
+          title: '오류 발생',
+          description: '출석 데이터를 불러오는 중 오류가 발생했습니다.',
+          variant: 'destructive',
+        })
+      }
     } finally {
-      hasLoadedOnce.current = true
-      setIsLoading(false)
       setIsRefreshing(false)
     }
-  }, [currentDate, selectedClassId, toast])
+  }, [toast])
 
-  // 클래스 로딩 완료 후 + 날짜/클래스 변경 시 데이터 리로드
+  // 초기 로드: 로스터 + 클래스가 모두 준비되면 오늘 출석기록 로드
   useEffect(() => {
-    if (!classesLoaded) return
-    loadAttendanceData()
-  }, [classesLoaded, loadAttendanceData])
+    // 이미 초기 데이터가 있으면 스킵 (SSR 데이터 사용)
+    if (initialRoster && initialRecords) {
+      setIsLoading(false)
+      return
+    }
+
+    if (!classesLoaded || !rosterLoadedRef.current) return
+
+    async function initialLoad() {
+      await loadRecordsForDate(currentDate)
+      setIsLoading(false)
+    }
+    initialLoad()
+  }, [classesLoaded, initialRoster, initialRecords]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 날짜 변경 시 출석기록만 로드
+  const prevDateRef = useRef(currentDate)
+  useEffect(() => {
+    if (prevDateRef.current === currentDate) return
+    prevDateRef.current = currentDate
+    if (!rosterLoadedRef.current) return
+    loadRecordsForDate(currentDate)
+  }, [currentDate, loadRecordsForDate])
 
   // Date Logic
   const handlePrevDay = () => {
@@ -216,7 +322,7 @@ export function AttendanceCheckPage() {
   }
 
   const handleToday = () => {
-    setCurrentDate(new Date().toISOString().split('T')[0])
+    setCurrentDate(getTodayKST())
   }
 
   const getFormattedDate = (dateStr: string) => {
@@ -269,8 +375,12 @@ export function AttendanceCheckPage() {
             : `${student.name} 학생 출석 저장에 실패했습니다.`,
           variant: 'destructive',
         })
-        // Rollback on error
-        loadAttendanceData()
+        // Rollback: 현재 날짜 캐시 무효화 후 재조회
+        recordsCacheRef.current.delete(currentDate)
+        loadRecordsForDate(currentDate)
+      } else {
+        // 저장 성공 시 현재 날짜 캐시 무효화 (다음 조회 시 fresh data)
+        recordsCacheRef.current.delete(currentDate)
       }
     })
   }
@@ -307,7 +417,10 @@ export function AttendanceCheckPage() {
             : `${student.name} 학생 자습 상태 저장에 실패했습니다.`,
           variant: 'destructive',
         })
-        loadAttendanceData()
+        recordsCacheRef.current.delete(currentDate)
+        loadRecordsForDate(currentDate)
+      } else {
+        recordsCacheRef.current.delete(currentDate)
       }
     })
   }
@@ -344,12 +457,15 @@ export function AttendanceCheckPage() {
             : `${student.name} 학생 보강 상태 저장에 실패했습니다.`,
           variant: 'destructive',
         })
-        loadAttendanceData()
+        recordsCacheRef.current.delete(currentDate)
+        loadRecordsForDate(currentDate)
+      } else {
+        recordsCacheRef.current.delete(currentDate)
       }
     })
   }
 
-  // 필터링된 학생 목록
+  // 필터링된 학생 목록 (클래스 탭 전환은 클라이언트 필터링만)
   const filteredStudents = students.filter((s) => {
     const matchesClass = !selectedClassId || s.classId === selectedClassId
     const matchesSchoolLevel =
@@ -364,7 +480,7 @@ export function AttendanceCheckPage() {
         (s.status === 'present' ||
           s.status === 'late' ||
           s.status === 'early_leave')) ||
-      (filterStatus === 'absent' && (s.status === 'absent' || s.status === null))
+      (filterStatus === 'absent' && (s.status === 'absent' || s.status === 'excused' || s.status === null))
     return matchesClass && matchesSchoolLevel && matchesSearch && matchesFilter
   })
 
@@ -426,7 +542,7 @@ export function AttendanceCheckPage() {
               출석 현황
             </p>
             <p className="text-sm font-semibold text-foreground flex items-center gap-1">
-              {isLoading || isRefreshing ? (
+              {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <>
@@ -631,12 +747,12 @@ export function AttendanceCheckPage() {
                       onClick={() => updateStatus(student, 'absent')}
                       className={cn(
                         'py-3 rounded-lg text-xs font-semibold transition-colors flex flex-col items-center justify-center gap-1',
-                        student.status === 'absent'
+                        student.status === 'absent' || student.status === 'excused'
                           ? 'bg-destructive text-destructive-foreground shadow-md'
                           : 'bg-muted text-muted-foreground border border-border'
                       )}
                     >
-                      <XCircle className="h-4 w-4" /> 결석
+                      <XCircle className="h-4 w-4" /> {student.status === 'excused' ? '사유결석' : '결석'}
                     </button>
                   </div>
 
@@ -666,7 +782,7 @@ export function AttendanceCheckPage() {
                       <PlusCircle className="h-3.5 w-3.5" /> 보강{' '}
                       {student.isMakeupClass ? 'ON' : 'OFF'}
                     </button>
-                    {(student.status === 'absent' || student.status === 'late') && (
+                    {(student.status === 'absent' || student.status === 'excused' || student.status === 'late') && (
                       <button className="flex-1 py-2 rounded-lg text-xs font-semibold bg-blue-50 text-blue-600 border border-blue-100 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-900 flex items-center justify-center gap-1.5">
                         <MessageCircle className="h-3.5 w-3.5" /> 알림
                       </button>
@@ -765,12 +881,12 @@ export function AttendanceCheckPage() {
                             onClick={() => updateStatus(student, 'absent')}
                             className={cn(
                               'px-3 py-1.5 rounded-md text-xs font-semibold transition-all',
-                              student.status === 'absent'
+                              student.status === 'absent' || student.status === 'excused'
                                 ? 'bg-card text-destructive shadow-sm ring-1 ring-border'
                                 : 'text-muted-foreground hover:text-foreground'
                             )}
                           >
-                            결석
+                            {student.status === 'excused' ? '사유결석' : '결석'}
                           </button>
                         </div>
                       </td>
@@ -799,7 +915,8 @@ export function AttendanceCheckPage() {
                             <PlusCircle className="h-3 w-3" /> 보강
                           </button>
                           {(student.status === 'late' ||
-                            student.status === 'absent') && (
+                            student.status === 'absent' ||
+                            student.status === 'excused') && (
                             <button className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-blue-600 hover:bg-blue-50 hover:border-blue-100 dark:hover:bg-blue-950/30 transition-colors">
                               <MessageCircle className="h-3.5 w-3.5" />
                             </button>

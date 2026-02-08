@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { generateMonthlyReport, saveReport } from '@/app/actions/reports'
 import { Button } from '@ui/button'
@@ -48,8 +48,7 @@ export function BulkReportsContent({ initialStudents, initialClasses }: BulkRepo
   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set())
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear())
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1)
-  const [reportType, setReportType] = useState<'monthly' | 'weekly'>('monthly')
-  const [autoSend, setAutoSend] = useState(false)
+  const [reportType] = useState<'monthly'>('monthly')
   const [generating, setGenerating] = useState(false)
   const [progress, setProgress] = useState(0)
   const [results, setResults] = useState<GenerationResult[]>([])
@@ -58,42 +57,32 @@ export function BulkReportsContent({ initialStudents, initialClasses }: BulkRepo
   const { toast } = useToast()
   const supabase = createClient()
 
-  const years = [2024, 2025, 2026]
+  const currentYear = new Date().getFullYear()
+  const years = Array.from({ length: 5 }, (_, i) => currentYear - 3 + i)
   const months = Array.from({ length: 12 }, (_, i) => i + 1)
 
-  useEffect(() => {
-    filterStudents()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedClass, classes])
-
-  async function loadAllStudents() {
-    try {
-      const { data, error } = await supabase
-        .from('students')
-        .select('id, student_code, user_id!inner(name, email)')
-        .is('deleted_at', null)
-        .order('student_code')
-
-      if (error) throw error
-      // Map user_id to users for type compatibility
-      const mappedData = data?.map(student => ({
-        ...student,
-        users: student.user_id
-      }))
-      setStudents(mappedData as unknown as Student[])
-    } catch (error) {
-      console.error('Error loading students:', error)
-    }
-  }
-
-  async function filterStudents() {
+  const filterStudents = useCallback(async () => {
     if (selectedClass === 'all') {
-      await loadAllStudents()
+      try {
+        const { data, error } = await supabase
+          .from('students')
+          .select('id, student_code, user_id!inner(name, email)')
+          .is('deleted_at', null)
+          .order('student_code')
+
+        if (error) throw error
+        const mappedData = data?.map(student => ({
+          ...student,
+          users: student.user_id
+        }))
+        setStudents(mappedData as unknown as Student[])
+      } catch (error) {
+        console.error('Error loading students:', error)
+      }
       return
     }
 
     try {
-      // Get students enrolled in selected class
       const { data: enrollments, error } = await supabase
         .from('class_enrollments')
         .select('student_id')
@@ -112,7 +101,6 @@ export function BulkReportsContent({ initialStudents, initialClasses }: BulkRepo
         .order('student_code')
 
       if (studentsError) throw studentsError
-      // Map user_id to users for type compatibility
       const mappedData = studentsData?.map(student => ({
         ...student,
         users: student.user_id
@@ -121,7 +109,11 @@ export function BulkReportsContent({ initialStudents, initialClasses }: BulkRepo
     } catch (error) {
       console.error('Error filtering students:', error)
     }
-  }
+  }, [selectedClass, supabase])
+
+  useEffect(() => {
+    filterStudents()
+  }, [filterStudents])
 
   function toggleStudent(studentId: string) {
     const newSelected = new Set(selectedStudents)
@@ -186,15 +178,6 @@ export function BulkReportsContent({ initialStudents, initialClasses }: BulkRepo
             throw new Error(saveResult.error || '리포트 저장 실패')
           }
 
-          // Auto-send if enabled
-          if (autoSend && student.users?.email) {
-            await supabase
-              .from('reports')
-              .update({ sent_at: new Date().toISOString() })
-              .eq('student_id', student.id)
-              .eq('period_start', `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`)
-          }
-
           generationResults.push({
             studentId: student.id,
             studentName: student.users?.name || '이름 없음',
@@ -250,15 +233,9 @@ export function BulkReportsContent({ initialStudents, initialClasses }: BulkRepo
             <div className="grid gap-4 md:grid-cols-3">
               <div className="space-y-2">
                 <Label>리포트 유형</Label>
-                <Select value={reportType} onValueChange={(v) => setReportType(v as 'monthly' | 'weekly')}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="monthly">월간 리포트</SelectItem>
-                    <SelectItem value="weekly">주간 리포트</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center h-10 px-3 rounded-md border bg-muted text-sm">
+                  월간 리포트
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -294,16 +271,9 @@ export function BulkReportsContent({ initialStudents, initialClasses }: BulkRepo
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="autoSend"
-                checked={autoSend}
-                onCheckedChange={(checked) => setAutoSend(checked as boolean)}
-              />
-              <Label htmlFor="autoSend" className="cursor-pointer">
-                생성 후 자동으로 보호자에게 전송 (이메일이 등록된 학생만)
-              </Label>
-            </div>
+            <p className="text-sm text-muted-foreground">
+              생성된 리포트는 리포트 목록에서 보호자에게 전송할 수 있습니다.
+            </p>
           </CardContent>
         </Card>
 
@@ -316,7 +286,7 @@ export function BulkReportsContent({ initialStudents, initialClasses }: BulkRepo
                 <CardDescription>리포트를 생성할 학생을 선택하세요</CardDescription>
               </div>
               <div className="flex items-center gap-2">
-                <Select value={selectedClass} onValueChange={setSelectedClass}>
+                <Select value={selectedClass} onValueChange={(v) => { setSelectedClass(v); setSelectedStudents(new Set()) }}>
                   <SelectTrigger className="w-[200px]">
                     <SelectValue />
                   </SelectTrigger>
@@ -447,7 +417,7 @@ export function BulkReportsContent({ initialStudents, initialClasses }: BulkRepo
           open={generateDialogOpen}
           onOpenChange={setGenerateDialogOpen}
           title="리포트를 생성하시겠습니까?"
-          description={`${selectedStudents.size}명의 학생 리포트가 생성됩니다.${autoSend ? ' 생성 후 자동으로 보호자에게 전송됩니다.' : ''}`}
+          description={`${selectedStudents.size}명의 학생 리포트가 생성됩니다.`}
           confirmText="생성"
           variant="default"
           isLoading={generating}
