@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@ui/dialog'
 import { Textarea } from '@ui/textarea'
@@ -109,13 +109,12 @@ export function SendMessageDialog({
   }
 
   // 템플릿 변경 시 내용 자동 업데이트
-  function handleTemplateChange(templateId: string) {
+  const handleTemplateChange = useCallback((templateId: string) => {
     setSelectedTemplateId(templateId)
     const template = templates.find(t => t.id === templateId)
     if (template) {
       let content = template.content
 
-      // 변수 자동 치환 (context에 있는 값으로)
       const variables = extractVariables(template.content)
       variables.forEach(variable => {
         if (context[variable]) {
@@ -125,15 +124,14 @@ export function SendMessageDialog({
 
       setMessageContent(content)
     }
-  }
+  }, [templates, context])
 
   // 초기 템플릿 설정
   useEffect(() => {
     if (templates.length > 0) {
       handleTemplateChange(selectedTemplateId)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [templates, selectedTemplateId])
+  }, [handleTemplateChange, templates, selectedTemplateId])
 
   async function handleSend() {
     if (!messageContent.trim()) {

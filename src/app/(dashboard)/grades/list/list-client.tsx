@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@ui/button'
@@ -97,24 +97,7 @@ export function GradesListClient() {
   const router = useRouter()
   const supabase = createClient()
 
-  // useEffect must be called before any early returns
-  useEffect(() => {
-    if (!userLoading && currentUser) {
-      loadStudents()
-      loadScores()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser, userLoading])
-
-  // Load student statistics when a student is selected
-  useEffect(() => {
-    if (selectedStudent !== 'all') {
-      loadStudentStats()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedStudent])
-
-  async function loadStudents() {
+  const loadStudents = useCallback(async () => {
     if (!currentUser || !currentUser.tenantId) return
 
     try {
@@ -130,15 +113,14 @@ export function GradesListClient() {
     } catch (error) {
       console.error('Error loading students:', error)
     }
-  }
+  }, [currentUser, supabase])
 
-  async function loadScores() {
+  const loadScores = useCallback(async () => {
     if (!currentUser || !currentUser.tenantId) return
 
     try {
       setLoading(true)
 
-      // Supabase에서 모든 성적 데이터 조회 (클라이언트 사이드 필터링을 위해)
       const { data: scoresData, error: scoresError } = await supabase
         .from('exam_scores')
         .select(`
@@ -181,7 +163,15 @@ export function GradesListClient() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentUser, supabase, toast])
+
+  // useEffect must be called before any early returns
+  useEffect(() => {
+    if (!userLoading && currentUser) {
+      loadStudents()
+      loadScores()
+    }
+  }, [currentUser, userLoading, loadStudents, loadScores])
 
   function getScoreBadgeVariant(percentage: number) {
     if (percentage >= 90) return 'default'
@@ -205,7 +195,7 @@ export function GradesListClient() {
     }
   }
 
-  async function loadStudentStats() {
+  const loadStudentStats = useCallback(async () => {
     if (!currentUser || !currentUser.tenantId) return
 
     try {
@@ -221,7 +211,6 @@ export function GradesListClient() {
         return
       }
 
-      // Calculate average for non-retest scores
       const nonRetestScores = data.filter(s => !s.is_retest)
       const processedScores = nonRetestScores.map((score) =>
         score.percentage ||
@@ -243,7 +232,14 @@ export function GradesListClient() {
       console.error('Error loading student stats:', error)
       setStudentStats({ average: 0, total: 0, retests: 0 })
     }
-  }
+  }, [currentUser, selectedStudent, supabase])
+
+  // Load student statistics when a student is selected
+  useEffect(() => {
+    if (selectedStudent !== 'all') {
+      loadStudentStats()
+    }
+  }, [loadStudentStats, selectedStudent])
 
   // 필터링된 데이터 (학생 및 상태 필터 적용)
   const filteredScores = useMemo(() => {

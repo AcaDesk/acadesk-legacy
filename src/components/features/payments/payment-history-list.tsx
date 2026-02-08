@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Input } from '@ui/input'
 import { Badge } from '@ui/badge'
@@ -74,17 +74,7 @@ export function PaymentHistoryList({ month }: PaymentHistoryListProps) {
     itemsPerPage,
   })
 
-  useEffect(() => {
-    loadPayments()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, searchTerm, methodFilter, month])
-
-  useEffect(() => {
-    resetPage()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, methodFilter, month])
-
-  async function loadPayments() {
+  const loadPayments = useCallback(async () => {
     try {
       setLoading(true)
 
@@ -165,7 +155,15 @@ export function PaymentHistoryList({ month }: PaymentHistoryListProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [searchTerm, methodFilter, month, toast])
+
+  useEffect(() => {
+    loadPayments()
+  }, [loadPayments, currentPage])
+
+  useEffect(() => {
+    resetPage()
+  }, [searchTerm, methodFilter, month, resetPage])
 
   function getPaymentMethodBadge(method: PaymentMethod) {
     switch (method) {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
@@ -51,7 +51,6 @@ interface NotificationsContentProps {
 
 export function NotificationsContent({ initialLogs, initialBalance }: NotificationsContentProps) {
   const [logs, setLogs] = useState<NotificationLog[]>(initialLogs)
-  const [filteredLogs, setFilteredLogs] = useState<NotificationLog[]>(initialLogs)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterType, setFilterType] = useState<'all' | 'sms' | 'lms' | 'kakao'>('all')
   const [filterStatus, setFilterStatus] = useState<'all' | 'sent' | 'failed'>('all')
@@ -64,10 +63,36 @@ export function NotificationsContent({ initialLogs, initialBalance }: Notificati
   const { toast } = useToast()
   const supabase = createClient()
 
-  useEffect(() => {
-    filterLogs()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, filterType, filterStatus, logs])
+  const filteredLogs = useMemo(() => {
+    let filtered = logs
+
+    if (filterType !== 'all') {
+      filtered = filtered.filter((log) => log.notification_type === filterType)
+    }
+
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter((log) => log.status === filterStatus)
+    }
+
+    if (searchTerm) {
+      filtered = filtered.filter((log) => {
+        const studentName = log.students?.users?.name?.toLowerCase() || ''
+        const studentCode = log.students?.student_code?.toLowerCase() || ''
+        const message = log.message?.toLowerCase() || ''
+        const phone = log.students?.users?.phone?.toLowerCase() || ''
+        const search = searchTerm.toLowerCase()
+
+        return (
+          studentName.includes(search) ||
+          studentCode.includes(search) ||
+          message.includes(search) ||
+          phone.includes(search)
+        )
+      })
+    }
+
+    return filtered
+  }, [logs, filterType, filterStatus, searchTerm])
 
   async function loadNotificationLogs() {
     try {
@@ -121,40 +146,6 @@ export function NotificationsContent({ initialLogs, initialBalance }: Notificati
     } finally {
       setBalanceLoading(false)
     }
-  }
-
-  function filterLogs() {
-    let filtered = logs
-
-    // Type filter
-    if (filterType !== 'all') {
-      filtered = filtered.filter((log) => log.notification_type === filterType)
-    }
-
-    // Status filter
-    if (filterStatus !== 'all') {
-      filtered = filtered.filter((log) => log.status === filterStatus)
-    }
-
-    // Search filter
-    if (searchTerm) {
-      filtered = filtered.filter((log) => {
-        const studentName = log.students?.users?.name?.toLowerCase() || ''
-        const studentCode = log.students?.student_code?.toLowerCase() || ''
-        const message = log.message?.toLowerCase() || ''
-        const phone = log.students?.users?.phone?.toLowerCase() || ''
-        const search = searchTerm.toLowerCase()
-
-        return (
-          studentName.includes(search) ||
-          studentCode.includes(search) ||
-          message.includes(search) ||
-          phone.includes(search)
-        )
-      })
-    }
-
-    setFilteredLogs(filtered)
   }
 
   function getStatusBadge(status: string) {

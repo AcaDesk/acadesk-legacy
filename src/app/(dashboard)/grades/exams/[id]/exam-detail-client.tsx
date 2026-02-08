@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
@@ -230,14 +230,7 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
     }
   }
 
-  useEffect(() => {
-    if (currentUser && currentUser.tenantId) {
-      loadStudents()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exam.id, currentUser])
-
-  async function loadStudents() {
+  const loadStudents = useCallback(async () => {
     if (!currentUser || !currentUser.tenantId) {
       setLoading(false)
       return
@@ -246,7 +239,6 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
     try {
       setLoading(true)
 
-      // Get students who have scores for this exam
       const { data: scoreRecords, error } = await supabase
         .from('exam_scores')
         .select(`
@@ -299,7 +291,13 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentUser, exam.id, supabase, toast])
+
+  useEffect(() => {
+    if (currentUser && currentUser.tenantId) {
+      loadStudents()
+    }
+  }, [loadStudents, currentUser])
 
   function handleRemoveClick(studentId: string, studentName: string) {
     const score = scores.get(studentId)

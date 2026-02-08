@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@ui/button'
@@ -84,7 +84,6 @@ const PRIORITY_CONFIG = {
 export default function TodoTemplatesPage() {
   // All Hooks must be called before any early returns
   const [templates, setTemplates] = useState<TodoTemplate[]>([])
-  const [filteredTemplates, setFilteredTemplates] = useState<TodoTemplate[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(true)
   const [selectedTemplate, setSelectedTemplate] = useState<TodoTemplate | null>(null)
@@ -109,51 +108,9 @@ export default function TodoTemplatesPage() {
   const router = useRouter()
   const supabase = createClient()
   const { user: currentUser } = useCurrentUser()
-  const [tenantId, setTenantId] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (currentUser) {
-      loadTenantId()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser])
-
-  useEffect(() => {
-    if (tenantId) {
-      loadTemplates()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantId])
-
-  useEffect(() => {
-    filterTemplates()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, templates, statusFilter, priorityFilter, dayFilter])
-
-  async function loadTenantId() {
-    if (!currentUser) return
-
-    try {
-      const { data } = await supabase
-        .from('users')
-        .select('tenant_id')
-        .eq('id', currentUser.id)
-        .single()
-
-      if (data?.tenant_id) {
-        setTenantId(data.tenant_id)
-      }
-    } catch (error) {
-      toast({
-        title: '초기화 오류',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    }
-  }
-
-  async function loadTemplates() {
-    if (!tenantId) return
+  const loadTemplates = useCallback(async () => {
+    if (!currentUser?.tenantId) return
 
     try {
       setLoading(true)
@@ -177,7 +134,6 @@ export default function TodoTemplatesPage() {
       }))
 
       setTemplates(mapped)
-      setFilteredTemplates(mapped)
     } catch (error) {
       toast({
         title: '데이터 로드 오류',
@@ -187,12 +143,17 @@ export default function TodoTemplatesPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentUser?.tenantId, toast])
 
-  function filterTemplates() {
+  useEffect(() => {
+    if (currentUser?.tenantId) {
+      loadTemplates()
+    }
+  }, [loadTemplates, currentUser?.tenantId])
+
+  const filteredTemplates = useMemo(() => {
     let filtered = templates
 
-    // Search filter
     if (searchTerm) {
       filtered = filtered.filter((template) => {
         const title = template.title?.toLowerCase() || ''
@@ -204,27 +165,24 @@ export default function TodoTemplatesPage() {
       })
     }
 
-    // Status filter
     if (statusFilter !== 'all') {
       filtered = filtered.filter((t) =>
         statusFilter === 'active' ? t.active : !t.active
       )
     }
 
-    // Priority filter
     if (priorityFilter !== 'all') {
       filtered = filtered.filter((t) => t.priority === priorityFilter)
     }
 
-    // Day filter
     if (dayFilter !== 'all') {
       filtered = filtered.filter((t) =>
         t.day_of_week !== null && t.day_of_week.toString() === dayFilter
       )
     }
 
-    setFilteredTemplates(filtered)
-  }
+    return filtered
+  }, [templates, searchTerm, statusFilter, priorityFilter, dayFilter])
 
   function clearFilters() {
     setSearchTerm('')
@@ -305,7 +263,7 @@ export default function TodoTemplatesPage() {
   }
 
   async function handleConfirmGenerate() {
-    if (!tenantId || !templateToGenerate) return
+    if (!currentUser?.tenantId || !templateToGenerate) return
 
     setIsGenerating(true)
     try {

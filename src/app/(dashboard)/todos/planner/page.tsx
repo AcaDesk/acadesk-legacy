@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
@@ -106,22 +106,13 @@ export default function WeeklyPlannerPage() {
   const { toast } = useToast()
   const supabase = createClient()
   const { user: currentUser } = useCurrentUser()
-  const [tenantId, setTenantId] = useState<string | null>(null)
 
   useEffect(() => {
-    if (currentUser) {
-      loadTenantId()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser])
-
-  useEffect(() => {
-    if (tenantId) {
+    if (currentUser?.tenantId) {
       loadStudents()
       loadTemplates()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantId])
+  }, [currentUser?.tenantId]) // eslint-disable-line react-hooks/exhaustive-deps -- initial load only
 
   // Filter and paginate students
   useEffect(() => {
@@ -142,30 +133,8 @@ export default function WeeklyPlannerPage() {
     setCurrentPage(1)
   }, [students, searchTerm])
 
-  async function loadTenantId() {
-    if (!currentUser) return
-
-    try {
-      const { data } = await supabase
-        .from('users')
-        .select('tenant_id')
-        .eq('id', currentUser.id)
-        .single()
-
-      if (data?.tenant_id) {
-        setTenantId(data.tenant_id)
-      }
-    } catch (error) {
-      toast({
-        title: '초기화 오류',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    }
-  }
-
   async function loadStudents() {
-    if (!tenantId) return
+    if (!currentUser?.tenantId) return
 
     try {
       const result = await getStudents()
@@ -194,7 +163,7 @@ export default function WeeklyPlannerPage() {
   }
 
   async function loadTemplates() {
-    if (!tenantId) return
+    if (!currentUser?.tenantId) return
 
     try {
       const result = await getTodoTemplates()
@@ -390,7 +359,7 @@ export default function WeeklyPlannerPage() {
   }
 
   async function publishWeeklyPlan() {
-    if (!tenantId) return
+    if (!currentUser?.tenantId) return
     if (plannedTodos.length === 0) {
       toast({
         title: '과제 없음',
