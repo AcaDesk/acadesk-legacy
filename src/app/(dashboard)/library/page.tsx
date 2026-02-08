@@ -77,10 +77,10 @@ export default function LibraryPage() {
                 교재 및 도서 대여, 진도 관리를 한 곳에서
               </p>
             </div>
-            <Link href="/library/materials/new">
+            <Link href="/library/materials">
               <Button className="gap-2">
                 <Plus className="h-4 w-4" />
-                새 교재 등록
+                도서 목록 관리
               </Button>
             </Link>
           </div>
