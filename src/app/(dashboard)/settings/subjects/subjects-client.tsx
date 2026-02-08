@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { PageWrapper } from '@/components/layout/page-wrapper'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
@@ -291,17 +290,17 @@ export function SubjectsClient({ initialSubjects }: SubjectsClientProps) {
   }, [subjects, statusFilter, searchTerm])
 
   return (
-    <PageWrapper
-      title="과목 관리"
-      subtitle="학원의 과목을 등록하고 관리합니다"
-      icon={<BookOpen className="w-6 h-6" />}
-      actions={
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-semibold">과목 관리</h2>
+          <p className="text-sm text-muted-foreground">학원의 과목을 등록하고 관리합니다</p>
+        </div>
         <Button onClick={() => setIsAddModalOpen(true)}>
           <Plus className="w-4 h-4 mr-2" />
           과목 추가
         </Button>
-      }
-    >
+      </div>
       <Card>
         <CardHeader>
           <CardTitle>등록된 과목</CardTitle>
@@ -754,6 +753,6 @@ export function SubjectsClient({ initialSubjects }: SubjectsClientProps) {
         isLoading={isDeleting}
         onConfirm={handleConfirmDelete}
       />
-    </PageWrapper>
+    </div>
   )
 }

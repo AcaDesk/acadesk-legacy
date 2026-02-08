@@ -1,4 +1,3 @@
-import { PageWrapper } from '@/components/layout/page-wrapper'
 import { requireAuth } from '@/lib/auth/helpers'
 import { MessagingIntegrationClient } from './messaging-integration-client'
 import { getMessagingConfig } from '@/app/actions/messaging-config'
@@ -13,7 +12,6 @@ export const metadata: Metadata = {
 export default async function MessagingIntegrationPage() {
   await requireAuth()
 
-  // Fetch current configuration
   const [messagingResult, kakaoResult] = await Promise.all([
     getMessagingConfig(),
     getKakaoChannelConfig(),
@@ -22,9 +20,5 @@ export default async function MessagingIntegrationPage() {
   const config = messagingResult.success && messagingResult.data ? messagingResult.data : null
   const kakaoConfig = kakaoResult.success ? kakaoResult.data : null
 
-  return (
-    <PageWrapper>
-      <MessagingIntegrationClient config={config} kakaoChannelConfig={kakaoConfig} />
-    </PageWrapper>
-  )
+  return <MessagingIntegrationClient config={config} kakaoChannelConfig={kakaoConfig} />
 }

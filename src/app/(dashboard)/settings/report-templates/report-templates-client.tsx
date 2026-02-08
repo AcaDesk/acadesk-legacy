@@ -226,8 +226,8 @@ export function ReportTemplatesClient({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">리포트 템플릿 관리</h1>
-          <p className="text-muted-foreground">
+          <h2 className="text-xl font-semibold">리포트 템플릿 관리</h2>
+          <p className="text-sm text-muted-foreground">
             리포트 코멘트 작성 시 사용할 템플릿을 관리합니다.
           </p>
         </div>

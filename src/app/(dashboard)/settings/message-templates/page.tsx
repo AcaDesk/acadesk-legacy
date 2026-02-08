@@ -1,4 +1,3 @@
-import { PageWrapper } from '@/components/layout/page-wrapper'
 import { requireAuth } from '@/lib/auth/helpers'
 import { MessageTemplatesClient } from './message-templates-client'
 import { getMessageTemplates } from '@/app/actions/messages'
@@ -10,16 +9,10 @@ export const metadata: Metadata = {
 }
 
 export default async function MessageTemplatesPage() {
-  // Verify authentication
   await requireAuth()
 
-  // Fetch templates from database
   const result = await getMessageTemplates()
   const templates = result.success && result.data ? result.data : []
 
-  return (
-    <PageWrapper>
-      <MessageTemplatesClient templates={templates} />
-    </PageWrapper>
-  )
+  return <MessageTemplatesClient templates={templates} />
 }
