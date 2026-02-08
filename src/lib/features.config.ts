@@ -48,7 +48,7 @@ export const FEATURES = {
   consultationManagement: 'active' as FeatureStatus,
 
   /** 도서관 (도서 대여) */
-  libraryManagement: 'inactive' as FeatureStatus,
+  libraryManagement: 'active' as FeatureStatus,
 
   /** 리포트 (학습 리포트) */
   reportManagement: 'active' as FeatureStatus,

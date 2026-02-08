@@ -37,7 +37,7 @@ export function BookLendingsClient({ initialLendings }: BookLendingsClientProps)
 
   // Calculate stats
   const stats = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0]
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
     return {
       total: lendings.length,
       active: lendings.filter((l) => !l.returned_at).length,
@@ -49,7 +49,7 @@ export function BookLendingsClient({ initialLendings }: BookLendingsClientProps)
   // Filter lendings
   const filteredLendings = useMemo(() => {
     let filtered = lendings
-    const today = new Date().toISOString().split('T')[0]
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
 
     // Status filter
     if (filterStatus === 'active') {
@@ -95,7 +95,7 @@ export function BookLendingsClient({ initialLendings }: BookLendingsClientProps)
       setLendings((prev) =>
         prev.map((l) =>
           l.id === lendingId
-            ? { ...l, returned_at: new Date().toISOString().split('T')[0] }
+            ? { ...l, returned_at: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }) }
             : l
         )
       )
@@ -116,7 +116,7 @@ export function BookLendingsClient({ initialLendings }: BookLendingsClientProps)
 
   async function handleSendReminder(lending: BookLending) {
     try {
-      const result = await sendReminder(lending)
+      const result = await sendReminder(lending.id)
 
       if (!result.success) {
         throw new Error(result.error || '알림 전송 실패')
@@ -146,7 +146,7 @@ export function BookLendingsClient({ initialLendings }: BookLendingsClientProps)
   }
 
   function handleBulkReminderClick() {
-    const today = new Date().toISOString().split('T')[0]
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
     const overdueLendings = lendings.filter(
       (l) => !l.returned_at && l.due_date < today && !l.reminder_sent_at
     )
@@ -163,7 +163,7 @@ export function BookLendingsClient({ initialLendings }: BookLendingsClientProps)
   }
 
   async function handleConfirmBulkReminder() {
-    const today = new Date().toISOString().split('T')[0]
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
     const overdueLendings = lendings.filter(
       (l) => !l.returned_at && l.due_date < today && !l.reminder_sent_at
     )
@@ -171,7 +171,7 @@ export function BookLendingsClient({ initialLendings }: BookLendingsClientProps)
     setIsSendingBulkReminder(true)
 
     try {
-      const result = await sendBulkReminder(overdueLendings)
+      const result = await sendBulkReminder(overdueLendings.map((l) => l.id))
 
       if (!result.success) {
         throw new Error(result.error || '일괄 알림 전송 실패')
@@ -213,7 +213,7 @@ export function BookLendingsClient({ initialLendings }: BookLendingsClientProps)
       )
     }
 
-    const today = new Date().toISOString().split('T')[0]
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
     const isOverdue = lending.due_date < today
 
     if (isOverdue) {
