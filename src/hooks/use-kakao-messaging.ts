@@ -8,7 +8,7 @@
 
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { getKakaoChannelConfig } from '@/app/actions/kakao-channel'
 import { getKakaoTemplates, type KakaoTemplate } from '@/app/actions/kakao-templates'
 
@@ -50,11 +50,16 @@ export function useKakaoMessaging(
   const [templates, setTemplates] = useState<KakaoTemplate[]>([])
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(false)
 
+  // Refs for in-flight guards (avoid stale closure issues)
+  const checkingRef = useRef(false)
+  const loadingTemplatesRef = useRef(false)
+
   /**
    * 카카오 채널 연동 상태 확인
    */
   const checkChannel = useCallback(async (): Promise<boolean> => {
-    if (isCheckingChannel) return hasKakaoChannel
+    if (checkingRef.current) return false
+    checkingRef.current = true
 
     setIsCheckingChannel(true)
     try {
@@ -70,14 +75,16 @@ export function useKakaoMessaging(
     } finally {
       setIsChannelChecked(true)
       setIsCheckingChannel(false)
+      checkingRef.current = false
     }
-  }, [isCheckingChannel, hasKakaoChannel])
+  }, [])
 
   /**
    * 알림톡 템플릿 목록 로드
    */
   const loadTemplates = useCallback(async (): Promise<KakaoTemplate[]> => {
-    if (isLoadingTemplates) return templates
+    if (loadingTemplatesRef.current) return []
+    loadingTemplatesRef.current = true
 
     setIsLoadingTemplates(true)
     try {
@@ -95,8 +102,9 @@ export function useKakaoMessaging(
       return []
     } finally {
       setIsLoadingTemplates(false)
+      loadingTemplatesRef.current = false
     }
-  }, [isLoadingTemplates, templates, approvedOnly])
+  }, [approvedOnly])
 
   /**
    * 상태 초기화

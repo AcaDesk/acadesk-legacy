@@ -13,7 +13,7 @@ import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
-import { SolapiProvider } from '@/infra/messaging/SolapiProvider'
+import { getSolapiProvider } from '@/lib/messaging/get-solapi-provider'
 import type { KakaoChannel, KakaoChannelCategory } from '@/infra/messaging/types/kakao.types'
 
 // ============================================================================
@@ -54,37 +54,6 @@ const fallbackSettingsSchema = z.object({
 // ============================================================================
 // Helper Functions
 // ============================================================================
-
-/**
- * Get SolapiProvider instance with tenant config
- */
-async function getSolapiProvider(tenantId: string): Promise<SolapiProvider | null> {
-  const supabase = createServiceRoleClient()
-
-  const { data: config, error } = await supabase
-    .from('tenant_messaging_config')
-    .select('provider, solapi_api_key, solapi_api_secret, solapi_sender_phone')
-    .eq('tenant_id', tenantId)
-    .eq('provider', 'solapi')
-    .is('deleted_at', null)
-    .maybeSingle()
-
-  if (error || !config) {
-    console.error('[getSolapiProvider] Config not found or error:', error)
-    return null
-  }
-
-  if (!config.solapi_api_key || !config.solapi_api_secret) {
-    console.error('[getSolapiProvider] Missing Solapi credentials')
-    return null
-  }
-
-  return new SolapiProvider({
-    apiKey: config.solapi_api_key,
-    apiSecret: config.solapi_api_secret,
-    senderPhone: config.solapi_sender_phone || '',
-  })
-}
 
 function normalizeSearchIdWithAt(searchId: string): string {
   const trimmed = searchId.trim()
@@ -347,6 +316,30 @@ export async function createKakaoChannel(
       }
     }
 
+    // "이미 등록된 채널" 에러 시 기존 채널을 조회하여 복구
+    if (!channel && lastError) {
+      const errorMessage = getErrorMessage(lastError)
+      if (
+        errorMessage.includes('already') ||
+        errorMessage.includes('Already') ||
+        errorMessage.includes('이미 등록') ||
+        errorMessage.includes('ChannelAlreadyRegistered')
+      ) {
+        try {
+          const existingChannels = await provider.getKakaoChannels()
+          const existing = existingChannels.find((ch) =>
+            candidates.some((c) => ch.searchId === c || ch.searchId === `@${c}` || `@${ch.searchId}` === c)
+          )
+          if (existing) {
+            console.info('[createKakaoChannel] Recovered already-registered channel:', existing.channelId)
+            channel = existing
+          }
+        } catch (recoveryError) {
+          console.error('[createKakaoChannel] Recovery lookup failed:', recoveryError)
+        }
+      }
+    }
+
     if (!channel) {
       throw lastError || new Error('채널 연동 실패')
     }
@@ -367,7 +360,10 @@ export async function createKakaoChannel(
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
 
-    if (updateError) throw updateError
+    if (updateError) {
+      console.error('[createKakaoChannel] DB update failed, but Solapi channel created:', updateError)
+      // DB 실패해도 channel 정보는 반환 → 클라이언트에서 재시도하면 기존 채널 조회 가능
+    }
 
     revalidatePath('/settings/messaging-integration')
 

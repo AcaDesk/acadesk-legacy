@@ -8,13 +8,15 @@ import { Input } from '@ui/input'
 import { PhoneInput } from '@ui/phone-input'
 import { Label } from '@ui/label'
 import { Alert, AlertDescription } from '@ui/alert'
+import { Popover, PopoverContent, PopoverTrigger } from '@ui/popover'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@ui/select'
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@ui/command'
 import {
   MessageCircle,
   ArrowRight,
@@ -26,7 +28,9 @@ import {
   RefreshCw,
   FileText,
   ExternalLink,
+  ChevronsUpDown,
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import {
   requestKakaoChannelToken,
@@ -55,6 +59,7 @@ export function KakaoChannelRegistration({
   const [categories, setCategories] = useState<KakaoChannelCategory[]>([])
   const [loadingCategories, setLoadingCategories] = useState(false)
   const [categoryLoadError, setCategoryLoadError] = useState<string | null>(null)
+  const [categoryOpen, setCategoryOpen] = useState(false)
 
   // Form data
   const [searchId, setSearchId] = useState('')
@@ -135,6 +140,13 @@ export function KakaoChannelRegistration({
   useEffect(() => {
     loadCategories()
   }, [loadCategories])
+
+  // Retry category loading when entering Step 2 if categories are empty
+  useEffect(() => {
+    if (step === 2 && categories.length === 0 && !loadingCategories) {
+      loadCategories()
+    }
+  }, [step, categories.length, loadingCategories, loadCategories])
 
   // Step 1: Request token
   async function handleRequestToken() {
@@ -370,7 +382,7 @@ export function KakaoChannelRegistration({
             </div>
 
             <div className="flex justify-end">
-              <Button onClick={handleRequestToken} disabled={isLoading || !!phoneError}>
+              <Button onClick={handleRequestToken} disabled={isLoading || !!phoneError || !!searchIdWarning || !searchId.trim() || !phoneNumber.trim()}>
                 {isLoading ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
@@ -410,29 +422,53 @@ export function KakaoChannelRegistration({
               </div>
 
               <div>
-                <Label htmlFor="category">채널 카테고리 *</Label>
-                <Select value={categoryCode} onValueChange={setCategoryCode}>
-                  <SelectTrigger className="mt-2">
-                    <SelectValue placeholder="카테고리 선택" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {loadingCategories ? (
-                      <SelectItem value="loading" disabled>
-                        로딩 중...
-                      </SelectItem>
-                    ) : categories.length === 0 ? (
-                      <SelectItem value="none" disabled>
-                        카테고리 없음
-                      </SelectItem>
-                    ) : (
-                      categories.map((cat) => (
-                        <SelectItem key={cat.code} value={cat.code}>
-                          {cat.name}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
+                <Label>채널 카테고리 *</Label>
+                <Popover open={categoryOpen} onOpenChange={setCategoryOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={categoryOpen}
+                      className="mt-2 w-full justify-between font-normal"
+                      disabled={loadingCategories}
+                    >
+                      {loadingCategories
+                        ? '로딩 중...'
+                        : categoryCode
+                          ? categories.find((c) => c.code === categoryCode)?.name ?? '카테고리 선택'
+                          : '카테고리 검색 및 선택'}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="카테고리 검색..." />
+                      <CommandList>
+                        <CommandEmpty>검색 결과가 없습니다</CommandEmpty>
+                        <CommandGroup>
+                          {categories.map((cat) => (
+                            <CommandItem
+                              key={cat.code}
+                              value={cat.name}
+                              onSelect={() => {
+                                setCategoryCode(cat.code)
+                                setCategoryOpen(false)
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  'mr-2 h-4 w-4',
+                                  categoryCode === cat.code ? 'opacity-100' : 'opacity-0'
+                                )}
+                              />
+                              {cat.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
                 {categoryLoadError ? (
                   <div className="flex items-center gap-2 mt-1">
                     <p className="text-xs text-destructive">{categoryLoadError}</p>
@@ -457,11 +493,15 @@ export function KakaoChannelRegistration({
             </div>
 
             <div className="flex justify-between">
-              <Button variant="outline" onClick={() => setStep(1)}>
+              <Button variant="outline" onClick={() => {
+                setToken('')
+                setCategoryCode('')
+                setStep(1)
+              }}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 이전
               </Button>
-              <Button onClick={handleCreateChannel} disabled={isLoading}>
+              <Button onClick={handleCreateChannel} disabled={isLoading || !token.trim() || !categoryCode}>
                 {isLoading ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : (

@@ -244,10 +244,20 @@ export async function sendAlimtalk({
       throw new Error('승인된 템플릿만 발송할 수 있습니다. 현재 상태: ' + template.status)
     }
 
-    // 6. Determine SMS fallback setting
-    // Priority: function param > manual fallback disabled > auto fallback disabled
+    // 6. Validate template variables
+    const requiredVars = (template.content.match(/#{([^}]+)}/g) || [])
+      .map((m: string) => m.slice(2, -1))
+    if (requiredVars.length > 0) {
+      const missingVars = requiredVars.filter((v: string) => !variables?.[v])
+      if (missingVars.length > 0) {
+        throw new Error(`템플릿 변수가 누락되었습니다: ${missingVars.join(', ')}`)
+      }
+    }
+
+    // 7. Determine SMS fallback setting
+    // Priority: function param > tenant config (kakao_sms_fallback_enabled)
     let shouldDisableSms = disableSms ?? false
-    if (!shouldDisableSms && config.kakao_manual_fallback_enabled === false && config.kakao_sms_fallback_enabled === false) {
+    if (!shouldDisableSms && config.kakao_sms_fallback_enabled === false) {
       shouldDisableSms = true
     }
 

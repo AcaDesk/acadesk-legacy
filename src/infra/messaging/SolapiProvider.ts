@@ -705,7 +705,6 @@ export class SolapiProvider implements IMessageProvider {
           messageId: `TEST_ATA_${Date.now()}`,
           groupId: `TEST_GROUP_${Date.now()}`,
           cost: 10,
-          fallbackToSms: false,
         }
       }
 
@@ -744,15 +743,11 @@ export class SolapiProvider implements IMessageProvider {
         }
       }
 
-      // SMS fallback 발생 여부 확인 (실제로는 발송 후 상태 조회 필요)
-      const fallbackToSms = false // TODO: 실제 발송 결과에서 확인
-
       return {
         success: true,
         messageId: groupId,
         groupId,
         cost: 10, // 알림톡 비용 (예상)
-        fallbackToSms,
       }
     } catch (error) {
       console.error('[SolapiProvider.sendAlimtalk] Error:', error)
