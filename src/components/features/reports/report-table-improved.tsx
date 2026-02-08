@@ -221,7 +221,7 @@ export function ReportTableImproved({
         )
       },
       cell: ({ row }) => {
-        const rate = row.original.content.attendance.rate
+        const rate = row.original.content?.attendance?.rate ?? 0
         return (
           <div className="text-center">
             <Badge
@@ -239,8 +239,8 @@ export function ReportTableImproved({
         )
       },
       sortingFn: (rowA, rowB) => {
-        const rateA = rowA.original.content.attendance.rate
-        const rateB = rowB.original.content.attendance.rate
+        const rateA = rowA.original.content?.attendance?.rate ?? 0
+        const rateB = rowB.original.content?.attendance?.rate ?? 0
         return rateA - rateB
       },
     },
@@ -259,7 +259,8 @@ export function ReportTableImproved({
         )
       },
       cell: ({ row }) => {
-        const scoresWithData = row.original.content.scores.filter((s) => s.current !== null)
+        const scores = row.original.content?.scores ?? []
+        const scoresWithData = scores.filter((s) => s.current !== null)
         const avgScore = scoresWithData.length > 0
           ? Math.round(
               scoresWithData.reduce((sum, s) => sum + (s.current || 0), 0) /
@@ -285,7 +286,8 @@ export function ReportTableImproved({
       },
       sortingFn: (rowA, rowB) => {
         const getAvgScore = (report: ReportWithStudent) => {
-          const scoresWithData = report.content.scores.filter((s) => s.current !== null)
+          const scores = report.content?.scores ?? []
+          const scoresWithData = scores.filter((s) => s.current !== null)
           return scoresWithData.length > 0
             ? scoresWithData.reduce((sum, s) => sum + (s.current || 0), 0) / scoresWithData.length
             : 0
@@ -358,6 +360,8 @@ export function ReportTableImproved({
             <Button
               variant="ghost"
               size="icon"
+              disabled
+              title="다운로드 기능 준비 중"
               onClick={(e) => e.stopPropagation()}
             >
               <Download className="h-4 w-4" />

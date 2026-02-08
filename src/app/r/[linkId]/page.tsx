@@ -163,6 +163,7 @@ export default async function ReportSharePage({ params }: PageProps) {
       recipientName={reportSend.recipient_name || undefined}
       linkExpiresAt={reportSend.link_expires_at}
       academyName={academyName}
+      reportType={report.report_type}
     />
   )
 }
