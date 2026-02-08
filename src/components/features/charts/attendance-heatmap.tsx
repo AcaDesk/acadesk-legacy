@@ -121,29 +121,29 @@ export function AttendanceHeatmap({
           )}
         </div>
       </CardHeader>
-      <CardContent className={compact ? 'px-4 pb-4' : ''}>
+      <CardContent className={compact ? 'px-4 pb-4 pt-0' : ''}>
         {/* 요일 헤더 */}
-        <div className={cn('mb-1 grid grid-cols-7', compact ? 'gap-1' : 'gap-2 mb-2')}>
+        <div className={cn('grid grid-cols-7', compact ? 'gap-0.5 mb-0.5' : 'gap-2 mb-2')}>
           {['일', '월', '화', '수', '목', '금', '토'].map((day) => (
-            <div key={day} className={cn('text-center font-medium text-muted-foreground', compact ? 'text-[10px]' : 'text-xs')}>
+            <div key={day} className={cn('text-center font-medium text-muted-foreground', compact ? 'text-[10px] leading-4' : 'text-xs')}>
               {day}
             </div>
           ))}
         </div>
 
         {/* 달력 그리드 */}
-        <div className={cn('grid grid-cols-7', compact ? 'gap-1' : 'gap-2')}>
+        <div className={cn('grid grid-cols-7', compact ? 'gap-0.5' : 'gap-2')}>
           {calendarDays.map((day, index) => {
             if (!day) {
-              return <div key={`empty-${index}`} className="aspect-square" />
+              return <div key={`empty-${index}`} className={compact ? 'h-6' : 'aspect-square'} />
             }
 
             return (
               <div
                 key={day.date.toISOString()}
                 className={cn(
-                  'group relative flex aspect-square items-center justify-center font-medium transition-colors cursor-pointer',
-                  compact ? 'rounded text-[10px]' : 'rounded-md text-xs',
+                  'group relative flex items-center justify-center font-medium transition-colors cursor-pointer',
+                  compact ? 'h-6 rounded-sm text-[10px]' : 'aspect-square rounded-md text-xs',
                   statusColors[day.status]
                 )}
                 title={`${day.date.getDate()}일 - ${statusLabels[day.status]}${day.note ? `: ${day.note}` : ''}`}
