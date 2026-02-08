@@ -15,6 +15,7 @@ interface ReportShareViewerProps {
   recipientName?: string
   linkExpiresAt?: string | null
   academyName: string
+  reportType?: string
 }
 
 // NOTE: PDF generation removed - see ReportPdfDocument.tsx if needed
@@ -50,7 +51,9 @@ export function ReportShareViewer(props: ReportShareViewerProps) {
     <div className="min-h-screen bg-muted/20 py-4 sm:py-8 px-3 sm:px-4">
       <div className="max-w-5xl mx-auto space-y-6">
         <div className="text-center space-y-2">
-          <h1 className="text-2xl sm:text-3xl font-bold text-primary">월간 리포트</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-primary">
+            {props.reportType === 'weekly' ? '주간' : props.reportType === 'quarterly' ? '분기' : '월간'} 리포트
+          </h1>
           <p className="text-sm text-muted-foreground">{periodStartFormatted} ~ {periodEndFormatted}</p>
         </div>
 
