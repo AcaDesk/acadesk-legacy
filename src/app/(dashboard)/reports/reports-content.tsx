@@ -1,28 +1,22 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
-import { Plus, Users, FileText, Calendar, Send, Clock, Settings2, Wrench, RefreshCw, ExternalLink } from 'lucide-react'
+import { Plus, Users, Send } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import type { ReportWithStudent, StudentForFilter } from '@/core/types/report.types'
 import { AlertTriangle } from 'lucide-react'
 import { classifyReportSendError, type ReportSendErrorInfo } from '@/lib/report-send-errors'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@ui/dialog'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import { ReportTableImproved } from '@/components/features/reports/report-table-improved'
-import { createClient } from '@/lib/supabase/client'
+import { ReportErrorDialog, ReportBulkErrorDialog } from '@/components/features/reports/report-error-dialog'
+import { ReportStatCards } from '@/components/features/reports/report-stat-cards'
+import { getReports, deleteReport, deleteReports } from '@/app/actions/reports'
 
 interface ReportsContentProps {
   initialReports: ReportWithStudent[]
@@ -51,6 +45,7 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
   const [bulkSendDialogOpen, setBulkSendDialogOpen] = useState(false)
   const [reportsToSend, setReportsToSend] = useState<ReportWithStudent[]>([])
   const [isBulkSending, setIsBulkSending] = useState(false)
+  const [bulkSendProgress, setBulkSendProgress] = useState({ current: 0, total: 0 })
   const [errorDialogOpen, setErrorDialogOpen] = useState(false)
   const [errorInfo, setErrorInfo] = useState<ReportSendErrorInfo | null>(null)
   const [failedReportName, setFailedReportName] = useState<string>('')
@@ -59,19 +54,66 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
 
   const { toast } = useToast()
   const router = useRouter()
-  const supabase = createClient()
+
+  // Helper function to determine school level from grade
+  function getSchoolLevel(grade: string): 'elementary' | 'middle' | 'high' | 'unknown' {
+    if (!grade) return 'unknown'
+    const normalizedGrade = grade.toLowerCase().trim()
+
+    if (normalizedGrade.startsWith('초') || normalizedGrade.includes('초등')) return 'elementary'
+    if (normalizedGrade.startsWith('중') || normalizedGrade.includes('중학')) return 'middle'
+    if (normalizedGrade.startsWith('고') || normalizedGrade.includes('고등')) return 'high'
+
+    const gradeNum = parseInt(normalizedGrade.replace(/[^0-9]/g, ''))
+    if (!isNaN(gradeNum)) {
+      if (gradeNum >= 1 && gradeNum <= 6) return 'elementary'
+      if (gradeNum >= 7 && gradeNum <= 9) return 'middle'
+      if (gradeNum >= 10 && gradeNum <= 12) return 'high'
+    }
+
+    return 'unknown'
+  }
+
+  const loadReports = useCallback(async (currentStudent: string, currentType: string) => {
+    try {
+      setLoading(true)
+
+      const result = await getReports({
+        studentId: currentStudent !== 'all' ? currentStudent : undefined,
+        reportType: currentType !== 'all' ? currentType : undefined,
+      })
+
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '리포트를 불러오는 중 오류가 발생했습니다.')
+      }
+
+      const fetchedReports = result.data
+      setReports(fetchedReports)
+
+      if (currentStudent === 'all' && currentType === 'all') {
+        setAllReports(fetchedReports)
+      }
+    } catch (error) {
+      console.error('Error loading reports:', error)
+      toast({
+        title: '데이터 로드 오류',
+        description: '리포트를 불러오는 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }, [toast])
 
   // Load reports when server-side filters change
   useEffect(() => {
     loadReports(selectedStudent, selectedType)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedStudent, selectedType])
+  }, [loadReports, selectedStudent, selectedType])
 
   // Apply client-side filters (school level, stat card filter)
   useEffect(() => {
     let filtered = reports
 
-    // Filter by school level
     if (selectedSchoolLevel !== 'all') {
       filtered = filtered.filter((report) => {
         const grade = report.students?.grade || ''
@@ -80,7 +122,6 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
       })
     }
 
-    // Filter by stat card selection
     if (activeStatFilter) {
       const now = new Date()
       switch (activeStatFilter) {
@@ -102,81 +143,6 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
     setFilteredReports(filtered)
   }, [reports, selectedSchoolLevel, activeStatFilter])
 
-  // Helper function to determine school level from grade
-  function getSchoolLevel(grade: string): 'elementary' | 'middle' | 'high' | 'unknown' {
-    if (!grade) return 'unknown'
-    const normalizedGrade = grade.toLowerCase().trim()
-
-    if (normalizedGrade.startsWith('초') || normalizedGrade.includes('초등')) return 'elementary'
-    if (normalizedGrade.startsWith('중') || normalizedGrade.includes('중학')) return 'middle'
-    if (normalizedGrade.startsWith('고') || normalizedGrade.includes('고등')) return 'high'
-
-    const gradeNum = parseInt(normalizedGrade.replace(/[^0-9]/g, ''))
-    if (!isNaN(gradeNum)) {
-      if (gradeNum >= 1 && gradeNum <= 6) return 'elementary'
-      if (gradeNum >= 7 && gradeNum <= 9) return 'middle'
-      if (gradeNum >= 10 && gradeNum <= 12) return 'high'
-    }
-
-    return 'unknown'
-  }
-
-  async function loadReports(currentStudent: string, currentType: string) {
-    try {
-      setLoading(true)
-
-      let query = supabase
-        .from('reports')
-        .select(`
-          id,
-          report_type,
-          period_start,
-          period_end,
-          content,
-          generated_at,
-          sent_at,
-          students!inner (
-            id,
-            student_code,
-            grade,
-            users:user_id!inner (
-              name,
-              email
-            )
-          )
-        `)
-        .order('generated_at', { ascending: false })
-
-      if (currentStudent !== 'all') {
-        query = query.eq('student_id', currentStudent)
-      }
-
-      if (currentType !== 'all') {
-        query = query.eq('report_type', currentType)
-      }
-
-      const { data: reportsData, error: reportsError } = await query
-
-      if (reportsError) throw reportsError
-
-      const fetchedReports = reportsData as unknown as ReportWithStudent[]
-      setReports(fetchedReports)
-
-      if (currentStudent === 'all' && currentType === 'all') {
-        setAllReports(fetchedReports)
-      }
-    } catch (error) {
-      console.error('Error loading reports:', error)
-      toast({
-        title: '데이터 로드 오류',
-        description: '리포트를 불러오는 중 오류가 발생했습니다.',
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
   function handleSendClick(reportId: string, studentName: string) {
     setReportToSend({ id: reportId, name: studentName })
     setSendDialogOpen(true)
@@ -193,7 +159,12 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
       const result = await sendReportToAllGuardians(reportToSend.id)
 
       if (!result.success) {
-        throw new Error(result.error || '리포트 전송에 실패했습니다')
+        setFailedReportName(reportToSend.name)
+        setErrorInfo(
+          result.errorInfo ?? classifyReportSendError(result.error || '리포트 전송에 실패했습니다')
+        )
+        setErrorDialogOpen(true)
+        return
       }
 
       const { successCount, failCount } = result.data!
@@ -207,10 +178,9 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
     } catch (error) {
       console.error('Error sending report:', error)
       const errorMessage = error instanceof Error ? error.message : '리포트를 전송하는 중 오류가 발생했습니다.'
-      const classified = classifyReportSendError(errorMessage)
 
       setFailedReportName(reportToSend.name)
-      setErrorInfo(classified)
+      setErrorInfo(classifyReportSendError(errorMessage))
       setErrorDialogOpen(true)
     } finally {
       setIsSending(false)
@@ -230,12 +200,11 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
     setIsDeleting(true)
 
     try {
-      const { error } = await supabase
-        .from('reports')
-        .delete()
-        .eq('id', reportToDelete.id)
+      const result = await deleteReport(reportToDelete.id)
 
-      if (error) throw error
+      if (!result.success) {
+        throw new Error(result.error || '리포트를 삭제하는 중 오류가 발생했습니다.')
+      }
 
       toast({
         title: '삭제 완료',
@@ -269,12 +238,11 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
 
     try {
       const reportIds = reportsToDelete.map((r) => r.id)
-      const { error } = await supabase
-        .from('reports')
-        .delete()
-        .in('id', reportIds)
+      const result = await deleteReports(reportIds)
 
-      if (error) throw error
+      if (!result.success) {
+        throw new Error(result.error || '리포트를 삭제하는 중 오류가 발생했습니다.')
+      }
 
       toast({
         title: '일괄 삭제 완료',
@@ -305,6 +273,7 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
     if (reportsToSend.length === 0) return
 
     setIsBulkSending(true)
+    setBulkSendProgress({ current: 0, total: reportsToSend.length })
 
     try {
       const { sendReportToAllGuardians } = await import('@/app/actions/reports-send')
@@ -312,23 +281,42 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
       let totalSuccess = 0
       let totalFail = 0
       const classifiedErrors: Array<{ name: string; error: ReportSendErrorInfo }> = []
+      let processed = 0
 
-      for (const report of reportsToSend) {
-        const studentName = report.students?.users?.name || '알 수 없음'
-        try {
-          const result = await sendReportToAllGuardians(report.id)
-          if (result.success && result.data) {
-            totalSuccess += result.data.successCount
-            totalFail += result.data.failCount
-          } else {
-            const errorMessage = result.error || '전송 실패'
-            const classified = classifyReportSendError(errorMessage)
-            classifiedErrors.push({ name: studentName, error: classified })
+      // 동시성 제한 (최대 3개씩 병렬 처리)
+      const CONCURRENCY = 3
+      for (let i = 0; i < reportsToSend.length; i += CONCURRENCY) {
+        const batch = reportsToSend.slice(i, i + CONCURRENCY)
+        const results = await Promise.allSettled(
+          batch.map(async (report) => {
+            const studentName = report.students?.users?.name || '알 수 없음'
+            try {
+              const result = await sendReportToAllGuardians(report.id)
+              if (result.success && result.data) {
+                return { success: true as const, successCount: result.data.successCount, failCount: result.data.failCount }
+              } else {
+                const classified = result.errorInfo ?? classifyReportSendError(result.error || '전송 실패')
+                return { success: false as const, name: studentName, error: classified }
+              }
+            } catch (err) {
+              const errorMessage = err instanceof Error ? err.message : '전송 실패'
+              return { success: false as const, name: studentName, error: classifyReportSendError(errorMessage) }
+            }
+          })
+        )
+
+        for (const result of results) {
+          processed++
+          setBulkSendProgress({ current: processed, total: reportsToSend.length })
+
+          if (result.status === 'fulfilled') {
+            if (result.value.success) {
+              totalSuccess += result.value.successCount
+              totalFail += result.value.failCount
+            } else {
+              classifiedErrors.push({ name: result.value.name, error: result.value.error })
+            }
           }
-        } catch (err) {
-          const errorMessage = err instanceof Error ? err.message : '전송 실패'
-          const classified = classifyReportSendError(errorMessage)
-          classifiedErrors.push({ name: studentName, error: classified })
         }
       }
 
@@ -361,6 +349,7 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
       setIsBulkSending(false)
       setBulkSendDialogOpen(false)
       setReportsToSend([])
+      setBulkSendProgress({ current: 0, total: 0 })
     }
   }
 
@@ -384,77 +373,11 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
       <div className="space-y-6">
 
         {/* Statistics - Clickable Cards */}
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card
-            className={`cursor-pointer transition-all hover:shadow-md ${
-              activeStatFilter === null ? 'ring-2 ring-primary' : 'hover:border-primary/50'
-            }`}
-            onClick={() => setActiveStatFilter(null)}
-          >
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardDescription>총 리포트 수</CardDescription>
-                <FileText className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <CardTitle className="text-3xl">{allReports.length}개</CardTitle>
-            </CardHeader>
-          </Card>
-          <Card
-            className={`cursor-pointer transition-all hover:shadow-md ${
-              activeStatFilter === 'thisMonth' ? 'ring-2 ring-primary' : 'hover:border-primary/50'
-            }`}
-            onClick={() => setActiveStatFilter(activeStatFilter === 'thisMonth' ? null : 'thisMonth')}
-          >
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardDescription>이번 달 생성</CardDescription>
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <CardTitle className="text-3xl">
-                {allReports.filter((r) => {
-                  const genDate = new Date(r.generated_at)
-                  const now = new Date()
-                  return (
-                    genDate.getMonth() === now.getMonth() &&
-                    genDate.getFullYear() === now.getFullYear()
-                  )
-                }).length}개
-              </CardTitle>
-            </CardHeader>
-          </Card>
-          <Card
-            className={`cursor-pointer transition-all hover:shadow-md ${
-              activeStatFilter === 'sent' ? 'ring-2 ring-primary' : 'hover:border-primary/50'
-            }`}
-            onClick={() => setActiveStatFilter(activeStatFilter === 'sent' ? null : 'sent')}
-          >
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardDescription>전송 완료</CardDescription>
-                <Send className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <CardTitle className="text-3xl text-green-600">
-                {allReports.filter((r) => r.sent_at !== null).length}개
-              </CardTitle>
-            </CardHeader>
-          </Card>
-          <Card
-            className={`cursor-pointer transition-all hover:shadow-md ${
-              activeStatFilter === 'notSent' ? 'ring-2 ring-primary' : 'hover:border-primary/50'
-            }`}
-            onClick={() => setActiveStatFilter(activeStatFilter === 'notSent' ? null : 'notSent')}
-          >
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardDescription>미전송</CardDescription>
-                <Clock className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <CardTitle className="text-3xl text-amber-600">
-                {allReports.filter((r) => r.sent_at === null).length}개
-              </CardTitle>
-            </CardHeader>
-          </Card>
-        </div>
+        <ReportStatCards
+          allReports={allReports}
+          activeStatFilter={activeStatFilter}
+          onStatFilterChange={setActiveStatFilter}
+        />
 
         {/* Filters */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:flex-wrap">
@@ -490,7 +413,7 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
               <SelectItem value="all">전체 유형</SelectItem>
               <SelectItem value="weekly">주간</SelectItem>
               <SelectItem value="monthly">월간</SelectItem>
-              <SelectItem value="quarterly">분기</SelectItem>
+              <SelectItem value="quarterly" disabled>분기 (준비 중)</SelectItem>
             </SelectContent>
           </Select>
 
@@ -636,211 +559,34 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
               )}
             </div>
           }
-          confirmText={`${reportsToSend.length}개 전송`}
+          confirmText={
+            isBulkSending && bulkSendProgress.total > 0
+              ? `전송 중... (${bulkSendProgress.current}/${bulkSendProgress.total})`
+              : `${reportsToSend.length}개 전송`
+          }
           variant="default"
           isLoading={isBulkSending}
           onConfirm={handleConfirmBulkSend}
         />
 
         {/* Error Information Dialog */}
-        <Dialog open={errorDialogOpen} onOpenChange={setErrorDialogOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                {errorInfo?.type === 'structural' && <Settings2 className="h-5 w-5 text-orange-600" />}
-                {errorInfo?.type === 'recoverable' && <Wrench className="h-5 w-5 text-blue-600" />}
-                {errorInfo?.type === 'temporary' && <RefreshCw className="h-5 w-5 text-yellow-600" />}
-                {errorInfo?.title || '전송 실패'}
-              </DialogTitle>
-              <DialogDescription asChild>
-                <div className="space-y-4 pt-2">
-                  {failedReportName && (
-                    <p className="text-sm text-muted-foreground">
-                      <span className="font-medium">{failedReportName}</span> 학생의 리포트 전송 중 문제가 발생했습니다.
-                    </p>
-                  )}
-
-                  <div className="rounded-lg border p-4 space-y-3">
-                    <div>
-                      <p className="text-sm font-medium text-foreground">문제 원인</p>
-                      <p className="text-sm text-muted-foreground mt-1">{errorInfo?.description}</p>
-                    </div>
-
-                    <div>
-                      <p className="text-sm font-medium text-foreground">해결 방법</p>
-                      <p className="text-sm text-muted-foreground mt-1">{errorInfo?.solution}</p>
-                    </div>
-
-                    <div className="flex items-center gap-2 pt-2 border-t">
-                      {errorInfo?.type === 'structural' && (
-                        <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
-                          설정 필요
-                        </Badge>
-                      )}
-                      {errorInfo?.type === 'recoverable' && (
-                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                          조치 필요
-                        </Badge>
-                      )}
-                      {errorInfo?.type === 'temporary' && (
-                        <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-                          일시적 오류
-                        </Badge>
-                      )}
-                      {errorInfo?.canRetry && (
-                        <span className="text-xs text-muted-foreground">다시 시도 가능</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter className="flex-col sm:flex-row gap-2">
-              {errorInfo?.helpLink && (
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    router.push(errorInfo.helpLink!)
-                    setErrorDialogOpen(false)
-                  }}
-                  className="w-full sm:w-auto"
-                >
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  설정으로 이동
-                </Button>
-              )}
-              <Button
-                onClick={() => setErrorDialogOpen(false)}
-                className="w-full sm:w-auto"
-              >
-                확인
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <ReportErrorDialog
+          open={errorDialogOpen}
+          onOpenChange={setErrorDialogOpen}
+          errorInfo={errorInfo}
+          failedReportName={failedReportName}
+        />
 
         {/* Bulk Send Errors Dialog */}
-        <Dialog open={bulkErrorDialogOpen} onOpenChange={setBulkErrorDialogOpen}>
-          <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-destructive" />
-                일괄 전송 중 오류 발생
-              </DialogTitle>
-              <DialogDescription>
-                {bulkSendErrors.length}개의 리포트 전송 중 문제가 발생했습니다.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="flex-1 overflow-y-auto space-y-3 pr-2">
-              {(() => {
-                const structural = bulkSendErrors.filter(e => e.error.type === 'structural')
-                const recoverable = bulkSendErrors.filter(e => e.error.type === 'recoverable')
-                const temporary = bulkSendErrors.filter(e => e.error.type === 'temporary')
-
-                return (
-                  <>
-                    {structural.length > 0 && (
-                      <div className="rounded-lg border border-orange-200 bg-orange-50 p-3 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Settings2 className="h-4 w-4 text-orange-600" />
-                          <span className="font-medium text-orange-700 text-sm">
-                            설정 필요 ({structural.length}건)
-                          </span>
-                        </div>
-                        <p className="text-xs text-orange-600">{structural[0].error.solution}</p>
-                        <div className="text-xs text-orange-700">
-                          {structural.map((e, i) => (
-                            <span key={i}>
-                              {e.name}{i < structural.length - 1 ? ', ' : ''}
-                            </span>
-                          ))}
-                        </div>
-                        {structural[0].error.helpLink && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs border-orange-300 text-orange-700 hover:bg-orange-100"
-                            onClick={() => {
-                              router.push(structural[0].error.helpLink!)
-                              setBulkErrorDialogOpen(false)
-                            }}
-                          >
-                            <ExternalLink className="h-3 w-3 mr-1" />
-                            설정으로 이동
-                          </Button>
-                        )}
-                      </div>
-                    )}
-
-                    {recoverable.length > 0 && (
-                      <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Wrench className="h-4 w-4 text-blue-600" />
-                          <span className="font-medium text-blue-700 text-sm">
-                            조치 필요 ({recoverable.length}건)
-                          </span>
-                        </div>
-                        <p className="text-xs text-blue-600">{recoverable[0].error.solution}</p>
-                        <div className="text-xs text-blue-700">
-                          {recoverable.map((e, i) => (
-                            <span key={i}>
-                              {e.name}{i < recoverable.length - 1 ? ', ' : ''}
-                            </span>
-                          ))}
-                        </div>
-                        {recoverable[0].error.helpLink && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs border-blue-300 text-blue-700 hover:bg-blue-100"
-                            onClick={() => {
-                              router.push(recoverable[0].error.helpLink!)
-                              setBulkErrorDialogOpen(false)
-                            }}
-                          >
-                            <ExternalLink className="h-3 w-3 mr-1" />
-                            설정으로 이동
-                          </Button>
-                        )}
-                      </div>
-                    )}
-
-                    {temporary.length > 0 && (
-                      <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <RefreshCw className="h-4 w-4 text-yellow-600" />
-                          <span className="font-medium text-yellow-700 text-sm">
-                            일시적 오류 ({temporary.length}건)
-                          </span>
-                        </div>
-                        <p className="text-xs text-yellow-600">{temporary[0].error.solution}</p>
-                        <div className="text-xs text-yellow-700">
-                          {temporary.map((e, i) => (
-                            <span key={i}>
-                              {e.name}{i < temporary.length - 1 ? ', ' : ''}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )
-              })()}
-            </div>
-
-            <DialogFooter className="pt-4 border-t">
-              <Button
-                onClick={() => {
-                  setBulkErrorDialogOpen(false)
-                  setBulkSendErrors([])
-                }}
-              >
-                확인
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <ReportBulkErrorDialog
+          open={bulkErrorDialogOpen}
+          onOpenChange={setBulkErrorDialogOpen}
+          errors={bulkSendErrors}
+          onClose={() => {
+            setBulkErrorDialogOpen(false)
+            setBulkSendErrors([])
+          }}
+        />
       </div>
     </PageWrapper>
   )

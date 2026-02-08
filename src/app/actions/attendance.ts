@@ -8,6 +8,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { unstable_cache } from 'next/cache'
 import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
@@ -44,14 +45,13 @@ export async function findOrCreateSession(
     // 3. Service Role 클라이언트로 DB 작업
     const supabase = createServiceRoleClient()
 
-    // 4. 기존 세션 조회 (중복 세션 존재 가능성 대비, 최신 1건 선택)
+    // 4. 기존 세션 조회
     const { data: existingSessions, error: selectError } = await supabase
       .from('attendance_sessions')
       .select('*')
       .eq('tenant_id', tenantId)
       .eq('class_id', validatedData.class_id)
       .eq('session_date', validatedData.session_date)
-      .is('deleted_at', null)
       .order('created_at', { ascending: false })
       .limit(1)
 
@@ -82,7 +82,23 @@ export async function findOrCreateSession(
       .select()
       .single()
 
-    if (insertError) throw insertError
+    // 7. 유니크 제약 위반(23505) = 동시 요청으로 이미 생성됨 → 재조회
+    if (insertError) {
+      if (insertError.code === '23505') {
+        const { data: retrySession, error: retryError } = await supabase
+          .from('attendance_sessions')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .eq('class_id', validatedData.class_id)
+          .eq('session_date', validatedData.session_date)
+          .limit(1)
+          .single()
+
+        if (retryError) throw retryError
+        return { success: true, data: retrySession }
+      }
+      throw insertError
+    }
 
     revalidatePath('/attendance')
 
@@ -97,100 +113,111 @@ export async function findOrCreateSession(
 }
 
 /**
- * 날짜 + 클래스 기준으로 출석 데이터 조회 (UI용)
+ * 로스터(학생 목록) 전용 조회
  *
- * 등록 학생을 먼저 조회하고, attendance 테이블의 attendance_date 컬럼으로 직접 조회.
- * 세션 테이블에 의존하지 않으므로 세션 미존재 시에도 정상 동작.
+ * 전체 등록 학생 + 미배정 학생을 조회합니다.
+ * unstable_cache로 서버 캐시 적용 (10분).
+ * 클래스 필터 없이 전체를 반환하며, 클라이언트에서 필터링합니다.
  *
- * @param date - 날짜 (YYYY-MM-DD)
- * @param classId - 클래스 ID (optional, 전체면 생략)
- * @returns 학생별 출석 현황
+ * @returns 전체 학생 로스터
  */
-export async function getAttendanceByDate(params: {
-  date: string
-  classId?: string
-}) {
+export async function getAttendanceRoster() {
   try {
-    // 1. 권한 검증 (staff)
     const { tenantId } = await verifyStaff()
 
-    // 2. Service Role 클라이언트로 DB 작업
+    return unstable_cache(
+      async () => {
+        const supabase = createServiceRoleClient()
+
+        // 등록 학생 조회 (전체)
+        const { data: enrollments, error: enrollmentError } = await supabase
+          .from('class_enrollments')
+          .select(`
+            class_id,
+            student_id,
+            students (
+              id,
+              student_code,
+              grade,
+              school,
+              users (
+                name
+              )
+            )
+          `)
+          .eq('tenant_id', tenantId)
+          .eq('status', 'active')
+
+        if (enrollmentError) throw enrollmentError
+
+        let normalizedEnrollments = enrollments || []
+
+        // 미배정 학생 병합
+        const enrolledStudentIds = new Set(normalizedEnrollments.map((e: any) => e.student_id))
+
+        const { data: allStudents, error: allStudentsError } = await supabase
+          .from('students')
+          .select(`
+            id,
+            student_code,
+            grade,
+            school,
+            users (
+              name
+            )
+          `)
+          .eq('tenant_id', tenantId)
+          .is('deleted_at', null)
+
+        if (allStudentsError) throw allStudentsError
+
+        const unassignedStudents = (allStudents || [])
+          .filter((s: any) => !enrolledStudentIds.has(s.id))
+          .map((s: any) => ({
+            class_id: null,
+            student_id: s.id,
+            students: s,
+          }))
+
+        normalizedEnrollments = [...normalizedEnrollments, ...unassignedStudents]
+
+        return { success: true as const, data: { students: normalizedEnrollments } }
+      },
+      ['attendance-roster', tenantId],
+      { revalidate: 600, tags: [`attendance-roster:${tenantId}`] }
+    )()
+  } catch (error) {
+    console.error('getAttendanceRoster error:', error)
+    return {
+      success: false as const,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * 출석 기록 전용 조회 (날짜 + studentIds 기준)
+ *
+ * attendance 테이블만 조회합니다. 캐시 없음 (실시간 반영 필요).
+ *
+ * @param params.date - 날짜 (YYYY-MM-DD)
+ * @param params.studentIds - 조회할 학생 ID 배열
+ * @returns 출석 기록 배열
+ */
+export async function getAttendanceRecordsByDate(params: {
+  date: string
+  studentIds: string[]
+}) {
+  try {
+    const { tenantId } = await verifyStaff()
     const supabase = createServiceRoleClient()
 
-    // 3. 등록 학생 조회 (classId 필터 기반)
-    let enrollmentsQuery = supabase
-      .from('class_enrollments')
-      .select(`
-        class_id,
-        student_id,
-        students (
-          id,
-          student_code,
-          grade,
-          school,
-          users (
-            name
-          )
-        )
-      `)
-      .eq('tenant_id', tenantId)
-      .eq('status', 'active')
-
-    if (params.classId) {
-      enrollmentsQuery = enrollmentsQuery.eq('class_id', params.classId)
+    if (params.studentIds.length === 0) {
+      return { success: true as const, data: { attendances: [] } }
     }
 
-    const { data: enrollments, error: enrollmentError } = await enrollmentsQuery
-
-    if (enrollmentError) throw enrollmentError
-
-    // 4. 전체 조회(!classId)인 경우, 미배정 학생도 항상 병합
-    let normalizedEnrollments = enrollments || []
-    if (!params.classId) {
-      const enrolledStudentIds = new Set(normalizedEnrollments.map((e: any) => e.student_id))
-
-      const { data: allStudents, error: allStudentsError } = await supabase
-        .from('students')
-        .select(`
-          id,
-          student_code,
-          grade,
-          school,
-          users (
-            name
-          )
-        `)
-        .eq('tenant_id', tenantId)
-        .is('deleted_at', null)
-
-      if (allStudentsError) throw allStudentsError
-
-      const unassignedStudents = (allStudents || [])
-        .filter((s: any) => !enrolledStudentIds.has(s.id))
-        .map((s: any) => ({
-          class_id: null,
-          student_id: s.id,
-          students: s,
-        }))
-
-      normalizedEnrollments = [...normalizedEnrollments, ...unassignedStudents]
-    }
-
-    // classId가 지정된 조회에서 등록 학생이 없으면 빈 결과 반환
-    if (normalizedEnrollments.length === 0) {
-      return {
-        success: true,
-        data: {
-          attendances: [],
-          students: [],
-        },
-      }
-    }
-
-    // 5. 등록 학생의 student_id 목록으로 출석 기록 조회
-    const studentIds = [...new Set(normalizedEnrollments.map((e: any) => e.student_id))]
-
-    const { data: attendanceData, error: attendanceError } = await supabase
+    const { data, error } = await supabase
       .from('attendance')
       .select(`
         id,
@@ -205,15 +232,79 @@ export async function getAttendanceByDate(params: {
       `)
       .eq('tenant_id', tenantId)
       .eq('attendance_date', params.date)
-      .in('student_id', studentIds)
+      .in('student_id', params.studentIds)
 
-    if (attendanceError) throw attendanceError
+    if (error) throw error
+
+    return { success: true as const, data: { attendances: data || [] } }
+  } catch (error) {
+    console.error('getAttendanceRecordsByDate error:', error)
+    return {
+      success: false as const,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * 날짜 + 클래스 기준으로 출석 데이터 조회 (UI용) - 하위 호환
+ *
+ * 내부적으로 getAttendanceRoster + getAttendanceRecordsByDate를 호출합니다.
+ *
+ * @param date - 날짜 (YYYY-MM-DD)
+ * @param classId - 클래스 ID (optional, 전체면 생략)
+ * @returns 학생별 출석 현황
+ */
+export async function getAttendanceByDate(params: {
+  date: string
+  classId?: string
+}) {
+  try {
+    const rosterResult = await getAttendanceRoster()
+    if (!rosterResult.success || !rosterResult.data) {
+      return {
+        success: false,
+        data: null,
+        error: rosterResult.error || '로스터 조회 실패',
+      }
+    }
+
+    let enrollments = rosterResult.data.students
+    if (params.classId) {
+      enrollments = enrollments.filter((e: any) => e.class_id === params.classId)
+    }
+
+    if (enrollments.length === 0) {
+      return {
+        success: true,
+        data: {
+          attendances: [],
+          students: [],
+        },
+      }
+    }
+
+    const studentIds = [...new Set(enrollments.map((e: any) => e.student_id))]
+
+    const recordsResult = await getAttendanceRecordsByDate({
+      date: params.date,
+      studentIds,
+    })
+
+    if (!recordsResult.success || !recordsResult.data) {
+      return {
+        success: false,
+        data: null,
+        error: recordsResult.error || '출석 기록 조회 실패',
+      }
+    }
 
     return {
       success: true,
       data: {
-        attendances: attendanceData || [],
-        students: normalizedEnrollments,
+        attendances: recordsResult.data.attendances,
+        students: enrollments,
       },
     }
   } catch (error) {

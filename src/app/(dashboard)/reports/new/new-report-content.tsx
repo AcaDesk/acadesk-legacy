@@ -3,12 +3,13 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { generateMonthlyReport, generateWeeklyReport, saveReport } from '@/app/actions/reports'
+import { formatDate } from '@/lib/utils'
 import { Button } from '@ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
 import { Separator } from '@ui/separator'
 import { Tabs, TabsList, TabsTrigger } from '@ui/tabs'
-import { Input } from '@ui/input'
+import { DatePicker } from '@ui/date-picker'
 import { Badge } from '@ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { FileText, UserPlus, X } from 'lucide-react'
@@ -41,14 +42,15 @@ export function NewReportContent({ initialStudents }: NewReportContentProps) {
   const [reportType, setReportType] = useState<'weekly' | 'monthly'>('monthly')
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear())
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1)
-  const [startDate, setStartDate] = useState<string>('')
-  const [endDate, setEndDate] = useState<string>('')
+  const [startDate, setStartDate] = useState<Date | undefined>()
+  const [endDate, setEndDate] = useState<Date | undefined>()
   const [generating, setGenerating] = useState(false)
 
   const { toast } = useToast()
   const router = useRouter()
 
-  const years = [2024, 2025, 2026]
+  const currentYear = new Date().getFullYear()
+  const years = Array.from({ length: 5 }, (_, i) => currentYear - 3 + i)
   const months = Array.from({ length: 12 }, (_, i) => i + 1)
 
   function handleStudentSelect(studentId: string, studentName: string) {
@@ -80,15 +82,26 @@ export function NewReportContent({ initialStudents }: NewReportContentProps) {
       return
     }
 
+    if (reportType === 'weekly' && startDate && endDate && startDate > endDate) {
+      toast({
+        title: '기간 오류',
+        description: '시작일은 종료일보다 이전이어야 합니다.',
+        variant: 'destructive',
+      })
+      return
+    }
+
     setGenerating(true)
     try {
       // Generate report
       let result
       let periodDescription = ''
 
-      if (reportType === 'weekly') {
-        result = await generateWeeklyReport(selectedStudent, startDate, endDate)
-        periodDescription = `${startDate} ~ ${endDate}`
+      if (reportType === 'weekly' && startDate && endDate) {
+        const startStr = formatDate(startDate)
+        const endStr = formatDate(endDate)
+        result = await generateWeeklyReport(selectedStudent, startStr, endStr)
+        periodDescription = `${startStr} ~ ${endStr}`
       } else {
         result = await generateMonthlyReport(selectedStudent, selectedYear, selectedMonth)
         periodDescription = `${selectedYear}년 ${selectedMonth}월`
@@ -218,18 +231,18 @@ export function NewReportContent({ initialStudents }: NewReportContentProps) {
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
                     <label className="text-sm font-medium mb-2 block">시작일</label>
-                    <Input
-                      type="date"
+                    <DatePicker
                       value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
+                      onChange={setStartDate}
+                      placeholder="시작일 선택"
                     />
                   </div>
                   <div>
                     <label className="text-sm font-medium mb-2 block">종료일</label>
-                    <Input
-                      type="date"
+                    <DatePicker
                       value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
+                      onChange={setEndDate}
+                      placeholder="종료일 선택"
                     />
                   </div>
                 </div>
