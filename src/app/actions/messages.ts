@@ -355,11 +355,20 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
     let failCount = 0
     const logs: any[] = []
 
+    type StudentWithGuardians = {
+      id: string
+      student_code: string
+      grade: string | null
+      users: { name: string } | null
+      student_guardians: Array<{
+        guardians: { users: { name: string; phone: string } | null } | null
+      }>
+    }
+
     // Process each student
     for (const student of students || []) {
-      const typedStudent = student as any
-      const studentUser = typedStudent.users as { name: string } | null
-      const studentName = studentUser?.name || '학생'
+      const typedStudent = student as unknown as StudentWithGuardians
+      const studentName = typedStudent.users?.name || '학생'
       const studentCode = typedStudent.student_code || ''
       const grade = typedStudent.grade || ''
 
@@ -367,8 +376,7 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
       const guardians = typedStudent.student_guardians || []
 
       for (const sg of guardians) {
-        const guardian = sg.guardians as any
-        const guardianUser = guardian?.users as { name: string; phone: string } | null
+        const guardianUser = sg.guardians?.users
         if (!guardianUser) continue
 
         const recipientPhone = guardianUser.phone
@@ -515,17 +523,22 @@ export async function sendReportNotification(reportId: string) {
     // Create notification message
     const message = `새로운 학습 리포트가 생성되었습니다. 자녀의 학습 현황을 확인해주세요.`
 
-    // Type assertion for student data
-    const reportWithStudent = report as any
+    type ReportWithGuardians = {
+      students: {
+        student_guardians: Array<{
+          guardians: { users: { name: string; phone: string } | null } | null
+        }>
+      } | null
+    }
+    const typedReport = report as unknown as ReportWithGuardians
 
     // Send to all guardians
-    const guardians = reportWithStudent.students?.student_guardians || []
+    const guardians = typedReport.students?.student_guardians || []
     let successCount = 0
     let failCount = 0
 
     for (const sg of guardians) {
-      const guardian = sg.guardians as any
-      const guardianUser = guardian?.users as { phone: string } | null
+      const guardianUser = sg.guardians?.users
       if (!guardianUser?.phone) {
         failCount++
         continue
@@ -605,9 +618,8 @@ export async function sendTodoReminder(todoId: string) {
     const dueDate = new Date(todo.due_date).toLocaleDateString('ko-KR')
     const message = `[과제 알림] ${todo.title} - 마감: ${dueDate}`
 
-    // Type assertion for todo with student data
-    const todoWithStudent = todo as any
-    const studentUser = todoWithStudent.students?.users as { name: string; phone: string } | null
+    const typedStudents = todo.students as unknown as { users: { name: string; phone: string } | null } | null
+    const studentUser = typedStudents?.users
 
     // Send SMS to student
     if (studentUser?.phone) {
