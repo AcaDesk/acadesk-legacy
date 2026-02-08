@@ -93,7 +93,7 @@ export function AttendanceCheckPage() {
         const result = await getActiveClasses()
         if (result.success && result.data && result.data.length > 0) {
           const filtered = result.data
-            .filter(c => c.name !== '미배정 출석')
+            .filter(c => !(c as any).meta?.attendance_default)
             .map(c => ({ id: c.id, name: c.name }))
           classesRef.current = filtered
           setClasses(filtered)
@@ -129,16 +129,24 @@ export function AttendanceCheckPage() {
 
       const { attendances, students: enrollments } = result.data
 
-      // 출석 기록을 class_id + student_id 복합키로 맵핑
-      const attendanceMap = new Map(
-        attendances.map((a: any) => {
-          const classId = a.attendance_sessions?.class_id
-          return [`${classId}:${a.student_id}`, a]
-        })
-      )
-      const attendanceByStudentId = new Map(
-        attendances.map((a: any) => [a.student_id, a])
-      )
+      // 출석 기록을 class_id + student_id 복합키로 맵핑 (status priority 기반 dedup)
+      const STATUS_PRIORITY: Record<string, number> = { present: 2, late: 1, left_early: 1, absent: 0, excused: 0 }
+
+      const attendanceMap = new Map<string, any>()
+      const attendanceByStudentId = new Map<string, any>()
+
+      for (const a of attendances as any[]) {
+        const classId = a.attendance_sessions?.class_id
+        const compositeKey = `${classId}:${a.student_id}`
+        const existing = attendanceMap.get(compositeKey)
+        if (!existing || (STATUS_PRIORITY[a.status] ?? 0) > (STATUS_PRIORITY[existing.status] ?? 0)) {
+          attendanceMap.set(compositeKey, a)
+        }
+        const existingById = attendanceByStudentId.get(a.student_id)
+        if (!existingById || (STATUS_PRIORITY[a.status] ?? 0) > (STATUS_PRIORITY[existingById.status] ?? 0)) {
+          attendanceByStudentId.set(a.student_id, a)
+        }
+      }
 
       // 학생 목록 구성
       const currentClasses = classesRef.current
