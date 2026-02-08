@@ -3,17 +3,8 @@
  *
  * 모든 학생 관련 Server Actions를 re-export합니다.
  * 기존 import 경로를 유지하면서 내부 모듈을 분할합니다.
+ * 각 하위 모듈이 'use server'를 선언하므로 barrel에서는 생략합니다.
  */
-
-'use server'
-
-// Schemas (for external consumers that need Zod schemas)
-export {
-  guardianSchema,
-  existingGuardianSchema,
-  studentSchema,
-  createStudentCompleteSchema,
-} from './students/schemas'
 
 // Mutations (CUD operations)
 export {
