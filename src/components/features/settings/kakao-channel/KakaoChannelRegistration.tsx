@@ -348,7 +348,7 @@ export function KakaoChannelRegistration({
                   type="text"
                   value={searchId}
                   onChange={(e) => handleSearchIdChange(e.target.value)}
-                  placeholder="검색용 아이디 입력 (예: 진영오름영어)"
+                  placeholder="검색용 아이디 입력 (예: 아카데스크)"
                   className="mt-2"
                 />
                 {searchIdWarning ? (
