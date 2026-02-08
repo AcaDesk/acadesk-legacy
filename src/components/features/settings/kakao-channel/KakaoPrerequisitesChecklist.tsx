@@ -1,7 +1,7 @@
 'use client'
 
 import { Alert, AlertDescription } from '@ui/alert'
-import { CheckCircle2, Circle, AlertCircle } from 'lucide-react'
+import { CheckCircle2, Circle, AlertCircle, ExternalLink } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface KakaoPrerequisitesChecklistProps {
@@ -89,6 +89,35 @@ export function KakaoPrerequisitesChecklist({
             API 설정 탭에서 솔라피를 선택하고 인증을 완료해주세요.
           </p>
         )}
+        <div className="mt-3 flex flex-wrap gap-2">
+          <a
+            href="https://center-pf.kakao.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] hover:bg-background/60"
+          >
+            카카오 채널 관리자센터
+            <ExternalLink className="h-3 w-3" />
+          </a>
+          <a
+            href="https://docs.solapi.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] hover:bg-background/60"
+          >
+            Solapi 문서
+            <ExternalLink className="h-3 w-3" />
+          </a>
+          <a
+            href="https://docs.solapi.com/references/kakao"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] hover:bg-background/60"
+          >
+            Solapi 카카오 가이드
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        </div>
       </AlertDescription>
     </Alert>
   )

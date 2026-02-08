@@ -35,12 +35,12 @@ export interface KakaoChannelConfig {
 // ============================================================================
 
 const requestTokenSchema = z.object({
-  searchId: z.string().min(1, '채널 검색 ID는 필수입니다').regex(/^@/, '검색 ID는 @로 시작해야 합니다'),
+  searchId: z.string().trim().min(1, '채널 검색 ID는 필수입니다'),
   phoneNumber: z.string().regex(/^010\d{8}$/, '올바른 휴대폰 번호 형식이 아닙니다 (예: 01012345678)'),
 })
 
 const createChannelSchema = z.object({
-  searchId: z.string().min(1, '채널 검색 ID는 필수입니다').regex(/^@/, '검색 ID는 @로 시작해야 합니다'),
+  searchId: z.string().trim().min(1, '채널 검색 ID는 필수입니다'),
   phoneNumber: z.string().regex(/^010\d{8}$/, '올바른 휴대폰 번호 형식이 아닙니다 (예: 01012345678)'),
   token: z.string().min(1, '인증 토큰은 필수입니다'),
   categoryCode: z.string().min(1, '카테고리 선택은 필수입니다'),
@@ -84,6 +84,53 @@ async function getSolapiProvider(tenantId: string): Promise<SolapiProvider | nul
     apiSecret: config.solapi_api_secret,
     senderPhone: config.solapi_sender_phone || '',
   })
+}
+
+function normalizeSearchIdWithAt(searchId: string): string {
+  const trimmed = searchId.trim()
+  return trimmed.startsWith('@') ? trimmed : `@${trimmed}`
+}
+
+function parseAndValidateSearchId(searchId: string): { withAt: string; withoutAt: string } {
+  const compact = searchId
+    .trim()
+    .replace(/[\s\u200B-\u200D\uFEFF]/g, '')
+
+  if (!compact) {
+    throw new Error('채널 검색 ID를 입력해주세요.')
+  }
+
+  if (compact.includes('pf.kakao.com')) {
+    throw new Error(
+      '채널 URL이 아닌 "검색용 아이디"를 입력해야 합니다. 예: @acadesk'
+    )
+  }
+
+  const withAt = normalizeSearchIdWithAt(compact)
+  const withoutAt = withAt.replace(/^@/, '')
+
+  if (withoutAt.startsWith('_')) {
+    throw new Error(
+      '입력값은 채널 URL 식별자(_...)로 보입니다. 관리자센터의 "검색용 아이디"(@...)를 입력해주세요.'
+    )
+  }
+
+  // 카카오 채널 가이드: 15자 이내 한글/영문 소문자/숫자
+  if (!/^[가-힣a-z0-9]{1,15}$/.test(withoutAt)) {
+    throw new Error(
+      '검색용 아이디 형식이 올바르지 않습니다. 15자 이내 한글/영문 소문자/숫자만 사용할 수 있습니다.'
+    )
+  }
+
+  return { withAt, withoutAt }
+}
+
+function getSearchIdCandidates(searchId: string): { withAt: string; candidates: string[] } {
+  const parsed = parseAndValidateSearchId(searchId)
+  return {
+    withAt: parsed.withAt,
+    candidates: [...new Set([parsed.withAt, parsed.withoutAt])],
+  }
 }
 
 // ============================================================================
@@ -224,19 +271,30 @@ export async function requestKakaoChannelToken(
       throw new Error('먼저 Solapi API 설정을 완료해주세요.')
     }
 
-    const result = await provider.requestKakaoChannelToken({
-      searchId: validated.searchId,
-      phoneNumber: validated.phoneNumber,
-    })
+    const { candidates } = getSearchIdCandidates(validated.searchId)
+    let lastError: string | null = null
 
-    if (!result.success) {
-      throw new Error(result.error || '채널 토큰 요청 실패')
+    for (const candidateSearchId of candidates) {
+      const result = await provider.requestKakaoChannelToken({
+        searchId: candidateSearchId,
+        phoneNumber: validated.phoneNumber,
+      })
+
+      if (result.success) {
+        return {
+          success: true,
+          error: null,
+        }
+      }
+
+      console.warn('[requestKakaoChannelToken] Candidate failed:', {
+        candidateSearchId,
+        error: result.error,
+      })
+      lastError = result.error || '채널 토큰 요청 실패'
     }
 
-    return {
-      success: true,
-      error: null,
-    }
+    throw new Error(lastError || '채널 토큰 요청 실패')
   } catch (error) {
     console.error('[requestKakaoChannelToken] Error:', error)
     return {
@@ -266,13 +324,32 @@ export async function createKakaoChannel(
       throw new Error('먼저 Solapi API 설정을 완료해주세요.')
     }
 
-    // Create channel via Solapi API
-    const channel = await provider.createKakaoChannel({
-      searchId: validated.searchId,
-      phoneNumber: validated.phoneNumber,
-      token: validated.token,
-      categoryCode: validated.categoryCode,
-    })
+    // Create channel via Solapi API (searchId @포함/미포함 모두 시도)
+    const { withAt: canonicalSearchId, candidates } = getSearchIdCandidates(validated.searchId)
+    let channel: KakaoChannel | null = null
+    let lastError: unknown = null
+
+    for (const candidateSearchId of candidates) {
+      try {
+        channel = await provider.createKakaoChannel({
+          searchId: candidateSearchId,
+          phoneNumber: validated.phoneNumber,
+          token: validated.token,
+          categoryCode: validated.categoryCode,
+        })
+        break
+      } catch (error) {
+        console.warn('[createKakaoChannel] Candidate failed:', {
+          candidateSearchId,
+          error: getErrorMessage(error),
+        })
+        lastError = error
+      }
+    }
+
+    if (!channel) {
+      throw lastError || new Error('채널 연동 실패')
+    }
 
     // Save channel info to tenant_messaging_config
     const supabase = createServiceRoleClient()
@@ -281,7 +358,7 @@ export async function createKakaoChannel(
       .from('tenant_messaging_config')
       .update({
         kakao_channel_id: channel.channelId,
-        kakao_channel_search_id: channel.searchId,
+        kakao_channel_search_id: canonicalSearchId,
         kakao_channel_name: channel.name,
         kakao_channel_status: channel.status,
         kakao_channel_verified_at: channel.verifiedAt?.toISOString() || new Date().toISOString(),

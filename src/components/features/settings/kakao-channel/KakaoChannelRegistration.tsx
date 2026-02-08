@@ -25,6 +25,7 @@ import {
   Loader2,
   RefreshCw,
   FileText,
+  ExternalLink,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import {
@@ -68,6 +69,24 @@ export function KakaoChannelRegistration({
   // Search ID 입력 핸들러 - @ 없으면 경고 표시
   function handleSearchIdChange(value: string) {
     setSearchId(value)
+    const compact = value.trim().replace(/[\s\u200B-\u200D\uFEFF]/g, '')
+
+    if (compact.includes('pf.kakao.com')) {
+      setSearchIdWarning('채널 URL이 아닌 검색용 아이디(@...)를 입력해주세요')
+      return
+    }
+
+    if (compact.startsWith('_')) {
+      setSearchIdWarning('_(언더바)로 시작하면 URL 식별자입니다. 검색용 아이디를 입력해주세요')
+      return
+    }
+
+    const withoutAt = compact.replace(/^@/, '')
+    if (withoutAt && !/^[가-힣a-z0-9]{1,15}$/.test(withoutAt)) {
+      setSearchIdWarning('15자 이내 한글/영문 소문자/숫자만 입력할 수 있습니다')
+      return
+    }
+
     if (value && !value.startsWith('@')) {
       setSearchIdWarning('@ 기호가 자동으로 추가됩니다')
     } else {
@@ -275,12 +294,42 @@ export function KakaoChannelRegistration({
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription className="text-xs">
-                <p className="font-medium mb-1">사전 준비 사항</p>
+                <p className="font-medium mb-1">연동 전 확인 플로우</p>
                 <ul className="list-disc list-inside space-y-0.5">
-                  <li>카카오 비즈니스 채널이 개설되어 있어야 합니다</li>
-                  <li>채널 관리자로 등록된 휴대폰 번호가 필요합니다</li>
-                  <li>Solapi API 설정이 완료되어 있어야 합니다</li>
+                  <li>카카오 비즈니스 채널 개설 및 활성 상태 확인</li>
+                  <li>채널 관리자 휴대폰 번호(010...) 확인</li>
+                  <li>채널 검색용 ID(@...) 확인 후 그대로 입력</li>
+                  <li>Solapi API 설정 저장 및 테스트 메시지 인증 완료</li>
                 </ul>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <a
+                    href="https://center-pf.kakao.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] hover:bg-background/60"
+                  >
+                    카카오 채널 관리자센터
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                  <a
+                    href="https://docs.solapi.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] hover:bg-background/60"
+                  >
+                    Solapi 문서
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                  <a
+                    href="https://docs.solapi.com/references/kakao"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] hover:bg-background/60"
+                  >
+                    Solapi 카카오 가이드
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
               </AlertDescription>
             </Alert>
 

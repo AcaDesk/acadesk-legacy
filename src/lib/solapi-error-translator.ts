@@ -15,6 +15,10 @@ const SOLAPI_ERROR_MAP: Record<string, string> = {
     '해당 채널을 찾을 수 없습니다. 채널 검색 ID를 확인해주세요.',
   ChannelAlreadyRegistered: '이미 등록된 채널입니다.',
   ChannelNotVerified: '채널 인증이 완료되지 않았습니다.',
+  PlusFriendRegiestFailed:
+    '카카오톡 채널을 찾을 수 없습니다. 채널 "검색용 ID"(@아이디)를 다시 확인해주세요.',
+  PlusFriendRegisterFailed:
+    '카카오톡 채널을 찾을 수 없습니다. 채널 "검색용 ID"(@아이디)를 다시 확인해주세요.',
 
   // 인증 관련 에러
   TokenExpired:
@@ -59,6 +63,11 @@ const SOLAPI_ERROR_MAP: Record<string, string> = {
  * 에러 코드 패턴 매칭을 위한 정규식 패턴들
  */
 const ERROR_PATTERNS: Array<{ pattern: RegExp; message: string }> = [
+  {
+    pattern: /plusfriendregiestfailed|plusfriendregisterfailed|존재하지\s*않는\s*카카오톡\s*채널/i,
+    message:
+      '입력한 채널 검색 ID에 해당하는 카카오톡 채널을 찾지 못했습니다. 채널명 말고 "검색용 ID(@...)"를 입력했는지 확인해주세요.',
+  },
   {
     pattern: /channel.*not.*found/i,
     message: '해당 채널을 찾을 수 없습니다. 채널 검색 ID를 확인해주세요.',
