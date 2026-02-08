@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { createClient } from '@/lib/supabase/client'
+import { getTodayKST } from '@/lib/utils'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
 import { Label } from '@ui/label'
@@ -71,7 +72,7 @@ export function ProcessPaymentDialog({
   } = useForm<PaymentFormValues>({
     resolver: zodResolver(paymentSchema),
     defaultValues: {
-      payment_date: new Date().toISOString().split('T')[0],
+      payment_date: getTodayKST(),
       payment_method: 'transfer',
     },
   })

@@ -14,6 +14,8 @@ create table if not exists public.attendance_sessions(
   updated_at         timestamptz not null default now()
 );
 create index if not exists idx_att_sess_tenant_date on public.attendance_sessions(tenant_id, session_date desc);
+create unique index if not exists idx_att_sess_tenant_class_date
+  on public.attendance_sessions (tenant_id, class_id, session_date);
 
 -- Compatibility column for certain APIs: start_time derived from scheduled_start_at
 do $$ begin

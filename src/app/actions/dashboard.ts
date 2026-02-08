@@ -13,6 +13,7 @@
 
 import { verifyStaffPermission } from '@/lib/auth/service-role-helpers'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
+import { getTodayKST } from '@/lib/utils'
 import type { DashboardData } from '@/core/types/dashboard'
 
 // ============================================================================
@@ -60,7 +61,7 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
     // 2. Create service_role client (bypasses RLS)
     const supabase = createServiceRoleClient()
 
-    const today = new Date().toISOString().split('T')[0]
+    const today = getTodayKST()
 
     // 3. Fetch all dashboard data in parallel
     const [

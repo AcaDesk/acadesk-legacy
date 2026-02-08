@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { getTodayKST } from '@/lib/utils'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
@@ -194,8 +195,7 @@ export function RetestsClient() {
     setOriginalExamName(firstStudent.exam_name)
 
     // Set default retest date to today
-    const today = new Date().toISOString().split('T')[0]
-    setRetestDate(today)
+    setRetestDate(getTodayKST())
 
     setCreateRetestDialogOpen(true)
   }

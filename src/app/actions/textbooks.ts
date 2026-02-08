@@ -13,6 +13,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
+import { getTodayKST } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/error-handlers'
 
 // ============================================================================
@@ -527,7 +528,7 @@ export async function assignTextbookToStudent(
         tenant_id: tenantId,
         student_id: validated.studentId,
         textbook_id: validated.textbookId,
-        issue_date: validated.issueDate || new Date().toISOString().split('T')[0],
+        issue_date: validated.issueDate || getTodayKST(),
         paid: validated.paid ?? false,
         notes: validated.notes || null,
         status: 'in_use',
