@@ -40,7 +40,8 @@ import {
   deleteMessagingConfig,
   type MessagingProvider
 } from '@/app/actions/messaging-config'
-import { KakaoChannelStatus, KakaoChannelRegistration, KakaoPrerequisitesChecklist } from '@/components/features/settings/kakao-channel'
+import { KakaoChannelStatus, KakaoChannelRegistration, KakaoPrerequisitesChecklist, KakaoAlimtalkStepper } from '@/components/features/settings/kakao-channel'
+import type { KakaoTemplateSummary } from '@/components/features/settings/kakao-channel'
 import { KakaoTemplateList, KakaoTemplateForm } from '@/components/features/settings/kakao-templates'
 import type { KakaoChannelConfig } from '@/app/actions/kakao-channel'
 import type { KakaoTemplate } from '@/app/actions/kakao-templates'
@@ -114,6 +115,7 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
   // Kakao state
   const [templateFormOpen, setTemplateFormOpen] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState<KakaoTemplate | null>(null)
+  const [templateSummary, setTemplateSummary] = useState<KakaoTemplateSummary | null>(null)
 
   const hasKakaoChannel = !!kakaoChannelConfig?.channelId
   const isSolapiProvider = config?.provider === 'solapi'
@@ -291,8 +293,8 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">알림 서비스 연동</h1>
-        <p className="text-muted-foreground">
+        <h2 className="text-xl font-semibold">알림 서비스 연동</h2>
+        <p className="text-sm text-muted-foreground">
           SMS/알림톡 발송을 위한 API 키를 관리합니다
         </p>
       </div>
@@ -667,6 +669,12 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
         <TabsContent value="kakao" className="space-y-6">
           {showKakaoTab ? (
             <>
+              {/* Alimtalk Progress Stepper */}
+              <KakaoAlimtalkStepper
+                hasKakaoChannel={hasKakaoChannel}
+                templateSummary={templateSummary}
+              />
+
               {/* Kakao Channel Status or Registration */}
               {hasKakaoChannel && kakaoChannelConfig ? (
                 <KakaoChannelStatus
@@ -691,6 +699,7 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
                   setEditingTemplate(template)
                   setTemplateFormOpen(true)
                 }}
+                onTemplatesLoaded={setTemplateSummary}
               />
 
               {/* Template Form Dialog */}
