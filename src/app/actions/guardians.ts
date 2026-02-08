@@ -312,15 +312,13 @@ export async function getGuardiansWithDetails() {
           console.error('[getGuardiansWithDetails] Error loading students:', studentsError)
         }
 
-        // 타입 안전한 변환
-        // TODO(any): Supabase nested query types are not properly inferred
-        const users = guardian.users as any
+        const typedUsers = guardian.users as unknown as { name: string; email: string | null; phone: string | null } | null
         const students = (studentLinks || []).map((link) => {
-          const student = link.students as any
+          const typedStudent = link.students as unknown as { id: string; student_code: string; users: { name: string } | null } | null
           return {
-            id: student?.id || '',
-            studentCode: student?.student_code || '',
-            name: student?.users?.name || '',
+            id: typedStudent?.id || '',
+            studentCode: typedStudent?.student_code || '',
+            name: typedStudent?.users?.name || '',
             relation: link.relation || '',
             isPrimary: link.is_primary || false,
           }
@@ -331,9 +329,9 @@ export async function getGuardiansWithDetails() {
             id: guardian.id,
             relationship: guardian.relationship,
           },
-          userName: users?.name || null,
-          userEmail: users?.email || null,
-          userPhone: users?.phone || null,
+          userName: typedUsers?.name || null,
+          userEmail: typedUsers?.email || null,
+          userPhone: typedUsers?.phone || null,
           students,
         }
       })
@@ -741,8 +739,8 @@ export async function logGuardianContact(data: {
       console.error('[logGuardianContact] Guardian not found:', guardianError)
     }
 
-    // TODO(any): Supabase nested query type
-    const guardianName = (guardian?.users as any)?.name || '보호자'
+    const typedGuardianUsers = guardian?.users as unknown as { name: string } | null
+    const guardianName = typedGuardianUsers?.name || '보호자'
 
     // 메시지 구성 (보호자 이름 + 원본 메시지 + 추가 메모)
     const fullMessage = [
