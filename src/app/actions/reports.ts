@@ -650,7 +650,7 @@ export async function generateAndSendReport(params: {
 🎓 학년: ${student.grade || '-'}
 
 📊 학습 현황
-출석률: ${attendance.rate}% (출석 ${attendance.present}회, 지각 ${attendance.late}회, 결석 ${attendance.absent}회)
+출석률: ${attendance.rate}% (출석 ${attendance.present}일, 지각 ${attendance.late}일, 결석 ${attendance.absent}일)
 숙제 완료율: ${homework.rate}% (완료 ${homework.completed}/${homework.total}건)
 
 ${params.comment ? `💬 종합평가\n${params.comment}\n\n` : ''}문의: ${params.academyName} ${params.academyPhone}`
@@ -770,11 +770,24 @@ async function getAttendanceData(
     .gte('attendance_date', periodStart)
     .lte('attendance_date', periodEnd)
 
-  const total = data?.length || 0
-  const present = data?.filter((a) => a.status === 'present').length || 0
-  const late = data?.filter((a) => a.status === 'late').length || 0
-  const absent = data?.filter((a) => a.status === 'absent').length || 0
-  const rate = total > 0 ? Math.round((present / total) * 100) : 0
+  // 같은 날 복수 세션이 있을 경우 일수 기준으로 dedupe
+  // 우선순위: present > late > absent (최선 상태 채택)
+  const STATUS_PRIORITY: Record<string, number> = { present: 2, late: 1, absent: 0 }
+  const dateMap = new Map<string, string>()
+  for (const record of data || []) {
+    const date = record.attendance_date
+    const existing = dateMap.get(date)
+    if (!existing || (STATUS_PRIORITY[record.status] ?? 0) > (STATUS_PRIORITY[existing] ?? 0)) {
+      dateMap.set(date, record.status)
+    }
+  }
+
+  const dedupedStatuses = Array.from(dateMap.values())
+  const total = dedupedStatuses.length
+  const present = dedupedStatuses.filter((s) => s === 'present').length
+  const late = dedupedStatuses.filter((s) => s === 'late').length
+  const absent = dedupedStatuses.filter((s) => s === 'absent').length
+  const rate = total > 0 ? Math.round(((present + late) / total) * 100) : 0
 
   return { total, present, late, absent, rate }
 }
@@ -1258,7 +1271,21 @@ async function getAttendanceChartData(
     return []
   }
 
-  return attendanceRecords.map((record) => {
+  // 같은 날 복수 세션이 있을 경우 일수 기준으로 dedupe
+  // 우선순위: present > late > absent (최선 상태 채택)
+  const STATUS_PRIORITY: Record<string, number> = { present: 2, late: 1, absent: 0 }
+  const dateMap = new Map<string, typeof attendanceRecords[number]>()
+  for (const record of attendanceRecords) {
+    const date = record.attendance_date
+    const existing = dateMap.get(date)
+    const recordPriority = STATUS_PRIORITY[record.status] ?? 0
+    const existingPriority = existing ? (STATUS_PRIORITY[existing.status] ?? 0) : -1
+    if (!existing || recordPriority > existingPriority) {
+      dateMap.set(date, record)
+    }
+  }
+
+  return Array.from(dateMap.values()).map((record) => {
     const attendanceRecord = record as unknown as AttendanceRecordType
     return {
       date: new Date(attendanceRecord.attendance_date),
