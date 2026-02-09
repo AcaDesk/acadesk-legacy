@@ -78,7 +78,7 @@ const DesktopSidebar = memo(function DesktopSidebar({
 }) {
   return (
     <aside
-      className="relative h-full border-r bg-card overflow-hidden"
+      className="relative h-full border-r bg-card overflow-hidden transition-all duration-300 ease-out"
       style={{ width: isCollapsed ? "4rem" : "16rem" }}
     >
       <SidebarContent isCollapsed={isCollapsed} />
