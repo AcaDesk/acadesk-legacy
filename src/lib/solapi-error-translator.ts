@@ -19,6 +19,8 @@ const SOLAPI_ERROR_MAP: Record<string, string> = {
     '카카오톡 채널을 찾을 수 없습니다. 채널 "검색용 ID"(@아이디)를 다시 확인해주세요.',
   PlusFriendRegisterFailed:
     '카카오톡 채널을 찾을 수 없습니다. 채널 "검색용 ID"(@아이디)를 다시 확인해주세요.',
+  SearchIdInUse:
+    '이 검색용 ID는 이미 다른 계정에서 사용 중입니다. 기존 연동을 확인하거나 다른 채널을 등록해주세요.',
 
   // 인증 관련 에러
   TokenExpired:
@@ -95,6 +97,11 @@ const ERROR_PATTERNS: Array<{ pattern: RegExp; message: string }> = [
   {
     pattern: /already.*registered|duplicate/i,
     message: '이미 등록된 항목입니다.',
+  },
+  {
+    pattern: /search.*id.*in.*use|searchidinuse/i,
+    message:
+      '이 검색용 ID는 이미 다른 계정에서 사용 중입니다. 기존 연동을 확인하거나 다른 채널을 등록해주세요.',
   },
 ]
 

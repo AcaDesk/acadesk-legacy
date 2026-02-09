@@ -377,7 +377,11 @@ export async function createKakaoChannel(
 
     if (updateError) {
       console.error('[createKakaoChannel] DB update failed, but Solapi channel created:', updateError)
-      // DB 실패해도 channel 정보는 반환 → 클라이언트에서 재시도하면 기존 채널 조회 가능
+      return {
+        success: false,
+        data: channel,
+        error: '채널은 생성되었으나 설정 저장에 실패했습니다. 페이지를 새로고침하여 다시 시도해주세요.',
+      }
     }
 
     revalidatePath('/settings/messaging-integration')
