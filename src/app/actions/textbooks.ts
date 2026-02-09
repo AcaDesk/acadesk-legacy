@@ -38,8 +38,16 @@ const bulkCreateTextbookItemSchema = z.object({
   barcode: z.string().trim().max(100).optional().nullable(),
 })
 
+const bulkValidateTextbookItemSchema = bulkCreateTextbookItemSchema.extend({
+  rowNumber: z.number().int().positive(),
+})
+
 const bulkCreateTextbooksSchema = z.object({
   textbooks: z.array(bulkCreateTextbookItemSchema).min(1, '등록할 교재가 없습니다.').max(1000),
+})
+
+const bulkValidateTextbooksSchema = z.object({
+  textbooks: z.array(bulkValidateTextbookItemSchema).min(1, '검증할 교재가 없습니다.').max(1000),
 })
 
 const updateTextbookSchema = z.object({
@@ -247,6 +255,136 @@ export async function bulkCreateTextbooks(
     }
   } catch (error) {
     console.error('[bulkCreateTextbooks] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * Bulk validate textbooks before insert
+ *
+ * @param input - Array of textbook data with rowNumber
+ * @returns Validation result (DB duplicate checks included)
+ */
+export async function validateBulkTextbooks(
+  input: z.infer<typeof bulkValidateTextbooksSchema>
+) {
+  try {
+    const validated = bulkValidateTextbooksSchema.parse(input)
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    const normalized = validated.textbooks.map((item) => ({
+      rowNumber: item.rowNumber,
+      title: item.title.trim(),
+      author: item.author?.trim() || null,
+      publisher: item.publisher?.trim() || null,
+      isbn: item.isbn?.trim() || null,
+      barcode: item.barcode?.trim() || null,
+    }))
+
+    const barcodes = normalized
+      .map((item) => item.barcode)
+      .filter((code): code is string => Boolean(code))
+    const isbns = normalized
+      .map((item) => item.isbn)
+      .filter((code): code is string => Boolean(code))
+
+    const dedupedBarcodes = Array.from(new Set(barcodes))
+    const dedupedIsbns = Array.from(new Set(isbns))
+
+    const existingBarcodeSet = new Set<string>()
+    const existingIsbnSet = new Set<string>()
+
+    if (dedupedBarcodes.length > 0) {
+      const { data, error } = await supabase
+        .from('textbooks')
+        .select('barcode')
+        .eq('tenant_id', tenantId)
+        .in('barcode', dedupedBarcodes)
+        .is('deleted_at', null)
+      if (error) throw error
+      for (const row of data || []) {
+        if (row.barcode) existingBarcodeSet.add(row.barcode)
+      }
+    }
+
+    if (dedupedIsbns.length > 0) {
+      const { data, error } = await supabase
+        .from('textbooks')
+        .select('isbn')
+        .eq('tenant_id', tenantId)
+        .in('isbn', dedupedIsbns)
+        .is('deleted_at', null)
+      if (error) throw error
+      for (const row of data || []) {
+        if (row.isbn) existingIsbnSet.add(row.isbn)
+      }
+    }
+
+    const inputBarcodeRows = new Map<string, number[]>()
+    const inputIsbnRows = new Map<string, number[]>()
+
+    for (const item of normalized) {
+      if (item.barcode) {
+        const list = inputBarcodeRows.get(item.barcode) || []
+        list.push(item.rowNumber)
+        inputBarcodeRows.set(item.barcode, list)
+      }
+      if (item.isbn) {
+        const list = inputIsbnRows.get(item.isbn) || []
+        list.push(item.rowNumber)
+        inputIsbnRows.set(item.isbn, list)
+      }
+    }
+
+    const rows = normalized.map((item) => {
+      const errors: string[] = []
+      const warnings: string[] = []
+
+      if (item.barcode) {
+        const duplicateInputRows = inputBarcodeRows.get(item.barcode) || []
+        if (duplicateInputRows.length > 1) {
+          errors.push(`입력 내 중복 바코드 (행: ${duplicateInputRows.join(', ')})`)
+        }
+        if (existingBarcodeSet.has(item.barcode)) {
+          errors.push('기존 데이터와 바코드 중복')
+        }
+      }
+
+      if (item.isbn) {
+        const duplicateInputRows = inputIsbnRows.get(item.isbn) || []
+        if (duplicateInputRows.length > 1) {
+          warnings.push(`입력 내 중복 ISBN (행: ${duplicateInputRows.join(', ')})`)
+        }
+        if (existingIsbnSet.has(item.isbn)) {
+          warnings.push('기존 데이터와 ISBN 중복')
+        }
+      }
+
+      return {
+        rowNumber: item.rowNumber,
+        errors,
+        warnings,
+        canInsert: errors.length === 0,
+      }
+    })
+
+    const blockedRows = rows.filter((row) => !row.canInsert).length
+
+    return {
+      success: true,
+      data: {
+        rows,
+        blockedRows,
+      },
+      error: null,
+    }
+  } catch (error) {
+    console.error('[validateBulkTextbooks] Error:', error)
     return {
       success: false,
       data: null,
