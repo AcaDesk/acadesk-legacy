@@ -173,7 +173,7 @@ export function AddEventModal({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>유형 *</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="일정 유형을 선택하세요" />
@@ -230,7 +230,7 @@ export function AddEventModal({
                     <FormLabel>시작 날짜 *</FormLabel>
                     <FormControl>
                       <DatePicker
-                        value={field.value ? new Date(field.value) : undefined}
+                        value={field.value ? new Date(field.value + 'T00:00:00') : undefined}
                         onChange={(date) => {
                           field.onChange(date ? format(date, 'yyyy-MM-dd') : '');
                         }}
@@ -273,7 +273,7 @@ export function AddEventModal({
                     <FormLabel>종료 날짜 *</FormLabel>
                     <FormControl>
                       <DatePicker
-                        value={field.value ? new Date(field.value) : undefined}
+                        value={field.value ? new Date(field.value + 'T00:00:00') : undefined}
                         onChange={(date) => {
                           field.onChange(date ? format(date, 'yyyy-MM-dd') : '');
                         }}
@@ -363,7 +363,7 @@ export function AddEventModal({
                   <FormLabel>알림</FormLabel>
                   <Select
                     onValueChange={(value) => field.onChange(value === 'none' ? undefined : parseInt(value))}
-                    defaultValue={field.value !== undefined ? field.value.toString() : 'none'}
+                    value={field.value !== undefined ? field.value.toString() : 'none'}
                   >
                     <FormControl>
                       <SelectTrigger>

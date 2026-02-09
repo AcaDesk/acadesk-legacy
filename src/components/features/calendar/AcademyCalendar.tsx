@@ -3,7 +3,7 @@
 import { useMemo, useCallback, useState } from 'react'
 import { Calendar, dateFnsLocalizer, View, Views } from 'react-big-calendar'
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop'
-import { format, parse, startOfWeek, getDay } from 'date-fns'
+import { format, parse, startOfWeek, getDay, addMonths, subMonths, startOfMonth, endOfMonth } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { rrulestr } from 'rrule'
 import type { CalendarEvent, BigCalendarEvent, EventType } from '@/core/types/calendar'
@@ -76,6 +76,14 @@ export function AcademyCalendar({
   className = '',
 }: AcademyCalendarProps) {
   const [currentView, setCurrentView] = useState<View>(defaultView)
+  const [currentDate, setCurrentDate] = useState<Date>(defaultDate)
+
+  // Compute visible range with buffer for RRULE expansion
+  const viewRange = useMemo(() => {
+    const rangeStart = startOfMonth(subMonths(currentDate, 1))
+    const rangeEnd = endOfMonth(addMonths(currentDate, 2))
+    return { start: rangeStart, end: rangeEnd }
+  }, [currentDate])
 
   // Convert CalendarEvent to BigCalendarEvent, expanding recurring events
   const calendarEvents = useMemo<BigCalendarEvent[]>(() => {
@@ -86,7 +94,7 @@ export function AcademyCalendar({
         try {
           const rule = rrulestr(event.recurrence_rule)
           const duration = new Date(event.end_at).getTime() - new Date(event.start_at).getTime()
-          const occurrences = rule.all((_, i) => i < 200)
+          const occurrences = rule.between(viewRange.start, viewRange.end, true)
 
           for (const date of occurrences) {
             result.push({
@@ -122,7 +130,7 @@ export function AcademyCalendar({
     }
 
     return result
-  }, [events])
+  }, [events, viewRange])
 
   // Event style getter - applies custom colors based on event type
   const eventStyleGetter = useCallback((event: BigCalendarEvent) => {
@@ -214,8 +222,11 @@ export function AcademyCalendar({
         defaultView={defaultView}
         view={currentView}
         onView={handleViewChange}
-        defaultDate={defaultDate}
-        onNavigate={onNavigate}
+        date={currentDate}
+        onNavigate={(date) => {
+          setCurrentDate(date)
+          onNavigate?.(date)
+        }}
         onSelectEvent={handleSelectEvent}
         onSelectSlot={handleSelectSlot}
         onEventDrop={handleEventDrop}

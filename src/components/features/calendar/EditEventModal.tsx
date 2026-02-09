@@ -238,7 +238,7 @@ export function EditEventModal({
                     <FormLabel>시작 날짜 *</FormLabel>
                     <FormControl>
                       <DatePicker
-                        value={field.value ? new Date(field.value) : undefined}
+                        value={field.value ? new Date(field.value + 'T00:00:00') : undefined}
                         onChange={(date) => {
                           field.onChange(date ? format(date, 'yyyy-MM-dd') : '');
                         }}
@@ -281,7 +281,7 @@ export function EditEventModal({
                     <FormLabel>종료 날짜 *</FormLabel>
                     <FormControl>
                       <DatePicker
-                        value={field.value ? new Date(field.value) : undefined}
+                        value={field.value ? new Date(field.value + 'T00:00:00') : undefined}
                         onChange={(date) => {
                           field.onChange(date ? format(date, 'yyyy-MM-dd') : '');
                         }}
