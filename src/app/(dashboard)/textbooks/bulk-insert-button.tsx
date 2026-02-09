@@ -20,7 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Upload, AlertTriangle, CheckCircle2, FileUp, Download } from 'lucide-react'
+import { Upload, AlertTriangle, CheckCircle2, FileUp, Download, FileDown, FileSpreadsheet } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { bulkCreateTextbooks, validateBulkTextbooks } from '@/app/actions/textbooks'
 
@@ -344,6 +344,72 @@ export function BulkInsertTextbooksButton() {
     URL.revokeObjectURL(url)
   }
 
+  function downloadTemplate() {
+    const header = ['교재명', '저자', '출판사', 'ISBN', '바코드']
+    const sample1 = ['수학의 정석', '홍성대', '성지출판', '9781234567890', 'MATH-001']
+    const sample2 = ['수학의 바이블', '이창희', '이투스북', '', 'MATH-002']
+    const sample3 = ['개념원리 수학', '', '개념원리', '9781234567893', '']
+
+    const lines = [header, sample1, sample2, sample3]
+      .map((row) => row.map(csvEscape).join(','))
+      .join('\n')
+
+    const csvContent = `\uFEFF${lines}`
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'textbook-bulk-template.csv'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  async function downloadExcelTemplate() {
+    const XLSX = await import('xlsx')
+    const dataRows = [
+      ['교재명', '저자', '출판사', 'ISBN', '바코드'],
+      ['수학의 정석', '홍성대', '성지출판', '9781234567890', 'MATH-001'],
+      ['수학의 바이블', '이창희', '이투스북', '', 'MATH-002'],
+      ['개념원리 수학', '', '개념원리', '9781234567893', ''],
+    ]
+
+    const guideRows = [
+      ['교재 일괄 등록 입력 가이드'],
+      [''],
+      ['1) 기본 규칙'],
+      ['- 첫 번째 시트(교재일괄등록)만 업로드됩니다.'],
+      ['- 첫 행은 헤더이며 자동 인식됩니다.'],
+      ['- 필수 입력: 교재명'],
+      ['- 선택 입력: 저자, 출판사, ISBN, 바코드'],
+      [''],
+      ['2) 중복/오류 규칙'],
+      ['- 바코드는 공백 없이 입력하세요.'],
+      ['- 동일 파일 내 바코드 중복은 등록 차단됩니다.'],
+      ['- 기존 교재와 바코드 중복도 등록 차단됩니다.'],
+      ['- ISBN 중복은 경고로 표시되며 등록은 가능합니다.'],
+      [''],
+      ['3) 권장 형식'],
+      ['- ISBN은 숫자/하이픈 형식을 권장합니다. (예: 978-89-000-0000-0)'],
+      ['- 바코드는 학원 내 유일값을 사용하세요. (예: MATH-001)'],
+      [''],
+      ['4) 처리 순서'],
+      ['- 템플릿 작성 -> 업로드 -> 사전 검증 -> 오류 수정 -> 최종 등록'],
+    ]
+
+    const workbook = XLSX.utils.book_new()
+    const dataSheet = XLSX.utils.aoa_to_sheet(dataRows)
+    dataSheet['!cols'] = [{ wch: 28 }, { wch: 18 }, { wch: 18 }, { wch: 20 }, { wch: 18 }]
+
+    const guideSheet = XLSX.utils.aoa_to_sheet(guideRows)
+    guideSheet['!cols'] = [{ wch: 90 }]
+
+    XLSX.utils.book_append_sheet(workbook, dataSheet, '교재일괄등록')
+    XLSX.utils.book_append_sheet(workbook, guideSheet, '입력가이드')
+    XLSX.writeFile(workbook, 'textbook-bulk-template.xlsx')
+  }
+
   async function handleValidate() {
     if (reviewedRows.length === 0) {
       toast({
@@ -532,6 +598,22 @@ export function BulkInsertTextbooksButton() {
             >
               <FileUp className="h-4 w-4 mr-2" />
               파일 업로드
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={downloadTemplate}
+            >
+              <FileDown className="h-4 w-4 mr-2" />
+              CSV 템플릿
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void downloadExcelTemplate()}
+            >
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              XLSX 템플릿
             </Button>
             <Button
               type="button"
