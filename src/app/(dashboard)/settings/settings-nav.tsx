@@ -9,7 +9,6 @@ import {
   MessageSquare,
   FileText,
   Settings,
-  ClipboardList,
 } from 'lucide-react'
 
 const navItems = [
@@ -37,11 +36,6 @@ const navItems = [
     title: '메시지 템플릿',
     href: '/settings/message-templates',
     icon: FileText,
-  },
-  {
-    title: '리포트 템플릿',
-    href: '/settings/report-templates',
-    icon: ClipboardList,
   },
 ]
 

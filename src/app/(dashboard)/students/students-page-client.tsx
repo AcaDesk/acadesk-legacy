@@ -4,6 +4,7 @@ import { useState, useEffect, ReactNode } from 'react'
 import { Plus, Upload } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@ui/button'
+import { PageHeader } from '@ui/page-header'
 import { AddStudentWizard, type StudentInitialValues } from '@/components/features/students/add-student-wizard'
 import { RoleGuard } from '@/components/auth/role-guard'
 
@@ -35,24 +36,25 @@ export function StudentsPageClient({ children, initialValues }: StudentsPageClie
 
   return (
     <>
-      {/* Header Actions */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex-1">{/* Children will include PageHeader */}</div>
-        <RoleGuard allowedRoles={['owner', 'instructor']}>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => router.push('/students/import')}>
-              <Upload className="mr-2 h-4 w-4" />
-              일괄 등록
-            </Button>
-            <Button onClick={() => setAddDialogOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              학생 추가
-            </Button>
-          </div>
-        </RoleGuard>
-      </div>
+      <PageHeader
+        title="학생 관리"
+        description="학생 정보 및 성적을 관리합니다"
+        action={
+          <RoleGuard allowedRoles={['owner', 'instructor']}>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => router.push('/students/import')}>
+                <Upload className="mr-2 h-4 w-4" />
+                일괄 등록
+              </Button>
+              <Button onClick={() => setAddDialogOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                학생 추가
+              </Button>
+            </div>
+          </RoleGuard>
+        }
+      />
 
-      {/* Page Content */}
       {children}
 
       {/* Add Student Wizard Dialog */}

@@ -25,8 +25,8 @@ export function Breadcrumbs() {
     const generateBreadcrumbs = async () => {
       setLoading(true)
 
-      // 홈(/) 경로는 브래드크럼을 표시하지 않음
-      if (pathname === '/') {
+      // 홈(/) 또는 자체 레이아웃이 있는 경로는 브래드크럼을 표시하지 않음
+      if (pathname === '/' || pathname.startsWith('/settings')) {
         setItems([])
         setLoading(false)
         return
