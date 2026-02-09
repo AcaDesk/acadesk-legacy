@@ -31,7 +31,7 @@ export const kakaoTemplateSchema = z.object({
   content: z.string().min(1, '템플릿 내용을 입력해주세요.').max(1000),
   categoryCode: z.string().min(1, '카테고리를 선택해주세요.'),
   messageType: z.enum(['BA', 'EX', 'AD', 'MI']).default('BA'),
-  emphasizeType: z.enum(['NONE', 'TEXT', 'IMAGE', 'ITEM_LIST']).default('NONE'),
+  emphasizeType: z.enum(['NONE', 'TEXT']).default('NONE'),
   emphasizeTitle: z.string().max(23).optional(),
   emphasizeSubtitle: z.string().max(23).optional(),
   buttons: z.array(kakaoButtonSchema).max(5).optional(),
