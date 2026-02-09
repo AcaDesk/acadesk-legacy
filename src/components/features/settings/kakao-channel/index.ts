@@ -1,3 +1,5 @@
 export { KakaoChannelStatus } from './KakaoChannelStatus'
 export { KakaoChannelRegistration } from './KakaoChannelRegistration'
 export { KakaoPrerequisitesChecklist } from './KakaoPrerequisitesChecklist'
+export { KakaoAlimtalkStepper } from './KakaoAlimtalkStepper'
+export type { KakaoTemplateSummary } from './KakaoAlimtalkStepper'
