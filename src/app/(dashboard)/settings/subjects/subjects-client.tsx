@@ -438,7 +438,7 @@ export function SubjectsClient({ initialSubjects }: SubjectsClientProps) {
                           {/* Status */}
                           <TableCell className="text-center">
                             {subject.active ? (
-                              <Badge className="bg-green-500/10 text-green-700 dark:text-green-400 hover:bg-green-500/20">
+                              <Badge className="bg-success/10 text-success hover:bg-success/20">
                                 활성
                               </Badge>
                             ) : (

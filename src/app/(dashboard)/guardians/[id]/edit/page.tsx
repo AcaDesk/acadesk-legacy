@@ -316,7 +316,7 @@ export default function EditGuardianPage() {
           </nav>
 
           <div>
-            <h1 className="text-3xl font-bold">보호자 정보 수정</h1>
+            <h1 className="text-3xl font-bold tracking-tight">보호자 정보 수정</h1>
             <p className="text-muted-foreground">{guardian.users?.name || '이름 없음'}</p>
           </div>
         </div>

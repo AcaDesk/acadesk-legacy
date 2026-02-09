@@ -61,7 +61,7 @@ function KPICard({
                 "text-xs px-2 py-0.5",
                 change.isPositive
                   ? "bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-950 dark:text-green-400"
-                  : "bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-950 dark:text-red-400"
+                  : "bg-destructive/10 text-destructive hover:bg-destructive/10"
               )}
             >
               <TrendIcon className="mr-1 h-3 w-3" />
@@ -106,8 +106,8 @@ export function KPICardsGrid({
       value: totalStudents,
       change: { value: 5, isPositive: true, label: "이번 달" },
       icon: Users,
-      iconColor: "text-blue-600 dark:text-blue-400",
-      iconBgColor: "bg-blue-50 dark:bg-blue-950/20",
+      iconColor: "text-info",
+      iconBgColor: "bg-info/10",
       href: "/students"
     },
     {
@@ -133,8 +133,8 @@ export function KPICardsGrid({
       value: `${averageScore}점`,
       change: { value: 3, isPositive: true, label: "지난 달 대비" },
       icon: Trophy,
-      iconColor: "text-amber-600 dark:text-amber-400",
-      iconBgColor: "bg-amber-50 dark:bg-amber-950/20",
+      iconColor: "text-warning",
+      iconBgColor: "bg-warning/10",
       href: "/grades"
     },
     {

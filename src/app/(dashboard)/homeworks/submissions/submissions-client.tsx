@@ -125,7 +125,7 @@ export function SubmissionsClient({ initialHomeworks }: SubmissionsClientProps) 
     if (submission.graded_at) {
       return <CheckCircle2 className="h-5 w-5 text-green-600" />
     } else if (submission.submitted_at) {
-      return <CheckCircle2 className="h-5 w-5 text-blue-600" />
+      return <CheckCircle2 className="h-5 w-5 text-info" />
     } else {
       // Check if overdue
       const isOverdue = new Date(submission.due_date) < new Date()
@@ -145,7 +145,7 @@ export function SubmissionsClient({ initialHomeworks }: SubmissionsClientProps) 
       )
     } else if (submission.submitted_at) {
       return (
-        <Badge variant="outline" className="bg-blue-50">
+        <Badge variant="outline" className="bg-info/10">
           제출 완료
         </Badge>
       )
@@ -172,7 +172,7 @@ export function SubmissionsClient({ initialHomeworks }: SubmissionsClientProps) 
 
   const priorityColors = {
     low: 'bg-gray-500',
-    normal: 'bg-blue-500',
+    normal: 'bg-info',
     high: 'bg-orange-500',
     urgent: 'bg-red-500',
   }
@@ -207,7 +207,7 @@ export function SubmissionsClient({ initialHomeworks }: SubmissionsClientProps) 
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{stats.submissionRate}%</div>
+            <div className="text-2xl font-bold text-info">{stats.submissionRate}%</div>
             <p className="text-xs text-muted-foreground mt-1">
               {stats.submitted} / {stats.total} 제출
             </p>

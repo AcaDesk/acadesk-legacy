@@ -95,18 +95,18 @@ export function SettingsClient({ systemInfo }: SettingsClientProps) {
 
       {/* Danger Zone */}
       <Separator />
-      <Card className="border-red-200 bg-red-50/50 dark:bg-red-950/20 dark:border-red-800">
+      <Card className="border-destructive/20 bg-destructive/5">
         <CardHeader>
-          <CardTitle className="text-red-600">위험 구역</CardTitle>
+          <CardTitle className="text-destructive">위험 구역</CardTitle>
           <CardDescription>
             주의: 이 작업들은 되돌릴 수 없습니다
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <Button variant="outline" className="w-full justify-start text-red-600 border-red-200 hover:bg-red-100">
+          <Button variant="outline" className="w-full justify-start text-destructive border-destructive/20 hover:bg-destructive/10">
             모든 데이터 초기화
           </Button>
-          <Button variant="outline" className="w-full justify-start text-red-600 border-red-200 hover:bg-red-100">
+          <Button variant="outline" className="w-full justify-start text-destructive border-destructive/20 hover:bg-destructive/10">
             계정 삭제
           </Button>
         </CardContent>

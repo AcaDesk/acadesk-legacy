@@ -166,7 +166,7 @@ export function ClassesPageClient({ initialData }: ClassesPageClientProps) {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{totalStudents}명</div>
+              <div className="text-2xl font-bold text-info">{totalStudents}명</div>
               <p className="text-xs text-muted-foreground mt-1">
                 전체 수업 수강생
               </p>

@@ -138,7 +138,7 @@ export default function NewTextbookPage() {
           </Link>
         </Button>
         <div>
-          <h1 className="text-3xl font-bold">교재 등록</h1>
+          <h1 className="text-3xl font-bold tracking-tight">교재 등록</h1>
           <p className="mt-2 text-muted-foreground">
             새로운 교재와 단원 정보를 등록하세요
           </p>

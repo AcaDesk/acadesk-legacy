@@ -65,7 +65,7 @@ export default async function TodosPage() {
           </Link>
 
           <Link href="/todos/verify">
-            <Card className="hover:bg-accent transition-colors cursor-pointer border-2 border-blue-500/20">
+            <Card className="hover:bg-accent transition-colors cursor-pointer border-2 border-info/20">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4" />

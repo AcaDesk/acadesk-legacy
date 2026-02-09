@@ -76,7 +76,7 @@ ${reportData.comment.nextGoals}`
 
   function getTrendIcon(change: number | null) {
     if (change === null) return <Minus className="h-4 w-4" />
-    if (change > 0) return <TrendingUp className="h-4 w-4 text-green-600" />
+    if (change > 0) return <TrendingUp className="h-4 w-4 text-success" />
     if (change < 0) return <TrendingDown className="h-4 w-4 text-red-600" />
     return <Minus className="h-4 w-4" />
   }
@@ -169,7 +169,7 @@ ${reportData.comment.nextGoals}`
               <CardTitle className="text-base sm:text-lg">출석</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl sm:text-4xl font-bold text-blue-600">
+              <div className="text-3xl sm:text-4xl font-bold text-info">
                 {reportData.attendance.rate}%
               </div>
               <div className="mt-2 text-xs sm:text-sm text-muted-foreground">
@@ -184,7 +184,7 @@ ${reportData.comment.nextGoals}`
               <CardTitle className="text-base sm:text-lg">숙제 완료율</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl sm:text-4xl font-bold text-green-600">
+              <div className="text-3xl sm:text-4xl font-bold text-success">
                 {reportData.homework.rate}%
               </div>
               <div className="mt-2 text-xs sm:text-sm text-muted-foreground">

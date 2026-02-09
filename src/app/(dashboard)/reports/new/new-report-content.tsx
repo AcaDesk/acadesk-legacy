@@ -144,7 +144,7 @@ export function NewReportContent({ initialStudents }: NewReportContentProps) {
       <section aria-label="페이지 헤더" className="animate-in fade-in-50 slide-in-from-top-2 duration-500">
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold">리포트 생성</h1>
+            <h1 className="text-3xl font-bold tracking-tight">리포트 생성</h1>
             <p className="text-muted-foreground mt-1">
               학생별 주간/월간 성적 리포트를 자동 생성합니다
             </p>

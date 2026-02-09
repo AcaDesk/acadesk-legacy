@@ -539,7 +539,7 @@ export function ConsultationDetailClient({
                         : consultation.students?.name || '정보 없음'}
                     </span>
                     {consultation.is_lead ? (
-                      <Badge variant="default" className="bg-blue-600">
+                      <Badge variant="default" className="bg-info">
                         신규
                       </Badge>
                     ) : (
@@ -603,8 +603,8 @@ export function ConsultationDetailClient({
                       다음 상담 예정일
                     </div>
                     <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-blue-500" />
-                      <span className="text-blue-600 font-medium">
+                      <Calendar className="h-4 w-4 text-info" />
+                      <span className="text-info font-medium">
                         {nextDate.toLocaleDateString('ko-KR', {
                           year: 'numeric',
                           month: 'long',

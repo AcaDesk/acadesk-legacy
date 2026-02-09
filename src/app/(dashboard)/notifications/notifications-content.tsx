@@ -152,7 +152,7 @@ export function NotificationsContent({ initialLogs, initialBalance }: Notificati
     switch (status) {
       case 'sent':
         return (
-          <Badge variant="outline" className="bg-green-50">
+          <Badge variant="outline" className="bg-success/10">
             <CheckCircle className="h-3 w-3 mr-1" />
             전송 완료
           </Badge>
@@ -174,7 +174,7 @@ export function NotificationsContent({ initialLogs, initialBalance }: Notificati
       case 'sms':
         return <Badge variant="default">SMS</Badge>
       case 'lms':
-        return <Badge variant="default" className="bg-blue-600">LMS</Badge>
+        return <Badge variant="default" className="bg-info">LMS</Badge>
       case 'mms':
         return <Badge variant="default" className="bg-purple-600">MMS</Badge>
       case 'kakao':
@@ -202,7 +202,7 @@ export function NotificationsContent({ initialLogs, initialBalance }: Notificati
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold">메시지 관리</h1>
+            <h1 className="text-3xl font-bold tracking-tight">메시지 관리</h1>
             <p className="text-muted-foreground">메시지 전송 이력과 통계를 확인하세요</p>
           </div>
           <div className="flex items-center gap-4">
@@ -265,7 +265,7 @@ export function NotificationsContent({ initialLogs, initialBalance }: Notificati
           <Card>
             <CardHeader className="pb-3">
               <CardDescription>전송 완료</CardDescription>
-              <CardTitle className="text-3xl text-green-600">{stats.sent}건</CardTitle>
+              <CardTitle className="text-3xl text-success">{stats.sent}건</CardTitle>
             </CardHeader>
           </Card>
           <Card>

@@ -297,8 +297,10 @@ export function DashboardShell({
         />
 
         {/* 메인 - 페이지 컨텐츠만 전환 */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-background p-4 md:p-6">
-          <Breadcrumbs />
+        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-background">
+          <div className="px-6 lg:px-8 pt-6">
+            <Breadcrumbs />
+          </div>
           {children}
         </main>
       </div>

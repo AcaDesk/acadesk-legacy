@@ -154,7 +154,7 @@ const CustomAxisTick = (props: any) => {
 export function ReportViewer({ reportData, onEditComment, showEditButton = false }: ReportViewerProps) {
   function getTrendIcon(change: number | null) {
     if (change === null) return <Minus className="h-4 w-4" />
-    if (change > 0) return <TrendingUp className="h-4 w-4 text-green-600" />
+    if (change > 0) return <TrendingUp className="h-4 w-4 text-success" />
     if (change < 0) return <TrendingDown className="h-4 w-4 text-red-600" />
     return <Minus className="h-4 w-4" />
   }
@@ -366,7 +366,7 @@ ${reportData.comment.nextGoals}`
           <Card>
             <CardHeader className="pb-2">
               <CardDescription className="text-xs">출석률</CardDescription>
-              <CardTitle className="text-3xl font-bold text-blue-600">
+              <CardTitle className="text-3xl font-bold text-info">
                 {Math.round(attendanceRate)}%
               </CardTitle>
             </CardHeader>
@@ -403,7 +403,7 @@ ${reportData.comment.nextGoals}`
                   <div className="flex items-center gap-1 mt-1">
                     {getTrendIcon(avgChange)}
                     <span className={`text-sm font-medium ${
-                      avgChange > 0 ? 'text-green-600' :
+                      avgChange > 0 ? 'text-success' :
                       avgChange < 0 ? 'text-red-600' :
                       'text-muted-foreground'
                     }`}>
@@ -427,7 +427,7 @@ ${reportData.comment.nextGoals}`
                   <div className="flex items-center gap-1 mt-1">
                     {getTrendIcon(score.change)}
                     <span className={`text-sm font-medium ${
-                      score.change > 0 ? 'text-green-600' :
+                      score.change > 0 ? 'text-success' :
                       score.change < 0 ? 'text-red-600' :
                       'text-muted-foreground'
                     }`}>

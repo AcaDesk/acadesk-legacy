@@ -156,7 +156,7 @@ export function ClassDetailClient({ classData, students }: ClassDetailClientProp
 
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold">{classData.name}</h1>
+              <h1 className="text-3xl font-bold tracking-tight">{classData.name}</h1>
               <p className="text-muted-foreground">{classData.description || '수업 설명 없음'}</p>
             </div>
             <Button onClick={() => router.push(`/classes/${classData.id}/edit`)}>
@@ -173,19 +173,19 @@ export function ClassDetailClient({ classData, students }: ClassDetailClientProp
             </Badge>
             <Badge variant="outline" className="px-4 py-2 text-sm">
               <TrendingUp className="h-4 w-4 mr-2" />
-              평균 성적: <span className={`font-bold ml-1 ${kpis.avgScore >= 90 ? 'text-green-600' : kpis.avgScore >= 70 ? 'text-yellow-600' : 'text-red-600'}`}>
+              평균 성적: <span className={`font-bold ml-1 ${kpis.avgScore >= 90 ? 'text-success' : kpis.avgScore >= 70 ? 'text-yellow-600' : 'text-red-600'}`}>
                 {kpis.avgScore}점
               </span>
             </Badge>
             <Badge variant="outline" className="px-4 py-2 text-sm">
               <Target className="h-4 w-4 mr-2" />
-              평균 출석률: <span className={`font-bold ml-1 ${kpis.avgAttendance >= 90 ? 'text-green-600' : kpis.avgAttendance >= 70 ? 'text-yellow-600' : 'text-red-600'}`}>
+              평균 출석률: <span className={`font-bold ml-1 ${kpis.avgAttendance >= 90 ? 'text-success' : kpis.avgAttendance >= 70 ? 'text-yellow-600' : 'text-red-600'}`}>
                 {kpis.avgAttendance}%
               </span>
             </Badge>
             <Badge variant="outline" className="px-4 py-2 text-sm">
               <CheckCircle className="h-4 w-4 mr-2" />
-              평균 과제율: <span className={`font-bold ml-1 ${kpis.avgHomework >= 90 ? 'text-green-600' : kpis.avgHomework >= 70 ? 'text-yellow-600' : 'text-red-600'}`}>
+              평균 과제율: <span className={`font-bold ml-1 ${kpis.avgHomework >= 90 ? 'text-success' : kpis.avgHomework >= 70 ? 'text-yellow-600' : 'text-red-600'}`}>
                 {kpis.avgHomework}%
               </span>
             </Badge>
@@ -289,7 +289,7 @@ export function ClassDetailClient({ classData, students }: ClassDetailClientProp
               <Card>
                 <CardHeader className="pb-3">
                   <CardDescription>평균 성적</CardDescription>
-                  <CardTitle className="text-3xl text-blue-600">{kpis.avgScore}점</CardTitle>
+                  <CardTitle className="text-3xl text-info">{kpis.avgScore}점</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-xs text-muted-foreground">
@@ -301,7 +301,7 @@ export function ClassDetailClient({ classData, students }: ClassDetailClientProp
               <Card>
                 <CardHeader className="pb-3">
                   <CardDescription>평균 출석률</CardDescription>
-                  <CardTitle className="text-3xl text-green-600">{kpis.avgAttendance}%</CardTitle>
+                  <CardTitle className="text-3xl text-success">{kpis.avgAttendance}%</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-xs text-muted-foreground">
@@ -370,12 +370,12 @@ export function ClassDetailClient({ classData, students }: ClassDetailClientProp
                               </Badge>
                             </TableCell>
                             <TableCell className="text-center">
-                              <span className={`font-medium ${student.attendanceRate >= 90 ? 'text-green-600' : student.attendanceRate >= 70 ? 'text-yellow-600' : 'text-red-600'}`}>
+                              <span className={`font-medium ${student.attendanceRate >= 90 ? 'text-success' : student.attendanceRate >= 70 ? 'text-yellow-600' : 'text-red-600'}`}>
                                 {student.attendanceRate}%
                               </span>
                             </TableCell>
                             <TableCell className="text-center">
-                              <span className={`font-medium ${student.homeworkRate >= 90 ? 'text-green-600' : student.homeworkRate >= 70 ? 'text-yellow-600' : 'text-red-600'}`}>
+                              <span className={`font-medium ${student.homeworkRate >= 90 ? 'text-success' : student.homeworkRate >= 70 ? 'text-yellow-600' : 'text-red-600'}`}>
                                 {student.homeworkRate}%
                               </span>
                             </TableCell>

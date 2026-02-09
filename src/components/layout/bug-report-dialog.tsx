@@ -103,7 +103,7 @@ export function BugReportDialog({ open, onOpenChange }: BugReportDialogProps) {
       <DialogContent className="sm:max-w-[550px] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-orange-600" />
+            <AlertTriangle className="h-5 w-5 text-warning" />
             버그/오류 제보
           </DialogTitle>
           <DialogDescription>

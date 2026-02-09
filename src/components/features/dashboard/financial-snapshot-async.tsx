@@ -105,7 +105,7 @@ async function FinancialSnapshotContent() {
             {isPositive ? (
               <TrendingUp className="h-4 w-4 text-green-600" />
             ) : (
-              <TrendingDown className="h-4 w-4 text-red-600" />
+              <TrendingDown className="h-4 w-4 text-destructive" />
             )}
           </div>
           <div className="flex items-baseline gap-2">
@@ -123,15 +123,15 @@ async function FinancialSnapshotContent() {
         {/* Unpaid Amount */}
         {data.unpaidCount > 0 ? (
           <Link href="/payments?filter=unpaid">
-            <div className="p-4 rounded-lg border hover:bg-muted transition-colors cursor-pointer bg-orange-50/50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800">
+            <div className="p-4 rounded-lg border hover:bg-muted transition-colors cursor-pointer bg-warning/5 border-warning/20">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4 text-orange-600" />
+                  <AlertCircle className="h-4 w-4 text-warning" />
                   <span className="text-sm font-medium">미납 총액</span>
                 </div>
                 <Badge variant="secondary">{data.unpaidCount}명</Badge>
               </div>
-              <div className="text-xl font-bold text-orange-600">
+              <div className="text-xl font-bold text-warning">
                 {data.unpaidTotal.toLocaleString()}원
               </div>
             </div>

@@ -45,7 +45,7 @@ export function InquiriesClient({ initialInquiries }: InquiriesClientProps) {
         )
       case 'in_progress':
         return (
-          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+          <Badge variant="outline" className="bg-info/10 text-info border-info/20">
             <Clock className="h-3 w-3 mr-1" />
             처리중
           </Badge>

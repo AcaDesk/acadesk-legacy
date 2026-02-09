@@ -22,6 +22,7 @@ const config: Config = {
     'bg-rose-100', 'bg-rose-200', 'text-rose-600',
     'bg-slate-100', 'bg-slate-200', 'text-slate-600',
   ],
+  // TODO: safelist 제거 - Quick Actions 위젯 시맨틱 토큰 전환 후
   theme: {
   	extend: {
   		colors: {
@@ -54,6 +55,29 @@ const config: Config = {
   			destructive: {
   				DEFAULT: 'var(--destructive)',
   				foreground: 'var(--destructive-foreground)'
+  			},
+  			success: {
+  				DEFAULT: 'var(--success)',
+  				foreground: 'var(--success-foreground)'
+  			},
+  			warning: {
+  				DEFAULT: 'var(--warning)',
+  				foreground: 'var(--warning-foreground)'
+  			},
+  			info: {
+  				DEFAULT: 'var(--info)',
+  				foreground: 'var(--info-foreground)'
+  			},
+  			event: {
+  				class: 'var(--event-class)',
+  				exam: 'var(--event-exam)',
+  				consultation: 'var(--event-consultation)',
+  				payment: 'var(--event-payment)',
+  				task: 'var(--event-task)',
+  				birthday: 'var(--event-birthday)',
+  				holiday: 'var(--event-holiday)',
+  				event: 'var(--event-event)',
+  				other: 'var(--event-other)'
   			},
   			border: 'var(--border)',
   			input: 'var(--input)',

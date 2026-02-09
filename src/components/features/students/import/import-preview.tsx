@@ -78,7 +78,7 @@ export function ImportPreview({
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-blue-500" />
+              <CheckCircle className="h-5 w-5 text-info" />
               <div>
                 <p className="text-sm text-muted-foreground">처리 예정</p>
                 <p className="text-2xl font-bold">{processableCount}명</p>

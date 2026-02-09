@@ -250,7 +250,7 @@ export function getErrorTypeColor(type: ReportSendErrorType): string {
     case 'structural':
       return 'text-orange-600' // 경고 (설정 필요)
     case 'recoverable':
-      return 'text-blue-600' // 정보 (조치 필요)
+      return 'text-info' // 정보 (조치 필요)
     case 'temporary':
       return 'text-yellow-600' // 일시적 (재시도)
     default:

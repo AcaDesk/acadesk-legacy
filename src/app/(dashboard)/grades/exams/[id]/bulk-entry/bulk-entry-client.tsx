@@ -609,7 +609,7 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
           <Card>
             <CardHeader className="pb-3">
               <CardDescription className="text-xs">반 평균</CardDescription>
-              <CardTitle className="text-2xl font-bold text-blue-600 dark:text-blue-500">{averageScore}점</CardTitle>
+              <CardTitle className="text-2xl font-bold text-info">{averageScore}점</CardTitle>
             </CardHeader>
           </Card>
           <Card>

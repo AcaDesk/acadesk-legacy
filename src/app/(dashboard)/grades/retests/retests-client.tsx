@@ -288,7 +288,7 @@ export function RetestsClient() {
     <div className="space-y-6">
       {/* Actions Bar */}
       {selectedStudents.size > 0 && (
-        <Card className="bg-blue-50 dark:bg-blue-950">
+        <Card className="bg-info/10">
           <CardContent className="py-4">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium">

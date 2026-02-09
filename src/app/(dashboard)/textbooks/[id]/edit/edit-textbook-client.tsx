@@ -173,7 +173,7 @@ export function EditTextbookClient({ textbookId, initialData }: EditTextbookClie
           </Link>
         </Button>
         <div>
-          <h1 className="text-3xl font-bold">교재 수정</h1>
+          <h1 className="text-3xl font-bold tracking-tight">교재 수정</h1>
           <p className="mt-2 text-muted-foreground">
             교재 정보와 단원을 수정하세요
           </p>

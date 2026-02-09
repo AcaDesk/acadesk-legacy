@@ -163,7 +163,7 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">시험 관리</h1>
+          <h1 className="text-3xl font-bold tracking-tight">시험 관리</h1>
           <p className="text-muted-foreground">시험을 등록하고 관리합니다</p>
         </div>
         <Button onClick={() => router.push('/grades/exams/new')}>

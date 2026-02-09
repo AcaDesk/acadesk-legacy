@@ -45,7 +45,7 @@ export function StatsCard({
           "h-4 w-4",
           variant === "primary" && "text-primary",
           variant === "success" && "text-green-600 dark:text-green-500",
-          variant === "warning" && "text-amber-600 dark:text-amber-500",
+          variant === "warning" && "text-warning",
           variant === "danger" && "text-destructive",
           variant === "default" && "text-muted-foreground"
         )} />
@@ -65,7 +65,7 @@ export function StatsCard({
                 "text-xs px-2 py-0",
                 trend.isPositive
                   ? "bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-950 dark:text-green-400"
-                  : "bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-950 dark:text-red-400"
+                  : "bg-destructive/10 text-destructive hover:bg-destructive/10"
               )}
             >
               <TrendIcon className="mr-1 h-3 w-3" />

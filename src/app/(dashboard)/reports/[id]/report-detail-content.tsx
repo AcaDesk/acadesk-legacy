@@ -295,7 +295,7 @@ export function ReportDetailContent({
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">
+            <h1 className="text-3xl font-bold tracking-tight">
               {getReportTypeLabel(report.report_type)} 리포트
             </h1>
             <p className="text-muted-foreground">
@@ -396,7 +396,7 @@ export function ReportDetailContent({
                               <Badge variant="default">SMS</Badge>
                             )}
                             {send.message_type === 'LMS' && (
-                              <Badge variant="default" className="bg-blue-600">LMS</Badge>
+                              <Badge variant="default" className="bg-info">LMS</Badge>
                             )}
                             {send.message_type === 'KAKAO' && (
                               <Badge variant="default" className="bg-yellow-500 text-black">알림톡</Badge>
@@ -404,13 +404,13 @@ export function ReportDetailContent({
                           </TableCell>
                           <TableCell>
                             {send.send_status === 'sent' && (
-                              <Badge variant="outline" className="bg-green-50">
+                              <Badge variant="outline" className="bg-success/10">
                                 <CheckCircle className="h-3 w-3 mr-1" />
                                 전송 완료
                               </Badge>
                             )}
                             {send.send_status === 'delivered' && (
-                              <Badge variant="outline" className="bg-green-100">
+                              <Badge variant="outline" className="bg-success/10">
                                 <CheckCircle className="h-3 w-3 mr-1" />
                                 수신 확인
                               </Badge>

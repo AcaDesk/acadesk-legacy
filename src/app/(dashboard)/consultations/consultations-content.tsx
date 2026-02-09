@@ -140,7 +140,7 @@ export function ConsultationsContent({ initialData }: ConsultationsContentProps)
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">
+              <div className="text-2xl font-bold text-info">
                 {stats.leadConsultations}건
               </div>
               <p className="text-xs text-muted-foreground mt-1">
@@ -244,7 +244,7 @@ export function ConsultationsContent({ initialData }: ConsultationsContentProps)
                               {consultation.title}
                             </h3>
                             {consultation.is_lead ? (
-                              <Badge variant="default" className="bg-blue-600">
+                              <Badge variant="default" className="bg-info">
                                 신규
                               </Badge>
                             ) : (
@@ -311,8 +311,8 @@ export function ConsultationsContent({ initialData }: ConsultationsContentProps)
                             </div>
                             {nextDate && (
                               <div className="flex items-center gap-2 text-muted-foreground">
-                                <Calendar className="h-4 w-4 text-blue-500" />
-                                <span className="text-blue-600">
+                                <Calendar className="h-4 w-4 text-info" />
+                                <span className="text-info">
                                   다음: {nextDate.toLocaleDateString('ko-KR')}
                                 </span>
                               </div>

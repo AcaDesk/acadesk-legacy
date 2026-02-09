@@ -33,7 +33,7 @@ export default async function GuardiansPage() {
           <section aria-label="페이지 헤더" className={PAGE_ANIMATIONS.header}>
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-3xl font-bold">보호자 관리</h1>
+                <h1 className="text-3xl font-bold tracking-tight">보호자 관리</h1>
                 <p className="text-muted-foreground">학부모 및 보호자 정보를 관리합니다</p>
               </div>
               <RoleGuard allowedRoles={['owner', 'instructor']}>

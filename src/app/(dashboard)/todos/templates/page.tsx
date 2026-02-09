@@ -77,7 +77,7 @@ interface TodoTemplate {
 
 const PRIORITY_CONFIG = {
   high: { label: '높음', icon: AlertCircle, color: 'text-red-600', variant: 'destructive' as const },
-  normal: { label: '보통', icon: CheckCircle2, color: 'text-blue-600', variant: 'secondary' as const },
+  normal: { label: '보통', icon: CheckCircle2, color: 'text-info', variant: 'secondary' as const },
   low: { label: '낮음', icon: Info, color: 'text-gray-600', variant: 'outline' as const },
 }
 

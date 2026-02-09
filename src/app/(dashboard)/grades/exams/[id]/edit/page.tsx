@@ -53,7 +53,7 @@ export default async function EditExamPage({ params }: PageProps) {
       <div className="space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold">시험 수정</h1>
+          <h1 className="text-3xl font-bold tracking-tight">시험 수정</h1>
           <p className="text-muted-foreground">{exam.name}</p>
         </div>
 

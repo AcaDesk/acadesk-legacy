@@ -66,7 +66,7 @@ interface HomeworksClientProps {
 
 const priorityColors = {
   low: 'bg-gray-500',
-  normal: 'bg-blue-500',
+  normal: 'bg-info',
   high: 'bg-orange-500',
   urgent: 'bg-red-500',
 }
@@ -174,8 +174,8 @@ export function HomeworksClient({ initialHomeworks }: HomeworksClientProps) {
     } else if (homework.submitted_at) {
       return (
         <div className="flex items-center gap-2">
-          <CheckCircle2 className="h-5 w-5 text-blue-600" />
-          <Badge variant="outline" className="bg-blue-50">
+          <CheckCircle2 className="h-5 w-5 text-info" />
+          <Badge variant="outline" className="bg-info/10">
             제출 완료
           </Badge>
         </div>
@@ -227,7 +227,7 @@ export function HomeworksClient({ initialHomeworks }: HomeworksClientProps) {
 
           <Card
             className={`hover:shadow-md transition-all cursor-pointer ${
-              statusFilter === 'submitted' ? 'ring-2 ring-blue-600 bg-blue-50 dark:bg-blue-950/20' : ''
+              statusFilter === 'submitted' ? 'ring-2 ring-info bg-info/10' : ''
             }`}
             onClick={() => setStatusFilter('submitted')}
           >
@@ -237,7 +237,7 @@ export function HomeworksClient({ initialHomeworks }: HomeworksClientProps) {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{stats.submitted}</div>
+              <div className="text-2xl font-bold text-info">{stats.submitted}</div>
               <p className="text-xs text-muted-foreground mt-1">채점 대기 중</p>
             </CardContent>
           </Card>

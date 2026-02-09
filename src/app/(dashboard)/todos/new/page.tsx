@@ -119,7 +119,7 @@ export default function NewTodoPage() {
       <div className="space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold">TODO 생성</h1>
+          <h1 className="text-3xl font-bold tracking-tight">TODO 생성</h1>
           <p className="text-muted-foreground mt-1">
             학생별 과제를 생성합니다 (여러 학생 선택 가능)
           </p>

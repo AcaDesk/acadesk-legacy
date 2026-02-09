@@ -199,7 +199,7 @@ export function EntryClient({ exams }: EntryClientProps) {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">성적 입력</h1>
+        <h1 className="text-3xl font-bold tracking-tight">성적 입력</h1>
         <p className="text-muted-foreground">
           시험별로 성적을 입력하고 진행 상황을 확인하세요
         </p>
@@ -224,7 +224,7 @@ export function EntryClient({ exams }: EntryClientProps) {
               <BarChart3 className="w-3 h-3" />
               입력 중
             </CardDescription>
-            <CardTitle className="text-2xl font-bold text-blue-600 dark:text-blue-500">
+            <CardTitle className="text-2xl font-bold text-info">
               {groupedExams.inProgress.length}개
             </CardTitle>
           </CardHeader>
@@ -235,7 +235,7 @@ export function EntryClient({ exams }: EntryClientProps) {
               <CheckCircle2 className="w-3 h-3" />
               입력 완료
             </CardDescription>
-            <CardTitle className="text-2xl font-bold text-green-600 dark:text-green-500">
+            <CardTitle className="text-2xl font-bold text-success">
               {groupedExams.completed.length}개
             </CardTitle>
           </CardHeader>
@@ -267,7 +267,7 @@ export function EntryClient({ exams }: EntryClientProps) {
         groupedExams.inProgress,
         '입력 중인 시험',
         '일부 학생의 성적이 입력된 시험입니다',
-        <BarChart3 className="w-5 h-5 text-blue-600 dark:text-blue-500" />,
+        <BarChart3 className="w-5 h-5 text-info" />,
         '입력 중인 시험이 없습니다'
       )}
 
@@ -276,7 +276,7 @@ export function EntryClient({ exams }: EntryClientProps) {
         groupedExams.completed,
         '입력 완료된 시험',
         '모든 학생의 성적이 입력된 시험입니다',
-        <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-500" />,
+        <CheckCircle2 className="w-5 h-5 text-success" />,
         '입력 완료된 시험이 없습니다'
       )}
 

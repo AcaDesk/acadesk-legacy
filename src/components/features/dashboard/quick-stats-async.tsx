@@ -98,11 +98,11 @@ async function QuickStatsContent() {
             {/* New Students */}
             <div className="space-y-2 p-3 rounded-lg border hover:bg-accent/50 transition-colors">
               <div className="flex items-center gap-1">
-                <TrendingUp className="h-3 w-3 text-blue-600" />
+                <TrendingUp className="h-3 w-3 text-info" />
                 <p className="text-xs font-medium text-muted-foreground">신규</p>
               </div>
               <div className="flex flex-col">
-                <span className="text-xl font-bold text-blue-600">{data.newStudents}</span>
+                <span className="text-xl font-bold text-info">{data.newStudents}</span>
                 <span className="text-xs text-muted-foreground">이번 주</span>
               </div>
             </div>
@@ -110,11 +110,11 @@ async function QuickStatsContent() {
             {/* Excellent Students */}
             <div className="space-y-2 p-3 rounded-lg border hover:bg-accent/50 transition-colors">
               <div className="flex items-center gap-1">
-                <Sparkles className="h-3 w-3 text-amber-600" />
+                <Sparkles className="h-3 w-3 text-warning" />
                 <p className="text-xs font-medium text-muted-foreground">우수</p>
               </div>
               <div className="flex flex-col">
-                <span className="text-xl font-bold text-amber-600">{data.excellentStudents}</span>
+                <span className="text-xl font-bold text-warning">{data.excellentStudents}</span>
                 <span className="text-xs text-muted-foreground">
                   {data.totalStudents > 0
                     ? `${Math.round((data.excellentStudents / data.totalStudents) * 100)}%`

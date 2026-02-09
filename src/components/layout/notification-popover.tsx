@@ -129,9 +129,9 @@ export function NotificationPopover() {
       case 'todo_verified':
         return 'bg-green-100 text-green-600'
       case 'attendance_alert':
-        return 'bg-orange-100 text-orange-600'
+        return 'bg-warning/10 text-warning'
       case 'new_message':
-        return 'bg-blue-100 text-blue-600'
+        return 'bg-info/10 text-info'
       case 'consultation_scheduled':
         return 'bg-purple-100 text-purple-600'
       default:
@@ -160,7 +160,7 @@ export function NotificationPopover() {
           <Bell className="h-5 w-5" />
         </Button>
         <Badge
-          className="absolute -top-1 -right-1 h-5 px-1.5 text-[10px] bg-amber-500 hover:bg-amber-500 pointer-events-none"
+          className="absolute -top-1 -right-1 h-5 px-1.5 text-[10px] bg-warning hover:bg-warning pointer-events-none"
         >
           준비중
         </Badge>
@@ -179,7 +179,7 @@ export function NotificationPopover() {
         >
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">
+            <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-white text-xs flex items-center justify-center">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}

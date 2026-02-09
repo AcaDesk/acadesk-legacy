@@ -147,8 +147,8 @@ export const statsCard = {
   value: 'text-2xl font-bold',
   description: 'text-xs text-muted-foreground',
   trend: {
-    positive: 'text-xs font-medium text-green-600',
-    negative: 'text-xs font-medium text-red-600',
+    positive: 'text-xs font-medium text-success',
+    negative: 'text-xs font-medium text-destructive',
     neutral: 'text-xs font-medium text-muted-foreground',
   }
 }
@@ -161,9 +161,9 @@ export const badgeVariants = {
   secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
   destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/80',
   outline: 'text-foreground border border-input bg-background hover:bg-accent hover:text-accent-foreground',
-  success: 'bg-green-500 text-white hover:bg-green-600',
-  warning: 'bg-yellow-500 text-white hover:bg-yellow-600',
-  info: 'bg-blue-500 text-white hover:bg-blue-600',
+  success: 'bg-success text-success-foreground hover:bg-success/90',
+  warning: 'bg-warning text-warning-foreground hover:bg-warning/90',
+  info: 'bg-info text-info-foreground hover:bg-info/90',
 }
 
 /**

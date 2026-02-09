@@ -21,8 +21,8 @@ export function QuickStats({
       icon: Users,
       label: "신규 등록",
       value: `+${newStudents}`,
-      color: "text-blue-600 dark:text-blue-400",
-      bgColor: "bg-blue-50 dark:bg-blue-950/20"
+      color: "text-info",
+      bgColor: "bg-info/10"
     },
     {
       icon: TrendingUp,
@@ -35,8 +35,8 @@ export function QuickStats({
       icon: AlertCircle,
       label: "주의 필요",
       value: needsAttention,
-      color: "text-amber-600 dark:text-amber-400",
-      bgColor: "bg-amber-50 dark:bg-amber-950/20"
+      color: "text-warning",
+      bgColor: "bg-warning/10"
     }
   ]
 

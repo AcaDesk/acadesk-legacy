@@ -49,7 +49,7 @@ async function TextbookInfo({ id }: { id: string }) {
           </Button>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold">{textbook.title}</h1>
+              <h1 className="text-3xl font-bold tracking-tight">{textbook.title}</h1>
               {textbook.is_active ? (
                 <Badge>활성</Badge>
               ) : (

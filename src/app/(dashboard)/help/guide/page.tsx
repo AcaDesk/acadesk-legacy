@@ -15,7 +15,7 @@ const guideCategories = [
   {
     icon: 'Users',
     title: '학생 관리',
-    color: 'text-blue-600',
+    color: 'text-info',
     items: [
       {
         question: '새 학생을 등록하는 방법',

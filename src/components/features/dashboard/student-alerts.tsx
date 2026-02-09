@@ -34,10 +34,10 @@ export function StudentAlerts({ longAbsence, pendingAssignments }: StudentAlerts
   const assignmentPages = Math.ceil(pendingAssignments.length / itemsPerPage)
 
   return (
-    <Card className="h-full border-orange-200 bg-orange-50/50 dark:bg-orange-950/20 dark:border-orange-800">
+    <Card className="h-full border-warning/20 bg-warning/5">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <AlertTriangle className="h-5 w-5 text-orange-600" />
+          <AlertTriangle className="h-5 w-5 text-warning" />
           학생 이상 징후
         </CardTitle>
         <CardDescription>관심이 필요한 학생들입니다</CardDescription>
@@ -48,7 +48,7 @@ export function StudentAlerts({ longAbsence, pendingAssignments }: StudentAlerts
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-medium flex items-center gap-2">
-                <UserX className="h-4 w-4 text-red-600" />
+                <UserX className="h-4 w-4 text-destructive" />
                 장기 결석 의심 (최근 2주 출석률 50% 미만)
               </h4>
               <span className="text-xs text-muted-foreground">
@@ -61,8 +61,8 @@ export function StudentAlerts({ longAbsence, pendingAssignments }: StudentAlerts
                   <Link href={`/students/${student.student_id}`}>
                     <div className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted transition-colors cursor-pointer bg-white dark:bg-gray-900">
                       <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-full bg-red-100 dark:bg-red-950 flex items-center justify-center">
-                          <UserX className="h-4 w-4 text-red-600" />
+                        <div className="h-8 w-8 rounded-full bg-destructive/10 flex items-center justify-center">
+                          <UserX className="h-4 w-4 text-destructive" />
                         </div>
                         <div>
                           <div className="font-medium">{student.student_name || '이름 없음'}</div>
@@ -110,7 +110,7 @@ export function StudentAlerts({ longAbsence, pendingAssignments }: StudentAlerts
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-medium flex items-center gap-2">
-                <ListTodo className="h-4 w-4 text-yellow-600" />
+                <ListTodo className="h-4 w-4 text-warning" />
                 과제 부진 (미제출 과제 3개 이상)
               </h4>
               <span className="text-xs text-muted-foreground">
@@ -123,8 +123,8 @@ export function StudentAlerts({ longAbsence, pendingAssignments }: StudentAlerts
                   <Link href={`/students/${student.student_id}`}>
                     <div className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted transition-colors cursor-pointer bg-white dark:bg-gray-900">
                       <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-full bg-yellow-100 dark:bg-yellow-950 flex items-center justify-center">
-                          <ListTodo className="h-4 w-4 text-yellow-600" />
+                        <div className="h-8 w-8 rounded-full bg-warning/10 flex items-center justify-center">
+                          <ListTodo className="h-4 w-4 text-warning" />
                         </div>
                         <div>
                           <div className="font-medium">{student.student_name || '이름 없음'}</div>
