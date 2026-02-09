@@ -25,7 +25,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ui/select'
-import { Info, Loader2, Save } from 'lucide-react'
+import { BookOpen, Info, Loader2, Save } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { ScrollArea } from '@ui/scroll-area'
+import { KakaoTemplateAuditGuide } from './KakaoTemplateAuditGuide'
 import { useToast } from '@/hooks/use-toast'
 import {
   createKakaoTemplate,
@@ -83,6 +86,7 @@ export function KakaoTemplateForm({
   const [categories, setCategories] = useState<KakaoTemplateCategory[]>([])
   const [loadingCategories, setLoadingCategories] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showGuide, setShowGuide] = useState(false)
 
   // Load categories
   useEffect(() => {
@@ -199,17 +203,36 @@ export function KakaoTemplateForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className={cn(
+        "max-h-[90vh] overflow-hidden",
+        showGuide ? "max-w-[min(90vw,64rem)]" : "max-w-2xl"
+      )}>
         <DialogHeader>
-          <DialogTitle>{isEditing ? '템플릿 수정' : '새 알림톡 템플릿'}</DialogTitle>
-          <DialogDescription>
-            {isEditing
-              ? '템플릿을 수정하면 다시 검수 요청됩니다.'
-              : '알림톡 템플릿을 등록합니다. 카카오 검수 후 발송 가능합니다.'}
-          </DialogDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle>{isEditing ? '템플릿 수정' : '새 알림톡 템플릿'}</DialogTitle>
+              <DialogDescription>
+                {isEditing
+                  ? '템플릿을 수정하면 다시 검수 요청됩니다.'
+                  : '알림톡 템플릿을 등록합니다. 카카오 검수 후 발송 가능합니다.'}
+              </DialogDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              type="button"
+              onClick={() => setShowGuide((prev) => !prev)}
+              className="shrink-0"
+            >
+              <BookOpen className="h-4 w-4 mr-1.5" />
+              {showGuide ? '가이드 닫기' : '심사 가이드'}
+            </Button>
+          </div>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className={cn("grid gap-6 py-4", showGuide ? "grid-cols-[1fr_320px]" : "grid-cols-1")}>
+        <ScrollArea className="max-h-[calc(90vh-180px)]">
+        <div className="space-y-4 pr-4">
           {/* Template Name */}
           <div>
             <Label htmlFor="name">템플릿 이름 *</Label>
@@ -362,6 +385,15 @@ export function KakaoTemplateForm({
               onCheckedChange={(checked) => handleChange('securityFlag', checked)}
             />
           </div>
+        </div>
+        </ScrollArea>
+        {showGuide && (
+          <div className="border-l pl-4">
+            <ScrollArea className="max-h-[calc(90vh-180px)]">
+              <KakaoTemplateAuditGuide />
+            </ScrollArea>
+          </div>
+        )}
         </div>
 
         <DialogFooter>
