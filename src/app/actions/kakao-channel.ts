@@ -102,6 +102,16 @@ function getSearchIdCandidates(searchId: string): { withAt: string; candidates: 
   }
 }
 
+function isSearchIdAlreadyInUseError(message: string): boolean {
+  const normalized = message.toLowerCase()
+  return (
+    normalized.includes('searchidinuse') ||
+    normalized.includes('already') ||
+    normalized.includes('channelalreadyregistered') ||
+    message.includes('이미 등록')
+  )
+}
+
 // ============================================================================
 // Server Actions - Channel Status
 // ============================================================================
@@ -319,12 +329,7 @@ export async function createKakaoChannel(
     // "이미 등록된 채널" 에러 시 기존 채널을 조회하여 복구
     if (!channel && lastError) {
       const errorMessage = getErrorMessage(lastError)
-      if (
-        errorMessage.includes('already') ||
-        errorMessage.includes('Already') ||
-        errorMessage.includes('이미 등록') ||
-        errorMessage.includes('ChannelAlreadyRegistered')
-      ) {
+      if (isSearchIdAlreadyInUseError(errorMessage)) {
         try {
           const existingChannels = await provider.getKakaoChannels()
           const existing = existingChannels.find((ch) =>
@@ -333,9 +338,19 @@ export async function createKakaoChannel(
           if (existing) {
             console.info('[createKakaoChannel] Recovered already-registered channel:', existing.channelId)
             channel = existing
+          } else {
+            throw new Error(
+              '사용 중인 검색용 아이디입니다. 이미 다른 Solapi 계정에 연결된 채널인지 확인해주세요.'
+            )
           }
         } catch (recoveryError) {
           console.error('[createKakaoChannel] Recovery lookup failed:', recoveryError)
+          if (recoveryError instanceof Error) {
+            throw recoveryError
+          }
+          throw new Error(
+            '사용 중인 검색용 아이디입니다. 이미 다른 Solapi 계정에 연결된 채널인지 확인해주세요.'
+          )
         }
       }
     }
