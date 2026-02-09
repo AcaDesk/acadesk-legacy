@@ -803,7 +803,13 @@ export function AttendanceCheckPage({
           {/* --- Desktop View (Table) --- */}
           <Card className="hidden md:flex flex-col flex-1 overflow-hidden">
             <div className="overflow-y-auto flex-1">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse table-fixed">
+                <colgroup>
+                  <col className="w-[22%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[40%]" />
+                  <col className="w-[26%]" />
+                </colgroup>
                 <thead>
                   <tr className="bg-muted/50 text-xs text-muted-foreground border-b border-border sticky top-0 z-10 backdrop-blur-sm">
                     <th className="px-6 py-4 font-semibold">학생 정보</th>
