@@ -5,6 +5,7 @@ import { Calendar, dateFnsLocalizer, View, Views } from 'react-big-calendar'
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop'
 import { format, parse, startOfWeek, getDay } from 'date-fns'
 import { ko } from 'date-fns/locale'
+import { rrulestr } from 'rrule'
 import type { CalendarEvent, BigCalendarEvent, EventType } from '@/core/types/calendar'
 import { EVENT_TYPE_CONFIG } from '@/core/types/calendar'
 import './calendar.css'
@@ -76,16 +77,51 @@ export function AcademyCalendar({
 }: AcademyCalendarProps) {
   const [currentView, setCurrentView] = useState<View>(defaultView)
 
-  // Convert CalendarEvent to BigCalendarEvent
+  // Convert CalendarEvent to BigCalendarEvent, expanding recurring events
   const calendarEvents = useMemo<BigCalendarEvent[]>(() => {
-    return events.map((event) => ({
-      id: event.id,
-      title: event.title,
-      start: new Date(event.start_at),
-      end: new Date(event.end_at),
-      allDay: event.all_day,
-      resource: event,
-    }))
+    const result: BigCalendarEvent[] = []
+
+    for (const event of events) {
+      if (event.recurrence_rule) {
+        try {
+          const rule = rrulestr(event.recurrence_rule)
+          const duration = new Date(event.end_at).getTime() - new Date(event.start_at).getTime()
+          const occurrences = rule.all((_, i) => i < 200)
+
+          for (const date of occurrences) {
+            result.push({
+              id: `${event.id}-${date.getTime()}`,
+              title: event.title,
+              start: date,
+              end: new Date(date.getTime() + duration),
+              allDay: event.all_day,
+              resource: event,
+            })
+          }
+        } catch {
+          // rrule 파싱 실패 시 원본 이벤트만 표시
+          result.push({
+            id: event.id,
+            title: event.title,
+            start: new Date(event.start_at),
+            end: new Date(event.end_at),
+            allDay: event.all_day,
+            resource: event,
+          })
+        }
+      } else {
+        result.push({
+          id: event.id,
+          title: event.title,
+          start: new Date(event.start_at),
+          end: new Date(event.end_at),
+          allDay: event.all_day,
+          resource: event,
+        })
+      }
+    }
+
+    return result
   }, [events])
 
   // Event style getter - applies custom colors based on event type

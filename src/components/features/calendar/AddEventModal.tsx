@@ -60,6 +60,17 @@ const eventFormSchema = z.object({
   repeat: z.enum(['none', 'daily', 'weekly', 'monthly']),
   reminder_minutes: z.number().optional(),
   color: z.string().optional(),
+}).refine((data) => {
+  const start = data.all_day
+    ? new Date(`${data.start_date}T00:00:00`)
+    : new Date(`${data.start_date}T${data.start_time || '00:00'}`)
+  const end = data.all_day
+    ? new Date(`${data.end_date}T23:59:59`)
+    : new Date(`${data.end_date}T${data.end_time || '00:00'}`)
+  return end >= start
+}, {
+  message: '종료 시간은 시작 시간 이후여야 합니다',
+  path: ['end_date'],
 })
 
 type EventFormValues = z.infer<typeof eventFormSchema>
@@ -221,7 +232,7 @@ export function AddEventModal({
                       <DatePicker
                         value={field.value ? new Date(field.value) : undefined}
                         onChange={(date) => {
-                          field.onChange(date ? date.toISOString().split('T')[0] : '');
+                          field.onChange(date ? format(date, 'yyyy-MM-dd') : '');
                         }}
                         placeholder="시작 날짜 선택"
                       />
@@ -264,7 +275,7 @@ export function AddEventModal({
                       <DatePicker
                         value={field.value ? new Date(field.value) : undefined}
                         onChange={(date) => {
-                          field.onChange(date ? date.toISOString().split('T')[0] : '');
+                          field.onChange(date ? format(date, 'yyyy-MM-dd') : '');
                         }}
                         placeholder="종료 날짜 선택"
                       />

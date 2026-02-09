@@ -78,7 +78,7 @@ export function CalendarWidget({ className }: CalendarWidgetProps) {
             <CalendarIcon className="w-5 h-5" />
             캘린더
           </CardTitle>
-          <Link href="/dashboard/calendar">
+          <Link href="/calendar">
             <Button variant="ghost" size="sm">
               <ExternalLink className="w-4 h-4" />
             </Button>
@@ -189,7 +189,7 @@ export function CalendarWidget({ className }: CalendarWidgetProps) {
                   return (
                     <Link
                       key={event.id}
-                      href="/dashboard/calendar"
+                      href="/calendar"
                       className="block p-2 rounded-md hover:bg-accent transition-colors"
                     >
                       <div className="flex items-start gap-2">
