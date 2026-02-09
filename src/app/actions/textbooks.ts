@@ -22,10 +22,24 @@ import { getErrorMessage } from '@/lib/error-handlers'
 
 const createTextbookSchema = z.object({
   title: z.string().min(1, '교재명은 필수입니다'),
+  author: z.string().optional(),
   publisher: z.string().optional(),
   isbn: z.string().optional(),
+  barcode: z.string().optional(),
   price: z.number().int().nonnegative().optional(),
   isActive: z.boolean().optional(),
+})
+
+const bulkCreateTextbookItemSchema = z.object({
+  title: z.string().trim().min(1, '교재명은 필수입니다.').max(200),
+  author: z.string().trim().max(100).optional().nullable(),
+  publisher: z.string().trim().max(100).optional().nullable(),
+  isbn: z.string().trim().max(50).optional().nullable(),
+  barcode: z.string().trim().max(100).optional().nullable(),
+})
+
+const bulkCreateTextbooksSchema = z.object({
+  textbooks: z.array(bulkCreateTextbookItemSchema).min(1, '등록할 교재가 없습니다.').max(1000),
 })
 
 const updateTextbookSchema = z.object({
@@ -115,6 +129,124 @@ export async function getTextbooks(options?: {
     }
   } catch (error) {
     console.error('[getTextbooks] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * Bulk create textbooks
+ *
+ * @param input - Array of textbook data
+ * @returns Insert result with counts
+ */
+export async function bulkCreateTextbooks(
+  input: z.infer<typeof bulkCreateTextbooksSchema>
+) {
+  try {
+    const validated = bulkCreateTextbooksSchema.parse(input)
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    const normalized = validated.textbooks.map((item) => ({
+      title: item.title.trim(),
+      author: item.author?.trim() || null,
+      publisher: item.publisher?.trim() || null,
+      isbn: item.isbn?.trim() || null,
+      barcode: item.barcode?.trim() || null,
+    }))
+
+    // Check for duplicate barcodes
+    const barcodes = normalized
+      .map((item) => item.barcode)
+      .filter((code): code is string => Boolean(code))
+
+    const dedupedBarcodes = Array.from(new Set(barcodes))
+
+    let existingBarcodeSet = new Set<string>()
+    if (dedupedBarcodes.length > 0) {
+      const { data: existing, error: existingError } = await supabase
+        .from('textbooks')
+        .select('barcode')
+        .eq('tenant_id', tenantId)
+        .in('barcode', dedupedBarcodes)
+        .is('deleted_at', null)
+
+      if (existingError) throw existingError
+
+      existingBarcodeSet = new Set(
+        (existing || [])
+          .map((item) => item.barcode)
+          .filter((code): code is string => Boolean(code))
+      )
+    }
+
+    const inputBarcodeSet = new Set<string>()
+    const duplicateBarcodes: string[] = []
+    const rowsToInsert: Array<{
+      tenant_id: string
+      title: string
+      author: string | null
+      publisher: string | null
+      isbn: string | null
+      barcode: string | null
+    }> = []
+
+    for (const item of normalized) {
+      const barcode = item.barcode
+
+      if (barcode) {
+        if (existingBarcodeSet.has(barcode) || inputBarcodeSet.has(barcode)) {
+          duplicateBarcodes.push(barcode)
+          continue
+        }
+        inputBarcodeSet.add(barcode)
+      }
+
+      rowsToInsert.push({
+        tenant_id: tenantId,
+        title: item.title,
+        author: item.author,
+        publisher: item.publisher,
+        isbn: item.isbn,
+        barcode: item.barcode,
+      })
+    }
+
+    if (rowsToInsert.length === 0) {
+      return {
+        success: true,
+        data: {
+          insertedCount: 0,
+          skippedCount: normalized.length,
+          duplicateBarcodes: Array.from(new Set(duplicateBarcodes)),
+        },
+        error: null,
+      }
+    }
+
+    const { error: insertError } = await supabase
+      .from('textbooks')
+      .insert(rowsToInsert)
+    if (insertError) throw insertError
+
+    revalidatePath('/textbooks')
+    revalidatePath('/library/lendings')
+
+    return {
+      success: true,
+      data: {
+        insertedCount: rowsToInsert.length,
+        skippedCount: normalized.length - rowsToInsert.length,
+        duplicateBarcodes: Array.from(new Set(duplicateBarcodes)),
+      },
+      error: null,
+    }
+  } catch (error) {
+    console.error('[bulkCreateTextbooks] Error:', error)
     return {
       success: false,
       data: null,

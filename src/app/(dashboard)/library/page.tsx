@@ -44,16 +44,16 @@ export default function LibraryPage() {
       description: '학생별 교재 대여 및 반납 관리',
       icon: BookMarked,
       href: '/library/lendings',
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-50 dark:bg-blue-950/20',
+      color: 'text-info',
+      bgColor: 'bg-info/10',
     },
     {
       title: '교재 목록',
       description: '보유 교재 및 도서 목록 관리',
       icon: Library,
-      href: '/library/materials',
-      color: 'text-green-600',
-      bgColor: 'bg-green-50 dark:bg-green-950/20',
+      href: '/textbooks',
+      color: 'text-success',
+      bgColor: 'bg-success/10',
     },
     {
       title: '진도 관리',
@@ -77,10 +77,10 @@ export default function LibraryPage() {
                 교재 및 도서 대여, 진도 관리를 한 곳에서
               </p>
             </div>
-            <Link href="/library/materials">
+            <Link href="/textbooks">
               <Button className="gap-2">
                 <Plus className="h-4 w-4" />
-                도서 목록 관리
+                교재 목록 관리
               </Button>
             </Link>
           </div>
@@ -115,7 +115,7 @@ export default function LibraryPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{stats.activeLendings}권</div>
+              <div className="text-2xl font-bold text-info">{stats.activeLendings}권</div>
               <p className="text-xs text-muted-foreground mt-1">
                 현재 대여 중인 교재
               </p>
@@ -130,7 +130,7 @@ export default function LibraryPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">{stats.availableBooks}권</div>
+              <div className="text-2xl font-bold text-success">{stats.availableBooks}권</div>
               <p className="text-xs text-muted-foreground mt-1">
                 대여 가능한 교재
               </p>

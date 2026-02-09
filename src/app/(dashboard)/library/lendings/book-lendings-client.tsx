@@ -63,11 +63,11 @@ export function BookLendingsClient({ initialLendings }: BookLendingsClientProps)
     // Search filter
     if (searchTerm) {
       filtered = filtered.filter((lending) => {
-        const bookTitle = lending.books?.title?.toLowerCase() || ''
-        const author = lending.books?.author?.toLowerCase() || ''
+        const bookTitle = lending.textbooks?.title?.toLowerCase() || ''
+        const author = lending.textbooks?.author?.toLowerCase() || ''
         const studentName = lending.students?.users?.name?.toLowerCase() || ''
         const studentCode = lending.students?.student_code?.toLowerCase() || ''
-        const barcode = lending.books?.barcode?.toLowerCase() || ''
+        const barcode = lending.textbooks?.barcode?.toLowerCase() || ''
         const search = searchTerm.toLowerCase()
 
         return (
@@ -347,15 +347,15 @@ export function BookLendingsClient({ initialLendings }: BookLendingsClientProps)
                         </TableCell>
                         <TableCell>
                           <div>
-                            <div className="font-medium">{lending.books?.title}</div>
-                            {lending.books?.author && (
+                            <div className="font-medium">{lending.textbooks?.title}</div>
+                            {lending.textbooks?.author && (
                               <div className="text-xs text-muted-foreground">
-                                {lending.books.author}
+                                {lending.textbooks.author}
                               </div>
                             )}
-                            {lending.books?.barcode && (
+                            {lending.textbooks?.barcode && (
                               <div className="text-xs text-muted-foreground">
-                                #{lending.books.barcode}
+                                #{lending.textbooks.barcode}
                               </div>
                             )}
                           </div>
@@ -416,7 +416,7 @@ export function BookLendingsClient({ initialLendings }: BookLendingsClientProps)
           <Card>
             <CardHeader className="pb-3">
               <CardDescription>대출 중</CardDescription>
-              <CardTitle className="text-3xl text-blue-600">{stats.active}건</CardTitle>
+              <CardTitle className="text-3xl text-info">{stats.active}건</CardTitle>
             </CardHeader>
           </Card>
           <Card>
