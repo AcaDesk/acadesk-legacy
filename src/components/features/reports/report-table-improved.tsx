@@ -383,7 +383,7 @@ export function ReportTableImproved({
                   onSendClick(report.id, report.students?.users?.name || '학생')
                 }}
               >
-                <Send className="h-4 w-4 text-blue-600" />
+                <Send className="h-4 w-4 text-info" />
               </Button>
             )}
             <Button

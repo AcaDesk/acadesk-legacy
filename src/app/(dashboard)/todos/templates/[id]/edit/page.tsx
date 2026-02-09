@@ -59,7 +59,7 @@ const DURATION_PRESETS = [
 
 const PRIORITY_OPTIONS = [
   { value: 'high', label: '높음', icon: AlertCircle, color: 'text-red-600', bgColor: 'bg-red-50' },
-  { value: 'normal', label: '보통', icon: CheckCircle2, color: 'text-blue-600', bgColor: 'bg-blue-50' },
+  { value: 'normal', label: '보통', icon: CheckCircle2, color: 'text-info', bgColor: 'bg-info/10' },
   { value: 'low', label: '낮음', icon: Info, color: 'text-gray-600', bgColor: 'bg-gray-50' },
 ]
 
@@ -647,29 +647,29 @@ export default function EditTodoTemplatePage() {
             </Card>
 
             {/* Tips Card */}
-            <Card className="bg-blue-50/50 border-blue-200">
+            <Card className="bg-info/5 border-info/20">
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
-                  <Info className="h-4 w-4 text-blue-600" />
+                  <Info className="h-4 w-4 text-info" />
                   활용 팁
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="space-y-2 text-sm text-muted-foreground">
                   <p className="flex gap-2">
-                    <span className="text-blue-600">•</span>
+                    <span className="text-info">•</span>
                     <span><strong>주간 과제</strong>로 매주 반복되는 학습 활동을 자동화하세요</span>
                   </p>
                   <p className="flex gap-2">
-                    <span className="text-blue-600">•</span>
+                    <span className="text-info">•</span>
                     <span><strong>예상 시간</strong>을 설정하면 학생들이 계획을 세우기 쉬워집니다</span>
                   </p>
                   <p className="flex gap-2">
-                    <span className="text-blue-600">•</span>
+                    <span className="text-info">•</span>
                     <span><strong>우선순위</strong>로 중요한 과제를 강조할 수 있습니다</span>
                   </p>
                   <p className="flex gap-2">
-                    <span className="text-blue-600">•</span>
+                    <span className="text-info">•</span>
                     <span>템플릿 목록에서 <strong>일괄 생성</strong> 버튼으로 모든 학생에게 한번에 배정하세요</span>
                   </p>
                 </div>

@@ -223,15 +223,15 @@ export function MessageTemplatesClient({ templates }: MessageTemplatesClientProp
       </div>
 
       {/* Info Card */}
-      <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/20">
+      <Card className="border-info/20 bg-info/5">
         <CardContent className="pt-6">
           <div className="flex items-start gap-3">
-            <MessageSquare className="h-5 w-5 text-blue-600 mt-0.5" />
+            <MessageSquare className="h-5 w-5 text-info mt-0.5" />
             <div className="space-y-1">
-              <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+              <p className="text-sm font-medium text-foreground">
                 프로세스 연동형 소통
               </p>
-              <p className="text-sm text-blue-700 dark:text-blue-300">
+              <p className="text-sm text-muted-foreground">
                 여기서 만든 템플릿은 출석부, 학원비 관리, 리포트 등 모든 페이지에서 바로 사용할 수 있습니다.
                 {' '}변수(예: {'{학생이름}'}, {'{금액}'})는 자동으로 실제 값으로 변환됩니다.
               </p>

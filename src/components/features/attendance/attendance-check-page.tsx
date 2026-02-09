@@ -775,7 +775,7 @@ export function AttendanceCheckPage({
                       className={cn(
                         'flex-1 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors',
                         student.isMakeupClass
-                          ? 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-900'
+                          ? 'bg-info/10 text-info border border-info/20'
                           : 'bg-card border border-border text-muted-foreground'
                       )}
                     >
@@ -783,7 +783,7 @@ export function AttendanceCheckPage({
                       {student.isMakeupClass ? 'ON' : 'OFF'}
                     </button>
                     {(student.status === 'absent' || student.status === 'excused' || student.status === 'late') && (
-                      <button className="flex-1 py-2 rounded-lg text-xs font-semibold bg-blue-50 text-blue-600 border border-blue-100 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-900 flex items-center justify-center gap-1.5">
+                      <button className="flex-1 py-2 rounded-lg text-xs font-semibold bg-info/10 text-info border border-info/20 flex items-center justify-center gap-1.5">
                         <MessageCircle className="h-3.5 w-3.5" /> 알림
                       </button>
                     )}
@@ -908,8 +908,8 @@ export function AttendanceCheckPage({
                             className={cn(
                               'px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors flex items-center gap-1',
                               student.isMakeupClass
-                                ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-900'
-                                : 'bg-card border-border text-muted-foreground hover:text-blue-600 hover:border-blue-200'
+                                ? 'bg-info/10 text-info border-info/20'
+                                : 'bg-card border-border text-muted-foreground hover:text-info hover:border-info/20'
                             )}
                           >
                             <PlusCircle className="h-3 w-3" /> 보강
@@ -917,7 +917,7 @@ export function AttendanceCheckPage({
                           {(student.status === 'late' ||
                             student.status === 'absent' ||
                             student.status === 'excused') && (
-                            <button className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-blue-600 hover:bg-blue-50 hover:border-blue-100 dark:hover:bg-blue-950/30 transition-colors">
+                            <button className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-info hover:bg-info/10 hover:border-info/20 transition-colors">
                               <MessageCircle className="h-3.5 w-3.5" />
                             </button>
                           )}

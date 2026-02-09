@@ -42,7 +42,7 @@ export default async function ProfilePage() {
       <div className="space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold">내 정보</h1>
+          <h1 className="text-3xl font-bold tracking-tight">내 정보</h1>
           <p className="text-muted-foreground">사용자 프로필 및 계정 정보</p>
         </div>
 

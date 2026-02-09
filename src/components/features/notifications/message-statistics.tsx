@@ -144,7 +144,7 @@ export function MessageStatistics({ className }: MessageStatisticsProps) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Send className="h-4 w-4 text-blue-600" />
+              <Send className="h-4 w-4 text-info" />
               총 발송
             </CardTitle>
           </CardHeader>

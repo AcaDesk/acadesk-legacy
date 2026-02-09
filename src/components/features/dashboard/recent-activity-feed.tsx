@@ -32,8 +32,8 @@ const activityConfig = {
   },
   exam_score_entered: {
     icon: FileText,
-    color: "text-blue-600 dark:text-blue-400",
-    bgColor: "bg-blue-50 dark:bg-blue-950/20",
+    color: "text-info",
+    bgColor: "bg-info/10",
     label: "성적"
   },
   todo_completed: {

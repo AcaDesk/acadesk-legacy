@@ -48,7 +48,7 @@ function getActivityColor(type: string) {
   switch (type.toLowerCase()) {
     case 'enrollment':
     case 'registration':
-      return 'bg-blue-500/10 text-blue-700 dark:text-blue-400'
+      return 'bg-info/10 text-info'
     case 'attendance':
     case 'check-in':
       return 'bg-green-500/10 text-green-700 dark:text-green-400'

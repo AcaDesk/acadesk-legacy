@@ -35,7 +35,7 @@ export function ReportErrorDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {errorInfo?.type === 'structural' && <Settings2 className="h-5 w-5 text-orange-600" />}
-            {errorInfo?.type === 'recoverable' && <Wrench className="h-5 w-5 text-blue-600" />}
+            {errorInfo?.type === 'recoverable' && <Wrench className="h-5 w-5 text-info" />}
             {errorInfo?.type === 'temporary' && <RefreshCw className="h-5 w-5 text-yellow-600" />}
             {errorInfo?.title || '전송 실패'}
           </DialogTitle>
@@ -65,7 +65,7 @@ export function ReportErrorDialog({
                     </Badge>
                   )}
                   {errorInfo?.type === 'recoverable' && (
-                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                    <Badge variant="outline" className="bg-info/10 text-info border-info/20">
                       조치 필요
                     </Badge>
                   )}
@@ -175,15 +175,15 @@ export function ReportBulkErrorDialog({
           )}
 
           {recoverable.length > 0 && (
-            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
+            <div className="rounded-lg border border-info/20 bg-info/10 p-3 space-y-2">
               <div className="flex items-center gap-2">
-                <Wrench className="h-4 w-4 text-blue-600" />
-                <span className="font-medium text-blue-700 text-sm">
+                <Wrench className="h-4 w-4 text-info" />
+                <span className="font-medium text-info text-sm">
                   조치 필요 ({recoverable.length}건)
                 </span>
               </div>
-              <p className="text-xs text-blue-600">{recoverable[0].error.solution}</p>
-              <div className="text-xs text-blue-700">
+              <p className="text-xs text-info">{recoverable[0].error.solution}</p>
+              <div className="text-xs text-info">
                 {recoverable.map((e, i) => (
                   <span key={i}>
                     {e.name}{i < recoverable.length - 1 ? ', ' : ''}
@@ -194,7 +194,7 @@ export function ReportBulkErrorDialog({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-7 text-xs border-blue-300 text-blue-700 hover:bg-blue-100"
+                  className="h-7 text-xs border-info/20 text-info hover:bg-info/10"
                   onClick={() => {
                     router.push(recoverable[0].error.helpLink!)
                     onOpenChange(false)

@@ -80,13 +80,13 @@ function getBanner(
 const bannerStyles = {
   info: 'border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/20',
   warning: 'border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20',
-  success: 'border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-950/20',
+  success: 'border-success/20 bg-success/5',
 }
 
 const bannerTextStyles = {
   info: 'text-blue-900 dark:text-blue-100',
   warning: 'text-amber-900 dark:text-amber-100',
-  success: 'text-green-900 dark:text-green-100',
+  success: 'text-success',
 }
 
 const bannerIconMap = {
@@ -98,7 +98,7 @@ const bannerIconMap = {
 const bannerIconStyles = {
   info: 'text-blue-600',
   warning: 'text-amber-600',
-  success: 'text-green-600',
+  success: 'text-success',
 }
 
 export function KakaoAlimtalkStepper({

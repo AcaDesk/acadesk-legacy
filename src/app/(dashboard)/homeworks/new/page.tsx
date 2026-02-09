@@ -111,7 +111,7 @@ export default function NewHomeworkPage() {
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold">숙제 출제</h1>
+          <h1 className="text-3xl font-bold tracking-tight">숙제 출제</h1>
           <p className="text-muted-foreground">학생들에게 집에서 해올 숙제를 출제합니다</p>
         </div>
 

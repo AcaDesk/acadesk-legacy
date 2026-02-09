@@ -17,7 +17,7 @@ export default async function NewExamPage() {
       <div className="space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold">시험 등록</h1>
+          <h1 className="text-3xl font-bold tracking-tight">시험 등록</h1>
           <p className="text-muted-foreground">새로운 시험을 등록합니다</p>
         </div>
 

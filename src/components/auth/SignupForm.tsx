@@ -34,7 +34,7 @@ const getPasswordStrengthLabel = (
 ): { label: string; color: string } => {
   if (strength < 40) return { label: "약함", color: "bg-red-500" }
   if (strength < 70) return { label: "보통", color: "bg-yellow-500" }
-  return { label: "강함", color: "bg-green-500" }
+  return { label: "강함", color: "bg-success" }
 }
 
 const signupSchema = z
@@ -167,7 +167,7 @@ export default function SignupForm({
       {...props}
     >
       <div className="flex flex-col gap-2 text-center">
-        <h1 className="text-3xl font-bold">계정 만들기</h1>
+        <h1 className="text-3xl font-bold tracking-tight">계정 만들기</h1>
         <p className="text-balance text-muted-foreground">
           간편하게 소셜 로그인으로 시작하세요
         </p>
@@ -283,7 +283,7 @@ export default function SignupForm({
                       ? "text-red-600"
                       : passwordStrength < 70
                       ? "text-yellow-600"
-                      : "text-green-600"
+                      : "text-success"
                   }`}
                 >
                   {strengthInfo.label}

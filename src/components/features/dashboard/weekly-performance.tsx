@@ -98,16 +98,16 @@ export function WeeklyPerformance({ data }: WeeklyPerformanceProps) {
             <AreaChart data={weeklyData}>
               <defs>
                 <linearGradient id="colorAttendance" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                  <stop offset="5%" stopColor="var(--info)" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="var(--info)" stopOpacity={0}/>
                 </linearGradient>
                 <linearGradient id="colorTodos" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                  <stop offset="5%" stopColor="var(--success)" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="var(--success)" stopOpacity={0}/>
                 </linearGradient>
                 <linearGradient id="colorReports" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                  <stop offset="5%" stopColor="var(--warning)" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="var(--warning)" stopOpacity={0}/>
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
@@ -128,7 +128,7 @@ export function WeeklyPerformance({ data }: WeeklyPerformanceProps) {
               <Area
                 type="monotone"
                 dataKey="출석률"
-                stroke="#3b82f6"
+                stroke="var(--info)"
                 strokeWidth={2}
                 fillOpacity={1}
                 fill="url(#colorAttendance)"
@@ -136,7 +136,7 @@ export function WeeklyPerformance({ data }: WeeklyPerformanceProps) {
               <Area
                 type="monotone"
                 dataKey="TODO완료"
-                stroke="#10b981"
+                stroke="var(--success)"
                 strokeWidth={2}
                 fillOpacity={1}
                 fill="url(#colorTodos)"
@@ -144,7 +144,7 @@ export function WeeklyPerformance({ data }: WeeklyPerformanceProps) {
               <Area
                 type="monotone"
                 dataKey="리포트생성"
-                stroke="#f59e0b"
+                stroke="var(--warning)"
                 strokeWidth={2}
                 fillOpacity={1}
                 fill="url(#colorReports)"
@@ -165,8 +165,8 @@ export function WeeklyPerformance({ data }: WeeklyPerformanceProps) {
                   className={cn(
                     "text-xs",
                     attendanceChange > 0
-                      ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400"
-                      : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400"
+                      ? "bg-success/10 text-success"
+                      : "bg-destructive/10 text-destructive"
                   )}
                 >
                   {attendanceChange > 0 ? <TrendingUp className="h-3 w-3 mr-0.5" /> : <TrendingDown className="h-3 w-3 mr-0.5" />}
@@ -186,8 +186,8 @@ export function WeeklyPerformance({ data }: WeeklyPerformanceProps) {
                   className={cn(
                     "text-xs",
                     todosChange > 0
-                      ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400"
-                      : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400"
+                      ? "bg-success/10 text-success"
+                      : "bg-destructive/10 text-destructive"
                   )}
                 >
                   {todosChange > 0 ? <TrendingUp className="h-3 w-3 mr-0.5" /> : <TrendingDown className="h-3 w-3 mr-0.5" />}
@@ -207,8 +207,8 @@ export function WeeklyPerformance({ data }: WeeklyPerformanceProps) {
                   className={cn(
                     "text-xs",
                     reportsChange > 0
-                      ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400"
-                      : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400"
+                      ? "bg-success/10 text-success"
+                      : "bg-destructive/10 text-destructive"
                   )}
                 >
                   {reportsChange > 0 ? <TrendingUp className="h-3 w-3 mr-0.5" /> : <TrendingDown className="h-3 w-3 mr-0.5" />}
@@ -222,15 +222,15 @@ export function WeeklyPerformance({ data }: WeeklyPerformanceProps) {
         {/* 범례 */}
         <div className="flex items-center justify-center gap-4 pt-2 border-t">
           <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-blue-500" />
+            <div className="h-2 w-2 rounded-full bg-info" />
             <span className="text-xs text-muted-foreground">출석률</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-green-500" />
+            <div className="h-2 w-2 rounded-full bg-success" />
             <span className="text-xs text-muted-foreground">TODO 완료</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-amber-500" />
+            <div className="h-2 w-2 rounded-full bg-warning" />
             <span className="text-xs text-muted-foreground">리포트 생성</span>
           </div>
         </div>

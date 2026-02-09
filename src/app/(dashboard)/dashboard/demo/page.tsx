@@ -61,8 +61,8 @@ export default function DashboardDemoPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-blue-500/10">
-                  <Zap className="h-4 w-4 text-blue-600" />
+                <div className="p-2 rounded-lg bg-info/10">
+                  <Zap className="h-4 w-4 text-info" />
                 </div>
                 <CardTitle className="text-base">Suspense</CardTitle>
               </div>

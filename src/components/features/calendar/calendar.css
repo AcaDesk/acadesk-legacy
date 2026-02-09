@@ -155,47 +155,47 @@
 
 /* Custom event colors by type */
 .rbc-event-class {
-  background-color: #3b82f6;
+  background-color: var(--event-class);
   color: white;
 }
 
 .rbc-event-exam {
-  background-color: #8b5cf6;
+  background-color: var(--event-exam);
   color: white;
 }
 
 .rbc-event-consultation {
-  background-color: #10b981;
+  background-color: var(--event-consultation);
   color: white;
 }
 
 .rbc-event-payment_due {
-  background-color: #ef4444;
+  background-color: var(--event-payment);
   color: white;
 }
 
 .rbc-event-task_due {
-  background-color: #f59e0b;
+  background-color: var(--event-task);
   color: white;
 }
 
 .rbc-event-birthday {
-  background-color: #ec4899;
+  background-color: var(--event-birthday);
   color: white;
 }
 
 .rbc-event-holiday {
-  background-color: #6b7280;
+  background-color: var(--event-holiday);
   color: white;
 }
 
 .rbc-event-event {
-  background-color: #06b6d4;
+  background-color: var(--event-event);
   color: white;
 }
 
 .rbc-event-other {
-  background-color: #64748b;
+  background-color: var(--event-other);
   color: white;
 }
 

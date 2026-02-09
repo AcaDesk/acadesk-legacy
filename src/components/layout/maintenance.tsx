@@ -18,16 +18,16 @@ export function Maintenance({ featureName, estimatedTime, reason }: MaintenanceP
 
   return (
     <div className="flex min-h-[calc(100vh-12rem)] items-center justify-center p-4">
-      <Card className="max-w-2xl w-full border-2 border-orange-200 dark:border-orange-900">
+      <Card className="max-w-2xl w-full border-2 border-warning/20">
         <CardContent className="pt-12 pb-12 px-6 md:px-12 text-center space-y-6">
           {/* 아이콘 */}
           <div className="flex justify-center">
             <div className="relative">
-              <div className="h-24 w-24 rounded-full bg-orange-50 dark:bg-orange-950/20 flex items-center justify-center border-2 border-orange-200 dark:border-orange-900">
-                <Wrench className="h-12 w-12 text-orange-600 dark:text-orange-500" />
+              <div className="h-24 w-24 rounded-full bg-warning/10 flex items-center justify-center border-2 border-warning/20">
+                <Wrench className="h-12 w-12 text-warning" />
               </div>
               {/* 회전 애니메이션 효과 */}
-              <div className="absolute inset-0 rounded-full border-2 border-orange-300 dark:border-orange-800 animate-spin" style={{ animationDuration: '3s' }} />
+              <div className="absolute inset-0 rounded-full border-2 border-warning/20 animate-spin" style={{ animationDuration: '3s' }} />
             </div>
           </div>
 
@@ -36,7 +36,7 @@ export function Maintenance({ featureName, estimatedTime, reason }: MaintenanceP
             <h1 className="text-3xl md:text-4xl font-bold text-foreground">
               {featureName} 점검 중
             </h1>
-            <div className="inline-flex items-center gap-2 rounded-full bg-orange-100 dark:bg-orange-950/30 px-4 py-1.5 text-sm font-medium text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-800">
+            <div className="inline-flex items-center gap-2 rounded-full bg-warning/10 px-4 py-1.5 text-sm font-medium text-warning border border-warning/20">
               <Clock className="h-3 w-3 animate-pulse" />
               일시 점검 중
             </div>
@@ -50,8 +50,8 @@ export function Maintenance({ featureName, estimatedTime, reason }: MaintenanceP
 
           {/* 예상 완료 시간 */}
           {estimatedTime && (
-            <div className="bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900 rounded-lg p-4 max-w-md mx-auto">
-              <div className="flex items-center justify-center gap-2 text-orange-700 dark:text-orange-400">
+            <div className="bg-warning/10 border border-warning/20 rounded-lg p-4 max-w-md mx-auto">
+              <div className="flex items-center justify-center gap-2 text-warning">
                 <Clock className="h-5 w-5" />
                 <div className="text-left">
                   <div className="text-sm font-medium">예상 완료 시간</div>

@@ -355,7 +355,7 @@ export default function KioskPage() {
                   todo.verified_at
                     ? 'bg-green-50/50 dark:bg-green-950/20 border-green-200 dark:border-green-800'
                     : todo.completed_at
-                    ? 'bg-blue-50/50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800'
+                    ? 'bg-info/5 border-info/20'
                     : 'hover:shadow-md'
                 }`}
               >
@@ -460,7 +460,7 @@ export default function KioskPage() {
                       검증 완료
                     </Badge>
                   ) : selectedTodo.completed_at ? (
-                    <Badge className="gap-1 text-base px-3 py-1 bg-blue-600">
+                    <Badge className="gap-1 text-base px-3 py-1 bg-info">
                       <CheckCircle className="h-4 w-4" />
                       완료
                     </Badge>

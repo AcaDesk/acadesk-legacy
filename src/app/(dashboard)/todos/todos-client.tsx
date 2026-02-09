@@ -38,7 +38,7 @@ interface TodosClientProps {
 
 const priorityColors = {
   low: 'bg-gray-500',
-  normal: 'bg-blue-500',
+  normal: 'bg-info',
   high: 'bg-orange-500',
   urgent: 'bg-red-500',
 }
@@ -228,7 +228,7 @@ export function TodosClient({ initialTodos }: TodosClientProps) {
 
           <Card
             className={`hover:shadow-md transition-all cursor-pointer ${
-              statusFilter === 'completed' ? 'ring-2 ring-blue-600 bg-blue-50 dark:bg-blue-950/20' : ''
+              statusFilter === 'completed' ? 'ring-2 ring-info bg-info/10' : ''
             }`}
             onClick={() => handleStatsCardClick('completed')}
           >
@@ -238,7 +238,7 @@ export function TodosClient({ initialTodos }: TodosClientProps) {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{stats.completed}</div>
+              <div className="text-2xl font-bold text-info">{stats.completed}</div>
               <p className="text-xs text-muted-foreground mt-1">검증 대기 중</p>
             </CardContent>
           </Card>
@@ -339,7 +339,7 @@ export function TodosClient({ initialTodos }: TodosClientProps) {
                           {todo.verified_at ? (
                             <CheckCircle2 className="h-5 w-5 text-green-600" />
                           ) : todo.completed_at ? (
-                            <CheckCircle2 className="h-5 w-5 text-blue-600" />
+                            <CheckCircle2 className="h-5 w-5 text-info" />
                           ) : (
                             <Circle className="h-5 w-5 text-muted-foreground" />
                           )}

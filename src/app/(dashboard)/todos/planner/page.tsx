@@ -571,7 +571,7 @@ export default function WeeklyPlannerPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
+            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
               <Calendar className="h-8 w-8" />
               주간 학습 플래너
             </h1>

@@ -241,7 +241,7 @@ export default function EditStudentPage() {
       <div className="space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold">학생 정보 수정</h1>
+          <h1 className="text-3xl font-bold tracking-tight">학생 정보 수정</h1>
           <p className="text-muted-foreground mt-1">학번: {student.student_code}</p>
         </div>
 

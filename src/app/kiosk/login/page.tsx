@@ -188,7 +188,7 @@ export default function KioskLoginPage() {
               <UserCircle className="h-7 w-7 text-primary" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold">키오스크 로그인</h1>
+              <h1 className="text-3xl font-bold tracking-tight">키오스크 로그인</h1>
               <p className="text-sm text-muted-foreground">
                 {step === 'select' ? '이름을 선택하세요' : '전화번호 뒷자리를 입력하세요'}
               </p>

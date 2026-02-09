@@ -517,7 +517,7 @@ export function KakaoChannelRegistration({
         {step === 3 && (
           <div className="space-y-4 text-center py-6">
             <div className="flex justify-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-success/10 text-success">
                 <Check className="h-8 w-8" />
               </div>
             </div>

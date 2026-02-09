@@ -173,11 +173,11 @@ export const CARD_STYLES = {
   // 강조 카드
   HIGHLIGHT: 'border-primary/20 bg-primary/5',
   // 경고 카드
-  WARNING: 'border-yellow-200 bg-yellow-50/50 dark:bg-yellow-950/20 dark:border-yellow-800',
+  WARNING: 'border-warning/20 bg-warning/5',
   // 위험 카드
-  DANGER: 'border-red-200 bg-red-50/50 dark:bg-red-950/20 dark:border-red-800',
+  DANGER: 'border-destructive/20 bg-destructive/5',
   // 성공 카드
-  SUCCESS: 'border-green-200 bg-green-50/50 dark:bg-green-950/20 dark:border-green-800',
+  SUCCESS: 'border-success/20 bg-success/5',
 } as const
 
 // 그리드 레이아웃
@@ -195,7 +195,7 @@ export const GRID_LAYOUTS = {
 // 텍스트 스타일
 export const TEXT_STYLES = {
   // 페이지 제목
-  PAGE_TITLE: 'text-3xl font-bold',
+  PAGE_TITLE: 'text-3xl font-bold tracking-tight',
   // 페이지 설명
   PAGE_DESCRIPTION: 'text-muted-foreground',
   // 섹션 제목

@@ -64,7 +64,7 @@ export function PaymentsContent({ initialStats }: PaymentsContentProps) {
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold">학원비 관리</h1>
+              <h1 className="text-3xl font-bold tracking-tight">학원비 관리</h1>
               <p className="text-muted-foreground">
                 월별 청구, 수납 현황 및 미납 관리를 한 곳에서 처리하세요
               </p>
@@ -102,10 +102,10 @@ export function PaymentsContent({ initialStats }: PaymentsContentProps) {
               <CardTitle className="text-sm font-medium">
                 수납 완료
               </CardTitle>
-              <CheckCircle className="h-4 w-4 text-green-600" />
+              <CheckCircle className="h-4 w-4 text-success" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">
+              <div className="text-2xl font-bold text-success">
                 {stats.totalCollected.toLocaleString()}원
               </div>
               <p className="text-xs text-muted-foreground mt-1">

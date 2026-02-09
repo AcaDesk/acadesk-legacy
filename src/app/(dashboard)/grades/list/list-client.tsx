@@ -185,7 +185,7 @@ export function GradesListClient() {
       case 'pending':
         return { label: '입력 대기', variant: 'outline' as const, className: 'text-gray-500' }
       case 'completed':
-        return { label: '완료', variant: 'default' as const, className: 'bg-green-500 hover:bg-green-600' }
+        return { label: '완료', variant: 'default' as const, className: 'bg-success hover:bg-success/90' }
       case 'retest_required':
         return { label: '재시험 필요', variant: 'destructive' as const, className: '' }
       case 'retest_waived':
@@ -439,7 +439,7 @@ export function GradesListClient() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">성적 조회</h1>
+            <h1 className="text-3xl font-bold tracking-tight">성적 조회</h1>
             <p className="text-muted-foreground">학생별 시험 성적을 조회합니다</p>
           </div>
           <Button onClick={() => router.push('/grades')}>

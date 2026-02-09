@@ -203,7 +203,7 @@ export default function VerifyTodosPage() {
 
   const priorityColors = {
     low: 'bg-gray-500',
-    normal: 'bg-blue-500',
+    normal: 'bg-info',
     high: 'bg-orange-500',
     urgent: 'bg-red-500',
   }
@@ -265,7 +265,7 @@ export default function VerifyTodosPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
+            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
               <CheckCircle className="h-8 w-8" />
               검증 대기 목록
             </h1>

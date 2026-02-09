@@ -73,7 +73,7 @@ export const WelcomeBanner = memo(function WelcomeBanner({
       label: "총 학생 수",
       value: `${totalStudents}명`,
       href: "/students",
-      color: "text-blue-600 dark:text-blue-400"
+      color: "text-info"
     },
     {
       icon: Calendar,

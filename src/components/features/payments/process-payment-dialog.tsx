@@ -167,7 +167,7 @@ export function ProcessPaymentDialog({
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">기납부액:</span>
-              <span className="font-medium text-green-600">
+              <span className="font-medium text-success">
                 {invoiceDetails.paid_amount.toLocaleString()}원
               </span>
             </div>

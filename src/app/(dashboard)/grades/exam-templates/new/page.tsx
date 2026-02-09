@@ -199,7 +199,7 @@ export default function NewExamTemplatePage() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold">시험 템플릿 등록</h1>
+            <h1 className="text-3xl font-bold tracking-tight">시험 템플릿 등록</h1>
             <p className="text-muted-foreground mt-1">반복적으로 생성할 시험 템플릿을 등록합니다</p>
           </div>
           <div className="flex items-center gap-2">
@@ -379,7 +379,7 @@ export default function NewExamTemplatePage() {
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
-              <Repeat className="h-5 w-5 text-blue-600" />
+              <Repeat className="h-5 w-5 text-info" />
               <CardTitle>반복 설정</CardTitle>
             </div>
             <CardDescription>

@@ -19,7 +19,7 @@ function ChecklistItem({ checked, label, description }: ChecklistItemProps) {
   return (
     <div className="flex items-start gap-2">
       {checked ? (
-        <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+        <CheckCircle2 className="h-4 w-4 text-success mt-0.5 shrink-0" />
       ) : (
         <Circle className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
       )}
@@ -50,14 +50,14 @@ export function KakaoPrerequisitesChecklist({
     <Alert
       className={cn(
         allPrerequisitesMet
-          ? 'border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-950/20'
+          ? 'border-success/20 bg-success/5'
           : 'border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20'
       )}
     >
       <AlertCircle
         className={cn(
           'h-4 w-4',
-          allPrerequisitesMet ? 'text-green-600' : 'text-amber-600'
+          allPrerequisitesMet ? 'text-success' : 'text-amber-600'
         )}
       />
       <AlertDescription className="text-xs">

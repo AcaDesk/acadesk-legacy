@@ -55,7 +55,7 @@ export function KPIWidget({
                 "text-xs px-2 py-0.5",
                 change.isPositive
                   ? "bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-950 dark:text-green-400"
-                  : "bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-950 dark:text-red-400"
+                  : "bg-destructive/10 text-destructive hover:bg-destructive/10"
               )}
             >
               <TrendIcon className="mr-1 h-3 w-3" />

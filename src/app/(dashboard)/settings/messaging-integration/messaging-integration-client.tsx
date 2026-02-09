@@ -317,7 +317,7 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
                   </Badge>
                 )}
                 {isActive && (
-                  <Badge className="gap-1 bg-green-600">
+                  <Badge className="gap-1 bg-success">
                     <Check className="h-3 w-3" />
                     활성화
                   </Badge>
@@ -372,11 +372,11 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
         {/* API 설정 Tab */}
         <TabsContent value="api" className="space-y-6">
           {/* Info Alert */}
-          <Alert className="border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/20">
-            <Info className="h-4 w-4 text-blue-600" />
-            <AlertDescription className="text-sm text-blue-900 dark:text-blue-100">
+          <Alert className="border-info/20 bg-info/5">
+            <Info className="h-4 w-4 text-info" />
+            <AlertDescription className="text-sm text-foreground">
               <p className="font-medium mb-2">셀프 서비스 안내</p>
-              <ul className="list-disc list-inside space-y-1 text-xs text-blue-700 dark:text-blue-300">
+              <ul className="list-disc list-inside space-y-1 text-xs text-muted-foreground">
                 <li>원장님이 직접 메시징 서비스(알리고, 솔라피 등)에 가입하고 API 키를 발급받아 등록합니다</li>
                 <li>발송 비용은 원장님의 메시징 서비스 계정에서 직접 차감됩니다</li>
                 <li>발신번호는 반드시 해당 서비스에서 사전 등록 및 인증을 받아야 합니다</li>
@@ -418,7 +418,7 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
                     <p className="font-medium mb-1">{selectedProvider.name}</p>
                     <p className="text-xs text-muted-foreground mb-2">{selectedProvider.description}</p>
                     {formData.provider === 'solapi' && (
-                      <p className="text-xs text-green-600 dark:text-green-400 mb-2">
+                      <p className="text-xs text-success mb-2">
                         * 솔라피는 카카오 알림톡 연동을 지원합니다
                       </p>
                     )}

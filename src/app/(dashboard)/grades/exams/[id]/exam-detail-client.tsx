@@ -414,7 +414,7 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="space-y-2">
-          <h1 className="text-3xl font-bold">{exam.name}</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{exam.name}</h1>
           <p className="text-muted-foreground leading-relaxed">{exam.description || '시험 정보 및 학생 배정'}</p>
           <div className="flex items-center gap-2 flex-wrap">
             <Badge variant="outline" className="text-xs">
@@ -814,12 +814,12 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
             <div className="flex items-center justify-between gap-8">
               <div className="space-y-3 flex-1">
                 <div className="flex items-center gap-3">
-                  <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
-                  <span className="font-medium text-green-700">시험 생성 완료</span>
+                  <CheckCircle2 className="h-5 w-5 text-success flex-shrink-0" />
+                  <span className="font-medium text-success">시험 생성 완료</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
-                  <span className="font-medium text-green-700">
+                  <CheckCircle2 className="h-5 w-5 text-success flex-shrink-0" />
+                  <span className="font-medium text-success">
                     학생 배정 완료 ({students.length}명)
                   </span>
                 </div>

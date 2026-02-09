@@ -470,7 +470,7 @@ export function TodoStatsContent({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
+          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
             <BarChart3 className="h-8 w-8" />
             과제 통계
           </h1>
@@ -512,7 +512,7 @@ export function TodoStatsContent({
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">완료</CardTitle>
-                <CheckCircle className="h-4 w-4 text-green-600" />
+                <CheckCircle className="h-4 w-4 text-success" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{overallStats?.completedTodos || 0}</div>
@@ -526,7 +526,7 @@ export function TodoStatsContent({
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">검증 완료</CardTitle>
-                <TrendingUp className="h-4 w-4 text-blue-600" />
+                <TrendingUp className="h-4 w-4 text-info" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{overallStats?.verifiedTodos || 0}</div>

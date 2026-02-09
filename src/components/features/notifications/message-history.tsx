@@ -86,7 +86,7 @@ export function MessageHistory({ className }: MessageHistoryProps) {
       case 'PENDING':
         return <Badge variant="secondary">대기중</Badge>
       case 'SENDING':
-        return <Badge variant="secondary" className="bg-blue-100 text-blue-800">발송중</Badge>
+        return <Badge variant="secondary" className="bg-info/10 text-info">발송중</Badge>
       case 'SENT':
       case 'COMPLETE':
         return <Badge variant="default" className="bg-green-100 text-green-800">성공</Badge>
@@ -102,7 +102,7 @@ export function MessageHistory({ className }: MessageHistoryProps) {
       case 'SMS':
         return <Badge variant="default">SMS</Badge>
       case 'LMS':
-        return <Badge variant="default" className="bg-blue-600">LMS</Badge>
+        return <Badge variant="default" className="bg-info">LMS</Badge>
       case 'MMS':
         return <Badge variant="default" className="bg-purple-600">MMS</Badge>
       default:

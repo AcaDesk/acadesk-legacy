@@ -4,7 +4,7 @@ import { FAQClient } from './faq-client'
 
 // Static FAQ data
 const faqCategories = [
-  { id: 'general', label: '일반', color: 'bg-blue-100 text-blue-600' },
+  { id: 'general', label: '일반', color: 'bg-info/10 text-info' },
   { id: 'account', label: '계정', color: 'bg-green-100 text-green-600' },
   { id: 'billing', label: '결제', color: 'bg-purple-100 text-purple-600' },
   { id: 'features', label: '기능', color: 'bg-orange-100 text-orange-600' },

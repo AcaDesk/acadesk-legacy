@@ -343,7 +343,7 @@ export function ExamTemplatesClient() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">시험 템플릿 관리</h1>
+            <h1 className="text-3xl font-bold tracking-tight">시험 템플릿 관리</h1>
             <p className="text-muted-foreground">반복되는 시험을 템플릿으로 관리하고 자동 생성하세요</p>
           </div>
           <Button onClick={() => router.push('/grades/exam-templates/new')}>
@@ -427,7 +427,7 @@ export function ExamTemplatesClient() {
                       <TableRow key={template.id}>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <Repeat className="h-4 w-4 text-blue-600" />
+                            <Repeat className="h-4 w-4 text-info" />
                             <span className="font-medium">{template.name}</span>
                           </div>
                         </TableCell>
@@ -475,7 +475,7 @@ export function ExamTemplatesClient() {
                               variant="default"
                               size="sm"
                               onClick={() => handleGenerateExam(template)}
-                              className="bg-green-600 hover:bg-green-700"
+                              className="bg-success hover:bg-success/90"
                             >
                               <Copy className="h-4 w-4 mr-1" />
                               시험 생성

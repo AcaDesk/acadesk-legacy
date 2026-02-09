@@ -288,7 +288,7 @@ export function SendMessageDialog({
             <div className="flex items-center justify-between">
               <Label>메시지 내용</Label>
               {selectedTemplate && selectedTemplate.id === 'custom' && (
-                <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
+                <div className="flex items-center gap-1 text-xs text-info">
                   <Info className="h-3 w-3" />
                   <span>직접 작성 모드 - 자유롭게 입력하세요</span>
                 </div>
@@ -322,13 +322,13 @@ export function SendMessageDialog({
           </div>
 
           {/* 안내 사항 */}
-          <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/20">
+          <Card className="border-info/20 bg-info/5">
             <CardContent className="pt-4">
               <div className="flex items-start gap-2">
-                <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                <div className="space-y-1 text-sm text-blue-900 dark:text-blue-100">
+                <Info className="h-4 w-4 text-info mt-0.5 flex-shrink-0" />
+                <div className="space-y-1 text-sm text-foreground">
                   <p className="font-medium">발송 전 확인사항</p>
-                  <ul className="list-disc list-inside text-xs text-blue-700 dark:text-blue-300 space-y-0.5">
+                  <ul className="list-disc list-inside text-xs text-muted-foreground space-y-0.5">
                     <li>알림톡 실패 시 자동으로 SMS로 재발송됩니다</li>
                     <li>발송 후 취소가 불가능하니 내용을 확인해주세요</li>
                     <li>광고성 메시지는 수신 동의자에게만 발송 가능합니다</li>

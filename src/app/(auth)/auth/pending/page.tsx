@@ -201,13 +201,13 @@ export default function PendingPage() {
 
             {/* 도움말 섹션 */}
             <div className="pt-4 border-t space-y-3">
-              <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
-                <HelpCircle className="h-5 w-5 text-blue-600 dark:text-blue-500 flex-shrink-0 mt-0.5" />
+              <div className="flex items-start gap-3 p-4 bg-info/10 rounded-lg">
+                <HelpCircle className="h-5 w-5 text-info flex-shrink-0 mt-0.5" />
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                  <p className="text-sm font-medium text-foreground">
                     승인은 얼마나 걸리나요?
                   </p>
-                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                  <p className="text-sm text-muted-foreground">
                     일반적으로 영업일 기준 1-2일 내에 승인이 완료됩니다.
                     승인이 완료되면 등록하신 이메일로 알림을 보내드립니다.
                   </p>

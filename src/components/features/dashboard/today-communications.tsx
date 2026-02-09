@@ -73,7 +73,7 @@ export function TodayCommunications({ birthdayStudents, scheduledConsultations, 
         {scheduledConsultations.length > 0 && (
           <div className="space-y-2">
             <h4 className="text-sm font-medium flex items-center gap-2">
-              <Users className="h-4 w-4 text-blue-600" />
+              <Users className="h-4 w-4 text-info" />
               예정된 상담
             </h4>
             <div className="space-y-2">
@@ -81,8 +81,8 @@ export function TodayCommunications({ birthdayStudents, scheduledConsultations, 
                 <Link key={consultation.id} href={`/consultations/${consultation.id}`}>
                   <div className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted transition-colors cursor-pointer">
                     <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-950 flex items-center justify-center">
-                        <Users className="h-4 w-4 text-blue-600" />
+                      <div className="h-8 w-8 rounded-full bg-info/10 flex items-center justify-center">
+                        <Users className="h-4 w-4 text-info" />
                       </div>
                       <div>
                         <div className="font-medium">{consultation.student_name || '이름 없음'}</div>

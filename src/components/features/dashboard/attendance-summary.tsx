@@ -167,14 +167,14 @@ export function AttendanceSummary({
           </div>
           <div className="text-center">
             <div className="flex items-center justify-center mb-1">
-              <Clock className="h-4 w-4 text-yellow-600" />
+              <Clock className="h-4 w-4 text-warning" />
             </div>
             <div className="text-xs text-muted-foreground">지각</div>
             <div className="text-sm font-medium">0</div>
           </div>
           <div className="text-center">
             <div className="flex items-center justify-center mb-1">
-              <UserX className="h-4 w-4 text-red-600" />
+              <UserX className="h-4 w-4 text-destructive" />
             </div>
             <div className="text-xs text-muted-foreground">결석</div>
             <div className="text-sm font-medium">{Math.max(0, totalStudents - todayAttendance)}</div>

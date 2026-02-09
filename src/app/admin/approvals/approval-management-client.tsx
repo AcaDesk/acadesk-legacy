@@ -203,7 +203,7 @@ export function ApprovalManagementClient({
       >
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">가입 승인 관리</h1>
+            <h1 className="text-3xl font-bold tracking-tight">가입 승인 관리</h1>
             <p className="text-muted-foreground">
               신규 원장 가입 신청을 검토하고 승인합니다
             </p>

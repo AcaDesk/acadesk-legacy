@@ -57,6 +57,23 @@
     --shadow-xl: 0px 4px 8px -1px hsl(0 0% 0% / 0.10), 0px 8px 10px -2px hsl(0 0% 0% / 0.10);
     --shadow-2xl: 0px 4px 8px -1px hsl(0 0% 0% / 0.25);
     --tracking-normal: 0em;
+    /* 시맨틱 상태 색상 */
+    --success: oklch(0.5984 0.1562 145.1526);
+    --success-foreground: oklch(1.0000 0 0);
+    --warning: oklch(0.7689 0.1687 70.0804);
+    --warning-foreground: oklch(0.2686 0 0);
+    --info: oklch(0.5932 0.1774 255.0924);
+    --info-foreground: oklch(1.0000 0 0);
+    /* 캘린더 이벤트 색상 */
+    --event-class: oklch(0.5932 0.1774 255.0924);
+    --event-exam: oklch(0.5648 0.1968 292.4633);
+    --event-consultation: oklch(0.6384 0.1538 163.5018);
+    --event-payment: oklch(0.5774 0.2255 27.3252);
+    --event-task: oklch(0.7689 0.1687 70.0804);
+    --event-birthday: oklch(0.6182 0.2091 349.7614);
+    --event-holiday: oklch(0.5509 0.0222 264.3637);
+    --event-event: oklch(0.6382 0.1384 211.1489);
+    --event-other: oklch(0.5324 0.0289 257.5054);
   }
 
   .dark {
@@ -112,6 +129,23 @@
     --shadow-lg: 0px 4px 8px -1px hsl(0 0% 0% / 0.10), 0px 4px 6px -2px hsl(0 0% 0% / 0.10);
     --shadow-xl: 0px 4px 8px -1px hsl(0 0% 0% / 0.10), 0px 8px 10px -2px hsl(0 0% 0% / 0.10);
     --shadow-2xl: 0px 4px 8px -1px hsl(0 0% 0% / 0.25);
+    /* 시맨틱 상태 색상 (다크) */
+    --success: oklch(0.6484 0.1562 145.1526);
+    --success-foreground: oklch(1.0000 0 0);
+    --warning: oklch(0.7689 0.1687 70.0804);
+    --warning-foreground: oklch(0.2686 0 0);
+    --info: oklch(0.6432 0.1774 255.0924);
+    --info-foreground: oklch(1.0000 0 0);
+    /* 캘린더 이벤트 색상 (다크) */
+    --event-class: oklch(0.6432 0.1774 255.0924);
+    --event-exam: oklch(0.6148 0.1968 292.4633);
+    --event-consultation: oklch(0.6884 0.1538 163.5018);
+    --event-payment: oklch(0.6274 0.2255 27.3252);
+    --event-task: oklch(0.7689 0.1687 70.0804);
+    --event-birthday: oklch(0.6682 0.2091 349.7614);
+    --event-holiday: oklch(0.6009 0.0222 264.3637);
+    --event-event: oklch(0.6882 0.1384 211.1489);
+    --event-other: oklch(0.5824 0.0289 257.5054);
   }
 
   .theme {
