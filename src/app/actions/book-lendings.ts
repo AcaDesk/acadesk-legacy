@@ -16,7 +16,7 @@ export interface BookLending {
   returned_at: string | null
   notes: string | null
   reminder_sent_at: string | null
-  books: {
+  textbooks: {
     title: string
     author: string | null
     barcode: string | null
@@ -53,7 +53,7 @@ export async function getBookLendings() {
           returned_at,
           notes,
           reminder_sent_at,
-          books (
+          textbooks (
             title,
             author,
             barcode
@@ -117,7 +117,7 @@ export async function sendReminder(lendingId: string) {
         .from('book_lendings')
         .select(`
           id, due_date, returned_at,
-          books (title),
+          textbooks (title),
           students (id)
         `)
         .eq('id', lendingId)
@@ -132,7 +132,7 @@ export async function sendReminder(lendingId: string) {
         throw new Error('이미 반납된 도서입니다.')
       }
 
-      const book = lending.books as unknown as { title: string } | null
+      const book = lending.textbooks as unknown as { title: string } | null
       const student = lending.students as unknown as { id: string } | null
 
       // Log the reminder
@@ -175,7 +175,7 @@ export async function sendBulkReminder(lendingIds: string[]) {
         .from('book_lendings')
         .select(`
           id, due_date, returned_at, reminder_sent_at,
-          books (title),
+          textbooks (title),
           students (id)
         `)
         .in('id', lendingIds)
@@ -192,7 +192,7 @@ export async function sendBulkReminder(lendingIds: string[]) {
       let sentCount = 0
 
       for (const lending of overdueLendings) {
-        const book = lending.books as unknown as { title: string } | null
+        const book = lending.textbooks as unknown as { title: string } | null
         const student = lending.students as unknown as { id: string } | null
 
         const { error: logError } = await serviceClient.from('notification_logs').insert({

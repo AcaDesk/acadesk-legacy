@@ -281,7 +281,6 @@ export const BREADCRUMB_CONFIG: BreadcrumbConfig = {
 
   // Library (도서)
   '/library': '도서관',
-  '/library/materials': '도서 목록',
   '/library/lendings': '대출 관리',
   '/library/lendings/new': '도서 대출',
 
