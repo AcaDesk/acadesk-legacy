@@ -3,9 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { SettingsClient } from './settings-client'
 
 export default async function SettingsPage() {
-  await requireAuth()
-
-  const supabase = await createClient()
+  const [, supabase] = await Promise.all([requireAuth(), createClient()])
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
@@ -18,11 +16,14 @@ export default async function SettingsPage() {
     .eq('id', user.id)
     .single()
 
-  const { data: tenant } = await supabase
-    .from('tenants')
-    .select('name, plan')
-    .eq('id', userDetails?.tenant_id)
-    .single()
+  const tenantId = userDetails?.tenant_id
+  const { data: tenant } = tenantId
+    ? await supabase
+        .from('tenants')
+        .select('name, plan')
+        .eq('id', tenantId)
+        .single()
+    : { data: null }
 
   const systemInfo = {
     version: 'v1.0.0',
