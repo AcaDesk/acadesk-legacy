@@ -144,13 +144,13 @@ export function EventDetailModal({
           )}
 
           {/* 알림 */}
-          {event.reminder_minutes && (
+          {event.reminder_minutes != null && (
             <div className="flex items-start gap-3">
               <Clock className="w-5 h-5 text-muted-foreground mt-0.5" />
               <div className="flex-1">
                 <p className="font-medium">알림</p>
                 <p className="text-muted-foreground">
-                  {event.reminder_minutes}분 전에 알림
+                  {event.reminder_minutes === 0 ? '일정 시작 시 알림' : `${event.reminder_minutes}분 전에 알림`}
                 </p>
               </div>
             </div>

@@ -66,14 +66,14 @@ export function CalendarContent({ initialEvents }: CalendarContentProps) {
     color?: string
   }) => {
     try {
-      // Construct ISO timestamp
+      // Construct ISO timestamp (local time → UTC)
       const startAt = data.all_day
-        ? `${data.start_date}T00:00:00Z`
-        : `${data.start_date}T${data.start_time || '00:00'}:00Z`
+        ? new Date(`${data.start_date}T00:00:00`).toISOString()
+        : new Date(`${data.start_date}T${data.start_time || '00:00'}:00`).toISOString()
 
       const endAt = data.all_day
-        ? `${data.end_date}T23:59:59Z`
-        : `${data.end_date}T${data.end_time || '00:00'}:00Z`
+        ? new Date(`${data.end_date}T23:59:59`).toISOString()
+        : new Date(`${data.end_date}T${data.end_time || '00:00'}:00`).toISOString()
 
       // Generate RRULE if repeat is selected
       let rruleString: string | null = null
@@ -110,7 +110,7 @@ export function CalendarContent({ initialEvents }: CalendarContentProps) {
         end_at: endAt,
         all_day: data.all_day,
         recurrence_rule: rruleString,
-        reminder_minutes: data.reminder_minutes || null,
+        reminder_minutes: data.reminder_minutes ?? null,
         color: data.color || null,
       })
 
@@ -161,14 +161,14 @@ export function CalendarContent({ initialEvents }: CalendarContentProps) {
     }
   ) => {
     try {
-      // Construct ISO timestamp
+      // Construct ISO timestamp (local time → UTC)
       const startAt = data.all_day
-        ? `${data.start_date}T00:00:00Z`
-        : `${data.start_date}T${data.start_time || '00:00'}:00Z`
+        ? new Date(`${data.start_date}T00:00:00`).toISOString()
+        : new Date(`${data.start_date}T${data.start_time || '00:00'}:00`).toISOString()
 
       const endAt = data.all_day
-        ? `${data.end_date}T23:59:59Z`
-        : `${data.end_date}T${data.end_time || '00:00'}:00Z`
+        ? new Date(`${data.end_date}T23:59:59`).toISOString()
+        : new Date(`${data.end_date}T${data.end_time || '00:00'}:00`).toISOString()
 
       const result = await updateCalendarEvent(eventId, {
         title: data.title,
@@ -177,7 +177,7 @@ export function CalendarContent({ initialEvents }: CalendarContentProps) {
         start_at: startAt,
         end_at: endAt,
         all_day: data.all_day,
-        reminder_minutes: data.reminder_minutes || null,
+        reminder_minutes: data.reminder_minutes ?? null,
         color: data.color || null,
       })
 
