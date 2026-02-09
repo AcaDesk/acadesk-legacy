@@ -34,17 +34,30 @@ import {
   kakaoTemplateStatusConfig,
   kakaoMessageTypeLabels,
 } from '@/lib/kakao/kakao-status-config'
+import type { KakaoTemplateSummary } from '@/components/features/settings/kakao-channel'
 
 interface KakaoTemplateListProps {
   hasChannel: boolean
   onCreateTemplate?: () => void
   onEditTemplate?: (template: KakaoTemplate) => void
+  onTemplatesLoaded?: (summary: KakaoTemplateSummary) => void
+}
+
+function buildTemplateSummary(templates: KakaoTemplate[]): KakaoTemplateSummary {
+  return {
+    total: templates.length,
+    approved: templates.filter((t) => t.status === 'approved').length,
+    inspecting: templates.filter((t) => t.status === 'inspecting').length,
+    rejected: templates.filter((t) => t.status === 'rejected').length,
+    pending: templates.filter((t) => t.status === 'pending').length,
+  }
 }
 
 export function KakaoTemplateList({
   hasChannel,
   onCreateTemplate,
   onEditTemplate,
+  onTemplatesLoaded,
 }: KakaoTemplateListProps) {
   const { toast } = useToast()
   const router = useRouter()
@@ -71,6 +84,7 @@ export function KakaoTemplateList({
       const result = await getKakaoTemplates()
       if (result.success && result.data) {
         setTemplates(result.data)
+        onTemplatesLoaded?.(buildTemplateSummary(result.data))
       }
     } catch (error) {
       console.error('Failed to load templates:', error)
@@ -153,7 +167,11 @@ export function KakaoTemplateList({
         description: '템플릿이 삭제되었습니다.',
       })
 
-      setTemplates((prev) => prev.filter((t) => t.id !== templateToDelete.id))
+      setTemplates((prev) => {
+        const updated = prev.filter((t) => t.id !== templateToDelete.id)
+        onTemplatesLoaded?.(buildTemplateSummary(updated))
+        return updated
+      })
     } catch (error) {
       toast({
         title: '삭제 실패',
