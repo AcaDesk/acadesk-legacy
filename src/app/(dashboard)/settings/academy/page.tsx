@@ -14,13 +14,5 @@ export default async function AcademySettingsPage() {
   const result = await getAcademyInfo()
   const academyData = result.success && result.data ? result.data : null
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold">학원 정보</h2>
-        <p className="text-sm text-muted-foreground">학원 기본 정보 및 운영 시간을 관리합니다</p>
-      </div>
-      {academyData && <AcademyInfoForm initialData={academyData} />}
-    </div>
-  )
+  return academyData ? <AcademyInfoForm initialData={academyData} /> : null
 }
