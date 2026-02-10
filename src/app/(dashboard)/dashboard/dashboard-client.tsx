@@ -125,7 +125,13 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
                 requiredFeatures: defaultWidget?.requiredFeatures
               }
             })
-          setWidgets(widgetsWithNames)
+          // Merge new widgets from DEFAULT_WIDGETS that aren't in saved preferences
+          const savedWidgetIds = new Set(widgetsWithNames.map((w: DashboardWidget) => w.id))
+          const newWidgets = DEFAULT_WIDGETS
+            .filter(w => !savedWidgetIds.has(w.id))
+            .map(w => ({ ...w, visible: false }))
+          const mergedWidgets = [...widgetsWithNames, ...newWidgets]
+          setWidgets(mergedWidgets)
         }
       } catch (error) {
         console.error('Failed to load preferences:', error)
@@ -313,7 +319,8 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
 
   // Render layout section
   const renderSection = useCallback((section: typeof DASHBOARD_LAYOUT[0], sectionIndex: number) => {
-    const visibleWidgets = getVisibleWidgetsInSection(section, visibleWidgetIds)
+    const currentWidgets = isEditMode ? tempWidgets : widgets
+    const visibleWidgets = getVisibleWidgetsInSection(section, visibleWidgetIds, currentWidgets)
     if (visibleWidgets.length === 0) return null
 
     const animationDelay = sectionIndex * 100
@@ -378,7 +385,7 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
         ))}
       </div>
     )
-  }, [isEditMode, visibleWidgetIds, renderWidget])
+  }, [isEditMode, visibleWidgetIds, renderWidget, widgets, tempWidgets])
 
   return (
     <div className="space-y-6" role="main" aria-labelledby="dashboard-title">

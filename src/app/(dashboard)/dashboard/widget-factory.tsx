@@ -167,7 +167,7 @@ export function renderWidgetContent({
     }
 
     case 'kpi-monthly-revenue':
-      return financialData?.currentMonthRevenue ? (
+      return financialData && financialData.currentMonthRevenue != null ? (
         <StatsCard
           title="이번 달 매출"
           value={`${(financialData.currentMonthRevenue / 10000).toFixed(0)}만원`}
