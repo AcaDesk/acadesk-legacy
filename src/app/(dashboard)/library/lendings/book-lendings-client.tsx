@@ -464,6 +464,34 @@ export function BookLendingsClient({ initialLendings }: BookLendingsClientProps)
       }
     >
       <div className="space-y-6">
+        {/* Stats Cards */}
+        <div className="grid gap-4 md:grid-cols-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardDescription>전체 대출</CardDescription>
+              <CardTitle className="text-3xl">{stats.total}건</CardTitle>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardDescription>대출 중</CardDescription>
+              <CardTitle className="text-3xl text-info">{stats.active}건</CardTitle>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardDescription>연체</CardDescription>
+              <CardTitle className="text-3xl text-red-600">{stats.overdue}건</CardTitle>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardDescription>반납 완료</CardDescription>
+              <CardTitle className="text-3xl text-green-600">{stats.returned}건</CardTitle>
+            </CardHeader>
+          </Card>
+        </div>
+
         {/* Filters */}
         <div className="flex flex-col gap-4 sm:flex-row">
           <div className="relative flex-1">
@@ -747,34 +775,6 @@ export function BookLendingsClient({ initialLendings }: BookLendingsClientProps)
             )}
           </CardContent>
         </Card>
-
-        {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardDescription>전체 대출</CardDescription>
-              <CardTitle className="text-3xl">{stats.total}건</CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardDescription>대출 중</CardDescription>
-              <CardTitle className="text-3xl text-info">{stats.active}건</CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardDescription>연체</CardDescription>
-              <CardTitle className="text-3xl text-red-600">{stats.overdue}건</CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardDescription>반납 완료</CardDescription>
-              <CardTitle className="text-3xl text-green-600">{stats.returned}건</CardTitle>
-            </CardHeader>
-          </Card>
-        </div>
 
         {/* Bulk Reminder Confirmation Dialog */}
         <ConfirmationDialog
