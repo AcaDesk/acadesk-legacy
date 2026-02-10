@@ -76,10 +76,8 @@ export function EntryClient({ initialExams }: EntryClientProps) {
 
   // Group pending exams
   const groupedPending = useMemo(() => {
-    const notStarted = pendingExams.filter((e) => e.total_students > 0 && e.graded_students === 0)
-    const inProgress = pendingExams.filter(
-      (e) => e.graded_students > 0 && e.graded_students < e.total_students
-    )
+    const notStarted = pendingExams.filter((e) => e.graded_students === 0)
+    const inProgress = pendingExams.filter((e) => e.graded_students > 0)
     return { notStarted, inProgress }
   }, [pendingExams])
 
