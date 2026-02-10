@@ -386,11 +386,19 @@ async function fetchStudentAlerts(supabase: any, tenantId: string, today: string
 }
 
 async function fetchStats(supabase: any, tenantId: string, today: string) {
-  // Date calculations
-  const now = new Date()
-  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0]
-  const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0]
-  const lastWeekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  // Date calculations - derive all boundaries from KST-based today
+  const [todayYear, todayMonth] = today.split('-').map(Number)
+  const prevMonth = todayMonth === 1 ? 12 : todayMonth - 1
+  const prevYear = todayMonth === 1 ? todayYear - 1 : todayYear
+  const lastMonthStart = `${prevYear}-${String(prevMonth).padStart(2, '0')}-01`
+  const currentMonthStart = `${todayYear}-${String(todayMonth).padStart(2, '0')}-01`
+  const todayDateKST = new Date(today + 'T00:00:00+09:00')
+  const weekAgo = new Date(todayDateKST)
+  weekAgo.setDate(weekAgo.getDate() - 7)
+  const lastWeekStart = weekAgo.toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' })
+  const thirtyDaysAgo = new Date(todayDateKST)
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+  const thirtyDaysAgoISO = thirtyDaysAgo.toISOString()
 
   const [
     studentsCount,
@@ -453,7 +461,7 @@ async function fetchStats(supabase: any, tenantId: string, today: string) {
       .from('exam_scores')
       .select('percentage')
       .eq('tenant_id', tenantId)
-      .gte('created_at', new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString())
+      .gte('created_at', thirtyDaysAgoISO)
       .is('deleted_at', null),
 
     // Completion Rate - 전체 todos의 완료율
@@ -468,7 +476,7 @@ async function fetchStats(supabase: any, tenantId: string, today: string) {
       .from('students')
       .select('id', { count: 'exact', head: true })
       .eq('tenant_id', tenantId)
-      .lte('created_at', lastMonthEnd)
+      .lt('created_at', currentMonthStart)
       .is('deleted_at', null),
 
     // Previous week attendance (for trend)
@@ -486,7 +494,7 @@ async function fetchStats(supabase: any, tenantId: string, today: string) {
       .select('percentage')
       .eq('tenant_id', tenantId)
       .gte('created_at', lastMonthStart)
-      .lte('created_at', lastMonthEnd)
+      .lt('created_at', currentMonthStart)
       .is('deleted_at', null),
 
     // Previous week completion rate (for trend)

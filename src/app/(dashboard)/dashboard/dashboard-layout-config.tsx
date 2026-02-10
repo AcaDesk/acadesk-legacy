@@ -100,7 +100,7 @@ export function shouldShowSection(
 }
 
 /**
- * 섹션 내에서 보여야 할 위젯들만 필터링
+ * 섹션 내에서 보여야 할 위젯들만 필터링하고 order 기준 정렬
  */
 export function getVisibleWidgetsInSection(
   section: LayoutSection,
@@ -114,4 +114,30 @@ export function getVisibleWidgetsInSection(
     const orderB = widgets.find(w => w.id === b)?.order ?? 0
     return orderA - orderB
   })
+}
+
+/**
+ * 섹션들을 위젯 order 기준으로 정렬
+ * 각 섹션의 visible 위젯 중 최소 order 값을 기준으로 섹션 순서를 결정
+ */
+export function getSortedSections(
+  layout: LayoutSection[],
+  visibleWidgetIds: Set<DashboardWidgetId>,
+  widgets: DashboardWidget[]
+): LayoutSection[] {
+  return layout
+    .filter(section => shouldShowSection(section, visibleWidgetIds))
+    .sort((a, b) => {
+      const minOrderA = Math.min(
+        ...a.widgetIds
+          .filter(id => visibleWidgetIds.has(id))
+          .map(id => widgets.find(w => w.id === id)?.order ?? Infinity)
+      )
+      const minOrderB = Math.min(
+        ...b.widgetIds
+          .filter(id => visibleWidgetIds.has(id))
+          .map(id => widgets.find(w => w.id === id)?.order ?? Infinity)
+      )
+      return minOrderA - minOrderB
+    })
 }
