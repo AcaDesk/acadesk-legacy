@@ -5,7 +5,7 @@
  * 보기 모드와 편집 모드에서 동일한 레이아웃을 사용합니다.
  */
 
-import { type DashboardWidgetId } from "@/core/types/dashboard"
+import { type DashboardWidgetId, type DashboardWidget } from "@/core/types/dashboard"
 
 export type LayoutSectionType = 'kpi-grid' | 'two-column' | 'full-width'
 
@@ -104,7 +104,14 @@ export function shouldShowSection(
  */
 export function getVisibleWidgetsInSection(
   section: LayoutSection,
-  visibleWidgetIds: Set<DashboardWidgetId>
+  visibleWidgetIds: Set<DashboardWidgetId>,
+  widgets?: DashboardWidget[]
 ): DashboardWidgetId[] {
-  return section.widgetIds.filter(id => visibleWidgetIds.has(id))
+  const visible = section.widgetIds.filter(id => visibleWidgetIds.has(id))
+  if (!widgets || widgets.length === 0) return visible
+  return visible.sort((a, b) => {
+    const orderA = widgets.find(w => w.id === a)?.order ?? 0
+    const orderB = widgets.find(w => w.id === b)?.order ?? 0
+    return orderA - orderB
+  })
 }
