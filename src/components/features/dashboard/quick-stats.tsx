@@ -19,15 +19,15 @@ export function QuickStats({
   const stats = [
     {
       icon: Users,
-      label: "신규 등록",
+      label: "이번 달 신규",
       value: `+${newStudents}`,
       color: "text-info",
       bgColor: "bg-info/10"
     },
     {
       icon: TrendingUp,
-      label: "우수 학생",
-      value: excellentStudents,
+      label: "오늘 출석",
+      value: `${excellentStudents}명`,
       color: "text-green-600 dark:text-green-400",
       bgColor: "bg-green-50 dark:bg-green-950/20"
     },

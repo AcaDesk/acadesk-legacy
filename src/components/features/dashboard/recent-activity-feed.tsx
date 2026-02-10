@@ -95,7 +95,7 @@ export function RecentActivityFeed({ activities, maxItems = 10 }: RecentActivity
             </CardDescription>
           </div>
           <Button variant="ghost" size="sm" asChild>
-            <Link href="/activity">
+            <Link href="/dashboard">
               전체 보기
             </Link>
           </Button>
@@ -118,9 +118,9 @@ export function RecentActivityFeed({ activities, maxItems = 10 }: RecentActivity
           <ScrollArea className="h-[400px] pr-4">
             <div className="space-y-3">
               {displayActivities.map((activity, index) => {
-                const config = activityConfig[activity.activity_type_code as keyof typeof activityConfig] || activityConfig.default
+                const typeKey = activity.activity_type_code || activity.activity_type
+                const config = activityConfig[typeKey as keyof typeof activityConfig] || activityConfig.default
                 const Icon = config.icon
-                // const studentName = activity.students?.name || '알 수 없음'
                 const activityName = activity.ref_activity_types?.name || config.label
 
                 return (

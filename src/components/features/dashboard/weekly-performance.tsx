@@ -45,10 +45,10 @@ export function WeeklyPerformance({ data }: WeeklyPerformanceProps) {
   const thisWeekTodos = weeklyData.reduce((sum, day) => sum + day.TODO완료, 0)
   const thisWeekReports = weeklyData.reduce((sum, day) => sum + day.리포트생성, 0)
 
-  // 지난 주 대비 변화율 (더미 데이터)
-  const attendanceChange: number = 5.2
-  const todosChange: number = -2.1
-  const reportsChange: number = 12.5
+  // 지난 주 대비 변화율 (실데이터 연동 전까지 표시 안 함)
+  const attendanceChange: number = 0
+  const todosChange: number = 0
+  const reportsChange: number = 0
 
   interface TooltipPayloadEntry {
     color?: string
@@ -89,7 +89,10 @@ export function WeeklyPerformance({ data }: WeeklyPerformanceProps) {
     <Card>
       <CardHeader>
         <CardTitle>주간 성과 분석</CardTitle>
-        <CardDescription>이번 주 학원 운영 성과 추이</CardDescription>
+        <CardDescription>
+          이번 주 학원 운영 성과 추이
+          {!data && <span className="ml-1 text-warning">(샘플 데이터)</span>}
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* 차트 영역 */}

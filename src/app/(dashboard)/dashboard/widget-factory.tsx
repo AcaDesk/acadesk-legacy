@@ -241,14 +241,21 @@ export function renderWidgetContent({
     case 'quick-actions':
       return <QuickActions isEditMode={isEditMode} />
 
-    case 'quick-stats':
+    case 'quick-stats': {
+      const newStudentsCount = stats.previousMonthStudents != null
+        ? stats.totalStudents - stats.previousMonthStudents
+        : 0
+      const needsAttentionCount =
+        (studentAlerts?.longAbsence?.length ?? 0) +
+        (studentAlerts?.pendingAssignments?.length ?? 0)
       return (
         <QuickStats
-          newStudents={5}
-          excellentStudents={23}
-          needsAttention={3}
+          newStudents={Math.max(0, newStudentsCount)}
+          excellentStudents={stats.todayAttendance}
+          needsAttention={needsAttentionCount}
         />
       )
+    }
 
     case 'activity-feed':
       return <RecentActivityFeed activities={activityLogs || []} maxItems={10} />
