@@ -12,16 +12,12 @@ export default function SettingsLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="container max-w-6xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">설정</h1>
-        <p className="text-muted-foreground">학원 시스템 설정 및 개인화</p>
-      </div>
-
-      <div className="flex flex-col gap-6 md:flex-row">
+    <div className="container max-w-6xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
+      <div className="flex flex-col gap-4 md:flex-row">
         {/* Sidebar - hidden on mobile, shown as top nav on mobile */}
-        <aside className="md:w-56 md:shrink-0">
+        <aside className="md:w-52 md:shrink-0">
           <div className="md:sticky md:top-20">
+            <h1 className="text-lg font-semibold mb-3 hidden md:block">설정</h1>
             <SettingsNav />
           </div>
         </aside>

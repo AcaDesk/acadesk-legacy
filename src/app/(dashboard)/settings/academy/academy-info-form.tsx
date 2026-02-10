@@ -108,40 +108,25 @@ export function AcademyInfoForm({ initialData }: AcademyInfoFormProps) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         {/* Basic Information */}
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>기본 정보</CardTitle>
                 <CardDescription>학원의 기본 정보를 입력하세요</CardDescription>
               </div>
-              {initialData && (
-                isEditing ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      form.reset()
-                      setIsEditing(false)
-                    }}
-                  >
-                    <X className="h-4 w-4 mr-1" />
-                    취소
-                  </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setIsEditing(true)}
-                  >
-                    <Pencil className="h-4 w-4 mr-1" />
-                    수정
-                  </Button>
-                )
+              {initialData && !isEditing && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditing(true)}
+                >
+                  <Pencil className="h-4 w-4 mr-1" />
+                  수정
+                </Button>
               )}
             </div>
           </CardHeader>
@@ -253,7 +238,7 @@ export function AcademyInfoForm({ initialData }: AcademyInfoFormProps) {
 
         {/* System Settings */}
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-4">
             <CardTitle>시스템 설정</CardTitle>
             <CardDescription>시스템 관련 설정입니다</CardDescription>
           </CardHeader>
@@ -294,25 +279,29 @@ export function AcademyInfoForm({ initialData }: AcademyInfoFormProps) {
           </CardContent>
         </Card>
 
-        {/* Actions */}
+        {/* Sticky Action Bar */}
         {isEditing && (
-          <div className="flex items-center justify-end gap-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                form.reset()
-                setIsEditing(false)
-              }}
-              disabled={isLoading}
-            >
-              취소
-            </Button>
-            <Button type="submit" disabled={isLoading || !hasChanges}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {!isLoading && <Save className="mr-2 h-4 w-4" />}
-              {hasChanges ? '변경사항 저장' : '저장됨'}
-            </Button>
+          <div className="sticky bottom-4 z-10">
+            <div className="flex items-center justify-end gap-3 rounded-lg border bg-background/95 backdrop-blur-sm px-4 py-3 shadow-lg">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  form.reset()
+                  setIsEditing(false)
+                }}
+                disabled={isLoading}
+              >
+                <X className="h-4 w-4 mr-1" />
+                취소
+              </Button>
+              <Button type="submit" size="sm" disabled={isLoading || !hasChanges}>
+                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {!isLoading && <Save className="mr-2 h-4 w-4" />}
+                {hasChanges ? '변경사항 저장' : '저장됨'}
+              </Button>
+            </div>
           </div>
         )}
       </form>
