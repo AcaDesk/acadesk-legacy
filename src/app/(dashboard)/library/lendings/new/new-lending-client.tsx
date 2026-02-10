@@ -10,6 +10,7 @@ import { Input } from '@ui/input'
 import { Textarea } from '@ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
+import { PageWrapper } from '@/components/layout/page-wrapper'
 import { createBookLending } from '@/app/actions/book-lendings'
 import { useToast } from '@/hooks/use-toast'
 
@@ -110,19 +111,17 @@ export function NewLendingClient({ students, textbooks }: NewLendingClientProps)
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
+    <PageWrapper
+      title="대출 등록"
+      subtitle="학생에게 교재 대출을 등록합니다."
+      icon={
         <Button asChild variant="ghost" size="icon">
           <Link href="/library/lendings">
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">대출 등록</h1>
-          <p className="text-muted-foreground">학생에게 교재 대출을 등록합니다.</p>
-        </div>
-      </div>
-
+      }
+    >
       <form onSubmit={handleSubmit}>
         <Card>
           <CardHeader>
@@ -211,6 +210,6 @@ export function NewLendingClient({ students, textbooks }: NewLendingClientProps)
           </CardContent>
         </Card>
       </form>
-    </div>
+    </PageWrapper>
   )
 }
