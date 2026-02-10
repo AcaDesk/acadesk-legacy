@@ -51,14 +51,22 @@ export interface ExamForGradeEntry {
  * 최적화: N+1 쿼리 문제 해결
  * - Before: 시험 30개 = 31번 쿼리 (1 + 30)
  * - After: 시험 30개 = 2번 쿼리 (시험 1회 + 점수 1회)
+ *
+ * @param params.completed - true: 완료 시험, false: 미완료 시험(기본)
+ * @param params.month - 'YYYY-MM' 형식, completed=true일 때만 사용
  */
-export async function getExamsForGradeEntry() {
+export async function getExamsForGradeEntry(params?: {
+  completed?: boolean
+  month?: string
+}) {
+  const completed = params?.completed ?? false
+
   try {
     const { tenantId } = await verifyStaff()
     const supabase = createServiceRoleClient()
 
-    // 1. Fetch all exams with related data (1 query)
-    const { data: exams, error: examsError } = await supabase
+    // 1. Fetch exams with related data (1 query)
+    let query = supabase
       .from('exams')
       .select(`
         id,
@@ -85,6 +93,22 @@ export async function getExamsForGradeEntry() {
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
       .order('exam_date', { ascending: false })
+
+    // Apply status filter
+    if (completed) {
+      query = query.eq('status', 'completed')
+      // Apply month filter for completed exams
+      if (params?.month) {
+        const [year, month] = params.month.split('-').map(Number)
+        const startDate = `${year}-${String(month).padStart(2, '0')}-01`
+        const endDate = new Date(year, month, 0).toISOString().split('T')[0]
+        query = query.gte('exam_date', startDate).lte('exam_date', endDate)
+      }
+    } else {
+      query = query.or('status.is.null,status.neq.completed')
+    }
+
+    const { data: exams, error: examsError } = await query
 
     if (examsError) {
       throw examsError

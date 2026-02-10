@@ -504,6 +504,93 @@ export async function getExamCategories() {
 }
 
 /**
+ * Mark exam grading as completed
+ *
+ * @param examId - Exam ID
+ * @returns Success or error
+ */
+export async function completeExamGrading(examId: string) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const serviceClient = createServiceRoleClient()
+
+    // Verify exam belongs to tenant
+    const { data: exam, error: fetchError } = await serviceClient
+      .from('exams')
+      .select('id, tenant_id')
+      .eq('id', examId)
+      .maybeSingle()
+
+    if (fetchError || !exam) {
+      return { success: false, error: '시험을 찾을 수 없습니다' }
+    }
+
+    if (exam.tenant_id !== tenantId) {
+      return { success: false, error: '권한이 없습니다' }
+    }
+
+    const { error: updateError } = await serviceClient
+      .from('exams')
+      .update({ status: 'completed', updated_at: new Date().toISOString() })
+      .eq('id', examId)
+
+    if (updateError) throw updateError
+
+    revalidatePath('/grades/entry')
+    revalidatePath('/grades/exams')
+    revalidatePath('/grades')
+
+    return { success: true, error: null }
+  } catch (error) {
+    console.error('[completeExamGrading] Error:', error)
+    return { success: false, error: getErrorMessage(error) }
+  }
+}
+
+/**
+ * Reopen completed exam grading (set status back to 'scheduled')
+ *
+ * @param examId - Exam ID
+ * @returns Success or error
+ */
+export async function reopenExamGrading(examId: string) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const serviceClient = createServiceRoleClient()
+
+    const { data: exam, error: fetchError } = await serviceClient
+      .from('exams')
+      .select('id, tenant_id')
+      .eq('id', examId)
+      .maybeSingle()
+
+    if (fetchError || !exam) {
+      return { success: false, error: '시험을 찾을 수 없습니다' }
+    }
+
+    if (exam.tenant_id !== tenantId) {
+      return { success: false, error: '권한이 없습니다' }
+    }
+
+    const { error: updateError } = await serviceClient
+      .from('exams')
+      .update({ status: 'scheduled', updated_at: new Date().toISOString() })
+      .eq('id', examId)
+
+    if (updateError) throw updateError
+
+    revalidatePath('/grades/entry')
+    revalidatePath('/grades/exams')
+    revalidatePath('/grades')
+
+    return { success: true, error: null }
+  } catch (error) {
+    console.error('[reopenExamGrading] Error:', error)
+    return { success: false, error: getErrorMessage(error) }
+  }
+}
+
+/**
  * Get classes for exam assignment
  *
  * @returns List of active classes or error

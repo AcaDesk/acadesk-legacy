@@ -1,7 +1,6 @@
 import { Suspense } from 'react'
 import { PageWrapper } from '@/components/layout/page-wrapper'
 import { EntryClient } from './entry-client'
-import { PenSquare } from 'lucide-react'
 import { Skeleton } from '@ui/skeleton'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
@@ -40,15 +39,15 @@ export default async function GradeEntryPage() {
   // Verify authentication
   await requireAuth()
 
-  // Fetch data
-  const result = await getExamsForGradeEntry()
+  // Prefetch only pending exams (default tab)
+  const result = await getExamsForGradeEntry({ completed: false })
 
-  const exams = result.success && result.data ? result.data : []
+  const initialExams = result.success && result.data ? result.data : []
 
   return (
     <PageWrapper>
       <Suspense fallback={<GradeEntryPageSkeleton />}>
-        <EntryClient exams={exams} />
+        <EntryClient initialExams={initialExams} />
       </Suspense>
     </PageWrapper>
   )
@@ -61,13 +60,12 @@ function GradeEntryPageSkeleton() {
         <Skeleton className="h-10 w-48" />
         <Skeleton className="h-5 w-96" />
       </div>
-      <div className="grid gap-4 md:grid-cols-4">
-        <Skeleton className="h-24" />
-        <Skeleton className="h-24" />
+      <Skeleton className="h-10 w-56" />
+      <div className="grid gap-4 md:grid-cols-2">
         <Skeleton className="h-24" />
         <Skeleton className="h-24" />
       </div>
-      <Skeleton className="h-96 w-full" />
+      <Skeleton className="h-64 w-full" />
     </div>
   )
 }
