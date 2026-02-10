@@ -29,16 +29,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@ui/dropdown-menu'
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from '@ui/pagination'
 import { Plus, Edit, Trash2, Search, PenSquare, UserPlus, ClipboardList, X, MoreVertical, CalendarDays, Users } from 'lucide-react'
+import {
+  IconChevronLeft,
+  IconChevronRight,
+  IconChevronsLeft,
+  IconChevronsRight,
+} from '@tabler/icons-react'
 import { useToast } from '@/hooks/use-toast'
 import { usePagination } from '@/hooks/use-pagination'
 import { deleteExam } from '@/app/actions/exams'
@@ -112,6 +109,7 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [examToDelete, setExamToDelete] = useState<{ id: string; name: string } | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [pageSize, setPageSize] = useState(10)
 
   const filteredExams = useMemo(() => {
     let filtered = initialExams
@@ -150,7 +148,7 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
     totalItems,
   } = usePagination({
     data: filteredExams,
-    itemsPerPage: 10,
+    itemsPerPage: pageSize,
   })
 
   // Reset page when filters change
@@ -413,11 +411,6 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
         ) : (
           <Card>
             <CardContent className="p-0">
-              <div className="flex items-center justify-between px-6 py-3 border-b">
-                <p className="text-sm text-muted-foreground">
-                  총 {totalItems}개 중 {startIndex}-{endIndex}
-                </p>
-              </div>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -505,51 +498,76 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center">
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  onClick={previousPage}
-                  className={!hasPreviousPage ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                />
-              </PaginationItem>
-
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                if (
-                  page === 1 ||
-                  page === totalPages ||
-                  (page >= currentPage - 1 && page <= currentPage + 1)
-                ) {
-                  return (
-                    <PaginationItem key={page}>
-                      <PaginationLink
-                        onClick={() => goToPage(page)}
-                        isActive={currentPage === page}
-                        className="cursor-pointer"
-                      >
-                        {page}
-                      </PaginationLink>
-                    </PaginationItem>
-                  )
-                } else if (page === currentPage - 2 || page === currentPage + 2) {
-                  return (
-                    <PaginationItem key={page}>
-                      <PaginationEllipsis />
-                    </PaginationItem>
-                  )
-                }
-                return null
-              })}
-
-              <PaginationItem>
-                <PaginationNext
-                  onClick={nextPage}
-                  className={!hasNextPage ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
+        <div className="flex items-center justify-between px-2">
+          <div className="hidden flex-1 text-sm text-muted-foreground lg:flex">
+            전체 {totalItems}개
+          </div>
+          <div className="flex w-full items-center gap-8 lg:w-fit">
+            <div className="hidden items-center gap-2 lg:flex">
+              <label htmlFor="rows-per-page" className="text-sm font-medium">
+                페이지당 행 수
+              </label>
+              <Select
+                value={`${pageSize}`}
+                onValueChange={(value) => {
+                  setPageSize(Number(value))
+                  resetPage()
+                }}
+              >
+                <SelectTrigger className="w-20" id="rows-per-page">
+                  <SelectValue placeholder={pageSize} />
+                </SelectTrigger>
+                <SelectContent side="top">
+                  {[10, 15, 20, 30, 50].map((size) => (
+                    <SelectItem key={size} value={`${size}`}>
+                      {size}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex w-fit items-center justify-center text-sm font-medium">
+              페이지 {currentPage} / {totalPages}
+            </div>
+            <div className="ml-auto flex items-center gap-2 lg:ml-0">
+              <Button
+                variant="outline"
+                className="hidden h-8 w-8 p-0 lg:flex"
+                onClick={() => goToPage(1)}
+                disabled={!hasPreviousPage}
+              >
+                <span className="sr-only">첫 페이지로</span>
+                <IconChevronsLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                className="h-8 w-8 p-0"
+                onClick={previousPage}
+                disabled={!hasPreviousPage}
+              >
+                <span className="sr-only">이전 페이지</span>
+                <IconChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                className="h-8 w-8 p-0"
+                onClick={nextPage}
+                disabled={!hasNextPage}
+              >
+                <span className="sr-only">다음 페이지</span>
+                <IconChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                className="hidden h-8 w-8 p-0 lg:flex"
+                onClick={() => goToPage(totalPages)}
+                disabled={!hasNextPage}
+              >
+                <span className="sr-only">마지막 페이지로</span>
+                <IconChevronsRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 
