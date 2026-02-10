@@ -632,6 +632,50 @@ export async function deleteTextbook(id: string) {
   }
 }
 
+/**
+ * Delete multiple textbooks (soft delete)
+ *
+ * @param ids - Array of Textbook IDs
+ * @returns Success with deleted count or error
+ */
+export async function bulkDeleteTextbooks(ids: string[]) {
+  try {
+    if (ids.length === 0) {
+      return { success: true, data: { deletedCount: 0 }, error: null }
+    }
+
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    const { data, error } = await supabase
+      .from('textbooks')
+      .update({ deleted_at: new Date().toISOString() })
+      .in('id', ids)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .select('id')
+
+    if (error) {
+      throw error
+    }
+
+    revalidatePath('/textbooks')
+
+    return {
+      success: true,
+      data: { deletedCount: data?.length ?? 0 },
+      error: null,
+    }
+  } catch (error) {
+    console.error('[bulkDeleteTextbooks] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
 // ============================================================================
 // Textbook Units Management
 // ============================================================================
