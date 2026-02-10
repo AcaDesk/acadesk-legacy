@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
 import { Badge } from '@ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
 import {
   Table,
   TableBody,
@@ -28,11 +29,24 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@ui/dropdown-menu'
-import { Plus, Edit, Trash2, FileText, Search, PenSquare, UserPlus, ClipboardList, X, MoreVertical } from 'lucide-react'
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@ui/pagination'
+import { Plus, Edit, Trash2, Search, PenSquare, UserPlus, ClipboardList, X, MoreVertical, CalendarDays, Users } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { usePagination } from '@/hooks/use-pagination'
 import { deleteExam } from '@/app/actions/exams'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import { EmptyState, NoSearchResultsEmptyState } from '@ui/empty-state'
+import { PAGE_LAYOUT, GRID_LAYOUTS, TEXT_STYLES } from '@/lib/constants'
+import { PAGE_ANIMATIONS } from '@/lib/animation-config'
+import { cn } from '@/lib/utils'
 
 interface Exam {
   id: string
@@ -65,6 +79,30 @@ interface ExamsClientProps {
   categories: ExamCategory[]
 }
 
+const EXAM_TYPE_MAP: Record<string, string> = {
+  vocabulary: '단어시험',
+  midterm: '중간고사',
+  final: '기말고사',
+  quiz: '퀴즈',
+  mock: '모의고사',
+  assignment: '과제',
+}
+
+function getExamTypeBadgeVariant(type: string | null): 'default' | 'secondary' | 'outline' | 'destructive' {
+  switch (type) {
+    case 'midterm':
+    case 'final':
+      return 'default'
+    case 'mock':
+      return 'destructive'
+    case 'quiz':
+    case 'vocabulary':
+      return 'secondary'
+    default:
+      return 'outline'
+  }
+}
+
 export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
   const router = useRouter()
   const { toast } = useToast()
@@ -75,33 +113,65 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
   const [examToDelete, setExamToDelete] = useState<{ id: string; name: string } | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  // Filter exams based on search, category, and type
   const filteredExams = useMemo(() => {
     let filtered = initialExams
 
-    // Search filter
     if (searchTerm) {
+      const search = searchTerm.toLowerCase()
       filtered = filtered.filter((exam) => {
         const name = exam.name?.toLowerCase() || ''
-        const description = exam.description?.toLowerCase() || ''
-        const search = searchTerm.toLowerCase()
-
-        return name.includes(search) || description.includes(search)
+        return name.includes(search)
       })
     }
 
-    // Category filter
     if (selectedCategory !== 'all') {
       filtered = filtered.filter((exam) => exam.category_code === selectedCategory)
     }
 
-    // Type filter
     if (selectedType !== 'all') {
       filtered = filtered.filter((exam) => exam.exam_type === selectedType)
     }
 
     return filtered
   }, [initialExams, searchTerm, selectedCategory, selectedType])
+
+  const {
+    currentPage,
+    totalPages,
+    paginatedData,
+    goToPage,
+    nextPage,
+    previousPage,
+    resetPage,
+    hasNextPage,
+    hasPreviousPage,
+    startIndex,
+    endIndex,
+    totalItems,
+  } = usePagination({
+    data: filteredExams,
+    itemsPerPage: 10,
+  })
+
+  // Reset page when filters change
+  useEffect(() => {
+    resetPage()
+  }, [searchTerm, selectedCategory, selectedType, resetPage])
+
+  const activeFilterCount = (selectedCategory !== 'all' ? 1 : 0) + (selectedType !== 'all' ? 1 : 0)
+
+  const thisMonthExamCount = useMemo(() => {
+    const now = new Date()
+    return initialExams.filter((e) => {
+      if (!e.exam_date) return false
+      const examDate = new Date(e.exam_date)
+      return examDate.getMonth() === now.getMonth() && examDate.getFullYear() === now.getFullYear()
+    }).length
+  }, [initialExams])
+
+  const totalParticipants = useMemo(() => {
+    return initialExams.reduce((sum, exam) => sum + (exam._count?.exam_scores || 0), 0)
+  }, [initialExams])
 
   function handleDeleteClick(id: string, name: string) {
     setExamToDelete({ id, name })
@@ -147,72 +217,98 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
 
   function getExamTypeLabel(type: string | null) {
     if (!type) return '-'
-    const typeMap: Record<string, string> = {
-      vocabulary: '단어시험',
-      midterm: '중간고사',
-      final: '기말고사',
-      quiz: '퀴즈',
-      mock: '모의고사',
-      assignment: '과제',
-    }
-    return typeMap[type] || type
+    return EXAM_TYPE_MAP[type] || type
+  }
+
+  function formatExamDate(dateStr: string | null) {
+    if (!dateStr) return '-'
+    const date = new Date(dateStr)
+    return date.toLocaleDateString('ko-KR', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    })
   }
 
   return (
-    <div className="space-y-6">
+    <div className={PAGE_LAYOUT.SECTION_SPACING}>
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">시험 관리</h1>
-          <p className="text-muted-foreground">시험을 등록하고 관리합니다</p>
+      <section className={PAGE_ANIMATIONS.header}>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className={TEXT_STYLES.PAGE_TITLE}>시험 관리</h1>
+            <p className={TEXT_STYLES.PAGE_DESCRIPTION}>시험을 등록하고 관리합니다</p>
+          </div>
+          <Link href="/grades/exams/new">
+            <Button className="gap-2">
+              <Plus className="h-4 w-4" />
+              시험 등록
+            </Button>
+          </Link>
         </div>
-        <Button onClick={() => router.push('/grades/exams/new')}>
-          <Plus className="h-4 w-4 mr-2" />
-          시험 등록
-        </Button>
-      </div>
+      </section>
 
-      {/* Quick Stats */}
-      <div className="grid gap-4 md:grid-cols-3">
+      {/* Stats Cards */}
+      <section
+        className={cn(GRID_LAYOUTS.STATS, PAGE_ANIMATIONS.getSection(0).className)}
+        style={PAGE_ANIMATIONS.getSection(0).style}
+      >
         <Card>
           <CardHeader className="pb-3">
-            <CardDescription>총 시험 수</CardDescription>
-            <CardTitle className="text-3xl">{initialExams.length}개</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription>이번 달 시험</CardDescription>
-            <CardTitle className="text-3xl">
-              {initialExams.filter((e) => {
-                if (!e.exam_date) return false
-                const examDate = new Date(e.exam_date)
-                const now = new Date()
-                return (
-                  examDate.getMonth() === now.getMonth() &&
-                  examDate.getFullYear() === now.getFullYear()
-                )
-              }).length}개
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <ClipboardList className="h-4 w-4" />
+              총 시험 수
             </CardTitle>
           </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{initialExams.length}개</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              등록된 전체 시험
+            </p>
+          </CardContent>
         </Card>
+
         <Card>
           <CardHeader className="pb-3">
-            <CardDescription>총 응시 인원</CardDescription>
-            <CardTitle className="text-3xl">
-              {initialExams.reduce((sum, exam) => sum + (exam._count?.exam_scores || 0), 0)}명
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <CalendarDays className="h-4 w-4" />
+              이번 달 시험
             </CardTitle>
           </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-info">{thisMonthExamCount}개</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              이번 달 예정된 시험
+            </p>
+          </CardContent>
         </Card>
-      </div>
 
-      {/* Search and Filters */}
-      <div className="flex flex-col gap-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              총 응시 인원
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{totalParticipants}명</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              전체 시험 응시자 수
+            </p>
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* Search & Filters */}
+      <section
+        className={cn("space-y-3", PAGE_ANIMATIONS.getSection(1).className)}
+        style={PAGE_ANIMATIONS.getSection(1).style}
+      >
         <div className="flex items-center gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="시험명, 설명으로 검색..."
+              placeholder="시험명으로 검색..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -228,9 +324,11 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
               </Button>
             )}
           </div>
-          <Badge variant="secondary" className="h-10 px-4 flex items-center whitespace-nowrap">
-            {filteredExams.length}개 시험
-          </Badge>
+          {activeFilterCount > 0 && (
+            <Badge variant="secondary" className="h-7">
+              필터 {activeFilterCount}개
+            </Badge>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
@@ -264,7 +362,7 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
             </SelectContent>
           </Select>
 
-          {(selectedType !== 'all' || selectedCategory !== 'all') && (
+          {activeFilterCount > 0 && (
             <Button
               variant="ghost"
               size="sm"
@@ -275,43 +373,51 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
               className="text-muted-foreground"
             >
               <X className="h-4 w-4 mr-1" />
-              필터 초기화
+              초기화
             </Button>
           )}
         </div>
-      </div>
+      </section>
 
       {/* Exams Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>시험 목록</CardTitle>
-          <CardDescription>
-            등록된 모든 시험을 확인하고 관리할 수 있습니다
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {filteredExams.length === 0 ? (
-            searchTerm ? (
-              <NoSearchResultsEmptyState
-                searchTerm={searchTerm}
-                onClearSearch={() => setSearchTerm('')}
-                icon={Search}
-              />
-            ) : (
-              <EmptyState
-                icon={ClipboardList}
-                title="등록된 시험이 없습니다"
-                description="새로운 시험을 등록하여 학생들의 성적을 관리하세요"
-                action={
-                  <Button onClick={() => router.push('/grades/exams/new')}>
+      <section
+        className={cn(PAGE_ANIMATIONS.getSection(2).className)}
+        style={PAGE_ANIMATIONS.getSection(2).style}
+      >
+        {filteredExams.length === 0 ? (
+          searchTerm || activeFilterCount > 0 ? (
+            <NoSearchResultsEmptyState
+              searchTerm={searchTerm || '필터 조건'}
+              onClearSearch={() => {
+                setSearchTerm('')
+                setSelectedType('all')
+                setSelectedCategory('all')
+              }}
+              icon={Search}
+            />
+          ) : (
+            <EmptyState
+              icon={ClipboardList}
+              title="등록된 시험이 없습니다"
+              description="새로운 시험을 등록하여 학생들의 성적을 관리하세요"
+              action={
+                <Link href="/grades/exams/new">
+                  <Button>
                     <Plus className="h-4 w-4 mr-2" />
                     시험 등록
                   </Button>
-                }
-              />
-            )
-          ) : (
-            <div className="border rounded-lg overflow-hidden">
+                </Link>
+              }
+            />
+          )
+        ) : (
+          <Card>
+            <CardContent className="p-0">
+              <div className="flex items-center justify-between px-6 py-3 border-b">
+                <p className="text-sm text-muted-foreground">
+                  총 {totalItems}개 중 {startIndex}-{endIndex}
+                </p>
+              </div>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -321,23 +427,22 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
                     <TableHead>시험일</TableHead>
                     <TableHead className="text-center">문항 수</TableHead>
                     <TableHead className="text-center">응시 인원</TableHead>
-                    <TableHead>설명</TableHead>
                     <TableHead className="text-right">작업</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredExams.map((exam) => (
+                  {paginatedData.map((exam) => (
                     <TableRow key={exam.id}>
                       <TableCell className="font-medium">
-                        <button
-                          onClick={() => router.push(`/grades/exams/${exam.id}`)}
-                          className="hover:text-primary hover:underline text-left"
+                        <Link
+                          href={`/grades/exams/${exam.id}`}
+                          className="hover:text-primary hover:underline"
                         >
                           {exam.name}
-                        </button>
+                        </Link>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary">
+                        <Badge variant={getExamTypeBadgeVariant(exam.exam_type)}>
                           {getExamTypeLabel(exam.exam_type)}
                         </Badge>
                       </TableCell>
@@ -347,9 +452,7 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {exam.exam_date
-                          ? new Date(exam.exam_date).toLocaleDateString('ko-KR')
-                          : '-'}
+                        {formatExamDate(exam.exam_date)}
                       </TableCell>
                       <TableCell className="text-center">
                         {exam.total_questions || '-'}
@@ -358,15 +461,6 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
                         <Badge variant="secondary">
                           {exam._count?.exam_scores || 0}명
                         </Badge>
-                      </TableCell>
-                      <TableCell className="max-w-xs">
-                        {exam.description ? (
-                          <div className="text-sm text-muted-foreground truncate">
-                            {exam.description}
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">-</span>
-                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
@@ -404,10 +498,60 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
                   ))}
                 </TableBody>
               </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        )}
+      </section>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center">
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  onClick={previousPage}
+                  className={!hasPreviousPage ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                />
+              </PaginationItem>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                if (
+                  page === 1 ||
+                  page === totalPages ||
+                  (page >= currentPage - 1 && page <= currentPage + 1)
+                ) {
+                  return (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        onClick={() => goToPage(page)}
+                        isActive={currentPage === page}
+                        className="cursor-pointer"
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  )
+                } else if (page === currentPage - 2 || page === currentPage + 2) {
+                  return (
+                    <PaginationItem key={page}>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  )
+                }
+                return null
+              })}
+
+              <PaginationItem>
+                <PaginationNext
+                  onClick={nextPage}
+                  className={!hasNextPage ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
 
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
