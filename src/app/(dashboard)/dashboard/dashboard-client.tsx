@@ -8,7 +8,7 @@ import { WelcomeBanner } from "@/components/features/dashboard/welcome-banner"
 import { DEFAULT_WIDGETS, type DashboardWidget, isWidgetAvailable, LAYOUT_PRESETS, type DashboardPreset, type DashboardWidgetId, type DashboardData, type TodaySession } from "@/core/types/dashboard"
 import { renderWidgetContent } from "./widget-factory"
 import { WidgetErrorBoundary } from "@/components/features/dashboard/widget-error-boundary"
-import { DASHBOARD_LAYOUT, shouldShowSection, getVisibleWidgetsInSection } from "./dashboard-layout-config"
+import { DASHBOARD_LAYOUT, getVisibleWidgetsInSection, getSortedSections } from "./dashboard-layout-config"
 import { cn } from "@/lib/utils"
 import { saveDashboardPreferences, getDashboardPreferences } from "@/app/actions/dashboard-preferences"
 import {
@@ -69,7 +69,7 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
       const now = new Date()
       const startTime = new Date(s.scheduled_start)
       const minutesUntilStart = Math.floor((startTime.getTime() - now.getTime()) / 60000)
-      return minutesUntilStart <= 30
+      return minutesUntilStart >= 0 && minutesUntilStart <= 30
     })
   }, [todaySessions])
 
@@ -230,10 +230,12 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
     if (!over || active.id === over.id) return
 
     setTempWidgets((widgets) => {
-      const oldIndex = widgets.findIndex(w => w.id === active.id)
-      const newIndex = widgets.findIndex(w => w.id === over.id)
+      // Sort by order first to match SortableContext/DOM order
+      const sorted = [...widgets].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+      const oldIndex = sorted.findIndex(w => w.id === active.id)
+      const newIndex = sorted.findIndex(w => w.id === over.id)
 
-      const newWidgets = arrayMove(widgets, oldIndex, newIndex)
+      const newWidgets = arrayMove(sorted, oldIndex, newIndex)
 
       // Update order values
       return newWidgets.map((widget, index) => ({
@@ -429,7 +431,10 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
           onDragEnd={handleDragEnd}
         >
           <SortableContext
-            items={isEditMode ? tempWidgets.filter(w => w.visible).map(w => w.id) : widgets.filter(w => w.visible).map(w => w.id)}
+            items={isEditMode
+              ? [...tempWidgets].filter(w => w.visible).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map(w => w.id)
+              : widgets.filter(w => w.visible).map(w => w.id)
+            }
             strategy={verticalListSortingStrategy}
           >
             {isEditMode ? (
@@ -450,10 +455,10 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
                   ))}
               </div>
             ) : (
-              /* View Mode: Section-based layout */
+              /* View Mode: Section-based layout, sorted by widget order */
               <div className="space-y-6">
-                {DASHBOARD_LAYOUT.map((section, index) =>
-                  shouldShowSection(section, visibleWidgetIds) && renderSection(section, index)
+                {getSortedSections(DASHBOARD_LAYOUT, visibleWidgetIds, widgets).map((section, index) =>
+                  renderSection(section, index)
                 )}
               </div>
             )}
