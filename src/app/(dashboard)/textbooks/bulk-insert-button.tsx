@@ -206,6 +206,7 @@ export function BulkInsertTextbooksButton() {
       canInsert: boolean
     }>
     blockedRows: number
+    validationWarnings?: string[]
   } | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const router = useRouter()
@@ -454,6 +455,12 @@ export function BulkInsertTextbooksButton() {
           description: `등록 차단 행 ${result.data.blockedRows}건을 수정하세요.`,
           variant: 'destructive',
         })
+      } else if (result.data.validationWarnings && result.data.validationWarnings.length > 0) {
+        toast({
+          title: '사전 검증 완료 (일부 검사 건너뜀)',
+          description: result.data.validationWarnings[0],
+          variant: 'destructive',
+        })
       } else {
         toast({
           title: '사전 검증 완료',
@@ -464,7 +471,10 @@ export function BulkInsertTextbooksButton() {
       console.error('validate textbooks error:', error)
       toast({
         title: '사전 검증 실패',
-        description: '검증 중 오류가 발생했습니다.',
+        description:
+          error instanceof Error
+            ? error.message
+            : '검증 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
     } finally {

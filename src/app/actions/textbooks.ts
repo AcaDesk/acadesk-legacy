@@ -272,6 +272,18 @@ export async function bulkCreateTextbooks(
 export async function validateBulkTextbooks(
   input: z.infer<typeof bulkValidateTextbooksSchema>
 ) {
+  function shouldSkipDuplicateCheck(error: unknown): boolean {
+    const code = (error as { code?: string } | null)?.code
+    const message = ((error as { message?: string } | null)?.message || '').toLowerCase()
+
+    // Postgres / PostgREST 컬럼 누락 계열
+    if (code === '42703' || code === 'PGRST204') return true
+    if (message.includes('column') && (message.includes('isbn') || message.includes('barcode'))) {
+      return true
+    }
+    return false
+  }
+
   try {
     const validated = bulkValidateTextbooksSchema.parse(input)
     const { tenantId } = await verifyStaff()
@@ -298,6 +310,7 @@ export async function validateBulkTextbooks(
 
     const existingBarcodeSet = new Set<string>()
     const existingIsbnSet = new Set<string>()
+    const validationWarnings: string[] = []
 
     if (dedupedBarcodes.length > 0) {
       const { data, error } = await supabase
@@ -306,9 +319,16 @@ export async function validateBulkTextbooks(
         .eq('tenant_id', tenantId)
         .in('barcode', dedupedBarcodes)
         .is('deleted_at', null)
-      if (error) throw error
-      for (const row of data || []) {
-        if (row.barcode) existingBarcodeSet.add(row.barcode)
+      if (error) {
+        if (shouldSkipDuplicateCheck(error)) {
+          validationWarnings.push('바코드 중복 검사를 건너뛰었습니다. (스키마/환경 확인 필요)')
+        } else {
+          throw error
+        }
+      } else {
+        for (const row of data || []) {
+          if (row.barcode) existingBarcodeSet.add(row.barcode)
+        }
       }
     }
 
@@ -319,9 +339,16 @@ export async function validateBulkTextbooks(
         .eq('tenant_id', tenantId)
         .in('isbn', dedupedIsbns)
         .is('deleted_at', null)
-      if (error) throw error
-      for (const row of data || []) {
-        if (row.isbn) existingIsbnSet.add(row.isbn)
+      if (error) {
+        if (shouldSkipDuplicateCheck(error)) {
+          validationWarnings.push('ISBN 중복 검사를 건너뛰었습니다. (스키마/환경 확인 필요)')
+        } else {
+          throw error
+        }
+      } else {
+        for (const row of data || []) {
+          if (row.isbn) existingIsbnSet.add(row.isbn)
+        }
       }
     }
 
@@ -380,6 +407,7 @@ export async function validateBulkTextbooks(
       data: {
         rows,
         blockedRows,
+        validationWarnings,
       },
       error: null,
     }
