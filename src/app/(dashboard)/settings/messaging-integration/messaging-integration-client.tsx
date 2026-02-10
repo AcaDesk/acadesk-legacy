@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
@@ -31,6 +31,7 @@ import {
   Info,
   ShieldCheck,
   Settings,
+  Pencil,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import {
@@ -121,7 +122,7 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
   const isSolapiProvider = config?.provider === 'solapi'
   const showKakaoTab = isSolapiProvider && config?.is_verified
 
-  const [formData, setFormData] = useState<FormData>({
+  const initialFormDataValue: FormData = {
     provider: config?.provider || 'aligo',
     aligo_user_id: config?.aligo_user_id || '',
     aligo_api_key: config?.aligo_api_key || '',
@@ -132,7 +133,11 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
     nhncloud_app_key: config?.nhncloud_app_key || '',
     nhncloud_secret_key: config?.nhncloud_secret_key || '',
     nhncloud_sender_phone: config?.nhncloud_sender_phone || '',
-  })
+  }
+
+  const [formData, setFormData] = useState<FormData>(initialFormDataValue)
+  const initialFormData = useRef<FormData>(initialFormDataValue)
+  const [isEditingCredentials, setIsEditingCredentials] = useState(!config)
 
   const [testPhone, setTestPhone] = useState('')
   const [saving, setSaving] = useState(false)
@@ -145,6 +150,29 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
   const hasConfig = config !== null
   const isVerified = config?.is_verified || false
   const isActive = config?.is_active || false
+  const fieldsDisabled = hasConfig && !isEditingCredentials
+
+  const hasFormChanges = useMemo(() => {
+    if (!isEditingCredentials) return false
+    const init = initialFormData.current
+    if (formData.provider !== init.provider) return true
+    if (formData.provider === 'aligo') {
+      return formData.aligo_user_id !== init.aligo_user_id ||
+        formData.aligo_api_key !== init.aligo_api_key ||
+        formData.aligo_sender_phone !== init.aligo_sender_phone
+    }
+    if (formData.provider === 'solapi') {
+      return formData.solapi_api_key !== init.solapi_api_key ||
+        formData.solapi_api_secret !== init.solapi_api_secret ||
+        formData.solapi_sender_phone !== init.solapi_sender_phone
+    }
+    if (formData.provider === 'nhncloud') {
+      return formData.nhncloud_app_key !== init.nhncloud_app_key ||
+        formData.nhncloud_secret_key !== init.nhncloud_secret_key ||
+        formData.nhncloud_sender_phone !== init.nhncloud_sender_phone
+    }
+    return false
+  }, [formData, isEditingCredentials])
 
   async function handleSave() {
     setSaving(true)
@@ -185,6 +213,8 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
         description: 'API 설정이 저장되었습니다. 이제 테스트 메시지를 발송해주세요.',
       })
 
+      initialFormData.current = { ...formData }
+      setIsEditingCredentials(false)
       router.refresh()
     } catch (error) {
       toast({
@@ -388,8 +418,36 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
           {/* Provider Selection */}
           <Card>
             <CardHeader>
-              <CardTitle>메시징 서비스 선택</CardTitle>
-              <CardDescription>사용할 메시징 서비스를 선택하세요 (알림톡은 솔라피만 지원)</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>메시징 서비스 선택</CardTitle>
+                  <CardDescription>사용할 메시징 서비스를 선택하세요 (알림톡은 솔라피만 지원)</CardDescription>
+                </div>
+                {hasConfig && (
+                  isEditingCredentials ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setFormData({ ...initialFormData.current })
+                        setIsEditingCredentials(false)
+                      }}
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      취소
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsEditingCredentials(true)}
+                    >
+                      <Pencil className="h-4 w-4 mr-1" />
+                      수정
+                    </Button>
+                  )
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -398,6 +456,7 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
                   <Select
                     value={formData.provider}
                     onValueChange={(value) => setFormData({ ...formData, provider: value as MessagingProvider })}
+                    disabled={fieldsDisabled}
                   >
                     <SelectTrigger className="mt-2">
                       <SelectValue />
@@ -456,6 +515,14 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
               </CardDescription>
             </CardHeader>
             <CardContent>
+              {isVerified && !isEditingCredentials && (
+                <Alert className="mb-4 border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20">
+                  <ShieldCheck className="h-4 w-4 text-amber-600" />
+                  <AlertDescription className="text-sm">
+                    인증이 완료된 설정입니다. 수정 시 재인증이 필요합니다.
+                  </AlertDescription>
+                </Alert>
+              )}
               {formData.provider === 'aligo' && (
                 <div className="space-y-4">
                   <div>
@@ -467,6 +534,7 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
                       onChange={(e) => setFormData({ ...formData, aligo_user_id: e.target.value })}
                       placeholder="알리고 사이트에서 확인"
                       className="mt-2"
+                      disabled={fieldsDisabled}
                     />
                   </div>
                   <div>
@@ -478,6 +546,7 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
                       onChange={(e) => setFormData({ ...formData, aligo_api_key: e.target.value })}
                       placeholder="API Key"
                       className="mt-2"
+                      disabled={fieldsDisabled}
                     />
                   </div>
                   <div>
@@ -488,6 +557,7 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
                       onChange={(value) => setFormData({ ...formData, aligo_sender_phone: value })}
                       placeholder="010-0000-0000"
                       className="mt-2"
+                      disabled={fieldsDisabled}
                     />
                     <p className="text-xs text-muted-foreground mt-1">
                       알리고에 등록 및 인증된 발신번호를 입력하세요
@@ -507,6 +577,7 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
                       onChange={(e) => setFormData({ ...formData, solapi_api_key: e.target.value })}
                       placeholder="API Key"
                       className="mt-2"
+                      disabled={fieldsDisabled}
                     />
                   </div>
                   <div>
@@ -518,6 +589,7 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
                       onChange={(e) => setFormData({ ...formData, solapi_api_secret: e.target.value })}
                       placeholder="API Secret"
                       className="mt-2"
+                      disabled={fieldsDisabled}
                     />
                   </div>
                   <div>
@@ -528,6 +600,7 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
                       onChange={(value) => setFormData({ ...formData, solapi_sender_phone: value })}
                       placeholder="010-0000-0000"
                       className="mt-2"
+                      disabled={fieldsDisabled}
                     />
                     <p className="text-xs text-muted-foreground mt-1">
                       솔라피에 등록 및 인증된 발신번호를 입력하세요
@@ -547,6 +620,7 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
                       onChange={(e) => setFormData({ ...formData, nhncloud_app_key: e.target.value })}
                       placeholder="App Key"
                       className="mt-2"
+                      disabled={fieldsDisabled}
                     />
                   </div>
                   <div>
@@ -558,6 +632,7 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
                       onChange={(e) => setFormData({ ...formData, nhncloud_secret_key: e.target.value })}
                       placeholder="Secret Key"
                       className="mt-2"
+                      disabled={fieldsDisabled}
                     />
                   </div>
                   <div>
@@ -568,6 +643,7 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
                       onChange={(value) => setFormData({ ...formData, nhncloud_sender_phone: value })}
                       placeholder="010-0000-0000"
                       className="mt-2"
+                      disabled={fieldsDisabled}
                     />
                     <p className="text-xs text-muted-foreground mt-1">
                       NHN Cloud에 등록 및 인증된 발신번호를 입력하세요
@@ -576,18 +652,33 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
                 </div>
               )}
 
-              <div className="flex items-center gap-2 mt-6">
-                <Button onClick={handleSave} disabled={saving}>
-                  <Save className="h-4 w-4 mr-2" />
-                  {saving ? '저장 중...' : '저장'}
-                </Button>
-                {hasConfig && (
+              {isEditingCredentials && (
+                <div className="flex items-center gap-2 mt-6">
+                  <Button onClick={handleSave} disabled={saving || !hasFormChanges}>
+                    <Save className="h-4 w-4 mr-2" />
+                    {saving ? '저장 중...' : hasFormChanges ? '변경사항 저장' : '저장됨'}
+                  </Button>
+                  {hasConfig && (
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setFormData({ ...initialFormData.current })
+                        setIsEditingCredentials(false)
+                      }}
+                    >
+                      취소
+                    </Button>
+                  )}
+                </div>
+              )}
+              {!isEditingCredentials && hasConfig && (
+                <div className="flex items-center gap-2 mt-6">
                   <Button variant="outline" onClick={handleDeleteClick} disabled={deleting}>
                     <Trash2 className="h-4 w-4 mr-2" />
                     설정 삭제
                   </Button>
-                )}
-              </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
