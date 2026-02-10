@@ -37,8 +37,8 @@ type Distribution = {
   students: {
     id: string
     name: string
+    student_code: string | null
     grade: string | null
-    class: string | null
   } | null
 }
 
@@ -222,9 +222,7 @@ export function DistributionTab({ textbookId }: { textbookId: string }) {
                   )}
                 </TableCell>
                 <TableCell>
-                  {dist.students?.grade && dist.students?.class
-                    ? `${dist.students.grade}학년 ${dist.students.class}반`
-                    : '-'}
+                  {dist.students?.grade || '-'}
                 </TableCell>
                 <TableCell>
                   {new Date(dist.issue_date).toLocaleDateString('ko-KR')}
