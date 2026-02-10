@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
@@ -48,18 +48,21 @@ function formatMonth(month: string) {
 
 export function EntryClient({ initialExams }: EntryClientProps) {
   const router = useRouter()
-  const [isPending, startTransition] = useTransition()
 
   // Tab state
   const [activeTab, setActiveTab] = useState('pending')
 
   // Pending tab data
   const [pendingExams, setPendingExams] = useState<ExamForGradeEntry[]>(initialExams)
+  const [pendingLoading, setPendingLoading] = useState(false)
 
   // Completed tab data
   const [completedExams, setCompletedExams] = useState<ExamForGradeEntry[]>([])
-  const [completedLoaded, setCompletedLoaded] = useState(false)
+  const [completedLoading, setCompletedLoading] = useState(false)
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth)
+  const completedCacheRef = useRef<Record<string, ExamForGradeEntry[]>>({})
+  const pendingRequestSeqRef = useRef(0)
+  const completedRequestSeqRef = useRef(0)
 
   // Confirmation dialog state
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -93,30 +96,49 @@ export function EntryClient({ initialExams }: EntryClientProps) {
   }, [completedExams])
 
   // Load pending exams
-  function loadPendingExams() {
-    startTransition(async () => {
+  async function loadPendingExams() {
+    const requestSeq = ++pendingRequestSeqRef.current
+    setPendingLoading(true)
+    try {
       const result = await getExamsForGradeEntry({ completed: false })
+      if (requestSeq !== pendingRequestSeqRef.current) return
       if (result.success && result.data) {
         setPendingExams(result.data)
       }
-    })
+    } finally {
+      if (requestSeq === pendingRequestSeqRef.current) {
+        setPendingLoading(false)
+      }
+    }
   }
 
   // Load completed exams for selected month
-  function loadCompletedExams(month: string) {
-    startTransition(async () => {
+  async function loadCompletedExams(month: string, options: { force?: boolean } = {}) {
+    if (!options.force && completedCacheRef.current[month]) {
+      setCompletedExams(completedCacheRef.current[month])
+      return
+    }
+
+    const requestSeq = ++completedRequestSeqRef.current
+    setCompletedLoading(true)
+    try {
       const result = await getExamsForGradeEntry({ completed: true, month })
+      if (requestSeq !== completedRequestSeqRef.current) return
       if (result.success && result.data) {
+        completedCacheRef.current[month] = result.data
         setCompletedExams(result.data)
-        setCompletedLoaded(true)
       }
-    })
+    } finally {
+      if (requestSeq === completedRequestSeqRef.current) {
+        setCompletedLoading(false)
+      }
+    }
   }
 
   // Tab change handler
   function handleTabChange(value: string) {
     setActiveTab(value)
-    if (value === 'completed' && !completedLoaded) {
+    if (value === 'completed') {
       loadCompletedExams(selectedMonth)
     }
   }
@@ -127,7 +149,9 @@ export function EntryClient({ initialExams }: EntryClientProps) {
     const d = new Date(year, month - 2, 1) // month-2 because month is 1-indexed and we want prev
     const newMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
     setSelectedMonth(newMonth)
-    loadCompletedExams(newMonth)
+    if (activeTab === 'completed') {
+      loadCompletedExams(newMonth)
+    }
   }
 
   function handleNextMonth() {
@@ -135,13 +159,17 @@ export function EntryClient({ initialExams }: EntryClientProps) {
     const d = new Date(year, month, 1) // month because month is 1-indexed
     const newMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
     setSelectedMonth(newMonth)
-    loadCompletedExams(newMonth)
+    if (activeTab === 'completed') {
+      loadCompletedExams(newMonth)
+    }
   }
 
   function handleCurrentMonth() {
     const current = getCurrentMonth()
     setSelectedMonth(current)
-    loadCompletedExams(current)
+    if (activeTab === 'completed') {
+      loadCompletedExams(current)
+    }
   }
 
   // Complete exam grading
@@ -174,8 +202,10 @@ export function EntryClient({ initialExams }: EntryClientProps) {
         if (result.success) {
           toast({ title: '완료 처리되었습니다' })
           loadPendingExams()
-          // Reset completed tab so it reloads when switched to
-          setCompletedLoaded(false)
+          completedCacheRef.current = {}
+          if (activeTab === 'completed') {
+            loadCompletedExams(selectedMonth, { force: true })
+          }
         } else {
           toast({ title: result.error || '오류가 발생했습니다', variant: 'destructive' })
         }
@@ -183,7 +213,8 @@ export function EntryClient({ initialExams }: EntryClientProps) {
         const result = await reopenExamGrading(confirmDialog.examId)
         if (result.success) {
           toast({ title: '입력 필요 상태로 변경되었습니다' })
-          loadCompletedExams(selectedMonth)
+          delete completedCacheRef.current[selectedMonth]
+          loadCompletedExams(selectedMonth, { force: true })
           // Also refresh pending if user switches back
           loadPendingExams()
         } else {
@@ -386,8 +417,8 @@ export function EntryClient({ initialExams }: EntryClientProps) {
         </TabsList>
 
         {/* ── 입력 필요 탭 ── */}
-        <TabsContent value="pending">
-          {isPending && activeTab === 'pending' ? (
+        <TabsContent value="pending" forceMount>
+          {pendingLoading && pendingExams.length === 0 ? (
             renderTableSkeleton()
           ) : (
             <div className="space-y-4">
@@ -458,7 +489,7 @@ export function EntryClient({ initialExams }: EntryClientProps) {
         </TabsContent>
 
         {/* ── 입력 완료 탭 ── */}
-        <TabsContent value="completed">
+        <TabsContent value="completed" forceMount>
           <div className="space-y-4">
             {/* Month Navigation */}
             <div className="flex items-center gap-2">
@@ -488,9 +519,12 @@ export function EntryClient({ initialExams }: EntryClientProps) {
               <Button variant="secondary" size="sm" onClick={handleCurrentMonth}>
                 이번 달
               </Button>
+              {completedLoading && (
+                <span className="text-sm text-muted-foreground">불러오는 중...</span>
+              )}
             </div>
 
-            {isPending && activeTab === 'completed' ? (
+            {completedLoading && completedExams.length === 0 ? (
               renderTableSkeleton()
             ) : (
               <>
