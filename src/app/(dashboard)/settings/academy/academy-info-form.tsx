@@ -19,7 +19,7 @@ import {
   FormMessage,
 } from '@ui/form'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
-import { Loader2, Save } from 'lucide-react'
+import { Loader2, Save, Pencil, X } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { updateAcademyInfo } from '@/app/actions/academy'
 
@@ -50,6 +50,7 @@ export function AcademyInfoForm({ initialData }: AcademyInfoFormProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
+  const [isEditing, setIsEditing] = useState(!initialData)
 
   // Form setup
   const form = useForm<AcademyFormValues>({
@@ -89,8 +90,9 @@ export function AcademyInfoForm({ initialData }: AcademyInfoFormProps) {
         description: '학원 정보가 성공적으로 수정되었습니다.',
       })
 
-      // Reset form dirty state with current values
+      // Reset form dirty state with current values and lock
       form.reset(values)
+      setIsEditing(false)
       router.refresh()
     } catch (error) {
       console.error('Error updating academy info:', error)
@@ -110,8 +112,38 @@ export function AcademyInfoForm({ initialData }: AcademyInfoFormProps) {
         {/* Basic Information */}
         <Card>
           <CardHeader>
-            <CardTitle>기본 정보</CardTitle>
-            <CardDescription>학원의 기본 정보를 입력하세요</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>기본 정보</CardTitle>
+                <CardDescription>학원의 기본 정보를 입력하세요</CardDescription>
+              </div>
+              {initialData && (
+                isEditing ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      form.reset()
+                      setIsEditing(false)
+                    }}
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    취소
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsEditing(true)}
+                  >
+                    <Pencil className="h-4 w-4 mr-1" />
+                    수정
+                  </Button>
+                )
+              )}
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <FormField
@@ -121,7 +153,7 @@ export function AcademyInfoForm({ initialData }: AcademyInfoFormProps) {
                 <FormItem>
                   <FormLabel>학원명 *</FormLabel>
                   <FormControl>
-                    <Input placeholder="예: 아카데스크 학원" {...field} />
+                    <Input placeholder="예: 아카데스크 학원" disabled={!isEditing} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -135,7 +167,7 @@ export function AcademyInfoForm({ initialData }: AcademyInfoFormProps) {
                 <FormItem>
                   <FormLabel>사업자 등록번호</FormLabel>
                   <FormControl>
-                    <Input placeholder="예: 123-45-67890" {...field} />
+                    <Input placeholder="예: 123-45-67890" disabled={!isEditing} {...field} />
                   </FormControl>
                   <FormDescription>'-'를 포함하여 입력하세요</FormDescription>
                   <FormMessage />
@@ -155,6 +187,7 @@ export function AcademyInfoForm({ initialData }: AcademyInfoFormProps) {
                         value={field.value || ''}
                         onChange={field.onChange}
                         placeholder="예: 02-1234-5678"
+                        disabled={!isEditing}
                       />
                     </FormControl>
                     <FormMessage />
@@ -169,7 +202,7 @@ export function AcademyInfoForm({ initialData }: AcademyInfoFormProps) {
                   <FormItem>
                     <FormLabel>대표 이메일</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="예: contact@acadesk.com" {...field} />
+                      <Input type="email" placeholder="예: contact@acadesk.com" disabled={!isEditing} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -187,6 +220,7 @@ export function AcademyInfoForm({ initialData }: AcademyInfoFormProps) {
                     <Textarea
                       placeholder="학원의 전체 주소를 입력하세요"
                       className="min-h-[80px]"
+                      disabled={!isEditing}
                       {...field}
                     />
                   </FormControl>
@@ -205,6 +239,7 @@ export function AcademyInfoForm({ initialData }: AcademyInfoFormProps) {
                     <Input
                       type="url"
                       placeholder="예: https://www.acadesk.com"
+                      disabled={!isEditing}
                       {...field}
                     />
                   </FormControl>
@@ -260,21 +295,26 @@ export function AcademyInfoForm({ initialData }: AcademyInfoFormProps) {
         </Card>
 
         {/* Actions */}
-        <div className="flex items-center justify-end gap-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.back()}
-            disabled={isLoading}
-          >
-            취소
-          </Button>
-          <Button type="submit" disabled={isLoading || !hasChanges}>
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {!isLoading && <Save className="mr-2 h-4 w-4" />}
-            {hasChanges ? '변경사항 저장' : '저장됨'}
-          </Button>
-        </div>
+        {isEditing && (
+          <div className="flex items-center justify-end gap-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                form.reset()
+                setIsEditing(false)
+              }}
+              disabled={isLoading}
+            >
+              취소
+            </Button>
+            <Button type="submit" disabled={isLoading || !hasChanges}>
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {!isLoading && <Save className="mr-2 h-4 w-4" />}
+              {hasChanges ? '변경사항 저장' : '저장됨'}
+            </Button>
+          </div>
+        )}
       </form>
     </Form>
   )
