@@ -173,7 +173,7 @@ const AVAILABLE_ACTIONS = [
     id: 'send-message',
     label: '메시지 전송',
     icon: MessageSquarePlus,
-    href: '/messages/new',
+    href: '/notifications',
     color: 'primary' as ActionColor,
     category: '소통',
   },
@@ -181,7 +181,7 @@ const AVAILABLE_ACTIONS = [
     id: 'payment-record',
     label: '수납 기록',
     icon: Receipt,
-    href: '/payments/new',
+    href: '/payments',
     color: 'success' as ActionColor, // 강조 - 재무 관련 중요 기능
     category: '재무',
   },

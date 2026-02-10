@@ -98,13 +98,13 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
         .lte('scheduled_start', `${today}T23:59:59`)
         .order('scheduled_start', { ascending: true }),
 
-      // Birthday students (this month)
+      // Birthday students (this month) - no limit, filtered server-side by month
       supabase
         .from('students')
         .select('id, users!inner(name, birthday), grade')
         .eq('tenant_id', tenantId)
-        .not('users.birthday', 'is', null)
-        .limit(100), // Get all, filter client-side for this month
+        .is('deleted_at', null)
+        .not('users.birthday', 'is', null),
 
       // Scheduled consultations (next 7 days)
       supabase
@@ -178,14 +178,14 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
         }))
       : []
 
-    // Filter birthday students for current month
-    const currentMonth = new Date().getMonth()
+    // Filter birthday students for current month (KST-based)
+    const currentMonthNum = parseInt(today.split('-')[1], 10)
     const birthdayStudents = birthdayStudentsResult.status === 'fulfilled' && birthdayStudentsResult.value.data
       ? birthdayStudentsResult.value.data
           .filter((s: any) => {
             if (!s.users?.birthday) return false
-            const birthdayMonth = new Date(s.users.birthday).getMonth()
-            return birthdayMonth === currentMonth
+            const birthdayMonth = parseInt(s.users.birthday.split('-')[1], 10)
+            return birthdayMonth === currentMonthNum
           })
           .map((s: any) => ({
             id: s.id,
@@ -217,8 +217,12 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
       ? classStatusResult.value.data.map((c: any) => ({
           id: c.id,
           class_name: c.name,
+          name: c.name,
           enrolled: 0, // TODO: Count from enrollments
           capacity: c.capacity || 0,
+          student_count: c.capacity || 0,
+          active_students: 0, // TODO: Count from enrollments
+          status: 'active' as const,
           instructor: c.users?.name || 'Unknown',
           schedule: '', // TODO: Get from schedule
         }))

@@ -95,7 +95,7 @@ export function TodayTasks({ upcomingSessions, unsentReports, pendingTodos }: To
               return (
                 <Link
                   key={session.id}
-                  href={`/attendance/${session.id}`}
+                  href="/attendance"
                   className={cn(
                     "flex items-center justify-between p-3 rounded-lg border transition-all",
                     "hover:bg-accent hover:border-primary/30 hover:shadow-sm",

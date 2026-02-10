@@ -58,16 +58,16 @@ export function StudentAlerts({ longAbsence, pendingAssignments }: StudentAlerts
             <div className="space-y-2.5">
               {paginatedAbsence.map((student) => (
                 <div key={student.id} className="block">
-                  <Link href={`/students/${student.student_id}`}>
+                  <Link href={`/students/${student.id}`}>
                     <div className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted transition-colors cursor-pointer bg-white dark:bg-gray-900">
                       <div className="flex items-center gap-3">
                         <div className="h-8 w-8 rounded-full bg-destructive/10 flex items-center justify-center">
                           <UserX className="h-4 w-4 text-destructive" />
                         </div>
                         <div>
-                          <div className="font-medium">{student.student_name || '이름 없음'}</div>
+                          <div className="font-medium">{student.name || '이름 없음'}</div>
                           <div className="text-xs text-muted-foreground">
-                            {student.description}
+                            {student.reason}
                           </div>
                         </div>
                       </div>
@@ -120,16 +120,16 @@ export function StudentAlerts({ longAbsence, pendingAssignments }: StudentAlerts
             <div className="space-y-2.5">
               {paginatedAssignments.map((student) => (
                 <div key={student.id} className="block">
-                  <Link href={`/students/${student.student_id}`}>
+                  <Link href={`/students/${student.id}`}>
                     <div className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted transition-colors cursor-pointer bg-white dark:bg-gray-900">
                       <div className="flex items-center gap-3">
                         <div className="h-8 w-8 rounded-full bg-warning/10 flex items-center justify-center">
                           <ListTodo className="h-4 w-4 text-warning" />
                         </div>
                         <div>
-                          <div className="font-medium">{student.student_name || '이름 없음'}</div>
+                          <div className="font-medium">{student.name || '이름 없음'}</div>
                           <div className="text-xs text-muted-foreground">
-                            {student.description}
+                            {student.reason}
                           </div>
                         </div>
                       </div>
