@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
@@ -60,7 +59,6 @@ export function KakaoTemplateList({
   onTemplatesLoaded,
 }: KakaoTemplateListProps) {
   const { toast } = useToast()
-  const router = useRouter()
 
   const [templates, setTemplates] = useState<KakaoTemplate[]>([])
   const [isLoading, setIsLoading] = useState(true)

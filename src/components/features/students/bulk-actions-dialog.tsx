@@ -11,7 +11,6 @@ import {
   DialogTitle,
 } from '@ui/dialog'
 import { Button } from '@ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
 import { Label } from '@ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { getErrorMessage } from '@/lib/error-handlers'

@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Label } from '@ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
+
 import {
   Dialog,
   DialogContent,
@@ -27,7 +27,6 @@ import { useCurrentUser } from '@/hooks/use-current-user'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import {
   Repeat,
-  Calendar,
   Clock,
   BookOpen,
   AlertCircle,
@@ -44,7 +43,7 @@ import {
   ChevronRight
 } from 'lucide-react'
 import Link from 'next/link'
-import { DAYS_OF_WEEK } from '@/lib/constants'
+
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
@@ -82,7 +81,6 @@ export default function EditTodoTemplatePage() {
 
   const { toast } = useToast()
   const router = useRouter()
-  const supabase = createClient()
   const { user: currentUser, loading: userLoading } = useCurrentUser()
 
   // Load template data

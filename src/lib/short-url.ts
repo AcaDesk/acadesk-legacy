@@ -135,7 +135,8 @@ export function generateReportSmsMessage(params: {
 
   // 학원 정보 텍스트
   const academyInfo = academyName || 'Acadesk'
-  const contactInfo = academyPhone ? `\n문의: ${academyPhone}` : ''
+  // TODO: contactInfo를 LMS 메시지에 추가 예정
+  // const contactInfo = academyPhone ? `\n문의: ${academyPhone}` : ''
 
   // SMS 버전 (90바이트 이내)
   const smsMessage = `[${academyInfo}] ${studentName} ${month ? `${month}월 ` : ''}${reportType}표\n${shortUrl}`

@@ -154,7 +154,7 @@ export function AcademyInfoForm({ initialData }: AcademyInfoFormProps) {
                   <FormControl>
                     <Input placeholder="예: 123-45-67890" disabled={!isEditing} {...field} />
                   </FormControl>
-                  <FormDescription>'-'를 포함하여 입력하세요</FormDescription>
+                  <FormDescription>&apos;-&apos;를 포함하여 입력하세요</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

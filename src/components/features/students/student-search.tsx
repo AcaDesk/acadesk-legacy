@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { Search, Users, Loader2 } from 'lucide-react'
+import { Search, Loader2 } from 'lucide-react'
 import { Input } from '@ui/input'
 import { Badge } from '@ui/badge'
 import { Button } from '@ui/button'

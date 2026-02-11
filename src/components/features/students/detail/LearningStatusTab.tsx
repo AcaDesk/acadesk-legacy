@@ -3,7 +3,6 @@
 import { motion } from 'motion/react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
-import { Badge } from '@ui/badge'
 import { Button } from '@ui/button'
 import { BookOpen, GraduationCap, Target } from 'lucide-react'
 import { ClassEnrollmentsList } from '@/components/features/students/detail/ClassEnrollmentsList'

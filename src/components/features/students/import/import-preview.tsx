@@ -31,7 +31,6 @@ interface ImportPreviewProps {
 
 export function ImportPreview({
   preview,
-  items,
   onConfirm,
   onCancel,
   isProcessing = false,

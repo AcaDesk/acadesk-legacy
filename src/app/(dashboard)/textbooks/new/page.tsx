@@ -258,7 +258,7 @@ export default function NewTextbookPage() {
               </p>
             ) : (
               <div className="space-y-4">
-                {units.map((unit, index) => (
+                {units.map((unit) => (
                   <Card key={unit.tempId}>
                     <CardContent className="pt-6">
                       <div className="flex items-start gap-4">

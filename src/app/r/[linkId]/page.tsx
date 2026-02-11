@@ -9,7 +9,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
+import { Card, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { AlertCircle } from 'lucide-react'
 import { ReportShareViewer } from '@/components/features/reports/ReportShareViewer'
 import type { ReportData } from '@/core/types/report.types'

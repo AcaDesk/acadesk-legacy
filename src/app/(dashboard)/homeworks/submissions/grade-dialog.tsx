@@ -132,7 +132,7 @@ export function GradeDialog({
           variant: 'destructive',
         })
       }
-    } catch (error) {
+    } catch {
       toast({
         title: '채점 오류',
         description: '채점 중 오류가 발생했습니다.',

@@ -32,7 +32,7 @@ import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { EmptyState, NoSearchResultsEmptyState } from '@ui/empty-state'
-import { FileText, ClipboardList } from 'lucide-react'
+import { ClipboardList } from 'lucide-react'
 import {
   ColumnDef,
   ColumnFiltersState,

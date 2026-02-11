@@ -117,7 +117,7 @@ export function NewLendingClient({ students, textbooks }: NewLendingClientProps)
     <PageWrapper
       title="대출 등록"
       subtitle="학생에게 교재 대출을 등록합니다."
-      icon={
+      actions={
         <Button asChild variant="ghost" size="icon">
           <Link href="/library/lendings">
             <ArrowLeft className="h-4 w-4" />

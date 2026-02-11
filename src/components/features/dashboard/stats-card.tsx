@@ -15,7 +15,7 @@ interface StatsCardProps {
     isPositive: boolean
   }
   description?: string
-  index: number
+  index?: number
   href?: string
   variant?: "default" | "primary" | "success" | "warning" | "danger"
 }
@@ -26,7 +26,6 @@ export function StatsCard({
   icon: Icon,
   trend,
   description,
-  index: _index,
   href,
   variant = "default",
 }: StatsCardProps) {

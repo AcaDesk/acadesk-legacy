@@ -1,6 +1,6 @@
 'use client'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
+import { Card, CardContent } from '@ui/card'
 import { Badge } from '@ui/badge'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@ui/accordion'
 import { format as formatDate } from 'date-fns'

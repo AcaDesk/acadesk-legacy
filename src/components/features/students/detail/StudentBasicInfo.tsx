@@ -12,7 +12,7 @@ import {
   Tag,
 } from 'lucide-react'
 import { format as formatDate } from 'date-fns'
-import { getGuardianRelationshipLabel, getGuardianDisplayName } from '@/lib/constants'
+import { getGuardianDisplayName } from '@/lib/constants'
 import type { StudentDetail } from '@/core/types/studentDetail.types'
 import { formatPhoneNumber } from '@/lib/utils'
 

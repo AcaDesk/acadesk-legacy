@@ -26,12 +26,10 @@ import { StudentAvatar } from '@ui/student-avatar'
 import {
   Edit,
   MoreVertical,
-  FileText,
   Send,
   Users,
   Trash2,
   MessageSquare,
-  Award,
   Phone,
   Mail,
 } from 'lucide-react'

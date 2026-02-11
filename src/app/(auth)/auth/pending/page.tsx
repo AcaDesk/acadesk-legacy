@@ -13,7 +13,6 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Loader2, Clock, LogOut, RefreshCw, HelpCircle } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { routeAfterLogin } from '@/lib/auth/route-after-login'
 import { Button } from '@ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
@@ -27,8 +26,6 @@ export default function PendingPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
-  const supabase = createClient()
-
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastChecked, setLastChecked] = useState<Date>(new Date())
   const [hasShownErrorToast, setHasShownErrorToast] = useState(false)
@@ -66,7 +63,7 @@ export default function PendingPage() {
         description: '안전하게 로그아웃되었습니다.',
       })
     },
-    onError: (error) => {
+    onError: () => {
       toast({
         title: '로그아웃 실패',
         description: '잠시 후 다시 시도해주세요.',

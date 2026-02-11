@@ -24,8 +24,6 @@ import {
   Search,
   Calendar,
   BookCopy,
-  Clock,
-  Star,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { deleteHomework } from '@/app/actions/homeworks'

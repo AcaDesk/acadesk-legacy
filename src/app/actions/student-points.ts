@@ -48,17 +48,19 @@ export async function getStudentPointBalance(studentId: string) {
       }
     }
 
-    const { tenant_id } = permissionResult.data
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { tenant_id: _tenant_id } = permissionResult.data
 
     // 2. Service role로 포인트 조회
-    const serviceClient = createServiceRoleClient()
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _serviceClient = createServiceRoleClient()
 
     // TODO: 실제 구현 시 student_points 테이블에서 조회
-    // const { data: pointsData } = await serviceClient
+    // const { data: pointsData } = await _serviceClient
     //   .from('student_points')
     //   .select('points')
     //   .eq('student_id', studentId)
-    //   .eq('tenant_id', tenant_id)
+    //   .eq('tenant_id', _tenant_id)
     //   .order('created_at', { ascending: false })
     //   .limit(1)
     //   .maybeSingle()
@@ -126,13 +128,15 @@ export async function getStudentPointHistory(studentId: string, limit = 20) {
       }
     }
 
-    const { tenant_id } = permissionResult.data
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { tenant_id: _tenant_id } = permissionResult.data
 
     // 2. Service role로 포인트 이력 조회
-    const serviceClient = createServiceRoleClient()
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _serviceClient = createServiceRoleClient()
 
     // TODO: 실제 구현 시 student_point_history 테이블에서 조회
-    // const { data: historyData } = await serviceClient
+    // const { data: historyData } = await _serviceClient
     //   .from('student_point_history')
     //   .select(`
     //     id,
@@ -145,7 +149,7 @@ export async function getStudentPointHistory(studentId: string, limit = 20) {
     //     created_at
     //   `)
     //   .eq('student_id', studentId)
-    //   .eq('tenant_id', tenant_id)
+    //   .eq('tenant_id', _tenant_id)
     //   .order('awarded_date', { ascending: false })
     //   .limit(limit)
 

@@ -6,8 +6,6 @@ import { Separator } from '@ui/separator'
 import { Button } from '@ui/button'
 import { TrendingUp, TrendingDown, Minus, Edit2 } from 'lucide-react'
 import {
-  LineChart,
-  Line,
   BarChart,
   Bar,
   XAxis,
@@ -16,13 +14,9 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  RadialBarChart,
-  RadialBar,
-  PolarAngleAxis,
 } from 'recharts'
 import { AttendanceHeatmap } from '@/components/features/charts/attendance-heatmap'
 import { formatKoreanDateShort } from '@/lib/utils'
-import type { ReportData } from '@/core/types/report.types'
 
 interface ReportViewerProps {
   reportData: {
@@ -164,15 +158,10 @@ export function ReportViewer({ reportData, onEditComment, showEditButton = false
   const studentCode = reportData.studentCode || reportData.student?.student_code || ''
   const grade = reportData.grade || reportData.student?.grade || ''
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const attendanceRate = reportData.attendanceRate ?? reportData.attendance?.rate ?? 0
-  const totalDays = reportData.totalDays ?? reportData.attendance?.total ?? 0
-  const presentDays = reportData.presentDays ?? reportData.attendance?.present ?? 0
-  const lateDays = reportData.lateDays ?? reportData.attendance?.late ?? 0
-  const absentDays = reportData.absentDays ?? reportData.attendance?.absent ?? 0
-
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const homeworkRate = reportData.homeworkRate ?? reportData.homework?.rate ?? 0
-  const totalTodos = reportData.totalTodos ?? reportData.homework?.total ?? 0
-  const completedTodos = reportData.completedTodos ?? reportData.homework?.completed ?? 0
 
   // Format comment for display
   function getFormattedComment(): string {
@@ -198,24 +187,6 @@ ${reportData.comment.nextGoals}`
       '코멘트가 없습니다.\n"코멘트 수정" 버튼을 클릭하여 구조화된 피드백을 작성해보세요.'
     )
   }
-
-  // Radial bar data for attendance
-  const attendanceRadialData = [
-    {
-      name: '출석률',
-      value: attendanceRate,
-      fill: 'hsl(var(--primary))',
-    },
-  ]
-
-  // Radial bar data for homework
-  const homeworkRadialData = [
-    {
-      name: '과제 달성률',
-      value: homeworkRate,
-      fill: 'hsl(142.1 76.2% 36.3%)', // green-600
-    },
-  ]
 
   // Extract year and month from period for AttendanceHeatmap
   const periodEnd = reportData.period ? new Date(reportData.period.end) : new Date()

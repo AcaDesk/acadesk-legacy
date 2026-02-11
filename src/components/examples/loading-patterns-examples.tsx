@@ -212,6 +212,7 @@ export function StudentRegistrationFormExample() {
  * 2. 작업 완료 시 성공 토스트로 교체
  * 3. 목록 페이지로 이동
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function StudentDeleteButtonExample({ studentId, studentName }: { studentId: string; studentName: string }) {
   const router = useRouter()
   const { toast } = useToast()
@@ -286,7 +287,7 @@ export function BulkProcessButtonExample({ selectedStudentIds }: { selectedStude
       await new Promise((resolve) => setTimeout(resolve, 3000))
 
       router.push('/students?success=bulk-process')
-    } catch (error) {
+    } catch {
       setIsProcessing(false)
     }
   }
@@ -348,7 +349,7 @@ export function RefreshButtonExample({ onRefresh }: { onRefresh: () => Promise<v
         title: '새로고침 완료',
         description: '최신 데이터를 불러왔습니다.',
       })
-    } catch (error) {
+    } catch {
       toast({
         title: '새로고침 실패',
         description: '다시 시도해주세요.',

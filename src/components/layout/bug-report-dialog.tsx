@@ -22,7 +22,6 @@ import {
 } from '@ui/select'
 import { Label } from '@ui/label'
 import { useToast } from '@/hooks/use-toast'
-import { useCurrentUser } from '@/hooks/use-current-user'
 
 interface BugReportDialogProps {
   open: boolean
@@ -37,7 +36,6 @@ export function BugReportDialog({ open, onOpenChange }: BugReportDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const { toast } = useToast()
-  const { user: currentUser } = useCurrentUser()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

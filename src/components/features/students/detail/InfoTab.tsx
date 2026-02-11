@@ -10,7 +10,6 @@ import {
   Calendar,
   Phone,
   Mail,
-  MapPin,
   School,
   Users,
   FileText,

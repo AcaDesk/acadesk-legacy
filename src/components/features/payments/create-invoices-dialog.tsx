@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { createClient } from '@/lib/supabase/client'
 import { getTodayKST, getDateKST, getCurrentMonthKST } from '@/lib/utils'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
@@ -196,7 +195,8 @@ export function CreateInvoicesDialog({
     ))
   }
 
-  const onSubmit = async (data: CreateInvoicesFormValues) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const onSubmit = async (_data: CreateInvoicesFormValues) => {
     if (!currentUser) {
       toast({
         title: '인증 오류',

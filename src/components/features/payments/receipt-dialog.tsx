@@ -37,7 +37,6 @@ interface ReceiptDialogProps {
 export function ReceiptDialog({
   open,
   onOpenChange,
-  paymentId: _paymentId,
   paymentDetails,
 }: ReceiptDialogProps) {
   const [downloading, setDownloading] = useState(false)

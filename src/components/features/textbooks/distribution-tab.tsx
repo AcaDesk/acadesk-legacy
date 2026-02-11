@@ -18,7 +18,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { WidgetSkeleton } from '@/components/ui/widget-skeleton'
@@ -46,12 +45,6 @@ const statusLabels = {
   in_use: '사용 중',
   completed: '완료',
   returned: '반납',
-} as const
-
-const statusVariants = {
-  in_use: 'default',
-  completed: 'secondary',
-  returned: 'outline',
 } as const
 
 export function DistributionTab({ textbookId }: { textbookId: string }) {

@@ -99,7 +99,7 @@ export function validateExcelHeaders(file: File): Promise<{ valid: boolean; miss
           valid: missing.length === 0,
           missing,
         })
-      } catch (error) {
+      } catch {
         reject(new Error('헤더 검증 중 오류가 발생했습니다'))
       }
     }
@@ -139,7 +139,7 @@ export async function parseExcelFile(file: File): Promise<StudentImportItem[]> {
           .filter((item) => item !== null) as StudentImportItem[]
 
         resolve(items)
-      } catch (error) {
+      } catch {
         reject(new Error('엑셀 파일 파싱 중 오류가 발생했습니다'))
       }
     }

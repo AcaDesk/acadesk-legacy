@@ -1,4 +1,3 @@
-import { notFound } from 'next/navigation'
 import { getTodoTemplateById } from '@/app/actions/todo-templates'
 import type { Metadata } from 'next'
 
@@ -23,6 +22,6 @@ export async function generateMetadata({ params }: LayoutProps): Promise<Metadat
   }
 }
 
-export default async function TemplateLayout({ children, params }: LayoutProps) {
+export default async function TemplateLayout({ children }: LayoutProps) {
   return children
 }
