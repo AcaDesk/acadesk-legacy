@@ -1,5 +1,4 @@
 import { PageWrapper } from '@/components/layout/page-wrapper'
-import { MessageCircle } from 'lucide-react'
 import { InquiriesClient } from './inquiries-client'
 
 // Static inquiry data (TODO: Replace with API call)
@@ -58,7 +57,6 @@ export default function InquiriesPage() {
     <PageWrapper
       title="문의 내역"
       subtitle="내가 보낸 문의와 버그 제보를 확인하세요"
-      icon={<MessageCircle className="w-6 h-6" />}
     >
       <InquiriesClient initialInquiries={mockInquiries} />
     </PageWrapper>

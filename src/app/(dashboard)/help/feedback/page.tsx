@@ -6,7 +6,7 @@ import { Button } from '@ui/button'
 import { Input } from '@ui/input'
 import { Textarea } from '@ui/textarea'
 import { Label } from '@ui/label'
-import { MessageSquare, Send, Loader2, ThumbsUp } from 'lucide-react'
+import { Send, Loader2, ThumbsUp } from 'lucide-react'
 import { useState } from 'react'
 import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
@@ -85,7 +85,6 @@ export default function FeedbackPage() {
     <PageWrapper
       title="피드백 보내기"
       subtitle="Acadesk 개선을 위한 여러분의 의견을 들려주세요"
-      icon={<MessageSquare className="w-6 h-6" />}
     >
       <div className="grid gap-6 md:grid-cols-3">
         {/* 피드백 폼 */}
