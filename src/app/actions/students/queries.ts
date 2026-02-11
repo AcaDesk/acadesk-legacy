@@ -104,6 +104,9 @@ export async function getStudents(filters?: {
         grade,
         school,
         enrollment_date,
+        birth_date,
+        student_phone,
+        profile_image_url,
         commute_method,
         marketing_source,
         users (
@@ -179,6 +182,9 @@ export async function getStudents(filters?: {
       grade: string | null
       school: string | null
       enrollment_date: string | null
+      birth_date: string | null
+      student_phone: string | null
+      profile_image_url: string | null
       commute_method: string | null
       marketing_source: string | null
       users: { name: string; email: string | null; phone: string | null } | null
@@ -204,6 +210,9 @@ export async function getStudents(filters?: {
       grade: student.grade,
       school: student.school,
       enrollment_date: student.enrollment_date,
+      birth_date: student.birth_date,
+      student_phone: student.student_phone,
+      profile_image_url: student.profile_image_url,
       commute_method: student.commute_method,
       marketing_source: student.marketing_source,
       classes: student.class_enrollments
@@ -219,16 +228,43 @@ export async function getStudents(filters?: {
       })) || [],
     })) || []
 
-    // 7. Filter by class if specified (post-query filter for simplicity)
-    let filteredStudents = transformedStudents
+    // 7. Batch-fetch recent attendance (last 30 days) for badge display
+    const studentIds = transformedStudents.map(s => s.id)
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    const attendanceByStudentId = new Map<string, Array<{ status: string }>>()
+
+    if (studentIds.length > 0) {
+      const { data: recentAttendance } = await serviceClient
+        .from('attendance')
+        .select('student_id, status')
+        .eq('tenant_id', tenantId)
+        .in('student_id', studentIds)
+        .gte('attendance_date', thirtyDaysAgo.toISOString().split('T')[0])
+
+      for (const a of (recentAttendance || [])) {
+        const list = attendanceByStudentId.get(a.student_id) || []
+        list.push({ status: a.status })
+        attendanceByStudentId.set(a.student_id, list)
+      }
+    }
+
+    // Attach attendance data to each student
+    const studentsWithAttendance = transformedStudents.map(s => ({
+      ...s,
+      recentAttendance: attendanceByStudentId.get(s.id) || [],
+    }))
+
+    // 8. Filter by class if specified (post-query filter for simplicity)
+    let filteredStudents = studentsWithAttendance
     if (filters?.classId && filters.classId !== 'all') {
-      filteredStudents = transformedStudents.filter(s =>
+      filteredStudents = studentsWithAttendance.filter(s =>
         s.classes.some((c) => c.id === filters.classId)
       )
     }
 
     console.log('[getStudents] Returning data:', {
-      totalStudents: transformedStudents.length,
+      totalStudents: studentsWithAttendance.length,
       filteredStudents: filteredStudents.length,
       filters
     })

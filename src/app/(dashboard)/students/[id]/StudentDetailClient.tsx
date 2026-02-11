@@ -15,7 +15,7 @@ import { TodoTab } from '@/components/features/students/detail/TodoTab'
 // import { LearningStatusTab } from '@/components/features/students/detail/LearningStatusTab' // TODO: Re-enable when migrated
 // import { ActivityTab } from '@/components/features/students/detail/ActivityTab' // TODO: Re-enable when migrated
 import { ConsultationTab } from '@/components/features/students/detail/ConsultationTab'
-// import { ManageClassesDialog } from '@/components/features/students/manage-classes-dialog' // TODO: Re-enable when migrated
+import { ManageClassesDialog } from '@/components/features/students/manage-classes-dialog'
 import { StudentDetailProvider } from '@/hooks/use-student-detail'
 import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/page-error-boundary'
 import type { StudentDetailData, Consultation } from '@/core/types/studentDetail.types'
@@ -46,6 +46,8 @@ export function StudentDetailClient({
       <StudentDetailProvider
         value={{
           ...initialData,
+          student,
+          consultations,
           refreshStudent: handleDataRefresh,
           onRefresh: handleDataRefresh,
         }}
@@ -68,16 +70,14 @@ export function StudentDetailClient({
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-9">
+            <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="overview">개요</TabsTrigger>
               <TabsTrigger value="info">상세정보</TabsTrigger>
               <TabsTrigger value="grades">성적</TabsTrigger>
               <TabsTrigger value="schedule">시간표</TabsTrigger>
               <TabsTrigger value="attendance">출석</TabsTrigger>
               <TabsTrigger value="todos">TODO</TabsTrigger>
-              <TabsTrigger value="learning">학습</TabsTrigger>
               <TabsTrigger value="consultations">상담</TabsTrigger>
-              <TabsTrigger value="activity">활동</TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="mt-0">
@@ -142,8 +142,7 @@ export function StudentDetailClient({
           </Tabs>
 
         {/* Dialogs */}
-        {/* TODO: Re-enable when migrated */}
-        {/* <ManageClassesDialog
+        <ManageClassesDialog
           open={classDialogOpen}
           onOpenChange={setClassDialogOpen}
           studentId={student.id}
@@ -154,9 +153,9 @@ export function StudentDetailClient({
           }
           onSuccess={() => {
             setClassDialogOpen(false)
-            handleDataRefresh() // 서버 컴포넌트 다시 실행하여 최신 데이터 로드
+            handleDataRefresh()
           }}
-        /> */}
+        />
         </motion.div>
       </PageWrapper>
       </StudentDetailProvider>

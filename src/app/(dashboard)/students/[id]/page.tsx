@@ -26,12 +26,18 @@ export default async function StudentDetailPage({ params }: PageProps) {
   const result = await getStudentDetail(id)
 
   if (!result.success || !result.data) {
-    // 에러 로깅
-    logError(new Error(result.error || '학생을 찾을 수 없습니다'), {
+    const errorMsg = result.error || ''
+
+    // "찾을 수 없습니다"만 404, 나머지(권한/DB/네트워크 오류)는 throw
+    if (errorMsg.includes('찾을 수 없') || errorMsg.includes('not found')) {
+      notFound()
+    }
+
+    logError(new Error(errorMsg || '학생 상세 조회 실패'), {
       page: 'student-detail',
       studentId: id,
     })
-    notFound()
+    throw new Error(errorMsg || '학생 정보를 불러오는 중 오류가 발생했습니다')
   }
 
   // Client Component에 완성된 데이터 전달

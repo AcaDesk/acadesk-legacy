@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Button } from '@ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
 import { Calendar } from '@ui/calendar'
@@ -32,10 +32,12 @@ export function StudentList() {
   const [schools, setSchools] = useState<string[]>([])
 
   const { toast } = useToast()
+  const requestSeqRef = useRef(0)
 
   // Load filter options and initial students in parallel on mount
   useEffect(() => {
     async function loadInitialData() {
+      const requestSeq = ++requestSeqRef.current
       setLoading(true)
       try {
         // 병렬로 필터 옵션과 학생 데이터를 동시에 로드
@@ -43,6 +45,9 @@ export function StudentList() {
           getStudentFilterOptions(),
           getStudents({})
         ])
+
+        // Race condition guard
+        if (requestSeq !== requestSeqRef.current) return
 
         // 필터 옵션 설정
         if (filterResult.success && filterResult.data) {
@@ -55,31 +60,12 @@ export function StudentList() {
 
         // 학생 데이터 설정
         if (studentsResult.success && studentsResult.data) {
-          const formattedStudents = studentsResult.data.map(s => ({
-            id: s.id,
-            student_code: s.student_code,
-            grade: s.grade,
-            school: s.school,
-            enrollment_date: s.enrollment_date,
-            birth_date: null,
-            gender: null,
-            student_phone: null,
-            profile_image_url: null,
-            users: {
-              name: s.name,
-              email: s.email,
-              phone: s.phone,
-            },
-            class_enrollments: s.classes.map((c) => ({
-              classes: { name: c.name || '' }
-            })),
-            recentAttendance: [],
-          }))
-          setStudents(formattedStudents as Student[])
+          setStudents(formatStudents(studentsResult.data))
         } else {
           console.error('[StudentList] Failed to load students:', studentsResult.error)
         }
       } catch (error) {
+        if (requestSeq !== requestSeqRef.current) return
         console.error('[StudentList] Failed to load initial data:', error)
         toast({
           title: '데이터 로드 실패',
@@ -87,14 +73,41 @@ export function StudentList() {
           variant: 'destructive',
         })
       } finally {
-        setLoading(false)
+        if (requestSeq === requestSeqRef.current) {
+          setLoading(false)
+        }
       }
     }
 
     loadInitialData()
   }, [toast])
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function formatStudents(data: any[]): Student[] {
+    return data.map(s => ({
+      id: s.id,
+      student_code: s.student_code,
+      grade: s.grade,
+      school: s.school,
+      enrollment_date: s.enrollment_date,
+      birth_date: s.birth_date ?? null,
+      gender: null,
+      student_phone: s.student_phone ?? null,
+      profile_image_url: s.profile_image_url ?? null,
+      users: {
+        name: s.name,
+        email: s.email,
+        phone: s.phone,
+      },
+      class_enrollments: s.classes.map((c: { name?: string }) => ({
+        classes: { name: c.name || '' }
+      })),
+      recentAttendance: s.recentAttendance ?? [],
+    })) as Student[]
+  }
+
   const loadStudents = useCallback(async () => {
+    const requestSeq = ++requestSeqRef.current
     try {
       setLoading(true)
 
@@ -108,33 +121,16 @@ export function StudentList() {
         enrollmentDateTo: enrollmentDateTo ? format(enrollmentDateTo, 'yyyy-MM-dd') : undefined,
       })
 
+      // Race condition guard
+      if (requestSeq !== requestSeqRef.current) return
+
       if (!result.success || !result.data) {
         throw new Error(result.error || 'Failed to load students')
       }
 
-      const formattedStudents = result.data.map(s => ({
-        id: s.id,
-        student_code: s.student_code,
-        grade: s.grade,
-        school: s.school,
-        enrollment_date: s.enrollment_date,
-        birth_date: null,
-        gender: null,
-        student_phone: null,
-        profile_image_url: null,
-        users: {
-          name: s.name,
-          email: s.email,
-          phone: s.phone,
-        },
-        class_enrollments: s.classes.map((c) => ({
-          classes: { name: c.name || '' }
-        })),
-        recentAttendance: [],
-      }))
-
-      setStudents(formattedStudents as Student[])
+      setStudents(formatStudents(result.data))
     } catch (error) {
+      if (requestSeq !== requestSeqRef.current) return
       console.error('[StudentList] Failed to load students:', error)
       toast({
         title: '학생 목록 로드 실패',
@@ -142,7 +138,9 @@ export function StudentList() {
         variant: 'destructive',
       })
     } finally {
-      setLoading(false)
+      if (requestSeq === requestSeqRef.current) {
+        setLoading(false)
+      }
     }
   }, [selectedGrade, selectedClass, selectedSchool, selectedCommuteMethod, selectedMarketingSource, enrollmentDateFrom, enrollmentDateTo, toast])
 

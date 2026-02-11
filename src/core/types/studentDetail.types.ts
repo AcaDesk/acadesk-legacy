@@ -75,6 +75,7 @@ export interface Consultation {
   consultation_date: string
   consultation_type: string | null
   content: string | null
+  summary?: string | null
   created_at: string
   instructor_id?: string
 }
