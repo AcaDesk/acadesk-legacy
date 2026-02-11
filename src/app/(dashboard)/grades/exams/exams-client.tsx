@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
 import { Badge } from '@ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
+import { Card, CardContent } from '@ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Table,
   TableBody,
@@ -38,7 +39,7 @@ import {
 } from '@tabler/icons-react'
 import { useToast } from '@/hooks/use-toast'
 import { usePagination } from '@/hooks/use-pagination'
-import { deleteExam } from '@/app/actions/exams'
+import { deleteExam, bulkDeleteExams } from '@/app/actions/exams'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import { EmptyState, NoSearchResultsEmptyState } from '@ui/empty-state'
 import { PAGE_LAYOUT, GRID_LAYOUTS, TEXT_STYLES } from '@/lib/constants'
@@ -103,16 +104,24 @@ function getExamTypeBadgeVariant(type: string | null): 'default' | 'secondary' |
 export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
   const router = useRouter()
   const { toast } = useToast()
+  const [exams, setExams] = useState(initialExams)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [selectedType, setSelectedType] = useState<string>('all')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [examToDelete, setExamToDelete] = useState<{ id: string; name: string } | null>(null)
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [pageSize, setPageSize] = useState(10)
 
+  // Sync with server data on revalidation
+  useEffect(() => {
+    setExams(initialExams)
+  }, [initialExams])
+
   const filteredExams = useMemo(() => {
-    let filtered = initialExams
+    let filtered = exams
 
     if (searchTerm) {
       const search = searchTerm.toLowerCase()
@@ -131,21 +140,14 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
     }
 
     return filtered
-  }, [initialExams, searchTerm, selectedCategory, selectedType])
+  }, [exams, searchTerm, selectedCategory, selectedType])
 
   const {
     currentPage,
     totalPages,
     paginatedData,
     goToPage,
-    nextPage,
-    previousPage,
     resetPage,
-    hasNextPage,
-    hasPreviousPage,
-    startIndex,
-    endIndex,
-    totalItems,
   } = usePagination({
     data: filteredExams,
     itemsPerPage: pageSize,
@@ -160,16 +162,44 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
 
   const thisMonthExamCount = useMemo(() => {
     const now = new Date()
-    return initialExams.filter((e) => {
+    return exams.filter((e) => {
       if (!e.exam_date) return false
       const examDate = new Date(e.exam_date)
       return examDate.getMonth() === now.getMonth() && examDate.getFullYear() === now.getFullYear()
     }).length
-  }, [initialExams])
+  }, [exams])
 
   const totalParticipants = useMemo(() => {
-    return initialExams.reduce((sum, exam) => sum + (exam._count?.exam_scores || 0), 0)
-  }, [initialExams])
+    return exams.reduce((sum, exam) => sum + (exam._count?.exam_scores || 0), 0)
+  }, [exams])
+
+  // Selection handlers
+  const isAllSelected = paginatedData.length > 0 && paginatedData.every(e => selectedIds.has(e.id))
+  const isSomeSelected = paginatedData.some(e => selectedIds.has(e.id))
+
+  const handleSelectAll = useCallback(() => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (isAllSelected) {
+        paginatedData.forEach(e => next.delete(e.id))
+      } else {
+        paginatedData.forEach(e => next.add(e.id))
+      }
+      return next
+    })
+  }, [isAllSelected, paginatedData])
+
+  const handleSelectOne = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }, [])
 
   function handleDeleteClick(id: string, name: string) {
     setExamToDelete({ id, name })
@@ -180,6 +210,14 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
     if (!examToDelete) return
 
     setIsDeleting(true)
+    const previousExams = exams
+    setExams(prev => prev.filter(e => e.id !== examToDelete.id))
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.delete(examToDelete.id)
+      return next
+    })
+
     try {
       const result = await deleteExam(examToDelete.id)
 
@@ -195,6 +233,7 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
       router.refresh()
     } catch (error) {
       console.error('Error deleting exam:', error)
+      setExams(previousExams)
       toast({
         title: '삭제 오류',
         description: error instanceof Error ? error.message : '시험을 삭제하는 중 오류가 발생했습니다.',
@@ -206,6 +245,40 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
       setExamToDelete(null)
     }
   }
+
+  const handleBulkDelete = useCallback(async () => {
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) return
+
+    setIsDeleting(true)
+    const previousExams = exams
+    setExams(prev => prev.filter(e => !selectedIds.has(e.id)))
+
+    try {
+      const result = await bulkDeleteExams(ids)
+      if (!result.success) {
+        throw new Error(result.error || '일괄 삭제 실패')
+      }
+
+      setSelectedIds(new Set())
+      toast({
+        title: '일괄 삭제 완료',
+        description: `${result.data?.deletedCount ?? ids.length}개의 시험이 삭제되었습니다.`,
+      })
+      router.refresh()
+    } catch (error) {
+      console.error('[bulkDelete] Error:', error)
+      setExams(previousExams)
+      toast({
+        title: '일괄 삭제 실패',
+        description: '시험 삭제 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsDeleting(false)
+      setBulkDeleteDialogOpen(false)
+    }
+  }, [selectedIds, exams, router, toast])
 
   function getCategoryLabel(code: string | null) {
     if (!code) return '-'
@@ -252,47 +325,35 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
         style={PAGE_ANIMATIONS.getSection(0).style}
       >
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
               <ClipboardList className="h-4 w-4" />
               총 시험 수
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{initialExams.length}개</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              등록된 전체 시험
-            </p>
+            </div>
+            <div className="text-2xl font-bold mt-2">{exams.length}개</div>
+            <p className="text-xs text-muted-foreground mt-1">등록된 전체 시험</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
               <CalendarDays className="h-4 w-4" />
               이번 달 시험
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-info">{thisMonthExamCount}개</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              이번 달 예정된 시험
-            </p>
+            </div>
+            <div className="text-2xl font-bold text-info mt-2">{thisMonthExamCount}개</div>
+            <p className="text-xs text-muted-foreground mt-1">이번 달 예정된 시험</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
               <Users className="h-4 w-4" />
               총 응시 인원
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{totalParticipants}명</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              전체 시험 응시자 수
-            </p>
+            </div>
+            <div className="text-2xl font-bold text-green-600 mt-2">{totalParticipants}명</div>
+            <p className="text-xs text-muted-foreground mt-1">전체 시험 응시자 수</p>
           </CardContent>
         </Card>
       </section>
@@ -377,6 +438,30 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
         </div>
       </section>
 
+      {/* Bulk Action Bar */}
+      {selectedIds.size > 0 && (
+        <section aria-label="일괄 작업" className="flex items-center gap-3 px-1">
+          <span className="text-sm text-muted-foreground">
+            {selectedIds.size}개 선택됨
+          </span>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setBulkDeleteDialogOpen(true)}
+          >
+            <Trash2 className="h-4 w-4 mr-1" />
+            일괄 삭제
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSelectedIds(new Set())}
+          >
+            선택 해제
+          </Button>
+        </section>
+      )}
+
       {/* Exams Table */}
       <section
         className={cn(PAGE_ANIMATIONS.getSection(2).className)}
@@ -414,6 +499,13 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10 pl-4">
+                      <Checkbox
+                        checked={isAllSelected ? true : isSomeSelected ? 'indeterminate' : false}
+                        onCheckedChange={handleSelectAll}
+                        aria-label="전체 선택"
+                      />
+                    </TableHead>
                     <TableHead>시험명</TableHead>
                     <TableHead>시험 유형</TableHead>
                     <TableHead>분류</TableHead>
@@ -425,7 +517,17 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
                 </TableHeader>
                 <TableBody>
                   {paginatedData.map((exam) => (
-                    <TableRow key={exam.id}>
+                    <TableRow
+                      key={exam.id}
+                      data-state={selectedIds.has(exam.id) ? 'selected' : undefined}
+                    >
+                      <TableCell className="pl-4" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selectedIds.has(exam.id)}
+                          onCheckedChange={() => handleSelectOne(exam.id)}
+                          aria-label={`${exam.name} 선택`}
+                        />
+                      </TableCell>
                       <TableCell className="font-medium">
                         <Link
                           href={`/grades/exams/${exam.id}`}
@@ -491,87 +593,82 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
                   ))}
                 </TableBody>
               </Table>
+
+              {/* Pagination */}
+              <div className="flex items-center justify-between border-t px-4 py-3">
+                <div className="text-sm text-muted-foreground">
+                  전체 {filteredExams.length}개
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground whitespace-nowrap">페이지당 행 수</span>
+                    <Select
+                      value={String(pageSize)}
+                      onValueChange={(v) => {
+                        setPageSize(Number(v))
+                        resetPage()
+                      }}
+                    >
+                      <SelectTrigger className="h-8 w-[70px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="10">10</SelectItem>
+                        <SelectItem value="15">15</SelectItem>
+                        <SelectItem value="30">30</SelectItem>
+                        <SelectItem value="50">50</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <span className="text-sm text-muted-foreground whitespace-nowrap">
+                    페이지 {currentPage} / {totalPages}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="hidden lg:flex h-8 w-8"
+                      onClick={() => goToPage(1)}
+                      disabled={currentPage === 1}
+                    >
+                      <IconChevronsLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => goToPage(currentPage - 1)}
+                      disabled={currentPage === 1}
+                    >
+                      <IconChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => goToPage(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                    >
+                      <IconChevronRight className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="hidden lg:flex h-8 w-8"
+                      onClick={() => goToPage(totalPages)}
+                      disabled={currentPage === totalPages}
+                    >
+                      <IconChevronsRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         )}
       </section>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between px-2">
-          <div className="hidden flex-1 text-sm text-muted-foreground lg:flex">
-            전체 {totalItems}개
-          </div>
-          <div className="flex w-full items-center gap-8 lg:w-fit">
-            <div className="hidden items-center gap-2 lg:flex">
-              <label htmlFor="rows-per-page" className="text-sm font-medium">
-                페이지당 행 수
-              </label>
-              <Select
-                value={`${pageSize}`}
-                onValueChange={(value) => {
-                  setPageSize(Number(value))
-                  resetPage()
-                }}
-              >
-                <SelectTrigger className="w-20" id="rows-per-page">
-                  <SelectValue placeholder={pageSize} />
-                </SelectTrigger>
-                <SelectContent side="top">
-                  {[10, 15, 20, 30, 50].map((size) => (
-                    <SelectItem key={size} value={`${size}`}>
-                      {size}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex w-fit items-center justify-center text-sm font-medium">
-              페이지 {currentPage} / {totalPages}
-            </div>
-            <div className="ml-auto flex items-center gap-2 lg:ml-0">
-              <Button
-                variant="outline"
-                className="hidden h-8 w-8 p-0 lg:flex"
-                onClick={() => goToPage(1)}
-                disabled={!hasPreviousPage}
-              >
-                <span className="sr-only">첫 페이지로</span>
-                <IconChevronsLeft className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                className="h-8 w-8 p-0"
-                onClick={previousPage}
-                disabled={!hasPreviousPage}
-              >
-                <span className="sr-only">이전 페이지</span>
-                <IconChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                className="h-8 w-8 p-0"
-                onClick={nextPage}
-                disabled={!hasNextPage}
-              >
-                <span className="sr-only">다음 페이지</span>
-                <IconChevronRight className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                className="hidden h-8 w-8 p-0 lg:flex"
-                onClick={() => goToPage(totalPages)}
-                disabled={!hasNextPage}
-              >
-                <span className="sr-only">마지막 페이지로</span>
-                <IconChevronsRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation Dialog */}
+      {/* Single Delete Confirmation Dialog */}
       <ConfirmationDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
@@ -581,6 +678,18 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
         variant="destructive"
         isLoading={isDeleting}
         onConfirm={handleConfirmDelete}
+      />
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={bulkDeleteDialogOpen}
+        onOpenChange={setBulkDeleteDialogOpen}
+        title={`${selectedIds.size}개의 시험을 삭제하시겠습니까?`}
+        description="삭제된 시험과 연결된 모든 성적 데이터가 함께 삭제됩니다. 이 작업은 되돌릴 수 없습니다."
+        confirmText="삭제"
+        variant="destructive"
+        isLoading={isDeleting}
+        onConfirm={handleBulkDelete}
       />
     </div>
   )
