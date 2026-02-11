@@ -42,6 +42,7 @@ type Textbook = {
   publisher: string | null
   isbn: string | null
   barcode: string | null
+  total_copies: number | null
   price: number | null
   is_active: boolean
   textbook_units?: any[]
@@ -226,6 +227,7 @@ export function TextbooksClient({ textbooks: initialTextbooks }: TextbooksClient
                       <TableHead>저자</TableHead>
                       <TableHead>출판사</TableHead>
                       <TableHead>바코드</TableHead>
+                      <TableHead>보유 권수</TableHead>
                       <TableHead>가격</TableHead>
                       <TableHead>단원 수</TableHead>
                     </TableRow>
@@ -256,6 +258,9 @@ export function TextbooksClient({ textbooks: initialTextbooks }: TextbooksClient
                         <TableCell className="text-sm">{textbook.publisher || '-'}</TableCell>
                         <TableCell className="font-mono text-sm">
                           {textbook.barcode || '-'}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {textbook.total_copies || 1}권
                         </TableCell>
                         <TableCell className="text-sm">
                           {textbook.price

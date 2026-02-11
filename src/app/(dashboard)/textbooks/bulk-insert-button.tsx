@@ -31,6 +31,7 @@ type ParsedTextbookInput = {
   publisher?: string
   isbn?: string
   barcode?: string
+  totalCopies?: number
 }
 
 type ReviewedRow = {
@@ -117,6 +118,12 @@ function parseBulkInput(rawText: string): ParsedTextbookInput[] {
       publisher: (cols[2] || '').trim() || undefined,
       isbn: (cols[3] || '').trim() || undefined,
       barcode: (cols[4] || '').trim() || undefined,
+      totalCopies: (() => {
+        const raw = (cols[5] || '').trim()
+        if (!raw) return undefined
+        const parsed = Number(raw)
+        return Number.isFinite(parsed) ? parsed : Number.NaN
+      })(),
     }))
     .filter(
       (row) =>
@@ -124,7 +131,8 @@ function parseBulkInput(rawText: string): ParsedTextbookInput[] {
         Boolean(row.author) ||
         Boolean(row.publisher) ||
         Boolean(row.isbn) ||
-        Boolean(row.barcode)
+        Boolean(row.barcode) ||
+        row.totalCopies !== undefined
     )
 }
 
@@ -147,6 +155,7 @@ function validateRows(rows: ParsedTextbookInput[]): ReviewedRow[] {
     const publisher = (row.publisher || '').trim()
     const isbn = (row.isbn || '').trim()
     const barcode = (row.barcode || '').trim()
+    const totalCopies = row.totalCopies
 
     if (!title) errors.push('교재명은 필수입니다.')
     if (title.length > 200) errors.push('교재명은 200자 이하여야 합니다.')
@@ -169,6 +178,12 @@ function validateRows(rows: ParsedTextbookInput[]): ReviewedRow[] {
     if (isbn && !/^[0-9Xx-]+$/.test(isbn)) {
       warnings.push('ISBN 형식이 일반적이지 않습니다. (숫자/하이픈 권장)')
     }
+    if (
+      totalCopies !== undefined &&
+      (!Number.isInteger(totalCopies) || totalCopies < 1)
+    ) {
+      errors.push('보유수는 1 이상의 정수여야 합니다.')
+    }
 
     return {
       row: {
@@ -178,6 +193,7 @@ function validateRows(rows: ParsedTextbookInput[]): ReviewedRow[] {
         publisher: publisher || undefined,
         isbn: isbn || undefined,
         barcode: barcode || undefined,
+        totalCopies,
       },
       errors,
       warnings,
@@ -315,7 +331,7 @@ export function BulkInsertTextbooksButton() {
       return
     }
 
-    const header = ['행', '교재명', '저자', '출판사', 'ISBN', '바코드', '오류', '경고']
+    const header = ['행', '교재명', '저자', '출판사', 'ISBN', '바코드', '보유수', '오류', '경고']
     const lines = [header.join(',')]
 
     for (const item of errorRowsForDownload) {
@@ -327,6 +343,7 @@ export function BulkInsertTextbooksButton() {
         row.publisher || '',
         row.isbn || '',
         row.barcode || '',
+        row.totalCopies !== undefined ? String(row.totalCopies) : '',
         mergedErrors.join(' / '),
         mergedWarnings.join(' / '),
       ].map(csvEscape)
@@ -346,10 +363,10 @@ export function BulkInsertTextbooksButton() {
   }
 
   function downloadTemplate() {
-    const header = ['교재명', '저자', '출판사', 'ISBN', '바코드']
-    const sample1 = ['수학의 정석', '홍성대', '성지출판', '9781234567890', 'MATH-001']
-    const sample2 = ['수학의 바이블', '이창희', '이투스북', '', 'MATH-002']
-    const sample3 = ['개념원리 수학', '', '개념원리', '9781234567893', '']
+    const header = ['교재명', '저자', '출판사', 'ISBN', '바코드', '보유수']
+    const sample1 = ['수학의 정석', '홍성대', '성지출판', '9781234567890', 'MATH-001', '3']
+    const sample2 = ['수학의 바이블', '이창희', '이투스북', '', 'MATH-002', '2']
+    const sample3 = ['개념원리 수학', '', '개념원리', '9781234567893', '', '1']
 
     const lines = [header, sample1, sample2, sample3]
       .map((row) => row.map(csvEscape).join(','))
@@ -370,10 +387,10 @@ export function BulkInsertTextbooksButton() {
   async function downloadExcelTemplate() {
     const XLSX = await import('xlsx')
     const dataRows = [
-      ['교재명', '저자', '출판사', 'ISBN', '바코드'],
-      ['수학의 정석', '홍성대', '성지출판', '9781234567890', 'MATH-001'],
-      ['수학의 바이블', '이창희', '이투스북', '', 'MATH-002'],
-      ['개념원리 수학', '', '개념원리', '9781234567893', ''],
+      ['교재명', '저자', '출판사', 'ISBN', '바코드', '보유수'],
+      ['수학의 정석', '홍성대', '성지출판', '9781234567890', 'MATH-001', 3],
+      ['수학의 바이블', '이창희', '이투스북', '', 'MATH-002', 2],
+      ['개념원리 수학', '', '개념원리', '9781234567893', '', 1],
     ]
 
     const guideRows = [
@@ -384,6 +401,8 @@ export function BulkInsertTextbooksButton() {
       ['- 첫 행은 헤더이며 자동 인식됩니다.'],
       ['- 필수 입력: 교재명'],
       ['- 선택 입력: 저자, 출판사, ISBN, 바코드'],
+      ['- 보유수 미입력 시 기본값은 1입니다.'],
+      ['- 보유수는 1 이상의 정수만 허용됩니다.'],
       [''],
       ['2) 중복/오류 규칙'],
       ['- 바코드는 공백 없이 입력하세요.'],
@@ -401,7 +420,7 @@ export function BulkInsertTextbooksButton() {
 
     const workbook = XLSX.utils.book_new()
     const dataSheet = XLSX.utils.aoa_to_sheet(dataRows)
-    dataSheet['!cols'] = [{ wch: 28 }, { wch: 18 }, { wch: 18 }, { wch: 20 }, { wch: 18 }]
+    dataSheet['!cols'] = [{ wch: 28 }, { wch: 18 }, { wch: 18 }, { wch: 20 }, { wch: 18 }, { wch: 10 }]
 
     const guideSheet = XLSX.utils.aoa_to_sheet(guideRows)
     guideSheet['!cols'] = [{ wch: 90 }]
@@ -439,6 +458,7 @@ export function BulkInsertTextbooksButton() {
         publisher: row.publisher,
         isbn: row.isbn,
         barcode: row.barcode,
+        totalCopies: row.totalCopies,
       }))
 
       const result = await validateBulkTextbooks({ textbooks: payload })
@@ -536,6 +556,7 @@ export function BulkInsertTextbooksButton() {
         publisher: row.publisher,
         isbn: row.isbn,
         barcode: row.barcode,
+        totalCopies: row.totalCopies,
       }))
 
       const result = await bulkCreateTextbooks({ textbooks: payload })
@@ -586,7 +607,7 @@ export function BulkInsertTextbooksButton() {
           <DialogHeader>
             <DialogTitle>교재 일괄 삽입</DialogTitle>
             <DialogDescription>
-              `교재명,저자,출판사,ISBN,바코드` 순서로 입력하세요. 탭/콤마 모두 지원하며 1행 헤더는 자동 무시됩니다.
+              `교재명,저자,출판사,ISBN,바코드,보유수` 순서로 입력하세요. 탭/콤마 모두 지원하며 1행 헤더는 자동 무시됩니다.
             </DialogDescription>
           </DialogHeader>
 
@@ -644,7 +665,9 @@ export function BulkInsertTextbooksButton() {
               setIsConfirmed(false)
               setServerValidation(null)
             }}
-            placeholder={'예시\n수학의 정석,홍성대,성지출판,9781234567890,BC001\n수학의 바이블,이창희,이투스북'}
+            placeholder={
+              '예시\n수학의 정석,홍성대,성지출판,9781234567890,BC001,3\n수학의 바이블,이창희,이투스북,,,2'
+            }
           />
 
           <div className="rounded-md border p-3 text-sm">

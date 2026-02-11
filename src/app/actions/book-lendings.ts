@@ -21,6 +21,7 @@ export interface BookLending {
     title: string
     author: string | null
     barcode: string | null
+    total_copies?: number
   } | null
   students: {
     id: string
@@ -99,7 +100,7 @@ export async function getBookLendingFormOptions() {
             .order('student_code', { ascending: true }),
           serviceClient
             .from('textbooks')
-            .select('id, title, author, barcode, is_active')
+            .select('id, title, author, barcode, is_active, total_copies')
             .eq('tenant_id', tenantId)
             .is('deleted_at', null)
             .eq('is_active', true)
@@ -117,9 +118,14 @@ export async function getBookLendingFormOptions() {
 
       if (activeLendingsResult.error) throw activeLendingsResult.error
 
-      const unavailableTextbookIds = new Set(
-        (activeLendingsResult.data || []).map((row) => row.textbook_id as string)
-      )
+      const activeCountByTextbookId = new Map<string, number>()
+      for (const row of activeLendingsResult.data || []) {
+        const textbookId = row.textbook_id as string
+        activeCountByTextbookId.set(
+          textbookId,
+          (activeCountByTextbookId.get(textbookId) || 0) + 1
+        )
+      }
 
       const studentOptions = (students || []).map((student) => ({
         id: student.id as string,
@@ -135,7 +141,17 @@ export async function getBookLendingFormOptions() {
         title: textbook.title as string,
         author: (textbook.author as string | null) || null,
         barcode: (textbook.barcode as string | null) || null,
-        isAvailable: !unavailableTextbookIds.has(textbook.id as string),
+        totalCopies: (textbook.total_copies as number | null) || 1,
+        activeLendingCount: activeCountByTextbookId.get(textbook.id as string) || 0,
+        availableCopies: Math.max(
+          ((textbook.total_copies as number | null) || 1) -
+            (activeCountByTextbookId.get(textbook.id as string) || 0),
+          0
+        ),
+        isAvailable:
+          ((textbook.total_copies as number | null) || 1) -
+            (activeCountByTextbookId.get(textbook.id as string) || 0) >
+          0,
       }))
 
       return {
@@ -172,7 +188,7 @@ export async function createBookLending(input: z.infer<typeof createBookLendingS
           .single(),
         serviceClient
           .from('textbooks')
-          .select('id, is_active')
+          .select('id, is_active, total_copies')
           .eq('id', validated.textbookId)
           .eq('tenant_id', tenantId)
           .is('deleted_at', null)
@@ -182,8 +198,7 @@ export async function createBookLending(input: z.infer<typeof createBookLendingS
           .select('id')
           .eq('tenant_id', tenantId)
           .eq('textbook_id', validated.textbookId)
-          .is('returned_at', null)
-          .maybeSingle(),
+          .is('returned_at', null),
       ])
 
       if (studentResult.error || !studentResult.data) {
@@ -198,8 +213,12 @@ export async function createBookLending(input: z.infer<typeof createBookLendingS
       if (activeLendingResult.error) {
         throw activeLendingResult.error
       }
-      if (activeLendingResult.data) {
-        throw new Error('이미 대출 중인 교재입니다.')
+      const totalCopies = (textbookResult.data.total_copies as number | null) || 1
+      const activeCount = (activeLendingResult.data || []).length
+      if (activeCount >= totalCopies) {
+        throw new Error(
+          `대여 가능한 재고가 없습니다. (보유 ${totalCopies}권 / 대여중 ${activeCount}권)`
+        )
       }
 
       const { data, error } = await serviceClient
