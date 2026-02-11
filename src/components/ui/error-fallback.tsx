@@ -123,12 +123,12 @@ export function ErrorFallback({
                   다시 시도
                 </Button>
               )}
-              <Link href="/" className="flex-1">
-                <Button variant="outline" className="w-full gap-2">
+              <Button asChild variant="outline" className="flex-1 gap-2">
+                <Link href="/">
                   <Home className="h-4 w-4" />
                   홈으로
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -262,12 +262,12 @@ export function SectionErrorFallback({
             </Button>
           )}
           {actionHref && (
-            <Link href={actionHref}>
-              <Button variant="outline" size="sm" className="gap-2">
+            <Button asChild variant="outline" size="sm" className="gap-2">
+              <Link href={actionHref}>
                 {actionLabel}
                 <ChevronRight className="h-4 w-4" />
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           )}
         </div>
         {process.env.NODE_ENV === 'development' && error && (

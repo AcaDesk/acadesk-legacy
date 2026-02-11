@@ -278,11 +278,11 @@ export function NotificationPopover() {
 
         {/* 푸터 */}
         <div className="border-t p-2">
-          <Link href="/notifications" onClick={() => setOpen(false)}>
-            <Button variant="ghost" className="w-full text-sm" size="sm">
+          <Button asChild variant="ghost" className="w-full text-sm" size="sm">
+            <Link href="/notifications" onClick={() => setOpen(false)}>
               모든 알림 보기
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
       </PopoverContent>
     </Popover>

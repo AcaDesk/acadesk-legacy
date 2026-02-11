@@ -271,11 +271,11 @@ export function EditGuardianClient({ guardian, students }: EditGuardianClientPro
 
               {/* 버튼 */}
               <div className="flex gap-3 justify-end">
-                <Link href={`/guardians/${guardian.id}`}>
-                  <Button type="button" variant="outline">
+                <Button asChild variant="outline">
+                  <Link href={`/guardians/${guardian.id}`}>
                     취소
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
                 <Button type="submit" disabled={loading}>
                   {loading ? '저장 중...' : '저장'}
                 </Button>

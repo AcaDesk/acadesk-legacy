@@ -112,6 +112,12 @@ export default function SignupForm({
       // OAuth URL로 리다이렉트
       if (result.data?.url) {
         window.location.href = result.data.url
+      } else {
+        toast({
+          title: `${provider === "google" ? "구글" : "카카오"} 가입 실패`,
+          description: "인증 URL을 받지 못했습니다. 다시 시도해주세요.",
+          variant: "destructive",
+        })
       }
     } catch {
       toast({
@@ -359,8 +365,8 @@ export default function SignupForm({
             marketing: watch("marketing"),
           }}
           onChange={(values) => {
-            setValue("terms", values.terms)
-            setValue("privacy", values.privacy)
+            setValue("terms", values.terms, { shouldValidate: true })
+            setValue("privacy", values.privacy, { shouldValidate: true })
             setValue("marketing", values.marketing)
           }}
           error={errors.terms?.message || errors.privacy?.message}

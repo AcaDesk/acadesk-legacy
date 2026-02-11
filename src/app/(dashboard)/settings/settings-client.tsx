@@ -77,18 +77,18 @@ export function SettingsClient({ systemInfo }: SettingsClientProps) {
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-3">
-            <Link href="/help/guide">
-              <Button variant="outline">사용자 가이드</Button>
-            </Link>
-            <Link href="/help/faq">
-              <Button variant="outline">FAQ</Button>
-            </Link>
-            <Link href="/help/inquiries">
-              <Button variant="outline">고객 지원</Button>
-            </Link>
-            <Link href="/help/feedback">
-              <Button variant="outline">피드백 보내기</Button>
-            </Link>
+            <Button asChild variant="outline">
+              <Link href="/help/guide">사용자 가이드</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/help/faq">FAQ</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/help/inquiries">고객 지원</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/help/feedback">피드백 보내기</Link>
+            </Button>
           </div>
         </CardContent>
       </Card>

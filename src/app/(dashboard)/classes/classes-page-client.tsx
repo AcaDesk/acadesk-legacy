@@ -155,12 +155,12 @@ export function ClassesPageClient({ initialData }: ClassesPageClientProps) {
                 학원의 모든 수업을 관리하고 운영하세요
               </p>
             </div>
-            <Link href="/classes/new">
-              <Button className="gap-2">
+            <Button asChild className="gap-2">
+              <Link href="/classes/new">
                 <Plus className="h-4 w-4" />
                 새 수업 추가
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </div>
         </section>
 
@@ -308,11 +308,11 @@ export function ClassesPageClient({ initialData }: ClassesPageClientProps) {
                           <span className="text-muted-foreground">강사:</span>
                           <span className="ml-2 font-medium">{cls.instructorName || '-'}</span>
                         </div>
-                        <Link href={`/classes/${cls.id}`}>
-                          <Button variant="outline" size="sm">
+                        <Button asChild variant="outline" size="sm">
+                          <Link href={`/classes/${cls.id}`}>
                             상세보기
-                          </Button>
-                        </Link>
+                          </Link>
+                        </Button>
                       </div>
                     </div>
                   </CardContent>

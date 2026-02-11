@@ -103,12 +103,12 @@ export function ConsultationsContent({ initialData }: ConsultationsContentProps)
                 학부모 상담 일정 및 기록 관리
               </p>
             </div>
-            <Link href="/consultations/new">
-              <Button className="gap-2">
+            <Button asChild className="gap-2">
+              <Link href="/consultations/new">
                 <Plus className="h-4 w-4" />
                 새 상담 기록
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </div>
         </section>
 
@@ -340,11 +340,11 @@ export function ConsultationsContent({ initialData }: ConsultationsContentProps)
                         </div>
 
                         <div className="ml-4">
-                          <Link href={`/consultations/${consultation.id}`}>
-                            <Button variant="outline" size="sm">
+                          <Button asChild variant="outline" size="sm">
+                            <Link href={`/consultations/${consultation.id}`}>
                               상세보기
-                            </Button>
-                          </Link>
+                            </Link>
+                          </Button>
                         </div>
                       </div>
                     </CardContent>

@@ -106,12 +106,12 @@ export default function ForgotPasswordPage() {
             >
               다시 시도
             </Button>
-            <Link href="/auth/login">
-              <Button variant="ghost" className="w-full" size="lg">
+            <Button asChild variant="ghost" className="w-full" size="lg">
+              <Link href="/auth/login">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 로그인으로 돌아가기
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </CardContent>
         </Card>
       </motion.div>
@@ -170,12 +170,12 @@ export default function ForgotPasswordPage() {
               )}
             </Button>
 
-            <Link href="/auth/login">
-              <Button variant="ghost" className="w-full" size="lg">
+            <Button asChild variant="ghost" className="w-full" size="lg">
+              <Link href="/auth/login">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 로그인으로 돌아가기
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </CardContent>
         </form>
       </Card>

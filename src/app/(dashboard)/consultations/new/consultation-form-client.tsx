@@ -225,11 +225,11 @@ export function ConsultationFormClient({
           transition={{ duration: 0.3 }}
         >
           <div className="flex items-center gap-4 mb-6">
-            <Link href={mode === 'edit' && consultation ? `/consultations/${consultation.id}` : '/consultations'}>
-              <Button variant="ghost" size="icon">
+            <Button asChild variant="ghost" size="icon">
+              <Link href={mode === 'edit' && consultation ? `/consultations/${consultation.id}` : '/consultations'}>
                 <ArrowLeft className="h-4 w-4" />
-              </Button>
-            </Link>
+              </Link>
+            </Button>
             <div>
               <h1 className={TEXT_STYLES.PAGE_TITLE}>
                 {mode === 'create' ? '새 상담 기록' : '상담 기록 수정'}
@@ -533,11 +533,11 @@ export function ConsultationFormClient({
 
             {/* Actions */}
             <div className="flex items-center justify-end gap-4 mt-6">
-              <Link href={mode === 'edit' && consultation ? `/consultations/${consultation.id}` : '/consultations'}>
-                <Button type="button" variant="outline">
+              <Button asChild variant="outline">
+                <Link href={mode === 'edit' && consultation ? `/consultations/${consultation.id}` : '/consultations'}>
                   취소
-                </Button>
-              </Link>
+                </Link>
+              </Button>
               <Button type="submit" disabled={isSubmitting} className="gap-2">
                 {isSubmitting ? (
                   <>처리 중...</>

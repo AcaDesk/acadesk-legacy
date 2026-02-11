@@ -147,11 +147,11 @@ export default function NewClassPage() {
         {/* Header */}
         <section aria-label="페이지 헤더" className={PAGE_ANIMATIONS.header}>
           <div className="flex items-center gap-4 mb-6">
-            <Link href="/classes">
-              <Button variant="ghost" size="icon">
+            <Button asChild variant="ghost" size="icon">
+              <Link href="/classes">
                 <ArrowLeft className="h-5 w-5" />
-              </Button>
-            </Link>
+              </Link>
+            </Button>
             <div>
               <h1 className={TEXT_STYLES.PAGE_TITLE}>새 수업 추가</h1>
               <p className={TEXT_STYLES.PAGE_DESCRIPTION}>
@@ -284,11 +284,11 @@ export default function NewClassPage() {
 
             {/* Actions */}
             <div className="flex items-center justify-end gap-4 mt-6">
-              <Link href="/classes">
-                <Button type="button" variant="outline">
+              <Button asChild variant="outline">
+                <Link href="/classes">
                   취소
-                </Button>
-              </Link>
+                </Link>
+              </Button>
               <Button type="submit" disabled={isSubmitting} className="gap-2">
                 {isSubmitting ? (
                   <>생성 중...</>

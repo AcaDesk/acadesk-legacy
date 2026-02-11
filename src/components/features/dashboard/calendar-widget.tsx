@@ -309,11 +309,11 @@ export function CalendarWidget({ events = [] }: CalendarWidgetProps) {
         )}
 
         {/* View All Link */}
-        <Link href="/calendar" className="block">
-          <Button variant="outline" className="w-full" size="sm">
+        <Button asChild variant="outline" className="w-full" size="sm">
+          <Link href="/calendar">
             전체 일정 보기
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       </CardContent>
     </Card>
   )

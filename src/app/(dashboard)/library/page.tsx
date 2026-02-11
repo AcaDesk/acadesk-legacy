@@ -77,12 +77,12 @@ export default function LibraryPage() {
                 교재 및 도서 대여, 진도 관리를 한 곳에서
               </p>
             </div>
-            <Link href="/textbooks">
-              <Button className="gap-2">
+            <Button asChild className="gap-2">
+              <Link href="/textbooks">
                 <Plus className="h-4 w-4" />
                 교재 목록 관리
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </div>
         </section>
 
@@ -184,9 +184,9 @@ export default function LibraryPage() {
                 title="최근 대여 활동이 없습니다"
                 description="대여 관리에서 새 대여를 시작하세요"
                 action={
-                  <Link href="/library/lendings">
-                    <Button variant="outline">대여 관리</Button>
-                  </Link>
+                  <Button asChild variant="outline">
+                    <Link href="/library/lendings">대여 관리</Link>
+                  </Button>
                 }
               />
             </CardContent>

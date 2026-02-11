@@ -309,12 +309,12 @@ export function TodosClient({ initialTodos }: TodosClientProps) {
                 }
                 action={
                   !searchTerm && (
-                    <Link href="/todos/new">
-                      <Button>
+                    <Button asChild>
+                      <Link href="/todos/new">
                         <Plus className="h-4 w-4 mr-2" />
                         TODO 생성
-                      </Button>
-                    </Link>
+                      </Link>
+                    </Button>
                   )
                 }
               />
