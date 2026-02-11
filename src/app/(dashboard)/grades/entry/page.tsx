@@ -40,7 +40,7 @@ export default async function GradeEntryPage() {
   await requireAuth()
 
   // Prefetch only pending exams (default tab)
-  const result = await getExamsForGradeEntry({ completed: false })
+  const result = await getExamsForGradeEntry({ completed: false, period: 'this_month' })
 
   const initialExams = result.success && result.data ? result.data : []
 

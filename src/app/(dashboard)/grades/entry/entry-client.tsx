@@ -8,6 +8,7 @@ import { Badge } from '@ui/badge'
 import { Progress } from '@ui/progress'
 import { Skeleton } from '@ui/skeleton'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@ui/tabs'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import {
   Table,
@@ -23,8 +24,6 @@ import {
   Clock,
   BarChart3,
   Users,
-  ChevronLeft,
-  ChevronRight,
   RotateCcw,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
@@ -36,14 +35,13 @@ interface EntryClientProps {
   initialExams: ExamForGradeEntry[]
 }
 
-function getCurrentMonth() {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-}
+type GradeEntryPeriod = 'this_month' | 'last_15_days' | 'last_3_months' | 'all'
 
-function formatMonth(month: string) {
-  const [year, m] = month.split('-').map(Number)
-  return `${year}년 ${m}월`
+const periodLabel: Record<GradeEntryPeriod, string> = {
+  this_month: '이번 달',
+  last_15_days: '최근 15일',
+  last_3_months: '최근 3개월',
+  all: '전체',
 }
 
 export function EntryClient({ initialExams }: EntryClientProps) {
@@ -59,7 +57,7 @@ export function EntryClient({ initialExams }: EntryClientProps) {
   // Completed tab data
   const [completedExams, setCompletedExams] = useState<ExamForGradeEntry[]>([])
   const [completedLoading, setCompletedLoading] = useState(false)
-  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth)
+  const [selectedPeriod, setSelectedPeriod] = useState<GradeEntryPeriod>('this_month')
   const completedCacheRef = useRef<Record<string, ExamForGradeEntry[]>>({})
   const pendingRequestSeqRef = useRef(0)
   const completedRequestSeqRef = useRef(0)
@@ -98,7 +96,7 @@ export function EntryClient({ initialExams }: EntryClientProps) {
     const requestSeq = ++pendingRequestSeqRef.current
     setPendingLoading(true)
     try {
-      const result = await getExamsForGradeEntry({ completed: false })
+      const result = await getExamsForGradeEntry({ completed: false, period: selectedPeriod })
       if (requestSeq !== pendingRequestSeqRef.current) return
       if (result.success && result.data) {
         setPendingExams(result.data)
@@ -111,19 +109,19 @@ export function EntryClient({ initialExams }: EntryClientProps) {
   }
 
   // Load completed exams for selected month
-  async function loadCompletedExams(month: string, options: { force?: boolean } = {}) {
-    if (!options.force && completedCacheRef.current[month]) {
-      setCompletedExams(completedCacheRef.current[month])
+  async function loadCompletedExams(period: GradeEntryPeriod, options: { force?: boolean } = {}) {
+    if (!options.force && completedCacheRef.current[period]) {
+      setCompletedExams(completedCacheRef.current[period])
       return
     }
 
     const requestSeq = ++completedRequestSeqRef.current
     setCompletedLoading(true)
     try {
-      const result = await getExamsForGradeEntry({ completed: true, month })
+      const result = await getExamsForGradeEntry({ completed: true, period })
       if (requestSeq !== completedRequestSeqRef.current) return
       if (result.success && result.data) {
-        completedCacheRef.current[month] = result.data
+        completedCacheRef.current[period] = result.data
         setCompletedExams(result.data)
       }
     } finally {
@@ -137,36 +135,30 @@ export function EntryClient({ initialExams }: EntryClientProps) {
   function handleTabChange(value: string) {
     setActiveTab(value)
     if (value === 'completed') {
-      loadCompletedExams(selectedMonth)
+      loadCompletedExams(selectedPeriod)
     }
   }
 
-  // Month navigation
-  function handlePrevMonth() {
-    const [year, month] = selectedMonth.split('-').map(Number)
-    const d = new Date(year, month - 2, 1) // month-2 because month is 1-indexed and we want prev
-    const newMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    setSelectedMonth(newMonth)
-    if (activeTab === 'completed') {
-      loadCompletedExams(newMonth)
+  async function handlePeriodChange(value: GradeEntryPeriod) {
+    setSelectedPeriod(value)
+    const requestSeq = ++pendingRequestSeqRef.current
+    setPendingLoading(true)
+    try {
+      const pendingResult = await getExamsForGradeEntry({ completed: false, period: value })
+      if (requestSeq !== pendingRequestSeqRef.current) return
+      if (pendingResult.success && pendingResult.data) {
+        setPendingExams(pendingResult.data)
+      }
+    } finally {
+      if (requestSeq === pendingRequestSeqRef.current) {
+        setPendingLoading(false)
+      }
     }
-  }
 
-  function handleNextMonth() {
-    const [year, month] = selectedMonth.split('-').map(Number)
-    const d = new Date(year, month, 1) // month because month is 1-indexed
-    const newMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    setSelectedMonth(newMonth)
     if (activeTab === 'completed') {
-      loadCompletedExams(newMonth)
-    }
-  }
-
-  function handleCurrentMonth() {
-    const current = getCurrentMonth()
-    setSelectedMonth(current)
-    if (activeTab === 'completed') {
-      loadCompletedExams(current)
+      loadCompletedExams(value)
+    } else {
+      setCompletedExams(completedCacheRef.current[value] || [])
     }
   }
 
@@ -202,7 +194,7 @@ export function EntryClient({ initialExams }: EntryClientProps) {
           loadPendingExams()
           completedCacheRef.current = {}
           if (activeTab === 'completed') {
-            loadCompletedExams(selectedMonth, { force: true })
+            loadCompletedExams(selectedPeriod, { force: true })
           }
         } else {
           toast({ title: result.error || '오류가 발생했습니다', variant: 'destructive' })
@@ -211,8 +203,8 @@ export function EntryClient({ initialExams }: EntryClientProps) {
         const result = await reopenExamGrading(confirmDialog.examId)
         if (result.success) {
           toast({ title: '입력 필요 상태로 변경되었습니다' })
-          delete completedCacheRef.current[selectedMonth]
-          loadCompletedExams(selectedMonth, { force: true })
+          delete completedCacheRef.current[selectedPeriod]
+          loadCompletedExams(selectedPeriod, { force: true })
           // Also refresh pending if user switches back
           loadPendingExams()
         } else {
@@ -409,10 +401,26 @@ export function EntryClient({ initialExams }: EntryClientProps) {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList>
-          <TabsTrigger value="pending">입력 필요</TabsTrigger>
-          <TabsTrigger value="completed">입력 완료</TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between">
+          <TabsList>
+            <TabsTrigger value="pending">입력 필요</TabsTrigger>
+            <TabsTrigger value="completed">입력 완료</TabsTrigger>
+          </TabsList>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">기간</span>
+            <Select value={selectedPeriod} onValueChange={(v) => handlePeriodChange(v as GradeEntryPeriod)}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="this_month">이번 달</SelectItem>
+                <SelectItem value="last_15_days">최근 15일</SelectItem>
+                <SelectItem value="last_3_months">최근 3개월</SelectItem>
+                <SelectItem value="all">전체</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
 
         {/* ── 입력 필요 탭 ── */}
         <TabsContent value="pending">
@@ -489,34 +497,10 @@ export function EntryClient({ initialExams }: EntryClientProps) {
         {/* ── 입력 완료 탭 ── */}
         <TabsContent value="completed">
           <div className="space-y-4">
-            {/* Month Navigation */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center bg-card border border-border rounded-lg p-1 shadow-sm">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handlePrevMonth}
-                  className="h-8 w-8"
-                  title="이전 달"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <div className="px-4 py-1 text-sm font-semibold text-foreground">
-                  {formatMonth(selectedMonth)}
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleNextMonth}
-                  className="h-8 w-8"
-                  title="다음 달"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-              <Button variant="secondary" size="sm" onClick={handleCurrentMonth}>
-                이번 달
-              </Button>
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                {periodLabel[selectedPeriod]} 기준 완료 시험
+              </p>
               {completedLoading && (
                 <span className="text-sm text-muted-foreground">불러오는 중...</span>
               )}

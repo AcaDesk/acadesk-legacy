@@ -41,6 +41,80 @@ export interface ExamForGradeEntry {
   } | null
 }
 
+interface ExamRow {
+  id: string
+  name: string
+  exam_date: string | null
+  total_questions: number | null
+  category_code: string | null
+  exam_type: string | null
+  passing_score: number | null
+  status: string | null
+  class_id: string | null
+  subjects?: {
+    id: string
+    name: string
+    code: string | null
+    color: string | null
+  } | null
+  classes?: {
+    id: string
+    name: string
+  } | null
+}
+
+type GradeEntryPeriod = 'this_month' | 'last_15_days' | 'last_3_months' | 'all'
+
+function getDateRangeByPeriod(period: GradeEntryPeriod) {
+  const today = new Date()
+  const to = today.toISOString().slice(0, 10)
+
+  if (period === 'all') {
+    return { from: null as string | null, to: null as string | null }
+  }
+
+  if (period === 'this_month') {
+    const from = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`
+    return { from, to }
+  }
+
+  const fromDate = new Date(today)
+  if (period === 'last_15_days') {
+    fromDate.setDate(fromDate.getDate() - 15)
+  } else {
+    fromDate.setMonth(fromDate.getMonth() - 3)
+  }
+
+  return { from: fromDate.toISOString().slice(0, 10), to }
+}
+
+async function autoArchiveOldCompletedExams(params: {
+  tenantId: string
+  supabase: ReturnType<typeof createServiceRoleClient>
+}) {
+  const { tenantId, supabase } = params
+  const threshold = new Date()
+  threshold.setDate(threshold.getDate() - 15)
+  const thresholdDate = threshold.toISOString().slice(0, 10)
+
+  const { error } = await supabase
+    .from('exams')
+    .update({
+      archived_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('tenant_id', tenantId)
+    .eq('status', 'completed')
+    .is('deleted_at', null)
+    .is('archived_at', null)
+    .not('exam_date', 'is', null)
+    .lte('exam_date', thresholdDate)
+
+  if (error) {
+    console.error('[grade-entry:autoArchiveOldCompletedExams] Error:', error)
+  }
+}
+
 // ============================================================================
 // Server Actions
 // ============================================================================
@@ -58,12 +132,14 @@ export interface ExamForGradeEntry {
 export async function getExamsForGradeEntry(params?: {
   completed?: boolean
   month?: string
+  period?: GradeEntryPeriod
 }) {
   const completed = params?.completed ?? false
 
   try {
     const { tenantId } = await verifyStaff()
     const supabase = createServiceRoleClient()
+    await autoArchiveOldCompletedExams({ tenantId, supabase })
 
     // 1. Fetch exams with related data (1 query)
     let query = supabase
@@ -92,6 +168,7 @@ export async function getExamsForGradeEntry(params?: {
       `)
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
+      .is('archived_at', null)
       .order('exam_date', { ascending: false })
 
     // Apply status filter
@@ -108,6 +185,15 @@ export async function getExamsForGradeEntry(params?: {
       query = query.or('status.is.null,status.neq.completed')
     }
 
+    const period = params?.period ?? 'this_month'
+    const periodRange = getDateRangeByPeriod(period)
+    if (periodRange.from) {
+      query = query.gte('exam_date', periodRange.from)
+    }
+    if (periodRange.to) {
+      query = query.lte('exam_date', periodRange.to)
+    }
+
     const { data: exams, error: examsError } = await query
 
     if (examsError) {
@@ -119,9 +205,10 @@ export async function getExamsForGradeEntry(params?: {
     }
 
     // 2. Get all exam IDs and class IDs
-    const examIds = exams.map((exam: any) => exam.id)
+    const examRows = exams as unknown as ExamRow[]
+    const examIds = examRows.map((exam) => exam.id)
     const classIds = [...new Set(
-      exams.map((exam: any) => exam.class_id).filter(Boolean)
+      examRows.map((exam) => exam.class_id).filter(Boolean)
     )] as string[]
 
     // 3. Fetch ALL scores for all exams in a single query (1 query)
@@ -167,7 +254,7 @@ export async function getExamsForGradeEntry(params?: {
     }
 
     // 6. Map exams with their statistics (no additional queries)
-    const examsWithStats: ExamForGradeEntry[] = exams.map((exam: any) => {
+    const examsWithStats: ExamForGradeEntry[] = examRows.map((exam) => {
       const examScores = scoresByExamId.get(exam.id) || []
 
       // 응시인원: class_enrollments 기준 (없으면 exam_scores 수로 폴백)
