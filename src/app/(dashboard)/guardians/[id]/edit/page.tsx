@@ -1,478 +1,76 @@
-'use client'
-
-import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import * as z from 'zod'
-import { createClient } from '@/lib/supabase/client'
-import { Button } from '@ui/button'
-import { Input } from '@ui/input'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
-import { Label } from '@ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
-import { Checkbox } from '@ui/checkbox'
-import { useToast } from '@/hooks/use-toast'
-import { PageWrapper } from "@/components/layout/page-wrapper"
-import { ChevronRight } from 'lucide-react'
-import Link from 'next/link'
-import { GUARDIAN_RELATIONSHIPS } from '@/lib/constants'
+import { notFound } from 'next/navigation'
+import { getGuardianDetail, getStudentsForSelect } from '@/app/actions/guardians'
+import { EditGuardianClient } from './edit-guardian-client'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
-import { PhoneInput } from '@ui/phone-input'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@ui/tabs'
-import { updateGuardian } from '@/app/actions/guardians'
-import { getErrorMessage } from '@/lib/error-handlers'
 
-const guardianSchema = z.object({
-  name: z.string().min(2, '이름은 최소 2자 이상이어야 합니다'),
-  email: z.string().email('올바른 이메일 형식이 아닙니다').optional().or(z.literal('')),
-  phone: z.string().min(1, '연락처를 입력해주세요'),
-  relationship: z.string().min(1, '관계를 선택해주세요'),
-  occupation: z.string().optional(),
-  address: z.string().optional(),
-})
-
-type GuardianFormValues = z.infer<typeof guardianSchema>
-
-interface GuardianData {
-  id: string
-  relationship: string | null
-  occupation: string | null
-  address: string | null
-  users: {
-    id: string
-    name: string
-    email: string | null
-    phone: string | null
-  } | null
-  student_guardians: Array<{
-    students: Array<{
-      id: string
-    }>
-  }>
+interface EditGuardianPageProps {
+  params: Promise<{ id: string }>
 }
 
-interface Student {
-  id: string
-  student_code: string
-  users: {
-    name: string
-  } | null
-}
-
-export default function EditGuardianPage() {
-  // All Hooks must be called before any early returns
-  const params = useParams()
-  const [loading, setLoading] = useState(false)
-  const [initialLoading, setInitialLoading] = useState(true)
-  const [guardian, setGuardian] = useState<GuardianData | null>(null)
-  const [students, setStudents] = useState<Student[]>([])
-  const [selectedStudents, setSelectedStudents] = useState<string[]>([])
-  const router = useRouter()
-  const { toast } = useToast()
-  const supabase = createClient()
-
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    formState: { errors },
-  } = useForm<GuardianFormValues>({
-    resolver: zodResolver(guardianSchema),
-  })
-
-  const selectedRelationship = watch('relationship')
-  const guardianPhone = watch('phone')
-
-  // useEffect must be called before any early returns
-  useEffect(() => {
-    if (params.id) {
-      loadGuardianData(params.id as string)
-      loadStudents()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.id])
-
-  async function loadGuardianData(guardianId: string) {
-    try {
-      setInitialLoading(true)
-      const { data, error } = await supabase
-        .from('guardians')
-        .select(`
-          id,
-          relationship,
-          occupation,
-          address,
-          users (
-            id,
-            name,
-            email,
-            phone
-          ),
-          student_guardians (
-            students (
-              id
-            )
-          )
-        `)
-        .eq('id', guardianId)
-        .maybeSingle()
-
-      if (error) {
-        console.error('Error fetching guardian:', error)
-        throw error
-      }
-
-      if (!data) {
-        throw new Error('보호자 정보를 찾을 수 없습니다.')
-      }
-
-      setGuardian(data as unknown as GuardianData)
-
-      // Populate form fields
-      if (data.users && Array.isArray(data.users) && data.users.length > 0) {
-        setValue('name', data.users[0].name)
-        setValue('email', data.users[0].email || '')
-        setValue('phone', data.users[0].phone || '')
-      }
-      setValue('relationship', data.relationship || '')
-      setValue('occupation', data.occupation || '')
-      setValue('address', data.address || '')
-
-      // Set selected students
-      const connectedStudentIds =
-        data.student_guardians
-          ?.flatMap(sg => sg.students?.map(s => s.id) || [])
-          .filter((id): id is string => Boolean(id)) || []
-      setSelectedStudents(connectedStudentIds)
-    } catch (error: unknown) {
-      console.error('보호자 조회 오류:', error)
-      const errorMessage = error instanceof Error ? error.message : '보호자 정보를 불러오는 중 오류가 발생했습니다.'
-      toast({
-        title: '보호자 조회 실패',
-        description: errorMessage,
-        variant: 'destructive',
-      })
-      router.push('/guardians')
-    } finally {
-      setInitialLoading(false)
-    }
-  }
-
-  async function loadStudents() {
-    try {
-      const { data, error } = await supabase
-        .from('students')
-        .select(`
-          id,
-          student_code,
-          users (
-            name
-          )
-        `)
-        .is('deleted_at', null)
-        .order('student_code')
-
-      if (error) throw error
-      setStudents(data as unknown as Student[])
-    } catch (error) {
-      console.error('학생 목록 조회 오류:', error)
-    }
-  }
-
-  const onSubmit = async (data: GuardianFormValues) => {
-    if (!guardian) return
-
-    setLoading(true)
-    try {
-      // 1. Update guardian info using Server Action
-      const result = await updateGuardian({
-        guardian_id: guardian.id,
-        name: data.name,
-        email: data.email || null,
-        phone: data.phone,
-        relationship: data.relationship,
-        occupation: data.occupation || null,
-        address: data.address || null,
-      })
-
-      if (!result.success) {
-        throw new Error(result.error || '보호자 정보 수정에 실패했습니다')
-      }
-
-      // 2. Update student connections (using client for now)
-      // Delete all existing connections
-      const { error: deleteError } = await supabase
-        .from('student_guardians')
-        .delete()
-        .eq('guardian_id', guardian.id)
-
-      if (deleteError && deleteError.code !== 'PGRST116') {
-        console.error('기존 연결 삭제 오류:', deleteError)
-        throw deleteError
-      }
-
-      // Insert new connections
-      if (selectedStudents.length > 0) {
-        // Get tenant_id from first student
-        const { data: firstStudent } = await supabase
-          .from('students')
-          .select('tenant_id')
-          .eq('id', selectedStudents[0])
-          .maybeSingle()
-
-        if (firstStudent) {
-          const studentGuardianRecords = selectedStudents.map((studentId) => ({
-            tenant_id: firstStudent.tenant_id,
-            student_id: studentId,
-            guardian_id: guardian.id,
-            is_primary: false,
-          }))
-
-          const { error: linkError } = await supabase
-            .from('student_guardians')
-            .insert(studentGuardianRecords)
-
-          if (linkError) {
-            console.warn('학생 연결 오류:', linkError)
-          }
-        }
-      }
-
-      toast({
-        title: '보호자 정보 수정 완료',
-        description: `${data.name} 보호자의 정보가 수정되었습니다.`,
-      })
-
-      router.push(`/guardians/${guardian.id}`)
-      router.refresh()
-    } catch (error: unknown) {
-      console.error('보호자 수정 오류:', error)
-      toast({
-        title: '보호자 수정 실패',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleStudentToggle = (studentId: string) => {
-    setSelectedStudents((prev) =>
-      prev.includes(studentId)
-        ? prev.filter((id) => id !== studentId)
-        : [...prev, studentId]
-    )
-  }
-
-  // Feature flag checks after all Hooks
-  const featureStatus = FEATURES.guardianManagement;
+export default async function EditGuardianPage({ params }: EditGuardianPageProps) {
+  // Feature flag checks
+  const featureStatus = FEATURES.guardianManagement
 
   if (featureStatus === 'inactive') {
-    return <ComingSoon featureName="보호자 수정" description="보호자 정보를 수정하고 학생과의 연결을 관리할 수 있는 기능을 준비하고 있습니다." />;
+    return (
+      <ComingSoon
+        featureName="보호자 수정"
+        description="보호자 정보를 수정하고 학생과의 연결을 관리할 수 있는 기능을 준비하고 있습니다."
+      />
+    )
   }
 
   if (featureStatus === 'maintenance') {
-    return <Maintenance featureName="보호자 수정" reason="보호자 관리 시스템 업데이트가 진행 중입니다." />;
-  }
-
-  if (initialLoading) {
     return (
-      <PageWrapper>
-        <div className="text-center py-12">로딩 중...</div>
-      </PageWrapper>
+      <Maintenance
+        featureName="보호자 수정"
+        reason="보호자 관리 시스템 업데이트가 진행 중입니다."
+      />
     )
   }
 
-  if (!guardian) {
-    return (
-      <PageWrapper>
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">보호자를 찾을 수 없습니다.</p>
-        </div>
-      </PageWrapper>
-    )
+  const { id } = await params
+
+  // Fetch data on server in parallel
+  const [guardianResult, studentsResult] = await Promise.all([
+    getGuardianDetail(id),
+    getStudentsForSelect(),
+  ])
+
+  if (!guardianResult.success || !guardianResult.data) {
+    notFound()
+  }
+
+  // TODO(any): Supabase nested query types need proper typing
+  const raw = guardianResult.data as any
+  const rawUsers = raw.users
+  const usersData = Array.isArray(rawUsers) ? rawUsers[0] : rawUsers
+
+  // 연결된 학생 ID 추출
+  const connectedStudentIds = (raw.student_guardians || [])
+    .map((sg: any) => {
+      const student = Array.isArray(sg.students) ? sg.students[0] : sg.students
+      return student?.id
+    })
+    .filter((id: string | undefined): id is string => Boolean(id))
+
+  const guardian = {
+    id: raw.id as string,
+    relationship: raw.relationship as string | null,
+    occupation: raw.occupation as string | null,
+    address: raw.address as string | null,
+    userName: (usersData?.name as string) || null,
+    userEmail: (usersData?.email as string | null) || null,
+    userPhone: (usersData?.phone as string | null) || null,
+    connectedStudentIds,
   }
 
   return (
-    <PageWrapper>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="space-y-4">
-          <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Link href="/guardians" className="hover:text-foreground transition-colors">
-              보호자 관리
-            </Link>
-            <ChevronRight className="h-4 w-4" />
-            <Link href={`/guardians/${guardian.id}`} className="hover:text-foreground transition-colors">
-              {guardian.users?.name || '이름 없음'}
-            </Link>
-            <ChevronRight className="h-4 w-4" />
-            <span className="text-foreground font-medium">수정</span>
-          </nav>
-
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">보호자 정보 수정</h1>
-            <p className="text-muted-foreground">{guardian.users?.name || '이름 없음'}</p>
-          </div>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>보호자 정보</CardTitle>
-            <CardDescription>
-              보호자의 기본 정보를 수정해주세요. 필수 항목은 * 표시되어 있습니다.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              <Tabs defaultValue="basic" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="basic">기본 정보</TabsTrigger>
-                  <TabsTrigger value="contact">연락처</TabsTrigger>
-                  <TabsTrigger value="students">학생 연결</TabsTrigger>
-                </TabsList>
-
-                {/* Tab 1: 기본 정보 */}
-                <TabsContent value="basic" className="space-y-6 mt-6">
-                  <div className="grid gap-6 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="name">이름 *</Label>
-                      <Input id="name" placeholder="홍길동" {...register('name')} />
-                      {errors.name && (
-                        <p className="text-sm text-destructive">{errors.name.message}</p>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="relationship">관계 *</Label>
-                      <Select
-                        onValueChange={(value) => setValue('relationship', value)}
-                        value={selectedRelationship}
-                      >
-                        <SelectTrigger id="relationship">
-                          <SelectValue placeholder="관계 선택" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {GUARDIAN_RELATIONSHIPS.map((rel) => (
-                            <SelectItem key={rel.value} value={rel.value}>
-                              {rel.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {errors.relationship && (
-                        <p className="text-sm text-destructive">{errors.relationship.message}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="grid gap-6 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="occupation">직업</Label>
-                      <Input
-                        id="occupation"
-                        placeholder="직업"
-                        {...register('occupation')}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="address">주소</Label>
-                      <Input
-                        id="address"
-                        placeholder="주소"
-                        {...register('address')}
-                      />
-                    </div>
-                  </div>
-                </TabsContent>
-
-                {/* Tab 2: 연락처 */}
-                <TabsContent value="contact" className="space-y-6 mt-6">
-                  <div className="grid gap-6 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="phone">연락처 *</Label>
-                      <PhoneInput
-                        id="phone"
-                        value={guardianPhone || ''}
-                        onChange={(value) => setValue('phone', value, { shouldValidate: true })}
-                      />
-                      {errors.phone && (
-                        <p className="text-sm text-destructive">{errors.phone.message}</p>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="email">이메일</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        placeholder="guardian@example.com"
-                        {...register('email')}
-                      />
-                      {errors.email && (
-                        <p className="text-sm text-destructive">{errors.email.message}</p>
-                      )}
-                    </div>
-                  </div>
-                </TabsContent>
-
-                {/* Tab 3: 학생 연결 */}
-                <TabsContent value="students" className="space-y-6 mt-6">
-                  <div className="space-y-2">
-                    <Label>연결할 학생 선택</Label>
-                    <div className="border rounded-lg p-4 max-h-[300px] overflow-y-auto">
-                      {students.length > 0 ? (
-                        <div className="space-y-3">
-                          {students.map((student) => (
-                            <div key={student.id} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={`student-${student.id}`}
-                                checked={selectedStudents.includes(student.id)}
-                                onCheckedChange={() => handleStudentToggle(student.id)}
-                              />
-                              <label
-                                htmlFor={`student-${student.id}`}
-                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                              >
-                                {student.users?.name || '이름 없음'} ({student.student_code})
-                              </label>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">등록된 학생이 없습니다.</p>
-                      )}
-                    </div>
-                    {selectedStudents.length > 0 && (
-                      <p className="text-sm text-muted-foreground">
-                        {selectedStudents.length}명의 학생이 선택되었습니다.
-                      </p>
-                    )}
-                  </div>
-                </TabsContent>
-              </Tabs>
-
-              {/* 버튼 - Tabs 밖으로 */}
-              <div className="flex gap-3 justify-end">
-                <Link href={`/guardians/${guardian.id}`}>
-                  <Button type="button" variant="outline">
-                    취소
-                  </Button>
-                </Link>
-                <Button type="submit" disabled={loading}>
-                  {loading ? '저장 중...' : '저장'}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
-    </PageWrapper>
+    <EditGuardianClient
+      guardian={guardian}
+      students={studentsResult.data || []}
+    />
   )
 }

@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { getGuardianDetail } from '@/app/actions/guardians'
+import { getGuardianDetail, getStudentsForSelect } from '@/app/actions/guardians'
 import { GuardianDetailClient } from './guardian-detail-client'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
@@ -33,8 +33,11 @@ export default async function GuardianDetailPage({ params }: GuardianDetailPageP
 
   const { id } = await params
 
-  // Fetch data on server
-  const result = await getGuardianDetail(id)
+  // Fetch data on server in parallel
+  const [result, studentsResult] = await Promise.all([
+    getGuardianDetail(id),
+    getStudentsForSelect(),
+  ])
 
   // Handle not found
   if (!result.success || !result.data) {
@@ -73,5 +76,10 @@ export default async function GuardianDetailPage({ params }: GuardianDetailPageP
     })),
   }
 
-  return <GuardianDetailClient guardian={guardian} />
+  return (
+    <GuardianDetailClient
+      guardian={guardian}
+      availableStudents={studentsResult.data || []}
+    />
+  )
 }
