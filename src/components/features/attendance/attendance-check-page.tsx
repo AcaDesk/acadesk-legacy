@@ -22,6 +22,7 @@ import { Card, CardContent } from '@ui/card'
 import { Badge } from '@ui/badge'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
+import { ContactGuardianDialog } from '@/components/features/attendance/contact-guardian-dialog'
 import {
   getAttendanceRecordsByDate,
   saveAttendance,
@@ -50,6 +51,7 @@ const DB_TO_UI_STATUS: Record<string, UIAttendanceStatus> = {
 
 interface StudentAttendance {
   id: string
+  sessionId?: string
   studentId: string
   name: string
   school: string
@@ -113,6 +115,7 @@ function buildStudentList(
 
     return {
       id: attendance?.id || `new-${e.student_id}-${e.class_id}`,
+      sessionId: attendance?.session_id,
       studentId: e.student_id,
       name: student?.users?.name || '이름 없음',
       school: student?.school || '',
@@ -151,6 +154,9 @@ export function AttendanceCheckPage({
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'present' | 'absent'>('all')
   const [selectedSchoolLevel, setSelectedSchoolLevel] = useState<SchoolLevel>('all')
+  const [contactDialogOpen, setContactDialogOpen] = useState(false)
+  const [selectedContactStudent, setSelectedContactStudent] = useState<StudentAttendance | null>(null)
+  const [contactPreparingStudentId, setContactPreparingStudentId] = useState<string | null>(null)
 
   // 로스터: 한 번만 로드하고 ref에 고정
   const rosterRef = useRef<any[]>(initialRoster || [])
@@ -496,6 +502,67 @@ export function AttendanceCheckPage({
     })
   }
 
+  const openContactDialog = async (student: StudentAttendance) => {
+    if (contactPreparingStudentId) return
+
+    if (student.sessionId) {
+      setSelectedContactStudent(student)
+      setContactDialogOpen(true)
+      return
+    }
+
+    // 세션이 없는 경우 먼저 출석 레코드를 보장해서 session_id를 확보
+    setContactPreparingStudentId(student.studentId)
+    try {
+      const fallbackStatus = student.status ?? 'absent'
+      const result = await saveAttendance({
+        classId: student.classId,
+        date: currentDate,
+        studentId: student.studentId,
+        status: UI_TO_DB_STATUS[fallbackStatus],
+        checkInAt: fallbackStatus === 'late' ? new Date().toISOString() : undefined,
+        isSelfStudy: student.isSelfStudy,
+        isMakeupClass: student.isMakeupClass,
+      })
+
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '연락 준비를 위한 출석 저장에 실패했습니다.')
+      }
+
+      const saved = result.data as any
+      const updatedStudent: StudentAttendance = {
+        ...student,
+        id: saved.id || student.id,
+        sessionId: saved.session_id,
+        status: saved.status ? (DB_TO_UI_STATUS[saved.status] || student.status) : student.status,
+      }
+
+      setStudents((prev) =>
+        prev.map((s) =>
+          s.studentId === student.studentId && s.classId === student.classId
+            ? updatedStudent
+            : s
+        )
+      )
+      recordsCacheRef.current.delete(currentDate)
+
+      if (!updatedStudent.sessionId) {
+        throw new Error('세션 정보를 찾을 수 없어 연락 창을 열 수 없습니다.')
+      }
+
+      setSelectedContactStudent(updatedStudent)
+      setContactDialogOpen(true)
+    } catch (error) {
+      toast({
+        title: '연락 창 열기 실패',
+        description: error instanceof Error ? error.message : '보호자 연락 창을 열지 못했습니다.',
+        variant: 'destructive',
+      })
+    } finally {
+      setContactPreparingStudentId(null)
+    }
+  }
+
   // 필터링된 학생 목록 (클래스 탭 전환은 클라이언트 필터링만)
   const filteredStudents = students.filter((s) => {
     const matchesClass = !selectedClassId || s.classId === selectedClassId
@@ -814,7 +881,11 @@ export function AttendanceCheckPage({
                       {student.isMakeupClass ? 'ON' : 'OFF'}
                     </button>
                     {(student.status === 'absent' || student.status === 'excused' || student.status === 'late') && (
-                      <button className="flex-1 py-2 rounded-lg text-xs font-semibold bg-info/10 text-info border border-info/20 flex items-center justify-center gap-1.5">
+                      <button
+                        onClick={() => openContactDialog(student)}
+                        disabled={contactPreparingStudentId === student.studentId}
+                        className="flex-1 py-2 rounded-lg text-xs font-semibold bg-info/10 text-info border border-info/20 flex items-center justify-center gap-1.5 disabled:opacity-60"
+                      >
                         <MessageCircle className="h-3.5 w-3.5" /> 알림
                       </button>
                     )}
@@ -954,7 +1025,12 @@ export function AttendanceCheckPage({
                           {(student.status === 'late' ||
                             student.status === 'absent' ||
                             student.status === 'excused') && (
-                            <button className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-info hover:bg-info/10 hover:border-info/20 transition-colors">
+                            <button
+                              onClick={() => openContactDialog(student)}
+                              disabled={contactPreparingStudentId === student.studentId}
+                              className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-info hover:bg-info/10 hover:border-info/20 transition-colors disabled:opacity-60"
+                              title="보호자 연락"
+                            >
                               <MessageCircle className="h-3.5 w-3.5" />
                             </button>
                           )}
@@ -974,6 +1050,19 @@ export function AttendanceCheckPage({
             </div>
           </Card>
         </>
+      )}
+
+      {selectedContactStudent?.sessionId && (
+        <ContactGuardianDialog
+          open={contactDialogOpen}
+          onOpenChange={(open) => {
+            setContactDialogOpen(open)
+            if (!open) setSelectedContactStudent(null)
+          }}
+          studentId={selectedContactStudent.studentId}
+          studentName={selectedContactStudent.name}
+          sessionId={selectedContactStudent.sessionId}
+        />
       )}
     </div>
   )

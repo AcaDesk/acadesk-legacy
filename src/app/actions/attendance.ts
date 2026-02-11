@@ -221,6 +221,7 @@ export async function getAttendanceRecordsByDate(params: {
       .from('attendance')
       .select(`
         id,
+        session_id,
         student_id,
         status,
         check_in_at,
