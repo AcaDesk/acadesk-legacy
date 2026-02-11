@@ -57,6 +57,12 @@ export function LoginForm({
       // OAuth URL로 리다이렉트
       if (result.data?.url) {
         window.location.href = result.data.url
+      } else {
+        toast({
+          title: `${provider === "google" ? "구글" : "카카오"} 로그인 실패`,
+          description: "인증 URL을 받지 못했습니다. 잠시 후 다시 시도해주세요.",
+          variant: "destructive",
+        })
       }
     } catch {
       toast({
@@ -211,6 +217,7 @@ export function LoginForm({
               className="absolute right-0 top-0 h-full px-3"
               onClick={() => setShowPassword(!showPassword)}
               disabled={isLoading}
+              aria-label={showPassword ? "비밀번호 숨기기" : "비밀번호 보기"}
             >
               {showPassword ? (
                 <EyeOff className="h-4 w-4" />
