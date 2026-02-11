@@ -265,8 +265,8 @@ export function EntryClient({ initialExams }: EntryClientProps) {
             {exam.total_students}명
           </Badge>
         </TableCell>
-        <TableCell>
-          <div className="space-y-1.5 min-w-[180px]">
+        <TableCell className="text-center">
+          <div className="space-y-1.5 min-w-[140px] inline-block text-left">
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">
                 {exam.graded_students}/{exam.total_students}명

@@ -118,8 +118,11 @@ export async function getExamsForGradeEntry(params?: {
       return { success: true, data: [], error: null }
     }
 
-    // 2. Get all exam IDs
+    // 2. Get all exam IDs and class IDs
     const examIds = exams.map((exam: any) => exam.id)
+    const classIds = [...new Set(
+      exams.map((exam: any) => exam.class_id).filter(Boolean)
+    )] as string[]
 
     // 3. Fetch ALL scores for all exams in a single query (1 query)
     const { data: allScores, error: scoresError } = await supabase
@@ -130,10 +133,32 @@ export async function getExamsForGradeEntry(params?: {
 
     if (scoresError) {
       console.error('[getExamsForGradeEntry] Error fetching scores:', scoresError)
-      // Continue without scores rather than failing entirely
     }
 
-    // 4. Group scores by exam_id for O(1) lookup
+    // 4. Fetch enrollment counts per class (1 query)
+    // 응시인원은 class_enrollments 기준으로 산정
+    const enrollmentCountByClassId = new Map<string, number>()
+    if (classIds.length > 0) {
+      const { data: enrollments, error: enrollError } = await supabase
+        .from('class_enrollments')
+        .select('class_id, student_id')
+        .in('class_id', classIds)
+        .eq('status', 'active')
+        .eq('tenant_id', tenantId)
+
+      if (enrollError) {
+        console.error('[getExamsForGradeEntry] Error fetching enrollments:', enrollError)
+      }
+
+      for (const e of (enrollments || [])) {
+        enrollmentCountByClassId.set(
+          e.class_id,
+          (enrollmentCountByClassId.get(e.class_id) || 0) + 1
+        )
+      }
+    }
+
+    // 5. Group scores by exam_id for O(1) lookup
     const scoresByExamId = new Map<string, Array<{ percentage: number | null; status: string | null }>>()
     for (const score of (allScores || [])) {
       const examScores = scoresByExamId.get(score.exam_id) || []
@@ -141,15 +166,18 @@ export async function getExamsForGradeEntry(params?: {
       scoresByExamId.set(score.exam_id, examScores)
     }
 
-    // 5. Map exams with their statistics (no additional queries)
+    // 6. Map exams with their statistics (no additional queries)
     const examsWithStats: ExamForGradeEntry[] = exams.map((exam: any) => {
       const examScores = scoresByExamId.get(exam.id) || []
 
-      const totalStudents = examScores.length
+      // 응시인원: class_enrollments 기준 (없으면 exam_scores 수로 폴백)
+      const totalStudents = exam.class_id
+        ? (enrollmentCountByClassId.get(exam.class_id) || 0)
+        : examScores.length
       const gradedStudents = examScores.filter(
         (s) => s.percentage !== null && s.percentage > 0
       ).length
-      const pendingStudents = totalStudents - gradedStudents
+      const pendingStudents = Math.max(totalStudents - gradedStudents, 0)
 
       // Calculate average score
       const gradedScores = examScores.filter(
