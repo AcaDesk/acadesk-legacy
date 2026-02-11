@@ -78,11 +78,11 @@ export function CalendarWidget({ className }: CalendarWidgetProps) {
             <CalendarIcon className="w-5 h-5" />
             캘린더
           </CardTitle>
-          <Link href="/calendar">
-            <Button variant="ghost" size="sm">
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/calendar">
               <ExternalLink className="w-4 h-4" />
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
         <div className="flex items-center justify-between mt-2">
           <Button

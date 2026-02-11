@@ -53,12 +53,12 @@ export default async function HomeworksPage() {
             title="숙제 관리"
             description="집에서 해오는 숙제를 관리하고 제출 현황을 확인합니다"
             action={
-              <Link href="/homeworks/new">
-                <Button>
+              <Button asChild>
+                <Link href="/homeworks/new">
                   <BookCopy className="h-4 w-4 mr-2" />
                   숙제 출제
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             }
           />
         </section>

@@ -37,12 +37,12 @@ export default async function GuardiansPage() {
                 <p className="text-muted-foreground">학부모 및 보호자 정보를 관리합니다</p>
               </div>
               <RoleGuard allowedRoles={['owner', 'instructor']}>
-                <Link href="/guardians/new">
-                  <Button>
+                <Button asChild>
+                  <Link href="/guardians/new">
                     <Plus className="mr-2 h-4 w-4" />
                     보호자 추가
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               </RoleGuard>
             </div>
           </section>

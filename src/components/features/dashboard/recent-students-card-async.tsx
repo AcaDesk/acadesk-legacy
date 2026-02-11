@@ -108,12 +108,12 @@ async function RecentStudentsCardContent({ maxDisplay = 5 }: { maxDisplay?: numb
             </div>
             <p className="text-sm font-medium mb-1">학생이 없습니다</p>
             <p className="text-xs text-muted-foreground mb-4">첫 번째 학생을 등록해보세요</p>
-            <Link href="/students">
-              <Button size="sm" variant="outline">
+            <Button asChild size="sm" variant="outline">
+              <Link href="/students">
                 <UserPlus className="h-4 w-4 mr-2" />
                 학생 등록
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -187,23 +187,23 @@ async function RecentStudentsCardContent({ maxDisplay = 5 }: { maxDisplay?: numb
                   </Badge>
                 </div>
 
-                <Link href={`/students/${student.id}`}>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                <Button asChild variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                  <Link href={`/students/${student.id}`}>
                     <ArrowRight className="h-4 w-4" />
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               </div>
             )
           })}
         </div>
 
         <div className="mt-4 pt-4 border-t">
-          <Link href="/students">
-            <Button variant="outline" className="w-full" size="sm">
+          <Button asChild variant="outline" className="w-full" size="sm">
+            <Link href="/students">
               전체 학생 보기
               <ArrowRight className="h-4 w-4 ml-2" />
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
       </CardContent>
     </Card>

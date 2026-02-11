@@ -418,12 +418,12 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
             <h1 className={TEXT_STYLES.PAGE_TITLE}>시험 관리</h1>
             <p className={TEXT_STYLES.PAGE_DESCRIPTION}>시험을 등록하고 관리합니다</p>
           </div>
-          <Link href="/grades/exams/new">
-            <Button className="gap-2">
+          <Button asChild className="gap-2">
+            <Link href="/grades/exams/new">
               <Plus className="h-4 w-4" />
               시험 등록
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
       </section>
 
@@ -643,12 +643,12 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
               title="등록된 시험이 없습니다"
               description="새로운 시험을 등록하여 학생들의 성적을 관리하세요"
               action={
-                <Link href="/grades/exams/new">
-                  <Button>
+                <Button asChild>
+                  <Link href="/grades/exams/new">
                     <Plus className="h-4 w-4 mr-2" />
                     시험 등록
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               }
             />
           )

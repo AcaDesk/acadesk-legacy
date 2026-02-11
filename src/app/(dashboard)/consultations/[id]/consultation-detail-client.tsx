@@ -442,11 +442,11 @@ export function ConsultationDetailClient({
         >
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-4">
-              <Link href="/consultations">
-                <Button variant="ghost" size="icon">
+              <Button asChild variant="ghost" size="icon">
+                <Link href="/consultations">
                   <ArrowLeft className="h-4 w-4" />
-                </Button>
-              </Link>
+                </Link>
+              </Button>
               <div>
                 <h1 className={TEXT_STYLES.PAGE_TITLE}>{consultation.title}</h1>
                 <p className={TEXT_STYLES.PAGE_DESCRIPTION}>상담 상세 정보</p>
@@ -480,12 +480,12 @@ export function ConsultationDetailClient({
                   입회 완료
                 </Badge>
               )}
-              <Link href={`/consultations/${consultation.id}/edit`}>
-                <Button variant="outline" className="gap-2">
+              <Button asChild variant="outline" className="gap-2">
+                <Link href={`/consultations/${consultation.id}/edit`}>
                   <Edit className="h-4 w-4" />
                   수정
-                </Button>
-              </Link>
+                </Link>
+              </Button>
               <Button
                 variant="outline"
                 className="gap-2 text-red-600 hover:text-red-700"

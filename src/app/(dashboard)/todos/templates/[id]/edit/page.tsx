@@ -316,11 +316,11 @@ export default function EditTodoTemplatePage() {
 
         {/* Header with Back Button */}
         <div className="flex items-center gap-4">
-          <Link href="/todos/templates">
-            <Button variant="ghost" size="icon" className="shrink-0">
+          <Button asChild variant="ghost" size="icon" className="shrink-0">
+            <Link href="/todos/templates">
               <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
+            </Link>
+          </Button>
           <div>
             <h1 className="text-3xl font-bold tracking-tight">과제 템플릿 수정</h1>
             <p className="text-muted-foreground mt-1">

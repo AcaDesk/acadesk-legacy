@@ -298,12 +298,12 @@ export function HomeworksClient({ initialHomeworks }: HomeworksClientProps) {
                 }
                 action={
                   !searchTerm && (
-                    <Link href="/homeworks/new">
-                      <Button>
+                    <Button asChild>
+                      <Link href="/homeworks/new">
                         <Plus className="h-4 w-4 mr-2" />
                         숙제 출제
-                      </Button>
-                    </Link>
+                      </Link>
+                    </Button>
                   )
                 }
               />

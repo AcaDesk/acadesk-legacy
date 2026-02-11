@@ -57,12 +57,12 @@ export default async function SubmissionsPage() {
             title="제출 현황"
             description="학생별 숙제 제출 현황을 확인하고 채점합니다"
             action={
-              <Link href="/homeworks">
-                <Button variant="outline">
+              <Button asChild variant="outline">
+                <Link href="/homeworks">
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   목록으로
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             }
           />
         </section>
