@@ -421,6 +421,49 @@ export async function deleteExam(examId: string) {
 }
 
 /**
+ * Bulk delete exams (soft delete)
+ *
+ * @param ids - Array of exam IDs to delete
+ * @returns Success with deleted count or error
+ */
+export async function bulkDeleteExams(ids: string[]) {
+  try {
+    if (!ids.length) {
+      return { success: false, error: '삭제할 시험을 선택해주세요', data: null }
+    }
+
+    const { tenantId } = await verifyStaff()
+    const serviceClient = createServiceRoleClient()
+
+    const { data, error } = await serviceClient
+      .from('exams')
+      .update({ deleted_at: new Date().toISOString() })
+      .in('id', ids)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .select('id')
+
+    if (error) throw error
+
+    revalidatePath('/grades/exams')
+    revalidatePath('/grades')
+
+    return {
+      success: true,
+      data: { deletedCount: data?.length ?? 0 },
+      error: null,
+    }
+  } catch (error) {
+    console.error('[bulkDeleteExams] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
  * Get exam categories
  *
  * @returns List of exam categories or error
