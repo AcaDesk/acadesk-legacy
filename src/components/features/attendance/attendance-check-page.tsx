@@ -25,6 +25,7 @@ import { useToast } from '@/hooks/use-toast'
 import {
   getAttendanceRecordsByDate,
   saveAttendance,
+  cancelAttendance,
 } from '@/app/actions/attendance'
 import { UI_TO_DB_STATUS, type UIAttendanceStatus } from '@/core/types/attendance'
 import { getTodayKST } from '@/lib/utils'
@@ -331,58 +332,88 @@ export function AttendanceCheckPage({
     return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} (${days[d.getDay()]})`
   }
 
-  // 출석 상태 업데이트
+  // 출석 상태 업데이트 (토글: 같은 상태 다시 누르면 취소)
   const updateStatus = (student: StudentAttendance, status: UIAttendanceStatus) => {
-    const time = new Date().toISOString()
+    const isToggleOff = student.status === status
 
-    // Optimistic update
-    setStudents((prev) =>
-      prev.map((s) =>
-        s.studentId === student.studentId && s.classId === student.classId
-          ? {
-              ...s,
-              status,
-              arrivalTime:
-                (status === 'present' || status === 'late') && !s.arrivalTime
-                  ? new Date().toLocaleTimeString('ko-KR', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      hour12: false,
-                    })
-                  : s.arrivalTime,
-            }
-          : s
+    if (isToggleOff) {
+      // 토글 취소: status → null, arrivalTime 초기화
+      setStudents((prev) =>
+        prev.map((s) =>
+          s.studentId === student.studentId && s.classId === student.classId
+            ? { ...s, status: null, arrivalTime: undefined, isSelfStudy: false, isMakeupClass: false }
+            : s
+        )
       )
-    )
 
-    // Server update
-    startTransition(async () => {
-      const result = await saveAttendance({
-        classId: student.classId,
-        date: currentDate,
-        studentId: student.studentId,
-        status: UI_TO_DB_STATUS[status],
-        checkInAt: (status === 'present' || status === 'late') ? time : undefined,
-        isSelfStudy: student.isSelfStudy,
-        isMakeupClass: student.isMakeupClass,
-      })
-
-      if (!result.success) {
-        toast({
-          title: '저장 실패',
-          description: result.error
-            ? `${student.name} 학생 출석 저장에 실패했습니다. (${result.error})`
-            : `${student.name} 학생 출석 저장에 실패했습니다.`,
-          variant: 'destructive',
+      startTransition(async () => {
+        const result = await cancelAttendance({
+          date: currentDate,
+          studentId: student.studentId,
+          classId: student.classId,
         })
-        // Rollback: 현재 날짜 캐시 무효화 후 재조회
-        recordsCacheRef.current.delete(currentDate)
-        loadRecordsForDate(currentDate)
-      } else {
-        // 저장 성공 시 현재 날짜 캐시 무효화 (다음 조회 시 fresh data)
-        recordsCacheRef.current.delete(currentDate)
-      }
-    })
+
+        if (!result.success) {
+          toast({
+            title: '취소 실패',
+            description: `${student.name} 학생 출석 취소에 실패했습니다.`,
+            variant: 'destructive',
+          })
+          recordsCacheRef.current.delete(currentDate)
+          loadRecordsForDate(currentDate)
+        } else {
+          recordsCacheRef.current.delete(currentDate)
+        }
+      })
+    } else {
+      // 상태 변경 또는 새로 체크
+      const time = new Date().toISOString()
+
+      setStudents((prev) =>
+        prev.map((s) =>
+          s.studentId === student.studentId && s.classId === student.classId
+            ? {
+                ...s,
+                status,
+                arrivalTime:
+                  (status === 'present' || status === 'late') && !s.arrivalTime
+                    ? new Date().toLocaleTimeString('ko-KR', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false,
+                      })
+                    : s.arrivalTime,
+              }
+            : s
+        )
+      )
+
+      startTransition(async () => {
+        const result = await saveAttendance({
+          classId: student.classId,
+          date: currentDate,
+          studentId: student.studentId,
+          status: UI_TO_DB_STATUS[status],
+          checkInAt: (status === 'present' || status === 'late') ? time : undefined,
+          isSelfStudy: student.isSelfStudy,
+          isMakeupClass: student.isMakeupClass,
+        })
+
+        if (!result.success) {
+          toast({
+            title: '저장 실패',
+            description: result.error
+              ? `${student.name} 학생 출석 저장에 실패했습니다. (${result.error})`
+              : `${student.name} 학생 출석 저장에 실패했습니다.`,
+            variant: 'destructive',
+          })
+          recordsCacheRef.current.delete(currentDate)
+          loadRecordsForDate(currentDate)
+        } else {
+          recordsCacheRef.current.delete(currentDate)
+        }
+      })
+    }
   }
 
   // 자습 토글
