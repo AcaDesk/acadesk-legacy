@@ -25,6 +25,7 @@ import type {
   ActivityLog,
   DashboardStats,
   FinancialData,
+  WeeklyPerformanceData,
 } from "@/core/types/dashboard"
 
 export interface WidgetFactoryProps {
@@ -47,6 +48,7 @@ export interface WidgetFactoryProps {
   parentsToContact: ParentToContact[]
   calendarEvents: CalendarEvent[]
   activityLogs: ActivityLog[]
+  weeklyPerformance?: WeeklyPerformanceData
   isEditMode: boolean
 }
 
@@ -71,6 +73,7 @@ export function renderWidgetContent({
   parentsToContact,
   calendarEvents,
   activityLogs,
+  weeklyPerformance,
   isEditMode,
 }: WidgetFactoryProps): React.ReactNode {
   switch (widgetId) {
@@ -233,7 +236,7 @@ export function renderWidgetContent({
       )
 
     case 'weekly-performance':
-      return <WeeklyPerformance />
+      return <WeeklyPerformance data={weeklyPerformance} />
 
     case 'calendar':
       return <CalendarWidget events={calendarEvents || []} />

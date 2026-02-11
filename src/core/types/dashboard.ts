@@ -242,6 +242,12 @@ export interface ActivityLog {
   } | null
 }
 
+export interface WeeklyPerformanceData {
+  attendance: number[]  // 7일간 출석률 (%)
+  todos: number[]       // 7일간 완료 TODO 수
+  reports: number[]     // 7일간 리포트 수 (placeholder)
+}
+
 export interface DashboardData {
   stats: DashboardStats
   recentStudents: RecentStudent[]
@@ -257,6 +263,7 @@ export interface DashboardData {
   parentsToContact: ParentToContact[]
   calendarEvents: CalendarEvent[]
   activityLogs: ActivityLog[]
+  weeklyPerformance?: WeeklyPerformanceData
 }
 
 // ============================================================================
