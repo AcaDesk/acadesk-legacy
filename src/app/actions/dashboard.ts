@@ -14,7 +14,7 @@
 import { verifyStaffPermission } from '@/lib/auth/service-role-helpers'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getTodayKST } from '@/lib/utils'
-import type { DashboardData } from '@/core/types/dashboard'
+import type { DashboardData, WeeklyPerformanceData } from '@/core/types/dashboard'
 
 // ============================================================================
 // Types
@@ -63,6 +63,13 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
 
     const today = getTodayKST()
 
+    // Date calculations for calendar and weekly queries
+    const [todayYear, todayMonth] = today.split('-').map(Number)
+    const currentMonthStart = `${todayYear}-${String(todayMonth).padStart(2, '0')}-01`
+    const nextMonth = todayMonth === 12 ? 1 : todayMonth + 1
+    const nextYear = todayMonth === 12 ? todayYear + 1 : todayYear
+    const nextMonthStart = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`
+
     // 3. Fetch all dashboard data in parallel
     const [
       statsResult,
@@ -76,6 +83,8 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
       parentsToContactResult,
       calendarEventsResult,
       activityLogsResult,
+      weeklyPerformanceResult,
+      classEnrollmentsResult,
     ] = await Promise.allSettled([
       // Stats
       fetchStats(supabase, tenantId, today),
@@ -134,8 +143,15 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
       // Parents to contact (placeholder)
       Promise.resolve({ data: [] }),
 
-      // Calendar events (placeholder)
-      Promise.resolve({ data: [] }),
+      // Calendar events (this month)
+      supabase
+        .from('calendar_events')
+        .select('id, title, event_type, start_at, end_at')
+        .eq('tenant_id', tenantId)
+        .gte('start_at', currentMonthStart)
+        .lt('start_at', nextMonthStart)
+        .is('deleted_at', null)
+        .order('start_at', { ascending: true }),
 
       // Activity logs
       supabase
@@ -144,6 +160,17 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
         .eq('students.tenant_id', tenantId)
         .order('created_at', { ascending: false })
         .limit(20),
+
+      // Weekly performance data (7-day attendance + todo completions)
+      fetchWeeklyPerformance(supabase, tenantId, today),
+
+      // Class enrollments (active enrollment counts per class)
+      supabase
+        .from('class_enrollments')
+        .select('class_id')
+        .eq('tenant_id', tenantId)
+        .eq('status', 'active')
+        .is('deleted_at', null),
     ])
 
     // 4. Process results
@@ -213,19 +240,31 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
       ? financialDataResult.value.data
       : undefined
 
+    // Process class enrollments for counts
+    const enrollmentCountsByClass = new Map<string, number>()
+    if (classEnrollmentsResult.status === 'fulfilled' && classEnrollmentsResult.value.data) {
+      for (const enrollment of classEnrollmentsResult.value.data as any[]) {
+        const classId = enrollment.class_id
+        enrollmentCountsByClass.set(classId, (enrollmentCountsByClass.get(classId) || 0) + 1)
+      }
+    }
+
     const classStatus = classStatusResult.status === 'fulfilled' && classStatusResult.value.data
-      ? classStatusResult.value.data.map((c: any) => ({
-          id: c.id,
-          class_name: c.name,
-          name: c.name,
-          enrolled: 0, // TODO: Count from enrollments
-          capacity: c.capacity || 0,
-          student_count: c.capacity || 0,
-          active_students: 0, // TODO: Count from enrollments
-          status: 'active' as const,
-          instructor: c.users?.name || 'Unknown',
-          schedule: '', // TODO: Get from schedule
-        }))
+      ? classStatusResult.value.data.map((c: any) => {
+          const enrolledCount = enrollmentCountsByClass.get(c.id) || 0
+          return {
+            id: c.id,
+            class_name: c.name,
+            name: c.name,
+            enrolled: enrolledCount,
+            capacity: c.capacity || 0,
+            student_count: enrolledCount,
+            active_students: enrolledCount,
+            status: 'active' as const,
+            instructor: c.users?.name || 'Unknown',
+            schedule: '',
+          }
+        })
       : []
 
     const parentsToContact = parentsToContactResult.status === 'fulfilled' && parentsToContactResult.value.data
@@ -233,7 +272,14 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
       : []
 
     const calendarEvents = calendarEventsResult.status === 'fulfilled' && calendarEventsResult.value.data
-      ? calendarEventsResult.value.data
+      ? calendarEventsResult.value.data.map((e: any) => ({
+          id: e.id,
+          title: e.title,
+          date: e.start_at,
+          type: e.event_type || 'event',
+          start_date: e.start_at,
+          event_type: e.event_type || 'event',
+        }))
       : []
 
     const activityLogs = activityLogsResult.status === 'fulfilled' && activityLogsResult.value.data
@@ -250,6 +296,10 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
         }))
       : []
 
+    const weeklyPerformance = weeklyPerformanceResult.status === 'fulfilled'
+      ? weeklyPerformanceResult.value
+      : undefined
+
     // 5. Return aggregated data
     const dashboardData: DashboardData = {
       stats,
@@ -263,6 +313,7 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
       parentsToContact,
       calendarEvents,
       activityLogs,
+      weeklyPerformance,
     }
 
     console.log('[getDashboardData] Request completed:', {
@@ -386,6 +437,91 @@ async function fetchStudentAlerts(supabase: any, tenantId: string, today: string
       longAbsence: [],
       pendingAssignments: [],
     }
+  }
+}
+
+async function fetchWeeklyPerformance(
+  supabase: any,
+  tenantId: string,
+  today: string
+): Promise<WeeklyPerformanceData> {
+  try {
+    // Calculate this week's Monday (KST)
+    const todayDate = new Date(today + 'T00:00:00+09:00')
+    const dayOfWeek = todayDate.getDay() // 0=Sun, 1=Mon, ...
+    const adjustedDay = dayOfWeek === 0 ? 6 : dayOfWeek - 1 // 0=Mon, ..., 6=Sun
+
+    const weekStartDate = new Date(todayDate)
+    weekStartDate.setDate(weekStartDate.getDate() - adjustedDay)
+
+    // Generate all 7 dates (Mon-Sun)
+    const weekDates: string[] = []
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(weekStartDate)
+      d.setDate(d.getDate() + i)
+      weekDates.push(d.toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' }))
+    }
+
+    const weekStart = weekDates[0]
+    const weekEnd = weekDates[6]
+
+    const [attendanceResult, todosResult] = await Promise.all([
+      supabase
+        .from('attendance_records')
+        .select('attendance_date, status')
+        .eq('tenant_id', tenantId)
+        .gte('attendance_date', weekStart)
+        .lte('attendance_date', weekEnd),
+      supabase
+        .from('student_todos')
+        .select('completed_at')
+        .eq('tenant_id', tenantId)
+        .not('completed_at', 'is', null)
+        .gte('completed_at', weekStart + 'T00:00:00+09:00')
+        .lte('completed_at', weekEnd + 'T23:59:59+09:00'),
+    ])
+
+    // Group attendance by date
+    const attendanceByDate = new Map<string, { present: number; total: number }>()
+    if (attendanceResult.data) {
+      for (const record of attendanceResult.data as any[]) {
+        const date = record.attendance_date
+        if (!attendanceByDate.has(date)) {
+          attendanceByDate.set(date, { present: 0, total: 0 })
+        }
+        const entry = attendanceByDate.get(date)!
+        entry.total++
+        if (record.status === 'present' || record.status === 'late') {
+          entry.present++
+        }
+      }
+    }
+
+    // Group todo completions by date (KST)
+    const todosByDate = new Map<string, number>()
+    if (todosResult.data) {
+      for (const todo of todosResult.data as any[]) {
+        const date = new Date(todo.completed_at).toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' })
+        todosByDate.set(date, (todosByDate.get(date) || 0) + 1)
+      }
+    }
+
+    // Build arrays indexed by weekday (Mon=0, ..., Sun=6)
+    const attendance: number[] = []
+    const todos: number[] = []
+    const reports: number[] = [] // placeholder - no reports table yet
+
+    for (const date of weekDates) {
+      const att = attendanceByDate.get(date)
+      attendance.push(att && att.total > 0 ? Math.round((att.present / att.total) * 100) : 0)
+      todos.push(todosByDate.get(date) || 0)
+      reports.push(0)
+    }
+
+    return { attendance, todos, reports }
+  } catch (error) {
+    console.error('[fetchWeeklyPerformance] Error:', error)
+    return { attendance: [0, 0, 0, 0, 0, 0, 0], todos: [0, 0, 0, 0, 0, 0, 0], reports: [0, 0, 0, 0, 0, 0, 0] }
   }
 }
 

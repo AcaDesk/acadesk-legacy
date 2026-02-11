@@ -32,7 +32,7 @@ import {
 export function DashboardClient({ data: initialData }: { data: DashboardData }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const { stats, recentStudents, todaySessions, birthdayStudents, scheduledConsultations, studentAlerts, financialData, classStatus, parentsToContact, calendarEvents, activityLogs } = initialData
+  const { stats, recentStudents, todaySessions, birthdayStudents, scheduledConsultations, studentAlerts, financialData, classStatus, parentsToContact, calendarEvents, activityLogs, weeklyPerformance } = initialData
 
   const [widgets, setWidgets] = useState<DashboardWidget[]>(DEFAULT_WIDGETS)
   const [isLoading, setIsLoading] = useState(true)
@@ -269,6 +269,7 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
       parentsToContact: parentsToContact || [],
       calendarEvents: calendarEvents || [],
       activityLogs: activityLogs || [],
+      weeklyPerformance,
       isEditMode,
     })
 
@@ -316,6 +317,7 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
     parentsToContact,
     calendarEvents,
     activityLogs,
+    weeklyPerformance,
     handleToggleWidget
   ])
 
