@@ -29,7 +29,7 @@ export default async function ExamsPage() {
 
   // Fetch data
   const [examsResult, categoriesResult] = await Promise.all([
-    getExams(),
+    getExams({ includeArchived: true, period: 'all' }),
     getExamCategories(),
   ])
 

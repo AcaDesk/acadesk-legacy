@@ -30,6 +30,58 @@ const examSchema = z.object({
   recurring_schedule: z.string().nullable().optional(),
 })
 
+type ExamListPeriod = 'this_month' | 'last_15_days' | 'last_3_months' | 'all'
+
+function getDateRangeByPeriod(period: ExamListPeriod) {
+  const today = new Date()
+  const to = today.toISOString().slice(0, 10)
+
+  if (period === 'all') {
+    return { from: null as string | null, to: null as string | null }
+  }
+
+  if (period === 'this_month') {
+    const from = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`
+    return { from, to }
+  }
+
+  const fromDate = new Date(today)
+  if (period === 'last_15_days') {
+    fromDate.setDate(fromDate.getDate() - 15)
+  } else {
+    fromDate.setMonth(fromDate.getMonth() - 3)
+  }
+
+  return { from: fromDate.toISOString().slice(0, 10), to }
+}
+
+async function autoArchiveOldCompletedExams(params: {
+  tenantId: string
+  serviceClient: ReturnType<typeof createServiceRoleClient>
+}) {
+  const { tenantId, serviceClient } = params
+  const threshold = new Date()
+  threshold.setDate(threshold.getDate() - 15)
+  const thresholdDate = threshold.toISOString().slice(0, 10)
+
+  const { error } = await serviceClient
+    .from('exams')
+    .update({
+      archived_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('tenant_id', tenantId)
+    .eq('status', 'completed')
+    .is('deleted_at', null)
+    .is('archived_at', null)
+    .not('exam_date', 'is', null)
+    .lte('exam_date', thresholdDate)
+
+  if (error) {
+    console.error('[autoArchiveOldCompletedExams] Error:', error)
+  }
+}
+
 // ============================================================================
 // Server Actions
 // ============================================================================
@@ -45,6 +97,8 @@ export async function getExams(filters?: {
   categoryCode?: string
   dateFrom?: string
   dateTo?: string
+  includeArchived?: boolean
+  period?: ExamListPeriod
 }) {
   try {
     // 1. Verify authentication and get tenant
@@ -52,6 +106,7 @@ export async function getExams(filters?: {
 
     // 2. Create service_role client
     const serviceClient = createServiceRoleClient()
+    await autoArchiveOldCompletedExams({ tenantId, serviceClient })
 
     // 3. Build query
     let query = serviceClient
@@ -66,7 +121,14 @@ export async function getExams(filters?: {
         total_questions,
         passing_score,
         description,
+        status,
+        archived_at,
         created_at,
+        subjects (
+          id,
+          name,
+          color
+        ),
         classes (
           id,
           name
@@ -75,6 +137,10 @@ export async function getExams(filters?: {
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
       .order('exam_date', { ascending: false })
+
+    if (!filters?.includeArchived) {
+      query = query.is('archived_at', null)
+    }
 
     // 4. Apply filters
     if (filters?.classId && filters.classId !== 'all') {
@@ -85,12 +151,17 @@ export async function getExams(filters?: {
       query = query.eq('category_code', filters.categoryCode)
     }
 
-    if (filters?.dateFrom) {
-      query = query.gte('exam_date', filters.dateFrom)
+    const period = filters?.period ?? 'all'
+    const periodRange = getDateRangeByPeriod(period)
+    const finalDateFrom = filters?.dateFrom || periodRange.from
+    const finalDateTo = filters?.dateTo || periodRange.to
+
+    if (finalDateFrom) {
+      query = query.gte('exam_date', finalDateFrom)
     }
 
-    if (filters?.dateTo) {
-      query = query.lte('exam_date', filters.dateTo)
+    if (finalDateTo) {
+      query = query.lte('exam_date', finalDateTo)
     }
 
     // 5. Execute query
@@ -307,7 +378,7 @@ export async function updateExam(
     }
 
     // 4. Prepare update data (convert empty strings to null)
-    const updateData: Record<string, any> = {
+    const updateData: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     }
 
@@ -574,7 +645,7 @@ export async function completeExamGrading(examId: string) {
 
     const { error: updateError } = await serviceClient
       .from('exams')
-      .update({ status: 'completed', updated_at: new Date().toISOString() })
+      .update({ status: 'completed', archived_at: null, updated_at: new Date().toISOString() })
       .eq('id', examId)
 
     if (updateError) throw updateError
@@ -617,7 +688,7 @@ export async function reopenExamGrading(examId: string) {
 
     const { error: updateError } = await serviceClient
       .from('exams')
-      .update({ status: 'scheduled', updated_at: new Date().toISOString() })
+      .update({ status: 'scheduled', archived_at: null, updated_at: new Date().toISOString() })
       .eq('id', examId)
 
     if (updateError) throw updateError
@@ -629,6 +700,80 @@ export async function reopenExamGrading(examId: string) {
     return { success: true, error: null }
   } catch (error) {
     console.error('[reopenExamGrading] Error:', error)
+    return { success: false, error: getErrorMessage(error) }
+  }
+}
+
+export async function archiveExam(examId: string) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const serviceClient = createServiceRoleClient()
+
+    const { data: exam, error: fetchError } = await serviceClient
+      .from('exams')
+      .select('id, tenant_id')
+      .eq('id', examId)
+      .maybeSingle()
+
+    if (fetchError || !exam) {
+      return { success: false, error: '시험을 찾을 수 없습니다' }
+    }
+
+    if (exam.tenant_id !== tenantId) {
+      return { success: false, error: '권한이 없습니다' }
+    }
+
+    const { error } = await serviceClient
+      .from('exams')
+      .update({ archived_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq('id', examId)
+
+    if (error) throw error
+
+    revalidatePath('/grades')
+    revalidatePath('/grades/entry')
+    revalidatePath('/grades/exams')
+
+    return { success: true, error: null }
+  } catch (error) {
+    console.error('[archiveExam] Error:', error)
+    return { success: false, error: getErrorMessage(error) }
+  }
+}
+
+export async function unarchiveExam(examId: string) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const serviceClient = createServiceRoleClient()
+
+    const { data: exam, error: fetchError } = await serviceClient
+      .from('exams')
+      .select('id, tenant_id')
+      .eq('id', examId)
+      .maybeSingle()
+
+    if (fetchError || !exam) {
+      return { success: false, error: '시험을 찾을 수 없습니다' }
+    }
+
+    if (exam.tenant_id !== tenantId) {
+      return { success: false, error: '권한이 없습니다' }
+    }
+
+    const { error } = await serviceClient
+      .from('exams')
+      .update({ archived_at: null, updated_at: new Date().toISOString() })
+      .eq('id', examId)
+
+    if (error) throw error
+
+    revalidatePath('/grades')
+    revalidatePath('/grades/entry')
+    revalidatePath('/grades/exams')
+
+    return { success: true, error: null }
+  } catch (error) {
+    console.error('[unarchiveExam] Error:', error)
     return { success: false, error: getErrorMessage(error) }
   }
 }

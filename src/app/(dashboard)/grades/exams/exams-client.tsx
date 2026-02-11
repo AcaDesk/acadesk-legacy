@@ -39,10 +39,10 @@ import {
 } from '@tabler/icons-react'
 import { useToast } from '@/hooks/use-toast'
 import { usePagination } from '@/hooks/use-pagination'
-import { deleteExam, bulkDeleteExams } from '@/app/actions/exams'
+import { deleteExam, bulkDeleteExams, archiveExam, unarchiveExam } from '@/app/actions/exams'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import { EmptyState, NoSearchResultsEmptyState } from '@ui/empty-state'
-import { PAGE_LAYOUT, GRID_LAYOUTS, TEXT_STYLES } from '@/lib/constants'
+import { PAGE_LAYOUT, TEXT_STYLES } from '@/lib/constants'
 import { PAGE_ANIMATIONS } from '@/lib/animation-config'
 import { cn } from '@/lib/utils'
 
@@ -54,6 +54,8 @@ interface Exam {
   exam_date: string | null
   total_questions: number | null
   description: string | null
+  status: string | null
+  archived_at: string | null
   created_at: string
   _count?: {
     exam_scores: number
@@ -65,6 +67,15 @@ interface Exam {
     id: string
     name: string
   }[] | null
+  subjects?: {
+    id: string
+    name: string
+    color: string | null
+  } | {
+    id: string
+    name: string
+    color: string | null
+  }[] | null
 }
 
 interface ExamCategory {
@@ -75,6 +86,25 @@ interface ExamCategory {
 interface ExamsClientProps {
   initialExams: Exam[]
   categories: ExamCategory[]
+}
+
+type ExamListPeriod = 'this_month' | 'last_15_days' | 'last_3_months' | 'all'
+type VisibilityFilter = 'active' | 'archived' | 'all'
+
+function getPeriodStartDate(period: ExamListPeriod): Date | null {
+  const today = new Date()
+  if (period === 'all') return null
+  if (period === 'this_month') {
+    return new Date(today.getFullYear(), today.getMonth(), 1)
+  }
+  if (period === 'last_15_days') {
+    const d = new Date(today)
+    d.setDate(d.getDate() - 15)
+    return d
+  }
+  const d = new Date(today)
+  d.setMonth(d.getMonth() - 3)
+  return d
 }
 
 const EXAM_TYPE_MAP: Record<string, string> = {
@@ -108,6 +138,8 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [selectedType, setSelectedType] = useState<string>('all')
+  const [selectedPeriod, setSelectedPeriod] = useState<ExamListPeriod>('this_month')
+  const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>('active')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [examToDelete, setExamToDelete] = useState<{ id: string; name: string } | null>(null)
@@ -139,8 +171,22 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
       filtered = filtered.filter((exam) => exam.exam_type === selectedType)
     }
 
+    if (visibilityFilter === 'active') {
+      filtered = filtered.filter((exam) => !exam.archived_at)
+    } else if (visibilityFilter === 'archived') {
+      filtered = filtered.filter((exam) => !!exam.archived_at)
+    }
+
+    const startDate = getPeriodStartDate(selectedPeriod)
+    if (startDate) {
+      filtered = filtered.filter((exam) => {
+        if (!exam.exam_date) return false
+        return new Date(exam.exam_date) >= startDate
+      })
+    }
+
     return filtered
-  }, [exams, searchTerm, selectedCategory, selectedType])
+  }, [exams, searchTerm, selectedCategory, selectedType, selectedPeriod, visibilityFilter])
 
   const {
     currentPage,
@@ -156,9 +202,13 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
   // Reset page when filters change
   useEffect(() => {
     resetPage()
-  }, [searchTerm, selectedCategory, selectedType, resetPage])
+  }, [searchTerm, selectedCategory, selectedType, selectedPeriod, visibilityFilter, resetPage])
 
-  const activeFilterCount = (selectedCategory !== 'all' ? 1 : 0) + (selectedType !== 'all' ? 1 : 0)
+  const activeFilterCount =
+    (selectedCategory !== 'all' ? 1 : 0) +
+    (selectedType !== 'all' ? 1 : 0) +
+    (selectedPeriod !== 'this_month' ? 1 : 0) +
+    (visibilityFilter !== 'active' ? 1 : 0)
 
   const thisMonthExamCount = useMemo(() => {
     const now = new Date()
@@ -172,6 +222,8 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
   const totalParticipants = useMemo(() => {
     return exams.reduce((sum, exam) => sum + (exam._count?.exam_scores || 0), 0)
   }, [exams])
+
+  const archivedCount = useMemo(() => exams.filter((exam) => !!exam.archived_at).length, [exams])
 
   // Selection handlers
   const isAllSelected = paginatedData.length > 0 && paginatedData.every(e => selectedIds.has(e.id))
@@ -280,6 +332,40 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
     }
   }, [selectedIds, exams, router, toast])
 
+  async function handleArchiveToggle(exam: Exam) {
+    const previousExams = exams
+    const isArchived = !!exam.archived_at
+
+    setExams((prev) =>
+      prev.map((e) =>
+        e.id === exam.id
+          ? { ...e, archived_at: isArchived ? null : new Date().toISOString() }
+          : e
+      )
+    )
+
+    try {
+      const result = isArchived ? await unarchiveExam(exam.id) : await archiveExam(exam.id)
+      if (!result.success) {
+        throw new Error(result.error || '상태 변경 실패')
+      }
+      toast({
+        title: isArchived ? '시험 복구 완료' : '시험 아카이브 완료',
+        description: isArchived
+          ? `"${exam.name}" 시험이 다시 기본 목록에 표시됩니다.`
+          : `"${exam.name}" 시험이 기본 목록에서 숨김 처리되었습니다.`,
+      })
+      router.refresh()
+    } catch (error) {
+      setExams(previousExams)
+      toast({
+        title: '처리 오류',
+        description: error instanceof Error ? error.message : '상태 변경 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      })
+    }
+  }
+
   function getCategoryLabel(code: string | null) {
     if (!code) return '-'
     const category = categories.find((c) => c.code === code)
@@ -321,7 +407,7 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
 
       {/* Stats Cards */}
       <section
-        className={cn(GRID_LAYOUTS.STATS, PAGE_ANIMATIONS.getSection(0).className)}
+        className={cn("grid gap-4 md:grid-cols-4", PAGE_ANIMATIONS.getSection(0).className)}
         style={PAGE_ANIMATIONS.getSection(0).style}
       >
         <Card>
@@ -354,6 +440,17 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
             </div>
             <div className="text-2xl font-bold text-green-600 mt-2">{totalParticipants}명</div>
             <p className="text-xs text-muted-foreground mt-1">전체 시험 응시자 수</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <ClipboardList className="h-4 w-4" />
+              아카이브 시험
+            </div>
+            <div className="text-2xl font-bold mt-2">{archivedCount}개</div>
+            <p className="text-xs text-muted-foreground mt-1">기본 목록에서 숨김된 시험</p>
           </CardContent>
         </Card>
       </section>
@@ -421,6 +518,29 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
             </SelectContent>
           </Select>
 
+          <Select value={selectedPeriod} onValueChange={(v) => setSelectedPeriod(v as ExamListPeriod)}>
+            <SelectTrigger className="w-[170px]">
+              <SelectValue placeholder="기간" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="this_month">이번 달</SelectItem>
+              <SelectItem value="last_15_days">최근 15일</SelectItem>
+              <SelectItem value="last_3_months">최근 3개월</SelectItem>
+              <SelectItem value="all">전체 기간</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={visibilityFilter} onValueChange={(v) => setVisibilityFilter(v as VisibilityFilter)}>
+            <SelectTrigger className="w-[170px]">
+              <SelectValue placeholder="표시 범위" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active">기본 목록</SelectItem>
+              <SelectItem value="archived">아카이브만</SelectItem>
+              <SelectItem value="all">전체 보기</SelectItem>
+            </SelectContent>
+          </Select>
+
           {activeFilterCount > 0 && (
             <Button
               variant="ghost"
@@ -428,6 +548,8 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
               onClick={() => {
                 setSelectedType('all')
                 setSelectedCategory('all')
+                setSelectedPeriod('this_month')
+                setVisibilityFilter('active')
               }}
               className="text-muted-foreground"
             >
@@ -507,6 +629,7 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
                       />
                     </TableHead>
                     <TableHead>시험명</TableHead>
+                    <TableHead>과목</TableHead>
                     <TableHead>시험 유형</TableHead>
                     <TableHead>분류</TableHead>
                     <TableHead>시험일</TableHead>
@@ -535,6 +658,28 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
                         >
                           {exam.name}
                         </Link>
+                        {exam.archived_at && (
+                          <Badge variant="secondary" className="ml-2">아카이브</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {(() => {
+                          const subject = Array.isArray(exam.subjects)
+                            ? exam.subjects[0]
+                            : exam.subjects
+                          if (!subject) {
+                            return <span className="text-xs text-muted-foreground">-</span>
+                          }
+                          return (
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-3 h-3 rounded"
+                                style={{ backgroundColor: subject.color || '#9ca3af' }}
+                              />
+                              <span className="text-sm">{subject.name}</span>
+                            </div>
+                          )
+                        })()}
                       </TableCell>
                       <TableCell>
                         <Badge variant={getExamTypeBadgeVariant(exam.exam_type)}>
@@ -577,6 +722,10 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
                             <DropdownMenuItem onClick={() => router.push(`/grades/exams/${exam.id}/edit`)}>
                               <Edit className="h-4 w-4 mr-2" />
                               시험 수정
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleArchiveToggle(exam)}>
+                              <ClipboardList className="h-4 w-4 mr-2" />
+                              {exam.archived_at ? '시험 복구' : '시험 아카이브'}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
