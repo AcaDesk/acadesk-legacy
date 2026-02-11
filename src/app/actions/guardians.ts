@@ -37,6 +37,10 @@ const updateGuardianSchema = z.object({
   address: z.string().nullable().optional(),
 })
 
+const updateGuardianWithStudentsSchema = updateGuardianSchema.extend({
+  student_ids: z.array(z.string().uuid()).optional(),
+})
+
 // ============================================================================
 // Server Actions
 // ============================================================================
@@ -270,17 +274,27 @@ export async function getGuardiansWithDetails() {
     const { tenantId } = await verifyStaff()
     const supabase = createServiceRoleClient()
 
-    // 1. 모든 보호자 조회 (users 정보 포함)
+    // 단일 쿼리로 보호자 + 사용자 + 학생 연결 정보 조회 (N+1 제거)
     const { data: guardians, error: guardiansError } = await supabase
       .from('guardians')
       .select(`
         id,
-        user_id,
         relationship,
         users (
           name,
           email,
           phone
+        ),
+        student_guardians (
+          relation,
+          is_primary,
+          students (
+            id,
+            student_code,
+            users (
+              name
+            )
+          )
         )
       `)
       .eq('tenant_id', tenantId)
@@ -289,53 +303,34 @@ export async function getGuardiansWithDetails() {
 
     if (guardiansError) throw guardiansError
 
-    // 2. 각 보호자에 대해 연결된 학생 정보 조회
-    const guardiansWithDetails = await Promise.all(
-      (guardians || []).map(async (guardian) => {
-        const { data: studentLinks, error: studentsError } = await supabase
-          .from('student_guardians')
-          .select(`
-            relation,
-            is_primary,
-            students (
-              id,
-              student_code,
-              users (
-                name
-              )
-            )
-          `)
-          .eq('guardian_id', guardian.id)
-          .eq('tenant_id', tenantId)
+    // TODO(any): Supabase nested query types need proper typing
+    const guardiansWithDetails = (guardians || []).map((guardian: any) => {
+      const usersData = Array.isArray(guardian.users) ? guardian.users[0] : guardian.users
 
-        if (studentsError) {
-          console.error('[getGuardiansWithDetails] Error loading students:', studentsError)
-        }
-
-        const typedUsers = guardian.users as unknown as { name: string; email: string | null; phone: string | null } | null
-        const students = (studentLinks || []).map((link) => {
-          const typedStudent = link.students as unknown as { id: string; student_code: string; users: { name: string } | null } | null
-          return {
-            id: typedStudent?.id || '',
-            studentCode: typedStudent?.student_code || '',
-            name: typedStudent?.users?.name || '',
-            relation: link.relation || '',
-            isPrimary: link.is_primary || false,
-          }
-        })
-
+      const students = (guardian.student_guardians || []).map((link: any) => {
+        const student = Array.isArray(link.students) ? link.students[0] : link.students
+        const studentUsers = student?.users
+        const studentUserName = Array.isArray(studentUsers) ? studentUsers[0]?.name : studentUsers?.name
         return {
-          guardian: {
-            id: guardian.id,
-            relationship: guardian.relationship,
-          },
-          userName: typedUsers?.name || null,
-          userEmail: typedUsers?.email || null,
-          userPhone: typedUsers?.phone || null,
-          students,
+          id: student?.id || '',
+          studentCode: student?.student_code || '',
+          name: studentUserName || '',
+          relation: link.relation || '',
+          isPrimary: link.is_primary || false,
         }
       })
-    )
+
+      return {
+        guardian: {
+          id: guardian.id,
+          relationship: guardian.relationship,
+        },
+        userName: usersData?.name || null,
+        userEmail: usersData?.email || null,
+        userPhone: usersData?.phone || null,
+        students,
+      }
+    })
 
     return { success: true, data: guardiansWithDetails, error: null }
   } catch (error) {
