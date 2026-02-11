@@ -27,7 +27,6 @@ import {
   BookMarked,
   HandCoins,
   FileBarChart,
-  HelpCircle,
   User,
   BookText,
   ClipboardList,
@@ -134,7 +133,6 @@ const navigationGroups: NavGroup[] = [
     items: [
       { name: "내 프로필", href: "/profile", icon: User },
       { name: "설정", href: "/settings", icon: Settings },
-      { name: "도움말", href: "/help/guide", icon: HelpCircle },
     ]
   }
 ]
