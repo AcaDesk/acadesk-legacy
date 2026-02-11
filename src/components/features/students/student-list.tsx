@@ -33,6 +33,7 @@ export function StudentList() {
 
   const { toast } = useToast()
   const requestSeqRef = useRef(0)
+  const isInitializedRef = useRef(false)
 
   // Load filter options and initial students in parallel on mount
   useEffect(() => {
@@ -74,6 +75,7 @@ export function StudentList() {
         })
       } finally {
         if (requestSeq === requestSeqRef.current) {
+          isInitializedRef.current = true
           setLoading(false)
         }
       }
@@ -145,14 +147,10 @@ export function StudentList() {
   }, [selectedGrade, selectedClass, selectedSchool, selectedCommuteMethod, selectedMarketingSource, enrollmentDateFrom, enrollmentDateTo, toast])
 
   // Load students when filters change (skip initial load)
-  const [isInitialLoad, setIsInitialLoad] = useState(true)
   useEffect(() => {
-    if (isInitialLoad) {
-      setIsInitialLoad(false)
-      return
-    }
+    if (!isInitializedRef.current) return
     loadStudents()
-  }, [loadStudents, isInitialLoad])
+  }, [loadStudents])
 
   async function handleDelete(studentId: string, studentName: string) {
     try {
