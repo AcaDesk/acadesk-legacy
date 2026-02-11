@@ -1,0 +1,62 @@
+version: 2
+
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      timezone: "Asia/Seoul"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "AcaDesk/maintainers"
+    labels:
+      - "dependencies"
+    groups:
+      # 마이너/패치 업데이트는 하나의 PR로 묶기
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+      # Next.js 관련 패키지 그룹
+      nextjs:
+        patterns:
+          - "next"
+          - "next-*"
+          - "@next/*"
+          - "eslint-config-next"
+      # React 관련 패키지 그룹
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
+      # Supabase 관련 패키지 그룹
+      supabase:
+        patterns:
+          - "@supabase/*"
+      # 테스트 관련 패키지 그룹
+      testing:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
+          - "@testing-library/*"
+          - "@playwright/*"
+          - "playwright"
+      # lint/타입 관련 패키지 그룹
+      linting:
+        patterns:
+          - "eslint"
+          - "eslint-*"
+          - "@eslint/*"
+          - "@typescript-eslint/*"
+          - "typescript"
+      # shadcn/ui 관련 패키지 그룹
+      radix:
+        patterns:
+          - "@radix-ui/*"
+      # TanStack 관련 패키지 그룹
+      tanstack:
+        patterns:
+          - "@tanstack/*"
