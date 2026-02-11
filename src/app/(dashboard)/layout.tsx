@@ -113,12 +113,39 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
   //   redirect('/auth/bootstrap')
   // }
 
+  let tenantName: string | undefined
+  const { data: tenantData, error: tenantError } = await admin
+    .from('tenants')
+    .select('name')
+    .eq('id', userData.tenant_id)
+    .maybeSingle()
+
+  if (tenantError) {
+    console.warn('[DashboardLayout] Failed to fetch tenant name:', {
+      error: tenantError,
+      tenantId: userData.tenant_id,
+      userId: user.id,
+    })
+  } else {
+    tenantName = tenantData?.name || undefined
+  }
+
+  const userMetadata = user.user_metadata as Record<string, unknown> | undefined
+  const avatarFromMetadata =
+    typeof userMetadata?.avatar_url === 'string'
+      ? userMetadata.avatar_url
+      : typeof userMetadata?.picture === 'string'
+        ? userMetadata.picture
+        : undefined
+
   // 6. 모든 체크 완료 - UI 셸로 전달
   return (
     <DashboardShell
       userName={userData.name || undefined}
       userEmail={userData.email || user.email || undefined}
       userRole={userData.role_code || undefined}
+      userTenantName={tenantName}
+      userAvatarUrl={avatarFromMetadata}
     >
       {children}
     </DashboardShell>

@@ -3,7 +3,19 @@
 import { useState, memo, useEffect } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
-import { ChevronLeft, ChevronRight, User, Settings, LogOut, Menu, Loader2 } from "lucide-react"
+import {
+  ChevronLeft,
+  ChevronRight,
+  User,
+  Settings,
+  LogOut,
+  Menu,
+  Loader2,
+  Sun,
+  Moon,
+  Monitor,
+} from "lucide-react"
+import { useTheme } from "next-themes"
 import { AppNav } from "@/components/layout/app-nav"
 import { Breadcrumbs } from "@/components/layout/breadcrumbs"
 import { HelpMenu } from "@/components/layout/help-menu"
@@ -25,6 +37,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@ui/sheet"
+import { Avatar, AvatarFallback, AvatarImage } from "@ui/avatar"
+import { ConfirmationDialog } from "@ui/confirmation-dialog"
 import { useMediaQuery } from "@/hooks/use-media-query"
 
 interface DashboardShellProps {
@@ -32,6 +46,8 @@ interface DashboardShellProps {
   userName?: string
   userEmail?: string
   userRole?: string
+  userTenantName?: string
+  userAvatarUrl?: string
 }
 
 /**
@@ -97,6 +113,8 @@ const Header = memo(function Header({
   userName,
   userEmail,
   userRole,
+  userTenantName,
+  userAvatarUrl,
 }: {
   onMenuClick?: () => void
   showMenuButton?: boolean
@@ -105,7 +123,17 @@ const Header = memo(function Header({
   userName?: string
   userEmail?: string
   userRole?: string
+  userTenantName?: string
+  userAvatarUrl?: string
 }) {
+  const { theme, setTheme } = useTheme()
+  const [themeMounted, setThemeMounted] = useState(false)
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false)
+
+  useEffect(() => {
+    setThemeMounted(true)
+  }, [])
+
   // 역할 코드를 한글로 변환
   const getRoleLabel = (roleCode?: string) => {
     const roleMap: Record<string, string> = {
@@ -118,86 +146,146 @@ const Header = memo(function Header({
     return roleCode ? roleMap[roleCode] || roleCode : '사용자'
   }
 
+  const displayName = userName?.trim() || userEmail?.split('@')[0] || '사용자'
+  const avatarInitial = displayName.charAt(0) || '?'
+  const roleLabel = getRoleLabel(userRole)
+  const tenantLabel = userTenantName?.trim() || '소속 없음'
+
+  const handleLogoutRequest = () => {
+    if (isLoggingOut) return
+    setLogoutDialogOpen(true)
+  }
+
+  const handleConfirmLogout = async () => {
+    await onLogout?.()
+  }
+
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-card px-4 md:px-6">
-      {/* 모바일: 햄버거 메뉴 + 로고 */}
-      <div className="flex items-center gap-4 md:hidden">
-        {showMenuButton && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onMenuClick}
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-        )}
-        <h1 className="text-lg font-bold">Acadesk</h1>
-      </div>
-
-      {/* 우측 액션 영역: 도움말 + 알림 + 테마 + 사용자 메뉴 */}
-      <div className="ml-auto flex items-center gap-2">
-        {/* 도움말 */}
-        <HelpMenu />
-
-        {/* 알림 */}
-        <NotificationPopover />
-
-        {/* 테마 전환 */}
-        <ThemeToggle />
-
-        {/* 사용자 메뉴 */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-auto gap-3 p-2">
-              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-primary/70" />
-              <div className="text-left hidden sm:block">
-                <p className="text-sm font-medium">{userName || '사용자'}</p>
-                <p className="text-xs text-muted-foreground">{getRoleLabel(userRole)}</p>
-              </div>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56" align="end" forceMount>
-            <DropdownMenuLabel className="font-normal">
-              <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">{userName || '사용자'}</p>
-                <p className="text-xs leading-none text-muted-foreground">{userEmail || ''}</p>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/profile" className="cursor-pointer">
-                <User className="mr-2 h-4 w-4" />
-                <span>내 정보</span>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/settings" className="cursor-pointer">
-                <Settings className="mr-2 h-4 w-4" />
-                <span>설정</span>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={onLogout}
-              disabled={isLoggingOut}
-              className="cursor-pointer"
+    <>
+      <header className="flex h-16 items-center justify-between border-b bg-card px-4 md:px-6">
+        {/* 모바일: 햄버거 메뉴 + 로고 */}
+        <div className="flex items-center gap-4 md:hidden">
+          {showMenuButton && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onMenuClick}
+              aria-label="메뉴 열기"
             >
-              {isLoggingOut ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  <span>로그아웃 중...</span>
-                </>
-              ) : (
-                <>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>로그아웃</span>
-                </>
-              )}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </header>
+              <Menu className="h-5 w-5" />
+            </Button>
+          )}
+          <h1 className="text-lg font-bold">Acadesk</h1>
+        </div>
+
+        {/* 우측 액션 영역: 도움말 + 알림 + 테마 + 사용자 메뉴 */}
+        <div className="ml-auto flex items-center gap-2">
+          {/* 도움말 */}
+          <HelpMenu />
+
+          {/* 알림 */}
+          <NotificationPopover />
+
+          {/* 테마 전환: 모바일에서는 사용자 메뉴로 통합 */}
+          <div className="hidden sm:block">
+            <ThemeToggle />
+          </div>
+
+          {/* 사용자 메뉴 */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                className="h-auto gap-3 p-2"
+                aria-label={`${displayName} 사용자 메뉴 열기`}
+              >
+                <Avatar className="h-8 w-8 border border-border/60">
+                  {userAvatarUrl ? (
+                    <AvatarImage src={userAvatarUrl} alt={`${displayName} 프로필 이미지`} />
+                  ) : null}
+                  <AvatarFallback className="bg-gradient-to-br from-primary to-primary/70 text-white text-xs font-semibold">
+                    {avatarInitial}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="text-left hidden sm:block">
+                  <p className="text-sm font-medium">{displayName}</p>
+                  <p className="text-xs text-muted-foreground">{roleLabel} · {tenantLabel}</p>
+                </div>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-64" align="end" forceMount>
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">{displayName}</p>
+                  <p className="text-xs leading-none text-muted-foreground">{userEmail || ''}</p>
+                  <p className="text-xs leading-none text-muted-foreground">{roleLabel} · {tenantLabel}</p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/profile" className="cursor-pointer">
+                  <User className="mr-2 h-4 w-4" />
+                  <span>내 정보</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/settings" className="cursor-pointer">
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>설정</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="font-normal text-xs text-muted-foreground">테마</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => setTheme('light')} className="cursor-pointer">
+                <Sun className="mr-2 h-4 w-4" />
+                <span>라이트</span>
+                {themeMounted && theme === 'light' && <span className="ml-auto text-xs">✓</span>}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setTheme('dark')} className="cursor-pointer">
+                <Moon className="mr-2 h-4 w-4" />
+                <span>다크</span>
+                {themeMounted && theme === 'dark' && <span className="ml-auto text-xs">✓</span>}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setTheme('system')} className="cursor-pointer">
+                <Monitor className="mr-2 h-4 w-4" />
+                <span>시스템</span>
+                {themeMounted && theme === 'system' && <span className="ml-auto text-xs">✓</span>}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={handleLogoutRequest}
+                disabled={isLoggingOut}
+                className="cursor-pointer"
+              >
+                {isLoggingOut ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <span>로그아웃 중...</span>
+                  </>
+                ) : (
+                  <>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>로그아웃</span>
+                  </>
+                )}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </header>
+
+      <ConfirmationDialog
+        open={logoutDialogOpen}
+        onOpenChange={setLogoutDialogOpen}
+        title="로그아웃하시겠습니까?"
+        description="현재 작업 중인 내용이 저장되지 않았다면 손실될 수 있습니다."
+        confirmText="로그아웃"
+        cancelText="취소"
+        variant="default"
+        isLoading={isLoggingOut}
+        onConfirm={handleConfirmLogout}
+      />
+    </>
   )
 })
 
@@ -214,7 +302,9 @@ export function DashboardShell({
   children,
   userName,
   userEmail,
-  userRole
+  userRole,
+  userTenantName,
+  userAvatarUrl,
 }: DashboardShellProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -294,6 +384,8 @@ export function DashboardShell({
           userName={userName}
           userEmail={userEmail}
           userRole={userRole}
+          userTenantName={userTenantName}
+          userAvatarUrl={userAvatarUrl}
         />
 
         {/* 메인 - 페이지 컨텐츠만 전환 */}
