@@ -33,6 +33,7 @@ export default function NewTextbookPage() {
   const [title, setTitle] = useState('')
   const [publisher, setPublisher] = useState('')
   const [isbn, setIsbn] = useState('')
+  const [totalCopies, setTotalCopies] = useState('1')
   const [price, setPrice] = useState('')
   const [isActive, setIsActive] = useState(true)
 
@@ -86,10 +87,15 @@ export default function NewTextbookPage() {
       )
 
       // Create textbook
+      const parsedTotalCopies = Number.parseInt(totalCopies, 10)
       const textbookResult = await createTextbook({
         title: title.trim(),
         publisher: publisher.trim() || undefined,
         isbn: isbn.trim() || undefined,
+        totalCopies:
+          Number.isInteger(parsedTotalCopies) && parsedTotalCopies > 0
+            ? parsedTotalCopies
+            : 1,
         price: price ? parseInt(price) : undefined,
         isActive,
       })
@@ -187,17 +193,32 @@ export default function NewTextbookPage() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="price">가격 (원)</Label>
-              <Input
-                id="price"
-                type="number"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                placeholder="예: 25000"
-                min="0"
-                step="1000"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="totalCopies">보유 권수</Label>
+                <Input
+                  id="totalCopies"
+                  type="number"
+                  value={totalCopies}
+                  onChange={(e) => setTotalCopies(e.target.value)}
+                  placeholder="예: 3"
+                  min="1"
+                  step="1"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="price">가격 (원)</Label>
+                <Input
+                  id="price"
+                  type="number"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  placeholder="예: 25000"
+                  min="0"
+                  step="1000"
+                />
+              </div>
             </div>
 
             <div className="flex items-center space-x-2">

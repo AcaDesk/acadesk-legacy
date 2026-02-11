@@ -23,6 +23,7 @@ export default async function EditTextbookPage({ params }: EditTextbookPageProps
     title: string
     publisher: string | null
     isbn: string | null
+    total_copies: number | null
     price: number | null
     is_active: boolean
     textbook_units?: Array<{
@@ -41,6 +42,7 @@ export default async function EditTextbookPage({ params }: EditTextbookPageProps
         title: textbook.title,
         publisher: textbook.publisher || '',
         isbn: textbook.isbn || '',
+        totalCopies: (textbook.total_copies || 1).toString(),
         price: textbook.price?.toString() || '',
         isActive: textbook.is_active,
         units: (textbook.textbook_units || []).map((unit) => ({

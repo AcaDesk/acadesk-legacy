@@ -25,6 +25,9 @@ interface NewLendingClientProps {
     title: string
     author: string | null
     barcode: string | null
+    totalCopies: number
+    activeLendingCount: number
+    availableCopies: number
     isAvailable: boolean
   }>
 }
@@ -158,10 +161,16 @@ export function NewLendingClient({ students, textbooks }: NewLendingClientProps)
                         {textbook.title}
                         {textbook.author ? ` / ${textbook.author}` : ''}
                         {textbook.barcode ? ` / #${textbook.barcode}` : ''}
+                        {` / 가능 ${textbook.availableCopies}/${textbook.totalCopies}`}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {availableTextbooks.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    현재 대여 가능한 교재가 없습니다. 보유수/반납 상태를 확인하세요.
+                  </p>
+                )}
               </div>
             </div>
 

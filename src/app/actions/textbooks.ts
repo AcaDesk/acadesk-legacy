@@ -26,6 +26,7 @@ const createTextbookSchema = z.object({
   publisher: z.string().optional(),
   isbn: z.string().optional(),
   barcode: z.string().optional(),
+  totalCopies: z.number().int().positive().optional(),
   price: z.number().int().nonnegative().optional(),
   isActive: z.boolean().optional(),
 })
@@ -36,6 +37,7 @@ const bulkCreateTextbookItemSchema = z.object({
   publisher: z.string().trim().max(100).optional().nullable(),
   isbn: z.string().trim().max(50).optional().nullable(),
   barcode: z.string().trim().max(100).optional().nullable(),
+  totalCopies: z.number().int().positive().optional().nullable(),
 })
 
 const bulkValidateTextbookItemSchema = bulkCreateTextbookItemSchema.extend({
@@ -55,6 +57,7 @@ const updateTextbookSchema = z.object({
   title: z.string().min(1, '교재명은 필수입니다').optional(),
   publisher: z.string().optional().nullable(),
   isbn: z.string().optional().nullable(),
+  totalCopies: z.number().int().positive().optional().nullable(),
   price: z.number().int().nonnegative().optional().nullable(),
   isActive: z.boolean().optional(),
 })
@@ -165,6 +168,7 @@ export async function bulkCreateTextbooks(
       publisher: item.publisher?.trim() || null,
       isbn: item.isbn?.trim() || null,
       barcode: item.barcode?.trim() || null,
+      total_copies: item.totalCopies || 1,
     }))
 
     // Check for duplicate barcodes
@@ -201,6 +205,7 @@ export async function bulkCreateTextbooks(
       publisher: string | null
       isbn: string | null
       barcode: string | null
+      total_copies: number
     }> = []
 
     for (const item of normalized) {
@@ -221,6 +226,7 @@ export async function bulkCreateTextbooks(
         publisher: item.publisher,
         isbn: item.isbn,
         barcode: item.barcode,
+        total_copies: item.total_copies,
       })
     }
 
@@ -296,6 +302,7 @@ export async function validateBulkTextbooks(
       publisher: item.publisher?.trim() || null,
       isbn: item.isbn?.trim() || null,
       barcode: item.barcode?.trim() || null,
+      total_copies: item.totalCopies || 1,
     }))
 
     const barcodes = normalized
@@ -371,6 +378,10 @@ export async function validateBulkTextbooks(
     const rows = normalized.map((item) => {
       const errors: string[] = []
       const warnings: string[] = []
+
+      if (!Number.isInteger(item.total_copies) || item.total_copies < 1) {
+        errors.push('보유수는 1 이상의 정수여야 합니다.')
+      }
 
       if (item.barcode) {
         const duplicateInputRows = inputBarcodeRows.get(item.barcode) || []
@@ -495,8 +506,11 @@ export async function createTextbook(
       .insert({
         tenant_id: tenantId,
         title: validated.title,
+        author: validated.author || null,
         publisher: validated.publisher || null,
         isbn: validated.isbn || null,
+        barcode: validated.barcode || null,
+        total_copies: validated.totalCopies || 1,
         price: validated.price ?? null,
         is_active: validated.isActive ?? true,
       })
@@ -550,6 +564,9 @@ export async function updateTextbook(
     }
     if (validated.isbn !== undefined) {
       updateData.isbn = validated.isbn
+    }
+    if (validated.totalCopies !== undefined) {
+      updateData.total_copies = validated.totalCopies
     }
     if (validated.price !== undefined) {
       updateData.price = validated.price

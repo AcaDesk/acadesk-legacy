@@ -70,7 +70,18 @@ async function TextbookInfo({ id }: { id: string }) {
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardDescription>보유 권수</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {textbook.total_copies || 1}권
+            </div>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader className="pb-3">
             <CardDescription>가격</CardDescription>
