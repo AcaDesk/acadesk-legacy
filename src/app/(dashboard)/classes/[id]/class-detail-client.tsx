@@ -26,9 +26,6 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import { PageWrapper } from "@/components/layout/page-wrapper"
-import { GradesBarChart } from '@/components/features/charts/grades-bar-chart'
-import { TodoCompletionBar } from '@/components/features/charts/todo-completion-bar'
-import { AttendanceComboChart } from '@/components/features/charts/attendance-combo-chart'
 import { usePagination } from '@/hooks/use-pagination'
 import {
   Pagination,
@@ -135,35 +132,7 @@ export function ClassDetailClient({ classData, students }: ClassDetailClientProp
     return { avgScore, avgAttendance, avgHomework }
   }
 
-  // Generate sample chart data (실제로는 DB에서 가져와야 함)
-  const generateChartData = () => {
-    // Grade distribution by subject
-    const gradesData = [
-      { subject: '수학', score: 85, classAverage: 80, highest: 95, lowest: 65 },
-      { subject: '영어', score: 88, classAverage: 82, highest: 98, lowest: 70 },
-      { subject: '국어', score: 82, classAverage: 78, highest: 92, lowest: 60 },
-    ]
-
-    // Weekly homework completion trend
-    const todoData = [
-      { period: '1주차', completionRate: 85, classAverage: 80 },
-      { period: '2주차', completionRate: 88, classAverage: 82 },
-      { period: '3주차', completionRate: 92, classAverage: 88 },
-      { period: '4주차', completionRate: 90, classAverage: 85 },
-    ]
-
-    // Monthly attendance data
-    const attendanceData = [
-      { period: '1월', present: 180, late: 10, absent: 5, rate: 92 },
-      { period: '2월', present: 175, late: 8, absent: 7, rate: 91 },
-      { period: '3월', present: 190, late: 5, absent: 3, rate: 96 },
-    ]
-
-    return { gradesData, todoData, attendanceData }
-  }
-
   const kpis = calculateClassKPIs()
-  const chartData = generateChartData()
 
   return (
     <PageWrapper>
@@ -279,35 +248,6 @@ export function ClassDetailClient({ classData, students }: ClassDetailClientProp
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
-            {/* Charts Section */}
-            <div className="space-y-6">
-              {/* Grades Bar Chart */}
-              <GradesBarChart
-                data={chartData.gradesData}
-                title="과목별 반 평균 성적"
-                description="과목별 반 평균, 최고점, 최저점 비교"
-                showComparison={true}
-              />
-
-              {/* Attendance & Homework Charts */}
-              <div className="grid gap-6 md:grid-cols-2">
-                {/* Attendance Combo Chart */}
-                <AttendanceComboChart
-                  data={chartData.attendanceData}
-                  title="월별 출석 현황"
-                  description="출석/지각/결석 횟수 및 출석율"
-                />
-
-                {/* Todo Completion Bar */}
-                <TodoCompletionBar
-                  data={chartData.todoData}
-                  title="주별 과제 완료율"
-                  description="주별 과제 완료율 추이"
-                  showClassAverage={false}
-                />
-              </div>
-            </div>
-
             {/* Quick Stats */}
             <div className="grid gap-4 md:grid-cols-3">
               <Card>
