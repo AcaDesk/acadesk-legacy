@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useTransition } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
@@ -11,12 +11,12 @@ import {
   Calendar,
   Clock,
   Search,
-  Filter,
   MoreVertical,
   Edit,
   Trash2,
 } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { PAGE_LAYOUT, GRID_LAYOUTS, TEXT_STYLES, CARD_STYLES } from '@/lib/constants'
 import { usePagination } from '@/hooks/use-pagination'
@@ -38,6 +38,10 @@ import {
 import { Input } from '@ui/input'
 import { PAGE_ANIMATIONS, getListItemAnimation } from '@/lib/animation-config'
 import { EmptyState } from '@/components/ui/loading-state'
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
+import { useToast } from '@/hooks/use-toast'
+import { deleteClass } from '@/app/actions/classes'
+import { getErrorMessage } from '@/lib/error-handlers'
 import { cn } from '@/lib/utils'
 
 interface ClassData {
@@ -85,8 +89,12 @@ interface ClassesPageClientProps {
 }
 
 export function ClassesPageClient({ initialData }: ClassesPageClientProps) {
-  const [classes] = useState<ClassData[]>(initialData)
+  const router = useRouter()
+  const { toast } = useToast()
+  const [classes, setClasses] = useState<ClassData[]>(initialData)
   const [searchTerm, setSearchTerm] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState<ClassData | null>(null)
+  const [isDeleting, startDeleteTransition] = useTransition()
 
   const filteredClasses = useMemo(() => {
     return classes.filter(cls =>
@@ -116,6 +124,24 @@ export function ClassesPageClient({ initialData }: ClassesPageClientProps) {
   const avgStudentsPerClass = activeClasses.length > 0
     ? Math.round(totalStudents / activeClasses.length)
     : 0
+
+  function handleConfirmDelete() {
+    if (!deleteTarget) return
+    startDeleteTransition(async () => {
+      try {
+        const result = await deleteClass(deleteTarget.id)
+        if (!result.success) {
+          throw new Error(result.error || '삭제에 실패했습니다')
+        }
+        setClasses(prev => prev.filter(c => c.id !== deleteTarget.id))
+        toast({ title: '수업 삭제 완료', description: `${deleteTarget.name} 수업이 삭제되었습니다.` })
+      } catch (error) {
+        toast({ title: '삭제 실패', description: getErrorMessage(error), variant: 'destructive' })
+      } finally {
+        setDeleteTarget(null)
+      }
+    })
+  }
 
   return (
     <PageWrapper>
@@ -203,10 +229,7 @@ export function ClassesPageClient({ initialData }: ClassesPageClientProps) {
               className="pl-10"
             />
           </div>
-          <Button variant="outline" className="gap-2">
-            <Filter className="h-4 w-4" />
-            필터
-          </Button>
+{/* TODO: 필터 기능 구현 시 활성화 */}
         </section>
 
         {/* Classes List */}
@@ -247,11 +270,11 @@ export function ClassesPageClient({ initialData }: ClassesPageClientProps) {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => router.push(`/classes/${cls.id}/edit`)}>
                             <Edit className="h-4 w-4 mr-2" />
                             수정
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive">
+                          <DropdownMenuItem className="text-destructive" onClick={() => setDeleteTarget(cls)}>
                             <Trash2 className="h-4 w-4 mr-2" />
                             삭제
                           </DropdownMenuItem>
@@ -349,6 +372,17 @@ export function ClassesPageClient({ initialData }: ClassesPageClientProps) {
           </div>
         )}
       </div>
+
+      <ConfirmationDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}
+        title="수업을 삭제하시겠습니까?"
+        description={`'${deleteTarget?.name}' 수업을 삭제합니다. 이 작업은 되돌릴 수 없습니다.`}
+        confirmText="삭제"
+        variant="destructive"
+        isLoading={isDeleting}
+        onConfirm={handleConfirmDelete}
+      />
     </PageWrapper>
   )
 }

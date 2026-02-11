@@ -47,11 +47,35 @@ interface ClassDetail {
   subject: string | null
   grade_level: string | null
   instructor_id: string | null
-  max_students: number | null
+  capacity: number | null
   room: string | null
-  schedule: string | null
+  schedule: Record<string, unknown> | null
   instructorName: string | null
   studentCount: number
+}
+
+// Schedule을 한글 문자열로 변환하는 헬퍼 함수
+function formatSchedule(schedule: Record<string, unknown> | null): string {
+  if (!schedule || typeof schedule !== 'object') return '-'
+
+  const days = schedule.days as string[] | undefined
+  const time = schedule.time as string | undefined
+
+  if (days && time) {
+    const dayMap: Record<string, string> = {
+      'monday': '월',
+      'tuesday': '화',
+      'wednesday': '수',
+      'thursday': '목',
+      'friday': '금',
+      'saturday': '토',
+      'sunday': '일',
+    }
+    const koreanDays = days.map(d => dayMap[d.toLowerCase()] || d).join('/')
+    return `${koreanDays} ${time}`
+  }
+
+  return JSON.stringify(schedule)
 }
 
 interface StudentInClass {
@@ -220,7 +244,7 @@ export function ClassDetailClient({ classData, students }: ClassDetailClientProp
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">{classData.schedule || '-'}</span>
+                  <span className="text-sm">{formatSchedule(classData.schedule)}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -238,7 +262,7 @@ export function ClassDetailClient({ classData, students }: ClassDetailClientProp
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm">
-                  {students.length} / {classData.max_students || '무제한'}
+                  {students.length} / {classData.capacity || '무제한'}
                 </span>
               </div>
             </CardContent>
@@ -502,7 +526,7 @@ export function ClassDetailClient({ classData, students }: ClassDetailClientProp
                   <div>
                     <h3 className="font-semibold mb-4">상위 성적 학생</h3>
                     <div className="space-y-2">
-                      {students
+                      {[...students]
                         .sort((a, b) => b.avgScore - a.avgScore)
                         .slice(0, 5)
                         .map((student, index) => (
