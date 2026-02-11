@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -13,9 +12,8 @@ import { Label } from "@ui/label"
 import { Eye, EyeOff } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import type { OAuthProvider } from "@/core/types/auth.types"
-import { getAuthErrorMessage, LOGIN_SUCCESS_MESSAGE, GENERIC_ERROR_MESSAGE } from "@/lib/auth/messages"
+import { GENERIC_ERROR_MESSAGE } from "@/lib/auth/messages"
 import { isFeatureActive } from "@/lib/features.config"
-import { routeAfterLogin } from "@/lib/auth/route-after-login"
 import { inviteTokenStore } from "@/lib/auth/invite-token-store"
 import { signIn, signInWithOAuth } from "@/app/actions/auth"
 
@@ -32,7 +30,6 @@ export function LoginForm({
 }: React.ComponentPropsWithoutRef<"form">) {
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-  const router = useRouter()
   const { toast } = useToast()
 
   const {
@@ -61,7 +58,7 @@ export function LoginForm({
       if (result.data?.url) {
         window.location.href = result.data.url
       }
-    } catch (error) {
+    } catch {
       toast({
         title: `${provider === "google" ? "구글" : "카카오"} 로그인 오류`,
         description: GENERIC_ERROR_MESSAGE.description,
@@ -75,42 +72,29 @@ export function LoginForm({
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true)
     try {
+      // 초대 토큰을 서버 액션에 전달 (signIn이 redirect()하므로 이후 코드 실행 불가)
+      const inviteToken = inviteTokenStore.get()
+
       const result = await signIn({
         email: data.email,
         password: data.password,
+        inviteToken: inviteToken ?? undefined,
       })
 
+      // signIn() 성공 시 서버에서 redirect()를 호출하므로 여기에 도달하면 실패 케이스
       if (!result.success) {
         toast({
           title: "로그인 실패",
           description: result.error || GENERIC_ERROR_MESSAGE.description,
           variant: "destructive",
         })
-        return
       }
-
-      // 로그인 성공 - 단일 라우팅 규칙 적용
-      toast({
-        title: LOGIN_SUCCESS_MESSAGE.title,
-        description: LOGIN_SUCCESS_MESSAGE.description,
-      })
-
-      // 초대 토큰 확인 (있으면 전달)
-      const inviteToken = inviteTokenStore.get()
-
-      // routeAfterLogin은 내부에서 에러를 처리하므로 await만 하면 됨
-      // (router.push의 navigation 예외는 정상 동작이므로 무시)
-      await routeAfterLogin(router, inviteToken ?? undefined).catch(() => {
-        // routeAfterLogin 내부에서 이미 에러 처리됨
-        // Navigation 예외는 무시 (정상 동작)
-      })
     } catch (error) {
-      // NEXT_REDIRECT 에러는 정상적인 리다이렉트이므로 무시
+      // NEXT_REDIRECT 에러는 정상적인 리다이렉트이므로 재전파
       if (error && typeof error === 'object' && 'digest' in error && String(error.digest).startsWith('NEXT_REDIRECT')) {
         throw error
       }
 
-      // signIn() 자체가 실패한 경우에만 에러 토스트
       console.error('[LoginForm] Sign in error:', error)
       toast({
         title: GENERIC_ERROR_MESSAGE.title,

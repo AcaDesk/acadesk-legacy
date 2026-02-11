@@ -15,7 +15,7 @@ import { motion } from "framer-motion"
 import { useToast } from "@/hooks/use-toast"
 import { TermsCheckbox } from "@/components/auth/TermsCheckbox"
 import type { OAuthProvider } from "@/core/types/auth.types"
-import { getAuthErrorMessage, GENERIC_ERROR_MESSAGE } from "@/lib/auth/messages"
+import { GENERIC_ERROR_MESSAGE } from "@/lib/auth/messages"
 import { signUp, signInWithOAuth } from "@/app/actions/auth"
 
 // 비밀번호 강도 계산
@@ -113,7 +113,7 @@ export default function SignupForm({
       if (result.data?.url) {
         window.location.href = result.data.url
       }
-    } catch (error) {
+    } catch {
       toast({
         title: `${provider === "google" ? "구글" : "카카오"} 가입 오류`,
         description: GENERIC_ERROR_MESSAGE.description,
@@ -130,6 +130,8 @@ export default function SignupForm({
       const result = await signUp({
         email: data.email,
         password: data.password,
+        termsAgreed: data.terms,
+        privacyAgreed: data.privacy,
       })
 
       if (!result.success) {

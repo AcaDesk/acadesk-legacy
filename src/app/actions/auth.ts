@@ -32,11 +32,14 @@ const signUpSchema = z.object({
     .min(8, '비밀번호는 8자 이상이어야 합니다.')
     .regex(/[a-zA-Z]/, '영문자를 포함해야 합니다.')
     .regex(/[0-9]/, '숫자를 포함해야 합니다.'),
+  termsAgreed: z.boolean().refine((v) => v === true, { message: '이용약관에 동의해주세요.' }),
+  privacyAgreed: z.boolean().refine((v) => v === true, { message: '개인정보처리방침에 동의해주세요.' }),
 })
 
 const signInSchema = z.object({
   email: z.string().email('올바른 이메일 형식이 아닙니다.'),
   password: z.string().min(1, '비밀번호를 입력해주세요.'),
+  inviteToken: z.string().optional(),
 })
 
 const signInWithOAuthSchema = z.object({
@@ -211,8 +214,8 @@ export async function signIn(input: z.infer<typeof signInSchema>): Promise<{ suc
 
     console.log('[signIn] Login successful:', { requestId })
 
-    // 4. 온보딩 상태 확인
-    const stageResult = await checkOnboardingStage()
+    // 4. 온보딩 상태 확인 (초대 토큰 전달)
+    const stageResult = await checkOnboardingStage(validated.inviteToken)
 
     if (!stageResult.success || !stageResult.data) {
       console.error('[signIn] Onboarding stage check failed:', {
@@ -234,7 +237,7 @@ export async function signIn(input: z.infer<typeof signInSchema>): Promise<{ suc
     // 5. 적절한 페이지로 리다이렉트
     const redirectUrl =
       nextUrl ||
-      (stageCode === 'READY' ? '/dashboard' : `/auth/onboarding`)
+      (stageCode === 'READY' ? '/dashboard' : '/auth/bootstrap')
 
     console.log('[signIn] Redirecting to:', { requestId, redirectUrl, stageCode })
 
