@@ -13,6 +13,7 @@ import {
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
+  RowSelectionState,
 } from '@tanstack/react-table'
 import { motion, AnimatePresence } from 'motion/react'
 import {
@@ -25,6 +26,7 @@ import { Eye, Edit, Trash2, Search, X, Users } from 'lucide-react'
 
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
+import { Checkbox } from '@ui/checkbox'
 import { EmptyState, NoSearchResultsEmptyState } from '@ui/empty-state'
 import {
   Table,
@@ -43,6 +45,7 @@ import {
   SelectValue,
 } from '@ui/select'
 import { cn, formatPhoneNumber } from '@/lib/utils'
+import { getGuardianRelationshipLabel } from '@/lib/constants'
 
 export interface Guardian {
   id: string
@@ -69,33 +72,57 @@ interface GuardianTableImprovedProps {
   data: Guardian[]
   loading: boolean
   onDelete: (id: string, name: string) => void
-}
-
-const getRelationText = (relation: string): string => {
-  const relationMap: Record<string, string> = {
-    father: '아버지',
-    mother: '어머니',
-    grandfather: '할아버지',
-    grandmother: '할머니',
-    uncle: '삼촌',
-    aunt: '이모/고모',
-    other: '기타',
-  }
-  return relationMap[relation] || relation
+  onBulkDelete?: (ids: string[]) => void
 }
 
 export function GuardianTableImproved({
   data,
   loading,
   onDelete,
+  onBulkDelete,
 }: GuardianTableImprovedProps) {
   const router = useRouter()
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
   const [globalFilter, setGlobalFilter] = React.useState('')
+  const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
+
+  const selectedIds = React.useMemo(() => {
+    return Object.keys(rowSelection)
+      .filter((key) => rowSelection[key])
+      .map((key) => {
+        const row = table.getRowModel().rows.find((r) => r.id === key)
+        return row?.original.id
+      })
+      .filter((id): id is string => Boolean(id))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rowSelection])
 
   const columns: ColumnDef<Guardian>[] = [
+    {
+      id: 'select',
+      header: ({ table }) => (
+        <Checkbox
+          checked={
+            table.getIsAllPageRowsSelected() ||
+            (table.getIsSomePageRowsSelected() && 'indeterminate')
+          }
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          aria-label="전체 선택"
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
+          aria-label="행 선택"
+        />
+      ),
+      enableSorting: false,
+      enableHiding: false,
+      size: 40,
+    },
     {
       accessorKey: 'name',
       header: '이름',
@@ -115,7 +142,7 @@ export function GuardianTableImproved({
                     return (
                       <span key={idx}>
                         {idx > 0 && ', '}
-                        {studentName} {getRelationText(relation)}
+                        {studentName} {getGuardianRelationshipLabel(relation)}
                       </span>
                     )
                   }
@@ -134,7 +161,7 @@ export function GuardianTableImproved({
           guardian.users?.email || '',
           ...(guardian.guardian_students || []).flatMap(gs => {
             const studentName = gs.students?.users?.name || ''
-            const relation = getRelationText(gs.relationship)
+            const relation = getGuardianRelationshipLabel(gs.relationship)
             return [`${studentName} ${relation}`, `${studentName}${relation}`]
           }),
         ].join(' ').toLowerCase()
@@ -154,7 +181,7 @@ export function GuardianTableImproved({
           <div className="flex flex-wrap gap-1">
             {guardian.guardian_students.map((gs, idx) => (
               <Badge key={idx} variant="outline" className="text-xs">
-                {getRelationText(gs.relationship)}
+                {getGuardianRelationshipLabel(gs.relationship)}
                 {gs.is_primary && <span className="ml-1">★</span>}
               </Badge>
             ))}
@@ -251,12 +278,14 @@ export function GuardianTableImproved({
     getFilteredRowModel: getFilteredRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
     onGlobalFilterChange: setGlobalFilter,
+    onRowSelectionChange: setRowSelection,
     globalFilterFn: 'auto',
     state: {
       sorting,
       columnFilters,
       columnVisibility,
       globalFilter,
+      rowSelection,
     },
     initialState: {
       pagination: {
@@ -273,6 +302,11 @@ export function GuardianTableImproved({
       table.setPageIndex(pageCount - 1)
     }
   }, [data, table])
+
+  // 데이터가 변경되면 선택 초기화
+  React.useEffect(() => {
+    setRowSelection({})
+  }, [data])
 
   return (
     <div className="space-y-4">
@@ -309,6 +343,37 @@ export function GuardianTableImproved({
           전체 {table.getFilteredRowModel().rows.length}명
         </Badge>
       </motion.div>
+
+      {/* Floating Action Bar for Bulk Actions */}
+      <AnimatePresence>
+        {selectedIds.length > 0 && onBulkDelete && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="flex items-center gap-3 p-3 rounded-lg border bg-muted/50"
+          >
+            <span className="text-sm font-medium">
+              {selectedIds.length}명 선택됨
+            </span>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => onBulkDelete(selectedIds)}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              일괄 삭제
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setRowSelection({})}
+            >
+              선택 해제
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Table */}
       <motion.div
@@ -423,9 +488,11 @@ export function GuardianTableImproved({
       >
         <div className="flex-1 text-sm text-muted-foreground">
           전체 {table.getFilteredRowModel().rows.length}명 중{' '}
-          {table.getState().pagination.pageIndex *
-            table.getState().pagination.pageSize +
-            1}
+          {table.getFilteredRowModel().rows.length > 0
+            ? table.getState().pagination.pageIndex *
+                table.getState().pagination.pageSize +
+              1
+            : 0}
           -
           {Math.min(
             (table.getState().pagination.pageIndex + 1) *

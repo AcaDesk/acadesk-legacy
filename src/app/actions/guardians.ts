@@ -775,3 +775,269 @@ export async function logGuardianContact(data: {
     }
   }
 }
+
+/**
+ * 보호자 정보 + 학생 연결을 함께 수정
+ * @param data - 보호자 정보 + 학생 ID 배열
+ * @returns 성공 여부
+ */
+export async function updateGuardianWithStudents(
+  data: z.infer<typeof updateGuardianWithStudentsSchema>
+) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const validatedData = updateGuardianWithStudentsSchema.parse(data)
+    const supabase = createServiceRoleClient()
+
+    // 1. guardian에서 user_id 조회
+    const { data: guardian, error: guardianError } = await supabase
+      .from('guardians')
+      .select('user_id')
+      .eq('id', validatedData.guardian_id)
+      .eq('tenant_id', tenantId)
+      .single()
+
+    if (guardianError || !guardian) {
+      throw new Error('보호자 정보를 찾을 수 없습니다')
+    }
+
+    // 2. users 테이블 업데이트
+    const { error: userUpdateError } = await supabase
+      .from('users')
+      .update({
+        name: validatedData.name,
+        email: validatedData.email || null,
+        phone: validatedData.phone,
+      })
+      .eq('id', guardian.user_id)
+      .eq('tenant_id', tenantId)
+
+    if (userUpdateError) {
+      throw new Error(`사용자 정보 수정 실패: ${userUpdateError.message}`)
+    }
+
+    // 3. guardians 테이블 업데이트
+    const { error: updateError } = await supabase
+      .from('guardians')
+      .update({
+        relationship: validatedData.relationship,
+        occupation: validatedData.occupation || null,
+        address: validatedData.address || null,
+      })
+      .eq('id', validatedData.guardian_id)
+      .eq('tenant_id', tenantId)
+
+    if (updateError) {
+      throw new Error(`보호자 정보 수정 실패: ${updateError.message}`)
+    }
+
+    // 4. 학생 연결 업데이트 (student_ids가 제공된 경우)
+    if (validatedData.student_ids !== undefined) {
+      // 기존 연결 삭제
+      const { error: deleteError } = await supabase
+        .from('student_guardians')
+        .delete()
+        .eq('guardian_id', validatedData.guardian_id)
+        .eq('tenant_id', tenantId)
+
+      if (deleteError) {
+        throw new Error(`기존 학생 연결 삭제 실패: ${deleteError.message}`)
+      }
+
+      // 새 연결 생성
+      if (validatedData.student_ids.length > 0) {
+        const records = validatedData.student_ids.map((studentId) => ({
+          tenant_id: tenantId,
+          student_id: studentId,
+          guardian_id: validatedData.guardian_id,
+          relation: validatedData.relationship,
+          is_primary: false,
+          is_primary_contact: false,
+          can_view_reports: true,
+          receives_notifications: true,
+          receives_billing: false,
+          can_pickup: true,
+        }))
+
+        const { error: linkError } = await supabase
+          .from('student_guardians')
+          .insert(records)
+
+        if (linkError) {
+          throw new Error(`학생 연결 생성 실패: ${linkError.message}`)
+        }
+      }
+    }
+
+    revalidatePath('/guardians')
+    revalidatePath(`/guardians/${validatedData.guardian_id}`)
+
+    return { success: true }
+  } catch (error) {
+    console.error('[updateGuardianWithStudents] Error:', error)
+    return { success: false, error: getErrorMessage(error) }
+  }
+}
+
+/**
+ * 학생 선택 목록 조회 (select용 간단한 목록)
+ * @returns 학생 목록 (id, student_code, name)
+ */
+export async function getStudentsForSelect() {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    const { data, error } = await supabase
+      .from('students')
+      .select(`
+        id,
+        student_code,
+        users (
+          name
+        )
+      `)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .order('student_code')
+
+    if (error) throw error
+
+    // TODO(any): Supabase nested query types need proper typing
+    const students = (data || []).map((s: any) => {
+      const usersData = Array.isArray(s.users) ? s.users[0] : s.users
+      return {
+        id: s.id as string,
+        student_code: s.student_code as string,
+        name: (usersData?.name as string) || '',
+      }
+    })
+
+    return { success: true, data: students }
+  } catch (error) {
+    console.error('[getStudentsForSelect] Error:', error)
+    return { success: false, data: [], error: getErrorMessage(error) }
+  }
+}
+
+/**
+ * 보호자 일괄 삭제 (Soft Delete)
+ * @param ids - 삭제할 보호자 ID 배열
+ * @returns 성공 여부 및 삭제 수
+ */
+export async function bulkDeleteGuardians(ids: string[]) {
+  try {
+    if (!ids.length) {
+      return { success: false, error: '삭제할 보호자를 선택해주세요', data: null }
+    }
+
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    // guardian → user_id 조회
+    const { data: guardians, error: guardianError } = await supabase
+      .from('guardians')
+      .select('id, user_id')
+      .in('id', ids)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+
+    if (guardianError) throw guardianError
+
+    if (!guardians || guardians.length === 0) {
+      return { success: false, error: '삭제할 보호자를 찾을 수 없습니다', data: null }
+    }
+
+    const now = new Date().toISOString()
+    const userIds = guardians.map((g) => g.user_id)
+
+    // users 소프트 삭제
+    const { error: userDeleteError } = await supabase
+      .from('users')
+      .update({ deleted_at: now })
+      .in('id', userIds)
+      .eq('tenant_id', tenantId)
+
+    if (userDeleteError) {
+      throw new Error(`사용자 삭제 실패: ${userDeleteError.message}`)
+    }
+
+    // guardians 소프트 삭제
+    const { data: deletedGuardians, error: deleteError } = await supabase
+      .from('guardians')
+      .update({ deleted_at: now })
+      .in('id', ids)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .select('id')
+
+    if (deleteError) throw deleteError
+
+    revalidatePath('/guardians')
+
+    return {
+      success: true,
+      data: { deletedCount: deletedGuardians?.length ?? 0 },
+      error: null,
+    }
+  } catch (error) {
+    console.error('[bulkDeleteGuardians] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * 주 보호자 토글
+ * @param guardianId - 보호자 ID
+ * @param studentId - 학생 ID
+ * @param isPrimary - 주 보호자 여부
+ * @returns 성공 여부
+ */
+export async function togglePrimaryGuardian(
+  guardianId: string,
+  studentId: string,
+  isPrimary: boolean
+) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    if (isPrimary) {
+      // 해당 학생의 다른 보호자 is_primary를 false로 변경
+      const { error: resetError } = await supabase
+        .from('student_guardians')
+        .update({ is_primary: false })
+        .eq('student_id', studentId)
+        .eq('tenant_id', tenantId)
+
+      if (resetError) {
+        throw new Error(`주 보호자 초기화 실패: ${resetError.message}`)
+      }
+    }
+
+    // 해당 보호자의 is_primary 설정
+    const { error: updateError } = await supabase
+      .from('student_guardians')
+      .update({ is_primary: isPrimary })
+      .eq('guardian_id', guardianId)
+      .eq('student_id', studentId)
+      .eq('tenant_id', tenantId)
+
+    if (updateError) {
+      throw new Error(`주 보호자 설정 실패: ${updateError.message}`)
+    }
+
+    revalidatePath('/guardians')
+    revalidatePath(`/guardians/${guardianId}`)
+    revalidatePath(`/students/${studentId}`)
+
+    return { success: true }
+  } catch (error) {
+    console.error('[togglePrimaryGuardian] Error:', error)
+    return { success: false, error: getErrorMessage(error) }
+  }
+}
