@@ -423,6 +423,47 @@ export async function saveAttendance(params: {
 }
 
 /**
+ * 출석 기록 취소 (DELETE)
+ * 토글 방식으로 같은 상태를 다시 누르면 출석 기록 자체를 삭제
+ */
+export async function cancelAttendance(params: {
+  date: string
+  studentId: string
+  classId?: string | null
+}) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    // 해당 날짜 + 학생의 출석 레코드 삭제
+    // attendance_sessions를 조인해서 날짜+클래스 기준으로 찾음
+    const { error } = await supabase
+      .from('attendance')
+      .delete()
+      .eq('tenant_id', tenantId)
+      .eq('student_id', params.studentId)
+      .in(
+        'session_id',
+        // 해당 날짜의 세션 ID들을 서브쿼리로 조회
+        (await supabase
+          .from('attendance_sessions')
+          .select('id')
+          .eq('tenant_id', tenantId)
+          .eq('session_date', params.date)
+          .then(({ data }) => data?.map((s) => s.id) || []))
+      )
+
+    if (error) throw error
+
+    revalidatePath('/attendance')
+    return { success: true }
+  } catch (error) {
+    console.error('cancelAttendance error:', error)
+    return { success: false, error: getErrorMessage(error) }
+  }
+}
+
+/**
  * 결석 학생 보호자에게 일괄 알림 전송
  * @param notifications - 알림 데이터 배열
  * @returns 전송 성공 개수
