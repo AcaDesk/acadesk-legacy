@@ -267,6 +267,7 @@ export default function SignupForm({
               className="absolute right-0 top-0 h-full px-3"
               onClick={() => setShowPassword(!showPassword)}
               disabled={isLoading}
+              aria-label={showPassword ? "비밀번호 숨기기" : "비밀번호 보기"}
             >
               {showPassword ? (
                 <EyeOff className="h-4 w-4" />
@@ -330,6 +331,7 @@ export default function SignupForm({
               className="absolute right-0 top-0 h-full px-3"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
               disabled={isLoading}
+              aria-label={showConfirmPassword ? "비밀번호 숨기기" : "비밀번호 보기"}
             >
               {showConfirmPassword ? (
                 <EyeOff className="h-4 w-4" />
