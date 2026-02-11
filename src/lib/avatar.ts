@@ -100,8 +100,10 @@ export function getStudentAvatarData(
 // Backwards compatibility: keep getStudentAvatar for existing code
 export function getStudentAvatar(
   profileImageUrl: string | null | undefined,
-  studentId: string,
-  studentName: string
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _studentId: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _studentName: string
 ): string {
   // If profile image exists, return it
   if (hasProfileImage(profileImageUrl)) {

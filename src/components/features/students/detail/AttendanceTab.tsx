@@ -35,8 +35,8 @@ const itemVariants = {
 
 export function AttendanceTab() {
   const { attendanceRecords } = useStudentDetail()
-  const [selectedRecord, setSelectedRecord] = useState<typeof attendanceRecords[0] | null>(null)
-  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [, setSelectedRecord] = useState<typeof attendanceRecords[0] | null>(null)
+  const [, setEditDialogOpen] = useState(false)
 
   // 출석 통계 데이터 (월별)
   const attendanceStatsData = (() => {
@@ -67,13 +67,6 @@ export function AttendanceTab() {
       return { period, ...stats, rate }
     })
   })()
-
-  // 출석 히트맵 데이터
-  const attendanceChartData = attendanceRecords.map((record) => ({
-    date: new Date(record.attendance_sessions?.session_date || new Date()),
-    status: record.status as 'present' | 'late' | 'absent' | 'none',
-    note: record.notes || undefined,
-  }))
 
   // 출석 통계 요약
   const totalRecords = attendanceRecords.length

@@ -7,7 +7,7 @@ import { Badge } from '@ui/badge'
 import { Button } from '@ui/button'
 import { format as formatDate } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { TrendingUp, TrendingDown, Minus, Plus, BarChart3, LineChart as LineChartIcon } from 'lucide-react'
+import { TrendingUp, TrendingDown, Minus, Plus, BarChart3 } from 'lucide-react'
 import { GradesLineChart } from '@/components/features/charts/grades-line-chart'
 import { SubjectBarChart } from '@/components/features/charts/subject-bar-chart'
 import { useStudentDetail } from '@/hooks/use-student-detail'
@@ -35,7 +35,7 @@ const itemVariants = {
 
 export function GradesTab() {
   const router = useRouter()
-  const { recentScores, classAverages, student } = useStudentDetail()
+  const { recentScores, classAverages } = useStudentDetail()
 
   const getTrendIcon = (score: number, classAvg: number) => {
     const diff = score - classAvg

@@ -37,7 +37,7 @@ export function StudentPointsWidget({ studentId }: StudentPointsWidgetProps) {
   const [history, setHistory] = useState<PointHistory[]>([])
   const [loading, setLoading] = useState(true)
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false)
-  const [addPointDialogOpen, setAddPointDialogOpen] = useState(false)
+  const [, setAddPointDialogOpen] = useState(false)
 
   useEffect(() => {
     loadPointData()

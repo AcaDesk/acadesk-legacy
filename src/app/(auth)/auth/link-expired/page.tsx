@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@ui/c
 import { Button } from "@ui/button"
 import { Input } from "@ui/input"
 import { Label } from "@ui/label"
-import { AlertCircle, Mail, RefreshCw, ArrowRight, LogIn } from "lucide-react"
+import { AlertCircle, Mail, RefreshCw, ArrowRight } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { LINK_EXPIRED_MESSAGES, EMAIL_RESEND_SUCCESS_MESSAGE, GENERIC_ERROR_MESSAGE, RATE_LIMIT_MESSAGES, getAuthErrorMessage } from "@/lib/auth/messages"

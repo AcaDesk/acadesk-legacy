@@ -113,7 +113,8 @@ export async function updateAcademyInfo(
       .single()
 
     // 5. Separate base fields from settings fields
-    const { name, timezone, currency, settings: inputSettings, ...detailFields } = validated
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { name, timezone, currency: _currency, settings: inputSettings, ...detailFields } = validated
 
     // 6. Merge settings (address, business_number, phone, email, website go into settings)
     const updatedSettings = {

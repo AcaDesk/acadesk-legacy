@@ -21,7 +21,6 @@ import type {
   KakaoChannelTokenResponse,
   KakaoChannelCreateRequest,
   KakaoTemplateCategory,
-  KakaoAlimtalkTemplate,
   CreateKakaoTemplateRequest,
   UpdateKakaoTemplateRequest,
   SendAlimtalkRequest,

@@ -13,12 +13,11 @@ import {
   SelectValue,
 } from '@ui/select'
 import { useRouter } from 'next/navigation'
-import { format as formatDate, isPast, isToday, isTomorrow, addDays } from 'date-fns'
+import { format as formatDate, isPast, isToday, isTomorrow } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import {
   CheckCircle,
   Circle,
-  Clock,
   Plus,
   ListTodo,
   Calendar,
@@ -59,7 +58,7 @@ interface ExtendedTodo {
 export function TodoTab() {
   const router = useRouter()
   const { toast } = useToast()
-  const { student, recentTodos, onRefresh } = useStudentDetail()
+  const { recentTodos, onRefresh } = useStudentDetail()
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all')
 
   // 필터링된 TODO 목록

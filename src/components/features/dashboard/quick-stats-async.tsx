@@ -25,8 +25,6 @@ async function QuickStatsContent() {
   // Get date ranges
   const now = new Date()
   const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-  const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate())
-
   // Fetch total students
   const { count: totalStudents, error: totalError } = await supabase
     .from('students')

@@ -29,8 +29,6 @@ export type {
   ParentToContact,
 } from '@/core/types/dashboard'
 
-import type { DashboardData } from '@/core/types/dashboard'
-
 export interface DashboardDataCompat {
   stats: {
     totalStudents: number

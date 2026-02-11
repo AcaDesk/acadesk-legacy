@@ -25,7 +25,6 @@ interface ClassProgressCardProps {
 }
 
 export function ClassProgressCard({
-  studentId: _studentId,
   classId,
   className,
 }: ClassProgressCardProps) {

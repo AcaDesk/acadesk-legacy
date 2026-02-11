@@ -8,7 +8,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
-import { verifyStaff, verifyPermission } from '@/lib/auth/verify-permission'
+import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
 import type {

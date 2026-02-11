@@ -156,7 +156,7 @@ export function SendMessageDialog({
 
       onSuccess?.()
       onOpenChange(false)
-    } catch (error) {
+    } catch {
       toast({
         title: '전송 실패',
         description: '메시지 전송 중 오류가 발생했습니다.',

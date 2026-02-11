@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@ui/button'
 import { Label } from '@ui/label'
 import { Textarea } from '@ui/textarea'
@@ -189,7 +188,8 @@ export function PaymentReminderDialog({
       .replace('{미납액}', student.remaining_amount.toLocaleString())
   }
 
-  const onSubmit = async (data: ReminderFormValues) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const onSubmit = async (_data: ReminderFormValues) => {
     if (!currentUser) {
       toast({
         title: '인증 오류',

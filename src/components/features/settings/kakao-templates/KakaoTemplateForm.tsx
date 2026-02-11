@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
 import {
   Dialog,
   DialogContent,
@@ -38,7 +36,6 @@ import {
 } from '@/app/actions/kakao-templates'
 import {
   kakaoTemplateFormSchema,
-  type KakaoTemplateFormInput,
 } from '@/lib/kakao/kakao-validation'
 import { kakaoMessageTypeLabels } from '@/lib/kakao/kakao-status-config'
 import type { KakaoTemplateCategory } from '@/infra/messaging/types/kakao.types'

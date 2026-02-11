@@ -26,7 +26,7 @@
  */
 
 import { sendAligoSMS } from './aligo-sms'
-import { addEmailSignature, type AcademyInfo } from './email-signature'
+import { type AcademyInfo } from './email-signature'
 
 export interface SendMessageOptions {
   type: 'sms' | 'lms' | 'mms'
@@ -62,6 +62,7 @@ export async function sendMessage({
   to,
   message,
   subject,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   academyInfo,
 }: SendMessageOptions): Promise<{
   success: boolean

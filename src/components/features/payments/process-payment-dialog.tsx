@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { createClient } from '@/lib/supabase/client'
 import { getTodayKST } from '@/lib/utils'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
@@ -54,7 +53,6 @@ interface ProcessPaymentDialogProps {
 export function ProcessPaymentDialog({
   open,
   onOpenChange,
-  invoiceId: _invoiceId,
   invoiceDetails,
   onSuccess,
 }: ProcessPaymentDialogProps) {

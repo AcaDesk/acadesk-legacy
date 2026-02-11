@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@ui/button'
 import { Label } from '@ui/label'
 import { useToast } from '@/hooks/use-toast'
-import { Upload, X, Loader2, AlertCircle } from 'lucide-react'
+import { Upload, X, AlertCircle } from 'lucide-react'
 import { StudentAvatar } from '@ui/student-avatar'
 import { Alert, AlertDescription } from '@ui/alert'
 
@@ -24,7 +24,7 @@ export function ProfileImageUpload({
   gender: _gender, // eslint-disable-line @typescript-eslint/no-unused-vars
   onImageUploaded,
 }: ProfileImageUploadProps) {
-  const [uploading, setUploading] = useState(false)
+  const [, setUploading] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentImageUrl || null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()

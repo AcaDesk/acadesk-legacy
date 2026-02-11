@@ -323,7 +323,7 @@ export function StudentImportWizard() {
                 오류 리포트 다운로드
               </Button>
               <p className="mt-2 text-xs text-muted-foreground">
-                다운로드한 파일에서 "⚠️ 오류 내용" 컬럼을 확인하여 수정 후 다시 업로드하세요.
+                다운로드한 파일에서 &ldquo;⚠️ 오류 내용&rdquo; 컬럼을 확인하여 수정 후 다시 업로드하세요.
               </p>
             </div>
           )}

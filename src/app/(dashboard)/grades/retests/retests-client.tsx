@@ -93,7 +93,8 @@ export function RetestsClient() {
     setSelectedStudents(newSet)
   }
 
-  // Select all / deselect all
+  // Select all / deselect all - TODO: UI에 연결 예정
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   function toggleAll() {
     if (selectedStudents.size === students.length) {
       setSelectedStudents(new Set())

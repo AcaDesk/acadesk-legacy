@@ -76,7 +76,8 @@ export function useAuthStage(options?: UseAuthStageOptions): UseAuthStageReturn 
   }, [options?.inviteToken])
 
   // TODO: Implement invite acceptance with Server Action
-  const acceptInvite = async (token: string) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const acceptInvite = async (_token: string) => {
     console.warn('[useAuthStage] acceptInvite not yet implemented with service_role')
     // This should call a Server Action that uses service_role
     // For now, just a stub to satisfy TypeScript

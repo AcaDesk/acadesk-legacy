@@ -863,7 +863,7 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
         description={
           studentToRemove ? (
             <div className="space-y-2">
-              <p>"{studentToRemove.name}" 학생을 시험에서 제외합니다.</p>
+              <p>&ldquo;{studentToRemove.name}&rdquo; 학생을 시험에서 제외합니다.</p>
               {studentToRemove.hasScore && studentToRemove.scoreData && (
                 <div className="p-3 rounded-md bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-800">
                   <p className="text-sm font-medium text-red-800 dark:text-red-100 mb-1">
@@ -875,7 +875,7 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
                 </div>
               )}
               <p className="text-xs text-muted-foreground">
-                제외 후 10초 이내에 알림의 "되돌리기" 버튼으로 복구할 수 있어요
+                제외 후 10초 이내에 알림의 &ldquo;되돌리기&rdquo; 버튼으로 복구할 수 있어요
               </p>
             </div>
           ) : ''

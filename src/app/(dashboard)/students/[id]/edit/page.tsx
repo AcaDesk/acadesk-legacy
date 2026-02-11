@@ -9,7 +9,7 @@ import { Button } from '@ui/button'
 import { Input } from '@ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Label } from '@ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
+
 import { Textarea } from '@ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@ui/tabs'
 import { Alert, AlertDescription } from '@ui/alert'
@@ -68,7 +68,7 @@ export default function EditStudentPage() {
     handleSubmit,
     setValue,
     watch,
-    formState: { errors, isDirty, isSubmitting },
+    formState: { errors, isSubmitting },
   } = useForm<StudentFormValues>({
     resolver: zodResolver(studentSchema),
     mode: 'onChange', // Validate on change to show errors immediately

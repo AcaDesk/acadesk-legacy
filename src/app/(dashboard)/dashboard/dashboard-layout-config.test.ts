@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import {
   getVisibleWidgetsInSection,
   getSortedSections,
-  shouldShowSection,
   type LayoutSection,
 } from './dashboard-layout-config'
 import type { DashboardWidget, DashboardWidgetId } from '@/core/types/dashboard'

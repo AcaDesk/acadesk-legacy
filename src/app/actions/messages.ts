@@ -313,7 +313,7 @@ export async function deleteMessageTemplate(id: string) {
  */
 export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
   try {
-    const { tenantId, userId } = await verifyStaff()
+    const { tenantId } = await verifyStaff()
     const validated = sendMessageSchema.parse(input)
     const supabase = createServiceRoleClient()
 

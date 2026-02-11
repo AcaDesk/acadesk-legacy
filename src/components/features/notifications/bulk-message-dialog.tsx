@@ -523,7 +523,7 @@ export function BulkMessageDialog({
                   <span>• {'{보호자명}'}: 보호자 이름</span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  예: "안녕하세요 {'{보호자명}'}님, {'{학생명}'} 학생의 이번 주 출석률은 100%입니다."
+                  예: &ldquo;안녕하세요 {'{보호자명}'}님, {'{학생명}'} 학생의 이번 주 출석률은 100%입니다.&rdquo;
                 </p>
               </AlertDescription>
             </Alert>
