@@ -7,6 +7,9 @@ import { Button } from '@ui/button'
 import { Input } from '@ui/input'
 import { Badge } from '@ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
+import { DatePicker } from '@ui/date-picker'
+import { Label } from '@ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
 import {
   Table,
   TableBody,
@@ -15,11 +18,12 @@ import {
   TableHeader,
   TableRow,
 } from '@ui/table'
-import { Plus, Edit, Trash2, Copy, FileText, Repeat } from 'lucide-react'
+import { Plus, Edit, Trash2, Copy, FileText, Repeat, X, Pause, Play } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@ui/dialog'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
@@ -34,6 +38,7 @@ interface ExamTemplate {
   passing_score: number | null
   recurring_schedule: string | null
   is_recurring: boolean
+  is_template_active: boolean
   description: string | null
   class_id: string | null
   classes?: {
@@ -53,15 +58,40 @@ interface ExamCategory {
   label: string
 }
 
+type QuestionFilter = 'all' | 'lt20' | '20to40' | 'gt40' | 'unset'
+
+function getTodayYmd() {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
+    now.getDate()
+  ).padStart(2, '0')}`
+}
+
+function formatDateToYmd(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+    date.getDate()
+  ).padStart(2, '0')}`
+}
+
 export function ExamTemplatesClient() {
   // All Hooks must be called before any early returns
   const [templates, setTemplates] = useState<ExamTemplate[]>([])
   const [categories, setCategories] = useState<ExamCategory[]>([])
   const [searchTerm, setSearchTerm] = useState('')
+  const [subjectFilter, setSubjectFilter] = useState('all')
+  const [scheduleFilter, setScheduleFilter] = useState('all')
+  const [classFilter, setClassFilter] = useState('all')
+  const [questionFilter, setQuestionFilter] = useState<QuestionFilter>('all')
   const [loading, setLoading] = useState(true)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [templateToDelete, setTemplateToDelete] = useState<{ id: string; name: string } | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [togglingTemplateId, setTogglingTemplateId] = useState<string | null>(null)
+  const [generateDialogOpen, setGenerateDialogOpen] = useState(false)
+  const [templateToGenerate, setTemplateToGenerate] = useState<ExamTemplate | null>(null)
+  const [generateExamName, setGenerateExamName] = useState('')
+  const [generateExamDate, setGenerateExamDate] = useState<Date | undefined>(new Date())
+  const [isGeneratingTemplateId, setIsGeneratingTemplateId] = useState<string | null>(null)
 
   const { toast } = useToast()
   const router = useRouter()
@@ -76,17 +106,70 @@ export function ExamTemplatesClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser, userLoading])
 
-  const filteredTemplates = useMemo(() => {
-    if (!searchTerm) return templates
+  const availableSubjects = useMemo(() => {
+    const map = new Map<string, string>()
+    templates.forEach((template) => {
+      if (template.subject_id && template.subjects?.name) {
+        map.set(template.subject_id, template.subjects.name)
+      }
+    })
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [templates])
 
+  const availableClasses = useMemo(() => {
+    const map = new Map<string, string>()
+    templates.forEach((template) => {
+      const className = template.classes?.[0]?.name
+      if (template.class_id && className) {
+        map.set(template.class_id, className)
+      }
+    })
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [templates])
+
+  const filteredTemplates = useMemo(() => {
     return templates.filter((template) => {
       const name = template.name?.toLowerCase() || ''
       const description = template.description?.toLowerCase() || ''
       const search = searchTerm.toLowerCase()
+      const totalQuestions = template.total_questions
 
-      return name.includes(search) || description.includes(search)
+      if (searchTerm && !name.includes(search) && !description.includes(search)) {
+        return false
+      }
+
+      if (subjectFilter !== 'all' && template.subject_id !== subjectFilter) {
+        return false
+      }
+
+      if (scheduleFilter !== 'all' && template.recurring_schedule !== scheduleFilter) {
+        return false
+      }
+
+      if (classFilter !== 'all' && template.class_id !== classFilter) {
+        return false
+      }
+
+      if (questionFilter === 'lt20') {
+        return totalQuestions !== null && totalQuestions < 20
+      }
+      if (questionFilter === '20to40') {
+        return totalQuestions !== null && totalQuestions >= 20 && totalQuestions <= 40
+      }
+      if (questionFilter === 'gt40') {
+        return totalQuestions !== null && totalQuestions > 40
+      }
+      if (questionFilter === 'unset') {
+        return totalQuestions === null
+      }
+
+      return true
     })
-  }, [searchTerm, templates])
+  }, [templates, searchTerm, subjectFilter, scheduleFilter, classFilter, questionFilter])
 
   async function loadData() {
     if (!currentUser || !currentUser.tenantId) return
@@ -94,20 +177,15 @@ export function ExamTemplatesClient() {
     try {
       setLoading(true)
 
-      // Load exam categories (reference table, no tenant_id)
-      const { data: categoriesData, error: categoriesError } = await supabase
-        .from('ref_exam_categories')
-        .select('code, label')
-        .eq('active', true)
-        .order('sort_order')
-
-      if (categoriesError) throw categoriesError
-      setCategories(categoriesData)
-
-      // Load recurring exams as templates
-      const { data: templatesData, error: templatesError } = await supabase
-        .from('exams')
-        .select(`
+      const [categoriesResult, templatesResult] = await Promise.all([
+        supabase
+          .from('ref_exam_categories')
+          .select('code, label')
+          .eq('active', true)
+          .order('sort_order'),
+        supabase
+          .from('exams')
+          .select(`
           id,
           name,
           subject_id,
@@ -117,18 +195,23 @@ export function ExamTemplatesClient() {
           passing_score,
           recurring_schedule,
           is_recurring,
+          is_template_active,
           description,
           class_id,
           classes (name),
           subjects (name, color)
         `)
-        .eq('tenant_id', currentUser.tenantId)
-        .eq('is_recurring', true)
-        .is('deleted_at', null)
-        .order('name')
+          .eq('tenant_id', currentUser.tenantId)
+          .eq('is_recurring', true)
+          .is('deleted_at', null)
+          .order('name'),
+      ])
 
-      if (templatesError) throw templatesError
-      setTemplates(templatesData as unknown as ExamTemplate[])
+      if (categoriesResult.error) throw categoriesResult.error
+      if (templatesResult.error) throw templatesResult.error
+
+      setCategories(categoriesResult.data || [])
+      setTemplates((templatesResult.data || []) as unknown as ExamTemplate[])
     } catch (error) {
       console.error('Error loading data:', error)
       toast({
@@ -141,6 +224,44 @@ export function ExamTemplatesClient() {
     }
   }
 
+  async function handleToggleTemplateActive(template: ExamTemplate) {
+    const nextActive = !template.is_template_active
+    const previousTemplates = templates
+    setTogglingTemplateId(template.id)
+
+    setTemplates((prev) =>
+      prev.map((item) =>
+        item.id === template.id ? { ...item, is_template_active: nextActive } : item
+      )
+    )
+
+    try {
+      const { error } = await supabase
+        .from('exams')
+        .update({ is_template_active: nextActive, updated_at: new Date().toISOString() })
+        .eq('id', template.id)
+
+      if (error) throw error
+
+      toast({
+        title: nextActive ? '템플릿 활성화' : '템플릿 일시중지',
+        description: nextActive
+          ? `"${template.name}" 템플릿의 자동 생성이 다시 활성화되었습니다.`
+          : `"${template.name}" 템플릿의 자동 생성이 일시중지되었습니다.`,
+      })
+    } catch (error) {
+      console.error('Error toggling template active state:', error)
+      setTemplates(previousTemplates)
+      toast({
+        title: '상태 변경 오류',
+        description: '템플릿 상태를 변경하는 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      })
+    } finally {
+      setTogglingTemplateId(null)
+    }
+  }
+
   function handleDelete(id: string, name: string) {
     setTemplateToDelete({ id, name })
     setDeleteDialogOpen(true)
@@ -150,6 +271,9 @@ export function ExamTemplatesClient() {
     if (!templateToDelete) return
 
     setIsDeleting(true)
+    const previousTemplates = templates
+    setTemplates((prev) => prev.filter((template) => template.id !== templateToDelete.id))
+
     try {
       const { error } = await supabase
         .from('exams')
@@ -162,10 +286,9 @@ export function ExamTemplatesClient() {
         title: '삭제 완료',
         description: `${templateToDelete.name} 템플릿이 삭제되었습니다.`,
       })
-
-      loadData()
     } catch (error) {
       console.error('Error deleting template:', error)
+      setTemplates(previousTemplates)
       toast({
         title: '삭제 오류',
         description: '템플릿을 삭제하는 중 오류가 발생했습니다.',
@@ -178,96 +301,48 @@ export function ExamTemplatesClient() {
     }
   }
 
-  function calculateNextExamDate(schedule: string | null): Date {
-    const now = new Date()
-    const result = new Date(now)
-
-    if (!schedule) return result
-
-    switch (schedule) {
-      case 'daily':
-        // Today
-        return result
-
-      case 'weekly_mon_wed_fri': {
-        // Find next Monday, Wednesday, or Friday
-        const day = result.getDay() // 0 = Sunday, 1 = Monday, etc.
-        if (day === 1 || day === 3 || day === 5) {
-          // Already Mon/Wed/Fri, use today
-          return result
-        } else if (day === 0 || day === 6 || day === 2 || day === 4) {
-          // Find next Mon/Wed/Fri
-          const daysToAdd = day === 0 ? 1 : // Sunday -> Monday
-                            day === 6 ? 2 : // Saturday -> Monday
-                            day === 2 ? 1 : // Tuesday -> Wednesday
-                            day === 4 ? 1 : 0 // Thursday -> Friday
-          result.setDate(result.getDate() + daysToAdd)
-        }
-        return result
-      }
-
-      case 'weekly_tue_thu': {
-        // Find next Tuesday or Thursday
-        const day = result.getDay()
-        if (day === 2 || day === 4) {
-          // Already Tue/Thu, use today
-          return result
-        } else if (day === 0 || day === 1 || day === 3 || day === 5 || day === 6) {
-          // Find next Tue/Thu
-          const daysToAdd = day === 0 ? 2 : // Sunday -> Tuesday
-                            day === 1 ? 1 : // Monday -> Tuesday
-                            day === 3 ? 1 : // Wednesday -> Thursday
-                            day === 5 ? 4 : // Friday -> Tuesday
-                            day === 6 ? 3 : 0 // Saturday -> Tuesday
-          result.setDate(result.getDate() + daysToAdd)
-        }
-        return result
-      }
-
-      case 'weekly':
-        // Next week, same day
-        result.setDate(result.getDate() + 7)
-        return result
-
-      case 'biweekly':
-        // Two weeks later, same day
-        result.setDate(result.getDate() + 14)
-        return result
-
-      case 'monthly':
-        // Next month, same day
-        result.setMonth(result.getMonth() + 1)
-        return result
-
-      default:
-        return result
-    }
+  function openGenerateDialog(template: ExamTemplate) {
+    const today = new Date()
+    const [year, month, day] = getTodayYmd().split('-')
+    setTemplateToGenerate(template)
+    setGenerateExamDate(today)
+    setGenerateExamName(`${template.name} (${year}.${month}.${day})`)
+    setGenerateDialogOpen(true)
   }
 
-  async function handleGenerateExam(template: ExamTemplate) {
-    if (!currentUser) return
+  async function handleConfirmGenerateExam() {
+    if (!currentUser || !templateToGenerate) return
+    if (!generateExamDate) {
+      toast({
+        title: '입력 필요',
+        description: '시험일을 선택해주세요.',
+        variant: 'destructive',
+      })
+      return
+    }
 
+    if (!generateExamName.trim()) {
+      toast({
+        title: '입력 필요',
+        description: '시험명을 입력해주세요.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setIsGeneratingTemplateId(templateToGenerate.id)
     try {
-      // Use today's date for manual exam creation (not calculateNextExamDate)
-      // recurring_schedule is for automatic recurring generation, not manual creation
-      const examDate = new Date()
-      const examName = `${template.name} (${examDate.getFullYear()}.${String(examDate.getMonth() + 1).padStart(2, '0')}.${String(examDate.getDate()).padStart(2, '0')})`
-
-      // Format date for database (YYYY-MM-DD) without timezone issues
-      // Do NOT use toISOString() as it converts to UTC and can change the date
-      const examDateStr = `${examDate.getFullYear()}-${String(examDate.getMonth() + 1).padStart(2, '0')}-${String(examDate.getDate()).padStart(2, '0')}`
-
       const newExam = {
         tenant_id: currentUser.tenantId,
-        name: examName,
-        subject_id: template.subject_id,
-        category_code: template.category_code,
-        exam_type: template.exam_type,
-        total_questions: template.total_questions,
-        passing_score: template.passing_score,
-        class_id: template.class_id,
-        description: template.description,
-        exam_date: examDateStr,
+        name: generateExamName.trim(),
+        subject_id: templateToGenerate.subject_id,
+        category_code: templateToGenerate.category_code,
+        exam_type: templateToGenerate.exam_type,
+        total_questions: templateToGenerate.total_questions,
+        passing_score: templateToGenerate.passing_score,
+        class_id: templateToGenerate.class_id,
+        description: templateToGenerate.description,
+        exam_date: formatDateToYmd(generateExamDate),
         is_recurring: false,
       }
 
@@ -277,8 +352,11 @@ export function ExamTemplatesClient() {
 
       toast({
         title: '시험 생성 완료',
-        description: `"${examName}" 시험이 생성되었습니다.`,
+        description: `"${generateExamName.trim()}" 시험이 생성되었습니다.`,
       })
+
+      setGenerateDialogOpen(false)
+      setTemplateToGenerate(null)
 
       // Redirect to the created exam detail page for student assignment
       if (data?.id) {
@@ -294,6 +372,8 @@ export function ExamTemplatesClient() {
         description: errorMessage,
         variant: 'destructive',
       })
+    } finally {
+      setIsGeneratingTemplateId(null)
     }
   }
 
@@ -318,6 +398,16 @@ export function ExamTemplatesClient() {
 
   // Feature flag checks after all Hooks
   const featureStatus = FEATURES.gradesManagement;
+  const hasActiveFilters =
+    subjectFilter !== 'all' ||
+    scheduleFilter !== 'all' ||
+    classFilter !== 'all' ||
+    questionFilter !== 'all'
+  const weeklyTemplateCount = templates.filter((template) => {
+    const schedule = template.recurring_schedule || ''
+    return schedule.startsWith('weekly') || schedule === 'biweekly'
+  }).length
+  const pausedTemplateCount = templates.filter((template) => !template.is_template_active).length
 
   if (featureStatus === 'inactive') {
     return <ComingSoon featureName="시험 템플릿" description="반복되는 시험을 템플릿으로 관리하고 자동으로 생성하여 업무 효율을 높일 수 있습니다." />;
@@ -352,22 +442,112 @@ export function ExamTemplatesClient() {
           </Button>
         </div>
 
-        {/* Search */}
-        <div className="flex items-center gap-4">
-          <div className="relative flex-1">
-            <Input
-              placeholder="템플릿명, 설명으로 검색..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+        {/* Search & Filters */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-4">
+            <div className="relative flex-1">
+              <Input
+                placeholder="템플릿명, 설명으로 검색..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <Badge variant="secondary" className="h-10 px-4 flex items-center">
+              {filteredTemplates.length}개 템플릿
+            </Badge>
           </div>
-          <Badge variant="secondary" className="h-10 px-4 flex items-center">
-            {filteredTemplates.length}개 템플릿
-          </Badge>
+
+          <div className="grid gap-3 md:grid-cols-4">
+            <div className="space-y-1">
+              <Label htmlFor="subject-filter" className="text-xs text-muted-foreground">과목</Label>
+              <Select value={subjectFilter} onValueChange={setSubjectFilter}>
+                <SelectTrigger id="subject-filter">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">전체 과목</SelectItem>
+                  {availableSubjects.map((subject) => (
+                    <SelectItem key={subject.id} value={subject.id}>
+                      {subject.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="schedule-filter" className="text-xs text-muted-foreground">반복 주기</Label>
+              <Select value={scheduleFilter} onValueChange={setScheduleFilter}>
+                <SelectTrigger id="schedule-filter">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">전체 주기</SelectItem>
+                  <SelectItem value="daily">매일</SelectItem>
+                  <SelectItem value="weekly_mon_wed_fri">매주 월수금</SelectItem>
+                  <SelectItem value="weekly_tue_thu">매주 화목</SelectItem>
+                  <SelectItem value="weekly">매주</SelectItem>
+                  <SelectItem value="biweekly">격주</SelectItem>
+                  <SelectItem value="monthly">매월</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="class-filter" className="text-xs text-muted-foreground">수업</Label>
+              <Select value={classFilter} onValueChange={setClassFilter}>
+                <SelectTrigger id="class-filter">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">전체 수업</SelectItem>
+                  {availableClasses.map((klass) => (
+                    <SelectItem key={klass.id} value={klass.id}>
+                      {klass.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="question-filter" className="text-xs text-muted-foreground">문항 수</Label>
+              <Select value={questionFilter} onValueChange={(value) => setQuestionFilter(value as QuestionFilter)}>
+                <SelectTrigger id="question-filter">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">전체 문항</SelectItem>
+                  <SelectItem value="lt20">20문항 미만</SelectItem>
+                  <SelectItem value="20to40">20~40문항</SelectItem>
+                  <SelectItem value="gt40">40문항 초과</SelectItem>
+                  <SelectItem value="unset">미설정</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {hasActiveFilters && (
+            <div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSubjectFilter('all')
+                  setScheduleFilter('all')
+                  setClassFilter('all')
+                  setQuestionFilter('all')
+                }}
+              >
+                <X className="h-4 w-4 mr-1" />
+                필터 초기화
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Quick Stats */}
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="pb-3">
               <CardDescription>총 템플릿 수</CardDescription>
@@ -378,7 +558,7 @@ export function ExamTemplatesClient() {
             <CardHeader className="pb-3">
               <CardDescription>주간 템플릿</CardDescription>
               <CardTitle className="text-3xl">
-                {templates.filter((t) => t.recurring_schedule === 'weekly').length}개
+                {weeklyTemplateCount}개
               </CardTitle>
             </CardHeader>
           </Card>
@@ -387,6 +567,14 @@ export function ExamTemplatesClient() {
               <CardDescription>월간 템플릿</CardDescription>
               <CardTitle className="text-3xl">
                 {templates.filter((t) => t.recurring_schedule === 'monthly').length}개
+              </CardTitle>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardDescription>일시중지 템플릿</CardDescription>
+              <CardTitle className="text-3xl">
+                {pausedTemplateCount}개
               </CardTitle>
             </CardHeader>
           </Card>
@@ -405,7 +593,7 @@ export function ExamTemplatesClient() {
               <div className="text-center py-12 text-muted-foreground">
                 <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p>등록된 템플릿이 없습니다.</p>
-                {searchTerm && <p className="text-sm mt-2">검색 결과가 없습니다.</p>}
+                {(searchTerm || hasActiveFilters) && <p className="text-sm mt-2">검색/필터 결과가 없습니다.</p>}
               </div>
             ) : (
               <div className="border rounded-lg overflow-hidden">
@@ -429,6 +617,9 @@ export function ExamTemplatesClient() {
                           <div className="flex items-center gap-2">
                             <Repeat className="h-4 w-4 text-info" />
                             <span className="font-medium">{template.name}</span>
+                            {!template.is_template_active && (
+                              <Badge variant="secondary">일시중지</Badge>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -474,11 +665,30 @@ export function ExamTemplatesClient() {
                             <Button
                               variant="default"
                               size="sm"
-                              onClick={() => handleGenerateExam(template)}
+                              onClick={() => openGenerateDialog(template)}
+                              disabled={isGeneratingTemplateId === template.id}
                               className="bg-success hover:bg-success/90"
                             >
                               <Copy className="h-4 w-4 mr-1" />
-                              시험 생성
+                              {isGeneratingTemplateId === template.id ? '생성 중...' : '시험 생성'}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleToggleTemplateActive(template)}
+                              disabled={togglingTemplateId === template.id}
+                            >
+                              {template.is_template_active ? (
+                                <>
+                                  <Pause className="h-4 w-4 mr-1" />
+                                  자동 중지
+                                </>
+                              ) : (
+                                <>
+                                  <Play className="h-4 w-4 mr-1" />
+                                  자동 재개
+                                </>
+                              )}
                             </Button>
                             <Button
                               variant="ghost"
@@ -521,6 +731,51 @@ export function ExamTemplatesClient() {
         isLoading={isDeleting}
         onConfirm={handleConfirmDelete}
       />
+
+      {/* Generate Exam Dialog */}
+      <Dialog open={generateDialogOpen} onOpenChange={setGenerateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>템플릿으로 시험 생성</DialogTitle>
+            <DialogDescription>
+              시험명과 시험일을 확인한 뒤 생성하세요.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="generate-exam-name">시험명</Label>
+              <Input
+                id="generate-exam-name"
+                value={generateExamName}
+                onChange={(e) => setGenerateExamName(e.target.value)}
+                placeholder="시험명을 입력하세요"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="generate-exam-date">시험일</Label>
+              <DatePicker
+                id="generate-exam-date"
+                value={generateExamDate}
+                onChange={setGenerateExamDate}
+                dateFormat="yyyy-MM-dd"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setGenerateDialogOpen(false)}>
+              취소
+            </Button>
+            <Button
+              onClick={handleConfirmGenerateExam}
+              disabled={!templateToGenerate || isGeneratingTemplateId === templateToGenerate?.id}
+            >
+              {templateToGenerate && isGeneratingTemplateId === templateToGenerate.id ? '생성 중...' : '시험 생성'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PageWrapper>
   )
 }
