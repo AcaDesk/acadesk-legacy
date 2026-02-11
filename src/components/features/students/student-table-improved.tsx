@@ -150,8 +150,14 @@ export function StudentTableImproved({
     if (!birthDate) return false
     const today = new Date()
     const birth = new Date(birthDate)
+    // 올해 생일 체크
     birth.setFullYear(today.getFullYear())
-    const daysUntilBirthday = differenceInDays(birth, today)
+    let daysUntilBirthday = differenceInDays(birth, today)
+    // 올해 생일이 이미 지났으면 내년 생일 체크 (12월→1월 크로스오버)
+    if (daysUntilBirthday < 0) {
+      birth.setFullYear(today.getFullYear() + 1)
+      daysUntilBirthday = differenceInDays(birth, today)
+    }
     return daysUntilBirthday > 0 && daysUntilBirthday <= 7
   }
 
@@ -900,8 +906,9 @@ export function StudentTableImproved({
             </Select>
           </div>
           <div className="flex w-fit items-center justify-center text-sm font-medium">
-            페이지 {table.getState().pagination.pageIndex + 1} /{' '}
-            {table.getPageCount()}
+            {table.getPageCount() > 0
+              ? `페이지 ${table.getState().pagination.pageIndex + 1} / ${table.getPageCount()}`
+              : '데이터 없음'}
           </div>
           <div className="ml-auto flex items-center gap-2 lg:ml-0">
             <Button

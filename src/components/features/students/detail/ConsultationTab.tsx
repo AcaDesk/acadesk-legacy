@@ -142,7 +142,7 @@ export function ConsultationTab({
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="text-sm whitespace-pre-wrap">{consultation.content}</p>
+                <p className="text-sm whitespace-pre-wrap">{consultation.summary || consultation.content}</p>
               </CardContent>
             </Card>
           ))}
