@@ -137,6 +137,7 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
   const [exams, setExams] = useState(initialExams)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
+  const [selectedSubject, setSelectedSubject] = useState<string>('all')
   const [selectedType, setSelectedType] = useState<string>('all')
   const [selectedPeriod, setSelectedPeriod] = useState<ExamListPeriod>('this_month')
   const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>('active')
@@ -152,6 +153,19 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
     setExams(initialExams)
   }, [initialExams])
 
+  const availableSubjects = useMemo(() => {
+    const map = new Map<string, string>()
+    exams.forEach((exam) => {
+      const subject = Array.isArray(exam.subjects) ? exam.subjects[0] : exam.subjects
+      if (subject?.id && subject?.name) {
+        map.set(subject.id, subject.name)
+      }
+    })
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [exams])
+
   const filteredExams = useMemo(() => {
     let filtered = exams
 
@@ -165,6 +179,13 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
 
     if (selectedCategory !== 'all') {
       filtered = filtered.filter((exam) => exam.category_code === selectedCategory)
+    }
+
+    if (selectedSubject !== 'all') {
+      filtered = filtered.filter((exam) => {
+        const subject = Array.isArray(exam.subjects) ? exam.subjects[0] : exam.subjects
+        return subject?.id === selectedSubject
+      })
     }
 
     if (selectedType !== 'all') {
@@ -186,7 +207,7 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
     }
 
     return filtered
-  }, [exams, searchTerm, selectedCategory, selectedType, selectedPeriod, visibilityFilter])
+  }, [exams, searchTerm, selectedCategory, selectedSubject, selectedType, selectedPeriod, visibilityFilter])
 
   const {
     currentPage,
@@ -202,10 +223,11 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
   // Reset page when filters change
   useEffect(() => {
     resetPage()
-  }, [searchTerm, selectedCategory, selectedType, selectedPeriod, visibilityFilter, resetPage])
+  }, [searchTerm, selectedCategory, selectedSubject, selectedType, selectedPeriod, visibilityFilter, resetPage])
 
   const activeFilterCount =
     (selectedCategory !== 'all' ? 1 : 0) +
+    (selectedSubject !== 'all' ? 1 : 0) +
     (selectedType !== 'all' ? 1 : 0) +
     (selectedPeriod !== 'this_month' ? 1 : 0) +
     (visibilityFilter !== 'active' ? 1 : 0)
@@ -518,6 +540,20 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
             </SelectContent>
           </Select>
 
+          <Select value={selectedSubject} onValueChange={setSelectedSubject}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="과목" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">전체 과목</SelectItem>
+              {availableSubjects.map((subject) => (
+                <SelectItem key={subject.id} value={subject.id}>
+                  {subject.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <Select value={selectedPeriod} onValueChange={(v) => setSelectedPeriod(v as ExamListPeriod)}>
             <SelectTrigger className="w-[170px]">
               <SelectValue placeholder="기간" />
@@ -548,6 +584,7 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
               onClick={() => {
                 setSelectedType('all')
                 setSelectedCategory('all')
+                setSelectedSubject('all')
                 setSelectedPeriod('this_month')
                 setVisibilityFilter('active')
               }}
