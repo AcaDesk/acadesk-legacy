@@ -1,7 +1,6 @@
 import { Suspense } from 'react'
 import { PageWrapper } from '@/components/layout/page-wrapper'
 import { RetestsClient } from './retests-client'
-import { AlertTriangle } from 'lucide-react'
 import { Skeleton } from '@ui/skeleton'
 import { requireAuth } from '@/lib/auth/helpers'
 
@@ -18,7 +17,6 @@ export default async function RetestsPage() {
     <PageWrapper
       title="재시험 관리"
       subtitle="합격 점수 미달 학생들의 재시험을 관리합니다"
-      icon={<AlertTriangle className="w-6 h-6" />}
     >
       <Suspense fallback={<RetestsPageSkeleton />}>
         <RetestsClient />

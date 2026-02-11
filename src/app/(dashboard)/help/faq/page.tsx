@@ -1,5 +1,4 @@
 import { PageWrapper } from '@/components/layout/page-wrapper'
-import { FileQuestion } from 'lucide-react'
 import { FAQClient } from './faq-client'
 
 // Static FAQ data
@@ -97,7 +96,6 @@ export default function FAQPage() {
     <PageWrapper
       title="자주 묻는 질문 (FAQ)"
       subtitle="자주 묻는 질문과 답변을 확인하세요"
-      icon={<FileQuestion className="w-6 h-6" />}
     >
       <FAQClient faqs={faqs} categories={faqCategories} />
     </PageWrapper>

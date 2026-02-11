@@ -1,6 +1,5 @@
 import { PageWrapper } from '@/components/layout/page-wrapper'
 import {
-  BookOpen,
   Users,
   Calendar,
   FileText,
@@ -141,7 +140,6 @@ export default function GuidePage() {
     <PageWrapper
       title="사용 가이드"
       subtitle="Acadesk의 주요 기능 사용법을 안내합니다"
-      icon={<BookOpen className="w-6 h-6" />}
     >
       <GuideClient categories={guideCategories} iconMap={iconMap} />
     </PageWrapper>

@@ -11,7 +11,7 @@ import { Button } from '@ui/button'
 import { Card } from '@ui/card'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import { useToast } from '@/hooks/use-toast'
-import { Plus, Calendar as CalendarIcon } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import type { CalendarEvent } from '@/core/types/calendar'
 import {
   createCalendarEvent,
@@ -320,7 +320,6 @@ export function CalendarContent({ initialEvents }: CalendarContentProps) {
     <PageWrapper
       title="학원 캘린더"
       subtitle="학원의 모든 일정을 한눈에 관리하세요"
-      icon={<CalendarIcon className="w-6 h-6" />}
       actions={
         <Button onClick={() => setIsAddModalOpen(true)}>
           <Plus className="w-4 h-4 mr-2" />
