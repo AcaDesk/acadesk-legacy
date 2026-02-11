@@ -415,7 +415,7 @@ export function EntryClient({ initialExams }: EntryClientProps) {
         </TabsList>
 
         {/* ── 입력 필요 탭 ── */}
-        <TabsContent value="pending" forceMount>
+        <TabsContent value="pending">
           {pendingLoading && pendingExams.length === 0 ? (
             renderTableSkeleton()
           ) : (
@@ -487,7 +487,7 @@ export function EntryClient({ initialExams }: EntryClientProps) {
         </TabsContent>
 
         {/* ── 입력 완료 탭 ── */}
-        <TabsContent value="completed" forceMount>
+        <TabsContent value="completed">
           <div className="space-y-4">
             {/* Month Navigation */}
             <div className="flex items-center gap-2">
