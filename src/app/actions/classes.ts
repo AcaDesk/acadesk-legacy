@@ -553,7 +553,7 @@ export async function getClassStudents(classId: string) {
       `)
       .eq('tenant_id', tenantId)
       .eq('class_id', classId)
-      .is('deleted_at', null)
+      .eq('status', 'active')
 
     if (enrollError) throw enrollError
 
