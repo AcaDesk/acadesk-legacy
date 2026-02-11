@@ -36,6 +36,19 @@ export function NotificationPopover() {
   const { user: currentUser } = useCurrentUser()
   const { toast } = useToast()
 
+  const loadUnreadCount = useCallback(async () => {
+    if (!currentUser || !currentUser.tenantId || !isNotificationActive) return
+
+    try {
+      const countResult = await getUnreadNotificationCount()
+      if (countResult.success && countResult.data !== undefined) {
+        setUnreadCount(countResult.data)
+      }
+    } catch {
+      // 주기적 폴링에서는 조용히 실패하여 UX 방해를 줄임
+    }
+  }, [currentUser, isNotificationActive])
+
   // 알림 목록 로드
   const loadNotifications = useCallback(async () => {
     // tenant_id가 없으면 데이터 페칭하지 않음 (온보딩 전 또는 승인 대기 중)
@@ -80,6 +93,30 @@ export function NotificationPopover() {
       loadNotifications()
     }
   }, [currentUser, isNotificationActive, loadNotifications])
+
+  // 배지 신뢰도 개선: 읽지 않은 수를 주기적으로 갱신
+  useEffect(() => {
+    if (!currentUser || !isNotificationActive) return
+
+    const intervalId = window.setInterval(() => {
+      void loadUnreadCount()
+    }, 60000)
+
+    return () => window.clearInterval(intervalId)
+  }, [currentUser, isNotificationActive, loadUnreadCount])
+
+  // 팝오버가 열려 있을 때는 목록을 더 자주 갱신
+  useEffect(() => {
+    if (!open || !currentUser || !isNotificationActive) return
+
+    void loadNotifications()
+
+    const intervalId = window.setInterval(() => {
+      void loadNotifications()
+    }, 30000)
+
+    return () => window.clearInterval(intervalId)
+  }, [open, currentUser, isNotificationActive, loadNotifications])
 
   // 알림 클릭 시 읽음 처리
   const handleNotificationClick = async (notification: InAppNotification) => {
@@ -183,6 +220,9 @@ export function NotificationPopover() {
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
+          <span className="sr-only">
+            {unreadCount > 0 ? `읽지 않은 알림 ${unreadCount}개` : '읽지 않은 알림 없음'}
+          </span>
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[380px] p-0">
