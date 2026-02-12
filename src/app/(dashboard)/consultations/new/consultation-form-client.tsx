@@ -149,6 +149,11 @@ export function ConsultationFormClient({
       const [hours, minutes] = data.consultationTime.split(':').map(Number)
       dateTime.setHours(hours, minutes, 0, 0)
 
+      // followUp 해제 시 nextConsultationDate 제거
+      const nextDate = data.followUpRequired
+        ? data.nextConsultationDate?.toISOString()
+        : null
+
       if (mode === 'create') {
         const result = await createConsultation({
           isLead: data.isLead,
@@ -164,7 +169,7 @@ export function ConsultationFormClient({
           summary: data.summary,
           outcome: data.outcome,
           followUpRequired: data.followUpRequired,
-          nextConsultationDate: data.nextConsultationDate?.toISOString(),
+          nextConsultationDate: nextDate,
         })
 
         if (!result.success) {
@@ -191,7 +196,7 @@ export function ConsultationFormClient({
           summary: data.summary,
           outcome: data.outcome,
           followUpRequired: data.followUpRequired,
-          nextConsultationDate: data.nextConsultationDate?.toISOString(),
+          nextConsultationDate: nextDate,
         })
 
         if (!result.success) {
@@ -518,9 +523,12 @@ export function ConsultationFormClient({
                     <Checkbox
                       id="followUpRequired"
                       checked={form.watch('followUpRequired')}
-                      onCheckedChange={(checked) =>
+                      onCheckedChange={(checked) => {
                         form.setValue('followUpRequired', checked as boolean)
-                      }
+                        if (!checked) {
+                          form.setValue('nextConsultationDate', undefined, { shouldValidate: true })
+                        }
+                      }}
                     />
                     <Label htmlFor="followUpRequired" className="cursor-pointer">
                       후속 상담 필요

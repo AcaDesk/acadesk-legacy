@@ -135,7 +135,14 @@ export function ConsultationsContent({
   const [endDate, setEndDate] = useState<Date | undefined>(
     initialEndDate ? new Date(initialEndDate) : undefined
   )
-  const [filterOpen, setFilterOpen] = useState(false)
+  // URL에 필터가 있으면 필터 패널을 자동으로 열기
+  const hasUrlFilters =
+    initialType !== 'all' ||
+    initialConductor !== 'all' ||
+    initialFollowUp !== 'all' ||
+    initialStartDate !== null ||
+    initialEndDate !== null
+  const [filterOpen, setFilterOpen] = useState(hasUrlFilters)
   const [loading, setLoading] = useState(false)
 
   // Race condition guard

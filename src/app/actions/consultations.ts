@@ -510,7 +510,9 @@ export async function updateConsultation(
 
     revalidatePath('/consultations')
     revalidatePath(`/consultations/${validated.id}`)
-    revalidatePath(`/students/${data.student_id}`)
+    if (data.student_id) {
+      revalidatePath(`/students/${data.student_id}`)
+    }
 
     return {
       success: true,
