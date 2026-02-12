@@ -8,7 +8,11 @@ import {
 } from '@/app/actions/consultations'
 import { ConsultationsContent } from './consultations-content'
 
-export default async function ConsultationsPage() {
+export default async function ConsultationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
   // Feature flag checks
   const featureStatus = FEATURES.consultationManagement
 
@@ -30,9 +34,30 @@ export default async function ConsultationsPage() {
     )
   }
 
-  // 병렬 fetch: 초기 데이터 + 통계 + 필터 옵션
+  // URL searchParams에서 초기 필터/페이지 상태 읽기
+  const params = await searchParams
+  const page = Number(params.page) || 1
+  const tab = (params.tab as string) || 'all'
+  const type = (params.type as string) || undefined
+  const conductor = (params.conductor as string) || undefined
+  const followUp = (params.followUp as string) || undefined
+  const startDate = (params.startDate as string) || undefined
+  const endDate = (params.endDate as string) || undefined
+  const search = (params.search as string) || undefined
+
+  // 병렬 fetch: URL 상태에 맞는 초기 데이터 + 통계 + 필터 옵션
   const [dataResult, statsResult, filterOptionsResult] = await Promise.all([
-    getConsultations({ page: 1, pageSize: 20 }),
+    getConsultations({
+      page,
+      pageSize: 20,
+      isLead: tab === 'all' ? undefined : tab === 'lead',
+      consultationType: type,
+      conductedBy: conductor,
+      followUpOnly: followUp === 'required' ? true : undefined,
+      startDate,
+      endDate,
+      searchTerm: search,
+    }),
     getConsultationStats(),
     getConsultationFilterOptions(),
   ])
