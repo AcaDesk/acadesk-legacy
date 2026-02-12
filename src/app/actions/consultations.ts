@@ -36,7 +36,10 @@ const createConsultationSchema = z.object({
   // 공통 필드
   consultationDate: z.string(), // ISO datetime string
   consultationType: z.enum(['parent_meeting', 'phone_call', 'video_call', 'in_person']),
-  durationMinutes: z.number().int().positive().optional(),
+  durationMinutes: z.preprocess(
+    (val) => (val === '' || val === undefined || val === null || Number.isNaN(val) ? undefined : Number(val)),
+    z.number().int().positive().optional(),
+  ),
   title: z.string().min(1, '상담 제목은 필수입니다'),
   summary: z.string().optional(),
   outcome: z.string().optional(),
@@ -44,14 +47,21 @@ const createConsultationSchema = z.object({
   followUpRequired: z.boolean().optional(),
 }).refine(
   (data) => {
-    // isLead = false이면 studentId 필수
     if (!data.isLead && !data.studentId) return false
-    // isLead = true이면 leadName 필수
     if (data.isLead && !data.leadName) return false
     return true
   },
   {
     message: '재원생 상담은 학생을, 신규 상담은 잠재 고객 이름을 입력해주세요',
+  }
+).refine(
+  (data) => {
+    if (data.followUpRequired && !data.nextConsultationDate) return false
+    return true
+  },
+  {
+    message: '후속 상담 필요 시 다음 상담 예정일을 입력해주세요',
+    path: ['nextConsultationDate'],
   }
 )
 
@@ -86,7 +96,7 @@ const addParticipantSchema = z.object({
   participantType: z.enum(['instructor', 'guardian', 'student', 'other']),
   userId: z.string().uuid().optional(),
   guardianId: z.string().uuid().optional(),
-  name: z.string().optional(),
+  name: z.string().min(1, '참석자 이름은 필수입니다'),
   role: z.string().optional(),
 })
 
@@ -107,15 +117,24 @@ export async function getConsultations(options?: {
   isLead?: boolean
   startDate?: string
   endDate?: string
+  consultationType?: string
+  searchTerm?: string
+  page?: number
+  pageSize?: number
   limit?: number
 }) {
   try {
     const { tenantId } = await verifyStaff()
     const supabase = createServiceRoleClient()
 
+    const page = options?.page ?? 1
+    const pageSize = options?.pageSize ?? 20
+    const from = (page - 1) * pageSize
+    const to = from + pageSize - 1
+
     let query = supabase
       .from('consultations')
-      .select('*, students!student_id(id, name), users!consultations_conducted_by_fkey(id, name)')
+      .select('*, students!student_id(id, name), users!consultations_conducted_by_fkey(id, name)', { count: 'exact' })
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
 
@@ -137,14 +156,46 @@ export async function getConsultations(options?: {
     if (options?.endDate) {
       query = query.lte('consultation_date', options.endDate)
     }
+    if (options?.consultationType) {
+      query = query.eq('consultation_type', options.consultationType)
+    }
+
+    // 검색어 필터: student name, lead_name, title, summary 매칭
+    if (options?.searchTerm && options.searchTerm.trim()) {
+      const term = options.searchTerm.trim()
+
+      // 먼저 매칭되는 학생 ID를 찾기
+      const { data: matchingStudents } = await supabase
+        .from('students')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .is('deleted_at', null)
+        .ilike('name', `%${term}%`)
+
+      const studentIds = matchingStudents?.map(s => s.id) || []
+
+      // 직접 필터 가능한 필드 + 매칭된 학생 ID로 OR 조건
+      const orFilters: string[] = [
+        `title.ilike.%${term}%`,
+        `summary.ilike.%${term}%`,
+        `lead_name.ilike.%${term}%`,
+      ]
+      if (studentIds.length > 0) {
+        orFilters.push(`student_id.in.(${studentIds.join(',')})`)
+      }
+      query = query.or(orFilters.join(','))
+    }
 
     query = query.order('consultation_date', { ascending: false })
 
-    if (options?.limit) {
+    // limit 모드 (하위호환성) vs pagination 모드
+    if (options?.limit && !options?.page) {
       query = query.limit(options.limit)
+    } else {
+      query = query.range(from, to)
     }
 
-    const { data, error } = await query
+    const { data, error, count } = await query
 
     if (error) {
       throw error
@@ -153,6 +204,7 @@ export async function getConsultations(options?: {
     return {
       success: true,
       data: data || [],
+      totalCount: count ?? 0,
       error: null,
     }
   } catch (error) {
@@ -160,6 +212,7 @@ export async function getConsultations(options?: {
     return {
       success: false,
       data: null,
+      totalCount: 0,
       error: getErrorMessage(error),
     }
   }
@@ -224,6 +277,108 @@ export async function getConsultationById(id: string, includeDetails = true) {
     }
   } catch (error) {
     console.error('[getConsultationById] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * Get consultation statistics (total counts, independent of pagination)
+ */
+export async function getConsultationStats() {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    // 4개 count 쿼리를 병렬 실행
+    const [totalResult, leadResult, studentResult, convertedResult] = await Promise.all([
+      supabase
+        .from('consultations')
+        .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
+        .is('deleted_at', null),
+      supabase
+        .from('consultations')
+        .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
+        .eq('is_lead', true)
+        .is('converted_to_student_id', null)
+        .is('deleted_at', null),
+      supabase
+        .from('consultations')
+        .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
+        .eq('is_lead', false)
+        .is('deleted_at', null),
+      supabase
+        .from('consultations')
+        .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
+        .eq('is_lead', true)
+        .not('converted_to_student_id', 'is', null)
+        .is('deleted_at', null),
+    ])
+
+    return {
+      success: true,
+      data: {
+        total: totalResult.count ?? 0,
+        lead: leadResult.count ?? 0,
+        student: studentResult.count ?? 0,
+        converted: convertedResult.count ?? 0,
+      },
+      error: null,
+    }
+  } catch (error) {
+    console.error('[getConsultationStats] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * Get filter options for consultation list (conductor list)
+ */
+export async function getConsultationFilterOptions() {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    // 해당 tenant의 상담을 진행한 적 있는 사용자 목록 조회
+    const { data, error } = await supabase
+      .from('consultations')
+      .select('conducted_by, users!consultations_conducted_by_fkey(id, name)')
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+
+    if (error) {
+      throw error
+    }
+
+    // 중복 제거
+    const conductorMap = new Map<string, { id: string; name: string }>()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const row of (data || []) as any[]) {
+      if (row.conducted_by && row.users?.id) {
+        conductorMap.set(row.users.id, { id: row.users.id, name: row.users.name })
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        conductors: Array.from(conductorMap.values()),
+      },
+      error: null,
+    }
+  } catch (error) {
+    console.error('[getConsultationFilterOptions] Error:', error)
     return {
       success: false,
       data: null,

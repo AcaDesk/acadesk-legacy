@@ -8,19 +8,9 @@ export default async function ConsultationDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-
-  console.log('[ConsultationDetailPage] Fetching consultation with id:', id)
-
   const result = await getConsultationById(id, true)
 
-  console.log('[ConsultationDetailPage] getConsultationById result:', {
-    success: result.success,
-    hasData: !!result.data,
-    error: result.error,
-  })
-
   if (!result.success || !result.data) {
-    console.error('[ConsultationDetailPage] Not found - result:', result)
     notFound()
   }
 

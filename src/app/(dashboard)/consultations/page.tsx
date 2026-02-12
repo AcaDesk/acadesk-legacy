@@ -1,7 +1,11 @@
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
-import { getConsultations } from '@/app/actions/consultations'
+import {
+  getConsultations,
+  getConsultationStats,
+  getConsultationFilterOptions,
+} from '@/app/actions/consultations'
 import { ConsultationsContent } from './consultations-content'
 
 export default async function ConsultationsPage() {
@@ -26,9 +30,19 @@ export default async function ConsultationsPage() {
     )
   }
 
-  // Fetch data on the server
-  const result = await getConsultations({ limit: 100 })
-  const consultations = result.success && result.data ? result.data : []
+  // 병렬 fetch: 초기 데이터 + 통계 + 필터 옵션
+  const [dataResult, statsResult, filterOptionsResult] = await Promise.all([
+    getConsultations({ page: 1, pageSize: 20 }),
+    getConsultationStats(),
+    getConsultationFilterOptions(),
+  ])
 
-  return <ConsultationsContent initialData={consultations as any} />
+  return (
+    <ConsultationsContent
+      initialData={dataResult.success && dataResult.data ? (dataResult.data as any) : []}
+      initialTotalCount={dataResult.success ? dataResult.totalCount : 0}
+      initialStats={statsResult.success ? statsResult.data : null}
+      filterOptions={filterOptionsResult.success ? filterOptionsResult.data : null}
+    />
+  )
 }
