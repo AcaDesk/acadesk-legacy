@@ -327,7 +327,7 @@ export function ConsultationDetailClient({
   }
 
   async function handleAddParticipant() {
-    if (!participantName && participantType !== 'guardian') {
+    if (!participantName.trim()) {
       toast({
         title: '입력 오류',
         description: '참석자 이름을 입력해주세요.',
@@ -340,7 +340,7 @@ export function ConsultationDetailClient({
       const result = await addConsultationParticipant({
         consultationId: consultation.id,
         participantType,
-        name: participantName || undefined,
+        name: participantName.trim(),
         role: participantRole || undefined,
       })
 

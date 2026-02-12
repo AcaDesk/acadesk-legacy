@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
@@ -14,6 +15,8 @@ import {
   Filter,
   CheckCircle,
   AlertCircle,
+  X,
+  Loader2,
 } from 'lucide-react'
 import Link from 'next/link'
 import { PageWrapper } from '@/components/layout/page-wrapper'
@@ -24,10 +27,31 @@ import {
   CARD_STYLES,
 } from '@/lib/constants'
 import { Input } from '@ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@ui/select'
+import { DatePicker } from '@ui/date-picker'
 import { Tabs, TabsList, TabsTrigger } from '@ui/tabs'
 import { EmptyState } from '@/components/ui/loading-state'
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@ui/pagination'
 import { PAGE_ANIMATIONS, getListItemAnimation } from '@/lib/animation-config'
 import { cn } from '@/lib/utils'
+import { useToast } from '@/hooks/use-toast'
+import { getConsultations } from '@/app/actions/consultations'
+import { getErrorMessage } from '@/lib/error-handlers'
+import { format } from 'date-fns'
 
 type Consultation = {
   id: string
@@ -49,9 +73,25 @@ type Consultation = {
   users?: { name: string }
 }
 
+type Stats = {
+  total: number
+  lead: number
+  student: number
+  converted: number
+}
+
+type FilterOptions = {
+  conductors: Array<{ id: string; name: string }>
+}
+
 interface ConsultationsContentProps {
   initialData: Consultation[]
+  initialTotalCount: number
+  initialStats: Stats | null
+  filterOptions: FilterOptions | null
 }
+
+const PAGE_SIZE = 20
 
 const consultationTypeLabels: Record<string, string> = {
   parent_meeting: '학부모 상담',
@@ -60,36 +100,194 @@ const consultationTypeLabels: Record<string, string> = {
   in_person: '대면 상담',
 }
 
-export function ConsultationsContent({ initialData }: ConsultationsContentProps) {
-  const [searchTerm, setSearchTerm] = useState('')
-  const [activeTab, setActiveTab] = useState<'all' | 'lead' | 'student'>('all')
-  const [consultations] = useState<Consultation[]>(initialData)
+export function ConsultationsContent({
+  initialData,
+  initialTotalCount,
+  initialStats,
+  filterOptions,
+}: ConsultationsContentProps) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const { toast } = useToast()
 
-  // Calculate stats from real data
-  const stats = {
-    totalConsultations: consultations.length,
-    leadConsultations: consultations.filter((c) => c.is_lead && !c.converted_to_student_id).length,
-    studentConsultations: consultations.filter((c) => !c.is_lead).length,
-    convertedConsultations: consultations.filter((c) => c.is_lead && c.converted_to_student_id).length,
+  // URL에서 초기 상태 복원
+  const initialTab = (searchParams.get('tab') as 'all' | 'lead' | 'student') || 'all'
+  const initialPage = Number(searchParams.get('page')) || 1
+  const initialSearch = searchParams.get('search') || ''
+  const initialType = searchParams.get('type') || 'all'
+  const initialConductor = searchParams.get('conductor') || 'all'
+  const initialFollowUp = searchParams.get('followUp') || 'all'
+  const initialStartDate = searchParams.get('startDate')
+  const initialEndDate = searchParams.get('endDate')
+
+  // State
+  const [consultations, setConsultations] = useState<Consultation[]>(initialData)
+  const [totalCount, setTotalCount] = useState(initialTotalCount)
+  const [currentPage, setCurrentPage] = useState(initialPage)
+  const [searchTerm, setSearchTerm] = useState(initialSearch)
+  const [activeTab, setActiveTab] = useState<'all' | 'lead' | 'student'>(initialTab)
+  const [consultationType, setConsultationType] = useState(initialType)
+  const [conductedBy, setConductedBy] = useState(initialConductor)
+  const [followUpFilter, setFollowUpFilter] = useState(initialFollowUp)
+  const [startDate, setStartDate] = useState<Date | undefined>(
+    initialStartDate ? new Date(initialStartDate) : undefined
+  )
+  const [endDate, setEndDate] = useState<Date | undefined>(
+    initialEndDate ? new Date(initialEndDate) : undefined
+  )
+  const [filterOpen, setFilterOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  // Race condition guard
+  const requestSeqRef = useRef(0)
+  const isInitializedRef = useRef(false)
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE)
+
+  // URL query 업데이트
+  const updateUrl = useCallback((params: Record<string, string | undefined>) => {
+    const url = new URLSearchParams(searchParams.toString())
+    for (const [key, value] of Object.entries(params)) {
+      if (value && value !== 'all' && value !== '' && value !== '1') {
+        url.set(key, value)
+      } else {
+        url.delete(key)
+      }
+    }
+    // page=1이면 URL에서 제거
+    if (url.get('page') === '1') url.delete('page')
+    const queryString = url.toString()
+    router.replace(queryString ? `?${queryString}` : '/consultations', { scroll: false })
+  }, [router, searchParams])
+
+  // 데이터 로드
+  const loadConsultations = useCallback(async (page: number) => {
+    const requestSeq = ++requestSeqRef.current
+    setLoading(true)
+
+    try {
+      const result = await getConsultations({
+        page,
+        pageSize: PAGE_SIZE,
+        isLead: activeTab === 'all' ? undefined : activeTab === 'lead',
+        consultationType: consultationType !== 'all' ? consultationType : undefined,
+        conductedBy: conductedBy !== 'all' ? conductedBy : undefined,
+        followUpOnly: followUpFilter === 'required' ? true : undefined,
+        startDate: startDate ? format(startDate, 'yyyy-MM-dd') : undefined,
+        endDate: endDate ? format(endDate, 'yyyy-MM-dd') : undefined,
+        searchTerm: searchTerm.trim() || undefined,
+      })
+
+      // Race condition guard
+      if (requestSeq !== requestSeqRef.current) return
+
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '상담 목록 로드 실패')
+      }
+
+      setConsultations(result.data as Consultation[])
+      setTotalCount(result.totalCount)
+    } catch (error) {
+      if (requestSeq !== requestSeqRef.current) return
+      toast({
+        title: '데이터 로드 실패',
+        description: getErrorMessage(error),
+        variant: 'destructive',
+      })
+    } finally {
+      if (requestSeq === requestSeqRef.current) {
+        setLoading(false)
+      }
+    }
+  }, [activeTab, consultationType, conductedBy, followUpFilter, startDate, endDate, searchTerm, toast])
+
+  // 필터/탭 변경 시 재로드 (초기 마운트 제외)
+  useEffect(() => {
+    if (!isInitializedRef.current) {
+      isInitializedRef.current = true
+      return
+    }
+    setCurrentPage(1)
+    loadConsultations(1)
+    updateUrl({
+      tab: activeTab,
+      type: consultationType,
+      conductor: conductedBy,
+      followUp: followUpFilter,
+      startDate: startDate ? format(startDate, 'yyyy-MM-dd') : undefined,
+      endDate: endDate ? format(endDate, 'yyyy-MM-dd') : undefined,
+      search: searchTerm || undefined,
+      page: '1',
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, consultationType, conductedBy, followUpFilter, startDate, endDate])
+
+  // 검색어 디바운스 (300ms)
+  useEffect(() => {
+    if (!isInitializedRef.current) return
+
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current)
+    }
+
+    searchDebounceRef.current = setTimeout(() => {
+      setCurrentPage(1)
+      loadConsultations(1)
+      updateUrl({
+        tab: activeTab,
+        type: consultationType,
+        conductor: conductedBy,
+        followUp: followUpFilter,
+        startDate: startDate ? format(startDate, 'yyyy-MM-dd') : undefined,
+        endDate: endDate ? format(endDate, 'yyyy-MM-dd') : undefined,
+        search: searchTerm || undefined,
+        page: '1',
+      })
+    }, 300)
+
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm])
+
+  // 페이지 변경
+  function handlePageChange(page: number) {
+    setCurrentPage(page)
+    loadConsultations(page)
+    updateUrl({
+      tab: activeTab,
+      type: consultationType,
+      conductor: conductedBy,
+      followUp: followUpFilter,
+      startDate: startDate ? format(startDate, 'yyyy-MM-dd') : undefined,
+      endDate: endDate ? format(endDate, 'yyyy-MM-dd') : undefined,
+      search: searchTerm || undefined,
+      page: String(page),
+    })
   }
 
-  // Filter consultations
-  const filteredConsultations = consultations.filter((c) => {
-    const displayName = c.is_lead ? c.lead_name : c.students?.name
-    const matchesSearch =
-      displayName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.summary?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.lead_guardian_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      false
+  // 필터 초기화
+  function clearFilters() {
+    setConsultationType('all')
+    setConductedBy('all')
+    setFollowUpFilter('all')
+    setStartDate(undefined)
+    setEndDate(undefined)
+  }
 
-    const matchesTab =
-      activeTab === 'all' ||
-      (activeTab === 'lead' && c.is_lead) ||
-      (activeTab === 'student' && !c.is_lead)
+  const hasActiveFilters =
+    consultationType !== 'all' ||
+    conductedBy !== 'all' ||
+    followUpFilter !== 'all' ||
+    startDate !== undefined ||
+    endDate !== undefined
 
-    return matchesSearch && matchesTab
-  })
+  // Stats
+  const stats = initialStats ?? { total: 0, lead: 0, student: 0, converted: 0 }
 
   return (
     <PageWrapper>
@@ -126,7 +324,7 @@ export function ConsultationsContent({ initialData }: ConsultationsContentProps)
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {stats.totalConsultations}건
+                {stats.total}건
               </div>
               <p className="text-xs text-muted-foreground mt-1">총 상담 건수</p>
             </CardContent>
@@ -141,7 +339,7 @@ export function ConsultationsContent({ initialData }: ConsultationsContentProps)
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-info">
-                {stats.leadConsultations}건
+                {stats.lead}건
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 진행 중인 입회 상담
@@ -158,7 +356,7 @@ export function ConsultationsContent({ initialData }: ConsultationsContentProps)
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                {stats.convertedConsultations}건
+                {stats.converted}건
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 학생 등록 완료
@@ -167,7 +365,7 @@ export function ConsultationsContent({ initialData }: ConsultationsContentProps)
           </Card>
         </section>
 
-        {/* Search & Tabs */}
+        {/* Search & Filter & Tabs */}
         <section
           className={cn("space-y-4", PAGE_ANIMATIONS.getSection(1).className)}
           style={PAGE_ANIMATIONS.getSection(1).style}
@@ -182,14 +380,118 @@ export function ConsultationsContent({ initialData }: ConsultationsContentProps)
                 className="pl-10"
               />
             </div>
-            <Button variant="outline" className="gap-2">
+            <Button
+              variant={filterOpen ? 'default' : 'outline'}
+              className="gap-2"
+              onClick={() => setFilterOpen(!filterOpen)}
+            >
               <Filter className="h-4 w-4" />
               필터
+              {hasActiveFilters && (
+                <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 flex items-center justify-center rounded-full text-xs">
+                  !
+                </Badge>
+              )}
             </Button>
           </div>
 
+          {/* Filter Panel */}
+          {filterOpen && (
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <div className="flex flex-wrap gap-4 items-end">
+                  {/* 상담 방식 */}
+                  <div className="flex flex-col gap-1.5 min-w-[150px]">
+                    <label className="text-sm font-medium">상담 방식</label>
+                    <Select value={consultationType} onValueChange={setConsultationType}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="전체" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">전체</SelectItem>
+                        <SelectItem value="in_person">대면 상담</SelectItem>
+                        <SelectItem value="phone_call">전화 상담</SelectItem>
+                        <SelectItem value="video_call">화상 상담</SelectItem>
+                        <SelectItem value="parent_meeting">학부모 면담</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* 진행자 */}
+                  {filterOptions?.conductors && filterOptions.conductors.length > 0 && (
+                    <div className="flex flex-col gap-1.5 min-w-[150px]">
+                      <label className="text-sm font-medium">진행자</label>
+                      <Select value={conductedBy} onValueChange={setConductedBy}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="전체" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">전체</SelectItem>
+                          {filterOptions.conductors.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {/* 후속 상담 */}
+                  <div className="flex flex-col gap-1.5 min-w-[150px]">
+                    <label className="text-sm font-medium">후속 상담</label>
+                    <Select value={followUpFilter} onValueChange={setFollowUpFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="전체" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">전체</SelectItem>
+                        <SelectItem value="required">필요</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* 시작일 */}
+                  <div className="flex flex-col gap-1.5 min-w-[160px]">
+                    <label className="text-sm font-medium">시작일</label>
+                    <DatePicker
+                      value={startDate}
+                      onChange={setStartDate}
+                      placeholder="시작일"
+                      dateFormat="yyyy-MM-dd"
+                    />
+                  </div>
+
+                  {/* 종료일 */}
+                  <div className="flex flex-col gap-1.5 min-w-[160px]">
+                    <label className="text-sm font-medium">종료일</label>
+                    <DatePicker
+                      value={endDate}
+                      onChange={setEndDate}
+                      placeholder="종료일"
+                      dateFormat="yyyy-MM-dd"
+                    />
+                  </div>
+
+                  {/* 필터 초기화 */}
+                  {hasActiveFilters && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1 text-muted-foreground"
+                      onClick={clearFilters}
+                    >
+                      <X className="h-4 w-4" />
+                      초기화
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Tabs
-            defaultValue="all"
+            value={activeTab}
             onValueChange={(value) =>
               setActiveTab(value as 'all' | 'lead' | 'student')
             }
@@ -207,18 +509,24 @@ export function ConsultationsContent({ initialData }: ConsultationsContentProps)
           className={cn("space-y-3", PAGE_ANIMATIONS.getSection(2).className)}
           style={PAGE_ANIMATIONS.getSection(2).style}
         >
-          {filteredConsultations.length === 0 ? (
+          {loading && (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          )}
+
+          {!loading && consultations.length === 0 ? (
             <EmptyState
               icon={<MessageSquare className="h-12 w-12" />}
-              title={searchTerm ? '검색 결과가 없습니다' : '상담 기록이 없습니다'}
+              title={searchTerm || hasActiveFilters ? '검색 결과가 없습니다' : '상담 기록이 없습니다'}
               description={
-                searchTerm
-                  ? '다른 검색어를 시도해보세요.'
+                searchTerm || hasActiveFilters
+                  ? '다른 검색어나 필터를 시도해보세요.'
                   : '새 상담 기록을 등록하여 시작하세요.'
               }
             />
-          ) : (
-            filteredConsultations.map((consultation, index) => {
+          ) : !loading && (
+            consultations.map((consultation, index) => {
               const consultDate = new Date(consultation.consultation_date)
               const isUpcoming =
                 consultation.follow_up_required &&
@@ -354,6 +662,59 @@ export function ConsultationsContent({ initialData }: ConsultationsContentProps)
             })
           )}
         </section>
+
+        {/* Pagination */}
+        {!loading && totalPages > 1 && (
+          <section className="flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              전체 {totalCount}건 중 {(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, totalCount)}건
+            </div>
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    className={currentPage <= 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                  />
+                </PaginationItem>
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                  if (
+                    page === 1 ||
+                    page === totalPages ||
+                    (page >= currentPage - 1 && page <= currentPage + 1)
+                  ) {
+                    return (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          onClick={() => handlePageChange(page)}
+                          isActive={currentPage === page}
+                          className="cursor-pointer"
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    )
+                  } else if (page === currentPage - 2 || page === currentPage + 2) {
+                    return (
+                      <PaginationItem key={page}>
+                        <PaginationEllipsis />
+                      </PaginationItem>
+                    )
+                  }
+                  return null
+                })}
+
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    className={currentPage >= totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </section>
+        )}
       </div>
     </PageWrapper>
   )

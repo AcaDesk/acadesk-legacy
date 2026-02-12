@@ -58,6 +58,15 @@ const consultationSchema = z.object({
     message: '재원생 상담은 학생을, 신규 상담은 잠재 고객 이름을 입력해주세요',
     path: ['studentId'],
   }
+).refine(
+  (data) => {
+    if (data.followUpRequired && !data.nextConsultationDate) return false
+    return true
+  },
+  {
+    message: '후속 상담 필요 시 다음 상담 예정일을 입력해주세요',
+    path: ['nextConsultationDate'],
+  }
 )
 
 type ConsultationFormData = z.infer<typeof consultationSchema>
@@ -158,14 +167,11 @@ export function ConsultationFormClient({
           nextConsultationDate: data.nextConsultationDate?.toISOString(),
         })
 
-        console.log('[ConsultationForm] createConsultation result:', result)
-
         if (!result.success) {
           throw new Error(result.error || '상담 기록 생성 실패')
         }
 
         if (!result.data?.id) {
-          console.error('[ConsultationForm] No consultation ID in result:', result)
           throw new Error('상담 ID를 받지 못했습니다')
         }
 
@@ -174,7 +180,6 @@ export function ConsultationFormClient({
           description: '상담 기록이 생성되었습니다.',
         })
 
-        console.log('[ConsultationForm] Navigating to:', `/consultations/${result.data.id}`)
         router.push(`/consultations/${result.data.id}`)
       } else if (consultation) {
         const result = await updateConsultation({
@@ -201,7 +206,6 @@ export function ConsultationFormClient({
         router.push(`/consultations/${consultation.id}`)
       }
     } catch (error) {
-      console.error('Submit error:', error)
       toast({
         title: mode === 'create' ? '생성 오류' : '수정 오류',
         description:
@@ -471,7 +475,13 @@ export function ConsultationFormClient({
                     id="durationMinutes"
                     type="number"
                     placeholder="예: 30"
-                    {...form.register('durationMinutes', { valueAsNumber: true })}
+                    {...form.register('durationMinutes', {
+                      setValueAs: (v: string) => {
+                        if (v === '' || v === undefined || v === null) return undefined
+                        const n = Number(v)
+                        return Number.isNaN(n) ? undefined : n
+                      },
+                    })}
                   />
                   {form.formState.errors.durationMinutes && (
                     <p className="text-sm text-red-500">
@@ -519,12 +529,19 @@ export function ConsultationFormClient({
 
                   {followUpRequired && (
                     <div className="space-y-2 pl-6">
-                      <Label>다음 상담 예정일</Label>
+                      <Label>
+                        다음 상담 예정일 <span className="text-red-500">*</span>
+                      </Label>
                       <DatePicker
                         value={form.watch('nextConsultationDate')}
-                        onChange={(date) => form.setValue('nextConsultationDate', date)}
+                        onChange={(date) => form.setValue('nextConsultationDate', date, { shouldValidate: true })}
                         dateFormat="yyyy년 M월 d일"
                       />
+                      {form.formState.errors.nextConsultationDate && (
+                        <p className="text-sm text-red-500">
+                          {form.formState.errors.nextConsultationDate.message}
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
