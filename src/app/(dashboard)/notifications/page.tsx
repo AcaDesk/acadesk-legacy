@@ -63,7 +63,7 @@ export default async function NotificationsPage() {
     `)
     .eq('tenant_id', tenantId)
     .order('sent_at', { ascending: false })
-    .limit(200)
+    .limit(50)
 
   const logs: NotificationLog[] = (logsData || []) as unknown as NotificationLog[]
 
@@ -78,5 +78,5 @@ export default async function NotificationsPage() {
     console.error('Error loading balance:', error)
   }
 
-  return <NotificationsContent initialLogs={logs} initialBalance={balance} />
+  return <NotificationsContent initialLogs={logs} initialBalance={balance} tenantId={tenantId} />
 }

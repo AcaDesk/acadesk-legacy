@@ -59,7 +59,7 @@ export function ManageTemplatesDialog({
     name: '',
     content: '',
     type: 'sms' as const,  // Email removed - SMS/알림톡 only
-    category: 'general' as 'general' | 'report' | 'todo' | 'attendance' | 'event' | 'payment' | 'consultation',
+    category: 'general' as 'general' | 'report' | 'todo' | 'attendance' | 'event',
   })
   const [saving, setSaving] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)

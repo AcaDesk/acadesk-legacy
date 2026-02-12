@@ -41,7 +41,7 @@ import { Badge } from '@ui/badge'
 
 const messageSchema = z.object({
   message: z.string().min(1, '메시지 내용은 필수입니다'),
-  type: z.enum(['sms', 'lms', 'mms']),
+  type: z.enum(['sms', 'lms']),
 })
 
 type MessageFormValues = z.infer<typeof messageSchema>
@@ -67,9 +67,10 @@ interface BulkMessageDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onMessageSent?: () => void
+  tenantId: string
 }
 
-type MessageType = 'sms' | 'lms' | 'mms'
+type MessageType = 'sms' | 'lms'
 
 const MESSAGE_TYPE_INFO = {
   sms: {
@@ -88,20 +89,13 @@ const MESSAGE_TYPE_INFO = {
     estimatedCost: '약 24-30원/건',
     icon: '📄',
   },
-  mms: {
-    label: 'MMS (포토)',
-    description: '2,000자 + 이미지 첨부 가능 (이미지 업로드는 추후 지원)',
-    maxLength: 2000,
-    maxLengthKor: 1000,
-    estimatedCost: '약 40-50원/건',
-    icon: '🖼️',
-  },
 }
 
 export function BulkMessageDialog({
   open,
   onOpenChange,
   onMessageSent,
+  tenantId,
 }: BulkMessageDialogProps) {
   const [loadingStudents, setLoadingStudents] = useState(false)
   const [students, setStudents] = useState<Student[]>([])
@@ -158,6 +152,7 @@ export function BulkMessageDialog({
             )
           )
         `)
+        .eq('tenant_id', tenantId)
         .is('deleted_at', null)
         .order('student_code')
 
@@ -223,7 +218,7 @@ export function BulkMessageDialog({
   function getPreviewMessage(student: Student) {
     return message
       .replace(/\{학생명\}/g, student.name)
-      .replace(/\{학생코드\}/g, student.student_code)
+      .replace(/\{학생번호\}/g, student.student_code)
       .replace(/\{학년\}/g, student.grade || '-')
   }
 
@@ -244,13 +239,13 @@ export function BulkMessageDialog({
     if (messageType === 'sms' && charCount > typeInfo.maxLengthKor) {
       toast({
         title: '글자 수 초과',
-        description: `SMS는 최대 ${typeInfo.maxLengthKor}자까지 입력 가능합니다. LMS 또는 MMS를 선택해주세요.`,
+        description: `SMS는 최대 ${typeInfo.maxLengthKor}자까지 입력 가능합니다. LMS를 선택해주세요.`,
         variant: 'destructive',
       })
       return
     }
 
-    if ((messageType === 'lms' || messageType === 'mms') && charCount > typeInfo.maxLengthKor) {
+    if (messageType === 'lms' && charCount > typeInfo.maxLengthKor) {
       toast({
         title: '글자 수 초과',
         description: `최대 ${typeInfo.maxLengthKor}자까지 입력 가능합니다.`,
@@ -303,7 +298,7 @@ export function BulkMessageDialog({
         <DialogHeader>
           <DialogTitle>일괄 메시지 전송</DialogTitle>
           <DialogDescription>
-            학생 보호자에게 SMS/LMS/MMS를 일괄 전송합니다
+            학생 보호자에게 SMS/LMS를 일괄 전송합니다
           </DialogDescription>
         </DialogHeader>
 
@@ -334,17 +329,6 @@ export function BulkMessageDialog({
                       <p className="font-medium">{MESSAGE_TYPE_INFO.lms.label}</p>
                       <p className="text-xs text-muted-foreground">
                         {MESSAGE_TYPE_INFO.lms.estimatedCost}
-                      </p>
-                    </div>
-                  </div>
-                </SelectItem>
-                <SelectItem value="mms">
-                  <div className="flex items-center gap-2">
-                    <span>{MESSAGE_TYPE_INFO.mms.icon}</span>
-                    <div>
-                      <p className="font-medium">{MESSAGE_TYPE_INFO.mms.label}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {MESSAGE_TYPE_INFO.mms.estimatedCost}
                       </p>
                     </div>
                   </div>
@@ -505,7 +489,7 @@ export function BulkMessageDialog({
               </p>
               {messageType === 'sms' && message.length > typeInfo.maxLengthKor && (
                 <p className="text-xs text-red-600 font-medium">
-                  SMS 글자 수 초과 - LMS 또는 MMS 선택 필요
+                  SMS 글자 수 초과 - LMS 선택 필요
                 </p>
               )}
             </div>
