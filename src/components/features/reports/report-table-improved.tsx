@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   ColumnDef,
@@ -65,24 +66,29 @@ import {
 import { Badge } from '@ui/badge'
 import { EmptyState } from '@ui/empty-state'
 import { cn } from '@/lib/utils'
+import { ReportCardList } from '@/components/features/reports/report-card-list'
 import type { ReportWithStudent } from '@/core/types/report.types'
 
 interface ReportTableImprovedProps {
   data: ReportWithStudent[]
   loading?: boolean
+  mode?: 'browse' | 'select'
   onSendClick: (reportId: string, studentName: string) => void
   onDeleteClick: (reportId: string, studentName: string) => void
   onBulkDeleteClick?: (selectedReports: ReportWithStudent[]) => void
   onBulkSendClick?: (selectedReports: ReportWithStudent[]) => void
+  onSelectionChange?: (selectedReports: ReportWithStudent[]) => void
 }
 
 export function ReportTableImproved({
   data,
   loading = false,
+  mode = 'browse',
   onSendClick,
   onDeleteClick,
   onBulkDeleteClick,
   onBulkSendClick,
+  onSelectionChange,
 }: ReportTableImprovedProps) {
   const router = useRouter()
   const [sorting, setSorting] = React.useState<SortingState>([
@@ -110,7 +116,7 @@ export function ReportTableImproved({
     return `${startDate.getFullYear()}.${String(startDate.getMonth() + 1).padStart(2, '0')}.${String(startDate.getDate()).padStart(2, '0')} ~ ${endDate.getFullYear()}.${String(endDate.getMonth() + 1).padStart(2, '0')}.${String(endDate.getDate()).padStart(2, '0')}`
   }
 
-  const columns: ColumnDef<ReportWithStudent>[] = [
+  const columns = React.useMemo<ColumnDef<ReportWithStudent>[]>(() => [
     {
       id: 'select',
       header: ({ table }) => (
@@ -128,7 +134,6 @@ export function ReportTableImproved({
         <Checkbox
           checked={row.getIsSelected()}
           onCheckedChange={(value) => row.toggleSelected(!!value)}
-          onClick={(e) => e.stopPropagation()}
           aria-label="행 선택"
           className="translate-y-[2px]"
         />
@@ -154,9 +159,12 @@ export function ReportTableImproved({
         const student = row.original.students
         return (
           <div>
-            <div className="font-medium">
+            <Link
+              href={`/reports/${row.original.id}`}
+              className="font-medium text-primary hover:underline"
+            >
               {student?.users?.name || '이름 없음'}
-            </div>
+            </Link>
             <div className="text-xs text-muted-foreground">
               {student?.student_code}
             </div>
@@ -358,10 +366,7 @@ export function ReportTableImproved({
             <Button
               variant="ghost"
               size="icon"
-              onClick={(e) => {
-                e.stopPropagation()
-                router.push(`/reports/${report.id}`)
-              }}
+              onClick={() => router.push(`/reports/${report.id}`)}
             >
               <Eye className="h-4 w-4" />
             </Button>
@@ -370,7 +375,6 @@ export function ReportTableImproved({
               size="icon"
               disabled
               title="다운로드 기능 준비 중"
-              onClick={(e) => e.stopPropagation()}
             >
               <Download className="h-4 w-4" />
             </Button>
@@ -378,10 +382,7 @@ export function ReportTableImproved({
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onSendClick(report.id, report.students?.users?.name || '학생')
-                }}
+                onClick={() => onSendClick(report.id, report.students?.users?.name || '학생')}
               >
                 <Send className="h-4 w-4 text-info" />
               </Button>
@@ -389,10 +390,7 @@ export function ReportTableImproved({
             <Button
               variant="ghost"
               size="icon"
-              onClick={(e) => {
-                e.stopPropagation()
-                onDeleteClick(report.id, report.students?.users?.name || '학생')
-              }}
+              onClick={() => onDeleteClick(report.id, report.students?.users?.name || '학생')}
             >
               <Trash2 className="h-4 w-4 text-destructive" />
             </Button>
@@ -400,7 +398,11 @@ export function ReportTableImproved({
         )
       },
     },
-  ]
+  ].filter((col) => {
+    if (mode === 'browse' && col.id === 'select') return false
+    if (mode === 'select' && col.id === 'actions') return false
+    return true
+  }), [mode, router, onSendClick, onDeleteClick])
 
   const table = useReactTable({
     data,
@@ -452,6 +454,13 @@ export function ReportTableImproved({
   // 미전송 리포트 수 계산
   const unsendableCount = selectedRows.filter((row) => row.original.sent_at === null).length
 
+  // 선택 상태가 변경되면 콜백 호출
+  React.useEffect(() => {
+    if (onSelectionChange) {
+      onSelectionChange(selectedRows.map((row) => row.original))
+    }
+  }, [rowSelection, onSelectionChange, selectedRows])
+
   // 데이터가 변경되면 선택 상태 초기화 및 페이지 조정
   React.useEffect(() => {
     setRowSelection({})
@@ -496,7 +505,7 @@ export function ReportTableImproved({
               </Button>
             )}
           </div>
-          {selectedCount > 0 && (
+          {mode !== 'browse' && selectedCount > 0 && (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -511,7 +520,7 @@ export function ReportTableImproved({
                   </span>
                 )}
               </Badge>
-              {unsendableCount > 0 && (
+              {unsendableCount > 0 && onBulkSendClick && (
                 <Button
                   variant="default"
                   size="sm"
@@ -522,15 +531,17 @@ export function ReportTableImproved({
                   일괄 전송 ({unsendableCount})
                 </Button>
               )}
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleBulkDelete}
-                className="gap-2"
-              >
-                <Trash2 className="h-4 w-4" />
-                일괄 삭제
-              </Button>
+              {onBulkDeleteClick && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleBulkDelete}
+                  className="gap-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  일괄 삭제
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
@@ -581,11 +592,22 @@ export function ReportTableImproved({
         </DropdownMenu>
       </motion.div>
 
+      {/* Mobile card view */}
+      {table.getRowModel().rows?.length > 0 && (
+        <ReportCardList
+          rows={table.getRowModel().rows}
+          mode={mode}
+          onSendClick={onSendClick}
+          onDeleteClick={onDeleteClick}
+        />
+      )}
+
+      {/* Desktop table view */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.1 }}
-        className="rounded-md border overflow-hidden"
+        className="rounded-md border overflow-hidden hidden md:block"
       >
         <Table>
           <TableHeader className="bg-muted/50">
@@ -612,10 +634,9 @@ export function ReportTableImproved({
                 <motion.tr
                   key={row.id}
                   className={cn(
-                    'cursor-pointer transition-colors hover:bg-muted/50',
+                    'transition-colors hover:bg-muted/50',
                     'border-b border-border last:border-0'
                   )}
-                  onClick={() => router.push(`/reports/${row.original.id}`)}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{
