@@ -12,9 +12,9 @@ import { useToast } from '@/hooks/use-toast'
 export function TemplateDownloadButton() {
   const { toast } = useToast()
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     try {
-      downloadStudentImportTemplate()
+      await downloadStudentImportTemplate()
     } catch (error) {
       console.error('템플릿 다운로드 실패:', error)
       toast({

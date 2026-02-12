@@ -276,13 +276,16 @@ export function BulkInsertTextbooksButton() {
       if (!ext || ['csv', 'txt'].includes(ext)) {
         convertedText = await file.text()
       } else if (['xlsx', 'xls'].includes(ext)) {
-        const XLSX = await import('xlsx')
+        const { Workbook } = await import('exceljs')
         const arrayBuffer = await file.arrayBuffer()
-        const workbook = XLSX.read(arrayBuffer, { type: 'array' })
-        const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
-        const rows = XLSX.utils.sheet_to_json<(string | number | null)[]>(firstSheet, {
-          header: 1,
-          defval: '',
+        const workbook = new Workbook()
+        await workbook.xlsx.load(arrayBuffer)
+        const worksheet = workbook.worksheets[0]
+        if (!worksheet) throw new Error('시트를 찾을 수 없습니다')
+        const rows: unknown[][] = []
+        worksheet.eachRow((row) => {
+          const values = (row.values as unknown[]).slice(1) // 1-indexed → 0-indexed
+          rows.push(values.map((v) => v ?? ''))
         })
         convertedText = rows
           .map((cols) =>
@@ -385,7 +388,7 @@ export function BulkInsertTextbooksButton() {
   }
 
   async function downloadExcelTemplate() {
-    const XLSX = await import('xlsx')
+    const { Workbook } = await import('exceljs')
     const dataRows = [
       ['교재명', '저자', '출판사', 'ISBN', '바코드', '보유수'],
       ['수학의 정석', '홍성대', '성지출판', '9781234567890', 'MATH-001', 3],
@@ -418,16 +421,28 @@ export function BulkInsertTextbooksButton() {
       ['- 템플릿 작성 -> 업로드 -> 사전 검증 -> 오류 수정 -> 최종 등록'],
     ]
 
-    const workbook = XLSX.utils.book_new()
-    const dataSheet = XLSX.utils.aoa_to_sheet(dataRows)
-    dataSheet['!cols'] = [{ wch: 28 }, { wch: 18 }, { wch: 18 }, { wch: 20 }, { wch: 18 }, { wch: 10 }]
+    const workbook = new Workbook()
+    const dataSheet = workbook.addWorksheet('교재일괄등록')
+    dataSheet.addRows(dataRows)
+    const dataWidths = [28, 18, 18, 20, 18, 10]
+    dataWidths.forEach((w, i) => { dataSheet.getColumn(i + 1).width = w })
 
-    const guideSheet = XLSX.utils.aoa_to_sheet(guideRows)
-    guideSheet['!cols'] = [{ wch: 90 }]
+    const guideSheet = workbook.addWorksheet('입력가이드')
+    guideSheet.addRows(guideRows)
+    guideSheet.getColumn(1).width = 90
 
-    XLSX.utils.book_append_sheet(workbook, dataSheet, '교재일괄등록')
-    XLSX.utils.book_append_sheet(workbook, guideSheet, '입력가이드')
-    XLSX.writeFile(workbook, 'textbook-bulk-template.xlsx')
+    const buffer = await workbook.xlsx.writeBuffer()
+    const blob = new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'textbook-bulk-template.xlsx'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   }
 
   async function handleValidate() {

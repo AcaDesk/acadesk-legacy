@@ -135,10 +135,10 @@ export function StudentImportWizard() {
   /**
    * 오류 리포트 다운로드
    */
-  const handleDownloadErrorReport = () => {
+  const handleDownloadErrorReport = async () => {
     if (invalidItems.length === 0) return
     try {
-      downloadErrorReport(allItems, invalidItems)
+      await downloadErrorReport(allItems, invalidItems)
     } catch (err) {
       console.error('오류 리포트 다운로드 실패:', err)
       toast({

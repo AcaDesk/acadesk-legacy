@@ -3,14 +3,15 @@
  * 학생 Import용 엑셀 템플릿 생성
  */
 
-import * as XLSX from 'xlsx'
+import { Workbook } from 'exceljs'
+import { downloadWorkbook } from './excel-parser'
 
 /**
  * 학생 Import 템플릿 생성 및 다운로드
  */
-export function downloadStudentImportTemplate() {
+export async function downloadStudentImportTemplate() {
   // 워크북 생성
-  const workbook = XLSX.utils.book_new()
+  const workbook = new Workbook()
 
   // 헤더 정의
   const headers = [
@@ -105,50 +106,30 @@ export function downloadStudentImportTemplate() {
   ]
 
   // 데이터 시트 생성
-  const wsData = [headers, guideRow, ...exampleData]
-  const worksheet = XLSX.utils.aoa_to_sheet(wsData)
+  const worksheet = workbook.addWorksheet('학생 정보 입력')
+  worksheet.addRows([headers, guideRow, ...exampleData])
 
   // 열 너비 설정
-  const colWidths = [
-    { wch: 12 }, // 학생 이름
-    { wch: 20 }, // 생년월일
-    { wch: 10 }, // 학년
-    { wch: 15 }, // 학교
-    { wch: 15 }, // 학생 연락처
-    { wch: 20 }, // 학생 이메일
-    { wch: 20 }, // 메모
-    { wch: 12 }, // 보호자1 이름
-    { wch: 15 }, // 보호자1 연락처
-    { wch: 20 }, // 보호자1 이메일
-    { wch: 15 }, // 보호자1 관계
-    { wch: 15 }, // 보호자1 직업
-    { wch: 20 }, // 보호자1 주소
-    { wch: 12 }, // 보호자2 이름
-    { wch: 15 }, // 보호자2 연락처
-    { wch: 20 }, // 보호자2 이메일
-    { wch: 15 }, // 보호자2 관계
-    { wch: 15 }, // 보호자2 직업
-    { wch: 20 }, // 보호자2 주소
-  ]
-  worksheet['!cols'] = colWidths
-
-  // 시트 추가
-  XLSX.utils.book_append_sheet(workbook, worksheet, '학생 정보 입력')
+  const colWidths = [12, 20, 10, 15, 15, 20, 20, 12, 15, 20, 15, 15, 20, 12, 15, 20, 15, 15, 20]
+  colWidths.forEach((w, i) => {
+    worksheet.getColumn(i + 1).width = w
+  })
 
   // 가이드 시트 생성
-  const guideSheet = createGuideSheet()
-  XLSX.utils.book_append_sheet(workbook, guideSheet, '입력 가이드')
+  const guideSheet = workbook.addWorksheet('입력 가이드')
+  guideSheet.addRows(createGuideData())
+  guideSheet.getColumn(1).width = 80
 
   // 파일 다운로드
   const fileName = `학생_일괄등록_템플릿_${new Date().toISOString().split('T')[0]}.xlsx`
-  XLSX.writeFile(workbook, fileName)
+  await downloadWorkbook(workbook, fileName)
 }
 
 /**
- * 가이드 시트 생성
+ * 가이드 데이터 생성
  */
-function createGuideSheet() {
-  const guideData = [
+function createGuideData(): string[][] {
+  return [
     ['학생 일괄 등록 가이드'],
     [''],
     ['1. 필수 항목'],
@@ -194,11 +175,4 @@ function createGuideSheet() {
     ['  5) 중복 처리 방식 선택'],
     ['  6) 최종 확인 및 가져오기'],
   ]
-
-  const worksheet = XLSX.utils.aoa_to_sheet(guideData)
-
-  // 첫 번째 열 너비 설정
-  worksheet['!cols'] = [{ wch: 80 }]
-
-  return worksheet
 }
