@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
@@ -14,12 +14,14 @@ import {
   TableHeader,
   TableRow,
 } from '@ui/table'
-import { Bell, CheckCircle, XCircle, Search, AlertCircle, MessageSquare, Settings, Wallet, RefreshCw } from 'lucide-react'
+import { Bell, CheckCircle, XCircle, Search, AlertCircle, MessageSquare, Settings, Wallet, RefreshCw, Loader2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { BulkMessageDialog } from '@/components/features/notifications/bulk-message-dialog'
 import { ManageTemplatesDialog } from '@/components/features/notifications/manage-templates-dialog'
 import { getMessagingBalance } from '@/app/actions/messaging-config'
+
+const PAGE_SIZE = 50
 
 interface NotificationLog {
   id: string
@@ -47,14 +49,17 @@ interface BalanceInfo {
 interface NotificationsContentProps {
   initialLogs: NotificationLog[]
   initialBalance: BalanceInfo | null
+  tenantId: string
 }
 
-export function NotificationsContent({ initialLogs, initialBalance }: NotificationsContentProps) {
+export function NotificationsContent({ initialLogs, initialBalance, tenantId }: NotificationsContentProps) {
   const [logs, setLogs] = useState<NotificationLog[]>(initialLogs)
   const [searchTerm, setSearchTerm] = useState('')
-  const [filterType, setFilterType] = useState<'all' | 'sms' | 'lms' | 'kakao'>('all')
+  const [filterType, setFilterType] = useState<'all' | 'sms' | 'lms' | 'mms' | 'kakao' | 'email'>('all')
   const [filterStatus, setFilterStatus] = useState<'all' | 'sent' | 'failed'>('all')
   const [loading, setLoading] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(initialLogs.length >= PAGE_SIZE)
   const [sendMessageOpen, setSendMessageOpen] = useState(false)
   const [manageTemplatesOpen, setManageTemplatesOpen] = useState(false)
   const [balance, setBalance] = useState<BalanceInfo | null>(initialBalance)
@@ -113,11 +118,14 @@ export function NotificationsContent({ initialLogs, initialBalance }: Notificati
             users (name, phone)
           )
         `)
+        .eq('tenant_id', tenantId)
         .order('sent_at', { ascending: false })
-        .limit(200)
+        .limit(PAGE_SIZE)
 
       if (error) throw error
-      setLogs(data as unknown as NotificationLog[])
+      const newLogs = data as unknown as NotificationLog[]
+      setLogs(newLogs)
+      setHasMore(newLogs.length >= PAGE_SIZE)
     } catch (error) {
       console.error('Error loading logs:', error)
       toast({
@@ -129,6 +137,50 @@ export function NotificationsContent({ initialLogs, initialBalance }: Notificati
       setLoading(false)
     }
   }
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore || logs.length === 0) return
+
+    const cursor = logs[logs.length - 1].sent_at
+
+    try {
+      setLoadingMore(true)
+
+      const { data, error } = await supabase
+        .from('notification_logs')
+        .select(`
+          id,
+          student_id,
+          notification_type,
+          status,
+          message,
+          sent_at,
+          error_message,
+          students (
+            student_code,
+            users (name, phone)
+          )
+        `)
+        .eq('tenant_id', tenantId)
+        .lt('sent_at', cursor)
+        .order('sent_at', { ascending: false })
+        .limit(PAGE_SIZE)
+
+      if (error) throw error
+      const moreLogs = data as unknown as NotificationLog[]
+      setLogs(prev => [...prev, ...moreLogs])
+      setHasMore(moreLogs.length >= PAGE_SIZE)
+    } catch (error) {
+      console.error('Error loading more logs:', error)
+      toast({
+        title: '데이터 로드 오류',
+        description: '추가 로그를 불러오는 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [loadingMore, hasMore, logs, supabase, tenantId, toast])
 
   async function loadBalance() {
     try {
@@ -192,6 +244,7 @@ export function NotificationsContent({ initialLogs, initialBalance }: Notificati
     failed: logs.filter((l) => l.status === 'failed').length,
     sms: logs.filter((l) => l.notification_type === 'sms').length,
     lms: logs.filter((l) => l.notification_type === 'lms').length,
+    mms: logs.filter((l) => l.notification_type === 'mms').length,
     kakao: logs.filter((l) => l.notification_type === 'kakao').length,
     email: logs.filter((l) => l.notification_type === 'email').length,
   }
@@ -257,8 +310,20 @@ export function NotificationsContent({ initialLogs, initialBalance }: Notificati
                 <span>SMS {stats.sms}</span>
                 <span>.</span>
                 <span>LMS {stats.lms}</span>
+                {stats.mms > 0 && (
+                  <>
+                    <span>.</span>
+                    <span>MMS {stats.mms}</span>
+                  </>
+                )}
                 <span>.</span>
                 <span className="text-yellow-600">알림톡 {stats.kakao}</span>
+                {stats.email > 0 && (
+                  <>
+                    <span>.</span>
+                    <span>이메일 {stats.email}</span>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -318,12 +383,26 @@ export function NotificationsContent({ initialLogs, initialBalance }: Notificati
               LMS ({stats.lms})
             </Button>
             <Button
+              variant={filterType === 'mms' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilterType('mms')}
+            >
+              MMS ({stats.mms})
+            </Button>
+            <Button
               variant={filterType === 'kakao' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setFilterType('kakao')}
               className={filterType === 'kakao' ? 'bg-yellow-500 hover:bg-yellow-600 text-black' : ''}
             >
               알림톡 ({stats.kakao})
+            </Button>
+            <Button
+              variant={filterType === 'email' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilterType('email')}
+            >
+              이메일 ({stats.email})
             </Button>
           </div>
           <div className="flex gap-2">
@@ -355,7 +434,7 @@ export function NotificationsContent({ initialLogs, initialBalance }: Notificati
         <Card>
           <CardHeader>
             <CardTitle>메시지 전송 이력</CardTitle>
-            <CardDescription>최근 200건의 메시지 전송 기록입니다</CardDescription>
+            <CardDescription>전송 기록</CardDescription>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -369,55 +448,76 @@ export function NotificationsContent({ initialLogs, initialBalance }: Notificati
                 {searchTerm && <p className="text-sm mt-2">검색 결과가 없습니다.</p>}
               </div>
             ) : (
-              <div className="border rounded-lg overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>학생</TableHead>
-                      <TableHead>유형</TableHead>
-                      <TableHead>메시지</TableHead>
-                      <TableHead>전송 일시</TableHead>
-                      <TableHead>상태</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredLogs.map((log) => (
-                      <TableRow key={log.id}>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">
-                              {log.students?.users?.name || '이름 없음'}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {log.students?.student_code}
-                            </div>
-                            {log.students?.users?.phone && (
-                              <div className="text-xs text-muted-foreground">
-                                {log.students.users.phone}
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>{getTypeBadge(log.notification_type)}</TableCell>
-                        <TableCell>
-                          <div className="max-w-md">
-                            <p className="text-sm">{log.message}</p>
-                            {log.error_message && (
-                              <div className="flex items-center gap-1 mt-1 text-xs text-red-600">
-                                <AlertCircle className="h-3 w-3" />
-                                {log.error_message}
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {new Date(log.sent_at).toLocaleString('ko-KR')}
-                        </TableCell>
-                        <TableCell>{getStatusBadge(log.status)}</TableCell>
+              <div className="space-y-4">
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>학생</TableHead>
+                        <TableHead>유형</TableHead>
+                        <TableHead>메시지</TableHead>
+                        <TableHead>전송 일시</TableHead>
+                        <TableHead>상태</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredLogs.map((log) => (
+                        <TableRow key={log.id}>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">
+                                {log.students?.users?.name || '이름 없음'}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {log.students?.student_code}
+                              </div>
+                              {log.students?.users?.phone && (
+                                <div className="text-xs text-muted-foreground">
+                                  {log.students.users.phone}
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>{getTypeBadge(log.notification_type)}</TableCell>
+                          <TableCell>
+                            <div className="max-w-md">
+                              <p className="text-sm">{log.message}</p>
+                              {log.error_message && (
+                                <div className="flex items-center gap-1 mt-1 text-xs text-red-600">
+                                  <AlertCircle className="h-3 w-3" />
+                                  {log.error_message}
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {new Date(log.sent_at).toLocaleString('ko-KR')}
+                          </TableCell>
+                          <TableCell>{getStatusBadge(log.status)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {hasMore && (
+                  <div className="flex justify-center">
+                    <Button
+                      variant="outline"
+                      onClick={loadMore}
+                      disabled={loadingMore}
+                    >
+                      {loadingMore ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          불러오는 중...
+                        </>
+                      ) : (
+                        '더 보기'
+                      )}
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
@@ -427,6 +527,7 @@ export function NotificationsContent({ initialLogs, initialBalance }: Notificati
         <BulkMessageDialog
           open={sendMessageOpen}
           onOpenChange={setSendMessageOpen}
+          tenantId={tenantId}
           onMessageSent={() => {
             loadNotificationLogs()
           }}

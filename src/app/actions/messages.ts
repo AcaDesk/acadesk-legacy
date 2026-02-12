@@ -372,91 +372,104 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
       const studentCode = typedStudent.student_code || ''
       const grade = typedStudent.grade || ''
 
-      // Send to guardians
+      // 대표 보호자(첫 번째)에게만 발송
       const guardians = typedStudent.student_guardians || []
+      const primaryGuardian = guardians[0]
 
-      for (const sg of guardians) {
-        const guardianUser = sg.guardians?.users
-        if (!guardianUser) continue
+      if (!primaryGuardian?.guardians?.users) {
+        failCount++
+        logs.push({
+          tenant_id: tenantId,
+          student_id: typedStudent.id,
+          session_id: null,
+          notification_type: validated.type,
+          message: validated.message,
+          subject: validated.subject || null,
+          status: 'failed',
+          error_message: '보호자 정보가 없습니다',
+          sent_at: new Date().toISOString(),
+        })
+        continue
+      }
 
-        const recipientPhone = guardianUser.phone
-        const guardianName = guardianUser.name || '보호자'
+      const guardianUser = primaryGuardian.guardians.users
+      const recipientPhone = guardianUser.phone
+      const guardianName = guardianUser.name || '보호자'
 
-        if (!recipientPhone) {
-          failCount++
-          logs.push({
-            tenant_id: tenantId,
-            student_id: typedStudent.id,
-            session_id: null,
-            notification_type: validated.type,
-            message: validated.message,
-            subject: validated.subject || null,
-            status: 'failed',
-            error_message: '보호자 전화번호 정보가 없습니다',
-            sent_at: new Date().toISOString(),
+      if (!recipientPhone) {
+        failCount++
+        logs.push({
+          tenant_id: tenantId,
+          student_id: typedStudent.id,
+          session_id: null,
+          notification_type: validated.type,
+          message: validated.message,
+          subject: validated.subject || null,
+          status: 'failed',
+          error_message: '보호자 전화번호 정보가 없습니다',
+          sent_at: new Date().toISOString(),
+        })
+        continue
+      }
+
+      // Replace template variables
+      const personalizedMessage = replaceMessageVariables(validated.message, {
+        studentName,
+        studentCode,
+        grade,
+        academyName,
+        guardianName,
+      })
+
+      const personalizedSubject = validated.subject
+        ? replaceMessageVariables(validated.subject, {
+            studentName,
+            studentCode,
+            grade,
+            academyName,
+            guardianName,
           })
-          continue
-        }
+        : undefined
 
-        // Replace template variables
-        const personalizedMessage = replaceMessageVariables(validated.message, {
-          studentName,
-          studentCode,
-          grade,
-          academyName,
-          guardianName,
+      try {
+        // 실제 SMS/LMS 발송
+        const result = await sendMessage({
+          type: validated.type,
+          to: recipientPhone,
+          message: personalizedMessage,
+          subject: personalizedSubject,
         })
 
-        const personalizedSubject = validated.subject
-          ? replaceMessageVariables(validated.subject, {
-              studentName,
-              studentCode,
-              grade,
-              academyName,
-              guardianName,
-            })
-          : undefined
-
-        try {
-          // 실제 SMS/LMS/MMS 발송
-          const result = await sendMessage({
-            type: validated.type,
-            to: recipientPhone,
-            message: personalizedMessage,
-            subject: personalizedSubject,
-          })
-
-          if (!result.success) {
-            throw new Error(result.error || '발송 실패')
-          }
-
-          logs.push({
-            tenant_id: tenantId,
-            student_id: typedStudent.id,
-            session_id: null,
-            notification_type: validated.type,
-            message: personalizedMessage,
-            subject: personalizedSubject || null,
-            status: 'sent',
-            error_message: null,
-            sent_at: new Date().toISOString(),
-          })
-
-          successCount++
-        } catch (error) {
-          failCount++
-          logs.push({
-            tenant_id: tenantId,
-            student_id: typedStudent.id,
-            session_id: null,
-            notification_type: validated.type,
-            message: personalizedMessage,
-            subject: personalizedSubject || null,
-            status: 'failed',
-            error_message: getErrorMessage(error),
-            sent_at: new Date().toISOString(),
-          })
+        if (!result.success) {
+          throw new Error(result.error || '발송 실패')
         }
+
+        logs.push({
+          tenant_id: tenantId,
+          student_id: typedStudent.id,
+          session_id: null,
+          notification_type: validated.type,
+          message: personalizedMessage,
+          subject: personalizedSubject || null,
+          status: 'sent',
+          error_message: null,
+          sent_at: new Date().toISOString(),
+        })
+
+        successCount++
+      } catch (error) {
+        failCount++
+        logs.push({
+          tenant_id: tenantId,
+          student_id: typedStudent.id,
+          session_id: null,
+          notification_type: validated.type,
+          message: personalizedMessage,
+          subject: personalizedSubject || null,
+          status: 'failed',
+          error_message: getErrorMessage(error),
+          sent_at: new Date().toISOString(),
+        })
       }
     }
 
