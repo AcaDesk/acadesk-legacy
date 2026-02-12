@@ -1,9 +1,9 @@
 /**
  * Excel Parser Utility
- * sheetjs/xlsx를 사용한 엑셀 파일 파싱 유틸리티
+ * exceljs를 사용한 엑셀 파일 파싱 유틸리티
  */
 
-import * as XLSX from 'xlsx'
+import { Workbook, type CellValue } from 'exceljs'
 import type {
   StudentImportData,
   GuardianImportData,
@@ -66,90 +66,148 @@ interface RawExcelRow {
 }
 
 /**
+ * ExcelJS CellValue를 문자열로 변환
+ */
+function cellValueToString(value: CellValue): string {
+  if (value == null) return ''
+  if (value instanceof Date) {
+    return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
+  }
+  if (typeof value === 'object') {
+    if ('richText' in value) {
+      return (value.richText as Array<{ text: string }>).map((rt) => rt.text).join('')
+    }
+    if ('result' in value) {
+      return String((value as { result: unknown }).result ?? '')
+    }
+    return ''
+  }
+  return String(value)
+}
+
+/**
+ * Excel 날짜 시리얼 넘버를 날짜 객체로 변환
+ * (XLSX.SSF.parse_date_code 대체)
+ * Excel epoch: 1900-01-01 = day 1, day 60 = Feb 29 1900 (leap year bug 보정)
+ */
+function parseExcelDateCode(serial: number): { y: number; m: number; d: number } | null {
+  if (serial < 1) return null
+  let dayCount = Math.floor(serial)
+  // Excel의 1900 윤년 버그 보정: day 60 이후는 1일 빼기
+  if (dayCount > 60) dayCount--
+  const date = new Date(1899, 11, 31) // 1899-12-31
+  date.setDate(date.getDate() + dayCount)
+  return {
+    y: date.getFullYear(),
+    m: date.getMonth() + 1,
+    d: date.getDate(),
+  }
+}
+
+/**
+ * ExcelJS Workbook을 파일로 다운로드
+ */
+export async function downloadWorkbook(workbook: Workbook, fileName: string): Promise<void> {
+  const buffer = await workbook.xlsx.writeBuffer()
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = fileName
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
+/**
  * 헤더 검증
  */
-export function validateExcelHeaders(file: File): Promise<{ valid: boolean; missing: string[] }> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
+export async function validateExcelHeaders(file: File): Promise<{ valid: boolean; missing: string[] }> {
+  try {
+    const buffer = await file.arrayBuffer()
+    const workbook = new Workbook()
+    await workbook.xlsx.load(buffer)
 
-    reader.onload = (e) => {
-      try {
-        const data = e.target?.result
-        const workbook = XLSX.read(data, { type: 'binary' })
+    const worksheet = workbook.worksheets[0]
+    if (!worksheet) {
+      throw new Error('시트를 찾을 수 없습니다')
+    }
 
-        const firstSheetName = workbook.SheetNames[0]
-        const worksheet = workbook.Sheets[firstSheetName]
-
-        // 첫 번째 행(헤더) 읽기
-        const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1')
-        const headers: string[] = []
-
-        for (let col = range.s.c; col <= range.e.c; col++) {
-          const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col })
-          const cell = worksheet[cellAddress]
-          if (cell && cell.v) {
-            headers.push(String(cell.v).trim())
-          }
-        }
-
-        // 필수 헤더 체크
-        const missing = REQUIRED_HEADERS.filter((required) => !headers.includes(required))
-
-        resolve({
-          valid: missing.length === 0,
-          missing,
-        })
-      } catch {
-        reject(new Error('헤더 검증 중 오류가 발생했습니다'))
+    const headerRow = worksheet.getRow(1)
+    const headers: string[] = []
+    headerRow.eachCell((cell) => {
+      if (cell.value) {
+        headers.push(String(cell.value).trim())
       }
-    }
+    })
 
-    reader.onerror = () => {
-      reject(new Error('파일을 읽을 수 없습니다'))
-    }
+    const missing = REQUIRED_HEADERS.filter((required) => !headers.includes(required))
 
-    reader.readAsBinaryString(file)
-  })
+    return {
+      valid: missing.length === 0,
+      missing,
+    }
+  } catch {
+    throw new Error('헤더 검증 중 오류가 발생했습니다')
+  }
 }
 
 /**
  * 엑셀 파일을 파싱하여 StudentImportItem 배열로 변환
  */
 export async function parseExcelFile(file: File): Promise<StudentImportItem[]> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
+  try {
+    const buffer = await file.arrayBuffer()
+    const workbook = new Workbook()
+    await workbook.xlsx.load(buffer)
 
-    reader.onload = (e) => {
-      try {
-        const data = e.target?.result
-        const workbook = XLSX.read(data, { type: 'binary' })
+    const worksheet = workbook.worksheets[0]
+    if (!worksheet) {
+      throw new Error('시트를 찾을 수 없습니다')
+    }
 
-        // 첫 번째 시트만 처리
-        const firstSheetName = workbook.SheetNames[0]
-        const worksheet = workbook.Sheets[firstSheetName]
+    // 헤더 읽기 (1행)
+    const headerRow = worksheet.getRow(1)
+    const headers: string[] = []
+    headerRow.eachCell((cell, colNumber) => {
+      headers[colNumber - 1] = String(cell.value ?? '').trim()
+    })
 
-        // JSON 변환
-        const rawData: RawExcelRow[] = XLSX.utils.sheet_to_json(worksheet, {
-          defval: '',
-        })
+    // 데이터 행 읽기
+    const rawData: { row: RawExcelRow; rowNumber: number }[] = []
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return // 헤더 건너뛰기
 
-        // StudentImportItem으로 변환
-        const items = rawData
-          .map((row, index) => convertRawRowToImportItem(row, index + 2)) // +2 는 헤더 행 고려
-          .filter((item) => item !== null) as StudentImportItem[]
+      const obj: Record<string, string> = {}
+      row.eachCell((cell, colNumber) => {
+        const header = headers[colNumber - 1]
+        if (header) {
+          obj[header] = cellValueToString(cell.value)
+        }
+      })
 
-        resolve(items)
-      } catch {
-        reject(new Error('엑셀 파일 파싱 중 오류가 발생했습니다'))
+      // 빈 셀에 기본값 '' 채우기 (xlsx sheet_to_json의 defval: '' 동작 재현)
+      for (const header of headers) {
+        if (!(header in obj)) {
+          obj[header] = ''
+        }
       }
-    }
 
-    reader.onerror = () => {
-      reject(new Error('파일을 읽을 수 없습니다'))
-    }
+      rawData.push({ row: obj as unknown as RawExcelRow, rowNumber })
+    })
 
-    reader.readAsBinaryString(file)
-  })
+    // StudentImportItem으로 변환
+    const items = rawData
+      .map(({ row, rowNumber }) => convertRawRowToImportItem(row, rowNumber))
+      .filter((item) => item !== null) as StudentImportItem[]
+
+    return items
+  } catch {
+    throw new Error('엑셀 파일 파싱 중 오류가 발생했습니다')
+  }
 }
 
 /**
@@ -239,7 +297,7 @@ function formatBirthDate(value: string): string {
   // Excel 날짜 숫자인 경우 (1900-01-01 기준)
   const numValue = Number(value)
   if (!isNaN(numValue)) {
-    const date = XLSX.SSF.parse_date_code(numValue)
+    const date = parseExcelDateCode(numValue)
     if (date) {
       return `${date.y}-${String(date.m).padStart(2, '0')}-${String(date.d).padStart(2, '0')}`
     }
@@ -309,12 +367,13 @@ export function validateImportItems(
 /**
  * 오류 리포트 엑셀 파일 생성 및 다운로드
  */
-export function downloadErrorReport(
+export async function downloadErrorReport(
   items: StudentImportItem[],
   invalidItems: Array<{ item: StudentImportItem; errors: string[] }>
-): void {
+): Promise<void> {
   // 워크북 생성
-  const workbook = XLSX.utils.book_new()
+  const workbook = new Workbook()
+  const worksheet = workbook.addWorksheet('오류 리포트')
 
   // 오류 맵 생성 (rowIndex -> errors)
   const errorMap = new Map<number, string[]>()
@@ -358,39 +417,16 @@ export function downloadErrorReport(
     dataRows.push(row)
   }
 
-  // 시트 생성
-  const wsData = [headers, ...dataRows]
-  const worksheet = XLSX.utils.aoa_to_sheet(wsData)
+  // 행 추가
+  worksheet.addRows([headers, ...dataRows])
 
   // 열 너비 설정
-  const colWidths = [
-    { wch: 12 }, // 학생 이름
-    { wch: 20 }, // 생년월일
-    { wch: 10 }, // 학년
-    { wch: 15 }, // 학교
-    { wch: 15 }, // 학생 연락처
-    { wch: 20 }, // 학생 이메일
-    { wch: 20 }, // 메모
-    { wch: 12 }, // 보호자1 이름
-    { wch: 15 }, // 보호자1 연락처
-    { wch: 20 }, // 보호자1 이메일
-    { wch: 15 }, // 보호자1 관계
-    { wch: 15 }, // 보호자1 직업
-    { wch: 20 }, // 보호자1 주소
-    { wch: 12 }, // 보호자2 이름
-    { wch: 15 }, // 보호자2 연락처
-    { wch: 20 }, // 보호자2 이메일
-    { wch: 15 }, // 보호자2 관계
-    { wch: 15 }, // 보호자2 직업
-    { wch: 20 }, // 보호자2 주소
-    { wch: 50 }, // 오류 내용
-  ]
-  worksheet['!cols'] = colWidths
-
-  // 시트 추가
-  XLSX.utils.book_append_sheet(workbook, worksheet, '오류 리포트')
+  const colWidths = [12, 20, 10, 15, 15, 20, 20, 12, 15, 20, 15, 15, 20, 12, 15, 20, 15, 15, 20, 50]
+  colWidths.forEach((w, i) => {
+    worksheet.getColumn(i + 1).width = w
+  })
 
   // 파일 다운로드
   const fileName = `학생_등록_오류리포트_${new Date().toISOString().split('T')[0]}.xlsx`
-  XLSX.writeFile(workbook, fileName)
+  await downloadWorkbook(workbook, fileName)
 }
