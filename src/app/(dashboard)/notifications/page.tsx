@@ -63,6 +63,7 @@ export default async function NotificationsPage() {
     `)
     .eq('tenant_id', tenantId)
     .order('sent_at', { ascending: false })
+    .order('id', { ascending: false })
     .limit(50)
 
   const logs: NotificationLog[] = (logsData || []) as unknown as NotificationLog[]

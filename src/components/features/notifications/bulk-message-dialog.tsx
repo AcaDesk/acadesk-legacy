@@ -204,7 +204,8 @@ export function BulkMessageDialog({
   }
 
   function toggleAll() {
-    const allSelected = students.every(s => s.selected && s.phone)
+    const sendable = students.filter(s => s.phone)
+    const allSelected = sendable.length > 0 && sendable.every(s => s.selected)
     setStudents(students.map(s => ({
       ...s,
       selected: s.phone ? !allSelected : false
