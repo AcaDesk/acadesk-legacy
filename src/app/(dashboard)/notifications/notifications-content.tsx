@@ -120,6 +120,7 @@ export function NotificationsContent({ initialLogs, initialBalance, tenantId }: 
         `)
         .eq('tenant_id', tenantId)
         .order('sent_at', { ascending: false })
+        .order('id', { ascending: false })
         .limit(PAGE_SIZE)
 
       if (error) throw error
@@ -141,7 +142,9 @@ export function NotificationsContent({ initialLogs, initialBalance, tenantId }: 
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore || logs.length === 0) return
 
-    const cursor = logs[logs.length - 1].sent_at
+    const lastLog = logs[logs.length - 1]
+    const cursorSentAt = lastLog.sent_at
+    const cursorId = lastLog.id
 
     try {
       setLoadingMore(true)
@@ -162,8 +165,9 @@ export function NotificationsContent({ initialLogs, initialBalance, tenantId }: 
           )
         `)
         .eq('tenant_id', tenantId)
-        .lt('sent_at', cursor)
+        .or(`sent_at.lt.${cursorSentAt},and(sent_at.eq.${cursorSentAt},id.lt.${cursorId})`)
         .order('sent_at', { ascending: false })
+        .order('id', { ascending: false })
         .limit(PAGE_SIZE)
 
       if (error) throw error

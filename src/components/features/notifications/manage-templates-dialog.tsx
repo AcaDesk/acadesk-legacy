@@ -59,7 +59,7 @@ export function ManageTemplatesDialog({
     name: '',
     content: '',
     type: 'sms' as const,  // Email removed - SMS/알림톡 only
-    category: 'general' as 'general' | 'report' | 'todo' | 'attendance' | 'event',
+    category: 'general' as 'general' | 'report' | 'todo' | 'attendance' | 'event' | 'payment' | 'consultation',
   })
   const [saving, setSaving] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -257,6 +257,8 @@ export function ManageTemplatesDialog({
       todo: '과제',
       attendance: '출결',
       event: '행사',
+      payment: '수납',
+      consultation: '상담',
     }
     return labels[category] || category
   }
@@ -323,6 +325,8 @@ export function ManageTemplatesDialog({
                     <SelectItem value="todo">과제</SelectItem>
                     <SelectItem value="attendance">출결</SelectItem>
                     <SelectItem value="event">행사</SelectItem>
+                    <SelectItem value="payment">수납</SelectItem>
+                    <SelectItem value="consultation">상담</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
