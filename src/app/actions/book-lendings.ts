@@ -39,12 +39,40 @@ export interface BookLendingStats {
   returned: number
 }
 
+export interface BulkLendingResult {
+  totalCount: number
+  successCount: number
+  failedCount: number
+  results: Array<{
+    textbookId: string
+    textbookTitle: string
+    success: boolean
+    error?: string
+    lendingId?: string
+  }>
+}
+
 const createBookLendingSchema = z.object({
   studentId: z.string().uuid(),
   textbookId: z.string().uuid(),
   borrowedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   notes: z.string().max(500).optional(),
+})
+
+const createBulkBookLendingSchema = z.object({
+  studentId: z.string().uuid(),
+  items: z
+    .array(
+      z.object({
+        textbookId: z.string().uuid(),
+        borrowedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        notes: z.string().max(500).optional(),
+      })
+    )
+    .min(1)
+    .max(50),
 })
 
 /**
@@ -243,6 +271,151 @@ export async function createBookLending(input: z.infer<typeof createBookLendingS
     {
       actionName: 'createBookLending',
       defaultValue: { id: '' },
+    }
+  )
+}
+
+/**
+ * 도서 대출 일괄 등록 (1학생 + N교재)
+ */
+export async function createBulkBookLending(
+  input: z.infer<typeof createBulkBookLendingSchema>
+) {
+  return withServerAction(
+    async ({ tenantId, serviceClient }) => {
+      const validated = createBulkBookLendingSchema.parse(input)
+
+      // 1. 학생 검증 (공통 1회)
+      const { data: student, error: studentError } = await serviceClient
+        .from('students')
+        .select('id')
+        .eq('id', validated.studentId)
+        .eq('tenant_id', tenantId)
+        .is('deleted_at', null)
+        .single()
+
+      if (studentError || !student) {
+        throw new Error('유효한 학생을 찾을 수 없습니다.')
+      }
+
+      // 2. 교재 일괄 조회
+      const textbookIds = [...new Set(validated.items.map((item) => item.textbookId))]
+      const { data: textbooksData, error: textbooksError } = await serviceClient
+        .from('textbooks')
+        .select('id, title, is_active, total_copies')
+        .in('id', textbookIds)
+        .eq('tenant_id', tenantId)
+        .is('deleted_at', null)
+
+      if (textbooksError) throw textbooksError
+
+      const textbookMap = new Map(
+        (textbooksData || []).map((t) => [t.id as string, t])
+      )
+
+      // 3. 대출 중 건수 일괄 조회
+      const { data: activeLendings, error: activeLendingsError } = await serviceClient
+        .from('book_lendings')
+        .select('textbook_id')
+        .in('textbook_id', textbookIds)
+        .eq('tenant_id', tenantId)
+        .is('returned_at', null)
+
+      if (activeLendingsError) throw activeLendingsError
+
+      const activeCountMap = new Map<string, number>()
+      for (const lending of activeLendings || []) {
+        const id = lending.textbook_id as string
+        activeCountMap.set(id, (activeCountMap.get(id) || 0) + 1)
+      }
+
+      // 4. 항목별 순차 처리 (배치 내 소진 추적)
+      const batchConsumed = new Map<string, number>()
+      const results: BulkLendingResult['results'] = []
+
+      for (const item of validated.items) {
+        const textbook = textbookMap.get(item.textbookId)
+        const title = (textbook?.title as string) || '알 수 없는 교재'
+
+        try {
+          if (item.dueDate < item.borrowedAt) {
+            throw new Error('반납 예정일은 대출일 이후여야 합니다.')
+          }
+
+          if (!textbook) {
+            throw new Error('유효한 교재를 찾을 수 없습니다.')
+          }
+          if (!textbook.is_active) {
+            throw new Error('비활성 교재는 대출할 수 없습니다.')
+          }
+
+          const totalCopies = (textbook.total_copies as number | null) || 1
+          const dbActiveCount = activeCountMap.get(item.textbookId) || 0
+          const consumed = batchConsumed.get(item.textbookId) || 0
+          const effectiveActive = dbActiveCount + consumed
+
+          if (effectiveActive >= totalCopies) {
+            throw new Error(
+              `대여 가능한 재고가 없습니다. (보유 ${totalCopies}권 / 대여중 ${effectiveActive}권)`
+            )
+          }
+
+          const { data, error } = await serviceClient
+            .from('book_lendings')
+            .insert({
+              tenant_id: tenantId,
+              student_id: validated.studentId,
+              textbook_id: item.textbookId,
+              borrowed_at: item.borrowedAt,
+              due_date: item.dueDate,
+              notes: item.notes?.trim() || null,
+            })
+            .select('id')
+            .single()
+
+          if (error) throw error
+
+          batchConsumed.set(item.textbookId, consumed + 1)
+
+          results.push({
+            textbookId: item.textbookId,
+            textbookTitle: title,
+            success: true,
+            lendingId: data.id as string,
+          })
+        } catch (error) {
+          results.push({
+            textbookId: item.textbookId,
+            textbookTitle: title,
+            success: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : '알 수 없는 오류가 발생했습니다.',
+          })
+        }
+      }
+
+      revalidatePath('/library/lendings')
+      revalidatePath('/library')
+
+      const successCount = results.filter((r) => r.success).length
+      const result: BulkLendingResult = {
+        totalCount: results.length,
+        successCount,
+        failedCount: results.length - successCount,
+        results,
+      }
+      return result
+    },
+    {
+      actionName: 'createBulkBookLending',
+      defaultValue: {
+        totalCount: 0,
+        successCount: 0,
+        failedCount: 0,
+        results: [],
+      } as BulkLendingResult,
     }
   )
 }
