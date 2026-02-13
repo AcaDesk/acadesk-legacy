@@ -62,13 +62,10 @@ export function SendWorkbench({ data, loading, onComplete }: SendWorkbenchProps)
 
       const batch = selectedReports.slice(i, i + CONCURRENCY)
 
-      for (const report of batch) {
-        setCurrentStudentName(report.students?.users?.name || '알 수 없음')
-      }
-
       const results = await Promise.allSettled(
         batch.map(async (report) => {
           const studentName = report.students?.users?.name || '알 수 없음'
+          setCurrentStudentName(studentName)
           try {
             const result = await sendReportToAllGuardians(report.id)
             if (result.success && result.data) {

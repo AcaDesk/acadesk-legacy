@@ -70,7 +70,11 @@ export function ReportCardList({ rows, mode, onSendClick, onDeleteClick }: Repor
             </div>
 
             <div className="text-xs text-muted-foreground">
-              {report.generated_at && format(new Date(report.generated_at), 'yyyy-MM-dd')} 생성
+              {(() => {
+                if (!report.generated_at) return '-'
+                const d = new Date(report.generated_at)
+                return isNaN(d.getTime()) ? '-' : format(d, 'yyyy-MM-dd')
+              })()} 생성
             </div>
 
             {mode === 'browse' && (
