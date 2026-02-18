@@ -216,7 +216,7 @@ export async function generateWeeklyReport(
       getScoresData(supabase, studentId, periodStartStr, periodEndStr, prevPeriodStartStr, prevPeriodEndStr, tenantId),
       getGradesChartData(supabase, studentId, periodStartStr, periodEndStr),
       getAttendanceChartData(supabase, studentId, periodStartStr, periodEndStr),
-      getCurrentScoreData(supabase, studentId, periodStartStr, periodEndStr),
+      getCurrentScoreData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
     ])
 
     // 7. 강사 코멘트 생성 (attendance + scores 결과에 의존)
@@ -348,8 +348,8 @@ export async function generateMonthlyReport(
       getScoresData(supabase, studentId, periodStartStr, periodEndStr, prevPeriodStartStr, prevPeriodEndStr, tenantId),
       getGradesChartData(supabase, studentId, periodStartStr, periodEndStr),
       getAttendanceChartData(supabase, studentId, periodStartStr, periodEndStr),
-      getCurrentScoreData(supabase, studentId, periodStartStr, periodEndStr),
-      getScoreTrendData(supabase, studentId, year, month),
+      getCurrentScoreData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
+      getScoreTrendData(supabase, studentId, year, month, tenantId),
     ])
 
     // 7. 강사 코멘트 생성 (attendance + scores 결과에 의존)
@@ -803,8 +803,8 @@ export async function generateBulkMonthlyReports(
           getScoresData(supabase, studentId, periodStartStr, periodEndStr, prevPeriodStartStr, prevPeriodEndStr, tenantId),
           getGradesChartData(supabase, studentId, periodStartStr, periodEndStr),
           getAttendanceChartData(supabase, studentId, periodStartStr, periodEndStr),
-          getCurrentScoreData(supabase, studentId, periodStartStr, periodEndStr),
-          getScoreTrendData(supabase, studentId, year, month),
+          getCurrentScoreData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
+          getScoreTrendData(supabase, studentId, year, month, tenantId),
         ])
 
         const instructorComment = generateInstructorComment(attendance, scores)
@@ -1458,7 +1458,8 @@ async function getCurrentScoreData(
   supabase: Awaited<ReturnType<typeof createServiceRoleClient>>,
   studentId: string,
   periodStart: string,
-  periodEnd: string
+  periodEnd: string,
+  tenantId: string
 ) {
   // 날짜 비교 헬퍼 함수
   const extractDatePart = (dateStr: string): string => dateStr.slice(0, 10)
@@ -1486,12 +1487,14 @@ async function getCurrentScoreData(
     supabase
       .from('exam_scores')
       .select('percentage, student_id, exams!inner(exam_date, created_at)')
+      .eq('tenant_id', tenantId)
       .is('deleted_at', null)
       .gte('exams.exam_date', periodStart)
       .lte('exams.exam_date', periodEnd),
     supabase
       .from('exam_scores')
       .select('percentage, student_id, exams!inner(exam_date, created_at)')
+      .eq('tenant_id', tenantId)
       .is('deleted_at', null)
       .is('exams.exam_date', null),
   ])
@@ -1565,7 +1568,8 @@ async function getScoreTrendData(
   supabase: Awaited<ReturnType<typeof createServiceRoleClient>>,
   studentId: string,
   currentYear: number,
-  currentMonth: number
+  currentMonth: number,
+  tenantId: string
 ) {
   // 날짜 비교 헬퍼 함수
   const extractDatePart = (dateStr: string): string => dateStr.slice(0, 10)
@@ -1606,12 +1610,14 @@ async function getScoreTrendData(
         supabase
           .from('exam_scores')
           .select('percentage, exams!inner(exam_date, created_at)')
+          .eq('tenant_id', tenantId)
           .is('deleted_at', null)
           .gte('exams.exam_date', periodStart)
           .lte('exams.exam_date', periodEnd),
         supabase
           .from('exam_scores')
           .select('percentage, exams!inner(exam_date, created_at)')
+          .eq('tenant_id', tenantId)
           .is('deleted_at', null)
           .is('exams.exam_date', null),
       ])

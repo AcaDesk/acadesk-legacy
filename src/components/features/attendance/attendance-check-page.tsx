@@ -2,27 +2,21 @@
 
 import { useState, useEffect, useCallback, useTransition, useRef } from 'react'
 import {
-  CheckCircle2,
-  Clock,
-  LogOut,
-  XCircle,
-  BookOpen,
-  MessageCircle,
   Search,
   Calendar as CalendarIcon,
   Download,
   ChevronLeft,
   ChevronRight,
-  PlusCircle,
   Loader2,
 } from 'lucide-react'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
-import { Card, CardContent } from '@ui/card'
-import { Badge } from '@ui/badge'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { ContactGuardianDialog } from '@/components/features/attendance/contact-guardian-dialog'
+import { AttendanceMobileView } from '@/components/features/attendance/attendance-mobile-view'
+import { AttendanceDesktopView } from '@/components/features/attendance/attendance-desktop-view'
+import type { StudentAttendance } from '@/components/features/attendance/attendance-mobile-view'
 import {
   getAttendanceRecordsByDate,
   saveAttendance,
@@ -47,21 +41,6 @@ const DB_TO_UI_STATUS: Record<string, UIAttendanceStatus> = {
   left_early: 'early_leave',
   absent: 'absent',
   excused: 'excused',
-}
-
-interface StudentAttendance {
-  id: string
-  sessionId?: string
-  studentId: string
-  name: string
-  school: string
-  grade: string
-  classId: string | null
-  className: string
-  status: UIAttendanceStatus | null
-  arrivalTime?: string
-  isSelfStudy: boolean
-  isMakeupClass: boolean
 }
 
 interface ClassInfo {
@@ -770,285 +749,26 @@ export function AttendanceCheckPage({
             </div>
           )}
           {/* --- Mobile View (Cards) --- */}
-          <div className="block md:hidden space-y-4 flex-1 overflow-y-auto">
-            {filteredStudents.map((student) => (
-              <Card
-                key={`${student.studentId}-${student.classId}`}
-                className={cn(
-                  'transition-all',
-                  !student.status && 'border-l-4 border-l-muted-foreground/30'
-                )}
-              >
-                <CardContent className="p-5">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                        {student.name}
-                        <span className="text-xs font-normal text-muted-foreground">
-                          ({student.school} {student.grade})
-                        </span>
-                      </h3>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {student.className}
-                      </p>
-                    </div>
-                    {student.arrivalTime ? (
-                      <div className="text-right">
-                        <span className="text-xs font-semibold text-muted-foreground block">
-                          등원 시간
-                        </span>
-                        <span className="text-lg font-mono font-semibold text-foreground">
-                          {student.arrivalTime}
-                        </span>
-                      </div>
-                    ) : (
-                      <Badge variant="secondary">미등원</Badge>
-                    )}
-                  </div>
-
-                  {/* Mobile Action Buttons (Grid) */}
-                  <div className="grid grid-cols-4 gap-2">
-                    <button
-                      onClick={() => updateStatus(student, 'present')}
-                      className={cn(
-                        'py-3 rounded-lg text-xs font-semibold transition-colors flex flex-col items-center justify-center gap-1',
-                        student.status === 'present'
-                          ? 'bg-green-600 text-white shadow-md'
-                          : 'bg-muted text-muted-foreground border border-border'
-                      )}
-                    >
-                      <CheckCircle2 className="h-4 w-4" /> 출석
-                    </button>
-                    <button
-                      onClick={() => updateStatus(student, 'late')}
-                      className={cn(
-                        'py-3 rounded-lg text-xs font-semibold transition-colors flex flex-col items-center justify-center gap-1',
-                        student.status === 'late'
-                          ? 'bg-amber-500 text-white shadow-md'
-                          : 'bg-muted text-muted-foreground border border-border'
-                      )}
-                    >
-                      <Clock className="h-4 w-4" /> 지각
-                    </button>
-                    <button
-                      onClick={() => updateStatus(student, 'early_leave')}
-                      className={cn(
-                        'py-3 rounded-lg text-xs font-semibold transition-colors flex flex-col items-center justify-center gap-1',
-                        student.status === 'early_leave'
-                          ? 'bg-orange-500 text-white shadow-md'
-                          : 'bg-muted text-muted-foreground border border-border'
-                      )}
-                    >
-                      <LogOut className="h-4 w-4" /> 조퇴
-                    </button>
-                    <button
-                      onClick={() => updateStatus(student, 'absent')}
-                      className={cn(
-                        'py-3 rounded-lg text-xs font-semibold transition-colors flex flex-col items-center justify-center gap-1',
-                        student.status === 'absent' || student.status === 'excused'
-                          ? 'bg-destructive text-destructive-foreground shadow-md'
-                          : 'bg-muted text-muted-foreground border border-border'
-                      )}
-                    >
-                      <XCircle className="h-4 w-4" /> {student.status === 'excused' ? '사유결석' : '결석'}
-                    </button>
-                  </div>
-
-                  {/* Additional Actions */}
-                  <div className="flex gap-2 mt-3 pt-3 border-t border-border">
-                    <button
-                      onClick={() => toggleSelfStudy(student)}
-                      className={cn(
-                        'flex-1 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors',
-                        student.isSelfStudy
-                          ? 'bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950/30 dark:text-purple-400 dark:border-purple-900'
-                          : 'bg-card border border-border text-muted-foreground'
-                      )}
-                    >
-                      <BookOpen className="h-3.5 w-3.5" /> 자습{' '}
-                      {student.isSelfStudy ? 'ON' : 'OFF'}
-                    </button>
-                    <button
-                      onClick={() => toggleMakeupClass(student)}
-                      className={cn(
-                        'flex-1 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors',
-                        student.isMakeupClass
-                          ? 'bg-info/10 text-info border border-info/20'
-                          : 'bg-card border border-border text-muted-foreground'
-                      )}
-                    >
-                      <PlusCircle className="h-3.5 w-3.5" /> 보강{' '}
-                      {student.isMakeupClass ? 'ON' : 'OFF'}
-                    </button>
-                    {(student.status === 'absent' || student.status === 'excused' || student.status === 'late') && (
-                      <button
-                        onClick={() => openContactDialog(student)}
-                        disabled={contactPreparingStudentId === student.studentId}
-                        className="flex-1 py-2 rounded-lg text-xs font-semibold bg-info/10 text-info border border-info/20 flex items-center justify-center gap-1.5 disabled:opacity-60"
-                      >
-                        <MessageCircle className="h-3.5 w-3.5" /> 알림
-                      </button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-            {filteredStudents.length === 0 && (
-              <div className="text-center py-10 text-muted-foreground text-sm">
-                {students.length === 0
-                  ? '등록된 학생이 없습니다.'
-                  : '검색 결과가 없습니다.'}
-              </div>
-            )}
-          </div>
+          <AttendanceMobileView
+            students={filteredStudents}
+            allStudentsEmpty={students.length === 0}
+            contactPreparingStudentId={contactPreparingStudentId}
+            onUpdateStatus={updateStatus}
+            onToggleSelfStudy={toggleSelfStudy}
+            onToggleMakeupClass={toggleMakeupClass}
+            onOpenContactDialog={openContactDialog}
+          />
 
           {/* --- Desktop View (Table) --- */}
-          <Card className="hidden md:flex flex-col flex-1 overflow-hidden">
-            <div className="overflow-y-auto flex-1">
-              <table className="w-full text-left border-collapse table-fixed">
-                <colgroup>
-                  <col className="w-[22%]" />
-                  <col className="w-[12%]" />
-                  <col className="w-[40%]" />
-                  <col className="w-[26%]" />
-                </colgroup>
-                <thead>
-                  <tr className="bg-muted/50 text-xs text-muted-foreground border-b border-border sticky top-0 z-10 backdrop-blur-sm">
-                    <th className="px-6 py-4 font-semibold">학생 정보</th>
-                    <th className="px-6 py-4 font-semibold">등원 시간</th>
-                    <th className="px-6 py-4 font-semibold text-center">
-                      출결 상태 변경
-                    </th>
-                    <th className="px-6 py-4 font-semibold text-right">추가 관리</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {filteredStudents.map((student) => (
-                    <tr
-                      key={`${student.studentId}-${student.classId}`}
-                      className="hover:bg-muted/50 transition-colors group"
-                    >
-                      <td className="px-6 py-4">
-                        <div>
-                          <p className="text-sm font-semibold text-foreground">
-                            {student.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {student.school} {student.grade} • {student.className}
-                          </p>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={cn(
-                            'font-mono text-sm font-semibold',
-                            student.arrivalTime
-                              ? 'text-foreground'
-                              : 'text-muted-foreground/50'
-                          )}
-                        >
-                          {student.arrivalTime || '--:--'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex justify-center items-center gap-1 bg-muted p-1 rounded-lg w-fit mx-auto">
-                          <button
-                            onClick={() => updateStatus(student, 'present')}
-                            className={cn(
-                              'px-3 py-1.5 rounded-md text-xs font-semibold transition-all',
-                              student.status === 'present'
-                                ? 'bg-card text-green-600 shadow-sm ring-1 ring-border'
-                                : 'text-muted-foreground hover:text-foreground'
-                            )}
-                          >
-                            출석
-                          </button>
-                          <button
-                            onClick={() => updateStatus(student, 'late')}
-                            className={cn(
-                              'px-3 py-1.5 rounded-md text-xs font-semibold transition-all',
-                              student.status === 'late'
-                                ? 'bg-card text-amber-600 shadow-sm ring-1 ring-border'
-                                : 'text-muted-foreground hover:text-foreground'
-                            )}
-                          >
-                            지각
-                          </button>
-                          <button
-                            onClick={() => updateStatus(student, 'early_leave')}
-                            className={cn(
-                              'px-3 py-1.5 rounded-md text-xs font-semibold transition-all',
-                              student.status === 'early_leave'
-                                ? 'bg-card text-orange-600 shadow-sm ring-1 ring-border'
-                                : 'text-muted-foreground hover:text-foreground'
-                            )}
-                          >
-                            조퇴
-                          </button>
-                          <button
-                            onClick={() => updateStatus(student, 'absent')}
-                            className={cn(
-                              'px-3 py-1.5 rounded-md text-xs font-semibold transition-all',
-                              student.status === 'absent' || student.status === 'excused'
-                                ? 'bg-card text-destructive shadow-sm ring-1 ring-border'
-                                : 'text-muted-foreground hover:text-foreground'
-                            )}
-                          >
-                            {student.status === 'excused' ? '사유결석' : '결석'}
-                          </button>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() => toggleSelfStudy(student)}
-                            className={cn(
-                              'px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors flex items-center gap-1',
-                              student.isSelfStudy
-                                ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-400 dark:border-purple-900'
-                                : 'bg-card border-border text-muted-foreground hover:text-purple-600 hover:border-purple-200'
-                            )}
-                          >
-                            <BookOpen className="h-3 w-3" /> 자습
-                          </button>
-                          <button
-                            onClick={() => toggleMakeupClass(student)}
-                            className={cn(
-                              'px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors flex items-center gap-1',
-                              student.isMakeupClass
-                                ? 'bg-info/10 text-info border-info/20'
-                                : 'bg-card border-border text-muted-foreground hover:text-info hover:border-info/20'
-                            )}
-                          >
-                            <PlusCircle className="h-3 w-3" /> 보강
-                          </button>
-                          {(student.status === 'late' ||
-                            student.status === 'absent' ||
-                            student.status === 'excused') && (
-                            <button
-                              onClick={() => openContactDialog(student)}
-                              disabled={contactPreparingStudentId === student.studentId}
-                              className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-info hover:bg-info/10 hover:border-info/20 transition-colors disabled:opacity-60"
-                              title="보호자 연락"
-                            >
-                              <MessageCircle className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {filteredStudents.length === 0 && (
-                <div className="text-center py-10 text-muted-foreground text-sm">
-                  {students.length === 0
-                    ? '등록된 학생이 없습니다.'
-                    : '검색 결과가 없습니다.'}
-                </div>
-              )}
-            </div>
-          </Card>
+          <AttendanceDesktopView
+            students={filteredStudents}
+            allStudentsEmpty={students.length === 0}
+            contactPreparingStudentId={contactPreparingStudentId}
+            onUpdateStatus={updateStatus}
+            onToggleSelfStudy={toggleSelfStudy}
+            onToggleMakeupClass={toggleMakeupClass}
+            onOpenContactDialog={openContactDialog}
+          />
         </>
       )}
 

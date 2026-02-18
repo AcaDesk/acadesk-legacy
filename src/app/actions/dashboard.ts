@@ -356,7 +356,7 @@ async function fetchStudentAlerts(supabase: any, tenantId: string, today: string
         .eq('tenant_id', tenantId)
         .is('deleted_at', null),
       supabase
-        .from('attendance_records')
+        .from('attendance')
         .select('student_id')
         .eq('tenant_id', tenantId)
         .gte('attendance_date', sevenDaysAgo)
@@ -467,7 +467,7 @@ async function fetchWeeklyPerformance(
 
     const [attendanceResult, todosResult] = await Promise.all([
       supabase
-        .from('attendance_records')
+        .from('attendance')
         .select('attendance_date, status')
         .eq('tenant_id', tenantId)
         .gte('attendance_date', weekStart)
@@ -576,7 +576,7 @@ async function fetchStats(supabase: any, tenantId: string, today: string) {
 
     // Today's attendance
     supabase
-      .from('attendance_records')
+      .from('attendance')
       .select('id', { count: 'exact', head: true })
       .eq('tenant_id', tenantId)
       .eq('attendance_date', today)
@@ -621,7 +621,7 @@ async function fetchStats(supabase: any, tenantId: string, today: string) {
 
     // Previous week attendance (for trend)
     supabase
-      .from('attendance_records')
+      .from('attendance')
       .select('id', { count: 'exact', head: true })
       .eq('tenant_id', tenantId)
       .gte('attendance_date', lastWeekStart)

@@ -86,10 +86,12 @@ export default function WeeklyPlannerPage() {
     return `${studentId}-${dayOfWeek}`
   }
 
-  // Helper to parse cell key
+  // Helper to parse cell key (split on last hyphen to preserve UUID)
   function parseCellKey(key: string): { studentId: string; dayOfWeek: number } | null {
-    const [studentId, dayStr] = key.split('-')
-    const dayOfWeek = parseInt(dayStr, 10)
+    const lastHyphen = key.lastIndexOf('-')
+    if (lastHyphen === -1) return null
+    const studentId = key.substring(0, lastHyphen)
+    const dayOfWeek = parseInt(key.substring(lastHyphen + 1), 10)
     if (studentId && !isNaN(dayOfWeek)) {
       return { studentId, dayOfWeek }
     }

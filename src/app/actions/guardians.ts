@@ -61,7 +61,6 @@ export async function createGuardian(data: z.infer<typeof createGuardianSchema>)
     // 3. Service Role 클라이언트로 DB 작업
     const supabase = createServiceRoleClient()
 
-    // 트랜잭션 시뮬레이션 (Supabase에서는 RPC를 사용하거나 순차적으로 처리)
     // 3-1. users 테이블에 보호자 생성
     const { data: newUser, error: userCreateError } = await supabase
       .from('users')
@@ -91,6 +90,8 @@ export async function createGuardian(data: z.infer<typeof createGuardianSchema>)
       .single()
 
     if (guardianError || !newGuardian) {
+      // 롤백: 생성된 user 삭제
+      await supabase.from('users').delete().eq('id', newUser.id)
       throw new Error(`보호자 정보 생성 실패: ${guardianError?.message}`)
     }
 
@@ -114,6 +115,9 @@ export async function createGuardian(data: z.infer<typeof createGuardianSchema>)
         .insert(guardianStudentRecords)
 
       if (linkError) {
+        // 롤백: 생성된 guardian, user 삭제
+        await supabase.from('guardians').delete().eq('id', newGuardian.id)
+        await supabase.from('users').delete().eq('id', newUser.id)
         throw new Error('학생과 보호자를 연결하는 데 실패했습니다: ' + linkError.message)
       }
     }
@@ -833,6 +837,13 @@ export async function updateGuardianWithStudents(
 
     // 4. 학생 연결 업데이트 (student_ids가 제공된 경우)
     if (validatedData.student_ids !== undefined) {
+      // 기존 연결 백업 (롤백용)
+      const { data: existingLinks } = await supabase
+        .from('student_guardians')
+        .select('*')
+        .eq('guardian_id', validatedData.guardian_id)
+        .eq('tenant_id', tenantId)
+
       // 기존 연결 삭제
       const { error: deleteError } = await supabase
         .from('student_guardians')
@@ -864,6 +875,12 @@ export async function updateGuardianWithStudents(
           .insert(records)
 
         if (linkError) {
+          // 롤백: 기존 연결 복원
+          if (existingLinks && existingLinks.length > 0) {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const restoreRecords = existingLinks.map(({ id, created_at, updated_at, ...rest }) => rest)
+            await supabase.from('student_guardians').insert(restoreRecords)
+          }
           throw new Error(`학생 연결 생성 실패: ${linkError.message}`)
         }
       }
