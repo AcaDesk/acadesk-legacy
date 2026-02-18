@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/c
 import { Badge } from '@ui/badge'
 import { Separator } from '@ui/separator'
 import { Button } from '@ui/button'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@ui/accordion'
 import { TrendingUp, TrendingDown, Minus, Edit2 } from 'lucide-react'
 import {
   BarChart,
@@ -112,12 +113,10 @@ interface ReportViewerProps {
 
 const CustomAxisTick = (props: any) => {
   const { x, y, payload } = props;
-  const { value } = payload; // value가 "국어", "영어" 등 라벨 텍스트입니다.
+  const { value } = payload;
 
-  // 텍스트를 공백 기준으로 나눕니다.
   const words = String(value).split(' ');
 
-  // 단어가 1개이거나(예: "평균") 빈 값이면 그냥 한 줄로 표시
   if (words.length === 1 || !value) {
     return (
       <g transform={`translate(${x},${y})`}>
@@ -128,17 +127,13 @@ const CustomAxisTick = (props: any) => {
     );
   }
 
-  // 2단어 이상이면 (예: "데이터 과학") 2줄로 나눔
-  // 첫 번째 단어만 첫 줄에, 나머지는 두 번째 줄에 표시
   const line1 = words[0];
   const line2 = words.slice(1).join(' ');
 
   return (
     <g transform={`translate(${x},${y})`}>
       <text x={0} y={0} dy={16} textAnchor="middle" fill="hsl(var(--muted-foreground))" fontSize={12}>
-        {/* 첫 번째 줄 */}
         <tspan x={0} dy="0em">{line1}</tspan>
-        {/* 두 번째 줄 (1.2em 만큼 아래로 내림) */}
         <tspan x={0} dy="1.2em">{line2}</tspan>
       </text>
     </g>
@@ -158,14 +153,22 @@ export function ReportViewer({ reportData, onEditComment, showEditButton = false
   const studentCode = reportData.studentCode || reportData.student?.student_code || ''
   const grade = reportData.grade || reportData.student?.grade || ''
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const attendanceRate = reportData.attendanceRate ?? reportData.attendance?.rate ?? 0
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const homeworkRate = reportData.homeworkRate ?? reportData.homework?.rate ?? 0
+
+  // 평균 점수 계산
+  const averageScore = reportData.scores?.length > 0
+    ? Math.round(reportData.scores.reduce((sum, s) => sum + (s.current || 0), 0) / reportData.scores.length)
+    : null
+  const avgChange = (() => {
+    if (!reportData.scores?.length) return null
+    const validChanges = reportData.scores.filter(s => s.change !== null)
+    if (validChanges.length === 0) return null
+    return Math.round(validChanges.reduce((sum, s) => sum + (s.change || 0), 0) / validChanges.length * 10) / 10
+  })()
 
   // Format comment for display
   function getFormattedComment(): string {
-    // Use new structured format if available
     if (reportData.comment) {
       return `📝 총평
 ${reportData.comment.summary}
@@ -180,7 +183,6 @@ ${reportData.comment.improvements}
 ${reportData.comment.nextGoals}`
     }
 
-    // Fallback to legacy formats
     return (
       reportData.overallComment ||
       reportData.instructorComment ||
@@ -188,10 +190,18 @@ ${reportData.comment.nextGoals}`
     )
   }
 
+  // 날짜 안전 포맷
+  function safeDateFormat(dateStr: string | undefined | null): string | null {
+    if (!dateStr) return null
+    const d = new Date(dateStr)
+    if (isNaN(d.getTime())) return null
+    return formatKoreanDateShort(dateStr)
+  }
+
   // Extract year and month from period for AttendanceHeatmap
   const periodEnd = reportData.period ? new Date(reportData.period.end) : new Date()
   const calendarYear = periodEnd.getFullYear()
-  const calendarMonth = periodEnd.getMonth() + 1 // 0-based to 1-based
+  const calendarMonth = periodEnd.getMonth() + 1
 
   return (
     <div className="space-y-6">
@@ -234,185 +244,58 @@ ${reportData.comment.nextGoals}`
         </CardHeader>
       </Card>
 
-      {/* Section 1: Subject Score Table (과목별 점수 - 모바일 친화적) */}
-      {reportData.scores && reportData.scores.length > 0 && (
+      {/* KPI Cards: 평균점수, 출석률, 과제율 */}
+      <div className="grid grid-cols-3 gap-4">
+        {/* 평균 점수 */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-xl">이번 달 시험 성적</CardTitle>
-            <CardDescription>과목별 점수 및 총점</CardDescription>
+          <CardHeader className="pb-2">
+            <CardDescription className="text-xs">평균 점수</CardDescription>
+            <CardTitle className="text-3xl font-bold text-primary">
+              {averageScore !== null ? `${averageScore}점` : '-'}
+            </CardTitle>
+            {avgChange !== null && (
+              <div className="flex items-center gap-1 mt-1">
+                {getTrendIcon(avgChange)}
+                <span className={`text-sm font-medium ${
+                  avgChange > 0 ? 'text-success' :
+                  avgChange < 0 ? 'text-red-600' :
+                  'text-muted-foreground'
+                }`}>
+                  {avgChange > 0 ? '+' : ''}{avgChange}점
+                </span>
+              </div>
+            )}
           </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto -mx-2 px-2">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="border-b-2 border-border">
-                    <th className="py-3 px-2 text-left font-semibold text-sm">과목</th>
-                    <th className="py-3 px-2 text-center font-semibold text-sm">점수</th>
-                    <th className="py-3 px-2 text-center font-semibold text-sm">전월 대비</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reportData.scores.map((score, idx) => (
-                    <tr key={idx} className="border-b border-border last:border-0">
-                      <td className="py-3 px-2 font-medium">{score.category}</td>
-                      <td className="py-3 px-2 text-center">
-                        <span className="text-2xl font-bold text-primary">{score.current}</span>
-                        <span className="text-sm text-muted-foreground">/100</span>
-                      </td>
-                      <td className="py-3 px-2 text-center">
-                        {score.change !== null ? (
-                          <Badge
-                            variant={score.change > 0 ? 'default' : score.change < 0 ? 'destructive' : 'secondary'}
-                            className="text-base font-semibold"
-                          >
-                            <div className="flex items-center gap-1">
-                              {getTrendIcon(score.change)}
-                              {Math.abs(score.change)}
-                            </div>
-                          </Badge>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">-</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                  {/* TOTAL Row */}
-                  <tr className="bg-muted/50 font-bold">
-                    <td className="py-4 px-2 text-lg">TOTAL</td>
-                    <td className="py-4 px-2 text-center">
-                      <span className="text-3xl font-bold text-primary">
-                        {Math.round(
-                          reportData.scores.reduce((sum, s) => sum + (s.current || 0), 0) /
-                          reportData.scores.length
-                        )}
-                      </span>
-                      <span className="text-sm text-muted-foreground">/100</span>
-                    </td>
-                    <td className="py-4 px-2 text-center">
-                      {(() => {
-                        const validChanges = reportData.scores.filter(s => s.change !== null)
-                        if (validChanges.length === 0) return <span className="text-sm text-muted-foreground">-</span>
-                        const avgChange = validChanges.reduce((sum, s) => sum + (s.change || 0), 0) / validChanges.length
-                        return (
-                          <Badge
-                            variant={avgChange > 0 ? 'default' : avgChange < 0 ? 'destructive' : 'secondary'}
-                            className="text-base font-semibold"
-                          >
-                            <div className="flex items-center gap-1">
-                              {getTrendIcon(avgChange)}
-                              {Math.abs(Math.round(avgChange * 10) / 10)}
-                            </div>
-                          </Badge>
-                        )
-                      })()}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
         </Card>
-      )}
 
-      {/* Section 2: At-a-Glance (한눈에 보기) */}
-      {/* 임시 숨김: 이번 달 평균 점수, 반평균, 출석률, 과제 달성률 KPI 카드 */}
-      {/* {reportData.currentScore && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription className="text-xs">이번 달 평균 점수</CardDescription>
-              <CardTitle className="text-3xl font-bold text-primary">
-                {reportData.currentScore.myScore}점
-              </CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription className="text-xs">반 평균 점수</CardDescription>
-              <CardTitle className="text-3xl font-bold text-muted-foreground">
-                {reportData.currentScore.classAverage}점
-              </CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription className="text-xs">출석률</CardDescription>
-              <CardTitle className="text-3xl font-bold text-info">
-                {Math.round(attendanceRate)}%
-              </CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription className="text-xs">과제 달성률</CardDescription>
-              <CardTitle className="text-3xl font-bold text-green-600">
-                {Math.round(homeworkRate)}%
-              </CardTitle>
-            </CardHeader>
-          </Card>
-        </div>
-      )} */}
+        {/* 출석률 */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription className="text-xs">출석률</CardDescription>
+            <CardTitle className="text-3xl font-bold text-info">
+              {Math.round(attendanceRate)}%
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              {reportData.attendance.present}/{reportData.attendance.total}일
+            </p>
+          </CardHeader>
+        </Card>
 
-      {/* Section 2-1: 과목별 점수 KPI 카드 */}
-      {reportData.scores && reportData.scores.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {/* 평균 점수 카드 */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription className="text-xs">이번달 평균</CardDescription>
-              <CardTitle className="text-3xl font-bold text-primary">
-                {Math.round(
-                  reportData.scores.reduce((sum, s) => sum + (s.current || 0), 0) /
-                  reportData.scores.length
-                )}점
-              </CardTitle>
-              {(() => {
-                const validChanges = reportData.scores.filter(s => s.change !== null)
-                if (validChanges.length === 0) return null
-                const avgChange = validChanges.reduce((sum, s) => sum + (s.change || 0), 0) / validChanges.length
-                return (
-                  <div className="flex items-center gap-1 mt-1">
-                    {getTrendIcon(avgChange)}
-                    <span className={`text-sm font-medium ${
-                      avgChange > 0 ? 'text-success' :
-                      avgChange < 0 ? 'text-red-600' :
-                      'text-muted-foreground'
-                    }`}>
-                      {avgChange > 0 ? '+' : ''}{Math.round(avgChange * 10) / 10}점
-                    </span>
-                  </div>
-                )
-              })()}
-            </CardHeader>
-          </Card>
+        {/* 과제 달성률 */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription className="text-xs">과제 달성률</CardDescription>
+            <CardTitle className="text-3xl font-bold text-green-600">
+              {Math.round(homeworkRate)}%
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              {reportData.homework.completed}/{reportData.homework.total}개
+            </p>
+          </CardHeader>
+        </Card>
+      </div>
 
-          {/* 과목별 점수 카드 */}
-          {reportData.scores.map((score, idx) => (
-            <Card key={idx}>
-              <CardHeader className="pb-2">
-                <CardDescription className="text-xs">{score.category}</CardDescription>
-                <CardTitle className="text-3xl font-bold text-primary">
-                  {score.current}점
-                </CardTitle>
-                {score.change !== null && (
-                  <div className="flex items-center gap-1 mt-1">
-                    {getTrendIcon(score.change)}
-                    <span className={`text-sm font-medium ${
-                      score.change > 0 ? 'text-success' :
-                      score.change < 0 ? 'text-red-600' :
-                      'text-muted-foreground'
-                    }`}>
-                      {score.change > 0 ? '+' : ''}{score.change}점
-                    </span>
-                  </div>
-                )}
-              </CardHeader>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {/* Section 3: Score Trend (성적 분석) - 과목별 막대그래프 */}
+      {/* Bar Chart: 과목별 성적 */}
       {reportData.scores && reportData.scores.length > 0 && (
         <Card>
           <CardHeader>
@@ -422,36 +305,28 @@ ${reportData.comment.nextGoals}`
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {/* 1. 차트 높이를 h-64에서 h-72로 늘려줍니다 (2줄 라벨 공간 확보) */}
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={[
                   ...reportData.scores.map((score) => ({
                     name: score.category,
-                    점수: score.current,
+                    점수: score.current ?? 0,
                   })),
                   {
                     name: '평균',
-                    점수: Math.round(
-                      reportData.scores.reduce((sum, s) => sum + (s.current || 0), 0) /
-                      reportData.scores.length
-                    ),
+                    점수: averageScore ?? 0,
                   },
                 ]}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
-                  
-                  {/* 2. XAxis 컴포넌트를 아래와 같이 수정합니다. */}
                   <XAxis
                     dataKey="name"
                     stroke="hsl(var(--muted-foreground))"
-                    // fontSize={12} // 이 속성은 CustomAxisTick에서 제어하므로 삭제 가능
                     tickLine={false}
                     axisLine={false}
-                    interval={0} // 모든 라벨 표시
-                    tick={<CustomAxisTick />} // ★★★ 커스텀 틱 적용
-                    height={30} // ★★★ 2줄 라벨을 위한 X축 높이 지정
+                    interval={0}
+                    tick={<CustomAxisTick />}
+                    height={30}
                   />
-                  
                   <YAxis
                     stroke="hsl(var(--muted-foreground))"
                     fontSize={12}
@@ -487,143 +362,182 @@ ${reportData.comment.nextGoals}`
         </Card>
       )}
 
-      {/* Section 4: Learning Status (학습 현황) */}
-      <div className="space-y-6">
-        {/* Attendance Calendar Heatmap */}
-        {reportData.attendanceChartData && reportData.attendanceChartData.length > 0 && (
-          <AttendanceHeatmap
-            data={reportData.attendanceChartData}
-            title="출석 현황"
-            description="월별 출석 캘린더"
-            year={calendarYear}
-            month={calendarMonth}
-            compact
-          />
-        )}
+      {/* Attendance Heatmap */}
+      {reportData.attendanceChartData && reportData.attendanceChartData.length > 0 && (
+        <AttendanceHeatmap
+          data={reportData.attendanceChartData}
+          title="출석 현황"
+          description="월별 출석 캘린더"
+          year={calendarYear}
+          month={calendarMonth}
+          compact
+        />
+      )}
 
-        {/* 임시 숨김: 과제 달성률 차트 */}
-        {/* <Card>
-          <CardHeader>
-            <CardTitle>과제 달성률</CardTitle>
-            <CardDescription>이번 달 과제 완료 현황</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col items-center">
-              <ResponsiveContainer width="100%" height={200}>
-                <RadialBarChart
-                  cx="50%"
-                  cy="50%"
-                  innerRadius="70%"
-                  outerRadius="100%"
-                  barSize={20}
-                  data={homeworkRadialData}
-                  startAngle={90}
-                  endAngle={-270}
-                >
-                  <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
-                  <RadialBar
-                    background={{ fill: 'hsl(var(--muted))' }}
-                    dataKey="value"
-                    cornerRadius={10}
-                  />
-                  <text
-                    x="50%"
-                    y="50%"
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    className="text-3xl font-bold"
-                    style={{ fill: 'hsl(142.1 76.2% 36.3%)' }}
-                  >
-                    {Math.round(homeworkRate)}%
-                  </text>
-                </RadialBarChart>
-              </ResponsiveContainer>
-              <p className="text-sm text-muted-foreground mt-2 text-center">
-                총 {totalTodos}개 중 {completedTodos}개 완료
-              </p>
-            </div>
-          </CardContent>
-        </Card> */}
-      </div>
-
-      {/* Detailed Scores by Category */}
+      {/* Accordion: 성적 상세 */}
       {reportData.scores && reportData.scores.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle>과목별 상세 성적</CardTitle>
-            <CardDescription>시험별 점수 내역 및 반 평균 비교</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {reportData.scores.map((score, idx) => (
-                <div key={idx}>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-semibold">{score.category}</h4>
-                      {score.change !== null && (
-                        <Badge variant={score.change > 0 ? 'default' : 'destructive'}>
-                          <div className="flex items-center gap-1">
-                            {getTrendIcon(score.change)}
-                            {Math.abs(score.change)}%
-                          </div>
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <div className="text-2xl font-bold">{score.current}%</div>
-                        {/* 임시 숨김: 반 평균 */}
-                        {/* {score.average !== null && (
-                          <div className="text-xs text-muted-foreground">
-                            반 평균: {score.average}%
-                          </div>
-                        )} */}
-                        {score.retestRate !== null && score.retestRate > 0 && (
-                          <div className="text-xs text-orange-600">
-                            재시험률: {score.retestRate}%
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {score.tests.length > 0 && (
-                    <div className="ml-4 space-y-2">
-                      {score.tests.map((test, testIdx) => (
-                        <div
-                          key={testIdx}
-                          className="flex items-center justify-between text-sm"
-                        >
-                          <div>
-                            {test.date && formatKoreanDateShort(test.date) && (
+          <CardContent className="pt-6">
+            <Accordion type="multiple" className="w-full">
+              {/* 과목별 점수 표 */}
+              <AccordionItem value="score-table">
+                <AccordionTrigger className="text-base font-semibold">
+                  과목별 점수 상세
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="overflow-x-auto -mx-2 px-2">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="border-b-2 border-border">
+                          <th className="py-3 px-2 text-left font-semibold text-sm">과목</th>
+                          <th className="py-3 px-2 text-center font-semibold text-sm">점수</th>
+                          <th className="py-3 px-2 text-center font-semibold text-sm">전월 대비</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reportData.scores.map((score, idx) => (
+                          <tr key={idx} className="border-b border-border last:border-0">
+                            <td className="py-3 px-2 font-medium">{score.category}</td>
+                            <td className="py-3 px-2 text-center">
+                              {score.current !== null ? (
+                                <>
+                                  <span className="text-2xl font-bold text-primary">{score.current}</span>
+                                  <span className="text-sm text-muted-foreground">/100</span>
+                                </>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">-</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-2 text-center">
+                              {score.change !== null ? (
+                                <Badge
+                                  variant={score.change > 0 ? 'default' : score.change < 0 ? 'destructive' : 'secondary'}
+                                  className="text-base font-semibold"
+                                >
+                                  <div className="flex items-center gap-1">
+                                    {getTrendIcon(score.change)}
+                                    {Math.abs(score.change)}
+                                  </div>
+                                </Badge>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">-</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                        {/* TOTAL Row */}
+                        <tr className="bg-muted/50 font-bold">
+                          <td className="py-4 px-2 text-lg">TOTAL</td>
+                          <td className="py-4 px-2 text-center">
+                            {averageScore !== null ? (
                               <>
-                                <span className="text-muted-foreground">
-                                  {formatKoreanDateShort(test.date)}
-                                </span>{' '}
-                                -{' '}
+                                <span className="text-3xl font-bold text-primary">{averageScore}</span>
+                                <span className="text-sm text-muted-foreground">/100</span>
                               </>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">-</span>
                             )}
-                            {test.name}
+                          </td>
+                          <td className="py-4 px-2 text-center">
+                            {avgChange !== null ? (
+                              <Badge
+                                variant={avgChange > 0 ? 'default' : avgChange < 0 ? 'destructive' : 'secondary'}
+                                className="text-base font-semibold"
+                              >
+                                <div className="flex items-center gap-1">
+                                  {getTrendIcon(avgChange)}
+                                  {Math.abs(avgChange)}
+                                </div>
+                              </Badge>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">-</span>
+                            )}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* 과목별 상세 성적 */}
+              <AccordionItem value="score-detail">
+                <AccordionTrigger className="text-base font-semibold">
+                  과목별 시험 상세
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="space-y-4">
+                    {reportData.scores.map((score, idx) => (
+                      <div key={idx}>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-semibold">{score.category}</h4>
+                            {score.change !== null && (
+                              <Badge variant={score.change > 0 ? 'default' : 'destructive'}>
+                                <div className="flex items-center gap-1">
+                                  {getTrendIcon(score.change)}
+                                  {Math.abs(score.change)}%
+                                </div>
+                              </Badge>
+                            )}
                           </div>
-                          <div className="font-medium">
-                            {test.percentage !== null ? `${test.percentage}%` : (
-                              <span className="text-muted-foreground">미입력</span>
-                            )}
+                          <div className="flex items-center gap-4">
+                            <div className="text-right">
+                              <div className="text-2xl font-bold">
+                                {score.current !== null ? `${score.current}%` : '-'}
+                              </div>
+                              {score.retestRate !== null && score.retestRate > 0 && (
+                                <div className="text-xs text-orange-600">
+                                  재시험률: {score.retestRate}%
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
 
-                  {idx < reportData.scores.length - 1 && <Separator className="mt-4" />}
-                </div>
-              ))}
-            </div>
+                        {score.tests.length > 0 && (
+                          <div className="ml-4 space-y-2">
+                            {score.tests.map((test, testIdx) => (
+                              <div
+                                key={testIdx}
+                                className="flex items-center justify-between text-sm"
+                              >
+                                <div>
+                                  {(() => {
+                                    const formatted = safeDateFormat(test.date)
+                                    return formatted ? (
+                                      <>
+                                        <span className="text-muted-foreground">
+                                          {formatted}
+                                        </span>{' '}
+                                        -{' '}
+                                      </>
+                                    ) : null
+                                  })()}
+                                  {test.name}
+                                </div>
+                                <div className="font-medium">
+                                  {test.percentage !== null ? `${test.percentage}%` : (
+                                    <span className="text-muted-foreground">미입력</span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {idx < reportData.scores.length - 1 && <Separator className="mt-4" />}
+                      </div>
+                    ))}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </CardContent>
         </Card>
       )}
 
-      {/* Section 5: Instructor Comment (강사 종합 코멘트) */}
+      {/* Instructor Comment */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
