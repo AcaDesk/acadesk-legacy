@@ -52,7 +52,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
   const admin = createServiceRoleClient()
   const { data: userData, error: userError } = await admin
     .from('users')
-    .select('tenant_id, role_code, name, email, phone')
+    .select('tenant_id, role_code, name, email, phone, approval_status, onboarding_completed')
     .eq('id', user.id)
     .maybeSingle()
 
@@ -77,20 +77,33 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
     redirect('/auth/bootstrap?from=dashboard&message=' + encodeURIComponent('프로필 정보를 생성해주세요'))
   }
 
-  // 4. Tenant 체크 - tenant_id 없으면 안내 화면
+  // 4. Tenant 체크 - tenant_id 없으면 온보딩 단계에 맞게 리다이렉트
   if (!userData.tenant_id) {
+    // 승인 대기 중 (role_code 없음) → pending 페이지
+    if (userData.approval_status === 'pending' && !userData.role_code) {
+      redirect('/auth/pending')
+    }
+    // 승인 거부됨 → pending 페이지 (거부 상태 표시)
+    if (userData.approval_status === 'rejected') {
+      redirect('/auth/pending?status=rejected')
+    }
+    // owner지만 온보딩 미완료 → 학원 설정 페이지
+    if (userData.role_code === 'owner' && !userData.onboarding_completed) {
+      redirect('/auth/owner/setup')
+    }
+    // 그 외 예외 케이스 → 로그아웃 가능한 안내 화면
     return (
       <div className="flex h-screen items-center justify-center bg-background p-4">
         <div className="max-w-md w-full space-y-4 text-center">
           <div className="rounded-lg border border-amber-500/50 bg-amber-50 dark:bg-amber-950/20 p-6">
             <h2 className="text-lg font-semibold text-amber-900 dark:text-amber-100 mb-2">
-              계정 설정이 완료되지 않았습니다
+              소속된 학원이 없습니다
             </h2>
-            <p className="text-sm text-amber-700 dark:text-amber-300 mb-4">
-              관리자가 계정 설정을 완료하는 중입니다. 잠시 후 다시 시도해 주세요.
+            <p className="text-sm text-amber-700 dark:text-amber-300 mb-2">
+              학원 관리자로부터 초대 링크를 받으셨다면, 해당 링크로 다시 접속해 주세요.
             </p>
-            <p className="text-xs text-amber-600 dark:text-amber-400">
-              문제가 지속되면 관리자에게 문의하세요.
+            <p className="text-xs text-muted-foreground">
+              계정: {userData.email || user.email}
             </p>
           </div>
           <LogoutButton />
@@ -98,12 +111,6 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
       </div>
     )
   }
-
-  // 5. 온보딩 체크 (선택적 - 필요시 활성화)
-  // Note: 온보딩 완료 여부를 확인하려면 users 테이블에 onboarding_completed 컬럼 필요
-  // if (!userData.onboarding_completed) {
-  //   redirect('/auth/bootstrap')
-  // }
 
   let tenantName: string | undefined
   const { data: tenantData, error: tenantError } = await admin

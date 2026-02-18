@@ -11,7 +11,7 @@
 
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { signOut } from '@/app/actions/auth'
+import { createClient } from '@/lib/supabase/client'
 import { inviteTokenStore } from '@/lib/auth/invite-token-store'
 
 interface UseLogoutOptions {
@@ -40,24 +40,18 @@ export function useLogout(options: UseLogoutOptions = {}) {
       // localStorage 정리
       inviteTokenStore.remove()
 
-      // 다른 localStorage 항목이 있다면 여기서 정리
-      // 예: localStorage.removeItem('someOtherKey')
+      // 클라이언트에서 직접 Supabase signOut 호출 (서버 액션 405 방지)
+      const supabase = createClient()
+      const { error } = await supabase.auth.signOut()
 
-      console.log('[useLogout] Client-side cleanup completed')
-
-      // Server Action 호출
-      const result = await signOut()
-
-      if (!result.success) {
-        throw new Error(result.error || '로그아웃에 실패했습니다')
+      if (error) {
+        console.warn('[useLogout] SignOut error (proceeding anyway):', error.message)
       }
 
       // 성공 콜백 실행
       if (onSuccess) {
         onSuccess()
       }
-
-      console.log('[useLogout] Logout successful, redirecting to /auth/login')
 
       // 로그인 페이지로 리다이렉트
       router.push('/auth/login')
