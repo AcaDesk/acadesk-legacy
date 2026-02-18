@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { DashboardShell } from '@/components/layout/dashboard-shell'
-import { Button } from '@ui/button'
+import { LogoutButton } from '@/components/auth/LogoutButton'
 
 // Edge 런타임 방지 - service_role은 Node.js에서만 작동
 export const runtime = 'nodejs'
@@ -93,15 +93,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
               문제가 지속되면 관리자에게 문의하세요.
             </p>
           </div>
-          <form action="/auth/logout" method="POST">
-            <Button
-              type="submit"
-              variant="outline"
-              className="w-full"
-            >
-              로그아웃
-            </Button>
-          </form>
+          <LogoutButton />
         </div>
       </div>
     )

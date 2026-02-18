@@ -75,12 +75,10 @@ export function useAuthStage(options?: UseAuthStageOptions): UseAuthStageReturn 
     fetchStage()
   }, [options?.inviteToken])
 
-  // TODO: Implement invite acceptance with Server Action
+  // TODO: Implement invite acceptance with Server Action (별도 PR - staff_invites 스키마 확인 필요)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const acceptInvite = async (_token: string) => {
-    console.warn('[useAuthStage] acceptInvite not yet implemented with service_role')
-    // This should call a Server Action that uses service_role
-    // For now, just a stub to satisfy TypeScript
+    throw new Error('초대 수락 기능은 아직 구현되지 않았습니다. 관리자에게 문의해주세요.')
   }
 
   return {

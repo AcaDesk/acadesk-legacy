@@ -69,6 +69,7 @@ export async function verifyPermission(): Promise<UserContext> {
     .from('users')
     .select('tenant_id, role_code, name, email')
     .eq('id', user.id)
+    .is('deleted_at', null)
     .maybeSingle()
 
   if (userError) {

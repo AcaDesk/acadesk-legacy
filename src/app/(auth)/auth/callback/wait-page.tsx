@@ -105,11 +105,20 @@ export default function CallbackWaitPage({ code, type }: CallbackWaitPageProps) 
       // 이 라인은 실행되지 않음 (redirect가 throw되므로)
       // 만약 여기 도달하면 뭔가 잘못된 것
     } catch (error) {
-      // NEXT_REDIRECT 에러는 정상적인 리다이렉트이므로 무시하지 않고 전파
-      // (서버 액션에서 이미 처리됨)
+      // NEXT_REDIRECT는 정상 리다이렉트이므로 전파
+      if (
+        error &&
+        typeof error === 'object' &&
+        'digest' in error &&
+        typeof (error as Record<string, unknown>).digest === 'string' &&
+        ((error as Record<string, unknown>).digest as string).startsWith('NEXT_REDIRECT')
+      ) {
+        throw error
+      }
+
+      // 진짜 에러만 처리
       console.error('[CallbackWaitPage] Unexpected error:', error)
 
-      // 혹시 redirect가 아닌 다른 에러라면 로그인으로
       toast({
         title: '인증 오류',
         description: '인증 처리 중 오류가 발생했습니다. 다시 시도해주세요.',
