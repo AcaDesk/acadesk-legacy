@@ -152,10 +152,7 @@ export async function rejectUser(
         approval_status: 'rejected',
         approved_at: new Date().toISOString(),
         approved_by: currentUserId,
-        settings: {
-          rejection_reason: validated.reason || '승인 거부됨',
-          rejected_at: new Date().toISOString(),
-        },
+        approval_reason: validated.reason || '승인 거부됨',
       })
       .eq('id', validated.userId)
 

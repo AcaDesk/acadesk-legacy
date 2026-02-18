@@ -122,7 +122,7 @@ export async function createUserProfileServer(userId: string) {
           created_at: now,
           updated_at: now,
         },
-        { onConflict: 'id', ignoreDuplicates: false }
+        { onConflict: 'id', ignoreDuplicates: true }
       )
 
     if (upsertError) {
@@ -238,7 +238,20 @@ export async function completeOwnerOnboarding(
       approvalStatus: userData.approval_status,
     })
 
-    // 4. 권한 검증: 이미 다른 역할이거나 다른 테넌트 소속인 경우
+    // 4-1. 거부된 사용자 차단
+    if (userData.approval_status === 'rejected') {
+      console.warn('[completeOwnerOnboarding] Rejected user attempted onboarding:', {
+        requestId,
+        userId,
+        approvalStatus: userData.approval_status,
+      })
+      return {
+        success: false,
+        error: '승인이 거부된 계정입니다. 관리자에게 문의해주세요.',
+      }
+    }
+
+    // 4-2. 권한 검증: 이미 다른 역할이거나 다른 테넌트 소속인 경우
     if (userData.role_code && userData.role_code !== 'owner' && userData.tenant_id) {
       console.warn('[completeOwnerOnboarding] User already has different role:', {
         requestId,
@@ -552,6 +565,21 @@ export async function checkOnboardingStage(inviteToken?: string) {
           stage: {
             code: 'PENDING_OWNER_REVIEW',
             next_url: '/auth/pending',
+          },
+        },
+      }
+    }
+
+    // Stage 3.5: REJECTED (approval was denied)
+    if (userData.approval_status === 'rejected') {
+      console.log('[checkOnboardingStage] REJECTED stage:', { requestId, userId })
+      return {
+        success: true,
+        data: {
+          ok: true,
+          stage: {
+            code: 'REJECTED',
+            next_url: '/auth/pending?status=rejected',
           },
         },
       }

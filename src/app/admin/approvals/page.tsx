@@ -19,21 +19,21 @@ export default async function ApprovalsPage() {
 
   const userId = userResult.data.id
 
-  // 슈퍼어드민 권한 체크 (service_role 사용 - RLS 우회)
+  // Owner 권한 체크 (service_role 사용 - RLS 우회)
   const admin = createServiceRoleClient()
   const { data: userData } = await admin
     .from("users")
-    .select("is_super_admin")
+    .select("role_code")
     .eq("id", userId)
     .single()
 
-  if (!userData?.is_super_admin) {
+  if (userData?.role_code !== 'owner') {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">접근 권한 없음</h1>
           <p className="text-muted-foreground">
-            이 페이지는 슈퍼어드민만 접근할 수 있습니다.
+            이 페이지는 원장님만 접근할 수 있습니다.
           </p>
         </div>
       </div>
