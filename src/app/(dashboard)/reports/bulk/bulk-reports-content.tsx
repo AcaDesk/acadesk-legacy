@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { generateMonthlyReport, saveReport } from '@/app/actions/reports'
+import { generateBulkMonthlyReports } from '@/app/actions/reports'
 import { Button } from '@ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
@@ -48,7 +48,6 @@ export function BulkReportsContent({ initialStudents, initialClasses }: BulkRepo
   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set())
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear())
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1)
-  const [reportType] = useState<'monthly'>('monthly')
   const [generating, setGenerating] = useState(false)
   const [progress, setProgress] = useState(0)
   const [results, setResults] = useState<GenerationResult[]>([])
@@ -152,53 +151,33 @@ export function BulkReportsContent({ initialStudents, initialClasses }: BulkRepo
     setProgress(0)
     setResults([])
 
-    const selectedStudentsList = students.filter((s) => selectedStudents.has(s.id))
-    const generationResults: GenerationResult[] = []
+    const studentIds = students
+      .filter((s) => selectedStudents.has(s.id))
+      .map((s) => s.id)
 
     try {
-      for (let i = 0; i < selectedStudentsList.length; i++) {
-        const student = selectedStudentsList[i]
+      // 5명씩 배치로 나눠서 서버 액션 호출 (배치마다 progress 갱신)
+      const BATCH_SIZE = 5
+      const allResults: GenerationResult[] = []
 
-        try {
-          // Generate report
-          const result = await generateMonthlyReport(
-            student.id,
-            selectedYear,
-            selectedMonth
-          )
+      for (let i = 0; i < studentIds.length; i += BATCH_SIZE) {
+        const batchIds = studentIds.slice(i, i + BATCH_SIZE)
+        const result = await generateBulkMonthlyReports(batchIds, selectedYear, selectedMonth)
 
-          if (!result.success || !result.data) {
-            throw new Error(result.error || '리포트 생성 실패')
-          }
+        const batchResults: GenerationResult[] = result.results.map((r) => ({
+          studentId: r.studentId,
+          studentName: students.find((s) => s.id === r.studentId)?.users?.name || '이름 없음',
+          success: r.success,
+          error: r.skipped ? '이미 생성된 리포트 (스킵)' : r.error,
+        }))
 
-          // Save report
-          const saveResult = await saveReport(result.data, reportType)
-
-          if (!saveResult.success) {
-            throw new Error(saveResult.error || '리포트 저장 실패')
-          }
-
-          generationResults.push({
-            studentId: student.id,
-            studentName: student.users?.name || '이름 없음',
-            success: true,
-          })
-        } catch (error: unknown) {
-          console.error(`Error generating report for ${student.id}:`, error)
-          generationResults.push({
-            studentId: student.id,
-            studentName: student.users?.name || '이름 없음',
-            success: false,
-            error: error instanceof Error ? error.message : '알 수 없는 오류',
-          })
-        }
-
-        setProgress(Math.round(((i + 1) / selectedStudentsList.length) * 100))
-        setResults([...generationResults])
+        allResults.push(...batchResults)
+        setResults([...allResults])
+        setProgress(Math.round(Math.min(i + BATCH_SIZE, studentIds.length) / studentIds.length * 100))
       }
 
-      const successCount = generationResults.filter((r) => r.success).length
-      const failCount = generationResults.filter((r) => !r.success).length
+      const successCount = allResults.filter((r) => r.success).length
+      const failCount = allResults.filter((r) => !r.success).length
 
       toast({
         title: '일괄 생성 완료',

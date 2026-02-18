@@ -209,47 +209,18 @@ export async function generateWeeklyReport(
       website: settings.website || null,
     }
 
-    // 6. 출석 정보 조회
-    const attendance = await getAttendanceData(supabase, studentId, periodStartStr, periodEndStr)
+    // 6. 독립적 헬퍼 6개 병렬 실행
+    const [attendance, homework, scores, gradesChartData, attendanceChartData, currentScore] = await Promise.all([
+      getAttendanceData(supabase, studentId, periodStartStr, periodEndStr),
+      getHomeworkData(supabase, studentId, periodStartStr, periodEndStr),
+      getScoresData(supabase, studentId, periodStartStr, periodEndStr, prevPeriodStartStr, prevPeriodEndStr, tenantId),
+      getGradesChartData(supabase, studentId, periodStartStr, periodEndStr),
+      getAttendanceChartData(supabase, studentId, periodStartStr, periodEndStr),
+      getCurrentScoreData(supabase, studentId, periodStartStr, periodEndStr),
+    ])
 
-    // 7. 숙제 완료율 조회
-    const homework = await getHomeworkData(supabase, studentId, periodStartStr, periodEndStr)
-
-    // 8. 성적 정보 조회
-    const scores = await getScoresData(
-      supabase,
-      studentId,
-      periodStartStr,
-      periodEndStr,
-      prevPeriodStartStr,
-      prevPeriodEndStr,
-      tenantId
-    )
-
-    // 9. 강사 코멘트 생성
+    // 7. 강사 코멘트 생성 (attendance + scores 결과에 의존)
     const instructorComment = generateInstructorComment(attendance, scores)
-
-    // 10. 차트 데이터 생성
-    const gradesChartData = await getGradesChartData(
-      supabase,
-      studentId,
-      periodStartStr,
-      periodEndStr
-    )
-    const attendanceChartData = await getAttendanceChartData(
-      supabase,
-      studentId,
-      periodStartStr,
-      periodEndStr
-    )
-
-    // 11. 현재 성적 및 추이 데이터 생성
-    const currentScore = await getCurrentScoreData(
-      supabase,
-      studentId,
-      periodStartStr,
-      periodEndStr
-    )
 
     // 주간은 추이 데이터 생략 (최근 3주로 변경 가능)
     const scoreTrend: Array<{
@@ -370,53 +341,19 @@ export async function generateMonthlyReport(
       website: settings.website || null,
     }
 
-    // 6. 출석 정보 조회
-    const attendance = await getAttendanceData(supabase, studentId, periodStartStr, periodEndStr)
+    // 6. 독립적 헬퍼 7개 병렬 실행
+    const [attendance, homework, scores, gradesChartData, attendanceChartData, currentScore, scoreTrend] = await Promise.all([
+      getAttendanceData(supabase, studentId, periodStartStr, periodEndStr),
+      getHomeworkData(supabase, studentId, periodStartStr, periodEndStr),
+      getScoresData(supabase, studentId, periodStartStr, periodEndStr, prevPeriodStartStr, prevPeriodEndStr, tenantId),
+      getGradesChartData(supabase, studentId, periodStartStr, periodEndStr),
+      getAttendanceChartData(supabase, studentId, periodStartStr, periodEndStr),
+      getCurrentScoreData(supabase, studentId, periodStartStr, periodEndStr),
+      getScoreTrendData(supabase, studentId, year, month),
+    ])
 
-    // 7. 숙제 완료율 조회
-    const homework = await getHomeworkData(supabase, studentId, periodStartStr, periodEndStr)
-
-    // 8. 성적 정보 조회
-    const scores = await getScoresData(
-      supabase,
-      studentId,
-      periodStartStr,
-      periodEndStr,
-      prevPeriodStartStr,
-      prevPeriodEndStr,
-      tenantId
-    )
-
-    // 9. 강사 코멘트 생성
+    // 7. 강사 코멘트 생성 (attendance + scores 결과에 의존)
     const instructorComment = generateInstructorComment(attendance, scores)
-
-    // 10. 차트 데이터 생성
-    const gradesChartData = await getGradesChartData(
-      supabase,
-      studentId,
-      periodStartStr,
-      periodEndStr
-    )
-    const attendanceChartData = await getAttendanceChartData(
-      supabase,
-      studentId,
-      periodStartStr,
-      periodEndStr
-    )
-
-    // 11. 현재 성적 및 추이 데이터 생성
-    const currentScore = await getCurrentScoreData(
-      supabase,
-      studentId,
-      periodStartStr,
-      periodEndStr
-    )
-    const scoreTrend = await getScoreTrendData(
-      supabase,
-      studentId,
-      year,
-      month
-    )
 
     const reportData: ReportData = {
       student: {
@@ -751,6 +688,204 @@ ${params.comment ? `💬 종합평가\n${params.comment}\n\n` : ''}문의: ${par
   }
 }
 
+/**
+ * 월간 리포트 일괄 생성 (서버 사이드 최적화)
+ *
+ * - verifyStaff() 1회만 호출
+ * - 학원 정보 1회만 조회
+ * - 학생 정보 IN 조건으로 한 번에 조회
+ * - 중복 리포트 스킵
+ * - 3명씩 병렬 처리
+ *
+ * @param studentIds - 학생 ID 배열
+ * @param year - 연도
+ * @param month - 월
+ * @returns 학생별 결과 배열
+ */
+export async function generateBulkMonthlyReports(
+  studentIds: string[],
+  year: number,
+  month: number
+): Promise<{
+  results: Array<{
+    studentId: string
+    success: boolean
+    reportId?: string
+    error?: string
+    skipped?: boolean
+  }>
+}> {
+  try {
+    // 1. 인증 1회
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    // 2. 기간 설정
+    const lastDay = new Date(year, month, 0).getDate()
+    const periodStartStr = `${year}-${String(month).padStart(2, '0')}-01`
+    const periodEndStr = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+
+    const prevMonth = month === 1 ? 12 : month - 1
+    const prevYear = month === 1 ? year - 1 : year
+    const prevLastDay = new Date(prevYear, prevMonth, 0).getDate()
+    const prevPeriodStartStr = `${prevYear}-${String(prevMonth).padStart(2, '0')}-01`
+    const prevPeriodEndStr = `${prevYear}-${String(prevMonth).padStart(2, '0')}-${String(prevLastDay).padStart(2, '0')}`
+
+    // 3. 학원 정보 1회 조회
+    const { data: academyData, error: academyError } = await supabase
+      .from('tenants')
+      .select('name, settings')
+      .eq('id', tenantId)
+      .single()
+
+    if (academyError || !academyData) {
+      throw new Error('학원 정보를 찾을 수 없습니다.')
+    }
+
+    const settings = (academyData.settings as Record<string, any>) || {}
+    const academy = {
+      name: academyData.name,
+      phone: settings.phone || null,
+      email: settings.email || null,
+      address: settings.address || null,
+      website: settings.website || null,
+    }
+
+    // 4. 학생 정보 일괄 조회
+    const { data: studentsData, error: studentsError } = await supabase
+      .from('students')
+      .select('id, student_code, grade, tenant_id, users!inner(name)')
+      .in('id', studentIds)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+
+    if (studentsError) {
+      throw new Error('학생 정보 조회에 실패했습니다.')
+    }
+
+    const studentsMap = new Map(
+      (studentsData || []).map((s) => [s.id, s as unknown as StudentDataWithUser])
+    )
+
+    // 5. 중복 리포트 체크 (같은 학생 + 기간 + 타입)
+    const { data: existingReports } = await supabase
+      .from('reports')
+      .select('student_id')
+      .eq('tenant_id', tenantId)
+      .eq('report_type', 'monthly')
+      .eq('period_start', periodStartStr)
+      .eq('period_end', periodEndStr)
+      .in('student_id', studentIds)
+
+    const existingStudentIds = new Set(
+      (existingReports || []).map((r) => r.student_id)
+    )
+
+    // 6. 학생별 리포트 생성 내부 함수
+    async function generateForStudent(
+      studentId: string
+    ): Promise<{ studentId: string; success: boolean; reportId?: string; error?: string; skipped?: boolean }> {
+      // 중복 스킵
+      if (existingStudentIds.has(studentId)) {
+        return { studentId, success: true, skipped: true }
+      }
+
+      const studentData = studentsMap.get(studentId)
+      if (!studentData) {
+        return { studentId, success: false, error: '학생을 찾을 수 없습니다.' }
+      }
+
+      try {
+        // 7개 헬퍼 병렬 실행
+        const [attendance, homework, scores, gradesChartData, attendanceChartData, currentScore, scoreTrend] = await Promise.all([
+          getAttendanceData(supabase, studentId, periodStartStr, periodEndStr),
+          getHomeworkData(supabase, studentId, periodStartStr, periodEndStr),
+          getScoresData(supabase, studentId, periodStartStr, periodEndStr, prevPeriodStartStr, prevPeriodEndStr, tenantId),
+          getGradesChartData(supabase, studentId, periodStartStr, periodEndStr),
+          getAttendanceChartData(supabase, studentId, periodStartStr, periodEndStr),
+          getCurrentScoreData(supabase, studentId, periodStartStr, periodEndStr),
+          getScoreTrendData(supabase, studentId, year, month),
+        ])
+
+        const instructorComment = generateInstructorComment(attendance, scores)
+
+        const reportData: ReportData = {
+          student: {
+            id: studentData.id,
+            name: studentData.users?.name || 'Unknown',
+            grade: studentData.grade || '',
+            student_code: studentData.student_code,
+          },
+          academy: {
+            name: academy.name,
+            phone: academy.phone,
+            email: academy.email,
+            address: academy.address,
+            website: academy.website,
+          },
+          period: {
+            start: periodStartStr,
+            end: periodEndStr,
+          },
+          attendance,
+          homework,
+          scores,
+          instructorComment,
+          gradesChartData,
+          attendanceChartData,
+          currentScore,
+          scoreTrend,
+        }
+
+        // 저장
+        const { data: savedReport, error: saveError } = await supabase
+          .from('reports')
+          .insert({
+            tenant_id: tenantId,
+            student_id: studentId,
+            report_type: 'monthly',
+            period_start: periodStartStr,
+            period_end: periodEndStr,
+            content: reportData as unknown as Record<string, unknown>,
+          })
+          .select('id')
+          .single()
+
+        if (saveError) throw saveError
+
+        return { studentId, success: true, reportId: savedReport.id }
+      } catch (error) {
+        console.error(`[generateBulkMonthlyReports] Error for ${studentId}:`, error)
+        return { studentId, success: false, error: getErrorMessage(error) }
+      }
+    }
+
+    // 7. 3명씩 병렬 처리
+    const BATCH_SIZE = 3
+    const results: Array<{ studentId: string; success: boolean; reportId?: string; error?: string; skipped?: boolean }> = []
+
+    for (let i = 0; i < studentIds.length; i += BATCH_SIZE) {
+      const batch = studentIds.slice(i, i + BATCH_SIZE)
+      const batchResults = await Promise.all(batch.map(generateForStudent))
+      results.push(...batchResults)
+    }
+
+    // 8. 캐시 무효화
+    revalidatePath('/reports')
+
+    return { results }
+  } catch (error) {
+    console.error('[generateBulkMonthlyReports] Error:', error)
+    return {
+      results: studentIds.map((studentId) => ({
+        studentId,
+        success: false,
+        error: getErrorMessage(error),
+      })),
+    }
+  }
+}
+
 // ============================================================================
 // Private Helper Functions
 // ============================================================================
@@ -831,52 +966,119 @@ async function getScoresData(
   // 날짜 비교 헬퍼 함수
   const extractDatePart = (dateStr: string): string => dateStr.slice(0, 10)
 
-  // 현재 기간 성적 - DB에서 날짜 필터링
-  const { data: currentScoresWithDate } = await supabase
-    .from('exam_scores')
-    .select(`
-      percentage,
-      feedback,
-      is_retest,
-      created_at,
-      exams!inner (
-        name,
-        exam_date,
+  // 6개 쿼리 병렬 실행 (현재/이전 기간 + 레거시 + 반 전체)
+  const [
+    { data: currentScoresWithDate },
+    { data: currentLegacyScores },
+    { data: prevScoresWithDate },
+    { data: prevLegacyScores },
+    { data: classScoresWithDate },
+    { data: classLegacyScores },
+  ] = await Promise.all([
+    // 현재 기간 성적 - DB에서 날짜 필터링
+    supabase
+      .from('exam_scores')
+      .select(`
+        percentage,
+        feedback,
+        is_retest,
         created_at,
-        category_code,
-        subject_id,
-        ref_exam_categories (label),
-        subjects (name, color)
-      )
-    `)
-    .eq('student_id', studentId)
-    .eq('tenant_id', tenantId)
-    .is('deleted_at', null)
-    .gte('exams.exam_date', periodStart)
-    .lte('exams.exam_date', periodEnd)
-
-  // exam_date가 NULL인 레거시 데이터 (created_at으로 필터링)
-  const { data: currentLegacyScores } = await supabase
-    .from('exam_scores')
-    .select(`
-      percentage,
-      feedback,
-      is_retest,
-      created_at,
-      exams!inner (
-        name,
-        exam_date,
+        exams!inner (
+          name,
+          exam_date,
+          created_at,
+          category_code,
+          subject_id,
+          ref_exam_categories (label),
+          subjects (name, color)
+        )
+      `)
+      .eq('student_id', studentId)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .gte('exams.exam_date', periodStart)
+      .lte('exams.exam_date', periodEnd),
+    // exam_date가 NULL인 레거시 데이터 (created_at으로 필터링)
+    supabase
+      .from('exam_scores')
+      .select(`
+        percentage,
+        feedback,
+        is_retest,
         created_at,
-        category_code,
-        subject_id,
-        ref_exam_categories (label),
-        subjects (name, color)
-      )
-    `)
-    .eq('student_id', studentId)
-    .eq('tenant_id', tenantId)
-    .is('deleted_at', null)
-    .is('exams.exam_date', null)
+        exams!inner (
+          name,
+          exam_date,
+          created_at,
+          category_code,
+          subject_id,
+          ref_exam_categories (label),
+          subjects (name, color)
+        )
+      `)
+      .eq('student_id', studentId)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .is('exams.exam_date', null),
+    // 이전 기간 성적 - DB에서 날짜 필터링
+    supabase
+      .from('exam_scores')
+      .select(`
+        percentage,
+        exams!inner (name, category_code, subject_id, exam_date, created_at)
+      `)
+      .eq('student_id', studentId)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .gte('exams.exam_date', prevPeriodStart)
+      .lte('exams.exam_date', prevPeriodEnd),
+    // 이전 기간 레거시 데이터
+    supabase
+      .from('exam_scores')
+      .select(`
+        percentage,
+        exams!inner (name, category_code, subject_id, exam_date, created_at)
+      `)
+      .eq('student_id', studentId)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .is('exams.exam_date', null),
+    // 현재 기간의 반 평균 및 재시험률 조회 (카테고리별) - DB에서 날짜 필터링
+    supabase
+      .from('exam_scores')
+      .select(`
+        percentage,
+        is_retest,
+        exams!inner (
+          name,
+          category_code,
+          subject_id,
+          exam_date,
+          created_at
+        )
+      `)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .gte('exams.exam_date', periodStart)
+      .lte('exams.exam_date', periodEnd),
+    // exam_date가 NULL인 레거시 데이터
+    supabase
+      .from('exam_scores')
+      .select(`
+        percentage,
+        is_retest,
+        exams!inner (
+          name,
+          category_code,
+          subject_id,
+          exam_date,
+          created_at
+        )
+      `)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .is('exams.exam_date', null),
+  ])
 
   const filteredLegacy = (currentLegacyScores || []).filter((score: any) => {
     const createdAt = score.exams?.created_at
@@ -887,31 +1089,6 @@ async function getScoresData(
 
   const currentScores = [...(currentScoresWithDate || []), ...filteredLegacy]
 
-  // 이전 기간 성적 - DB에서 날짜 필터링
-  const { data: prevScoresWithDate } = await supabase
-    .from('exam_scores')
-    .select(`
-      percentage,
-      exams!inner (name, category_code, subject_id, exam_date, created_at)
-    `)
-    .eq('student_id', studentId)
-    .eq('tenant_id', tenantId)
-    .is('deleted_at', null)
-    .gte('exams.exam_date', prevPeriodStart)
-    .lte('exams.exam_date', prevPeriodEnd)
-
-  // 이전 기간 레거시 데이터
-  const { data: prevLegacyScores } = await supabase
-    .from('exam_scores')
-    .select(`
-      percentage,
-      exams!inner (name, category_code, subject_id, exam_date, created_at)
-    `)
-    .eq('student_id', studentId)
-    .eq('tenant_id', tenantId)
-    .is('deleted_at', null)
-    .is('exams.exam_date', null)
-
   const filteredPrevLegacy = (prevLegacyScores || []).filter((score: any) => {
     const createdAt = score.exams?.created_at
     if (!createdAt) return false
@@ -920,43 +1097,6 @@ async function getScoresData(
   })
 
   const previousScores = [...(prevScoresWithDate || []), ...filteredPrevLegacy]
-
-  // 현재 기간의 반 평균 및 재시험률 조회 (카테고리별) - DB에서 날짜 필터링
-  const { data: classScoresWithDate } = await supabase
-    .from('exam_scores')
-    .select(`
-      percentage,
-      is_retest,
-      exams!inner (
-        name,
-        category_code,
-        subject_id,
-        exam_date,
-        created_at
-      )
-    `)
-    .eq('tenant_id', tenantId)
-    .is('deleted_at', null)
-    .gte('exams.exam_date', periodStart)
-    .lte('exams.exam_date', periodEnd)
-
-  // exam_date가 NULL인 레거시 데이터
-  const { data: classLegacyScores } = await supabase
-    .from('exam_scores')
-    .select(`
-      percentage,
-      is_retest,
-      exams!inner (
-        name,
-        category_code,
-        subject_id,
-        exam_date,
-        created_at
-      )
-    `)
-    .eq('tenant_id', tenantId)
-    .is('deleted_at', null)
-    .is('exams.exam_date', null)
 
   const filteredClassLegacy = (classLegacyScores || []).filter((score: any) => {
     const createdAt = score.exams?.created_at
@@ -1200,35 +1340,50 @@ async function getGradesChartData(
   periodStart: string,
   periodEnd: string
 ) {
-  const { data: allExamScores } = await supabase
-    .from('exam_scores')
-    .select(`
-      score,
-      total_score,
-      percentage,
-      exams (
-        name,
-        exam_date,
-        created_at
-      )
-    `)
-    .eq('student_id', studentId)
-    .is('deleted_at', null)
-
   // 날짜 비교 헬퍼 함수
   const extractDatePart = (dateStr: string): string => dateStr.slice(0, 10)
 
-  // JavaScript에서 exam_date로 필터링 및 정렬 (fallback: created_at)
-  const examScores = allExamScores?.filter((score: any) => {
-    const examDate = score.exams?.exam_date || score.exams?.created_at
-    if (!examDate) return false
-    const examDatePart = extractDatePart(examDate)
-    return examDatePart >= periodStart && examDatePart <= periodEnd
-  }).sort((a: any, b: any) => {
+  const selectFields = `
+    score,
+    total_score,
+    percentage,
+    exams!inner (
+      name,
+      exam_date,
+      created_at
+    )
+  `
+
+  // DB 레벨 날짜 필터 + 레거시(NULL exam_date) 병렬 조회
+  const [{ data: scoresWithDate }, { data: legacyScores }] = await Promise.all([
+    supabase
+      .from('exam_scores')
+      .select(selectFields)
+      .eq('student_id', studentId)
+      .is('deleted_at', null)
+      .gte('exams.exam_date', periodStart)
+      .lte('exams.exam_date', periodEnd),
+    supabase
+      .from('exam_scores')
+      .select(selectFields)
+      .eq('student_id', studentId)
+      .is('deleted_at', null)
+      .is('exams.exam_date', null),
+  ])
+
+  // 레거시 데이터 중 created_at이 범위 내인 것만 포함
+  const filteredLegacy = (legacyScores || []).filter((score: any) => {
+    const createdAt = score.exams?.created_at
+    if (!createdAt) return false
+    const datePart = extractDatePart(createdAt)
+    return datePart >= periodStart && datePart <= periodEnd
+  })
+
+  const examScores = [...(scoresWithDate || []), ...filteredLegacy].sort((a: any, b: any) => {
     const dateA = a.exams?.exam_date || a.exams?.created_at || ''
     const dateB = b.exams?.exam_date || b.exams?.created_at || ''
     return dateA.localeCompare(dateB)
-  }) || []
+  })
 
   if (!examScores || examScores.length === 0) {
     return []
@@ -1308,22 +1463,38 @@ async function getCurrentScoreData(
   // 날짜 비교 헬퍼 함수
   const extractDatePart = (dateStr: string): string => dateStr.slice(0, 10)
 
-  // 현재 기간 내 시험 점수 조회 (DB에서 날짜 필터링)
-  const { data: allMyScores } = await supabase
-    .from('exam_scores')
-    .select('percentage, exams!inner(exam_date, created_at)')
-    .eq('student_id', studentId)
-    .is('deleted_at', null)
-    .gte('exams.exam_date', periodStart)
-    .lte('exams.exam_date', periodEnd)
-
-  // exam_date가 NULL인 레거시 데이터 추가 조회 (created_at으로 필터링)
-  const { data: legacyScores } = await supabase
-    .from('exam_scores')
-    .select('percentage, exams!inner(exam_date, created_at)')
-    .eq('student_id', studentId)
-    .is('deleted_at', null)
-    .is('exams.exam_date', null)
+  // 4개 쿼리 병렬 실행 (학생 점수 + 레거시, 전체 점수 + 레거시)
+  const [
+    { data: allMyScores },
+    { data: legacyScores },
+    { data: allScoresData },
+    { data: allLegacyScores },
+  ] = await Promise.all([
+    supabase
+      .from('exam_scores')
+      .select('percentage, exams!inner(exam_date, created_at)')
+      .eq('student_id', studentId)
+      .is('deleted_at', null)
+      .gte('exams.exam_date', periodStart)
+      .lte('exams.exam_date', periodEnd),
+    supabase
+      .from('exam_scores')
+      .select('percentage, exams!inner(exam_date, created_at)')
+      .eq('student_id', studentId)
+      .is('deleted_at', null)
+      .is('exams.exam_date', null),
+    supabase
+      .from('exam_scores')
+      .select('percentage, student_id, exams!inner(exam_date, created_at)')
+      .is('deleted_at', null)
+      .gte('exams.exam_date', periodStart)
+      .lte('exams.exam_date', periodEnd),
+    supabase
+      .from('exam_scores')
+      .select('percentage, student_id, exams!inner(exam_date, created_at)')
+      .is('deleted_at', null)
+      .is('exams.exam_date', null),
+  ])
 
   // 레거시 데이터 중 created_at이 범위 내인 것만 포함
   const filteredLegacyScores = (legacyScores || []).filter((score: any) => {
@@ -1346,21 +1517,6 @@ async function getCurrentScoreData(
   // 내 평균 점수 계산
   const myAverage =
     myScores.reduce((sum, score) => sum + score.percentage, 0) / myScores.length
-
-  // 같은 기간 내 모든 학생들의 시험 점수 조회 (반 평균 계산용) - DB에서 날짜 필터링
-  const { data: allScoresData } = await supabase
-    .from('exam_scores')
-    .select('percentage, student_id, exams!inner(exam_date, created_at)')
-    .is('deleted_at', null)
-    .gte('exams.exam_date', periodStart)
-    .lte('exams.exam_date', periodEnd)
-
-  // exam_date가 NULL인 레거시 데이터 추가 조회
-  const { data: allLegacyScores } = await supabase
-    .from('exam_scores')
-    .select('percentage, student_id, exams!inner(exam_date, created_at)')
-    .is('deleted_at', null)
-    .is('exams.exam_date', null)
 
   // 레거시 데이터 중 created_at이 범위 내인 것만 포함
   const filteredAllLegacy = (allLegacyScores || []).filter((score: any) => {
@@ -1411,91 +1567,107 @@ async function getScoreTrendData(
   currentYear: number,
   currentMonth: number
 ) {
-  const trendData: Array<{
-    name: string
-    '학생 점수': number
-    '반 평균': number
-    '재시험률'?: number
-  }> = []
+  // 날짜 비교 헬퍼 함수
+  const extractDatePart = (dateStr: string): string => dateStr.slice(0, 10)
 
-  // 최근 3개월 데이터 생성
-  for (let i = 2; i >= 0; i--) {
+  // 최근 3개월 기간 정보 사전 계산
+  const monthConfigs = [2, 1, 0].map((i) => {
     const targetDate = new Date(currentYear, currentMonth - 1 - i, 1)
     const targetYear = targetDate.getFullYear()
     const targetMonth = targetDate.getMonth() + 1
-
-    // 타임존 무관하게 날짜 문자열 직접 생성
     const lastDay = new Date(targetYear, targetMonth, 0).getDate()
     const periodStart = `${targetYear}-${String(targetMonth).padStart(2, '0')}-01`
     const periodEnd = `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+    return { targetMonth, periodStart, periodEnd }
+  })
 
-    // 날짜 비교 헬퍼 함수
-    const extractDatePart = (dateStr: string): string => dateStr.slice(0, 10)
+  // 3개월 × 4개 쿼리 = 12개 쿼리 동시 실행 (날짜 필터 포함)
+  const monthResults = await Promise.all(
+    monthConfigs.map(async ({ targetMonth, periodStart, periodEnd }) => {
+      const [
+        { data: myScoresWithDate },
+        { data: myLegacyScores },
+        { data: classScoresWithDate },
+        { data: classLegacyScores },
+      ] = await Promise.all([
+        supabase
+          .from('exam_scores')
+          .select('percentage, is_retest, exams!inner(exam_date, created_at)')
+          .eq('student_id', studentId)
+          .is('deleted_at', null)
+          .gte('exams.exam_date', periodStart)
+          .lte('exams.exam_date', periodEnd),
+        supabase
+          .from('exam_scores')
+          .select('percentage, is_retest, exams!inner(exam_date, created_at)')
+          .eq('student_id', studentId)
+          .is('deleted_at', null)
+          .is('exams.exam_date', null),
+        supabase
+          .from('exam_scores')
+          .select('percentage, exams!inner(exam_date, created_at)')
+          .is('deleted_at', null)
+          .gte('exams.exam_date', periodStart)
+          .lte('exams.exam_date', periodEnd),
+        supabase
+          .from('exam_scores')
+          .select('percentage, exams!inner(exam_date, created_at)')
+          .is('deleted_at', null)
+          .is('exams.exam_date', null),
+      ])
 
-    // 해당 월의 학생 점수 조회 (is_retest 포함)
-    const { data: allMyScores } = await supabase
-      .from('exam_scores')
-      .select('percentage, is_retest, exams(exam_date, created_at)')
-      .eq('student_id', studentId)
-      .is('deleted_at', null)
+      // 레거시 데이터 필터링 (created_at 기준)
+      const filteredMyLegacy = (myLegacyScores || []).filter((score: any) => {
+        const createdAt = score.exams?.created_at
+        if (!createdAt) return false
+        const datePart = extractDatePart(createdAt)
+        return datePart >= periodStart && datePart <= periodEnd
+      })
+      const myScores = [...(myScoresWithDate || []), ...filteredMyLegacy]
 
-    // JavaScript에서 exam_date로 필터링 (fallback: created_at)
-    const myScores = allMyScores?.filter((score: any) => {
-      const examDate = score.exams?.exam_date || score.exams?.created_at
-      if (!examDate) return false
-      const examDatePart = extractDatePart(examDate)
-      return examDatePart >= periodStart && examDatePart <= periodEnd
-    }) || []
+      const filteredClassLegacy = (classLegacyScores || []).filter((score: any) => {
+        const createdAt = score.exams?.created_at
+        if (!createdAt) return false
+        const datePart = extractDatePart(createdAt)
+        return datePart >= periodStart && datePart <= periodEnd
+      })
+      const allScores = [...(classScoresWithDate || []), ...filteredClassLegacy]
 
-    // 해당 월의 반 평균 조회
-    const { data: allScoresData } = await supabase
-      .from('exam_scores')
-      .select('percentage, exams(exam_date, created_at)')
-      .is('deleted_at', null)
+      const myAverage =
+        myScores.length > 0
+          ? myScores.reduce((sum, s) => sum + s.percentage, 0) / myScores.length
+          : 0
 
-    // JavaScript에서 exam_date로 필터링 (fallback: created_at)
-    const allScores = allScoresData?.filter((score: any) => {
-      const examDate = score.exams?.exam_date || score.exams?.created_at
-      if (!examDate) return false
-      const examDatePart = extractDatePart(examDate)
-      return examDatePart >= periodStart && examDatePart <= periodEnd
-    }) || []
+      const classAverage =
+        allScores.length > 0
+          ? allScores.reduce((sum, s) => sum + s.percentage, 0) / allScores.length
+          : 0
 
-    const myAverage =
-      myScores && myScores.length > 0
-        ? myScores.reduce((sum, s) => sum + s.percentage, 0) / myScores.length
-        : 0
+      // 재시험률 계산
+      const retestCount = myScores.filter((s: any) => s.is_retest).length
+      const totalCount = myScores.length
+      const retestRate = totalCount > 0 ? Math.round((retestCount / totalCount) * 100 * 10) / 10 : 0
 
-    const classAverage =
-      allScores && allScores.length > 0
-        ? allScores.reduce((sum, s) => sum + s.percentage, 0) / allScores.length
-        : 0
+      const dataPoint: {
+        name: string
+        '학생 점수': number
+        '반 평균': number
+        '재시험률'?: number
+      } = {
+        name: `${targetMonth}월`,
+        '학생 점수': Math.round(myAverage * 10) / 10,
+        '반 평균': Math.round(classAverage * 10) / 10,
+      }
 
-    // 재시험률 계산
-    const retestCount = myScores ? myScores.filter((s: any) => s.is_retest).length : 0
-    const totalCount = myScores ? myScores.length : 0
-    const retestRate = totalCount > 0 ? Math.round((retestCount / totalCount) * 100 * 10) / 10 : 0
+      if (retestRate > 0) {
+        dataPoint['재시험률'] = retestRate
+      }
 
-    const dataPoint: {
-      name: string
-      '학생 점수': number
-      '반 평균': number
-      '재시험률'?: number
-    } = {
-      name: `${targetMonth}월`,
-      '학생 점수': Math.round(myAverage * 10) / 10,
-      '반 평균': Math.round(classAverage * 10) / 10,
-    }
+      return dataPoint
+    })
+  )
 
-    // 재시험률이 0보다 크면 추가
-    if (retestRate > 0) {
-      dataPoint['재시험률'] = retestRate
-    }
-
-    trendData.push(dataPoint)
-  }
-
-  return trendData
+  return monthResults
 }
 
 // ============================================================================
