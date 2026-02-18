@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@ui/button'
@@ -17,12 +17,12 @@ import {
 import { Separator } from '@ui/separator'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@ui/dialog'
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@ui/sheet'
 import { Textarea } from '@ui/textarea'
 import { Label } from '@ui/label'
 import { Send, CheckCircle, XCircle, Clock, MessageSquare } from 'lucide-react'
@@ -68,6 +68,7 @@ export function ReportDetailContent({
   const [savingComment, setSavingComment] = useState(false)
   const [categoryTemplates, setCategoryTemplates] = useState<CategoryTemplates[]>([])
   const [reportContext, setReportContext] = useState<ReportContextData | null>(null)
+  const [showAllSends, setShowAllSends] = useState(false)
 
   const { toast } = useToast()
   const router = useRouter()
@@ -202,8 +203,15 @@ export function ReportDetailContent({
       studentName: reportData.studentName || report.students?.users?.name || '학생',
       attendanceRate: reportData.attendance?.rate ?? 0,
       homeworkRate: reportData.homework?.rate ?? 0,
-      averageScore: reportData.currentScore ?? 0,
-      scoreChange: reportData.scoreTrend ?? 0,
+      averageScore: reportData.scores?.length > 0
+        ? Math.round(reportData.scores.reduce((sum: number, s: any) => sum + (s.current || 0), 0) / reportData.scores.length)
+        : 0,
+      scoreChange: (() => {
+        if (!reportData.scores?.length) return 0
+        const validChanges = reportData.scores.filter((s: any) => s.change !== null)
+        if (validChanges.length === 0) return 0
+        return Math.round(validChanges.reduce((sum: number, s: any) => sum + (s.change || 0), 0) / validChanges.length * 10) / 10
+      })(),
     }
     setReportContext(context)
 
@@ -221,8 +229,8 @@ export function ReportDetailContent({
     setCommentDialogOpen(true)
   }
 
-  async function handleSaveComment() {
-    if (!report) return
+  const handleSaveComment = useCallback(async () => {
+    if (!report || savingComment) return
 
     setSavingComment(true)
     try {
@@ -253,7 +261,23 @@ export function ReportDetailContent({
     } finally {
       setSavingComment(false)
     }
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [report, commentForm, savingComment])
+
+  // Ctrl/Cmd+Enter to save comment
+  useEffect(() => {
+    if (!commentDialogOpen) return
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault()
+        handleSaveComment()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [commentDialogOpen, handleSaveComment])
 
   function formatPeriod(start: string, end: string) {
     const startDate = new Date(start)
@@ -295,20 +319,36 @@ export function ReportDetailContent({
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              {getReportTypeLabel(report.report_type)} 리포트
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold tracking-tight">
+                {getReportTypeLabel(report.report_type)} 리포트
+              </h1>
+              {report.sent_at ? (
+                <Badge variant="outline" className="bg-success/10 text-success border-success/30">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  전송됨
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-200">
+                  <Clock className="h-3 w-3 mr-1" />
+                  미전송
+                </Badge>
+              )}
+            </div>
             <p className="text-muted-foreground">
               {formatPeriod(report.period_start, report.period_end)}
+              {report.sent_at && (
+                <span className="ml-2 text-xs">
+                  (마지막 전송: {new Date(report.sent_at).toLocaleString('ko-KR')})
+                </span>
+              )}
             </p>
           </div>
           <div className="flex gap-2 print:hidden">
-            {!report.sent_at && (
-              <Button onClick={handleSendClick} disabled={sending}>
-                <Send className="h-4 w-4 mr-2" />
-                보호자 전송
-              </Button>
-            )}
+            <Button onClick={handleSendClick} disabled={sending}>
+              <Send className="h-4 w-4 mr-2" />
+              {report.sent_at ? '재전송' : '보호자 전송'}
+            </Button>
           </div>
         </div>
 
@@ -370,79 +410,92 @@ export function ReportDetailContent({
                   <p className="text-sm mt-1">보호자에게 리포트를 전송하면 이곳에 기록됩니다.</p>
                 </div>
               ) : (
-                <div className="border rounded-lg overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>수신자</TableHead>
-                        <TableHead>채널</TableHead>
-                        <TableHead>상태</TableHead>
-                        <TableHead>발송일시</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {reportSends.map((send) => (
-                        <TableRow key={send.id}>
-                          <TableCell>
-                            <div>
-                              <div className="font-medium">{send.recipient_name}</div>
-                              <div className="text-xs text-muted-foreground">
-                                {send.recipient_phone}
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {send.message_type === 'SMS' && (
-                              <Badge variant="default">SMS</Badge>
-                            )}
-                            {send.message_type === 'LMS' && (
-                              <Badge variant="default" className="bg-info">LMS</Badge>
-                            )}
-                            {send.message_type === 'KAKAO' && (
-                              <Badge variant="default" className="bg-yellow-500 text-black">알림톡</Badge>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {send.send_status === 'sent' && (
-                              <Badge variant="outline" className="bg-success/10">
-                                <CheckCircle className="h-3 w-3 mr-1" />
-                                전송 완료
-                              </Badge>
-                            )}
-                            {send.send_status === 'delivered' && (
-                              <Badge variant="outline" className="bg-success/10">
-                                <CheckCircle className="h-3 w-3 mr-1" />
-                                수신 확인
-                              </Badge>
-                            )}
-                            {send.send_status === 'pending' && (
-                              <Badge variant="outline" className="bg-yellow-50">
-                                <Clock className="h-3 w-3 mr-1" />
-                                대기중
-                              </Badge>
-                            )}
-                            {send.send_status === 'failed' && (
-                              <Badge variant="destructive">
-                                <XCircle className="h-3 w-3 mr-1" />
-                                실패
-                              </Badge>
-                            )}
-                            {send.send_error && (
-                              <div className="text-xs text-red-600 mt-1">
-                                {send.send_error}
-                              </div>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-sm">
-                            {send.sent_at
-                              ? new Date(send.sent_at).toLocaleString('ko-KR')
-                              : '-'}
-                          </TableCell>
+                <>
+                  <div className="border rounded-lg overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>수신자</TableHead>
+                          <TableHead>채널</TableHead>
+                          <TableHead>상태</TableHead>
+                          <TableHead>발송일시</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                      </TableHeader>
+                      <TableBody>
+                        {(showAllSends ? reportSends : reportSends.slice(0, 5)).map((send) => (
+                          <TableRow key={send.id}>
+                            <TableCell>
+                              <div>
+                                <div className="font-medium">{send.recipient_name}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {send.recipient_phone}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {send.message_type === 'SMS' && (
+                                <Badge variant="default">SMS</Badge>
+                              )}
+                              {send.message_type === 'LMS' && (
+                                <Badge variant="default" className="bg-info">LMS</Badge>
+                              )}
+                              {send.message_type === 'KAKAO' && (
+                                <Badge variant="default" className="bg-yellow-500 text-black">알림톡</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {send.send_status === 'sent' && (
+                                <Badge variant="outline" className="bg-success/10">
+                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                  전송 완료
+                                </Badge>
+                              )}
+                              {send.send_status === 'delivered' && (
+                                <Badge variant="outline" className="bg-success/10">
+                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                  수신 확인
+                                </Badge>
+                              )}
+                              {send.send_status === 'pending' && (
+                                <Badge variant="outline" className="bg-yellow-50">
+                                  <Clock className="h-3 w-3 mr-1" />
+                                  대기중
+                                </Badge>
+                              )}
+                              {send.send_status === 'failed' && (
+                                <Badge variant="destructive">
+                                  <XCircle className="h-3 w-3 mr-1" />
+                                  실패
+                                </Badge>
+                              )}
+                              {send.send_error && (
+                                <div className="text-xs text-red-600 mt-1">
+                                  {send.send_error}
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              {send.sent_at
+                                ? new Date(send.sent_at).toLocaleString('ko-KR')
+                                : '-'}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  {reportSends.length > 5 && (
+                    <div className="text-center pt-3">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowAllSends(prev => !prev)}
+                      >
+                        {showAllSends ? '접기' : `나머지 ${reportSends.length - 5}건 더보기`}
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
@@ -465,15 +518,15 @@ export function ReportDetailContent({
         onConfirm={handleConfirmSend}
       />
 
-      {/* Comment Edit Dialog */}
-      <Dialog open={commentDialogOpen} onOpenChange={setCommentDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>강사 코멘트 작성</DialogTitle>
-            <DialogDescription>
-              학생의 성장을 위한 구조화된 피드백을 작성하세요. 작성한 내용은 리포트에 자동으로 반영됩니다.
-            </DialogDescription>
-          </DialogHeader>
+      {/* Comment Edit Sheet */}
+      <Sheet open={commentDialogOpen} onOpenChange={setCommentDialogOpen}>
+        <SheetContent side="right" className="sm:max-w-xl w-full overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>강사 코멘트 작성</SheetTitle>
+            <SheetDescription>
+              구조화된 피드백을 작성하세요. <kbd className="px-1 py-0.5 text-xs bg-muted rounded">Ctrl+Enter</kbd>로 저장할 수 있습니다.
+            </SheetDescription>
+          </SheetHeader>
 
           <div className="space-y-6 py-4">
             {/* Summary */}
@@ -611,7 +664,7 @@ export function ReportDetailContent({
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-4">
+          <div className="flex justify-end gap-2 pt-4 border-t">
             <Button
               variant="outline"
               onClick={() => setCommentDialogOpen(false)}
@@ -623,8 +676,8 @@ export function ReportDetailContent({
               {savingComment ? '저장 중...' : '저장'}
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       {/* Print Styles */}
       <style jsx global>{`
