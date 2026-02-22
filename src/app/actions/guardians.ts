@@ -307,11 +307,20 @@ export async function getGuardiansWithDetails() {
 
     if (guardiansError) throw guardiansError
 
-    // TODO(any): Supabase nested query types need proper typing
-    const guardiansWithDetails = (guardians || []).map((guardian: any) => {
+    interface GuardianRow {
+      id: string
+      relationship: string | null
+      users: { name: string | null; email: string | null; phone: string | null } | { name: string | null; email: string | null; phone: string | null }[] | null
+      student_guardians: Array<{
+        relation: string | null
+        is_primary: boolean | null
+        students: { id: string; student_code: string | null; users: { name: string | null } | { name: string | null }[] | null } | { id: string; student_code: string | null; users: { name: string | null } | { name: string | null }[] | null }[] | null
+      }> | null
+    }
+    const guardiansWithDetails = ((guardians || []) as GuardianRow[]).map((guardian) => {
       const usersData = Array.isArray(guardian.users) ? guardian.users[0] : guardian.users
 
-      const students = (guardian.student_guardians || []).map((link: any) => {
+      const students = (guardian.student_guardians || []).map((link) => {
         const student = Array.isArray(link.students) ? link.students[0] : link.students
         const studentUsers = student?.users
         const studentUserName = Array.isArray(studentUsers) ? studentUsers[0]?.name : studentUsers?.name
@@ -681,8 +690,16 @@ export async function getGuardiansForContact(studentId: string) {
       throw linksError
     }
 
-    // TODO(any): Supabase nested query types need proper typing
-    const guardians = (links || []).map((link: any) => {
+    interface StudentGuardianLinkRow {
+      guardian_id: string
+      relation: string | null
+      guardians: {
+        id: string
+        relationship: string | null
+        users: { name: string | null; email: string | null; phone: string | null } | null
+      } | null
+    }
+    const guardians = ((links || []) as unknown as StudentGuardianLinkRow[]).map((link) => {
       const guardian = link.guardians
       const user = guardian?.users
 
@@ -920,13 +937,17 @@ export async function getStudentsForSelect() {
 
     if (error) throw error
 
-    // TODO(any): Supabase nested query types need proper typing
-    const students = (data || []).map((s: any) => {
+    interface StudentRow {
+      id: string
+      student_code: string | null
+      users: { name: string | null } | { name: string | null }[] | null
+    }
+    const students = ((data || []) as StudentRow[]).map((s) => {
       const usersData = Array.isArray(s.users) ? s.users[0] : s.users
       return {
-        id: s.id as string,
-        student_code: s.student_code as string,
-        name: (usersData?.name as string) || '',
+        id: s.id,
+        student_code: s.student_code || '',
+        name: usersData?.name || '',
       }
     })
 
@@ -988,7 +1009,15 @@ export async function bulkDeleteGuardians(ids: string[]) {
       .is('deleted_at', null)
       .select('id')
 
-    if (deleteError) throw deleteError
+    if (deleteError) {
+      // users 소프트 삭제 롤백
+      await supabase
+        .from('users')
+        .update({ deleted_at: null })
+        .in('id', userIds)
+        .eq('tenant_id', tenantId)
+      throw new Error(`보호자 삭제 실패: ${deleteError.message}`)
+    }
 
     revalidatePath('/guardians')
 

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { generateMonthlyReport, generateWeeklyReport, saveReport } from '@/app/actions/reports'
+import { generateMonthlyReport, generateWeeklyReport, saveReport } from '@/app/actions/reports/report-generation'
 import { formatDate } from '@/lib/utils'
 import { Button } from '@ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'

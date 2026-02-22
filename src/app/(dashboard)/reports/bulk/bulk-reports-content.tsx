@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { generateBulkMonthlyReports } from '@/app/actions/reports'
+import { generateBulkMonthlyReports } from '@/app/actions/reports/report-generation'
 import { Button } from '@ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'

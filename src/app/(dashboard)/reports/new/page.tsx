@@ -1,7 +1,7 @@
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
-import { getStudentsForReport } from '@/app/actions/reports'
+import { getStudentsForReport } from '@/app/actions/reports/report-generation'
 import { NewReportContent } from './new-report-content'
 
 interface Student {
