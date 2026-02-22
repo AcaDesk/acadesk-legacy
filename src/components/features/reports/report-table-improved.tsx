@@ -456,10 +456,15 @@ export function ReportTableImproved({
 
   // 선택 상태가 변경되면 콜백 호출
   React.useEffect(() => {
-    if (onSelectionChange) {
-      onSelectionChange(selectedRows.map((row) => row.original))
-    }
-  }, [rowSelection, onSelectionChange, selectedRows])
+    if (!onSelectionChange) return
+
+    const selectedReports = table
+      .getFilteredSelectedRowModel()
+      .rows
+      .map((row) => row.original)
+
+    onSelectionChange(selectedReports)
+  }, [rowSelection, columnFilters, onSelectionChange, table])
 
   // 데이터가 변경되면 선택 상태 초기화 및 페이지 조정
   React.useEffect(() => {

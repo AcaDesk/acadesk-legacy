@@ -35,7 +35,17 @@ export function SendWorkbench({ data, loading, onComplete }: SendWorkbenchProps)
   const unsentData = data.filter((r) => r.sent_at === null)
 
   const handleSelectionChange = useCallback((reports: ReportWithStudent[]) => {
-    setSelectedReports(reports.filter((r) => r.sent_at === null))
+    const nextReports = reports.filter((r) => r.sent_at === null)
+
+    setSelectedReports((prev) => {
+      if (
+        prev.length === nextReports.length &&
+        prev.every((report, index) => report.id === nextReports[index]?.id)
+      ) {
+        return prev
+      }
+      return nextReports
+    })
   }, [])
 
   function handleStartPreview() {
@@ -49,70 +59,83 @@ export function SendWorkbench({ data, loading, onComplete }: SendWorkbenchProps)
     cancelRef.current = false
     setProgress({ current: 0, total: selectedReports.length, successCount: 0, failCount: 0 })
 
-    const { sendReportToAllGuardians } = await import('@/app/actions/reports-send')
+    try {
+      const { sendReportToAllGuardians } = await import('@/app/actions/reports-send')
 
-    let totalSuccess = 0
-    let totalFail = 0
-    const classifiedErrors: Array<{ name: string; error: ReportSendErrorInfo }> = []
-    let processed = 0
+      let totalSuccess = 0
+      let totalFail = 0
+      const classifiedErrors: Array<{ name: string; error: ReportSendErrorInfo }> = []
+      let processed = 0
 
-    const CONCURRENCY = 3
-    for (let i = 0; i < selectedReports.length; i += CONCURRENCY) {
-      if (cancelRef.current) break
+      const CONCURRENCY = 3
+      for (let i = 0; i < selectedReports.length; i += CONCURRENCY) {
+        if (cancelRef.current) break
 
-      const batch = selectedReports.slice(i, i + CONCURRENCY)
+        const batch = selectedReports.slice(i, i + CONCURRENCY)
 
-      const results = await Promise.allSettled(
-        batch.map(async (report) => {
-          const studentName = report.students?.users?.name || '알 수 없음'
-          setCurrentStudentName(studentName)
-          try {
-            const result = await sendReportToAllGuardians(report.id)
-            if (result.success && result.data) {
-              return { success: true as const, successCount: result.data.successCount, failCount: result.data.failCount }
-            } else {
-              const classified = result.errorInfo ?? classifyReportSendError(result.error || '전송 실패')
-              return { success: false as const, name: studentName, error: classified }
+        const results = await Promise.allSettled(
+          batch.map(async (report) => {
+            const studentName = report.students?.users?.name || '알 수 없음'
+            setCurrentStudentName(studentName)
+            try {
+              const result = await sendReportToAllGuardians(report.id)
+              if (result.success && result.data) {
+                return { success: true as const, successCount: result.data.successCount, failCount: result.data.failCount }
+              } else {
+                const classified = result.errorInfo ?? classifyReportSendError(result.error || '전송 실패')
+                return { success: false as const, name: studentName, error: classified }
+              }
+            } catch (err) {
+              const errorMessage = err instanceof Error ? err.message : '전송 실패'
+              return { success: false as const, name: studentName, error: classifyReportSendError(errorMessage) }
             }
-          } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : '전송 실패'
-            return { success: false as const, name: studentName, error: classifyReportSendError(errorMessage) }
-          }
-        })
-      )
+          })
+        )
 
-      for (const result of results) {
-        processed++
-        if (result.status === 'fulfilled') {
-          if (result.value.success) {
-            totalSuccess += result.value.successCount
-            totalFail += result.value.failCount
-          } else {
-            classifiedErrors.push({ name: result.value.name, error: result.value.error })
+        for (const result of results) {
+          processed++
+          if (result.status === 'fulfilled') {
+            if (result.value.success) {
+              totalSuccess += result.value.successCount
+              totalFail += result.value.failCount
+            } else {
+              classifiedErrors.push({ name: result.value.name, error: result.value.error })
+            }
           }
+          setProgress({
+            current: processed,
+            total: selectedReports.length,
+            successCount: totalSuccess,
+            failCount: totalFail + classifiedErrors.length,
+          })
         }
-        setProgress({
-          current: processed,
-          total: selectedReports.length,
-          successCount: totalSuccess,
-          failCount: totalFail + classifiedErrors.length,
+      }
+
+      setIsComplete(true)
+
+      if (classifiedErrors.length > 0) {
+        setBulkErrors(classifiedErrors)
+        setBulkErrorDialogOpen(true)
+      }
+
+      if (totalSuccess > 0) {
+        toast({
+          title: cancelRef.current ? '전송 취소됨' : '전송 완료',
+          description: `${totalSuccess}명의 보호자에게 전송되었습니다.${classifiedErrors.length > 0 ? ` ${classifiedErrors.length}개 실패` : ''}`,
         })
       }
-    }
-
-    setCurrentStudentName('')
-    setIsComplete(true)
-
-    if (classifiedErrors.length > 0) {
-      setBulkErrors(classifiedErrors)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '일괄 전송 중 오류가 발생했습니다.'
+      setIsComplete(true)
+      setBulkErrors([{ name: '일괄 전송', error: classifyReportSendError(errorMessage) }])
       setBulkErrorDialogOpen(true)
-    }
-
-    if (totalSuccess > 0) {
       toast({
-        title: cancelRef.current ? '전송 취소됨' : '전송 완료',
-        description: `${totalSuccess}명의 보호자에게 전송되었습니다.${classifiedErrors.length > 0 ? ` ${classifiedErrors.length}개 실패` : ''}`,
+        title: '전송 오류',
+        description: errorMessage,
+        variant: 'destructive',
       })
+    } finally {
+      setCurrentStudentName('')
     }
   }
 
