@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { getCellKey, parseCellKey } from './planner-cell-key'
 
 /**
  * parseCellKey / getCellKey 회귀 테스트
@@ -7,22 +8,6 @@ import { describe, it, expect } from 'vitest'
  * 기존 split('-') 방식이 UUID를 잘못 파싱하는 버그가 있었음.
  * lastIndexOf('-') 방식으로 수정 후 회귀 방지를 위한 테스트.
  */
-
-// page.tsx 내부 함수와 동일한 로직 (컴포넌트 내부 함수라 직접 import 불가)
-function getCellKey(studentId: string, dayOfWeek: number): string {
-  return `${studentId}-${dayOfWeek}`
-}
-
-function parseCellKey(key: string): { studentId: string; dayOfWeek: number } | null {
-  const lastHyphen = key.lastIndexOf('-')
-  if (lastHyphen === -1) return null
-  const studentId = key.substring(0, lastHyphen)
-  const dayOfWeek = parseInt(key.substring(lastHyphen + 1), 10)
-  if (studentId && !isNaN(dayOfWeek)) {
-    return { studentId, dayOfWeek }
-  }
-  return null
-}
 
 // ============================================================================
 // UUID v7 ID 파싱 (핵심 회귀 케이스)
