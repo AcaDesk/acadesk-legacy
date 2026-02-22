@@ -6,9 +6,10 @@
 
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag, unstable_cache } from 'next/cache'
 import { z } from 'zod'
 import { withServerAction, withServerActionVoid } from '@/lib/server-action-helpers'
+import { createServiceRoleClient } from '@/lib/supabase/service-role'
 
 export interface BookLending {
   id: string
@@ -113,80 +114,89 @@ export async function getBookLendings() {
 }
 
 /**
- * 대출 등록 폼에 필요한 학생/교재 목록 조회
+ * 대출 등록 폼 데이터 캐시 (테넌트별, 5분 TTL)
+ * 대출 등록/반납 시 revalidateTag('library-form-options')로 무효화됨
+ */
+const fetchFormOptions = unstable_cache(
+  async (tenantId: string) => {
+    const serviceClient = createServiceRoleClient()
+
+    const [{ data: students, error: studentsError }, { data: textbooks, error: textbooksError }] =
+      await Promise.all([
+        serviceClient
+          .from('students')
+          .select('id, student_code, name, users(name)')
+          .eq('tenant_id', tenantId)
+          .is('deleted_at', null)
+          .order('student_code', { ascending: true }),
+        serviceClient
+          .from('textbooks')
+          .select('id, title, author, barcode, is_active, total_copies')
+          .eq('tenant_id', tenantId)
+          .is('deleted_at', null)
+          .eq('is_active', true)
+          .order('title', { ascending: true }),
+      ])
+
+    if (studentsError) throw studentsError
+    if (textbooksError) throw textbooksError
+
+    const activeLendingsResult = await serviceClient
+      .from('book_lendings')
+      .select('textbook_id')
+      .eq('tenant_id', tenantId)
+      .is('returned_at', null)
+
+    if (activeLendingsResult.error) throw activeLendingsResult.error
+
+    const activeCountByTextbookId = new Map<string, number>()
+    for (const row of activeLendingsResult.data || []) {
+      const textbookId = row.textbook_id as string
+      activeCountByTextbookId.set(
+        textbookId,
+        (activeCountByTextbookId.get(textbookId) || 0) + 1
+      )
+    }
+
+    const studentOptions = (students || []).map((student) => ({
+      id: student.id as string,
+      studentCode: student.student_code as string,
+      name:
+        (student.users as { name?: string } | null)?.name ||
+        (student.name as string) ||
+        '이름 없음',
+    }))
+
+    const textbookOptions = (textbooks || []).map((textbook) => ({
+      id: textbook.id as string,
+      title: textbook.title as string,
+      author: (textbook.author as string | null) || null,
+      barcode: (textbook.barcode as string | null) || null,
+      totalCopies: (textbook.total_copies as number | null) || 1,
+      activeLendingCount: activeCountByTextbookId.get(textbook.id as string) || 0,
+      availableCopies: Math.max(
+        ((textbook.total_copies as number | null) || 1) -
+          (activeCountByTextbookId.get(textbook.id as string) || 0),
+        0
+      ),
+      isAvailable:
+        ((textbook.total_copies as number | null) || 1) -
+          (activeCountByTextbookId.get(textbook.id as string) || 0) >
+        0,
+    }))
+
+    return { students: studentOptions, textbooks: textbookOptions }
+  },
+  ['library-form-options'],
+  { tags: ['library-form-options'], revalidate: 300 }
+)
+
+/**
+ * 대출 등록 폼에 필요한 학생/교재 목록 조회 (캐시 적용)
  */
 export async function getBookLendingFormOptions() {
   return withServerAction(
-    async ({ tenantId, serviceClient }) => {
-      const [{ data: students, error: studentsError }, { data: textbooks, error: textbooksError }] =
-        await Promise.all([
-          serviceClient
-            .from('students')
-            .select('id, student_code, name, users(name)')
-            .eq('tenant_id', tenantId)
-            .is('deleted_at', null)
-            .order('student_code', { ascending: true }),
-          serviceClient
-            .from('textbooks')
-            .select('id, title, author, barcode, is_active, total_copies')
-            .eq('tenant_id', tenantId)
-            .is('deleted_at', null)
-            .eq('is_active', true)
-            .order('title', { ascending: true }),
-        ])
-
-      if (studentsError) throw studentsError
-      if (textbooksError) throw textbooksError
-
-      const activeLendingsResult = await serviceClient
-        .from('book_lendings')
-        .select('textbook_id')
-        .eq('tenant_id', tenantId)
-        .is('returned_at', null)
-
-      if (activeLendingsResult.error) throw activeLendingsResult.error
-
-      const activeCountByTextbookId = new Map<string, number>()
-      for (const row of activeLendingsResult.data || []) {
-        const textbookId = row.textbook_id as string
-        activeCountByTextbookId.set(
-          textbookId,
-          (activeCountByTextbookId.get(textbookId) || 0) + 1
-        )
-      }
-
-      const studentOptions = (students || []).map((student) => ({
-        id: student.id as string,
-        studentCode: student.student_code as string,
-        name:
-          ((student.users as { name?: string } | null)?.name ||
-            (student.name as string) ||
-            '이름 없음'),
-      }))
-
-      const textbookOptions = (textbooks || []).map((textbook) => ({
-        id: textbook.id as string,
-        title: textbook.title as string,
-        author: (textbook.author as string | null) || null,
-        barcode: (textbook.barcode as string | null) || null,
-        totalCopies: (textbook.total_copies as number | null) || 1,
-        activeLendingCount: activeCountByTextbookId.get(textbook.id as string) || 0,
-        availableCopies: Math.max(
-          ((textbook.total_copies as number | null) || 1) -
-            (activeCountByTextbookId.get(textbook.id as string) || 0),
-          0
-        ),
-        isAvailable:
-          ((textbook.total_copies as number | null) || 1) -
-            (activeCountByTextbookId.get(textbook.id as string) || 0) >
-          0,
-      }))
-
-      return {
-        students: studentOptions,
-        textbooks: textbookOptions,
-      }
-    },
+    async ({ tenantId }) => fetchFormOptions(tenantId),
     {
       actionName: 'getBookLendingFormOptions',
       defaultValue: { students: [], textbooks: [] },
@@ -266,6 +276,7 @@ export async function createBookLending(input: z.infer<typeof createBookLendingS
 
       revalidatePath('/library/lendings')
       revalidatePath('/library')
+      revalidateTag('library-form-options')
       return { id: data.id as string }
     },
     {
@@ -398,6 +409,7 @@ export async function createBulkBookLending(
 
       revalidatePath('/library/lendings')
       revalidatePath('/library')
+      revalidateTag('library-form-options')
 
       const successCount = results.filter((r) => r.success).length
       const result: BulkLendingResult = {
@@ -445,6 +457,7 @@ export async function returnBook(lendingId: string) {
       if (error) throw error
 
       revalidatePath('/library/lendings')
+      revalidateTag('library-form-options')
     },
     { actionName: 'returnBook' }
   )
