@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
 import { Badge } from '@ui/badge'
@@ -15,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '@ui/table'
+import Link from 'next/link'
 import { Search, Plus, BookOpen, Calendar, AlertCircle, CheckCircle, Send } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from '@/components/layout/page-wrapper'
@@ -86,7 +86,6 @@ export function BookLendingsClient({ initialLendings }: BookLendingsClientProps)
   const [reminderTarget, setReminderTarget] = useState<BookLending | null>(null)
 
   const { toast } = useToast()
-  const router = useRouter()
 
   // Calculate stats
   const stats = useMemo(() => {
@@ -456,9 +455,11 @@ export function BookLendingsClient({ initialLendings }: BookLendingsClientProps)
               연체 알림 ({stats.overdueUnsent}건)
             </Button>
           )}
-          <Button onClick={() => router.push('/library/lendings/new')}>
-            <Plus className="h-4 w-4 mr-2" />
-            대출 등록
+          <Button asChild>
+            <Link href="/library/lendings/new" prefetch={true}>
+              <Plus className="h-4 w-4 mr-2" />
+              대출 등록
+            </Link>
           </Button>
         </div>
       }
