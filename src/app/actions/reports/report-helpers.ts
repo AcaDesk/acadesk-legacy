@@ -56,6 +56,27 @@ export interface ExamScoreChartType {
   } | null
 }
 
+interface ScoreWithExamDates {
+  percentage: number
+  is_retest?: boolean
+  created_at?: string
+  student_id?: string
+  exams?: {
+    name?: string
+    exam_date?: string | null
+    created_at?: string
+    category_code?: string
+    subject_id?: string | null
+    ref_exam_categories?: { label: string } | null
+    subjects?: { name: string; color: string } | null
+  } | null
+}
+
+/** Supabase !inner 조인 결과를 ScoreWithExamDates 배열로 캐스팅 (런타임: 객체, TS 추론: 배열 보정) */
+function castScores(data: unknown[] | null): ScoreWithExamDates[] {
+  return (data ?? []) as ScoreWithExamDates[]
+}
+
 export interface AttendanceRecordType {
   attendance_date: string
   status: 'present' | 'late' | 'absent' | 'none'
@@ -147,12 +168,14 @@ export async function getAttendanceData(
   supabase: ServiceRoleClient,
   studentId: string,
   periodStart: string,
-  periodEnd: string
+  periodEnd: string,
+  tenantId: string
 ) {
   const { data } = await supabase
     .from('attendance')
     .select('status, attendance_date')
     .eq('student_id', studentId)
+    .eq('tenant_id', tenantId)
     .gte('attendance_date', periodStart)
     .lte('attendance_date', periodEnd)
 
@@ -185,12 +208,14 @@ export async function getHomeworkData(
   supabase: ServiceRoleClient,
   studentId: string,
   periodStart: string,
-  periodEnd: string
+  periodEnd: string,
+  tenantId: string
 ) {
   const { data } = await supabase
     .from('student_todos')
     .select('completed_at')
     .eq('student_id', studentId)
+    .eq('tenant_id', tenantId)
     .gte('due_date', periodStart)
     .lte('due_date', periodEnd)
 
@@ -330,7 +355,7 @@ export async function getScoresData(
       .is('exams.exam_date', null),
   ])
 
-  const filteredLegacy = (currentLegacyScores || []).filter((score: any) => {
+  const filteredLegacy = castScores(currentLegacyScores).filter((score) => {
     const createdAt = score.exams?.created_at
     if (!createdAt) return false
     const datePart = extractDatePart(createdAt)
@@ -339,7 +364,7 @@ export async function getScoresData(
 
   const currentScores = [...(currentScoresWithDate || []), ...filteredLegacy]
 
-  const filteredPrevLegacy = (prevLegacyScores || []).filter((score: any) => {
+  const filteredPrevLegacy = castScores(prevLegacyScores).filter((score) => {
     const createdAt = score.exams?.created_at
     if (!createdAt) return false
     const datePart = extractDatePart(createdAt)
@@ -348,7 +373,7 @@ export async function getScoresData(
 
   const previousScores = [...(prevScoresWithDate || []), ...filteredPrevLegacy]
 
-  const filteredClassLegacy = (classLegacyScores || []).filter((score: any) => {
+  const filteredClassLegacy = castScores(classLegacyScores).filter((score) => {
     const createdAt = score.exams?.created_at
     if (!createdAt) return false
     const datePart = extractDatePart(createdAt)
@@ -588,7 +613,8 @@ export async function getGradesChartData(
   supabase: ServiceRoleClient,
   studentId: string,
   periodStart: string,
-  periodEnd: string
+  periodEnd: string,
+  tenantId: string
 ) {
   // 날짜 비교 헬퍼 함수
   const extractDatePart = (dateStr: string): string => dateStr.slice(0, 10)
@@ -610,6 +636,7 @@ export async function getGradesChartData(
       .from('exam_scores')
       .select(selectFields)
       .eq('student_id', studentId)
+      .eq('tenant_id', tenantId)
       .is('deleted_at', null)
       .gte('exams.exam_date', periodStart)
       .lte('exams.exam_date', periodEnd),
@@ -617,19 +644,20 @@ export async function getGradesChartData(
       .from('exam_scores')
       .select(selectFields)
       .eq('student_id', studentId)
+      .eq('tenant_id', tenantId)
       .is('deleted_at', null)
       .is('exams.exam_date', null),
   ])
 
   // 레거시 데이터 중 created_at이 범위 내인 것만 포함
-  const filteredLegacy = (legacyScores || []).filter((score: any) => {
+  const filteredLegacy = castScores(legacyScores).filter((score) => {
     const createdAt = score.exams?.created_at
     if (!createdAt) return false
     const datePart = extractDatePart(createdAt)
     return datePart >= periodStart && datePart <= periodEnd
   })
 
-  const examScores = [...(scoresWithDate || []), ...filteredLegacy].sort((a: any, b: any) => {
+  const examScores = [...castScores(scoresWithDate), ...filteredLegacy].sort((a, b) => {
     const dateA = a.exams?.exam_date || a.exams?.created_at || ''
     const dateB = b.exams?.exam_date || b.exams?.created_at || ''
     return dateA.localeCompare(dateB)
@@ -663,12 +691,14 @@ export async function getAttendanceChartData(
   supabase: ServiceRoleClient,
   studentId: string,
   periodStart: string,
-  periodEnd: string
+  periodEnd: string,
+  tenantId: string
 ) {
   const { data: attendanceRecords } = await supabase
     .from('attendance')
     .select('attendance_date, status, notes')
     .eq('student_id', studentId)
+    .eq('tenant_id', tenantId)
     .gte('attendance_date', periodStart)
     .lte('attendance_date', periodEnd)
     .order('attendance_date', { ascending: true })
@@ -752,7 +782,7 @@ export async function getCurrentScoreData(
   ])
 
   // 레거시 데이터 중 created_at이 범위 내인 것만 포함
-  const filteredLegacyScores = (legacyScores || []).filter((score: any) => {
+  const filteredLegacyScores = castScores(legacyScores).filter((score) => {
     const createdAt = score.exams?.created_at
     if (!createdAt) return false
     const datePart = extractDatePart(createdAt)
@@ -774,14 +804,14 @@ export async function getCurrentScoreData(
     myScores.reduce((sum, score) => sum + score.percentage, 0) / myScores.length
 
   // 레거시 데이터 중 created_at이 범위 내인 것만 포함
-  const filteredAllLegacy = (allLegacyScores || []).filter((score: any) => {
+  const filteredAllLegacy = castScores(allLegacyScores).filter((score) => {
     const createdAt = score.exams?.created_at
     if (!createdAt) return false
     const datePart = extractDatePart(createdAt)
     return datePart >= periodStart && datePart <= periodEnd
   })
 
-  const allScores = [...(allScoresData || []), ...filteredAllLegacy]
+  const allScores = [...castScores(allScoresData), ...filteredAllLegacy]
 
   let classAverage = myAverage
   let highestScore = myAverage
@@ -794,10 +824,12 @@ export async function getCurrentScoreData(
     // 최고 점수 계산 (학생별 평균 중 최고)
     const studentAverages = new Map<string, number[]>()
     allScores.forEach((score) => {
-      if (!studentAverages.has(score.student_id)) {
-        studentAverages.set(score.student_id, [])
+      const sid = score.student_id
+      if (!sid) return
+      if (!studentAverages.has(sid)) {
+        studentAverages.set(sid, [])
       }
-      studentAverages.get(score.student_id)?.push(score.percentage)
+      studentAverages.get(sid)?.push(score.percentage)
     })
 
     const averages = Array.from(studentAverages.values()).map(
@@ -877,21 +909,21 @@ export async function getScoreTrendData(
       ])
 
       // 레거시 데이터 필터링 (created_at 기준)
-      const filteredMyLegacy = (myLegacyScores || []).filter((score: any) => {
+      const filteredMyLegacy = castScores(myLegacyScores).filter((score) => {
         const createdAt = score.exams?.created_at
         if (!createdAt) return false
         const datePart = extractDatePart(createdAt)
         return datePart >= periodStart && datePart <= periodEnd
       })
-      const myScores = [...(myScoresWithDate || []), ...filteredMyLegacy]
+      const myScores = [...castScores(myScoresWithDate), ...filteredMyLegacy]
 
-      const filteredClassLegacy = (classLegacyScores || []).filter((score: any) => {
+      const filteredClassLegacy = castScores(classLegacyScores).filter((score) => {
         const createdAt = score.exams?.created_at
         if (!createdAt) return false
         const datePart = extractDatePart(createdAt)
         return datePart >= periodStart && datePart <= periodEnd
       })
-      const allScores = [...(classScoresWithDate || []), ...filteredClassLegacy]
+      const allScores = [...castScores(classScoresWithDate), ...filteredClassLegacy]
 
       const myAverage =
         myScores.length > 0
@@ -904,7 +936,7 @@ export async function getScoreTrendData(
           : 0
 
       // 재시험률 계산
-      const retestCount = myScores.filter((s: any) => s.is_retest).length
+      const retestCount = myScores.filter((s) => s.is_retest).length
       const totalCount = myScores.length
       const retestRate = totalCount > 0 ? Math.round((retestCount / totalCount) * 100 * 10) / 10 : 0
 

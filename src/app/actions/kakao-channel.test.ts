@@ -36,7 +36,7 @@ describe('kakao-channel server actions', () => {
   // getSolapiProvider 체인: .select().eq('tenant_id').eq('provider').is('deleted_at').maybeSingle()
   // createKakaoChannel 체인: .select().eq('tenant_id').is('deleted_at').maybeSingle()
   function createMockSupabaseClient(overrides?: {
-    selectData?: any
+    selectData?: Record<string, unknown> | null
     selectError?: Error | null
     updateError?: Error | null
   }) {
@@ -47,7 +47,7 @@ describe('kakao-channel server actions', () => {
 
     // 체이닝이 어떤 순서로 와도 동작하도록 자기참조 체인 구성
     const createChainableQuery = () => {
-      const chain: Record<string, any> = {}
+      const chain: Record<string, Mock> = {} as Record<string, Mock>
       chain.eq = vi.fn().mockReturnValue(chain)
       chain.is = vi.fn().mockReturnValue(chain)
       chain.maybeSingle = mockMaybeSingle
@@ -86,6 +86,9 @@ describe('kakao-channel server actions', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.spyOn(console, 'info').mockImplementation(() => {})
     ;(verifyStaff as Mock).mockResolvedValue({ tenantId: mockTenantId })
   })
 
@@ -175,8 +178,8 @@ describe('kakao-channel server actions', () => {
       ;(SolapiProvider as unknown as Mock).mockImplementation(() => mockProvider)
 
       // 자기참조 체인으로 .eq().eq().is().maybeSingle() 모두 지원
-      const createChain = (data: any) => {
-        const chain: Record<string, any> = {}
+      const createChain = (data: Record<string, unknown>) => {
+        const chain: Record<string, Mock> = {} as Record<string, Mock>
         chain.eq = vi.fn().mockReturnValue(chain)
         chain.is = vi.fn().mockReturnValue(chain)
         chain.maybeSingle = vi.fn().mockResolvedValue({ data, error: null })
