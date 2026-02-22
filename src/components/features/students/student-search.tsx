@@ -1,23 +1,26 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { Search, Loader2 } from 'lucide-react'
+import { Search, Loader2, Check, ChevronsUpDown } from 'lucide-react'
 import { Input } from '@ui/input'
 import { Badge } from '@ui/badge'
 import { Button } from '@ui/button'
 import { Checkbox } from '@ui/checkbox'
 import { Label } from '@ui/label'
+import { Popover, PopoverContent, PopoverTrigger } from '@ui/popover'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@ui/select'
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@ui/command'
 import { ScrollArea } from '@ui/scroll-area'
 import { getStudents } from '@/app/actions/students'
 import { useToast } from '@/hooks/use-toast'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { cn } from '@/lib/utils'
 
 export interface Student {
   id: string
@@ -261,47 +264,98 @@ function StudentSearchSingle({
   searchTerm: string
   onSearchChange: (term: string) => void
 }) {
+  const [open, setOpen] = useState(false)
+
   if (variant === 'select') {
+    const selectedStudent = students.find((s) => s.id === value)
+
     return (
-      <Select
-        value={value}
-        onValueChange={(newValue) => {
-          onChange?.(newValue === '__clear__' ? undefined : newValue)
-        }}
-        disabled={disabled || loading}
-      >
-        <SelectTrigger className={className}>
-          <SelectValue placeholder={loading ? '로딩 중...' : placeholder} />
-        </SelectTrigger>
-        <SelectContent>
-          {clearable && value && (
-            <SelectItem value="__clear__">선택 해제</SelectItem>
-          )}
-          {students.length === 0 ? (
-            <div className="p-4 text-center text-sm text-muted-foreground">
-              {emptyMessage}
-            </div>
-          ) : (
-            students.map((student) => (
-              <SelectItem key={student.id} value={student.id}>
-                <div className="flex items-center gap-2">
-                  <span>{student.name}</span>
-                  {showStudentCode && (
-                    <span className="text-xs text-muted-foreground">
-                      ({student.student_code})
-                    </span>
-                  )}
-                  {showGrade && student.grade && (
-                    <span className="text-xs text-muted-foreground">
-                      {student.grade}
-                    </span>
-                  )}
-                </div>
-              </SelectItem>
-            ))
-          )}
-        </SelectContent>
-      </Select>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            disabled={disabled || loading}
+            className={cn('w-full justify-between font-normal', className)}
+          >
+            {loading ? (
+              <span className="text-muted-foreground">로딩 중...</span>
+            ) : selectedStudent ? (
+              <span className="flex items-center gap-2">
+                {selectedStudent.name}
+                {showStudentCode && (
+                  <span className="text-xs text-muted-foreground">
+                    ({selectedStudent.student_code})
+                  </span>
+                )}
+                {showGrade && selectedStudent.grade && (
+                  <span className="text-xs text-muted-foreground">
+                    {selectedStudent.grade}
+                  </span>
+                )}
+              </span>
+            ) : (
+              <span className="text-muted-foreground">{placeholder}</span>
+            )}
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          className="p-0"
+          style={{ width: 'var(--radix-popover-trigger-width)' }}
+          align="start"
+        >
+          <Command>
+            <CommandInput placeholder="이름 또는 학번으로 검색..." />
+            <CommandList>
+              <CommandEmpty>{emptyMessage}</CommandEmpty>
+              <CommandGroup>
+                {clearable && value && (
+                  <CommandItem
+                    value="__clear_selection__"
+                    onSelect={() => {
+                      onChange?.(undefined)
+                      setOpen(false)
+                    }}
+                    className="text-muted-foreground"
+                  >
+                    선택 해제
+                  </CommandItem>
+                )}
+                {students.map((student) => (
+                  <CommandItem
+                    key={student.id}
+                    value={`${student.name} ${student.student_code}`}
+                    onSelect={() => {
+                      onChange?.(student.id)
+                      setOpen(false)
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        'mr-2 h-4 w-4 shrink-0',
+                        value === student.id ? 'opacity-100' : 'opacity-0'
+                      )}
+                    />
+                    <span>{student.name}</span>
+                    {showStudentCode && (
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        ({student.student_code})
+                      </span>
+                    )}
+                    {showGrade && student.grade && (
+                      <span className="ml-1 text-xs text-muted-foreground">
+                        {student.grade}
+                      </span>
+                    )}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
     )
   }
 
