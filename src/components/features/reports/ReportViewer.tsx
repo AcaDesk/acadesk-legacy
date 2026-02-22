@@ -16,7 +16,12 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts'
-import { AttendanceHeatmap } from '@/components/features/charts/attendance-heatmap'
+import dynamic from 'next/dynamic'
+
+const AttendanceHeatmap = dynamic(
+  () => import('@/components/features/charts/attendance-heatmap').then(m => m.AttendanceHeatmap),
+  { ssr: false, loading: () => <div className="h-[200px] animate-pulse rounded-lg bg-muted" /> }
+)
 import { formatKoreanDateShort } from '@/lib/utils'
 
 interface ReportViewerProps {

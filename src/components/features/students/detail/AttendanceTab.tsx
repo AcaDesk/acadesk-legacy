@@ -9,7 +9,12 @@ import { format as formatDate } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { Calendar, CheckCircle, XCircle, Clock, Plus, Edit3 } from 'lucide-react'
 import { getAttendanceStatusInfo } from '@/lib/constants'
-import { AttendanceComboChart } from '@/components/features/charts/attendance-combo-chart'
+import dynamic from 'next/dynamic'
+
+const AttendanceComboChart = dynamic(
+  () => import('@/components/features/charts/attendance-combo-chart').then(m => m.AttendanceComboChart),
+  { ssr: false, loading: () => <div className="h-[300px] animate-pulse rounded-lg bg-muted" /> }
+)
 import { useStudentDetail } from '@/hooks/use-student-detail'
 
 const containerVariants = {

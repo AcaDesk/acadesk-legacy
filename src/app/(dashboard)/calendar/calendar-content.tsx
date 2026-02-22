@@ -3,7 +3,12 @@
 import { useState, useCallback } from 'react'
 import { RRule } from 'rrule'
 import { PageWrapper } from '@/components/layout/page-wrapper'
-import { AcademyCalendar } from '@/components/features/calendar/AcademyCalendar'
+import dynamic from 'next/dynamic'
+
+const AcademyCalendar = dynamic(
+  () => import('@/components/features/calendar/AcademyCalendar').then(m => m.AcademyCalendar),
+  { ssr: false, loading: () => <div className="h-[600px] animate-pulse rounded-lg bg-muted" /> }
+)
 import { EventDetailModal } from '@/components/features/calendar/EventDetailModal'
 import { AddEventModal } from '@/components/features/calendar/AddEventModal'
 import { EditEventModal } from '@/components/features/calendar/EditEventModal'
