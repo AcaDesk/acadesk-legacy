@@ -11,6 +11,7 @@ import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
 import type { ReportData } from '@/core/types/report.types'
+import type { TenantSettings } from '@/core/types/database'
 import {
   type StudentDataWithUser,
   getAttendanceData,
@@ -87,7 +88,7 @@ export async function generateWeeklyReport(
     }
 
     // settings에서 필드 추출
-    const settings = (academyData.settings as Record<string, any>) || {}
+    const settings = (academyData.settings as TenantSettings) || {}
     const academy = {
       name: academyData.name,
       phone: settings.phone || null,
@@ -98,11 +99,11 @@ export async function generateWeeklyReport(
 
     // 6. 독립적 헬퍼 6개 병렬 실행
     const [attendance, homework, scores, gradesChartData, attendanceChartData, currentScore] = await Promise.all([
-      getAttendanceData(supabase, studentId, periodStartStr, periodEndStr),
-      getHomeworkData(supabase, studentId, periodStartStr, periodEndStr),
+      getAttendanceData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
+      getHomeworkData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
       getScoresData(supabase, studentId, periodStartStr, periodEndStr, prevPeriodStartStr, prevPeriodEndStr, tenantId),
-      getGradesChartData(supabase, studentId, periodStartStr, periodEndStr),
-      getAttendanceChartData(supabase, studentId, periodStartStr, periodEndStr),
+      getGradesChartData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
+      getAttendanceChartData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
       getCurrentScoreData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
     ])
 
@@ -219,7 +220,7 @@ export async function generateMonthlyReport(
     }
 
     // settings에서 필드 추출
-    const settings = (academyData.settings as Record<string, any>) || {}
+    const settings = (academyData.settings as TenantSettings) || {}
     const academy = {
       name: academyData.name,
       phone: settings.phone || null,
@@ -230,11 +231,11 @@ export async function generateMonthlyReport(
 
     // 6. 독립적 헬퍼 7개 병렬 실행
     const [attendance, homework, scores, gradesChartData, attendanceChartData, currentScore, scoreTrend] = await Promise.all([
-      getAttendanceData(supabase, studentId, periodStartStr, periodEndStr),
-      getHomeworkData(supabase, studentId, periodStartStr, periodEndStr),
+      getAttendanceData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
+      getHomeworkData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
       getScoresData(supabase, studentId, periodStartStr, periodEndStr, prevPeriodStartStr, prevPeriodEndStr, tenantId),
-      getGradesChartData(supabase, studentId, periodStartStr, periodEndStr),
-      getAttendanceChartData(supabase, studentId, periodStartStr, periodEndStr),
+      getGradesChartData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
+      getAttendanceChartData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
       getCurrentScoreData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
       getScoreTrendData(supabase, studentId, year, month, tenantId),
     ])
@@ -451,13 +452,15 @@ export async function generateAndSendReport(params: {
       supabase,
       params.studentId,
       params.startDate,
-      params.endDate
+      params.endDate,
+      tenantId
     )
     const homework = await getHomeworkData(
       supabase,
       params.studentId,
       params.startDate,
-      params.endDate
+      params.endDate,
+      tenantId
     )
 
     // 5. 메시지 생성 (채널에 따라 다른 포맷)
@@ -629,7 +632,7 @@ export async function generateBulkMonthlyReports(
       throw new Error('학원 정보를 찾을 수 없습니다.')
     }
 
-    const settings = (academyData.settings as Record<string, any>) || {}
+    const settings = (academyData.settings as TenantSettings) || {}
     const academy = {
       name: academyData.name,
       phone: settings.phone || null,
@@ -685,11 +688,11 @@ export async function generateBulkMonthlyReports(
       try {
         // 7개 헬퍼 병렬 실행
         const [attendance, homework, scores, gradesChartData, attendanceChartData, currentScore, scoreTrend] = await Promise.all([
-          getAttendanceData(supabase, studentId, periodStartStr, periodEndStr),
-          getHomeworkData(supabase, studentId, periodStartStr, periodEndStr),
+          getAttendanceData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
+          getHomeworkData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
           getScoresData(supabase, studentId, periodStartStr, periodEndStr, prevPeriodStartStr, prevPeriodEndStr, tenantId),
-          getGradesChartData(supabase, studentId, periodStartStr, periodEndStr),
-          getAttendanceChartData(supabase, studentId, periodStartStr, periodEndStr),
+          getGradesChartData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
+          getAttendanceChartData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
           getCurrentScoreData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
           getScoreTrendData(supabase, studentId, year, month, tenantId),
         ])

@@ -92,10 +92,11 @@ describe('기존 split 방식 vs lastIndexOf 방식 비교', () => {
     // 기존 buggy 방식: split('-')
     const parts = key.split('-')
     const buggyStudentId = parts[0] // '550e8400' — 잘려나감!
-    const buggyDayOfWeek = parseInt(parts[parts.length - 1], 10) // 3
+    const buggyDayOfWeek = parseInt(parts[parts.length - 1], 10)
 
     expect(buggyStudentId).toBe('550e8400') // UUID가 잘려나감!
     expect(buggyStudentId).not.toBe(uuid) // 원본 UUID와 다름
+    expect(buggyDayOfWeek).toBe(3) // dayOfWeek는 우연히 맞음
 
     // 수정된 방식: lastIndexOf('-')
     const fixed = parseCellKey(key)
