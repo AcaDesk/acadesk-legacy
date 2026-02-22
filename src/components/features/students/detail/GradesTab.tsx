@@ -8,8 +8,16 @@ import { Button } from '@ui/button'
 import { format as formatDate } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { TrendingUp, TrendingDown, Minus, Plus, BarChart3 } from 'lucide-react'
-import { GradesLineChart } from '@/components/features/charts/grades-line-chart'
-import { SubjectBarChart } from '@/components/features/charts/subject-bar-chart'
+import dynamic from 'next/dynamic'
+
+const GradesLineChart = dynamic(
+  () => import('@/components/features/charts/grades-line-chart').then(m => m.GradesLineChart),
+  { ssr: false, loading: () => <div className="h-[300px] animate-pulse rounded-lg bg-muted" /> }
+)
+const SubjectBarChart = dynamic(
+  () => import('@/components/features/charts/subject-bar-chart').then(m => m.SubjectBarChart),
+  { ssr: false, loading: () => <div className="h-[300px] animate-pulse rounded-lg bg-muted" /> }
+)
 import { useStudentDetail } from '@/hooks/use-student-detail'
 
 const containerVariants = {

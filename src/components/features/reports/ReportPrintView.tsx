@@ -14,9 +14,20 @@ import { Badge } from '@ui/badge'
 import { Separator } from '@ui/separator'
 import { Button } from '@ui/button'
 import { Download, TrendingUp, TrendingDown, Minus } from 'lucide-react'
-import { GradesLineChart } from '@/components/features/charts/grades-line-chart'
-import { TodoCompletionDonut } from '@/components/features/charts/todo-completion-donut'
-import { AttendanceHeatmap } from '@/components/features/charts/attendance-heatmap'
+import dynamic from 'next/dynamic'
+
+const GradesLineChart = dynamic(
+  () => import('@/components/features/charts/grades-line-chart').then(m => m.GradesLineChart),
+  { ssr: false, loading: () => <div className="h-[300px] animate-pulse rounded-lg bg-muted" /> }
+)
+const TodoCompletionDonut = dynamic(
+  () => import('@/components/features/charts/todo-completion-donut').then(m => m.TodoCompletionDonut),
+  { ssr: false, loading: () => <div className="h-[200px] animate-pulse rounded-lg bg-muted" /> }
+)
+const AttendanceHeatmap = dynamic(
+  () => import('@/components/features/charts/attendance-heatmap').then(m => m.AttendanceHeatmap),
+  { ssr: false, loading: () => <div className="h-[200px] animate-pulse rounded-lg bg-muted" /> }
+)
 import type { ReportData } from '@/core/types/report.types'
 
 interface ReportPrintViewProps {

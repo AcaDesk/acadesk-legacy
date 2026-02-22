@@ -27,7 +27,12 @@ import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/page-error-boundary'
-import { GradesLineChart } from '@/components/features/charts/grades-line-chart'
+import dynamic from 'next/dynamic'
+
+const GradesLineChart = dynamic(
+  () => import('@/components/features/charts/grades-line-chart').then(m => m.GradesLineChart),
+  { ssr: false, loading: () => <div className="h-[300px] animate-pulse rounded-lg bg-muted" /> }
+)
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'

@@ -10,7 +10,12 @@ import { BarChart3, TrendingUp, Users, CheckCircle, AlertCircle } from 'lucide-r
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
 import { useToast } from '@/hooks/use-toast'
 import { getErrorMessage } from '@/lib/error-handlers'
-import { StudentCompletionBarChart } from '@/components/features/charts/student-completion-bar-chart'
+import dynamic from 'next/dynamic'
+
+const StudentCompletionBarChart = dynamic(
+  () => import('@/components/features/charts/student-completion-bar-chart').then(m => m.StudentCompletionBarChart),
+  { ssr: false, loading: () => <div className="h-[300px] animate-pulse rounded-lg bg-muted" /> }
+)
 
 interface TodoStats {
   totalTodos: number
