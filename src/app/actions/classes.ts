@@ -562,8 +562,19 @@ export async function getClassStudents(classId: string) {
     }
 
     // 4. Calculate stats for each student
-    // TODO(any): Supabase nested query types
-    const studentIds = enrollments.map((e: any) => e.student_id).filter(Boolean)
+    interface EnrollmentRow {
+      student_id: string
+      students: {
+        id: string
+        student_code: string
+        users: { name: string } | null
+      } | null
+    }
+    interface ScoreRow { student_id: string; percentage: number }
+    interface AttendanceRow { student_id: string; status: string }
+    interface TodoRow { student_id: string; completed_at: string | null }
+
+    const studentIds = (enrollments as unknown as EnrollmentRow[]).map((e) => e.student_id).filter(Boolean)
 
     // Get exam scores
     const { data: scores } = await supabase
@@ -587,27 +598,26 @@ export async function getClassStudents(classId: string) {
       .in('student_id', studentIds)
 
     // 5. Calculate stats per student
-    // TODO(any): Supabase nested query types
-    const studentsWithStats = enrollments.map((enrollment: any) => {
+    const studentsWithStats = (enrollments as unknown as EnrollmentRow[]).map((enrollment) => {
       const student = enrollment.students
       const studentId = enrollment.student_id
 
       // Calculate average score
-      const studentScores = (scores || []).filter((s: any) => s.student_id === studentId)
+      const studentScores = (scores || [] as ScoreRow[]).filter((s) => s.student_id === studentId)
       const avgScore = studentScores.length > 0
-        ? Math.round(studentScores.reduce((sum: number, s: any) => sum + (s.percentage || 0), 0) / studentScores.length)
+        ? Math.round(studentScores.reduce((sum, s) => sum + (s.percentage || 0), 0) / studentScores.length)
         : 0
 
       // Calculate attendance rate
-      const studentAttendance = (attendance || []).filter((a: any) => a.student_id === studentId)
-      const presentCount = studentAttendance.filter((a: any) => a.status === 'present').length
+      const studentAttendance = (attendance || [] as AttendanceRow[]).filter((a) => a.student_id === studentId)
+      const presentCount = studentAttendance.filter((a) => a.status === 'present').length
       const attendanceRate = studentAttendance.length > 0
         ? Math.round((presentCount / studentAttendance.length) * 100)
         : 0
 
       // Calculate homework completion rate
-      const studentTodos = (todos || []).filter((t: any) => t.student_id === studentId)
-      const completedCount = studentTodos.filter((t: any) => t.completed_at).length
+      const studentTodos = (todos || [] as TodoRow[]).filter((t) => t.student_id === studentId)
+      const completedCount = studentTodos.filter((t) => t.completed_at).length
       const homeworkRate = studentTodos.length > 0
         ? Math.round((completedCount / studentTodos.length) * 100)
         : 0

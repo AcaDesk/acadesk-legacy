@@ -33,42 +33,36 @@ describe('kakao-channel server actions', () => {
   const mockTenantId = 'test-tenant-id'
 
   // Mock Supabase client helper
+  // getSolapiProvider 체인: .select().eq('tenant_id').eq('provider').is('deleted_at').maybeSingle()
+  // createKakaoChannel 체인: .select().eq('tenant_id').is('deleted_at').maybeSingle()
   function createMockSupabaseClient(overrides?: {
     selectData?: any
     selectError?: Error | null
     updateError?: Error | null
   }) {
-    const mockSelect = vi.fn().mockReturnThis()
-    const mockEq = vi.fn().mockReturnThis()
-    const mockIs = vi.fn().mockReturnThis()
     const mockMaybeSingle = vi.fn().mockResolvedValue({
       data: overrides?.selectData ?? null,
       error: overrides?.selectError ?? null,
     })
-    const mockUpdate = vi.fn().mockReturnThis()
 
-    // For update chain that ends without maybeSingle
-    const mockUpdateChain = {
-      eq: vi.fn().mockReturnThis(),
-      is: vi.fn().mockResolvedValue({
-        error: overrides?.updateError ?? null,
-      }),
+    // 체이닝이 어떤 순서로 와도 동작하도록 자기참조 체인 구성
+    const createChainableQuery = () => {
+      const chain: Record<string, any> = {}
+      chain.eq = vi.fn().mockReturnValue(chain)
+      chain.is = vi.fn().mockReturnValue(chain)
+      chain.maybeSingle = mockMaybeSingle
+      return chain
     }
 
     return {
       from: vi.fn((table: string) => {
         if (table === 'tenant_messaging_config') {
           return {
-            select: mockSelect.mockReturnValue({
-              eq: mockEq.mockReturnValue({
-                is: mockIs.mockReturnValue({
-                  maybeSingle: mockMaybeSingle,
-                }),
-              }),
-            }),
-            update: mockUpdate.mockReturnValue({
-              eq: mockUpdateChain.eq.mockReturnValue({
-                is: mockUpdateChain.is,
+            select: vi.fn().mockReturnValue(createChainableQuery()),
+            update: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnThis(),
+              is: vi.fn().mockResolvedValue({
+                error: overrides?.updateError ?? null,
               }),
             }),
           }
@@ -83,8 +77,8 @@ describe('kakao-channel server actions', () => {
           }
         }
         return {
-          select: mockSelect,
-          update: mockUpdate,
+          select: vi.fn().mockReturnValue(createChainableQuery()),
+          update: vi.fn().mockReturnThis(),
         }
       }),
     }
@@ -100,7 +94,7 @@ describe('kakao-channel server actions', () => {
   })
 
   describe('createKakaoChannel validation', () => {
-    it('should reject searchId without @ prefix', async () => {
+    it('should reject searchId with invalid characters (underscore)', async () => {
       const mockSupabase = createMockSupabaseClient({
         selectData: {
           provider: 'solapi',
@@ -112,14 +106,14 @@ describe('kakao-channel server actions', () => {
       ;(createServiceRoleClient as Mock).mockReturnValue(mockSupabase)
 
       const result = await createKakaoChannel({
-        searchId: 'invalid_no_at', // Missing @ prefix
+        searchId: 'invalid_no_at', // Contains underscore → rejected by regex
         phoneNumber: '01012345678',
         token: '123456',
         categoryCode: '001',
       })
 
       expect(result.success).toBe(false)
-      expect(result.error).toContain('@로 시작해야')
+      expect(result.error).toContain('검색용 아이디 형식')
     })
 
     it('should reject invalid phoneNumber format', async () => {
@@ -169,7 +163,7 @@ describe('kakao-channel server actions', () => {
     it('should accept valid input format', async () => {
       const mockChannel = {
         channelId: 'test-channel-id',
-        searchId: '@valid_channel',
+        searchId: '@validchannel',
         name: 'Test Channel',
         status: 'active',
         verifiedAt: new Date(),
@@ -180,39 +174,27 @@ describe('kakao-channel server actions', () => {
       }
       ;(SolapiProvider as unknown as Mock).mockImplementation(() => mockProvider)
 
-      // Mock Supabase with complete chain for both select and update
+      // 자기참조 체인으로 .eq().eq().is().maybeSingle() 모두 지원
+      const createChain = (data: any) => {
+        const chain: Record<string, any> = {}
+        chain.eq = vi.fn().mockReturnValue(chain)
+        chain.is = vi.fn().mockReturnValue(chain)
+        chain.maybeSingle = vi.fn().mockResolvedValue({ data, error: null })
+        return chain
+      }
+
+      const solapiConfig = {
+        provider: 'solapi',
+        solapi_api_key: 'test-key',
+        solapi_api_secret: 'test-secret',
+        solapi_sender_phone: '01012345678',
+      }
+
       const mockSupabase = {
         from: vi.fn((table: string) => {
           if (table === 'tenant_messaging_config') {
             return {
-              select: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  eq: vi.fn().mockReturnValue({
-                    is: vi.fn().mockReturnValue({
-                      maybeSingle: vi.fn().mockResolvedValue({
-                        data: {
-                          provider: 'solapi',
-                          solapi_api_key: 'test-key',
-                          solapi_api_secret: 'test-secret',
-                          solapi_sender_phone: '01012345678',
-                        },
-                        error: null,
-                      }),
-                    }),
-                  }),
-                  is: vi.fn().mockReturnValue({
-                    maybeSingle: vi.fn().mockResolvedValue({
-                      data: {
-                        provider: 'solapi',
-                        solapi_api_key: 'test-key',
-                        solapi_api_secret: 'test-secret',
-                        solapi_sender_phone: '01012345678',
-                      },
-                      error: null,
-                    }),
-                  }),
-                }),
-              }),
+              select: vi.fn().mockReturnValue(createChain(solapiConfig)),
               update: vi.fn().mockReturnValue({
                 eq: vi.fn().mockReturnValue({
                   is: vi.fn().mockResolvedValue({ error: null }),
@@ -226,7 +208,7 @@ describe('kakao-channel server actions', () => {
       ;(createServiceRoleClient as Mock).mockReturnValue(mockSupabase)
 
       const result = await createKakaoChannel({
-        searchId: '@valid_channel',
+        searchId: '@validchannel',
         phoneNumber: '01012345678',
         token: '123456',
         categoryCode: '001',

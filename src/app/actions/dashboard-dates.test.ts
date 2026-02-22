@@ -136,9 +136,11 @@ describe('UTC 방식 vs KST 방식 비교', () => {
 
     // 기존 UTC 방식 시뮬레이션 (서버가 UTC일 때)
     const utcNow = new Date('2026-01-31T15:30:00Z') // KST 2026-02-01 00:30
-    const utcLastMonthStart = new Date(
-      utcNow.getFullYear(), utcNow.getMonth() - 1, 1
-    ).toISOString().split('T')[0]
-    expect(utcLastMonthStart).toBe('2025-12-01') // ✗ 12월로 잘못 계산됨!
+    // UTC 기준으로 계산해야 로컬 타임존 영향을 받지 않음
+    const utcYear = utcNow.getUTCFullYear()  // 2025
+    const utcMonth = utcNow.getUTCMonth()    // 0 (January)
+    const utcPrevMonthDate = new Date(Date.UTC(utcYear, utcMonth - 1, 1))
+    const utcLastMonthStart = utcPrevMonthDate.toISOString().split('T')[0]
+    expect(utcLastMonthStart).toBe('2025-12-01') // ✗ UTC 기준 12월로 잘못 계산됨!
   })
 })
