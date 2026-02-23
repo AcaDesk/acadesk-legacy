@@ -6,6 +6,9 @@ import { LogoutButton } from '@/components/auth/LogoutButton'
 
 // Edge 런타임 방지 - service_role은 Node.js에서만 작동
 export const runtime = 'nodejs'
+// 인증(cookies) 사용으로 정적 프리렌더 불가 → 빌드 시 DYNAMIC_SERVER_USAGE 경고 억제
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 interface DashboardLayoutProps {
   children: React.ReactNode

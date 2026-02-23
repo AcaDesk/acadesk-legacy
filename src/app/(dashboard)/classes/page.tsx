@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { getClassesWithDetails } from '@/app/actions/classes'
 import { ClassesPageClient } from './classes-page-client'
 import { PageWrapper } from "@/components/layout/page-wrapper"

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { getSubjectsWithStatistics } from '@/app/actions/subjects'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
