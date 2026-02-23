@@ -504,10 +504,38 @@ export function useStudentDetail() {
    - Use factories to get use cases
    - Never import use cases or repositories directly
 
-6. **Add Database Migration**:
+6. **Register Feature Flag**:
+   - Add the feature key to `src/lib/features.config.ts` with an appropriate status (`inactive` while building, `beta` for soft launch, `active` for full release)
+   - Use `isFeatureAvailable(feature)` in nav/routing guards to control access
+
+7. **Add Database Migration**:
    - Create migration in `supabase/migrations/`
    - Include schema and RLS policies
    - Test locally with `supabase db reset`
+
+### Feature Flags
+
+All features are registered in `src/lib/features.config.ts` with one of five statuses:
+
+| Status | Meaning |
+|--------|---------|
+| `active` | Fully released, all users can access |
+| `beta` | Soft launch — accessible but marked with beta badge |
+| `inactive` | Not yet released — shows "Coming Soon" page |
+| `maintenance` | Temporarily down — shows maintenance page |
+| `deprecated` | Being phased out — shows deprecation warning |
+
+```typescript
+import { isFeatureAvailable, isFeatureBeta } from '@/lib/features.config'
+
+// Guard a route or nav item
+if (!isFeatureAvailable('batchCenter')) redirect('/coming-soon')
+
+// Show beta badge
+{isFeatureBeta('batchCenter') && <Badge>Beta</Badge>}
+```
+
+**Rule**: Every new top-level feature/route must have a corresponding feature flag. Start with `inactive` and promote when ready.
 
 ### Accessing Data in Components
 
