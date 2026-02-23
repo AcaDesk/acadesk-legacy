@@ -6,16 +6,13 @@ import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@ui/tabs'
-import { Plus, Users } from 'lucide-react'
+import { Plus, Send, Users, MessageSquare, Layers } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from '@/components/layout/page-wrapper'
 import { ReportTableImproved } from '@/components/features/reports/report-table-improved'
 import { ReportStatCards } from '@/components/features/reports/report-stat-cards'
 import { ReportDialogs } from '@/components/features/reports/report-dialogs'
 import { ReportFilterPresets, type PresetFilter } from '@/components/features/reports/report-filter-presets'
-import { SendWorkbench } from '@/components/features/reports/send-workbench'
-import { CommentWorkbench } from '@/components/features/reports/comment-workbench'
 import { useReportActions } from '@/hooks/use-report-actions'
 import { getReports } from '@/app/actions/reports'
 import type { ReportWithStudent, StudentForFilter } from '@/core/types/report.types'
@@ -55,7 +52,6 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
   const [activeStatFilter, setActiveStatFilter] = useState<string | null>(null)
   const [activePresets, setActivePresets] = useState<PresetFilter[]>([])
   const [loading, setLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState('browse')
 
   const { toast } = useToast()
   const router = useRouter()
@@ -145,10 +141,6 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
     )
   }
 
-  function handleTabChange(tab: string) {
-    setActiveTab(tab)
-  }
-
   function resetAllFilters() {
     setSelectedSchoolLevel('all')
     setSelectedStudent('all')
@@ -169,14 +161,22 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
       title="리포트 관리"
       subtitle="생성된 모든 리포트를 조회하고 관리합니다"
       actions={
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button onClick={() => router.push('/reports/new')}>
             <Plus className="h-4 w-4 mr-2" />
             개별 생성
           </Button>
-          <Button onClick={() => router.push('/reports/bulk')} variant="outline">
+          <Button onClick={() => router.push('/batch/new?action=report')} variant="outline">
             <Users className="h-4 w-4 mr-2" />
-            일괄 생성
+            일괄 리포트
+          </Button>
+          <Button onClick={() => router.push('/batch/new?action=comment')} variant="outline">
+            <MessageSquare className="h-4 w-4 mr-2" />
+            일괄 코멘트
+          </Button>
+          <Button onClick={() => router.push('/batch/new?action=send')} variant="outline">
+            <Send className="h-4 w-4 mr-2" />
+            일괄 전송
           </Button>
         </div>
       }
@@ -264,52 +264,36 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
           </Badge>
         </div>
 
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList>
-            <TabsTrigger value="browse">조회</TabsTrigger>
-            <TabsTrigger value="send">일괄 전송</TabsTrigger>
-            <TabsTrigger value="comment">코멘트 작업</TabsTrigger>
-          </TabsList>
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm text-muted-foreground">
+              일괄 생성/코멘트/전송은 이제 일괄작업센터에서 통합 실행됩니다.
+            </div>
+            <Button variant="secondary" onClick={() => router.push('/batch')}>
+              <Layers className="h-4 w-4 mr-2" />
+              일괄작업센터 이동
+            </Button>
+          </CardContent>
+        </Card>
 
-          <TabsContent value="browse">
-            <Card>
-              <CardHeader>
-                <CardTitle>리포트 목록</CardTitle>
-                <CardDescription>
-                  생성된 모든 리포트를 확인하고 보호자에게 전송할 수 있습니다
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ReportTableImproved
-                  data={filteredReports}
-                  loading={loading}
-                  mode="browse"
-                  onSendClick={actions.handleSendClick}
-                  onDeleteClick={actions.handleDeleteClick}
-                  onBulkDeleteClick={actions.handleBulkDeleteClick}
-                  onBulkSendClick={actions.handleBulkSendClick}
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="send">
-            <SendWorkbench
+        <Card>
+          <CardHeader>
+            <CardTitle>리포트 목록</CardTitle>
+            <CardDescription>
+              생성된 리포트를 확인하고 개별 전송/삭제를 처리할 수 있습니다.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ReportTableImproved
               data={filteredReports}
               loading={loading}
-              onComplete={loadReports}
+              mode="browse"
+              onSendClick={actions.handleSendClick}
+              onDeleteClick={actions.handleDeleteClick}
+              onBulkDeleteClick={actions.handleBulkDeleteClick}
             />
-          </TabsContent>
-
-          <TabsContent value="comment">
-            <CommentWorkbench
-              data={filteredReports}
-              loading={loading}
-              onComplete={loadReports}
-            />
-          </TabsContent>
-        </Tabs>
+          </CardContent>
+        </Card>
 
         {/* Dialogs */}
         <ReportDialogs {...actions} />

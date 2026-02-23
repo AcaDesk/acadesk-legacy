@@ -25,6 +25,8 @@ export async function createBatchDraft(payload?: CreateBatchDraftPayload) {
         target_ids: payload?.targetIds ?? [],
         target_snapshot_count: payload?.targetIds?.length ?? 0,
         action_type: payload?.actionType ?? null,
+        options: payload?.options ?? {},
+        schedule: payload?.schedule ?? { mode: 'now' },
         step: 'targets',
         status: 'draft',
       })

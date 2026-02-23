@@ -146,6 +146,8 @@ export interface BatchTarget {
 export interface CreateBatchDraftPayload {
   targetIds?: string[]
   actionType?: BatchActionType
+  options?: BatchOptions
+  schedule?: BatchSchedule
 }
 
 export interface PatchBatchDraftPayload {

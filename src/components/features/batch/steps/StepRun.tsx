@@ -1,16 +1,15 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/hooks/use-toast'
 import { useBatchExecution } from '@/hooks/use-batch-execution'
-import { executeSingleBatchItem } from '@/app/actions/batch-jobs'
 import { RunProgressPanel } from '../shared/RunProgressPanel'
 import { RunResultActions } from '../shared/RunResultActions'
 import { Button } from '@ui/button'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import { Rocket } from 'lucide-react'
-import type { BatchDraft, BatchJobItem } from '@/core/types/batch.types'
+import type { BatchDraft } from '@/core/types/batch.types'
 
 interface StepRunProps {
   draftId: string
@@ -23,19 +22,10 @@ export function StepRun({ draftId, draft }: StepRunProps) {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [started, setStarted] = useState(false)
 
-  const executeItem = useCallback(async (item: BatchJobItem) => {
-    return executeSingleBatchItem(
-      item.target_id,
-      draft.action_type!,
-      draft.options ?? {}
-    )
-  }, [draft.action_type, draft.options])
-
   const { jobId, progress, isRunning, isComplete, start, cancel, retryFailed } = useBatchExecution({
     draftId,
-    executeItem,
     onComplete: (completedJobId) => {
-      toast({ title: '작업이 완료되었습니다.' })
+      toast({ title: '작업이 종료되었습니다.' })
       // 3초 후 자동 이동
       setTimeout(() => router.push(`/jobs/${completedJobId}`), 3000)
     },
@@ -75,7 +65,17 @@ export function StepRun({ draftId, draft }: StepRunProps) {
 
           {isRunning && (
             <div className="flex justify-center">
-              <Button variant="outline" onClick={cancel}>
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  const result = await cancel()
+                  if (!result.success) {
+                    toast({ title: '취소 실패', description: result.error ?? '', variant: 'destructive' })
+                  } else {
+                    toast({ title: '작업 취소 요청이 처리되었습니다.' })
+                  }
+                }}
+              >
                 취소
               </Button>
             </div>
