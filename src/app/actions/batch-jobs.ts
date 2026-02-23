@@ -6,6 +6,8 @@ import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
 import type { BatchJob, BatchJobItem, BatchJobProgress, BatchJobsFilter, JobStatus, JobItemStatus, BatchActionType, BatchOptions, ReportOptions } from '@/core/types/batch.types'
 
+const JOB_EXECUTION_BATCH_SIZE = 3
+
 export async function getBatchJobs(filters?: BatchJobsFilter) {
   try {
     const { tenantId } = await verifyStaff()
@@ -135,6 +137,197 @@ export async function retryFailedItems(jobId: string) {
   }
 }
 
+export async function executePendingJobItems(jobId: string) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    const { data: job, error: jobError } = await supabase
+      .from('batch_jobs')
+      .select('id, draft_id, status, action_type, job_params')
+      .eq('id', jobId)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .single()
+    if (jobError) throw jobError
+
+    if (job.status === 'canceled') {
+      return {
+        success: true as const,
+        data: {
+          progress: { total: 0, processed: 0, success: 0, failed: 0 } as BatchJobProgress,
+          status: 'canceled' as JobStatus,
+        },
+        error: null,
+      }
+    }
+
+    const { data: items, error: itemsError } = await supabase
+      .from('batch_job_items')
+      .select('id, target_id, status')
+      .eq('job_id', jobId)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: true })
+    if (itemsError) throw itemsError
+
+    const allItems = items ?? []
+    const total = allItems.length
+    let success = allItems.filter((item) => item.status === 'completed').length
+    let failed = allItems.filter((item) => item.status === 'failed').length
+    let processed = allItems.filter((item) => item.status === 'completed' || item.status === 'failed' || item.status === 'skipped').length
+
+    const progress: BatchJobProgress = { total, processed, success, failed }
+    await supabase
+      .from('batch_jobs')
+      .update({ status: 'running', completed_at: null, progress, started_at: new Date().toISOString() })
+      .eq('id', jobId)
+      .eq('tenant_id', tenantId)
+
+    const resumableItems = allItems.filter((item) => item.status === 'pending' || item.status === 'in_progress')
+
+    let wasCanceled = false
+    for (let i = 0; i < resumableItems.length; i += JOB_EXECUTION_BATCH_SIZE) {
+      const { data: statusCheck, error: statusError } = await supabase
+        .from('batch_jobs')
+        .select('status')
+        .eq('id', jobId)
+        .eq('tenant_id', tenantId)
+        .single()
+      if (statusError) throw statusError
+      if (statusCheck.status === 'canceled') {
+        wasCanceled = true
+        break
+      }
+
+      const batch = resumableItems.slice(i, i + JOB_EXECUTION_BATCH_SIZE)
+      for (const item of batch) {
+        const { data: liveStatus } = await supabase
+          .from('batch_jobs')
+          .select('status')
+          .eq('id', jobId)
+          .eq('tenant_id', tenantId)
+          .single()
+        if (liveStatus?.status === 'canceled') {
+          wasCanceled = true
+          break
+        }
+
+        const { data: itemStatusCheck } = await supabase
+          .from('batch_job_items')
+          .select('status')
+          .eq('id', item.id)
+          .eq('tenant_id', tenantId)
+          .single()
+
+        if (itemStatusCheck?.status === 'skipped') {
+          processed++
+          continue
+        }
+
+        await supabase
+          .from('batch_job_items')
+          .update({ status: 'in_progress', started_at: new Date().toISOString() })
+          .eq('id', item.id)
+          .eq('tenant_id', tenantId)
+
+        const execution = await executeSingleBatchItem(
+          item.target_id as string,
+          job.action_type as BatchActionType,
+          (job.job_params ?? {}) as BatchOptions
+        )
+
+        if (execution.success) {
+          await supabase
+            .from('batch_job_items')
+            .update({
+              status: 'completed',
+              result_data: execution.data ?? null,
+              error_message: null,
+              error_category: null,
+              completed_at: new Date().toISOString(),
+            })
+            .eq('id', item.id)
+            .eq('tenant_id', tenantId)
+          success++
+        } else {
+          await supabase
+            .from('batch_job_items')
+            .update({
+              status: 'failed',
+              error_message: execution.error ?? '처리 중 오류가 발생했습니다.',
+              error_category: 'execution_error',
+              retryable: true,
+              completed_at: new Date().toISOString(),
+            })
+            .eq('id', item.id)
+            .eq('tenant_id', tenantId)
+          failed++
+        }
+
+        processed++
+      }
+
+      if (wasCanceled) break
+
+      await supabase
+        .from('batch_jobs')
+        .update({
+          status: 'running',
+          progress: { total, processed, success, failed } as BatchJobProgress,
+        })
+        .eq('id', jobId)
+        .eq('tenant_id', tenantId)
+    }
+
+    if (wasCanceled) {
+      const { data: canceledJob } = await supabase
+        .from('batch_jobs')
+        .select('status, progress')
+        .eq('id', jobId)
+        .eq('tenant_id', tenantId)
+        .single()
+
+      return {
+        success: true as const,
+        data: {
+          progress: (canceledJob?.progress ?? progress) as BatchJobProgress,
+          status: (canceledJob?.status ?? 'canceled') as JobStatus,
+        },
+        error: null,
+      }
+    }
+
+    const finalStatus: JobStatus =
+      failed === 0 ? 'succeeded' : success > 0 ? 'partial_failed' : 'failed'
+
+    await supabase
+      .from('batch_jobs')
+      .update({
+        progress: { total, processed, success, failed } as BatchJobProgress,
+      })
+      .eq('id', jobId)
+      .eq('tenant_id', tenantId)
+
+    const completeResult = await completeJob(jobId, finalStatus)
+    if (!completeResult.success) {
+      throw new Error(completeResult.error ?? '작업 완료 처리 실패')
+    }
+
+    return {
+      success: true as const,
+      data: {
+        progress: { total, processed, success, failed } as BatchJobProgress,
+        status: finalStatus,
+      },
+      error: null,
+    }
+  } catch (error) {
+    console.error('[executePendingJobItems] Error:', error)
+    return { success: false as const, data: null, error: getErrorMessage(error) }
+  }
+}
+
 export async function cancelJob(jobId: string) {
   try {
     const { tenantId } = await verifyStaff()
@@ -215,12 +408,19 @@ export async function executeSingleBatchItem(
   try {
     if (actionType === 'report') {
       const opts = options as ReportOptions
-      const { generateMonthlyReport, saveReport } = await import('@/app/actions/reports/report-generation')
-      const genResult = await generateMonthlyReport(targetId, opts.year, opts.month)
+      const { generateMonthlyReport, generateWeeklyReport, saveReport } = await import('@/app/actions/reports/report-generation')
+      const reportType = (opts.reportType as 'weekly' | 'monthly') ?? 'monthly'
+      const genResult = reportType === 'weekly'
+        ? await generateWeeklyReport(
+            targetId,
+            `${opts.year}-${String(opts.month).padStart(2, '0')}-01`,
+            `${opts.year}-${String(opts.month).padStart(2, '0')}-07`
+          )
+        : await generateMonthlyReport(targetId, opts.year, opts.month)
       if (!genResult.success || !genResult.data) {
         return { success: false, error: genResult.error || '리포트 생성 실패' }
       }
-      const saveResult = await saveReport(genResult.data, (opts.reportType as 'weekly' | 'monthly') ?? 'monthly')
+      const saveResult = await saveReport(genResult.data, reportType)
       if (!saveResult.success || !saveResult.data) {
         return { success: false, error: saveResult.error || '리포트 저장 실패' }
       }

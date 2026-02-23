@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useToast } from '@/hooks/use-toast'
-import { getBatchJobDetail, cancelJob, retryFailedItems } from '@/app/actions/batch-jobs'
+import { getBatchJobDetail, cancelJob, retryFailedItems, executePendingJobItems } from '@/app/actions/batch-jobs'
 import { JobProgressHeader } from './JobProgressHeader'
 import { JobErrorGroupList } from './JobErrorGroupList'
 import { RunResultActions } from '@/components/features/batch/shared/RunResultActions'
@@ -88,12 +88,23 @@ export function JobDetailContent({ initialJob, initialItems }: JobDetailContentP
           failedCount={summary.failed}
           onRetry={async () => {
             const result = await retryFailedItems(job.id)
-            if (result.success && result.data) {
-              toast({ title: `${result.data.retryCount}건 재시도 완료` })
-              await refresh()
-              return { success: true }
+            if (!result.success || !result.data) {
+              return { success: false, error: result.error }
             }
-            return { success: false, error: result.error }
+
+            if (result.data.retryCount === 0) {
+              await refresh()
+              return { success: false, error: '재시도할 항목이 없습니다.' }
+            }
+
+            const executeResult = await executePendingJobItems(job.id)
+            await refresh()
+            if (!executeResult.success) {
+              return { success: false, error: executeResult.error }
+            }
+
+            toast({ title: `${result.data.retryCount}건 재실행 완료` })
+            return { success: true }
           }}
         />
         {(job.status === 'queued' || job.status === 'running') && (
