@@ -65,7 +65,7 @@ export function useReportStepper() {
 
   // Step 2
   const now = new Date()
-  const [period, setPeriod] = useState<PeriodConfig>({
+  const [period, setPeriodState] = useState<PeriodConfig>({
     type: 'monthly',
     year: now.getFullYear(),
     month: now.getMonth() + 1,
@@ -123,14 +123,16 @@ export function useReportStepper() {
       // data must be loaded (not necessarily "completed" in checklist sense)
       // comment summary must be non-empty
       for (const req of requiredBefore) {
-        if (req === 'student' && !student) return false
-        if (req === 'period' && !isPeriodValid()) return false
-        if (req === 'data' && !dataLoaded) return false
+        if (req === 'student' && (!student || !completedSteps.has('student'))) return false
+        if (req === 'period' && (!isPeriodValid() || !completedSteps.has('period'))) return false
+        if (req === 'data' && (!dataLoaded || !completedSteps.has('data'))) return false
+        if (req === 'comment' && (step === 'preview' || step === 'submit') && !completedSteps.has('comment')) return false
         if (req === 'comment' && step === 'submit' && !comment.summary.trim()) return false
+        if (req === 'preview' && step === 'submit' && !completedSteps.has('preview')) return false
       }
       return true
     },
-    [student, isPeriodValid, dataLoaded, comment.summary]
+    [student, isPeriodValid, dataLoaded, comment.summary, completedSteps]
   )
 
   const goToStep = useCallback(
@@ -165,7 +167,16 @@ export function useReportStepper() {
     (s: SelectedStudent) => {
       setStudentState(s)
       addRecentStudent(s)
-      setCompletedSteps((prev) => new Set([...prev, 'student']))
+      setCompletedSteps((prev) => {
+        const next = new Set(prev)
+        next.add('student')
+        next.delete('period')
+        next.delete('data')
+        next.delete('comment')
+        next.delete('preview')
+        next.delete('submit')
+        return next
+      })
       // Reset downstream if student changed
       setDataLoaded(false)
       setReportData(null)
@@ -187,11 +198,36 @@ export function useReportStepper() {
       next.delete('data')
       next.delete('comment')
       next.delete('preview')
+      next.delete('submit')
       return next
     })
     setDataLoaded(false)
     setReportData(null)
+    setWarnings([])
+    setDataError(null)
+    setComment({ summary: '', strengths: '', improvements: '', nextGoals: '' })
+    setSendAfterSave(false)
     setCurrentStep('student')
+  }, [])
+
+  const setPeriod = useCallback((nextPeriod: PeriodConfig) => {
+    setPeriodState(nextPeriod)
+    // Any period edit invalidates downstream review/comment/preview state.
+    setCompletedSteps((prev) => {
+      const next = new Set(prev)
+      next.delete('period')
+      next.delete('data')
+      next.delete('comment')
+      next.delete('preview')
+      next.delete('submit')
+      return next
+    })
+    setDataLoaded(false)
+    setReportData(null)
+    setWarnings([])
+    setDataError(null)
+    setComment({ summary: '', strengths: '', improvements: '', nextGoals: '' })
+    setSendAfterSave(false)
   }, [])
 
   // ============================================================================
@@ -207,7 +243,15 @@ export function useReportStepper() {
       })
       return
     }
-    setCompletedSteps((prev) => new Set([...prev, 'period']))
+    setCompletedSteps((prev) => {
+      const next = new Set(prev)
+      next.add('period')
+      next.delete('data')
+      next.delete('comment')
+      next.delete('preview')
+      next.delete('submit')
+      return next
+    })
     // Reset downstream on period change
     setDataLoaded(false)
     setReportData(null)
@@ -303,6 +347,13 @@ export function useReportStepper() {
 
   const updateComment = useCallback((patch: Partial<CommentDraft>) => {
     setComment((prev) => ({ ...prev, ...patch }))
+    // Comment edits require preview/submit reconfirmation.
+    setCompletedSteps((prev) => {
+      const next = new Set(prev)
+      next.delete('preview')
+      next.delete('submit')
+      return next
+    })
   }, [])
 
   const confirmComment = useCallback(() => {

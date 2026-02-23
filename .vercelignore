@@ -1,11 +1,11 @@
 # Documentation
-docs/
+/docs/
 CLAUDE.md
 
 # Database/Migration files
-supabase/
-db/
-scripts/
+/supabase/
+/db/
+/scripts/
 create-test-user.sql
 
 # Testing
