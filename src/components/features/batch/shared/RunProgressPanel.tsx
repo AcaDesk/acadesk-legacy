@@ -13,6 +13,8 @@ export function RunProgressPanel({ progress, isRunning }: RunProgressPanelProps)
   const percent = progress.total > 0
     ? Math.round((progress.processed / progress.total) * 100)
     : 0
+  const pending = Math.max(progress.total - progress.processed, 0)
+  const statusLabel = isRunning ? '실행 중...' : pending > 0 ? '대기 중...' : '완료'
 
   return (
     <div className="space-y-4">
@@ -24,7 +26,7 @@ export function RunProgressPanel({ progress, isRunning }: RunProgressPanelProps)
             <Clock className="h-4 w-4 text-muted-foreground" />
           )}
           <span className="text-sm font-medium">
-            {isRunning ? '실행 중...' : '완료'}
+            {statusLabel}
           </span>
         </div>
         <span className="text-sm text-muted-foreground">
@@ -45,7 +47,7 @@ export function RunProgressPanel({ progress, isRunning }: RunProgressPanelProps)
         </div>
         <div className="flex items-center gap-2 text-sm">
           <Clock className="h-4 w-4 text-muted-foreground" />
-          <span>대기: {progress.total - progress.processed}건</span>
+          <span>대기: {pending}건</span>
         </div>
       </div>
     </div>

@@ -31,6 +31,7 @@ export function JobDetailContent({ initialJob, initialItems }: JobDetailContentP
   const [items, setItems] = useState(initialItems)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [canceling, setCanceling] = useState(false)
+  const [resuming, setResuming] = useState(false)
 
   const refresh = async () => {
     const result = await getBatchJobDetail(job.id)
@@ -59,6 +60,7 @@ export function JobDetailContent({ initialJob, initialItems }: JobDetailContentP
     failed: items.filter((i) => i.status === 'failed').length,
     skipped: items.filter((i) => i.status === 'skipped').length,
   }
+  const hasPendingItems = summary.total > summary.success + summary.failed + summary.skipped
 
   return (
     <div className="space-y-6">
@@ -83,6 +85,28 @@ export function JobDetailContent({ initialJob, initialItems }: JobDetailContentP
       <JobErrorGroupList items={items} />
 
       <div className="flex gap-2">
+        {hasPendingItems && (job.status === 'queued' || job.status === 'running' || job.status === 'partial_failed') && (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={resuming}
+            onClick={async () => {
+              setResuming(true)
+              const result = await executePendingJobItems(job.id)
+              await refresh()
+              if (!result.success) {
+                toast({ title: '실행 실패', description: result.error ?? '', variant: 'destructive' })
+              } else if (result.data?.status === 'queued') {
+                toast({ title: '아직 예약 시간이 도래하지 않았습니다.' })
+              } else {
+                toast({ title: '작업을 이어서 실행했습니다.' })
+              }
+              setResuming(false)
+            }}
+          >
+            작업 이어서 실행
+          </Button>
+        )}
         <RunResultActions
           jobId={job.id}
           failedCount={summary.failed}

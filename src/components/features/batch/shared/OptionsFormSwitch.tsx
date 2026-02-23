@@ -26,10 +26,12 @@ const DEFAULT_REPORT: ReportOptions = {
 
 const DEFAULT_COMMENT: CommentOptions = {
   overwriteExisting: false,
+  targetReportMode: 'latest',
 }
 
 const DEFAULT_SEND: SendOptions = {
   channel: 'sms',
+  targetReportMode: 'latest',
 }
 
 export function OptionsFormSwitch({ actionType, value, onChange }: OptionsFormSwitchProps) {

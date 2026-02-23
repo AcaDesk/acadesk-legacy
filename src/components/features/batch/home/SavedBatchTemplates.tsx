@@ -3,12 +3,12 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getBatchJobTemplates } from '@/app/actions/batch-jobs'
-import { createBatchDraft } from '@/app/actions/batch-drafts'
+import { createBatchDraftFromTemplate } from '@/app/actions/batch-drafts'
 import { JobTypeBadge } from '@/components/features/jobs/JobTypeBadge'
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
 import { BookMarked, Loader2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import type { BatchJob, BatchOptions } from '@/core/types/batch.types'
+import type { BatchJob } from '@/core/types/batch.types'
 
 export function SavedBatchTemplates() {
   const router = useRouter()
@@ -32,10 +32,7 @@ export function SavedBatchTemplates() {
     if (creating) return
     setCreating(tpl.id)
     try {
-      const result = await createBatchDraft({
-        actionType: tpl.action_type,
-        options: (tpl.job_params ?? {}) as BatchOptions,
-      })
+      const result = await createBatchDraftFromTemplate(tpl.id)
       if (result.success && result.data) {
         router.push(`/batch/new/${result.data}/targets`)
       } else {

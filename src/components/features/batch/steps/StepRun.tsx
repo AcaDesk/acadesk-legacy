@@ -9,21 +9,23 @@ import { RunResultActions } from '../shared/RunResultActions'
 import { Button } from '@ui/button'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import { Rocket } from 'lucide-react'
-import type { BatchDraft } from '@/core/types/batch.types'
+import type { BatchDraft, BatchJob } from '@/core/types/batch.types'
 
 interface StepRunProps {
   draftId: string
   draft: BatchDraft
+  initialJob?: BatchJob | null
 }
 
-export function StepRun({ draftId, draft }: StepRunProps) {
+export function StepRun({ draftId, draft, initialJob = null }: StepRunProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [confirmOpen, setConfirmOpen] = useState(false)
-  const [started, setStarted] = useState(false)
+  const [started, setStarted] = useState(Boolean(initialJob))
 
-  const { jobId, progress, isRunning, isComplete, start, cancel, retryFailed } = useBatchExecution({
+  const { jobId, progress, isRunning, isComplete, start, cancel, retryFailed, resume } = useBatchExecution({
     draftId,
+    initialJob,
     onComplete: (completedJobId) => {
       toast({ title: '작업이 종료되었습니다.' })
       // 3초 후 자동 이동
@@ -31,14 +33,26 @@ export function StepRun({ draftId, draft }: StepRunProps) {
     },
   })
 
+  const scheduledAt = draft.schedule?.mode === 'scheduled' ? draft.schedule.scheduledAt : undefined
+  const isScheduledFuture =
+    Boolean(scheduledAt) && new Date(scheduledAt as string).getTime() > Date.now()
+  const hasPendingWork = progress.total > 0 && progress.processed < progress.total
+
   const handleExecute = async () => {
     setConfirmOpen(false)
     setStarted(true)
     const idempotencyKey = crypto.randomUUID()
-    const result = await start(idempotencyKey)
+    const result = await start(idempotencyKey, !isScheduledFuture)
     if (!result.success) {
       toast({ title: '실행 실패', description: result.error ?? '', variant: 'destructive' })
       setStarted(false)
+      return
+    }
+    if ('queued' in result && result.queued) {
+      toast({
+        title: '예약 작업이 대기열에 등록되었습니다.',
+        description: scheduledAt ? `${new Date(scheduledAt).toLocaleString('ko-KR')} 이후 실행됩니다.` : undefined,
+      })
     }
   }
 
@@ -54,6 +68,11 @@ export function StepRun({ draftId, draft }: StepRunProps) {
       {!started ? (
         <div className="flex flex-col items-center justify-center py-12 gap-4">
           <p className="text-muted-foreground">준비가 완료되었습니다. 실행 버튼을 눌러주세요.</p>
+          {isScheduledFuture && scheduledAt && (
+            <p className="text-sm text-muted-foreground">
+              예약 실행: {new Date(scheduledAt).toLocaleString('ko-KR')}
+            </p>
+          )}
           <Button size="lg" onClick={() => setConfirmOpen(true)}>
             <Rocket className="h-5 w-5 mr-2" />
             일괄 작업 실행
@@ -83,6 +102,26 @@ export function StepRun({ draftId, draft }: StepRunProps) {
 
           {isComplete && (
             <div className="space-y-4">
+              {hasPendingWork && (
+                <div className="flex justify-center">
+                  <Button
+                  onClick={async () => {
+                      const result = await resume()
+                      if (!result.success) {
+                        const isScheduleWait = (result.error ?? '').includes('예약')
+                        toast({
+                          title: isScheduleWait ? '예약 대기 중' : '실행 실패',
+                          description: result.error ?? '',
+                          variant: isScheduleWait ? 'default' : 'destructive',
+                        })
+                      }
+                    }}
+                  >
+                    {isScheduledFuture ? '지금 바로 실행' : '작업 이어서 실행'}
+                  </Button>
+                </div>
+              )}
+
               <RunResultActions
                 jobId={jobId!}
                 failedCount={progress.failed}
@@ -98,9 +137,11 @@ export function StepRun({ draftId, draft }: StepRunProps) {
                 </Button>
               </div>
 
-              <p className="text-center text-xs text-muted-foreground">
-                3초 후 작업 상세 페이지로 자동 이동합니다...
-              </p>
+              {!hasPendingWork && (
+                <p className="text-center text-xs text-muted-foreground">
+                  3초 후 작업 상세 페이지로 자동 이동합니다...
+                </p>
+              )}
             </div>
           )}
         </div>
