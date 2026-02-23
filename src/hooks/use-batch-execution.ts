@@ -8,18 +8,19 @@ import {
   executePendingJobItems,
   cancelJob,
 } from '@/app/actions/batch-jobs'
-import type { BatchJobProgress } from '@/core/types/batch.types'
+import type { BatchJob, BatchJobProgress } from '@/core/types/batch.types'
 
 interface UseBatchExecutionOptions {
   draftId: string
+  initialJob?: BatchJob | null
   onComplete?: (jobId: string) => void
 }
 
-export function useBatchExecution({ draftId, onComplete }: UseBatchExecutionOptions) {
-  const [jobId, setJobId] = useState<string | null>(null)
-  const [progress, setProgress] = useState<BatchJobProgress>({ total: 0, processed: 0, success: 0, failed: 0 })
+export function useBatchExecution({ draftId, initialJob, onComplete }: UseBatchExecutionOptions) {
+  const [jobId, setJobId] = useState<string | null>(initialJob?.id ?? null)
+  const [progress, setProgress] = useState<BatchJobProgress>(initialJob?.progress ?? { total: 0, processed: 0, success: 0, failed: 0 })
   const [isRunning, setIsRunning] = useState(false)
-  const [isComplete, setIsComplete] = useState(false)
+  const [isComplete, setIsComplete] = useState(Boolean(initialJob))
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const stopPolling = useCallback(() => {
@@ -57,7 +58,37 @@ export function useBatchExecution({ draftId, onComplete }: UseBatchExecutionOpti
     return () => stopPolling()
   }, [stopPolling])
 
-  const start = useCallback(async (idempotencyKey: string) => {
+  useEffect(() => {
+    if (!jobId) return
+    void syncProgress(jobId)
+  }, [jobId, syncProgress])
+
+  const runJob = useCallback(async (currentJobId: string) => {
+    setIsRunning(true)
+    setIsComplete(false)
+    await syncProgress(currentJobId)
+    startPolling(currentJobId)
+
+    const runResult = await executePendingJobItems(currentJobId)
+    stopPolling()
+    if (!runResult.success || !runResult.data) {
+      setIsRunning(false)
+      setIsComplete(true)
+      await syncProgress(currentJobId)
+      return { success: false as const, error: runResult.error }
+    }
+
+    setProgress(runResult.data.progress)
+    setIsRunning(false)
+    setIsComplete(true)
+    if (runResult.data.status === 'queued' || runResult.data.status === 'running') {
+      return { success: true as const, jobId: currentJobId, queued: true as const }
+    }
+    onComplete?.(currentJobId)
+    return { success: true as const, jobId: currentJobId }
+  }, [onComplete, startPolling, stopPolling, syncProgress])
+
+  const start = useCallback(async (idempotencyKey: string, runImmediately = true) => {
     setIsRunning(true)
     setIsComplete(false)
 
@@ -70,23 +101,13 @@ export function useBatchExecution({ draftId, onComplete }: UseBatchExecutionOpti
     const createdJobId = execResult.data
     setJobId(createdJobId)
     await syncProgress(createdJobId)
-    startPolling(createdJobId)
-
-    const runResult = await executePendingJobItems(createdJobId)
-    stopPolling()
-    if (!runResult.success || !runResult.data) {
+    if (!runImmediately) {
       setIsRunning(false)
       setIsComplete(true)
-      await syncProgress(createdJobId)
-      return { success: false, error: runResult.error }
+      return { success: true as const, jobId: createdJobId, queued: true as const }
     }
-
-    setProgress(runResult.data.progress)
-    setIsRunning(false)
-    setIsComplete(true)
-    onComplete?.(createdJobId)
-    return { success: true, jobId: createdJobId }
-  }, [draftId, onComplete, startPolling, stopPolling, syncProgress])
+    return runJob(createdJobId)
+  }, [draftId, runJob, syncProgress])
 
   const retryFailed = useCallback(async () => {
     if (!jobId) return { success: false, error: 'Job ID가 없습니다.' }
@@ -101,23 +122,27 @@ export function useBatchExecution({ draftId, onComplete }: UseBatchExecutionOpti
       return { success: false, error: retryResult.error || '재시도할 항목이 없습니다.' }
     }
 
-    await syncProgress(jobId)
-    startPolling(jobId)
-    const runResult = await executePendingJobItems(jobId)
-    stopPolling()
-    if (!runResult.success || !runResult.data) {
-      setIsRunning(false)
-      setIsComplete(true)
-      await syncProgress(jobId)
+    const runResult = await runJob(jobId)
+    if (!runResult.success) {
       return { success: false, error: runResult.error }
     }
-
-    setProgress(runResult.data.progress)
-    setIsRunning(false)
-    setIsComplete(true)
-    onComplete?.(jobId)
+    if ('queued' in runResult && runResult.queued) {
+      return { success: false, error: '예약된 작업은 지정된 시간 이후 실행됩니다.' }
+    }
     return { success: true }
-  }, [jobId, onComplete, startPolling, stopPolling, syncProgress])
+  }, [jobId, runJob])
+
+  const resume = useCallback(async () => {
+    if (!jobId) return { success: false, error: 'Job ID가 없습니다.' }
+    const result = await runJob(jobId)
+    if (!result.success) {
+      return { success: false, error: result.error }
+    }
+    if ('queued' in result && result.queued) {
+      return { success: false, error: '아직 예약 시간이 도래하지 않았습니다.' }
+    }
+    return { success: true }
+  }, [jobId, runJob])
 
   const cancel = useCallback(async () => {
     if (!jobId) return { success: false, error: 'Job ID가 없습니다.' }
@@ -129,5 +154,5 @@ export function useBatchExecution({ draftId, onComplete }: UseBatchExecutionOpti
     return { success: true }
   }, [jobId, syncProgress])
 
-  return { jobId, progress, isRunning, isComplete, start, cancel, retryFailed }
+  return { jobId, progress, isRunning, isComplete, start, cancel, retryFailed, resume }
 }
