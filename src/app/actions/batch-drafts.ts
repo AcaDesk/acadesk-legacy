@@ -11,6 +11,12 @@ import type {
   PatchBatchDraftPayload,
   ReviewBatchDraftResult,
   BatchValidationItem,
+  BatchSchedule,
+  BatchOptions,
+  BatchActionType,
+  ReportOptions,
+  CommentOptions,
+  SendOptions,
 } from '@/core/types/batch.types'
 
 export async function createBatchDraft(payload?: CreateBatchDraftPayload) {
@@ -36,6 +42,82 @@ export async function createBatchDraft(payload?: CreateBatchDraftPayload) {
     return { success: true as const, data: data.id as string, error: null }
   } catch (error) {
     console.error('[createBatchDraft] Error:', error)
+    return { success: false as const, data: null, error: getErrorMessage(error) }
+  }
+}
+
+function stripInternalJobParams(jobParams: Record<string, unknown>): BatchOptions {
+  const entries = Object.entries(jobParams).filter(([key]) => !key.startsWith('_'))
+  return Object.fromEntries(entries) as BatchOptions
+}
+
+export async function createBatchDraftFromTemplate(templateJobId: string) {
+  try {
+    const { tenantId, userId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    const { data: templateJob, error: templateError } = await supabase
+      .from('batch_jobs')
+      .select('id, draft_id, action_type, job_params, is_template')
+      .eq('id', templateJobId)
+      .eq('tenant_id', tenantId)
+      .eq('is_template', true)
+      .is('deleted_at', null)
+      .single()
+
+    if (templateError || !templateJob) {
+      throw new Error('템플릿 정보를 찾을 수 없습니다.')
+    }
+
+    let targetIds: string[] = []
+    let schedule: BatchSchedule = { mode: 'now' }
+    let sourceOptions = stripInternalJobParams((templateJob.job_params ?? {}) as Record<string, unknown>)
+
+    if (templateJob.draft_id) {
+      const { data: sourceDraft } = await supabase
+        .from('batch_drafts')
+        .select('target_ids, schedule, options')
+        .eq('id', templateJob.draft_id)
+        .eq('tenant_id', tenantId)
+        .is('deleted_at', null)
+        .maybeSingle()
+
+      if (sourceDraft) {
+        targetIds = (sourceDraft.target_ids ?? []) as string[]
+        sourceOptions = stripInternalJobParams((sourceDraft.options ?? templateJob.job_params ?? {}) as Record<string, unknown>)
+        schedule = ((sourceDraft.schedule ?? { mode: 'now' }) as BatchSchedule)
+      }
+    }
+
+    // 과거 시각 예약은 복원 시 즉시 실행으로 초기화
+    if (schedule.mode === 'scheduled' && schedule.scheduledAt) {
+      const scheduledTime = new Date(schedule.scheduledAt).getTime()
+      if (!Number.isNaN(scheduledTime) && scheduledTime <= Date.now()) {
+        schedule = { mode: 'now' }
+      }
+    }
+
+    const { data, error } = await supabase
+      .from('batch_drafts')
+      .insert({
+        tenant_id: tenantId,
+        created_by: userId,
+        target_ids: targetIds,
+        target_snapshot_count: targetIds.length,
+        action_type: templateJob.action_type as BatchActionType,
+        options: sourceOptions,
+        schedule,
+        step: 'targets',
+        status: 'draft',
+      })
+      .select('id')
+      .single()
+
+    if (error) throw error
+
+    return { success: true as const, data: data.id as string, error: null }
+  } catch (error) {
+    console.error('[createBatchDraftFromTemplate] Error:', error)
     return { success: false as const, data: null, error: getErrorMessage(error) }
   }
 }
@@ -95,6 +177,8 @@ export async function reviewBatchDraft(draftId: string) {
 
     const targetIds = (draft.target_ids ?? []) as string[]
     const actionType = draft.action_type as string
+    const options = (draft.options ?? {}) as ReportOptions | CommentOptions | SendOptions
+    const schedule = (draft.schedule ?? { mode: 'now' }) as BatchSchedule
 
     const sampleIds = targetIds.slice(0, 5)
     const { data: sampleStudents } = await supabase
@@ -124,6 +208,52 @@ export async function reviewBatchDraft(draftId: string) {
     }
     if (!actionType) {
       risks.push({ level: 'error', code: 'NO_ACTION', message: '작업 유형이 선택되지 않았습니다.', blocking: true })
+    }
+
+    if (actionType === 'report') {
+      const reportOptions = options as ReportOptions
+      if (reportOptions.reportType === 'weekly') {
+        if (!reportOptions.weekStartDate || !reportOptions.weekEndDate) {
+          risks.push({ level: 'error', code: 'WEEKLY_PERIOD_REQUIRED', message: '주간 리포트는 시작일/종료일이 필요합니다.', blocking: true })
+        } else if (reportOptions.weekStartDate > reportOptions.weekEndDate) {
+          risks.push({ level: 'error', code: 'WEEKLY_PERIOD_INVALID', message: '주간 리포트 시작일은 종료일보다 이전이어야 합니다.', blocking: true })
+        }
+      } else {
+        if (!reportOptions.year || !reportOptions.month) {
+          risks.push({ level: 'error', code: 'MONTHLY_PERIOD_REQUIRED', message: '월간 리포트는 연도/월 설정이 필요합니다.', blocking: true })
+        }
+      }
+    }
+
+    if (actionType === 'comment' || actionType === 'send') {
+      const targetMode = (options as CommentOptions | SendOptions).targetReportMode ?? 'latest'
+      if (targetMode === 'monthly') {
+        const { reportYear, reportMonth } = options as CommentOptions | SendOptions
+        if (!reportYear || !reportMonth) {
+          risks.push({ level: 'error', code: 'TARGET_MONTHLY_REQUIRED', message: '월간 리포트 지정을 위해 연도/월을 설정해주세요.', blocking: true })
+        }
+      }
+      if (targetMode === 'weekly') {
+        const { reportStartDate, reportEndDate } = options as CommentOptions | SendOptions
+        if (!reportStartDate || !reportEndDate) {
+          risks.push({ level: 'error', code: 'TARGET_WEEKLY_REQUIRED', message: '주간 리포트 지정을 위해 시작일/종료일을 설정해주세요.', blocking: true })
+        } else if (reportStartDate > reportEndDate) {
+          risks.push({ level: 'error', code: 'TARGET_WEEKLY_INVALID', message: '시작일은 종료일보다 이전이어야 합니다.', blocking: true })
+        }
+      }
+    }
+
+    if (schedule.mode === 'scheduled') {
+      if (!schedule.scheduledAt) {
+        risks.push({ level: 'error', code: 'SCHEDULE_REQUIRED', message: '예약 실행 시간을 입력해주세요.', blocking: true })
+      } else {
+        const scheduledTime = new Date(schedule.scheduledAt).getTime()
+        if (Number.isNaN(scheduledTime)) {
+          risks.push({ level: 'error', code: 'SCHEDULE_INVALID', message: '예약 실행 시간이 올바르지 않습니다.', blocking: true })
+        } else if (scheduledTime <= Date.now()) {
+          risks.push({ level: 'error', code: 'SCHEDULE_PAST', message: '예약 실행 시간은 현재보다 이후여야 합니다.', blocking: true })
+        }
+      }
     }
 
     const impactSummary = {
@@ -162,6 +292,15 @@ export async function executeBatchDraft(draftId: string, idempotencyKey: string)
 
     const targetIds = (draft.target_ids ?? []) as string[]
     const actionType = draft.action_type as string
+    const schedule = ((draft.schedule ?? { mode: 'now' }) as BatchSchedule)
+    const normalizedSchedule: BatchSchedule =
+      schedule.mode === 'scheduled' && schedule.scheduledAt
+        ? { mode: 'scheduled', scheduledAt: schedule.scheduledAt }
+        : { mode: 'now' }
+    const jobParams = {
+      ...((draft.options ?? {}) as Record<string, unknown>),
+      _schedule: normalizedSchedule,
+    }
 
     const { data: existingJob } = await supabase.from('batch_jobs').select('id').eq('idempotency_key', idempotencyKey).eq('tenant_id', tenantId).maybeSingle()
     if (existingJob) {
@@ -173,7 +312,7 @@ export async function executeBatchDraft(draftId: string, idempotencyKey: string)
       .insert({
         tenant_id: tenantId, draft_id: draftId, action_type: actionType,
         job_name: `${actionType} - ${targetIds.length}건`,
-        job_params: draft.options ?? {}, status: 'queued',
+        job_params: jobParams, status: 'queued',
         progress: { total: targetIds.length, processed: 0, success: 0, failed: 0 },
         idempotency_key: idempotencyKey, created_by: userId,
       })
