@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { getBookLendings } from '@/app/actions/book-lendings'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'

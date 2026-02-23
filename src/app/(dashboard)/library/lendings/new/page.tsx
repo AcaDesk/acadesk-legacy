@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
