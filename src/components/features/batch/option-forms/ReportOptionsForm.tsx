@@ -28,6 +28,13 @@ export function ReportOptionsForm({ value, onChange }: ReportOptionsFormProps) {
   const now = new Date()
   const currentYear = now.getFullYear()
   const currentMonth = now.getMonth() + 1
+  const day = now.getDay()
+  const monday = new Date(now)
+  monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1))
+  const sunday = new Date(monday)
+  sunday.setDate(monday.getDate() + 6)
+  const defaultWeekStart = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`
+  const defaultWeekEnd = `${sunday.getFullYear()}-${String(sunday.getMonth() + 1).padStart(2, '0')}-${String(sunday.getDate()).padStart(2, '0')}`
 
   return (
     <div className="space-y-4">
@@ -35,7 +42,19 @@ export function ReportOptionsForm({ value, onChange }: ReportOptionsFormProps) {
         <Label className="text-sm font-medium mb-1.5 block">리포트 타입</Label>
         <Select
           value={value.reportType || 'monthly'}
-          onValueChange={(v) => onChange({ ...value, reportType: v })}
+          onValueChange={(v) => {
+            const nextType = v as ReportOptions['reportType']
+            if (nextType === 'weekly') {
+              onChange({
+                ...value,
+                reportType: 'weekly',
+                weekStartDate: value.weekStartDate ?? defaultWeekStart,
+                weekEndDate: value.weekEndDate ?? defaultWeekEnd,
+              })
+              return
+            }
+            onChange({ ...value, reportType: 'monthly' })
+          }}
         >
           <SelectTrigger>
             <SelectValue />
@@ -47,28 +66,49 @@ export function ReportOptionsForm({ value, onChange }: ReportOptionsFormProps) {
         </Select>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label className="text-sm font-medium mb-1.5 block">기준 년도</Label>
-          <Input
-            type="number"
-            value={value.year || currentYear}
-            onChange={(e) => onChange({ ...value, year: Number(e.target.value) })}
-            min={2020}
-            max={2030}
-          />
+      {value.reportType === 'weekly' ? (
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label className="text-sm font-medium mb-1.5 block">시작일</Label>
+            <Input
+              type="date"
+              value={value.weekStartDate ?? defaultWeekStart}
+              onChange={(e) => onChange({ ...value, weekStartDate: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label className="text-sm font-medium mb-1.5 block">종료일</Label>
+            <Input
+              type="date"
+              value={value.weekEndDate ?? defaultWeekEnd}
+              onChange={(e) => onChange({ ...value, weekEndDate: e.target.value })}
+            />
+          </div>
         </div>
-        <div>
-          <Label className="text-sm font-medium mb-1.5 block">기준 월</Label>
-          <Input
-            type="number"
-            value={value.month || currentMonth}
-            onChange={(e) => onChange({ ...value, month: Number(e.target.value) })}
-            min={1}
-            max={12}
-          />
+      ) : (
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label className="text-sm font-medium mb-1.5 block">기준 년도</Label>
+            <Input
+              type="number"
+              value={value.year || currentYear}
+              onChange={(e) => onChange({ ...value, year: Number(e.target.value) })}
+              min={2020}
+              max={2030}
+            />
+          </div>
+          <div>
+            <Label className="text-sm font-medium mb-1.5 block">기준 월</Label>
+            <Input
+              type="number"
+              value={value.month || currentMonth}
+              onChange={(e) => onChange({ ...value, month: Number(e.target.value) })}
+              min={1}
+              max={12}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       <div>
         <Label className="text-sm font-medium mb-2 block">포함 섹션</Label>

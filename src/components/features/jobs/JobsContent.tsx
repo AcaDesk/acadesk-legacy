@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/hooks/use-toast'
-import { getBatchJobs } from '@/app/actions/batch-jobs'
+import { getBatchJobs, runDueScheduledBatchJobs } from '@/app/actions/batch-jobs'
 import { JobStatusBadge } from './JobStatusBadge'
 import { JobTypeBadge } from './JobTypeBadge'
 import { Progress } from '@ui/progress'
@@ -36,12 +36,17 @@ export function JobsContent() {
   const [actionType, setActionType] = useState<string>('all')
   const [status, setStatus] = useState<string>('all')
   const [loading, setLoading] = useState(true)
+  const [dueChecked, setDueChecked] = useState(false)
 
   const pageSize = 20
 
   useEffect(() => {
     async function load() {
       setLoading(true)
+      if (!dueChecked) {
+        await runDueScheduledBatchJobs(1)
+        setDueChecked(true)
+      }
       const result = await getBatchJobs({
         actionType: actionType === 'all' ? undefined : actionType as BatchActionType,
         status: status === 'all' ? undefined : status as JobStatus,
@@ -57,7 +62,7 @@ export function JobsContent() {
       setLoading(false)
     }
     load()
-  }, [page, actionType, status, toast])
+  }, [page, actionType, status, toast, dueChecked])
 
   const totalPages = Math.ceil(total / pageSize)
 

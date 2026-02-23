@@ -15,7 +15,7 @@ interface StepReviewProps {
   draft: BatchDraft
 }
 
-export function StepReview({ draftId }: StepReviewProps) {
+export function StepReview({ draftId, draft }: StepReviewProps) {
   const { toast } = useToast()
   const [isPending, startTransition] = useTransition()
   const [reviewData, setReviewData] = useState<ReviewBatchDraftResult | null>(null)
@@ -79,6 +79,15 @@ export function StepReview({ draftId }: StepReviewProps) {
         <h3 className="text-lg font-semibold mb-2">작업 검토</h3>
         <p className="text-sm text-muted-foreground">
           실행 전에 작업 내용을 최종 확인하세요.
+        </p>
+      </div>
+
+      <div className="rounded-lg border p-4 text-sm">
+        <p className="font-medium">실행 시점</p>
+        <p className="text-muted-foreground mt-1">
+          {draft.schedule?.mode === 'scheduled' && draft.schedule.scheduledAt
+            ? `예약 실행 (${new Date(draft.schedule.scheduledAt).toLocaleString('ko-KR')})`
+            : '즉시 실행'}
         </p>
       </div>
 

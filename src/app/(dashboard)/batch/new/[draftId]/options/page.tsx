@@ -16,6 +16,7 @@ export default async function OptionsPage({
         draftId={draftId}
         actionType={result.data?.action_type ?? null}
         initialOptions={result.data?.options ?? {}}
+        initialSchedule={result.data?.schedule ?? { mode: 'now' }}
       />
     </WizardStepGuard>
   )
