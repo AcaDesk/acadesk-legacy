@@ -107,19 +107,31 @@ export interface BatchValidationItem {
 export type BatchOptions = ReportOptions | CommentOptions | SendOptions | Record<string, never>
 
 export interface ReportOptions {
-  reportType: string
+  reportType: 'weekly' | 'monthly'
   year: number
   month: number
+  weekStartDate?: string
+  weekEndDate?: string
   templateId?: string
   includedSections?: string[]
 }
 
-export interface CommentOptions {
+export type TargetReportMode = 'latest' | 'monthly' | 'weekly'
+
+export interface TargetReportLookupOptions {
+  targetReportMode?: TargetReportMode
+  reportYear?: number
+  reportMonth?: number
+  reportStartDate?: string
+  reportEndDate?: string
+}
+
+export interface CommentOptions extends TargetReportLookupOptions {
   commentTemplateId?: string
   overwriteExisting: boolean
 }
 
-export interface SendOptions {
+export interface SendOptions extends TargetReportLookupOptions {
   channel: 'sms' | 'lms' | 'kakao'
   subject?: string
   messageBody?: string
