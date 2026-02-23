@@ -2,7 +2,7 @@ import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { getStudentsForReport } from '@/app/actions/reports/report-generation'
-import { NewReportContent } from './new-report-content'
+import { StepperLayout } from './stepper/StepperLayout'
 
 interface Student {
   id: string
@@ -37,5 +37,5 @@ export default async function NewReportPage() {
     ? (result.data as unknown as Student[])
     : []
 
-  return <NewReportContent initialStudents={students} />
+  return <StepperLayout initialStudents={students} />
 }
