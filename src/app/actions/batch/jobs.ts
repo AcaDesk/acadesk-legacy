@@ -652,7 +652,7 @@ export async function executeSingleBatchItem(
       const attendance = (content?.attendance as { total: number; present: number; late: number; absent: number; rate: number }) ?? { total: 0, present: 0, late: 0, absent: 0, rate: 0 }
       const scores = (content?.scores as Array<{ category: string; current: number | null; previous: number | null; change: number | null; tests: unknown[] }>) ?? []
       const autoComment = generateInstructorComment(attendance, scores)
-      const { updateReportComment } = await import('@/app/actions/reports-send')
+      const { updateReportComment } = await import('@/app/actions/reports/send')
       const updateResult = await updateReportComment(report.id, {
         summary: autoComment,
         strengths: '',
@@ -671,7 +671,7 @@ export async function executeSingleBatchItem(
       if (!reportResult.success || !reportResult.data) {
         return { success: false, error: reportResult.error || '해당 학생의 리포트를 찾을 수 없습니다.' }
       }
-      const { sendReportToAllGuardians } = await import('@/app/actions/reports-send')
+      const { sendReportToAllGuardians } = await import('@/app/actions/reports/send')
       const sendResult = await sendReportToAllGuardians(reportResult.data.id)
       if (!sendResult.success) {
         return { success: false, error: sendResult.error || '전송 실패' }
