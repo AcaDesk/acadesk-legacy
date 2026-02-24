@@ -45,7 +45,8 @@ export function SavedBatchTemplates() {
     }
   }
 
-  if (!loading && templates.length === 0) return null
+  // 로딩 중이거나 템플릿이 없으면 카드 자체를 숨김 (로딩 후 사라지는 플래시 방지)
+  if (loading || templates.length === 0) return null
 
   return (
     <Card>
@@ -56,10 +57,7 @@ export function SavedBatchTemplates() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {loading ? (
-          <p className="text-sm text-muted-foreground py-4 text-center">불러오는 중...</p>
-        ) : (
-          <div className="space-y-2">
+        <div className="space-y-2">
             {templates.map((tpl) => (
               <div
                 key={tpl.id}
@@ -80,7 +78,6 @@ export function SavedBatchTemplates() {
               </div>
             ))}
           </div>
-        )}
       </CardContent>
     </Card>
   )
