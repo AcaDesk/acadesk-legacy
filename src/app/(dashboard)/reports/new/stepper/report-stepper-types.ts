@@ -1,7 +1,7 @@
 /**
  * Report Stepper Types & Constants
  *
- * 개별 리포트 생성 6단계 Stepper의 타입, 상수, Zod 스키마
+ * 개별 리포트 생성 4단계 Stepper의 타입, 상수, Zod 스키마
  */
 
 import { z } from 'zod'
@@ -10,7 +10,7 @@ import { z } from 'zod'
 // Step Definitions
 // ============================================================================
 
-export type ReportStepKey = 'student' | 'period' | 'data' | 'comment' | 'preview' | 'submit'
+export type ReportStepKey = 'setup' | 'data' | 'comment' | 'confirm'
 
 export interface StepDefinition {
   key: ReportStepKey
@@ -19,12 +19,10 @@ export interface StepDefinition {
 }
 
 export const REPORT_STEPS: StepDefinition[] = [
-  { key: 'student', label: '학생 선택', description: '리포트를 생성할 학생을 선택합니다' },
-  { key: 'period', label: '유형/기간', description: '리포트 유형과 기간을 설정합니다' },
+  { key: 'setup', label: '학생 & 기간', description: '리포트를 생성할 학생과 기간을 설정합니다' },
   { key: 'data', label: '데이터 확인', description: '수집된 학습 데이터를 확인합니다' },
   { key: 'comment', label: '코멘트 작성', description: '강사 코멘트를 작성합니다' },
-  { key: 'preview', label: '미리보기', description: '보호자가 받을 리포트를 확인합니다' },
-  { key: 'submit', label: '생성/전송', description: '리포트를 저장하고 전송합니다' },
+  { key: 'confirm', label: '미리보기 & 제출', description: '리포트를 확인하고 저장합니다' },
 ]
 
 export function getStepIndex(key: ReportStepKey): number {

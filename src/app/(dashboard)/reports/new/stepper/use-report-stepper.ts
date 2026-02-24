@@ -26,23 +26,21 @@ export interface ReportStepperState {
   currentStep: ReportStepKey
   completedSteps: Set<ReportStepKey>
 
-  // Step 1: Student
+  // Step 1: Setup (student + period)
   student: SelectedStudent | null
-
-  // Step 2: Period
   period: PeriodConfig
 
-  // Step 3: Data Review
+  // Step 2: Data Review
   dataLoading: boolean
   dataLoaded: boolean
   dataError: string | null
   reportData: ReportData | null
   warnings: DataWarning[]
 
-  // Step 4: Comment
+  // Step 3: Comment
   comment: CommentDraft
 
-  // Step 6: Submit
+  // Step 4: Confirm
   sendAfterSave: boolean
   generating: boolean
   sending: boolean
@@ -57,13 +55,11 @@ export function useReportStepper() {
   const { toast } = useToast()
 
   // Core state
-  const [currentStep, setCurrentStep] = useState<ReportStepKey>('student')
+  const [currentStep, setCurrentStep] = useState<ReportStepKey>('setup')
   const [completedSteps, setCompletedSteps] = useState<Set<ReportStepKey>>(new Set())
 
-  // Step 1
+  // Step 1: Setup
   const [student, setStudentState] = useState<SelectedStudent | null>(null)
-
-  // Step 2
   const now = new Date()
   const [period, setPeriodState] = useState<PeriodConfig>({
     type: 'monthly',
@@ -71,14 +67,14 @@ export function useReportStepper() {
     month: now.getMonth() + 1,
   })
 
-  // Step 3
+  // Step 2: Data
   const [dataLoading, setDataLoading] = useState(false)
   const [dataLoaded, setDataLoaded] = useState(false)
   const [dataError, setDataError] = useState<string | null>(null)
   const [reportData, setReportData] = useState<ReportData | null>(null)
   const [warnings, setWarnings] = useState<DataWarning[]>([])
 
-  // Step 4
+  // Step 3: Comment
   const [comment, setComment] = useState<CommentDraft>({
     summary: '',
     strengths: '',
@@ -86,7 +82,7 @@ export function useReportStepper() {
     nextGoals: '',
   })
 
-  // Step 6
+  // Step 4: Confirm
   const [sendAfterSave, setSendAfterSave] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [sending, setSending] = useState(false)
@@ -117,22 +113,15 @@ export function useReportStepper() {
     (step: ReportStepKey): boolean => {
       const idx = getStepIndex(step)
       if (idx === 0) return true
-      // Can navigate to a step if all previous required steps are completed
       const requiredBefore: ReportStepKey[] = REPORT_STEPS.slice(0, idx).map((s) => s.key)
-      // Steps that must be completed: student, period are hard requirements
-      // data must be loaded (not necessarily "completed" in checklist sense)
-      // comment summary must be non-empty
       for (const req of requiredBefore) {
-        if (req === 'student' && (!student || !completedSteps.has('student'))) return false
-        if (req === 'period' && (!isPeriodValid() || !completedSteps.has('period'))) return false
+        if (req === 'setup' && (!student || !isPeriodValid() || !completedSteps.has('setup'))) return false
         if (req === 'data' && (!dataLoaded || !completedSteps.has('data'))) return false
-        if (req === 'comment' && (step === 'preview' || step === 'submit') && !completedSteps.has('comment')) return false
-        if (req === 'comment' && step === 'submit' && !comment.summary.trim()) return false
-        if (req === 'preview' && step === 'submit' && !completedSteps.has('preview')) return false
+        if (req === 'comment' && !completedSteps.has('comment')) return false
       }
       return true
     },
-    [student, isPeriodValid, dataLoaded, comment.summary, completedSteps]
+    [student, isPeriodValid, dataLoaded, completedSteps]
   )
 
   const goToStep = useCallback(
@@ -160,45 +149,37 @@ export function useReportStepper() {
   }, [currentStep])
 
   // ============================================================================
-  // Step 1: Student Selection
+  // Step 1: Setup — Student
   // ============================================================================
 
-  const setStudent = useCallback(
-    (s: SelectedStudent) => {
-      setStudentState(s)
-      addRecentStudent(s)
-      setCompletedSteps((prev) => {
-        const next = new Set(prev)
-        next.add('student')
-        next.delete('period')
-        next.delete('data')
-        next.delete('comment')
-        next.delete('preview')
-        next.delete('submit')
-        return next
-      })
-      // Reset downstream if student changed
-      setDataLoaded(false)
-      setReportData(null)
-      setWarnings([])
-      setDataError(null)
-      setComment({ summary: '', strengths: '', improvements: '', nextGoals: '' })
-      // Auto-advance
-      setCurrentStep('period')
-    },
-    []
-  )
+  const setStudent = useCallback((s: SelectedStudent) => {
+    setStudentState(s)
+    addRecentStudent(s)
+    // Clear setup completion + all downstream steps
+    setCompletedSteps((prev) => {
+      const next = new Set(prev)
+      next.delete('setup')
+      next.delete('data')
+      next.delete('comment')
+      next.delete('confirm')
+      return next
+    })
+    setDataLoaded(false)
+    setReportData(null)
+    setWarnings([])
+    setDataError(null)
+    setComment({ summary: '', strengths: '', improvements: '', nextGoals: '' })
+    // Stay on 'setup' step — period section will appear
+  }, [])
 
   const clearStudent = useCallback(() => {
     setStudentState(null)
     setCompletedSteps((prev) => {
       const next = new Set(prev)
-      next.delete('student')
-      next.delete('period')
+      next.delete('setup')
       next.delete('data')
       next.delete('comment')
-      next.delete('preview')
-      next.delete('submit')
+      next.delete('confirm')
       return next
     })
     setDataLoaded(false)
@@ -207,19 +188,22 @@ export function useReportStepper() {
     setDataError(null)
     setComment({ summary: '', strengths: '', improvements: '', nextGoals: '' })
     setSendAfterSave(false)
-    setCurrentStep('student')
+    setCurrentStep('setup')
   }, [])
+
+  // ============================================================================
+  // Step 1: Setup — Period
+  // ============================================================================
 
   const setPeriod = useCallback((nextPeriod: PeriodConfig) => {
     setPeriodState(nextPeriod)
-    // Any period edit invalidates downstream review/comment/preview state.
+    // Period change invalidates setup confirmation + downstream
     setCompletedSteps((prev) => {
       const next = new Set(prev)
-      next.delete('period')
+      next.delete('setup')
       next.delete('data')
       next.delete('comment')
-      next.delete('preview')
-      next.delete('submit')
+      next.delete('confirm')
       return next
     })
     setDataLoaded(false)
@@ -231,10 +215,14 @@ export function useReportStepper() {
   }, [])
 
   // ============================================================================
-  // Step 2: Period
+  // Step 1: Setup — Confirm
   // ============================================================================
 
-  const confirmPeriod = useCallback(() => {
+  const confirmSetup = useCallback(() => {
+    if (!student) {
+      toast({ title: '학생을 선택해주세요', variant: 'destructive' })
+      return
+    }
     if (!isPeriodValid()) {
       toast({
         title: '기간 설정 오류',
@@ -245,24 +233,22 @@ export function useReportStepper() {
     }
     setCompletedSteps((prev) => {
       const next = new Set(prev)
-      next.add('period')
+      next.add('setup')
       next.delete('data')
       next.delete('comment')
-      next.delete('preview')
-      next.delete('submit')
+      next.delete('confirm')
       return next
     })
-    // Reset downstream on period change
     setDataLoaded(false)
     setReportData(null)
     setWarnings([])
     setDataError(null)
     setComment({ summary: '', strengths: '', improvements: '', nextGoals: '' })
     setCurrentStep('data')
-  }, [isPeriodValid, period.type, toast])
+  }, [student, isPeriodValid, period.type, toast])
 
   // ============================================================================
-  // Step 3: Data Fetch
+  // Step 2: Data Fetch
   // ============================================================================
 
   const fetchReportData = useCallback(async () => {
@@ -342,16 +328,15 @@ export function useReportStepper() {
   }, [student, isPeriodValid, period, dataLoaded, dataError])
 
   // ============================================================================
-  // Step 4: Comment
+  // Step 3: Comment
   // ============================================================================
 
   const updateComment = useCallback((patch: Partial<CommentDraft>) => {
     setComment((prev) => ({ ...prev, ...patch }))
-    // Comment edits require preview/submit reconfirmation.
+    // Comment edits require confirm reconfirmation
     setCompletedSteps((prev) => {
       const next = new Set(prev)
-      next.delete('preview')
-      next.delete('submit')
+      next.delete('confirm')
       return next
     })
   }, [])
@@ -366,11 +351,11 @@ export function useReportStepper() {
       return
     }
     setCompletedSteps((prev) => new Set([...prev, 'comment']))
-    setCurrentStep('preview')
+    setCurrentStep('confirm')
   }, [comment.summary, toast])
 
   // ============================================================================
-  // Step 5: Preview
+  // Step 4: Confirm — Preview Data
   // ============================================================================
 
   const getPreviewData = useCallback((): ReportData | null => {
@@ -386,13 +371,8 @@ export function useReportStepper() {
     }
   }, [reportData, comment])
 
-  const confirmPreview = useCallback(() => {
-    setCompletedSteps((prev) => new Set([...prev, 'preview']))
-    setCurrentStep('submit')
-  }, [])
-
   // ============================================================================
-  // Step 6: Submit
+  // Step 4: Confirm — Submit
   // ============================================================================
 
   const handleSubmit = useCallback(async () => {
@@ -400,7 +380,6 @@ export function useReportStepper() {
 
     setGenerating(true)
     try {
-      // Merge comment into report data
       const mergedData: ReportData = {
         ...reportData,
         comment: {
@@ -413,7 +392,6 @@ export function useReportStepper() {
         overallComment: comment.summary,
       }
 
-      // Save report
       const saveResult = await saveReport(mergedData, period.type)
 
       if (!saveResult.success || !saveResult.data) {
@@ -422,7 +400,6 @@ export function useReportStepper() {
 
       const reportId = saveResult.data.id
 
-      // Optionally send to guardians
       if (sendAfterSave) {
         setSending(true)
         const sendResult = await sendReportToAllGuardians(reportId)
@@ -447,7 +424,7 @@ export function useReportStepper() {
         })
       }
 
-      setCompletedSteps((prev) => new Set([...prev, 'submit']))
+      setCompletedSteps((prev) => new Set([...prev, 'confirm']))
       router.push(`/reports/${reportId}`)
     } catch (error) {
       console.error('[handleSubmit] Error:', error)
@@ -509,13 +486,12 @@ export function useReportStepper() {
     setStudent,
     clearStudent,
     setPeriod,
-    confirmPeriod,
+    confirmSetup,
     isPeriodValid,
     fetchReportData,
     updateComment,
     confirmComment,
     getPreviewData,
-    confirmPreview,
     setSendAfterSave,
     handleSubmit,
 

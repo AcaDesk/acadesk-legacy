@@ -6,12 +6,10 @@ import { FileText } from 'lucide-react'
 import { useReportStepper } from './use-report-stepper'
 import { StepIndicator } from './StepIndicator'
 import { SummaryBar } from './SummaryBar'
-import { StudentSelectStep } from './steps/StudentSelectStep'
-import { PeriodTypeStep } from './steps/PeriodTypeStep'
+import { SetupStep } from './steps/SetupStep'
 import { DataReviewStep } from './steps/DataReviewStep'
 import { CommentStep } from './steps/CommentStep'
-import { PreviewStep } from './steps/PreviewStep'
-import { SubmitStep } from './steps/SubmitStep'
+import { ConfirmStep } from './steps/ConfirmStep'
 
 interface Student {
   id: string
@@ -74,21 +72,16 @@ export function StepperLayout({ initialStudents }: StepperLayoutProps) {
 
         {/* Step Content */}
         <div className="min-h-[400px]">
-          {stepper.currentStep === 'student' && (
-            <StudentSelectStep
+          {stepper.currentStep === 'setup' && (
+            <SetupStep
               students={initialStudents}
               selectedStudent={stepper.student}
-              onSelect={stepper.setStudent}
-              onClear={stepper.clearStudent}
-            />
-          )}
-
-          {stepper.currentStep === 'period' && (
-            <PeriodTypeStep
               period={stepper.period}
+              isValid={!!stepper.student && stepper.isPeriodValid()}
+              onSelectStudent={stepper.setStudent}
+              onClearStudent={stepper.clearStudent}
               onPeriodChange={stepper.setPeriod}
-              onConfirm={stepper.confirmPeriod}
-              onBack={stepper.goPrev}
+              onConfirm={stepper.confirmSetup}
             />
           )}
 
@@ -115,21 +108,9 @@ export function StepperLayout({ initialStudents }: StepperLayoutProps) {
             />
           )}
 
-          {stepper.currentStep === 'preview' && (
-            <PreviewStep
+          {stepper.currentStep === 'confirm' && (
+            <ConfirmStep
               previewData={stepper.getPreviewData()}
-              onConfirm={stepper.confirmPreview}
-              onBack={stepper.goPrev}
-            />
-          )}
-
-          {stepper.currentStep === 'submit' && (
-            <SubmitStep
-              student={stepper.student}
-              periodLabel={stepper.periodLabel}
-              commentProgress={stepper.commentProgress}
-              dataLoaded={stepper.dataLoaded}
-              warningCount={stepper.warnings.length}
               sendAfterSave={stepper.sendAfterSave}
               onSendAfterSaveChange={stepper.setSendAfterSave}
               generating={stepper.generating}
