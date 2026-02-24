@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useTransition } from 'react'
 import { useToast } from '@/hooks/use-toast'
-import { getStudentsForBatchFilter, patchBatchDraft } from '@/app/actions/batch/drafts'
+import { getStudentsForBatchFilter, patchBatchDraft } from '@/app/actions/batch-drafts'
 import { TargetFilterPanel, type SchoolLevel } from '../shared/TargetFilterPanel'
 import { TargetTable } from '../shared/TargetTable'
 import { SelectionSummary } from '../shared/SelectionSummary'
