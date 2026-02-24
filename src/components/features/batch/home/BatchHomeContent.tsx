@@ -2,8 +2,6 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button } from '@ui/button'
-import { Plus } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { runDueScheduledBatchJobs } from '@/app/actions/batch-jobs'
 import { RecentJobsList } from './RecentJobsList'
@@ -33,18 +31,9 @@ export function BatchHomeContent() {
   }, [router, toast])
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-center">
-        <Button size="lg" onClick={() => router.push('/batch/new')}>
-          <Plus className="h-5 w-5 mr-2" />
-          새 일괄작업 시작
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <RecentJobsList />
-        <SavedBatchTemplates />
-      </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <RecentJobsList />
+      <SavedBatchTemplates />
     </div>
   )
 }
