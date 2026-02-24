@@ -194,6 +194,31 @@ async function getConsultationTitle(consultationId: string): Promise<string> {
 }
 
 /**
+ * 배치 드래프트 ID로 작업 유형 레이블을 조회하는 함수
+ */
+async function getBatchDraftLabel(draftId: string): Promise<string> {
+  try {
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('batch_drafts')
+      .select('action_type')
+      .eq('id', draftId)
+      .maybeSingle()
+
+    if (error || !data) return '진행 중인 작업'
+
+    const labels: Record<string, string> = {
+      report: '리포트 생성',
+      comment: '코멘트 등록',
+      send: '메시지 전송',
+    }
+    return labels[data.action_type as string] ?? '진행 중인 작업'
+  } catch {
+    return '진행 중인 작업'
+  }
+}
+
+/**
  * 브래드크럼 경로 매핑 설정
  *
  * - 정적 경로: { '/path': '레이블' }
@@ -266,6 +291,16 @@ export const BREADCRUMB_CONFIG: BreadcrumbConfig = {
   '/textbooks/new': '교재 등록',
   '/textbooks/[id]': getTextbookTitle,
   '/textbooks/[id]/edit': '교재 수정',
+
+  // Batch (일괄작업)
+  '/batch': '일괄작업센터',
+  '/batch/new': '새 일괄작업',
+  '/batch/new/[draftId]': getBatchDraftLabel,
+  '/batch/new/[draftId]/targets': '대상 선택',
+  '/batch/new/[draftId]/action': '작업 유형',
+  '/batch/new/[draftId]/options': '옵션 설정',
+  '/batch/new/[draftId]/review': '검토',
+  '/batch/new/[draftId]/run': '실행',
 
   // Reports (보고서)
   '/reports': '리포트 관리',
