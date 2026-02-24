@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback, useTransition } from 'react'
 import { useToast } from '@/hooks/use-toast'
-import { getStudentsForBatchFilter, patchBatchDraft } from '@/app/actions/batch-drafts'
-import { TargetFilterPanel } from '../shared/TargetFilterPanel'
+import { getStudentsForBatchFilter, patchBatchDraft } from '@/app/actions/batch/drafts'
+import { TargetFilterPanel, type SchoolLevel } from '../shared/TargetFilterPanel'
 import { TargetTable } from '../shared/TargetTable'
 import { SelectionSummary } from '../shared/SelectionSummary'
 import { WizardNavButtons } from '../wizard/WizardNavButtons'
@@ -23,7 +23,16 @@ export function StepTargets({ draftId, initialTargetIds }: StepTargetsProps) {
   const [search, setSearch] = useState('')
   const [grade, setGrade] = useState('all')
   const [classId, setClassId] = useState('all')
+  const [schoolLevel, setSchoolLevel] = useState<SchoolLevel>('all')
   const [loading, setLoading] = useState(true)
+
+  function getSchoolLevel(g: string | null): SchoolLevel {
+    if (!g) return 'all'
+    if (g.startsWith('초')) return 'elementary'
+    if (g.startsWith('중')) return 'middle'
+    if (g.startsWith('고')) return 'high'
+    return 'all'
+  }
 
   const loadStudents = useCallback(async () => {
     setLoading(true)
@@ -52,6 +61,10 @@ export function StepTargets({ draftId, initialTargetIds }: StepTargetsProps) {
       .map((s) => [s.class_id!, { id: s.class_id!, name: s.class_name! }])
   ).values()]
 
+  const filteredStudents = schoolLevel === 'all'
+    ? students
+    : students.filter((s) => getSchoolLevel(s.grade) === schoolLevel)
+
   const handleNext = async (): Promise<boolean> => {
     if (selectedIds.size === 0) {
       toast({ title: '대상을 1명 이상 선택해주세요.', variant: 'destructive' })
@@ -77,7 +90,7 @@ export function StepTargets({ draftId, initialTargetIds }: StepTargetsProps) {
 
   return (
     <div className="space-y-6">
-      <SelectionSummary totalCount={students.length} selectedCount={selectedIds.size} />
+      <SelectionSummary totalCount={filteredStudents.length} selectedCount={selectedIds.size} />
 
       <TargetFilterPanel
         search={search}
@@ -88,6 +101,8 @@ export function StepTargets({ draftId, initialTargetIds }: StepTargetsProps) {
         onClassIdChange={setClassId}
         grades={grades}
         classes={classes}
+        schoolLevel={schoolLevel}
+        onSchoolLevelChange={setSchoolLevel}
       />
 
       {loading ? (
@@ -96,7 +111,7 @@ export function StepTargets({ draftId, initialTargetIds }: StepTargetsProps) {
         </div>
       ) : (
         <TargetTable
-          students={students}
+          students={filteredStudents}
           selectedIds={selectedIds}
           onSelectionChange={setSelectedIds}
         />
