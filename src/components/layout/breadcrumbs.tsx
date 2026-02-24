@@ -49,8 +49,12 @@ export function Breadcrumbs() {
           matchPathPattern(key, currentPath)
         )
 
-        let label = segment
         const config = configKey ? BREADCRUMB_CONFIG[configKey] : undefined
+
+        // null → 해당 세그먼트를 브래드크럼에서 건너뜀
+        if (config === null) continue
+
+        let label = segment
 
         if (typeof config === 'function') {
           // 동적 경로: 비동기 함수를 실행하여 실제 데이터 이름 가져오기
