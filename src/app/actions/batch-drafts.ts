@@ -351,7 +351,7 @@ export async function getStudentsForBatchFilter(filters?: { grade?: string; clas
     const supabase = createServiceRoleClient()
     let query = supabase
       .from('students')
-      .select('id, student_code, grade, users!inner(name), class_students(classes(id, name))')
+      .select('id, student_code, grade, users!inner(name), class_enrollments(classes(id, name))')
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
@@ -364,7 +364,7 @@ export async function getStudentsForBatchFilter(filters?: { grade?: string; clas
 
     const students: BatchTarget[] = (data ?? []).map((s: Record<string, unknown>) => {
       const user = s.users as Record<string, unknown> | null
-      const classStudents = s.class_students as Array<Record<string, unknown>> | null
+      const classStudents = s.class_enrollments as Array<Record<string, unknown>> | null
       const firstClass = classStudents?.[0]?.classes as Record<string, unknown> | null
       return {
         id: s.id as string, name: (user?.name as string) ?? '이름 없음',
@@ -377,7 +377,7 @@ export async function getStudentsForBatchFilter(filters?: { grade?: string; clas
     const filtered = filters?.classId
       ? students.filter((s) => {
           const raw = (data ?? []).find((d: Record<string, unknown>) => d.id === s.id)
-          const classStudents = raw?.class_students as Array<Record<string, unknown>> | null
+          const classStudents = raw?.class_enrollments as Array<Record<string, unknown>> | null
           return classStudents?.some((cs) => {
             const cls = cs.classes as Record<string, unknown> | null
             return cls?.id === filters.classId
