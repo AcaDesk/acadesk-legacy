@@ -9,8 +9,9 @@ type DynamicSegmentResolver = (segment: string) => Promise<string>
  * 브래드크럼 설정 타입
  * - string: 정적 레이블
  * - DynamicSegmentResolver: 동적 데이터를 가져오는 함수
+ * - null: 해당 세그먼트를 브래드크럼에서 건너뜀 (클릭해도 의미 없는 경로에 사용)
  */
-type BreadcrumbConfig = Record<string, string | DynamicSegmentResolver>
+type BreadcrumbConfig = Record<string, string | DynamicSegmentResolver | null>
 
 /**
  * 학생 ID로 학생 이름을 조회하는 함수
@@ -293,9 +294,11 @@ export const BREADCRUMB_CONFIG: BreadcrumbConfig = {
   '/textbooks/[id]/edit': '교재 수정',
 
   // Batch (일괄작업)
+  // '/batch/new'는 즉시 redirect되는 페이지, '/batch/new/[draftId]'는 page.tsx 없는 layout —
+  // 두 경로 모두 null로 브래드크럼에서 제외
   '/batch': '일괄작업센터',
-  '/batch/new': '새 일괄작업',
-  '/batch/new/[draftId]': getBatchDraftLabel,
+  '/batch/new': null,
+  '/batch/new/[draftId]': null,
   '/batch/new/[draftId]/targets': '대상 선택',
   '/batch/new/[draftId]/action': '작업 유형',
   '/batch/new/[draftId]/options': '옵션 설정',
