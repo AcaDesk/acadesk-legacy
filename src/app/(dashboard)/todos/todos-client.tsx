@@ -29,7 +29,7 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import type { StudentTodoWithStudent } from '@/core/types/todo.types'
 import { verifyTodoAction, deleteTodoAction } from './actions'
-import { sendTodoReminder } from '@/app/actions/messages'
+import { sendTodoReminder } from '@/app/actions/messaging/messages'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 
 interface TodosClientProps {

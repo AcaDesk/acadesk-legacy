@@ -9,8 +9,8 @@
 'use client'
 
 import { useState, useCallback, useRef } from 'react'
-import { getKakaoChannelConfig } from '@/app/actions/kakao-channel'
-import { getKakaoTemplates, type KakaoTemplate } from '@/app/actions/kakao-templates'
+import { getKakaoChannelConfig } from '@/app/actions/messaging/kakao-channel'
+import { getKakaoTemplates, type KakaoTemplate } from '@/app/actions/messaging/kakao-templates'
 
 interface UseKakaoMessagingOptions {
   /** 승인된 템플릿만 필터링할지 여부 (기본: true) */

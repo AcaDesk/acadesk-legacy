@@ -3,7 +3,7 @@ import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { requireAuth } from '@/lib/auth/helpers'
-import { getExams, getExamCategories } from '@/app/actions/exams'
+import { getExams, getExamCategories } from '@/app/actions/grades/exams'
 import { ExamsClient } from './exams/exams-client'
 import type { Metadata } from 'next'
 

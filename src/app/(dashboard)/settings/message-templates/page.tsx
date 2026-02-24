@@ -1,6 +1,6 @@
 import { requireAuth } from '@/lib/auth/helpers'
 import { MessageTemplatesClient } from './message-templates-client'
-import { getMessageTemplates } from '@/app/actions/messages'
+import { getMessageTemplates } from '@/app/actions/messaging/messages'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {

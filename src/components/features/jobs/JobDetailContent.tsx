@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useToast } from '@/hooks/use-toast'
-import { getBatchJobDetail, cancelJob, retryFailedItems, executePendingJobItems } from '@/app/actions/batch-jobs'
+import { getBatchJobDetail, cancelJob, retryFailedItems, executePendingJobItems } from '@/app/actions/batch/jobs'
 import { JobProgressHeader } from './JobProgressHeader'
 import { JobErrorGroupList } from './JobErrorGroupList'
 import { RunResultActions } from '@/components/features/batch/shared/RunResultActions'

@@ -32,7 +32,7 @@ import {
   postponeRetest,
   createRetestExam,
   type RetestStudent,
-} from '@/app/actions/retests'
+} from '@/app/actions/grades/retests'
 import { Loader2, MoreVertical, AlertTriangle, CheckCircle2, Clock, Calendar } from 'lucide-react'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'

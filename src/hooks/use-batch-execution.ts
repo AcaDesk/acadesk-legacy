@@ -1,13 +1,13 @@
 'use client'
 
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { executeBatchDraft } from '@/app/actions/batch-drafts'
+import { executeBatchDraft } from '@/app/actions/batch/drafts'
 import {
   getBatchJobDetail,
   retryFailedItems,
   executePendingJobItems,
   cancelJob,
-} from '@/app/actions/batch-jobs'
+} from '@/app/actions/batch/jobs'
 import type { BatchJob, BatchJobProgress } from '@/core/types/batch.types'
 
 interface UseBatchExecutionOptions {

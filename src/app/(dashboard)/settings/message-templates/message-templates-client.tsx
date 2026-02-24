@@ -32,7 +32,7 @@ import {
 } from '@ui/table'
 import { Plus, Edit, Trash2, MessageSquare, Search, FileText } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import { createMessageTemplate, updateMessageTemplate, deleteMessageTemplate } from '@/app/actions/messages'
+import { createMessageTemplate, updateMessageTemplate, deleteMessageTemplate } from '@/app/actions/messaging/messages'
 import { useRouter } from 'next/navigation'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 

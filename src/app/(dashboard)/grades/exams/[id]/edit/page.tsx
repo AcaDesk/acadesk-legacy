@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import { PageWrapper } from '@/components/layout/page-wrapper'
 import { ExamForm } from '@/components/features/exams/ExamForm'
 import { requireAuth } from '@/lib/auth/helpers'
-import { getExamById } from '@/app/actions/exams'
+import { getExamById } from '@/app/actions/grades/exams'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {

@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
-import { getReports, getStudentsForFilter } from '@/app/actions/reports'
+import { getReports, getStudentsForFilter } from '@/app/actions/reports/queries'
 import { ReportsContent } from './reports-content'
 
 export default async function ReportsPage() {

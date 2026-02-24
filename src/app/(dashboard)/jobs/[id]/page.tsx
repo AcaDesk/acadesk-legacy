@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { PageWrapper } from '@/components/layout/page-wrapper'
-import { getBatchJobDetail } from '@/app/actions/batch-jobs'
+import { getBatchJobDetail } from '@/app/actions/batch/jobs'
 import { JobDetailContent } from '@/components/features/jobs/JobDetailContent'
 
 export const metadata: Metadata = {

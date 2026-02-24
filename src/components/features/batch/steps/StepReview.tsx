@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useTransition } from 'react'
 import { useToast } from '@/hooks/use-toast'
-import { reviewBatchDraft, patchBatchDraft } from '@/app/actions/batch-drafts'
+import { reviewBatchDraft, patchBatchDraft } from '@/app/actions/batch/drafts'
 import { ImpactSummaryCard } from '../shared/ImpactSummaryCard'
 import { PreviewSamplesTable } from '../shared/PreviewSamplesTable'
 import { RiskAlertList } from '../shared/RiskAlertList'

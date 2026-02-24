@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useToast } from '@/hooks/use-toast'
-import { patchBatchDraft } from '@/app/actions/batch-drafts'
+import { patchBatchDraft } from '@/app/actions/batch/drafts'
 import { OptionsFormSwitch } from '../shared/OptionsFormSwitch'
 import { WizardNavButtons } from '../wizard/WizardNavButtons'
 import { Label } from '@ui/label'

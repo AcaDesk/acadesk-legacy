@@ -39,7 +39,7 @@ import {
 } from '@tabler/icons-react'
 import { useToast } from '@/hooks/use-toast'
 import { usePagination } from '@/hooks/use-pagination'
-import { deleteExam, bulkDeleteExams, archiveExam, unarchiveExam } from '@/app/actions/exams'
+import { deleteExam, bulkDeleteExams, archiveExam, unarchiveExam } from '@/app/actions/grades/exams'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import { EmptyState, NoSearchResultsEmptyState } from '@ui/empty-state'
 import { PAGE_LAYOUT, TEXT_STYLES } from '@/lib/constants'

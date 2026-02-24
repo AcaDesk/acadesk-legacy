@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { getBatchDraft } from '@/app/actions/batch-drafts'
+import { getBatchDraft } from '@/app/actions/batch/drafts'
 import { WizardLayout } from '@/components/features/batch/wizard/WizardLayout'
 import { redirect } from 'next/navigation'
 

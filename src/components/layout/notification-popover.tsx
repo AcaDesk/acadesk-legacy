@@ -18,7 +18,7 @@ import {
   markNotificationAsRead,
   markAllNotificationsAsRead,
   type InAppNotification
-} from '@/app/actions/notifications'
+} from '@/app/actions/messaging/notifications'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { useToast } from '@/hooks/use-toast'
 import { getErrorMessage } from '@/lib/error-handlers'

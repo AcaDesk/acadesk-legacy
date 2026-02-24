@@ -31,7 +31,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/c
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@ui/dialog'
 import { Loader2, Settings, Plus, X } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import { createExam, updateExam, getExamCategories, getClassesForExam } from '@/app/actions/exams'
+import { createExam, updateExam, getExamCategories, getClassesForExam } from '@/app/actions/grades/exams'
 import { addExamCategory, deleteExamCategory } from '@/app/actions/tenant'
 import { getSubjects } from '@/app/actions/subjects'
 import { ClassSelector } from '@/components/features/common/class-selector'

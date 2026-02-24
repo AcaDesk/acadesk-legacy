@@ -14,7 +14,7 @@ import { ReportStatCards } from '@/components/features/reports/report-stat-cards
 import { ReportDialogs } from '@/components/features/reports/report-dialogs'
 import { ReportFilterPresets, type PresetFilter } from '@/components/features/reports/report-filter-presets'
 import { useReportActions } from '@/hooks/use-report-actions'
-import { getReports } from '@/app/actions/reports'
+import { getReports } from '@/app/actions/reports/queries'
 import type { ReportWithStudent, StudentForFilter } from '@/core/types/report.types'
 
 interface ReportsContentProps {

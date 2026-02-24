@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/hooks/use-toast'
-import { getBatchJobs, runDueScheduledBatchJobs } from '@/app/actions/batch-jobs'
+import { getBatchJobs, runDueScheduledBatchJobs } from '@/app/actions/batch/jobs'
 import { JobStatusBadge } from './JobStatusBadge'
 import { JobTypeBadge } from './JobTypeBadge'
 import { Progress } from '@ui/progress'

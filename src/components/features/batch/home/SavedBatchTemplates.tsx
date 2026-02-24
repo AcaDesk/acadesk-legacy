@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { getBatchJobTemplates } from '@/app/actions/batch-jobs'
-import { createBatchDraftFromTemplate } from '@/app/actions/batch-drafts'
+import { getBatchJobTemplates } from '@/app/actions/batch/jobs'
+import { createBatchDraftFromTemplate } from '@/app/actions/batch/drafts'
 import { JobTypeBadge } from '@/components/features/jobs/JobTypeBadge'
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
-import { BookMarked, Loader2 } from 'lucide-react'
+import { Button } from '@ui/button'
+import { BookMarked, Loader2, Plus } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import type { BatchJob } from '@/core/types/batch.types'
 
@@ -45,8 +46,8 @@ export function SavedBatchTemplates() {
     }
   }
 
-  // 로딩 중이거나 템플릿이 없으면 카드 자체를 숨김 (로딩 후 사라지는 플래시 방지)
-  if (loading || templates.length === 0) return null
+  // 로딩 중에는 카드를 숨김
+  if (loading) return null
 
   return (
     <Card>
@@ -57,7 +58,30 @@ export function SavedBatchTemplates() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-2">
+        {templates.length === 0 ? (
+          /* 빈 상태 */
+          <div className="flex flex-col items-center justify-center py-8 text-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+              <BookMarked className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium">저장된 템플릿이 없습니다</p>
+              <p className="text-xs text-muted-foreground">
+                일괄작업 완료 후 템플릿으로 저장하면 다음에 빠르게 재사용할 수 있습니다
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push('/batch/new')}
+              className="gap-1.5"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              새 일괄작업 시작
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-2">
             {templates.map((tpl) => (
               <div
                 key={tpl.id}
@@ -78,6 +102,7 @@ export function SavedBatchTemplates() {
               </div>
             ))}
           </div>
+        )}
       </CardContent>
     </Card>
   )

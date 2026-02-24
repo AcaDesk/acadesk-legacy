@@ -144,7 +144,7 @@ export function ReportDetailContent({
 
     setSending(true)
     try {
-      const { sendReportToAllGuardians } = await import('@/app/actions/reports-send')
+      const { sendReportToAllGuardians } = await import('@/app/actions/reports/send')
 
       const result = await sendReportToAllGuardians(reportId)
 
@@ -217,7 +217,7 @@ export function ReportDetailContent({
 
     // Load templates
     try {
-      const { getReportTemplates } = await import('@/app/actions/report-templates')
+      const { getReportTemplates } = await import('@/app/actions/reports/templates')
       const result = await getReportTemplates(context)
       if (result.success && result.data) {
         setCategoryTemplates(result.data)
@@ -234,7 +234,7 @@ export function ReportDetailContent({
 
     setSavingComment(true)
     try {
-      const { updateReportComment } = await import('@/app/actions/reports-send')
+      const { updateReportComment } = await import('@/app/actions/reports/send')
 
       const result = await updateReportComment(report.id, commentForm)
 

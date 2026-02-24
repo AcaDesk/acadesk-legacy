@@ -6,7 +6,7 @@ import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { requireAuth } from '@/lib/auth/helpers'
-import { getExamsForGradeEntry } from '@/app/actions/grade-entry'
+import { getExamsForGradeEntry } from '@/app/actions/grades/grade-entry'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {

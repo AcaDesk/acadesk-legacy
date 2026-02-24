@@ -1,6 +1,6 @@
 import { requireAuth } from '@/lib/auth/helpers'
 import { ReportTemplatesClient } from './report-templates-client'
-import { getTenantReportTemplates, getSystemReportTemplates } from '@/app/actions/report-templates'
+import { getTenantReportTemplates, getSystemReportTemplates } from '@/app/actions/reports/templates'
 import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'

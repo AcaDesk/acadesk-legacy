@@ -4,7 +4,7 @@ import { useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/hooks/use-toast'
 import { generateMonthlyReport, generateWeeklyReport, saveReport } from '@/app/actions/reports/report-generation'
-import { sendReportToAllGuardians } from '@/app/actions/reports-send'
+import { sendReportToAllGuardians } from '@/app/actions/reports/send'
 import type { ReportData } from '@/core/types/report.types'
 import {
   type ReportStepKey,

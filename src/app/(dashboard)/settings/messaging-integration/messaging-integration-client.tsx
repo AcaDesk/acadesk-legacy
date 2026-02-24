@@ -40,12 +40,12 @@ import {
   toggleMessagingActive,
   deleteMessagingConfig,
   type MessagingProvider
-} from '@/app/actions/messaging-config'
+} from '@/app/actions/messaging/config'
 import { KakaoChannelStatus, KakaoChannelRegistration, KakaoPrerequisitesChecklist, KakaoAlimtalkStepper } from '@/components/features/settings/kakao-channel'
 import type { KakaoTemplateSummary } from '@/components/features/settings/kakao-channel'
 import { KakaoTemplateList, KakaoTemplateForm } from '@/components/features/settings/kakao-templates'
-import type { KakaoChannelConfig } from '@/app/actions/kakao-channel'
-import type { KakaoTemplate } from '@/app/actions/kakao-templates'
+import type { KakaoChannelConfig } from '@/app/actions/messaging/kakao-channel'
+import type { KakaoTemplate } from '@/app/actions/messaging/kakao-templates'
 
 interface MessagingConfig {
   id: string

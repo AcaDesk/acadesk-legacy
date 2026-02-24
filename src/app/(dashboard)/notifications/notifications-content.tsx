@@ -19,7 +19,7 @@ import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { BulkMessageDialog } from '@/components/features/notifications/bulk-message-dialog'
 import { ManageTemplatesDialog } from '@/components/features/notifications/manage-templates-dialog'
-import { getMessagingBalance } from '@/app/actions/messaging-config'
+import { getMessagingBalance } from '@/app/actions/messaging/config'
 
 const PAGE_SIZE = 50
 

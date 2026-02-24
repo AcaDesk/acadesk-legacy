@@ -17,7 +17,7 @@ import {
 import { Send, MessageSquare, Smartphone, Info, Sparkles } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { Card, CardContent } from '@ui/card'
-import { getMessageTemplates } from '@/app/actions/messages'
+import { getMessageTemplates } from '@/app/actions/messaging/messages'
 
 interface Recipient {
   id: string
