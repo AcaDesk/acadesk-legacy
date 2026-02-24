@@ -13,7 +13,7 @@ import {
   removeKakaoChannel,
   updateKakaoFallbackSettings,
   type KakaoChannelConfig,
-} from '@/app/actions/kakao-channel'
+} from '@/app/actions/messaging/kakao-channel'
 import { translateSolapiError, isPartialDeletionError } from '@/lib/solapi-error-translator'
 import { kakaoChannelStatusConfig } from '@/lib/kakao/kakao-status-config'
 

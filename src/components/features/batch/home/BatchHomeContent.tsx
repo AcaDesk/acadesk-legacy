@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/hooks/use-toast'
-import { runDueScheduledBatchJobs } from '@/app/actions/batch-jobs'
+import { runDueScheduledBatchJobs } from '@/app/actions/batch/jobs'
 import { RecentJobsList } from './RecentJobsList'
 import { SavedBatchTemplates } from './SavedBatchTemplates'
 

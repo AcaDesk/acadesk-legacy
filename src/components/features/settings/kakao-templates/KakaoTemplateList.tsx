@@ -28,7 +28,7 @@ import {
   syncKakaoTemplates,
   refreshTemplateStatus,
   type KakaoTemplate,
-} from '@/app/actions/kakao-templates'
+} from '@/app/actions/messaging/kakao-templates'
 import {
   kakaoTemplateStatusConfig,
   kakaoMessageTypeLabels,

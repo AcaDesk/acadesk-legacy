@@ -3,7 +3,7 @@ import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
-import { getMessagingBalance } from '@/app/actions/messaging-config'
+import { getMessagingBalance } from '@/app/actions/messaging/config'
 import { NotificationsContent } from './notifications-content'
 
 interface NotificationLog {

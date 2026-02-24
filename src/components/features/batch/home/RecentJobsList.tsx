@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { getRecentBatchJobs } from '@/app/actions/batch-jobs'
+import { getRecentBatchJobs } from '@/app/actions/batch/jobs'
 import { JobStatusBadge } from '@/components/features/jobs/JobStatusBadge'
 import { JobTypeBadge } from '@/components/features/jobs/JobTypeBadge'
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'

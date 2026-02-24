@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Button } from '@ui/button'
 import { useToast } from '@/hooks/use-toast'
-import { getFailedItemsCsv } from '@/app/actions/batch-jobs'
+import { getFailedItemsCsv } from '@/app/actions/batch/jobs'
 import { RefreshCw, Download, Loader2 } from 'lucide-react'
 
 interface RunResultActionsProps {

@@ -31,7 +31,7 @@ import {
   createReportTemplate,
   updateReportTemplate,
   deleteReportTemplate,
-} from '@/app/actions/report-templates'
+} from '@/app/actions/reports/templates'
 import type {
   ReportTemplate,
   ReportTemplateCategory,

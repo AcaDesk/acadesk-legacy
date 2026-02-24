@@ -1,4 +1,4 @@
-import { getBatchDraft } from '@/app/actions/batch-drafts'
+import { getBatchDraft } from '@/app/actions/batch/drafts'
 import { WizardStepGuard } from '@/components/features/batch/wizard/WizardStepGuard'
 import { StepAction } from '@/components/features/batch/steps/StepAction'
 

@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createBatchDraft } from '@/app/actions/batch-drafts'
+import { createBatchDraft } from '@/app/actions/batch/drafts'
 import type { BatchActionType } from '@/core/types/batch.types'
 
 function parseActionType(raw?: string): BatchActionType | undefined {

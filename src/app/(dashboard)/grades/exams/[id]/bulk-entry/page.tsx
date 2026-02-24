@@ -3,7 +3,7 @@ import { PageWrapper } from '@/components/layout/page-wrapper'
 import { BulkGradeEntryClient } from './bulk-entry-client'
 import { Skeleton } from '@ui/skeleton'
 import { requireAuth } from '@/lib/auth/helpers'
-import { getExamById } from '@/app/actions/exams'
+import { getExamById } from '@/app/actions/grades/exams'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 

@@ -8,7 +8,7 @@ import { CalendarIcon, TrendingUp, Send, CheckCircle2, XCircle, Clock } from 'lu
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
-import { getMessageStatistics } from '@/app/actions/messages'
+import { getMessageStatistics } from '@/app/actions/messaging/messages'
 import { useToast } from '@/hooks/use-toast'
 
 interface MessageStatisticsProps {

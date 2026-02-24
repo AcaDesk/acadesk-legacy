@@ -33,7 +33,7 @@ import {
   updateKakaoTemplate,
   getKakaoTemplateCategories,
   type KakaoTemplate,
-} from '@/app/actions/kakao-templates'
+} from '@/app/actions/messaging/kakao-templates'
 import {
   kakaoTemplateFormSchema,
 } from '@/lib/kakao/kakao-validation'

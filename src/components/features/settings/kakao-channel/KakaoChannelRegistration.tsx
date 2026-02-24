@@ -36,7 +36,7 @@ import {
   requestKakaoChannelToken,
   createKakaoChannel,
   getKakaoChannelCategories,
-} from '@/app/actions/kakao-channel'
+} from '@/app/actions/messaging/kakao-channel'
 import { translateSolapiError } from '@/lib/solapi-error-translator'
 import type { KakaoChannelCategory } from '@/infra/messaging/types/kakao.types'
 

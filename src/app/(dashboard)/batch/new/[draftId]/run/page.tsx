@@ -1,5 +1,5 @@
-import { getBatchDraft } from '@/app/actions/batch-drafts'
-import { getLatestJobForDraft } from '@/app/actions/batch-jobs'
+import { getBatchDraft } from '@/app/actions/batch/drafts'
+import { getLatestJobForDraft } from '@/app/actions/batch/jobs'
 import { WizardStepGuard } from '@/components/features/batch/wizard/WizardStepGuard'
 import { StepRun } from '@/components/features/batch/steps/StepRun'
 

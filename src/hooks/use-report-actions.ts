@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react'
 import { useToast } from '@/hooks/use-toast'
 import { classifyReportSendError, type ReportSendErrorInfo } from '@/lib/report-send-errors'
-import { deleteReport, deleteReports } from '@/app/actions/reports'
+import { deleteReport, deleteReports } from '@/app/actions/reports/queries'
 import type { ReportWithStudent } from '@/core/types/report.types'
 
 interface BulkSendProgress {
@@ -106,7 +106,7 @@ export function useReportActions(
 
     setIsSending(true)
     try {
-      const { sendReportToAllGuardians } = await import('@/app/actions/reports-send')
+      const { sendReportToAllGuardians } = await import('@/app/actions/reports/send')
       const result = await sendReportToAllGuardians(reportToSend.id)
 
       if (!result.success) {
@@ -216,7 +216,7 @@ export function useReportActions(
     setBulkSendProgress({ current: 0, total: reportsToSend.length, successCount: 0, failCount: 0 })
 
     try {
-      const { sendReportToAllGuardians } = await import('@/app/actions/reports-send')
+      const { sendReportToAllGuardians } = await import('@/app/actions/reports/send')
 
       let totalSuccess = 0
       let totalFail = 0

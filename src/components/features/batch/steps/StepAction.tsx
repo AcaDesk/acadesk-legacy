@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useToast } from '@/hooks/use-toast'
-import { patchBatchDraft } from '@/app/actions/batch-drafts'
+import { patchBatchDraft } from '@/app/actions/batch/drafts'
 import { ActionCardGroup } from '../shared/ActionCardGroup'
 import { WizardNavButtons } from '../wizard/WizardNavButtons'
 import type { BatchActionType } from '@/core/types/batch.types'

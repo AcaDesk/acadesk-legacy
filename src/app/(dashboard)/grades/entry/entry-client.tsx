@@ -27,9 +27,9 @@ import {
   RotateCcw,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
-import { getExamsForGradeEntry } from '@/app/actions/grade-entry'
-import { completeExamGrading, reopenExamGrading } from '@/app/actions/exams'
-import type { ExamForGradeEntry } from '@/app/actions/grade-entry'
+import { getExamsForGradeEntry } from '@/app/actions/grades/grade-entry'
+import { completeExamGrading, reopenExamGrading } from '@/app/actions/grades/exams'
+import type { ExamForGradeEntry } from '@/app/actions/grades/grade-entry'
 
 interface EntryClientProps {
   initialExams: ExamForGradeEntry[]

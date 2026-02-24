@@ -1,7 +1,7 @@
 import { requireAuth } from '@/lib/auth/helpers'
 import { MessagingIntegrationClient } from './messaging-integration-client'
-import { getMessagingConfig } from '@/app/actions/messaging-config'
-import { getKakaoChannelConfig } from '@/app/actions/kakao-channel'
+import { getMessagingConfig } from '@/app/actions/messaging/config'
+import { getKakaoChannelConfig } from '@/app/actions/messaging/kakao-channel'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {

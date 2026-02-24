@@ -34,7 +34,7 @@ import {
 } from '@ui/select'
 import { Alert, AlertDescription } from '@ui/alert'
 import { useToast } from '@/hooks/use-toast'
-import { sendMessages, getMessageTemplates } from '@/app/actions/messages'
+import { sendMessages, getMessageTemplates } from '@/app/actions/messaging/messages'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { Loader2, AlertCircle, Send, Info } from 'lucide-react'
 import { Badge } from '@ui/badge'

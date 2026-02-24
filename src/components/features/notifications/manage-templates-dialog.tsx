@@ -29,7 +29,7 @@ import {
   updateMessageTemplate,
   deleteMessageTemplate,
   createDefaultTemplates,
-} from '@/app/actions/messages'
+} from '@/app/actions/messaging/messages'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 
