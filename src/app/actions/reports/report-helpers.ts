@@ -241,16 +241,24 @@ export async function getScoresData(
   // 날짜 비교 헬퍼 함수
   const extractDatePart = (dateStr: string): string => dateStr.slice(0, 10)
 
-  // 6개 쿼리 병렬 실행 (현재/이전 기간 + 레거시 + 반 전체)
+  // JS 레벨 날짜 범위 필터 (exam_date 우선, 없으면 exams.created_at 폴백)
+  // PostgREST의 !inner 조인 + 관련 테이블 칼럼 필터는 간헐적으로 0건을 반환하는 경우가 있어
+  // 학생 점수는 날짜 필터 없이 전체 조회 후 JS에서 필터링한다
+  function isInPeriod(score: ScoreWithExamDates, start: string, end: string): boolean {
+    const effectiveDate =
+      score.exams?.exam_date?.slice(0, 10) || score.exams?.created_at?.slice(0, 10)
+    return !!effectiveDate && effectiveDate >= start && effectiveDate <= end
+  }
+
+  // 3개 쿼리 병렬 실행:
+  // 1) 학생 전체 성적 (날짜 필터 없음 → JS 필터)
+  // 2) 반 평균 현재 기간 (exam_date 있는 것, PostgREST 필터)
+  // 3) 반 평균 레거시 (exam_date NULL, created_at JS 필터)
   const [
-    { data: currentScoresWithDate },
-    { data: currentLegacyScores },
-    { data: prevScoresWithDate },
-    { data: prevLegacyScores },
+    { data: allStudentScores },
     { data: classScoresWithDate },
     { data: classLegacyScores },
   ] = await Promise.all([
-    // 현재 기간 성적 - DB에서 날짜 필터링
     supabase
       .from('exam_scores')
       .select(`
@@ -270,108 +278,33 @@ export async function getScoresData(
       `)
       .eq('student_id', studentId)
       .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
-      .gte('exams.exam_date', periodStart)
-      .lte('exams.exam_date', periodEnd),
-    // exam_date가 NULL인 레거시 데이터 (created_at으로 필터링)
-    supabase
-      .from('exam_scores')
-      .select(`
-        percentage,
-        feedback,
-        is_retest,
-        created_at,
-        exams!inner (
-          name,
-          exam_date,
-          created_at,
-          category_code,
-          subject_id,
-          ref_exam_categories (label),
-          subjects (name, color)
-        )
-      `)
-      .eq('student_id', studentId)
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
-      .is('exams.exam_date', null),
-    // 이전 기간 성적 - DB에서 날짜 필터링
-    supabase
-      .from('exam_scores')
-      .select(`
-        percentage,
-        exams!inner (name, category_code, subject_id, exam_date, created_at)
-      `)
-      .eq('student_id', studentId)
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
-      .gte('exams.exam_date', prevPeriodStart)
-      .lte('exams.exam_date', prevPeriodEnd),
-    // 이전 기간 레거시 데이터
-    supabase
-      .from('exam_scores')
-      .select(`
-        percentage,
-        exams!inner (name, category_code, subject_id, exam_date, created_at)
-      `)
-      .eq('student_id', studentId)
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
-      .is('exams.exam_date', null),
-    // 현재 기간의 반 평균 및 재시험률 조회 (카테고리별) - DB에서 날짜 필터링
+      .is('deleted_at', null),
     supabase
       .from('exam_scores')
       .select(`
         percentage,
         is_retest,
-        exams!inner (
-          name,
-          category_code,
-          subject_id,
-          exam_date,
-          created_at
-        )
+        exams!inner (name, category_code, subject_id, exam_date, created_at)
       `)
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
       .gte('exams.exam_date', periodStart)
       .lte('exams.exam_date', periodEnd),
-    // exam_date가 NULL인 레거시 데이터
     supabase
       .from('exam_scores')
       .select(`
         percentage,
         is_retest,
-        exams!inner (
-          name,
-          category_code,
-          subject_id,
-          exam_date,
-          created_at
-        )
+        exams!inner (name, category_code, subject_id, exam_date, created_at)
       `)
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
       .is('exams.exam_date', null),
   ])
 
-  const filteredLegacy = castScores(currentLegacyScores).filter((score) => {
-    const createdAt = score.exams?.created_at
-    if (!createdAt) return false
-    const datePart = extractDatePart(createdAt)
-    return datePart >= periodStart && datePart <= periodEnd
-  })
-
-  const currentScores = [...(currentScoresWithDate || []), ...filteredLegacy]
-
-  const filteredPrevLegacy = castScores(prevLegacyScores).filter((score) => {
-    const createdAt = score.exams?.created_at
-    if (!createdAt) return false
-    const datePart = extractDatePart(createdAt)
-    return datePart >= prevPeriodStart && datePart <= prevPeriodEnd
-  })
-
-  const previousScores = [...(prevScoresWithDate || []), ...filteredPrevLegacy]
+  const allScores = castScores(allStudentScores)
+  const currentScores = allScores.filter((s) => isInPeriod(s, periodStart, periodEnd))
+  const previousScores = allScores.filter((s) => isInPeriod(s, prevPeriodStart, prevPeriodEnd))
 
   const filteredClassLegacy = castScores(classLegacyScores).filter((score) => {
     const createdAt = score.exams?.created_at
