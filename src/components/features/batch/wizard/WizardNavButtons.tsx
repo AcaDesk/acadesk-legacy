@@ -13,6 +13,7 @@ interface WizardNavButtonsProps {
   isLoading?: boolean
   isLastStep?: boolean
   onExecute?: () => void
+  overrideNextStep?: BatchDraftStep
 }
 
 export function WizardNavButtons({
@@ -23,6 +24,7 @@ export function WizardNavButtons({
   isLoading = false,
   isLastStep = false,
   onExecute,
+  overrideNextStep,
 }: WizardNavButtonsProps) {
   const router = useRouter()
   const currentIndex = getStepIndex(currentStep)
@@ -43,7 +45,7 @@ export function WizardNavButtons({
       if (!canProceed) return
     }
     if (currentIndex < STEP_ORDER.length - 1) {
-      const nextStep = STEP_ORDER[currentIndex + 1]
+      const nextStep = overrideNextStep ?? STEP_ORDER[currentIndex + 1]
       router.push(`/batch/new/${draftId}/${nextStep}`)
     }
   }

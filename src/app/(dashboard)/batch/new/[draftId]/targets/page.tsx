@@ -12,7 +12,11 @@ export default async function TargetsPage({
 
   return (
     <WizardStepGuard draft={result.data} draftId={draftId} targetStep="targets">
-      <StepTargets draftId={draftId} initialTargetIds={result.data?.target_ids ?? []} />
+      <StepTargets
+        draftId={draftId}
+        initialTargetIds={result.data?.target_ids ?? []}
+        presetActionType={result.data?.action_type}
+      />
     </WizardStepGuard>
   )
 }
