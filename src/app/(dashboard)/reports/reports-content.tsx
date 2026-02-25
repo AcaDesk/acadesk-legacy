@@ -6,7 +6,7 @@ import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
-import { Plus, Send, Users, MessageSquare, Layers } from 'lucide-react'
+import { Plus, Users, Layers } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from '@/components/layout/page-wrapper'
 import { ReportTableImproved } from '@/components/features/reports/report-table-improved'
@@ -166,17 +166,9 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
             <Plus className="h-4 w-4 mr-2" />
             개별 생성
           </Button>
-          <Button onClick={() => router.push('/batch/new?action=report')} variant="outline">
+          <Button onClick={() => router.push('/batch/new')} variant="outline">
             <Users className="h-4 w-4 mr-2" />
             일괄 리포트
-          </Button>
-          <Button onClick={() => router.push('/batch/new?action=comment')} variant="outline">
-            <MessageSquare className="h-4 w-4 mr-2" />
-            일괄 코멘트
-          </Button>
-          <Button onClick={() => router.push('/batch/new?action=send')} variant="outline">
-            <Send className="h-4 w-4 mr-2" />
-            일괄 전송
           </Button>
         </div>
       }

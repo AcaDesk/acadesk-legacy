@@ -2,19 +2,20 @@
 
 import { useState, useEffect, useCallback, useTransition } from 'react'
 import { useToast } from '@/hooks/use-toast'
-import { getStudentsForBatchFilter, patchBatchDraft } from '@/app/actions/batch-drafts'
+import { getStudentsForBatchFilter, patchBatchDraft } from '@/app/actions/batch'
 import { TargetFilterPanel, type SchoolLevel } from '../shared/TargetFilterPanel'
 import { TargetTable } from '../shared/TargetTable'
 import { SelectionSummary } from '../shared/SelectionSummary'
 import { WizardNavButtons } from '../wizard/WizardNavButtons'
-import type { BatchTarget } from '@/core/types/batch.types'
+import type { BatchTarget, BatchActionType } from '@/core/types/batch.types'
 
 interface StepTargetsProps {
   draftId: string
   initialTargetIds: string[]
+  presetActionType?: BatchActionType | null
 }
 
-export function StepTargets({ draftId, initialTargetIds }: StepTargetsProps) {
+export function StepTargets({ draftId, initialTargetIds, presetActionType }: StepTargetsProps) {
   const { toast } = useToast()
   const [isPending, startTransition] = useTransition()
 
@@ -76,7 +77,7 @@ export function StepTargets({ draftId, initialTargetIds }: StepTargetsProps) {
         const result = await patchBatchDraft(draftId, {
           target_ids: Array.from(selectedIds),
           target_snapshot_count: selectedIds.size,
-          step: 'action',
+          step: presetActionType ? 'options' : 'action',
         })
         if (!result.success) {
           toast({ title: '저장 실패', description: result.error ?? '', variant: 'destructive' })
@@ -123,6 +124,7 @@ export function StepTargets({ draftId, initialTargetIds }: StepTargetsProps) {
         onNext={handleNext}
         isNextDisabled={selectedIds.size === 0}
         isLoading={isPending}
+        overrideNextStep={presetActionType ? 'options' : undefined}
       />
     </div>
   )
