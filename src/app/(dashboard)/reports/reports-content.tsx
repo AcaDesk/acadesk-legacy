@@ -168,7 +168,7 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
           </Button>
           <Button onClick={() => router.push('/batch/new')} variant="outline">
             <Users className="h-4 w-4 mr-2" />
-            일괄 리포트
+            일괄 작업
           </Button>
         </div>
       }
