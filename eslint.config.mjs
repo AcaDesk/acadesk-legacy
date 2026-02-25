@@ -21,6 +21,19 @@ const eslintConfig = [
     ],
   },
   {
+    settings: {
+      "import/resolver": {
+        typescript: {
+          alwaysTryTypes: true,
+          project: "./tsconfig.json",
+        },
+      },
+    },
+    rules: {
+      "import/no-unresolved": "error",
+    },
+  },
+  {
     rules: {
       // Prohibit native confirm/alert/prompt - use ConfirmationDialog instead
       "no-restricted-globals": [
