@@ -398,11 +398,7 @@ export function ReportTableImproved({
         )
       },
     },
-  ].filter((col) => {
-    if (mode === 'browse' && col.id === 'select') return false
-    if (mode === 'select' && col.id === 'actions') return false
-    return true
-  }), [mode, router, onSendClick, onDeleteClick])
+  ], [mode, router, onSendClick, onDeleteClick])
 
   const table = useReactTable({
     data,
