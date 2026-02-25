@@ -34,6 +34,7 @@ export async function getReports(options?: {
   studentId?: string
   reportType?: string
   limit?: number
+  period?: 'this_month' | 'last_month' | 'last_3_months' | 'all'
 }) {
   try {
     const { tenantId } = await verifyStaff()
@@ -69,6 +70,21 @@ export async function getReports(options?: {
     if (options?.reportType && options.reportType !== 'all') {
       query = query.eq('report_type', options.reportType)
     }
+
+    const now = new Date()
+    const period = options?.period ?? 'this_month'
+    if (period === 'this_month') {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+      query = query.gte('generated_at', start)
+    } else if (period === 'last_month') {
+      const start = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString()
+      const end = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+      query = query.gte('generated_at', start).lt('generated_at', end)
+    } else if (period === 'last_3_months') {
+      const start = new Date(now.getFullYear(), now.getMonth() - 2, 1).toISOString()
+      query = query.gte('generated_at', start)
+    }
+    // 'all' → no date filter
 
     if (options?.limit) {
       query = query.limit(options.limit)

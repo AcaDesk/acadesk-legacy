@@ -49,6 +49,7 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
   const [selectedStudent, setSelectedStudent] = useState<string>('all')
   const [selectedType, setSelectedType] = useState<string>('all')
   const [selectedSchoolLevel, setSelectedSchoolLevel] = useState<string>('all')
+  const [selectedPeriod, setSelectedPeriod] = useState<'this_month' | 'last_month' | 'last_3_months' | 'all'>('this_month')
   const [activeStatFilter, setActiveStatFilter] = useState<string | null>(null)
   const [activePresets, setActivePresets] = useState<PresetFilter[]>([])
   const [loading, setLoading] = useState(false)
@@ -63,6 +64,7 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
       const result = await getReports({
         studentId: selectedStudent !== 'all' ? selectedStudent : undefined,
         reportType: selectedType !== 'all' ? selectedType : undefined,
+        period: selectedPeriod,
       })
 
       if (!result.success || !result.data) {
@@ -85,7 +87,7 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
     } finally {
       setLoading(false)
     }
-  }, [toast, selectedStudent, selectedType])
+  }, [toast, selectedStudent, selectedType, selectedPeriod])
 
   const actions = useReportActions(loadReports)
 
@@ -145,6 +147,7 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
     setSelectedSchoolLevel('all')
     setSelectedStudent('all')
     setSelectedType('all')
+    setSelectedPeriod('this_month')
     setActiveStatFilter(null)
     setActivePresets([])
   }
@@ -153,6 +156,7 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
     selectedSchoolLevel !== 'all' ||
     selectedStudent !== 'all' ||
     selectedType !== 'all' ||
+    selectedPeriod !== 'this_month' ||
     activeStatFilter !== null ||
     activePresets.length > 0
 
@@ -189,6 +193,17 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
 
         {/* Filters */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:flex-wrap">
+          <Select value={selectedPeriod} onValueChange={(v) => setSelectedPeriod(v as typeof selectedPeriod)}>
+            <SelectTrigger className="w-full sm:w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="this_month">이번 달</SelectItem>
+              <SelectItem value="last_month">지난 달</SelectItem>
+              <SelectItem value="last_3_months">최근 3개월</SelectItem>
+              <SelectItem value="all">전체</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={selectedSchoolLevel} onValueChange={setSelectedSchoolLevel}>
             <SelectTrigger className="w-full sm:w-[130px]">
               <SelectValue placeholder="학교급" />
@@ -279,10 +294,10 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
             <ReportTableImproved
               data={filteredReports}
               loading={loading}
-              mode="browse"
               onSendClick={actions.handleSendClick}
               onDeleteClick={actions.handleDeleteClick}
               onBulkDeleteClick={actions.handleBulkDeleteClick}
+              onBulkSendClick={actions.handleBulkSendClick}
             />
           </CardContent>
         </Card>
