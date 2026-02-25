@@ -25,7 +25,7 @@ import {
 } from '@ui/sheet'
 import { Textarea } from '@ui/textarea'
 import { Label } from '@ui/label'
-import { Send, CheckCircle, XCircle, Clock, MessageSquare } from 'lucide-react'
+import { Send, CheckCircle, XCircle, Clock, MessageSquare, Eye } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import type { ReportWithStudent } from '@/core/types/report.types'
@@ -43,19 +43,31 @@ interface ReportSend {
   send_error: string | null
 }
 
+interface ReportRead {
+  id: string
+  report_send_id: string
+  user_type: 'guardian' | 'student' | null
+  read_at: string
+  pdf_downloaded: boolean
+  pdf_downloaded_at: string | null
+}
+
 interface ReportDetailContentProps {
   initialReport: ReportWithStudent
   initialReportSends: ReportSend[]
+  initialReportReads: ReportRead[]
   reportId: string
 }
 
 export function ReportDetailContent({
   initialReport,
   initialReportSends,
+  initialReportReads,
   reportId,
 }: ReportDetailContentProps) {
   const [report, setReport] = useState<ReportWithStudent>(initialReport)
   const [reportSends, setReportSends] = useState<ReportSend[]>(initialReportSends)
+  const [reportReads, setReportReads] = useState<ReportRead[]>(initialReportReads)
   const [sending, setSending] = useState(false)
   const [sendDialogOpen, setSendDialogOpen] = useState(false)
   const [commentDialogOpen, setCommentDialogOpen] = useState(false)
@@ -122,6 +134,16 @@ export function ReportDetailContent({
 
       if (!sendsError && sendsData) {
         setReportSends(sendsData as ReportSend[])
+      }
+
+      // Load read history
+      const { data: readsData } = await supabase
+        .from('report_reads')
+        .select('id, report_send_id, user_type, read_at, pdf_downloaded, pdf_downloaded_at')
+        .eq('report_id', reportId)
+        .order('read_at', { ascending: true })
+      if (readsData) {
+        setReportReads(readsData as ReportRead[])
       }
     } catch (error) {
       console.error('Error loading report:', error)
@@ -295,6 +317,14 @@ export function ReportDetailContent({
     return types[type] || type
   }
 
+  // 최초 열람 기록을 report_send_id 기준으로 맵핑
+  const readsBySendId = new Map<string, ReportRead>()
+  reportReads.forEach(r => {
+    if (!readsBySendId.has(r.report_send_id)) {
+      readsBySendId.set(r.report_send_id, r)
+    }
+  })
+
   if (!report) {
     return (
       <PageWrapper>
@@ -419,6 +449,7 @@ export function ReportDetailContent({
                           <TableHead>채널</TableHead>
                           <TableHead>상태</TableHead>
                           <TableHead>발송일시</TableHead>
+                          <TableHead>열람</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -478,6 +509,26 @@ export function ReportDetailContent({
                               {send.sent_at
                                 ? new Date(send.sent_at).toLocaleString('ko-KR')
                                 : '-'}
+                            </TableCell>
+                            <TableCell>
+                              {(() => {
+                                const read = readsBySendId.get(send.id)
+                                if (!read) return <span className="text-muted-foreground text-sm">-</span>
+                                return (
+                                  <div className="space-y-1">
+                                    <Badge variant="outline" className="bg-success/10 text-success border-success/30 text-xs">
+                                      <Eye className="h-3 w-3 mr-1" />
+                                      확인
+                                    </Badge>
+                                    <div className="text-xs text-muted-foreground">
+                                      {new Date(read.read_at).toLocaleString('ko-KR')}
+                                    </div>
+                                    {read.pdf_downloaded && (
+                                      <div className="text-xs text-muted-foreground">PDF 다운로드</div>
+                                    )}
+                                  </div>
+                                )
+                              })()}
                             </TableCell>
                           </TableRow>
                         ))}

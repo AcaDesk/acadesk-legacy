@@ -9,6 +9,8 @@ import { TrendingUp, TrendingDown, Minus, Edit2 } from 'lucide-react'
 import {
   BarChart,
   Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -301,71 +303,76 @@ ${reportData.comment.nextGoals}`
       </div>
 
       {/* Bar Chart: 과목별 성적 */}
-      {reportData.scores && reportData.scores.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>과목별 성적</CardTitle>
-            <CardDescription>
-              이번달 과목별 점수 및 평균입니다
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={[
-                  ...reportData.scores.map((score) => ({
-                    name: score.category,
-                    점수: score.current ?? 0,
-                  })),
-                  {
-                    name: '평균',
-                    점수: averageScore ?? 0,
-                  },
-                ]}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
-                  <XAxis
-                    dataKey="name"
-                    stroke="hsl(var(--muted-foreground))"
-                    tickLine={false}
-                    axisLine={false}
-                    interval={0}
-                    tick={<CustomAxisTick />}
-                    height={30}
-                  />
-                  <YAxis
-                    stroke="hsl(var(--muted-foreground))"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                    domain={[0, 100]}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--background))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '6px',
-                    }}
-                  />
-                  <Legend />
-                  <Bar
-                    dataKey="점수"
-                    fill="hsl(var(--primary))"
-                    radius={[8, 8, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* 범례 */}
-            <div className="flex items-center justify-center gap-4 pt-4 border-t mt-4">
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full" style={{ backgroundColor: 'hsl(var(--primary))' }} />
-                <span className="text-xs text-muted-foreground">점수</span>
+      {reportData.scores && reportData.scores.length > 0 && (() => {
+        const hasClassAvg = reportData.scores.some(s => s.average !== null && s.average !== undefined)
+        const barData = reportData.scores.map((score) => ({
+          name: score.category,
+          '내 점수': score.current ?? 0,
+          ...(hasClassAvg ? { '반 평균': score.average ?? 0 } : {}),
+        }))
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>과목별 성적</CardTitle>
+              <CardDescription>
+                이번 달 과목별 점수{hasClassAvg ? ' 및 반 평균' : ''}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={barData} barGap={4} barCategoryGap="30%">
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} vertical={false} />
+                    <XAxis
+                      dataKey="name"
+                      stroke="hsl(var(--muted-foreground))"
+                      tickLine={false}
+                      axisLine={false}
+                      interval={0}
+                      tick={<CustomAxisTick />}
+                      height={30}
+                    />
+                    <YAxis
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                      domain={[0, 100]}
+                      tickFormatter={(v) => `${v}`}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--background))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                      }}
+                      formatter={(value: number, name: string) => [`${value}점`, name]}
+                      cursor={{ fill: 'hsl(var(--muted))', opacity: 0.5 }}
+                    />
+                    <Legend
+                      wrapperStyle={{ paddingTop: '16px', fontSize: '12px' }}
+                    />
+                    <Bar
+                      dataKey="내 점수"
+                      fill="hsl(var(--primary))"
+                      radius={[6, 6, 0, 0]}
+                    />
+                    {hasClassAvg && (
+                      <Bar
+                        dataKey="반 평균"
+                        fill="hsl(var(--muted-foreground))"
+                        fillOpacity={0.35}
+                        radius={[6, 6, 0, 0]}
+                      />
+                    )}
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
+        )
+      })()}
 
       {/* Attendance Heatmap */}
       {reportData.attendanceChartData && reportData.attendanceChartData.length > 0 && (
@@ -378,6 +385,82 @@ ${reportData.comment.nextGoals}`
           compact
         />
       )}
+
+      {/* Line Chart: 성적 추이 */}
+      {reportData.scoreTrend && reportData.scoreTrend.length >= 2 && (() => {
+        const hasTrendRetest = reportData.scoreTrend!.some(d => (d['재시험률'] ?? 0) > 0)
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>성적 추이</CardTitle>
+              <CardDescription>최근 3개월 평균 성적 변화</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={reportData.scoreTrend} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} vertical={false} />
+                    <XAxis
+                      dataKey="name"
+                      stroke="hsl(var(--muted-foreground))"
+                      tickLine={false}
+                      axisLine={false}
+                      fontSize={13}
+                    />
+                    <YAxis
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                      domain={[0, 100]}
+                      tickFormatter={(v) => `${v}`}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--background))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                      }}
+                      formatter={(value: number, name: string) => [
+                        name === '재시험률' ? `${value}%` : `${value}점`,
+                        name,
+                      ]}
+                    />
+                    <Legend wrapperStyle={{ paddingTop: '12px', fontSize: '12px' }} />
+                    <Line
+                      type="monotone"
+                      dataKey="학생 점수"
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={2.5}
+                      dot={{ r: 5, fill: 'hsl(var(--primary))', strokeWidth: 0 }}
+                      activeDot={{ r: 7 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="반 평균"
+                      stroke="hsl(var(--muted-foreground))"
+                      strokeWidth={1.5}
+                      strokeDasharray="5 4"
+                      dot={{ r: 4, fill: 'hsl(var(--muted-foreground))', strokeWidth: 0 }}
+                    />
+                    {hasTrendRetest && (
+                      <Line
+                        type="monotone"
+                        dataKey="재시험률"
+                        stroke="hsl(var(--destructive))"
+                        strokeWidth={1.5}
+                        strokeDasharray="3 3"
+                        dot={{ r: 4 }}
+                      />
+                    )}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        )
+      })()}
 
       {/* Accordion: 성적 상세 */}
       {reportData.scores && reportData.scores.length > 0 && (

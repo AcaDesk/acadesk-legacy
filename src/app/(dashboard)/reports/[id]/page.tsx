@@ -18,6 +18,15 @@ interface ReportSend {
   send_error: string | null
 }
 
+interface ReportRead {
+  id: string
+  report_send_id: string
+  user_type: 'guardian' | 'student' | null
+  read_at: string
+  pdf_downloaded: boolean
+  pdf_downloaded_at: string | null
+}
+
 export default async function ReportDetailPage({
   params,
 }: {
@@ -109,10 +118,20 @@ export default async function ReportDetailPage({
 
   const reportSends = (sendsData || []) as ReportSend[]
 
+  // Fetch read history (학부모 열람 기록) - 오류 시 빈 배열로 처리
+  const { data: readsData } = await supabase
+    .from('report_reads')
+    .select('id, report_send_id, user_type, read_at, pdf_downloaded, pdf_downloaded_at')
+    .eq('report_id', id)
+    .order('read_at', { ascending: true })
+
+  const reportReads = (readsData || []) as ReportRead[]
+
   return (
     <ReportDetailContent
       initialReport={report as any}
       initialReportSends={reportSends}
+      initialReportReads={reportReads}
       reportId={id}
     />
   )
