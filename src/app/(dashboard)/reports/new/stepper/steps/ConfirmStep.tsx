@@ -1,10 +1,11 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent } from '@ui/card'
 import { Button } from '@ui/button'
 import { Alert, AlertDescription } from '@ui/alert'
-import { ChevronLeft, Loader2, Send, Save } from 'lucide-react'
+import { ChevronLeft, Loader2, Send, Save, X } from 'lucide-react'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import { ReportViewer } from '@/components/features/reports/ReportViewer'
 import { cn } from '@/lib/utils'
@@ -31,7 +32,9 @@ export function ConfirmStep({
   onSubmit,
   onBack,
 }: ConfirmStepProps) {
+  const router = useRouter()
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [cancelOpen, setCancelOpen] = useState(false)
 
   const isProcessing = generating || sending
 
@@ -117,29 +120,40 @@ export function ConfirmStep({
               <ChevronLeft className="h-4 w-4" />
               이전
             </Button>
-            <Button
-              onClick={() => setConfirmOpen(true)}
-              disabled={!isReady || isProcessing}
-              size="lg"
-              className="gap-2"
-            >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {sending ? '전송 중...' : '저장 중...'}
-                </>
-              ) : sendAfterSave ? (
-                <>
-                  <Send className="h-4 w-4" />
-                  저장 및 전송
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4" />
-                  리포트 저장
-                </>
-              )}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setCancelOpen(true)}
+                disabled={isProcessing}
+                className="gap-1"
+              >
+                <X className="h-4 w-4" />
+                취소
+              </Button>
+              <Button
+                onClick={() => setConfirmOpen(true)}
+                disabled={!isReady || isProcessing}
+                size="lg"
+                className="gap-2"
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {sending ? '전송 중...' : '저장 중...'}
+                  </>
+                ) : sendAfterSave ? (
+                  <>
+                    <Send className="h-4 w-4" />
+                    저장 및 전송
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4" />
+                    리포트 저장
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -162,6 +176,16 @@ export function ConfirmStep({
           await onSubmit()
           setConfirmOpen(false)
         }}
+      />
+
+      <ConfirmationDialog
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        title="리포트 작성을 취소하시겠습니까?"
+        description="작성 중인 내용은 저장되지 않습니다."
+        confirmText="취소하고 나가기"
+        variant="destructive"
+        onConfirm={() => router.push('/reports')}
       />
     </div>
   )
