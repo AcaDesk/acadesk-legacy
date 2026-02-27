@@ -135,6 +135,33 @@ const scoreTrendConfig = {
   classAvg: { label: '반 평균', color: 'var(--chart-2)' },
 } satisfies ChartConfig
 
+// 시험명 두 줄 줄바꿈 틱 (꺾은선 차트용)
+const WrappedAxisTick = (props: any) => {
+  const { x, y, payload } = props;
+  const value = String(payload?.value ?? '');
+  if (!value) return null;
+
+  // 중간 지점에서 가장 가까운 공백을 찾아 분리, 없으면 글자 수 기준으로 분리
+  const mid = Math.ceil(value.length / 2);
+  let splitIdx = -1;
+  for (let i = 0; i <= mid; i++) {
+    if (value[mid - i] === ' ') { splitIdx = mid - i; break; }
+    if (mid + i < value.length && value[mid + i] === ' ') { splitIdx = mid + i; break; }
+  }
+  const line1 = splitIdx >= 0 ? value.slice(0, splitIdx) : value.slice(0, mid);
+  const line2 = splitIdx >= 0 ? value.slice(splitIdx + 1) : value.slice(mid);
+  const showTwo = value.length > 7 && line2.length > 0;
+
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text x={0} y={0} textAnchor="middle" fontSize={11}>
+        <tspan x={0} dy="0.9em" fill="var(--muted-foreground)">{line1}</tspan>
+        {showTwo && <tspan x={0} dy="1.3em" fill="var(--muted-foreground)">{line2}</tspan>}
+      </text>
+    </g>
+  );
+};
+
 const CustomAxisTick = (props: any) => {
   const { x, y, payload } = props;
   const { value } = payload;
