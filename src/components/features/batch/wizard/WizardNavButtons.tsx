@@ -14,6 +14,8 @@ interface WizardNavButtonsProps {
   isLastStep?: boolean
   onExecute?: () => void
   overrideNextStep?: BatchDraftStep
+  /** 다음 스텝 URL에 추가할 쿼리 파라미터 (낙관적 네비게이션에서 데이터 전달용) */
+  nextSearchParams?: Record<string, string>
 }
 
 export function WizardNavButtons({
@@ -25,6 +27,7 @@ export function WizardNavButtons({
   isLastStep = false,
   onExecute,
   overrideNextStep,
+  nextSearchParams,
 }: WizardNavButtonsProps) {
   const router = useRouter()
   const currentIndex = getStepIndex(currentStep)
@@ -46,7 +49,11 @@ export function WizardNavButtons({
     }
     if (currentIndex < STEP_ORDER.length - 1) {
       const nextStep = overrideNextStep ?? STEP_ORDER[currentIndex + 1]
-      router.push(`/batch/new/${draftId}/${nextStep}`)
+      const base = `/batch/new/${draftId}/${nextStep}`
+      const qs = nextSearchParams && Object.keys(nextSearchParams).length > 0
+        ? `?${new URLSearchParams(nextSearchParams).toString()}`
+        : ''
+      router.push(`${base}${qs}`)
     }
   }
 

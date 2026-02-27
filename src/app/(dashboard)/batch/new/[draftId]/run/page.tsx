@@ -1,4 +1,4 @@
-import { getBatchDraft } from '@/app/actions/batch/drafts'
+import { getDraftCached } from '../_get-draft'
 import { getLatestJobForDraft } from '@/app/actions/batch/jobs'
 import { WizardStepGuard } from '@/components/features/batch/wizard/WizardStepGuard'
 import { StepRun } from '@/components/features/batch/steps/StepRun'
@@ -10,7 +10,7 @@ export default async function RunPage({
 }) {
   const { draftId } = await params
   const [draftResult, jobResult] = await Promise.all([
-    getBatchDraft(draftId),
+    getDraftCached(draftId),
     getLatestJobForDraft(draftId),
   ])
 

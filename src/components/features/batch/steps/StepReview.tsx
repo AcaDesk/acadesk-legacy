@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, useEffect, useTransition } from 'react'
+import { useState, useEffect } from 'react'
 import { useToast } from '@/hooks/use-toast'
 import { reviewBatchDraft, patchBatchDraft } from '@/app/actions/batch/drafts'
 import { ImpactSummaryCard } from '../shared/ImpactSummaryCard'
 import { PreviewSamplesTable } from '../shared/PreviewSamplesTable'
 import { RiskAlertList } from '../shared/RiskAlertList'
 import { WizardNavButtons } from '../wizard/WizardNavButtons'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Clock } from 'lucide-react'
+import { Badge } from '@ui/badge'
 import type { BatchDraft, ReviewBatchDraftResult } from '@/core/types/batch.types'
 
 interface StepReviewProps {
@@ -17,7 +18,6 @@ interface StepReviewProps {
 
 export function StepReview({ draftId, draft }: StepReviewProps) {
   const { toast } = useToast()
-  const [isPending, startTransition] = useTransition()
   const [reviewData, setReviewData] = useState<ReviewBatchDraftResult | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -43,18 +43,17 @@ export function StepReview({ draftId, draft }: StepReviewProps) {
       return false
     }
 
-    return new Promise<boolean>((resolve) => {
-      startTransition(async () => {
-        const result = await patchBatchDraft(draftId, { step: 'run' })
-        if (!result.success) {
-          toast({ title: '저장 실패', description: result.error ?? '', variant: 'destructive' })
-          resolve(false)
-        } else {
-          resolve(true)
-        }
-      })
+    // Fire-and-forget: run 스텝은 실행 UI만 표시하므로 즉시 네비게이션
+    patchBatchDraft(draftId, { step: 'run' }).catch(() => {
+      toast({ title: '저장 중 오류가 발생했습니다.', variant: 'destructive' })
     })
+
+    return true
   }
+
+  const scheduleLabel = draft.schedule?.mode === 'scheduled' && draft.schedule.scheduledAt
+    ? `예약: ${new Date(draft.schedule.scheduledAt).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+    : '즉시 실행'
 
   if (loading) {
     return (
@@ -75,20 +74,15 @@ export function StepReview({ draftId, draft }: StepReviewProps) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold mb-2">작업 검토</h3>
-        <p className="text-sm text-muted-foreground">
-          실행 전에 작업 내용을 최종 확인하세요.
-        </p>
-      </div>
-
-      <div className="rounded-lg border p-4 text-sm">
-        <p className="font-medium">실행 시점</p>
-        <p className="text-muted-foreground mt-1">
-          {draft.schedule?.mode === 'scheduled' && draft.schedule.scheduledAt
-            ? `예약 실행 (${new Date(draft.schedule.scheduledAt).toLocaleString('ko-KR')})`
-            : '즉시 실행'}
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h3 className="text-lg font-semibold mb-1">작업 검토</h3>
+          <p className="text-sm text-muted-foreground">실행 전에 작업 내용을 최종 확인하세요.</p>
+        </div>
+        <Badge variant="outline" className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-sm">
+          <Clock className="h-3.5 w-3.5" />
+          {scheduleLabel}
+        </Badge>
       </div>
 
       <ImpactSummaryCard summary={reviewData.impactSummary} />
@@ -100,7 +94,6 @@ export function StepReview({ draftId, draft }: StepReviewProps) {
         currentStep="review"
         onNext={handleNext}
         isNextDisabled={hasBlockingRisk}
-        isLoading={isPending}
       />
     </div>
   )

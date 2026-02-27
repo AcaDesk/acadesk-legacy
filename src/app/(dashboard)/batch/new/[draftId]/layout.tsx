@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
-import { getBatchDraft } from '@/app/actions/batch/drafts'
-import { WizardLayout } from '@/components/features/batch/wizard/WizardLayout'
 import { redirect } from 'next/navigation'
+import { getDraftCached } from './_get-draft'
+import { WizardLayout } from '@/components/features/batch/wizard/WizardLayout'
 
 export const metadata: Metadata = {
   title: '일괄작업 진행',
@@ -16,7 +16,7 @@ export default async function BatchDraftLayout({
   params: Promise<{ draftId: string }>
 }) {
   const { draftId } = await params
-  const result = await getBatchDraft(draftId)
+  const result = await getDraftCached(draftId)
 
   if (!result.success || !result.data) {
     redirect('/batch')
