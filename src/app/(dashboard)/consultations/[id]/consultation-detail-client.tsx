@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
@@ -24,16 +24,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@ui/dialog'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@ui/alert-dialog'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import {
   MessageSquare,
@@ -48,6 +38,8 @@ import {
   ArrowLeft,
   CheckCircle,
   AlertCircle,
+  Check,
+  X,
 } from 'lucide-react'
 import Link from 'next/link'
 import { PageWrapper } from '@/components/layout/page-wrapper'
@@ -61,6 +53,14 @@ import {
   addConsultationParticipant,
   removeConsultationParticipant,
 } from '@/app/actions/consultations'
+
+type ConsultationNote = {
+  id: string
+  note_order: number
+  category: string | null
+  content: string
+  created_at: string
+}
 
 type Consultation = {
   id: string
@@ -81,13 +81,7 @@ type Consultation = {
   next_consultation_date: string | null
   students?: { id: string; name: string; grade: string }
   users?: { id: string; name: string }
-  consultation_notes?: Array<{
-    id: string
-    note_order: number
-    category: string | null
-    content: string
-    created_at: string
-  }>
+  consultation_notes?: ConsultationNote[]
   consultation_participants?: Array<{
     id: string
     participant_type: string
@@ -112,6 +106,120 @@ const participantTypeLabels: Record<string, string> = {
   other: '기타',
 }
 
+// 인라인 노트 편집기
+function InlineNoteEditor({
+  initialContent,
+  initialCategory,
+  onSave,
+  onCancel,
+  isSaving,
+}: {
+  initialContent: string
+  initialCategory: string
+  onSave: (content: string, category: string) => void
+  onCancel: () => void
+  isSaving: boolean
+}) {
+  const [content, setContent] = useState(initialContent)
+  const [category, setCategory] = useState(initialCategory)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    textareaRef.current?.focus()
+  }, [])
+
+  return (
+    <div className="space-y-3">
+      <Input
+        placeholder="카테고리 (선택사항)"
+        value={category}
+        onChange={(e) => setCategory(e.target.value)}
+        className="text-sm"
+      />
+      <Textarea
+        ref={textareaRef}
+        placeholder="노트 내용을 입력하세요..."
+        value={content}
+        onChange={(e) => setContent(e.target.value)}
+        rows={4}
+        className="text-sm"
+      />
+      <div className="flex items-center gap-2">
+        <Button
+          size="sm"
+          onClick={() => onSave(content, category)}
+          disabled={!content.trim() || isSaving}
+        >
+          <Check className="h-3.5 w-3.5 mr-1" />
+          저장
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onCancel} disabled={isSaving}>
+          <X className="h-3.5 w-3.5 mr-1" />
+          취소
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// 새 노트 추가 영역 (타임라인 하단)
+function NewNoteInline({
+  onAdd,
+  isAdding,
+}: {
+  onAdd: (content: string, category: string) => void
+  isAdding: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const [content, setContent] = useState('')
+  const [category, setCategory] = useState('')
+
+  function handleSave() {
+    onAdd(content, category)
+    setContent('')
+    setCategory('')
+    setOpen(false)
+  }
+
+  if (!open) {
+    return (
+      <div className="relative flex gap-4">
+        <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-background border-2 border-dashed border-border shrink-0">
+          <Plus className="h-4 w-4 text-muted-foreground" />
+        </div>
+        <div className="flex-1 pt-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground gap-2"
+            onClick={() => setOpen(true)}
+          >
+            <Plus className="h-4 w-4" />
+            노트 추가
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative flex gap-4">
+      <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-primary border-2 border-primary shrink-0">
+        <Plus className="h-4 w-4 text-primary-foreground" />
+      </div>
+      <div className="flex-1 pt-1">
+        <InlineNoteEditor
+          initialContent={content}
+          initialCategory={category}
+          onSave={handleSave}
+          onCancel={() => setOpen(false)}
+          isSaving={isAdding}
+        />
+      </div>
+    </div>
+  )
+}
+
 export function ConsultationDetailClient({
   consultation: initialConsultation,
 }: {
@@ -122,23 +230,25 @@ export function ConsultationDetailClient({
 
   const [consultation, setConsultation] = useState(initialConsultation)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [noteDialogOpen, setNoteDialogOpen] = useState(false)
-  const [editingNote, setEditingNote] = useState<{
-    id: string
-    content: string
-    category: string | null
-  } | null>(null)
-  const [noteContent, setNoteContent] = useState('')
-  const [noteCategory, setNoteCategory] = useState('')
+  const [isDeletingConsultation, setIsDeletingConsultation] = useState(false)
+
+  // 인라인 노트 편집
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
+  const [isSavingNote, setIsSavingNote] = useState(false)
+  const [isAddingNote, setIsAddingNote] = useState(false)
+
+  // 노트 삭제
+  const [deleteNoteDialogOpen, setDeleteNoteDialogOpen] = useState(false)
+  const [noteToDelete, setNoteToDelete] = useState<string | null>(null)
+  const [isDeletingNote, setIsDeletingNote] = useState(false)
+
+  // 참석자
   const [participantDialogOpen, setParticipantDialogOpen] = useState(false)
   const [participantType, setParticipantType] = useState<
     'instructor' | 'guardian' | 'student' | 'other'
   >('guardian')
   const [participantName, setParticipantName] = useState('')
   const [participantRole, setParticipantRole] = useState('')
-  const [deleteNoteDialogOpen, setDeleteNoteDialogOpen] = useState(false)
-  const [noteToDelete, setNoteToDelete] = useState<string | null>(null)
-  const [isDeletingNote, setIsDeletingNote] = useState(false)
   const [removeParticipantDialogOpen, setRemoveParticipantDialogOpen] = useState(false)
   const [participantToRemove, setParticipantToRemove] = useState<string | null>(null)
   const [isRemovingParticipant, setIsRemovingParticipant] = useState(false)
@@ -149,6 +259,7 @@ export function ConsultationDetailClient({
     : null
 
   async function handleDelete() {
+    setIsDeletingConsultation(true)
     try {
       const result = await deleteConsultation(consultation.id)
 
@@ -156,110 +267,95 @@ export function ConsultationDetailClient({
         throw new Error(result.error || '상담 삭제 실패')
       }
 
-      toast({
-        title: '삭제 완료',
-        description: '상담 기록이 삭제되었습니다.',
-      })
-
+      toast({ title: '삭제 완료', description: '상담 기록이 삭제되었습니다.' })
       router.push('/consultations')
     } catch (error) {
       console.error('Delete error:', error)
       toast({
         title: '삭제 오류',
-        description:
-          error instanceof Error
-            ? error.message
-            : '상담을 삭제하는 중 오류가 발생했습니다.',
+        description: error instanceof Error ? error.message : '상담을 삭제하는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
+    } finally {
+      setIsDeletingConsultation(false)
+      setDeleteDialogOpen(false)
     }
   }
 
-  async function handleSaveNote() {
-    if (!noteContent) {
-      toast({
-        title: '입력 오류',
-        description: '노트 내용을 입력해주세요.',
-        variant: 'destructive',
-      })
+  // 노트 인라인 저장 (수정)
+  async function handleSaveNoteEdit(noteId: string, content: string, category: string) {
+    if (!content.trim()) {
+      toast({ title: '입력 오류', description: '노트 내용을 입력해주세요.', variant: 'destructive' })
       return
     }
-
+    setIsSavingNote(true)
     try {
-      if (editingNote) {
-        // Update existing note
-        const result = await updateConsultationNote({
-          id: editingNote.id,
-          content: noteContent,
-          category: noteCategory || null,
-        })
-
-        if (!result.success || !result.data) {
-          throw new Error(result.error || '노트 수정 실패')
-        }
-
-        // Update local state
-        setConsultation((prev) => ({
-          ...prev,
-          consultation_notes: prev.consultation_notes?.map((note) =>
-            note.id === editingNote.id
-              ? { ...note, content: noteContent, category: noteCategory || null }
-              : note
-          ),
-        }))
-
-        toast({
-          title: '수정 완료',
-          description: '노트가 수정되었습니다.',
-        })
-      } else {
-        // Create new note
-        const result = await createConsultationNote({
-          consultationId: consultation.id,
-          content: noteContent,
-          category: noteCategory || undefined,
-          noteOrder: (consultation.consultation_notes?.length || 0) + 1,
-        })
-
-        if (!result.success || !result.data) {
-          throw new Error(result.error || '노트 생성 실패')
-        }
-
-        // Update local state
-        setConsultation((prev) => ({
-          ...prev,
-          consultation_notes: [
-            ...(prev.consultation_notes || []),
-            {
-              id: result.data.id,
-              note_order: result.data.note_order,
-              category: result.data.category,
-              content: result.data.content,
-              created_at: result.data.created_at,
-            },
-          ],
-        }))
-
-        toast({
-          title: '저장 완료',
-          description: '노트가 추가되었습니다.',
-        })
+      const result = await updateConsultationNote({
+        id: noteId,
+        content,
+        category: category || null,
+      })
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '노트 수정 실패')
       }
-
-      setNoteDialogOpen(false)
-      setNoteContent('')
-      setNoteCategory('')
-      setEditingNote(null)
+      setConsultation((prev) => ({
+        ...prev,
+        consultation_notes: prev.consultation_notes?.map((n) =>
+          n.id === noteId ? { ...n, content, category: category || null } : n
+        ),
+      }))
+      toast({ title: '수정 완료', description: '노트가 수정되었습니다.' })
+      setEditingNoteId(null)
     } catch (error) {
-      console.error('Note save error:', error)
       toast({
         title: '저장 오류',
-        description:
-          error instanceof Error
-            ? error.message
-            : '노트를 저장하는 중 오류가 발생했습니다.',
+        description: error instanceof Error ? error.message : '노트를 저장하는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
+    } finally {
+      setIsSavingNote(false)
+    }
+  }
+
+  // 새 노트 추가
+  async function handleAddNote(content: string, category: string) {
+    if (!content.trim()) {
+      toast({ title: '입력 오류', description: '노트 내용을 입력해주세요.', variant: 'destructive' })
+      return
+    }
+    setIsAddingNote(true)
+    try {
+      const result = await createConsultationNote({
+        consultationId: consultation.id,
+        content,
+        category: category || undefined,
+        noteOrder: (consultation.consultation_notes?.length || 0) + 1,
+      })
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '노트 생성 실패')
+      }
+      setConsultation((prev) => ({
+        ...prev,
+        consultation_notes: [
+          ...(prev.consultation_notes || []),
+          {
+            id: result.data.id,
+            note_order: result.data.note_order,
+            category: result.data.category,
+            content: result.data.content,
+            created_at: result.data.created_at,
+          },
+        ],
+      }))
+      toast({ title: '저장 완료', description: '노트가 추가되었습니다.' })
+    } catch (error) {
+      toast({
+        title: '저장 오류',
+        description: error instanceof Error ? error.message : '노트를 저장하는 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsAddingNote(false)
     }
   }
 
@@ -270,35 +366,21 @@ export function ConsultationDetailClient({
 
   async function handleConfirmDeleteNote() {
     if (!noteToDelete) return
-
     setIsDeletingNote(true)
     try {
       const result = await deleteConsultationNote(noteToDelete)
-
       if (!result.success) {
         throw new Error(result.error || '노트 삭제 실패')
       }
-
-      // Update local state
       setConsultation((prev) => ({
         ...prev,
-        consultation_notes: prev.consultation_notes?.filter(
-          (note) => note.id !== noteToDelete
-        ),
+        consultation_notes: prev.consultation_notes?.filter((n) => n.id !== noteToDelete),
       }))
-
-      toast({
-        title: '삭제 완료',
-        description: '노트가 삭제되었습니다.',
-      })
+      toast({ title: '삭제 완료', description: '노트가 삭제되었습니다.' })
     } catch (error) {
-      console.error('Note delete error:', error)
       toast({
         title: '삭제 오류',
-        description:
-          error instanceof Error
-            ? error.message
-            : '노트를 삭제하는 중 오류가 발생했습니다.',
+        description: error instanceof Error ? error.message : '노트를 삭제하는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
     } finally {
@@ -308,34 +390,11 @@ export function ConsultationDetailClient({
     }
   }
 
-  function openEditNoteDialog(note: {
-    id: string
-    content: string
-    category: string | null
-  }) {
-    setEditingNote(note)
-    setNoteContent(note.content)
-    setNoteCategory(note.category || '')
-    setNoteDialogOpen(true)
-  }
-
-  function openNewNoteDialog() {
-    setEditingNote(null)
-    setNoteContent('')
-    setNoteCategory('')
-    setNoteDialogOpen(true)
-  }
-
   async function handleAddParticipant() {
     if (!participantName.trim()) {
-      toast({
-        title: '입력 오류',
-        description: '참석자 이름을 입력해주세요.',
-        variant: 'destructive',
-      })
+      toast({ title: '입력 오류', description: '참석자 이름을 입력해주세요.', variant: 'destructive' })
       return
     }
-
     try {
       const result = await addConsultationParticipant({
         consultationId: consultation.id,
@@ -343,12 +402,9 @@ export function ConsultationDetailClient({
         name: participantName.trim(),
         role: participantRole || undefined,
       })
-
       if (!result.success || !result.data) {
         throw new Error(result.error || '참석자 추가 실패')
       }
-
-      // Update local state
       setConsultation((prev) => ({
         ...prev,
         consultation_participants: [
@@ -363,24 +419,15 @@ export function ConsultationDetailClient({
           },
         ],
       }))
-
-      toast({
-        title: '추가 완료',
-        description: '참석자가 추가되었습니다.',
-      })
-
+      toast({ title: '추가 완료', description: '참석자가 추가되었습니다.' })
       setParticipantDialogOpen(false)
       setParticipantName('')
       setParticipantRole('')
       setParticipantType('guardian')
     } catch (error) {
-      console.error('Add participant error:', error)
       toast({
         title: '추가 오류',
-        description:
-          error instanceof Error
-            ? error.message
-            : '참석자를 추가하는 중 오류가 발생했습니다.',
+        description: error instanceof Error ? error.message : '참석자를 추가하는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
     }
@@ -393,35 +440,23 @@ export function ConsultationDetailClient({
 
   async function handleConfirmRemoveParticipant() {
     if (!participantToRemove) return
-
     setIsRemovingParticipant(true)
     try {
       const result = await removeConsultationParticipant(participantToRemove)
-
       if (!result.success) {
         throw new Error(result.error || '참석자 제거 실패')
       }
-
-      // Update local state
       setConsultation((prev) => ({
         ...prev,
         consultation_participants: prev.consultation_participants?.filter(
           (p) => p.id !== participantToRemove
         ),
       }))
-
-      toast({
-        title: '제거 완료',
-        description: '참석자가 제거되었습니다.',
-      })
+      toast({ title: '제거 완료', description: '참석자가 제거되었습니다.' })
     } catch (error) {
-      console.error('Remove participant error:', error)
       toast({
         title: '제거 오류',
-        description:
-          error instanceof Error
-            ? error.message
-            : '참석자를 제거하는 중 오류가 발생했습니다.',
+        description: error instanceof Error ? error.message : '참석자를 제거하는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
     } finally {
@@ -453,13 +488,11 @@ export function ConsultationDetailClient({
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {/* 입회 처리 버튼 (신규 상담이고 아직 등록 안 된 경우에만 표시) */}
               {consultation.is_lead && !consultation.converted_to_student_id && (
                 <Button
                   variant="default"
                   className="gap-2 bg-green-600 hover:bg-green-700"
                   onClick={() => {
-                    // 학생 등록 페이지로 이동하면서 상담 정보를 query parameter로 전달
                     const params = new URLSearchParams({
                       fromConsultation: consultation.id,
                       name: consultation.lead_name || '',
@@ -473,7 +506,6 @@ export function ConsultationDetailClient({
                   입회 처리하기
                 </Button>
               )}
-              {/* 입회 완료 표시 */}
               {consultation.is_lead && consultation.converted_to_student_id && (
                 <Badge variant="default" className="bg-green-600 px-3 py-1">
                   <CheckCircle className="h-3 w-3 mr-1" />
@@ -640,7 +672,7 @@ export function ConsultationDetailClient({
           </Card>
         </motion.div>
 
-        {/* Notes */}
+        {/* Notes - Timeline */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -648,66 +680,85 @@ export function ConsultationDetailClient({
         >
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-3">
-                  <StickyNote className="h-5 w-5" />
-                  상담 노트
-                </CardTitle>
-                <Button onClick={openNewNoteDialog} size="sm" className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  노트 추가
-                </Button>
-              </div>
+              <CardTitle className="flex items-center gap-3">
+                <StickyNote className="h-5 w-5" />
+                상담 노트
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              {!consultation.consultation_notes ||
-              consultation.consultation_notes.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <StickyNote className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>상담 노트가 없습니다.</p>
-                  <p className="text-sm mt-2">
-                    상담 내용을 노트로 기록해보세요.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {consultation.consultation_notes.map((note) => (
-                    <Card key={note.id} className="border">
-                      <CardContent className="py-4">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 space-y-2">
-                            {note.category && (
-                              <Badge variant="outline">{note.category}</Badge>
-                            )}
-                            <p className="text-sm whitespace-pre-wrap">
-                              {note.content}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {new Date(note.created_at).toLocaleString('ko-KR')}
-                            </p>
+              <div className="relative">
+                {/* 수직 연결선 */}
+                {(consultation.consultation_notes?.length ?? 0) > 0 && (
+                  <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
+                )}
+
+                <div className="space-y-0">
+                  {(!consultation.consultation_notes || consultation.consultation_notes.length === 0) && (
+                    <div className="text-center py-6 text-muted-foreground">
+                      <StickyNote className="h-10 w-10 mx-auto mb-3 opacity-40" />
+                      <p className="text-sm">상담 노트가 없습니다.</p>
+                      <p className="text-xs mt-1">아래에서 첫 노트를 추가해보세요.</p>
+                    </div>
+                  )}
+
+                  {consultation.consultation_notes?.map((note) => (
+                    <div key={note.id} className="relative flex gap-4 pb-6">
+                      {/* 타임라인 노드 */}
+                      <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-background border-2 border-border shrink-0">
+                        <StickyNote className="h-3.5 w-3.5 text-muted-foreground" />
+                      </div>
+
+                      {/* 노트 내용 */}
+                      <div className="flex-1 pt-0.5 min-w-0">
+                        {editingNoteId === note.id ? (
+                          <InlineNoteEditor
+                            initialContent={note.content}
+                            initialCategory={note.category || ''}
+                            onSave={(content, category) => handleSaveNoteEdit(note.id, content, category)}
+                            onCancel={() => setEditingNoteId(null)}
+                            isSaving={isSavingNote}
+                          />
+                        ) : (
+                          <div className="group rounded-lg border bg-muted/30 p-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 space-y-1 min-w-0">
+                                {note.category && (
+                                  <Badge variant="outline" className="text-xs">{note.category}</Badge>
+                                )}
+                                <p className="text-sm whitespace-pre-wrap">{note.content}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {new Date(note.created_at).toLocaleString('ko-KR')}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => setEditingNoteId(note.id)}
+                                >
+                                  <Edit className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => handleDeleteNote(note.id)}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                                </Button>
+                              </div>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => openEditNoteDialog(note)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDeleteNote(note.id)}
-                            >
-                              <Trash2 className="h-4 w-4 text-red-500" />
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+                        )}
+                      </div>
+                    </div>
                   ))}
+
+                  {/* 새 노트 추가 */}
+                  <NewNoteInline onAdd={handleAddNote} isAdding={isAddingNote} />
                 </div>
-              )}
+              </div>
             </CardContent>
           </Card>
         </motion.div>
@@ -780,72 +831,20 @@ export function ConsultationDetailClient({
         </motion.div>
       </div>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>상담 기록 삭제</AlertDialogTitle>
-            <AlertDialogDescription>
-              이 상담 기록을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>취소</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>삭제</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* 상담 삭제 확인 다이얼로그 */}
+      <ConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="상담 기록 삭제"
+        description="이 상담 기록을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."
+        confirmText="삭제"
+        variant="destructive"
+        isLoading={isDeletingConsultation}
+        onConfirm={handleDelete}
+      />
 
-      {/* Note Dialog */}
-      <Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {editingNote ? '노트 수정' : '노트 추가'}
-            </DialogTitle>
-            <DialogDescription>상담 내용을 노트로 기록합니다.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>카테고리 (선택사항)</Label>
-              <Input
-                placeholder="예: 학습 태도, 성적 관련, 진로 상담..."
-                value={noteCategory}
-                onChange={(e) => setNoteCategory(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>내용</Label>
-              <Textarea
-                placeholder="상담 내용을 입력하세요..."
-                value={noteContent}
-                onChange={(e) => setNoteContent(e.target.value)}
-                rows={8}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setNoteDialogOpen(false)
-                setNoteContent('')
-                setNoteCategory('')
-                setEditingNote(null)
-              }}
-            >
-              취소
-            </Button>
-            <Button onClick={handleSaveNote}>저장</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Participant Dialog */}
-      <Dialog
-        open={participantDialogOpen}
-        onOpenChange={setParticipantDialogOpen}
-      >
+      {/* 참석자 추가 다이얼로그 */}
+      <Dialog open={participantDialogOpen} onOpenChange={setParticipantDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>참석자 추가</DialogTitle>
@@ -857,9 +856,7 @@ export function ConsultationDetailClient({
               <Select
                 value={participantType}
                 onValueChange={(v) =>
-                  setParticipantType(
-                    v as 'instructor' | 'guardian' | 'student' | 'other'
-                  )
+                  setParticipantType(v as 'instructor' | 'guardian' | 'student' | 'other')
                 }
               >
                 <SelectTrigger>
@@ -907,7 +904,7 @@ export function ConsultationDetailClient({
         </DialogContent>
       </Dialog>
 
-      {/* Delete Note Confirmation Dialog */}
+      {/* 노트 삭제 확인 다이얼로그 */}
       <ConfirmationDialog
         open={deleteNoteDialogOpen}
         onOpenChange={setDeleteNoteDialogOpen}
@@ -919,7 +916,7 @@ export function ConsultationDetailClient({
         onConfirm={handleConfirmDeleteNote}
       />
 
-      {/* Remove Participant Confirmation Dialog */}
+      {/* 참석자 제거 확인 다이얼로그 */}
       <ConfirmationDialog
         open={removeParticipantDialogOpen}
         onOpenChange={setRemoveParticipantDialogOpen}
