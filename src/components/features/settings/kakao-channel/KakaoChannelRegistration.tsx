@@ -47,6 +47,8 @@ interface KakaoChannelRegistrationProps {
 
 type Step = 1 | 2 | 3
 
+const REGISTRATION_STEPS = ['채널 정보 입력', '인증 코드 입력', '완료']
+
 export function KakaoChannelRegistration({
   onRegistrationComplete,
   onOpenTemplateForm,
@@ -267,31 +269,46 @@ export function KakaoChannelRegistration({
         {/* Step Indicator */}
         <div className="mb-6">
           <div className="flex items-center justify-between">
-            {[1, 2, 3].map((s) => (
-              <div key={s} className="flex items-center">
-                <div
-                  className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-colors ${
-                    step >= s
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted text-muted-foreground'
-                  }`}
-                >
-                  {step > s ? <Check className="h-4 w-4" /> : s}
+            {REGISTRATION_STEPS.map((label, i) => {
+              const s = i + 1
+              const isComplete = step > s
+              const isCurrent = step === s
+              return (
+                <div key={s} className="flex items-center">
+                  <div className="flex flex-col items-center gap-1.5">
+                    <div
+                      className={cn(
+                        'flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-all',
+                        isComplete && 'bg-primary text-primary-foreground shadow-sm',
+                        isCurrent &&
+                          'border-2 border-primary bg-background text-primary ring-2 ring-primary/20',
+                        !isComplete && !isCurrent && 'bg-muted text-muted-foreground'
+                      )}
+                    >
+                      {isComplete ? <Check className="h-4 w-4" /> : s}
+                    </div>
+                    <span
+                      className={cn(
+                        'text-[11px] whitespace-nowrap',
+                        isComplete && 'text-foreground font-medium',
+                        isCurrent && 'text-primary font-semibold',
+                        !isComplete && !isCurrent && 'text-muted-foreground'
+                      )}
+                    >
+                      {label}
+                    </span>
+                  </div>
+                  {s < REGISTRATION_STEPS.length && (
+                    <div
+                      className={cn(
+                        'mx-2 mb-5 h-0.5 w-16 md:w-24 transition-colors',
+                        isComplete ? 'bg-primary' : 'bg-muted'
+                      )}
+                    />
+                  )}
                 </div>
-                {s < 3 && (
-                  <div
-                    className={`mx-2 h-0.5 w-16 md:w-24 transition-colors ${
-                      step > s ? 'bg-primary' : 'bg-muted'
-                    }`}
-                  />
-                )}
-              </div>
-            ))}
-          </div>
-          <div className="mt-2 flex justify-between text-xs text-muted-foreground">
-            <span>채널 정보 입력</span>
-            <span>인증 코드 입력</span>
-            <span>완료</span>
+              )
+            })}
           </div>
         </div>
 
