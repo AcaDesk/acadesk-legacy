@@ -445,9 +445,9 @@ ${reportData.comment.nextGoals}`
                   {showBarClassAvg && hasClassAvg && (
                     <ChartLegend content={<ChartLegendContent />} />
                   )}
-                  <Bar dataKey="myScore" name="내 점수" fill="var(--color-myScore)" radius={4} />
+                  <Bar dataKey="myScore" name="내 점수" fill="var(--color-myScore)" radius={4} maxBarSize={72} />
                   {showBarClassAvg && hasClassAvg && (
-                    <Bar dataKey="classAvg" name="반 평균" fill="var(--color-classAvg)" radius={4} />
+                    <Bar dataKey="classAvg" name="반 평균" fill="var(--color-classAvg)" radius={4} maxBarSize={72} />
                   )}
                 </BarChart>
               </ChartContainer>
@@ -555,20 +555,25 @@ ${reportData.comment.nextGoals}`
             <CardDescription>시험별 과목 점수 추이</CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={subjectLineConfig} className="aspect-auto h-64 w-full">
+            <ChartContainer config={subjectLineConfig} className="aspect-auto h-72 w-full">
               <LineChart
                 accessibilityLayer
                 data={subjectLineData}
-                margin={{ left: 12, right: 12 }}
+                margin={{ left: 12, right: 12, bottom: 16 }}
               >
                 <CartesianGrid vertical={false} />
                 <XAxis
                   dataKey="testName"
                   tickLine={false}
                   axisLine={false}
-                  tickMargin={8}
+                  tickMargin={4}
+                  angle={-35}
+                  textAnchor="end"
+                  height={72}
+                  interval={0}
+                  tick={{ fontSize: 11 }}
                   tickFormatter={(value: string) =>
-                    value.length > 6 ? `${value.slice(0, 6)}…` : value
+                    value.length > 14 ? `${value.slice(0, 14)}…` : value
                   }
                 />
                 <YAxis
