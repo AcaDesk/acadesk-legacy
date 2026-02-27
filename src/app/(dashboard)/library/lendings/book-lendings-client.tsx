@@ -410,7 +410,7 @@ export function BookLendingsClient({ initialLendings }: BookLendingsClientProps)
   function getStatusBadge(lending: BookLending) {
     if (lending.returned_at) {
       return (
-        <Badge variant="outline" className="bg-green-50">
+        <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300">
           <CheckCircle className="h-3 w-3 mr-1" />
           반납 완료
         </Badge>
