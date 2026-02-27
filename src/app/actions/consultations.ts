@@ -891,6 +891,73 @@ export async function getUpcomingFollowUps(daysAhead = 7) {
 }
 
 // ============================================================================
+// Bulk Operations
+// ============================================================================
+
+/**
+ * Bulk delete consultations (soft delete)
+ *
+ * @param ids - Consultation IDs to delete
+ * @returns Success or error
+ */
+export async function bulkDeleteConsultations(ids: string[]) {
+  try {
+    if (!ids.length) throw new Error('삭제할 상담이 없습니다')
+
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    const { error } = await supabase
+      .from('consultations')
+      .update({ deleted_at: new Date().toISOString() })
+      .in('id', ids)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+
+    if (error) throw error
+
+    revalidatePath('/consultations')
+
+    return { success: true, error: null }
+  } catch (error) {
+    console.error('[bulkDeleteConsultations] Error:', error)
+    return { success: false, error: getErrorMessage(error) }
+  }
+}
+
+/**
+ * Bulk update conductor for consultations
+ *
+ * @param ids - Consultation IDs to update
+ * @param conductorId - New conductor user ID
+ * @returns Success or error
+ */
+export async function bulkUpdateConductor(ids: string[], conductorId: string) {
+  try {
+    if (!ids.length) throw new Error('변경할 상담이 없습니다')
+
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    const { error } = await supabase
+      .from('consultations')
+      .update({ conducted_by: conductorId, updated_at: new Date().toISOString() })
+      .in('id', ids)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+
+    if (error) throw error
+
+    revalidatePath('/consultations')
+
+    return { success: true, error: null }
+  } catch (error) {
+    console.error('[bulkUpdateConductor] Error:', error)
+    return { success: false, error: getErrorMessage(error) }
+  }
+}
+
+// ============================================================================
 // Lead Consultation (입회 상담) Management
 // ============================================================================
 

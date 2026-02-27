@@ -5,11 +5,13 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
+import { Checkbox } from '@ui/checkbox'
+import { Calendar } from '@ui/calendar'
 import {
   MessageSquare,
   Plus,
   Search,
-  Calendar,
+  Calendar as CalendarIcon,
   User,
   Clock,
   Filter,
@@ -17,6 +19,9 @@ import {
   AlertCircle,
   X,
   Loader2,
+  Trash2,
+  UserCog,
+  Download,
 } from 'lucide-react'
 import Link from 'next/link'
 import { PageWrapper } from '@/components/layout/page-wrapper'
@@ -38,6 +43,14 @@ import { DatePicker } from '@ui/date-picker'
 import { Tabs, TabsList, TabsTrigger } from '@ui/tabs'
 import { EmptyState } from '@/components/ui/loading-state'
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@ui/dialog'
+import { ConfirmationDialog } from '@ui/confirmation-dialog'
+import {
   Pagination,
   PaginationContent,
   PaginationEllipsis,
@@ -49,7 +62,11 @@ import {
 import { PAGE_ANIMATIONS, getListItemAnimation } from '@/lib/animation-config'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
-import { getConsultations } from '@/app/actions/consultations'
+import {
+  getConsultations,
+  bulkDeleteConsultations,
+  bulkUpdateConductor,
+} from '@/app/actions/consultations'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { format } from 'date-fns'
 
@@ -89,6 +106,7 @@ interface ConsultationsContentProps {
   initialTotalCount: number
   initialStats: Stats | null
   filterOptions: FilterOptions | null
+  upcomingFollowUps: Consultation[]
 }
 
 const PAGE_SIZE = 20
@@ -105,6 +123,7 @@ export function ConsultationsContent({
   initialTotalCount,
   initialStats,
   filterOptions,
+  upcomingFollowUps,
 }: ConsultationsContentProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -135,7 +154,6 @@ export function ConsultationsContent({
   const [endDate, setEndDate] = useState<Date | undefined>(
     initialEndDate ? new Date(initialEndDate) : undefined
   )
-  // URL에 필터가 있으면 필터 패널을 자동으로 열기
   const hasUrlFilters =
     initialType !== 'all' ||
     initialConductor !== 'all' ||
@@ -144,6 +162,24 @@ export function ConsultationsContent({
     initialEndDate !== null
   const [filterOpen, setFilterOpen] = useState(hasUrlFilters)
   const [loading, setLoading] = useState(false)
+
+  // 캘린더 토글
+  const [calendarOpen, setCalendarOpen] = useState(false)
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | undefined>()
+
+  // 후속 상담 배너
+  const [bannerDismissed, setBannerDismissed] = useState(false)
+
+  // 선택 모드
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+
+  // 일괄 작업 상태
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false)
+  const [conductorDialogOpen, setConductorDialogOpen] = useState(false)
+  const [newConductorId, setNewConductorId] = useState('')
+  const [isUpdatingConductor, setIsUpdatingConductor] = useState(false)
 
   // Race condition guard
   const requestSeqRef = useRef(0)
@@ -162,7 +198,6 @@ export function ConsultationsContent({
         url.delete(key)
       }
     }
-    // page=1이면 URL에서 제거
     if (url.get('page') === '1') url.delete('page')
     const queryString = url.toString()
     router.replace(queryString ? `?${queryString}` : '/consultations', { scroll: false })
@@ -186,7 +221,6 @@ export function ConsultationsContent({
         searchTerm: searchTerm.trim() || undefined,
       })
 
-      // Race condition guard
       if (requestSeq !== requestSeqRef.current) return
 
       if (!result.success || !result.data) {
@@ -195,6 +229,7 @@ export function ConsultationsContent({
 
       setConsultations(result.data as Consultation[])
       setTotalCount(result.totalCount)
+      setSelectedIds(new Set())
     } catch (error) {
       if (requestSeq !== requestSeqRef.current) return
       toast({
@@ -284,6 +319,20 @@ export function ConsultationsContent({
     setFollowUpFilter('all')
     setStartDate(undefined)
     setEndDate(undefined)
+    setSelectedCalendarDate(undefined)
+  }
+
+  // 캘린더 날짜 선택
+  function handleCalendarDateSelect(date: Date | undefined) {
+    if (date && selectedCalendarDate?.toDateString() === date.toDateString()) {
+      setSelectedCalendarDate(undefined)
+      setStartDate(undefined)
+      setEndDate(undefined)
+    } else {
+      setSelectedCalendarDate(date)
+      setStartDate(date)
+      setEndDate(date)
+    }
   }
 
   const hasActiveFilters =
@@ -292,6 +341,91 @@ export function ConsultationsContent({
     followUpFilter !== 'all' ||
     startDate !== undefined ||
     endDate !== undefined
+
+  // 선택 토글
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === consultations.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(consultations.map((c) => c.id)))
+    }
+  }
+
+  function exitSelectionMode() {
+    setSelectionMode(false)
+    setSelectedIds(new Set())
+  }
+
+  // CSV 내보내기
+  function exportToCSV() {
+    const selected = consultations.filter((c) => selectedIds.has(c.id))
+    const headers = ['제목', '유형', '이름', '날짜', '진행자', '후속상담', '요약']
+    const rows = selected.map((c) => [
+      c.title,
+      consultationTypeLabels[c.consultation_type] || c.consultation_type,
+      c.is_lead ? (c.lead_name || '') : (c.students?.name || ''),
+      c.consultation_date,
+      c.users?.name || '',
+      c.follow_up_required ? '필요' : '불필요',
+      (c.summary || '').replace(/\n/g, ' '),
+    ])
+    const csv = [headers, ...rows]
+      .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+    const bom = '\uFEFF'
+    const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `상담목록_${format(new Date(), 'yyyyMMdd')}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  // 일괄 삭제
+  async function handleBulkDelete() {
+    setIsBulkDeleting(true)
+    try {
+      const result = await bulkDeleteConsultations(Array.from(selectedIds))
+      if (!result.success) throw new Error(result.error || '삭제 실패')
+      toast({ title: `${selectedIds.size}건 삭제 완료` })
+      exitSelectionMode()
+      loadConsultations(1)
+    } catch (error) {
+      toast({ title: '삭제 실패', description: getErrorMessage(error), variant: 'destructive' })
+    } finally {
+      setIsBulkDeleting(false)
+      setBulkDeleteDialogOpen(false)
+    }
+  }
+
+  // 일괄 진행자 변경
+  async function handleBulkUpdateConductor() {
+    if (!newConductorId) return
+    setIsUpdatingConductor(true)
+    try {
+      const result = await bulkUpdateConductor(Array.from(selectedIds), newConductorId)
+      if (!result.success) throw new Error(result.error || '변경 실패')
+      toast({ title: `${selectedIds.size}건 진행자 변경 완료` })
+      exitSelectionMode()
+      loadConsultations(1)
+    } catch (error) {
+      toast({ title: '변경 실패', description: getErrorMessage(error), variant: 'destructive' })
+    } finally {
+      setIsUpdatingConductor(false)
+      setConductorDialogOpen(false)
+      setNewConductorId('')
+    }
+  }
 
   // Stats
   const stats = initialStats ?? { total: 0, lead: 0, student: 0, converted: 0 }
@@ -308,14 +442,54 @@ export function ConsultationsContent({
                 학부모 상담 일정 및 기록 관리
               </p>
             </div>
-            <Button asChild className="gap-2">
-              <Link href="/consultations/new">
-                <Plus className="h-4 w-4" />
-                새 상담 기록
-              </Link>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant={selectionMode ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => {
+                  if (selectionMode) exitSelectionMode()
+                  else setSelectionMode(true)
+                }}
+              >
+                {selectionMode ? '선택 취소' : '선택'}
+              </Button>
+              <Button asChild className="gap-2">
+                <Link href="/consultations/new">
+                  <Plus className="h-4 w-4" />
+                  새 상담 기록
+                </Link>
+              </Button>
+            </div>
           </div>
         </section>
+
+        {/* 후속 상담 알림 배너 */}
+        {upcomingFollowUps.length > 0 && !bannerDismissed && (
+          <section>
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-orange-50 border border-orange-200 dark:bg-orange-950/20 dark:border-orange-800">
+              <AlertCircle className="h-4 w-4 text-orange-600 shrink-0" />
+              <span className="text-sm text-orange-800 dark:text-orange-300 flex-1">
+                <strong>{upcomingFollowUps.length}건</strong>의 후속 상담이 7일 내 예정되어 있습니다.
+              </span>
+              <Button
+                size="sm"
+                variant="link"
+                className="text-orange-600 px-0 h-auto"
+                onClick={() => setFollowUpFilter('required')}
+              >
+                보기
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6 shrink-0"
+                onClick={() => setBannerDismissed(true)}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          </section>
+        )}
 
         {/* Stats Cards */}
         <section
@@ -377,7 +551,7 @@ export function ConsultationsContent({
           className={cn("space-y-4", PAGE_ANIMATIONS.getSection(1).className)}
           style={PAGE_ANIMATIONS.getSection(1).style}
         >
-          <div className="flex gap-4 items-center">
+          <div className="flex gap-2 items-center">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -400,7 +574,28 @@ export function ConsultationsContent({
                 </Badge>
               )}
             </Button>
+            <Button
+              variant={calendarOpen ? 'default' : 'outline'}
+              size="icon"
+              onClick={() => setCalendarOpen(!calendarOpen)}
+              title="캘린더로 날짜 선택"
+            >
+              <CalendarIcon className="h-4 w-4" />
+            </Button>
           </div>
+
+          {/* 미니 캘린더 */}
+          {calendarOpen && (
+            <Card>
+              <CardContent className="pt-4 pb-4 flex justify-center">
+                <Calendar
+                  mode="single"
+                  selected={selectedCalendarDate}
+                  onSelect={handleCalendarDateSelect}
+                />
+              </CardContent>
+            </Card>
+          )}
 
           {/* Filter Panel */}
           {filterOpen && (
@@ -511,6 +706,59 @@ export function ConsultationsContent({
           </Tabs>
         </section>
 
+        {/* 일괄 작업 바 */}
+        {selectionMode && selectedIds.size > 0 && (
+          <section className="sticky top-16 z-10">
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-background border shadow-sm">
+              <span className="text-sm font-medium text-muted-foreground">
+                {selectedIds.size}개 선택됨
+              </span>
+              <div className="flex items-center gap-2 ml-auto">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-2"
+                  onClick={exportToCSV}
+                >
+                  <Download className="h-4 w-4" />
+                  CSV
+                </Button>
+                {filterOptions?.conductors && filterOptions.conductors.length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2"
+                    onClick={() => setConductorDialogOpen(true)}
+                  >
+                    <UserCog className="h-4 w-4" />
+                    진행자 변경
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="gap-2"
+                  onClick={() => setBulkDeleteDialogOpen(true)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  삭제
+                </Button>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* 선택 모드: 전체 선택 */}
+        {selectionMode && consultations.length > 0 && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Checkbox
+              checked={selectedIds.size === consultations.length}
+              onCheckedChange={toggleSelectAll}
+            />
+            전체 선택 ({consultations.length}건)
+          </div>
+        )}
+
         {/* Consultations List */}
         <section
           className={cn("space-y-3", PAGE_ANIMATIONS.getSection(2).className)}
@@ -535,9 +783,6 @@ export function ConsultationsContent({
           ) : !loading && (
             consultations.map((consultation, index) => {
               const consultDate = new Date(consultation.consultation_date)
-              const isUpcoming =
-                consultation.follow_up_required &&
-                consultation.next_consultation_date
               const nextDate = consultation.next_consultation_date
                 ? new Date(consultation.next_consultation_date)
                 : null
@@ -545,125 +790,112 @@ export function ConsultationsContent({
                 ? consultation.lead_name
                 : consultation.students?.name
 
+              // 카드 left border 색상
+              const borderAccent = consultation.converted_to_student_id
+                ? 'border-l-green-500'
+                : consultation.is_lead
+                ? 'border-l-blue-500'
+                : 'border-l-gray-300 dark:border-l-gray-600'
+
+              const isSelected = selectedIds.has(consultation.id)
+
               return (
                 <div
                   key={consultation.id}
                   {...getListItemAnimation(index)}
                 >
-                  <Card className={CARD_STYLES.INTERACTIVE}>
-                    <CardContent className="py-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1 space-y-2">
-                          <div className="flex items-center gap-3 flex-wrap">
-                            <h3 className="font-semibold text-lg">
-                              {consultation.title}
-                            </h3>
-                            {consultation.is_lead ? (
-                              <Badge variant="default" className="bg-info">
-                                신규
-                              </Badge>
-                            ) : (
-                              <Badge variant="secondary">
-                                재원생
-                              </Badge>
-                            )}
-                            {consultation.converted_to_student_id && (
-                              <Badge variant="default" className="bg-green-600">
-                                등록 완료
-                              </Badge>
-                            )}
-                            <Badge
-                              variant={
-                                consultationTypeLabels[
-                                  consultation.consultation_type
-                                ]
-                                  ? 'outline'
-                                  : 'secondary'
-                              }
-                            >
-                              {consultationTypeLabels[
-                                consultation.consultation_type
-                              ] || consultation.consultation_type}
-                            </Badge>
-                            {isUpcoming && (
-                              <Badge variant="secondary">
-                                <AlertCircle className="h-3 w-3 mr-1" />
-                                후속 상담 필요
-                              </Badge>
-                            )}
-                          </div>
+                  <Link
+                    href={selectionMode ? '#' : `/consultations/${consultation.id}`}
+                    onClick={selectionMode ? (e) => { e.preventDefault(); toggleSelect(consultation.id) } : undefined}
+                  >
+                    <Card className={cn(
+                      CARD_STYLES.INTERACTIVE,
+                      'border-l-4',
+                      borderAccent,
+                      isSelected && 'ring-2 ring-primary'
+                    )}>
+                      <CardContent className="py-4">
+                        <div className="flex items-start gap-3">
+                          {/* 체크박스 (선택 모드) */}
+                          {selectionMode && (
+                            <div className="pt-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                              <Checkbox
+                                checked={isSelected}
+                                onCheckedChange={() => toggleSelect(consultation.id)}
+                              />
+                            </div>
+                          )}
 
-                          <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <User className="h-4 w-4" />
-                              <span>
+                          <div className="flex-1 space-y-1.5 min-w-0">
+                            {/* 제목 + 배지 */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="font-semibold text-base leading-tight">
+                                {consultation.title}
+                              </h3>
+                              {consultation.is_lead ? (
+                                <Badge variant="default" className="bg-info text-xs">
+                                  신규
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary" className="text-xs">
+                                  재원생
+                                </Badge>
+                              )}
+                              {consultation.converted_to_student_id && (
+                                <Badge variant="default" className="bg-green-600 text-xs">
+                                  등록 완료
+                                </Badge>
+                              )}
+                              <Badge variant="outline" className="text-xs">
+                                {consultationTypeLabels[consultation.consultation_type] || consultation.consultation_type}
+                              </Badge>
+                              {consultation.follow_up_required && (
+                                <Badge variant="secondary" className="text-xs text-orange-600 border-orange-200 bg-orange-50 dark:bg-orange-950/30">
+                                  <AlertCircle className="h-3 w-3 mr-1" />
+                                  후속 상담 필요
+                                </Badge>
+                              )}
+                            </div>
+
+                            {/* 메타: 이름 · 날짜 · 시간 · 진행자 */}
+                            <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
+                              <span className="flex items-center gap-1">
+                                <User className="h-3.5 w-3.5" />
                                 {displayName || '이름 정보 없음'}
                                 {consultation.is_lead && consultation.lead_guardian_name && (
-                                  <span className="text-xs ml-1">
-                                    (학부모: {consultation.lead_guardian_name})
-                                  </span>
+                                  <span className="text-xs">(보호자: {consultation.lead_guardian_name})</span>
                                 )}
                               </span>
-                            </div>
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <Calendar className="h-4 w-4" />
-                              <span>
-                                {consultDate.toLocaleDateString('ko-KR', {
-                                  year: 'numeric',
-                                  month: 'long',
-                                  day: 'numeric',
-                                })}
+                              <span className="text-muted-foreground/40">·</span>
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3.5 w-3.5" />
+                                {consultDate.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
+                                {' '}
+                                {consultDate.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
                               </span>
+                              <span className="text-muted-foreground/40">·</span>
+                              <span>{consultation.users?.name || '진행자 미지정'}</span>
+                              {nextDate && (
+                                <>
+                                  <span className="text-muted-foreground/40">·</span>
+                                  <span className="text-info text-xs">
+                                    다음: {nextDate.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
+                                  </span>
+                                </>
+                              )}
                             </div>
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <Clock className="h-4 w-4" />
-                              <span>
-                                {consultDate.toLocaleTimeString('ko-KR', {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })}
-                              </span>
-                            </div>
-                            {nextDate && (
-                              <div className="flex items-center gap-2 text-muted-foreground">
-                                <Calendar className="h-4 w-4 text-info" />
-                                <span className="text-info">
-                                  다음: {nextDate.toLocaleDateString('ko-KR')}
-                                </span>
-                              </div>
+
+                            {/* 요약 */}
+                            {consultation.summary && (
+                              <p className="text-sm text-muted-foreground line-clamp-1">
+                                {consultation.summary}
+                              </p>
                             )}
                           </div>
-
-                          {consultation.summary && (
-                            <p className="text-sm text-muted-foreground line-clamp-2">
-                              {consultation.summary}
-                            </p>
-                          )}
-
-                          {consultation.outcome && (
-                            <div className="text-sm">
-                              <span className="font-medium">결과: </span>
-                              <span className="text-muted-foreground">
-                                {consultation.outcome}
-                              </span>
-                            </div>
-                          )}
-
-                          <div className="text-xs text-muted-foreground">
-                            진행자: {consultation.users?.name || '정보 없음'}
-                          </div>
                         </div>
-
-                        <div className="ml-4">
-                          <Button asChild variant="outline" size="sm">
-                            <Link href={`/consultations/${consultation.id}`}>
-                              상세보기
-                            </Link>
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                      </CardContent>
+                    </Card>
+                  </Link>
                 </div>
               )
             })
@@ -723,6 +955,59 @@ export function ConsultationsContent({
           </section>
         )}
       </div>
+
+      {/* 일괄 삭제 확인 다이얼로그 */}
+      <ConfirmationDialog
+        open={bulkDeleteDialogOpen}
+        onOpenChange={setBulkDeleteDialogOpen}
+        title={`${selectedIds.size}건을 삭제하시겠습니까?`}
+        description="선택한 상담 기록이 모두 삭제됩니다. 이 작업은 되돌릴 수 없습니다."
+        confirmText="삭제"
+        variant="destructive"
+        isLoading={isBulkDeleting}
+        onConfirm={handleBulkDelete}
+      />
+
+      {/* 진행자 변경 다이얼로그 */}
+      <Dialog open={conductorDialogOpen} onOpenChange={setConductorDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>진행자 변경</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              선택한 {selectedIds.size}건의 상담 진행자를 변경합니다.
+            </p>
+            <Select value={newConductorId} onValueChange={setNewConductorId}>
+              <SelectTrigger>
+                <SelectValue placeholder="진행자 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                {filterOptions?.conductors.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => { setConductorDialogOpen(false); setNewConductorId('') }}
+            >
+              취소
+            </Button>
+            <Button
+              onClick={handleBulkUpdateConductor}
+              disabled={!newConductorId || isUpdatingConductor}
+            >
+              {isUpdatingConductor ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              변경
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PageWrapper>
   )
 }

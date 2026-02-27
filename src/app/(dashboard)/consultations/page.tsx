@@ -5,6 +5,7 @@ import {
   getConsultations,
   getConsultationStats,
   getConsultationFilterOptions,
+  getUpcomingFollowUps,
 } from '@/app/actions/consultations'
 import { ConsultationsContent } from './consultations-content'
 
@@ -45,8 +46,8 @@ export default async function ConsultationsPage({
   const endDate = (params.endDate as string) || undefined
   const search = (params.search as string) || undefined
 
-  // 병렬 fetch: URL 상태에 맞는 초기 데이터 + 통계 + 필터 옵션
-  const [dataResult, statsResult, filterOptionsResult] = await Promise.all([
+  // 병렬 fetch: URL 상태에 맞는 초기 데이터 + 통계 + 필터 옵션 + 후속 상담
+  const [dataResult, statsResult, filterOptionsResult, followUpsResult] = await Promise.all([
     getConsultations({
       page,
       pageSize: 20,
@@ -60,6 +61,7 @@ export default async function ConsultationsPage({
     }),
     getConsultationStats(),
     getConsultationFilterOptions(),
+    getUpcomingFollowUps(7),
   ])
 
   return (
@@ -68,6 +70,7 @@ export default async function ConsultationsPage({
       initialTotalCount={dataResult.success ? dataResult.totalCount : 0}
       initialStats={statsResult.success ? statsResult.data : null}
       filterOptions={filterOptionsResult.success ? filterOptionsResult.data : null}
+      upcomingFollowUps={followUpsResult.success && followUpsResult.data ? (followUpsResult.data as any[]) : []}
     />
   )
 }
