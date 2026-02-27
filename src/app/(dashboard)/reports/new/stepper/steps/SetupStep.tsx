@@ -13,6 +13,23 @@ import { Search, X, UserCheck, Clock, ChevronRight, CalendarDays } from 'lucide-
 import { type SelectedStudent, type PeriodConfig, getRecentStudents } from '../report-stepper-types'
 import { formatDate, cn } from '@/lib/utils'
 
+type SchoolLevel = 'all' | 'elementary' | 'middle' | 'high'
+
+function getSchoolLevel(grade: string | null): SchoolLevel {
+  if (!grade) return 'all'
+  if (grade.startsWith('초')) return 'elementary'
+  if (grade.startsWith('중')) return 'middle'
+  if (grade.startsWith('고')) return 'high'
+  return 'all'
+}
+
+const SCHOOL_LEVELS: { value: SchoolLevel; label: string }[] = [
+  { value: 'all', label: '전체' },
+  { value: 'elementary', label: '초등' },
+  { value: 'middle', label: '중등' },
+  { value: 'high', label: '고등' },
+]
+
 interface Student {
   id: string
   student_code: string
@@ -45,6 +62,7 @@ export function SetupStep({
 }: SetupStepProps) {
   // ── Student state ──
   const [search, setSearch] = useState('')
+  const [schoolLevel, setSchoolLevel] = useState<SchoolLevel>('all')
   const [activeClass, setActiveClass] = useState<string | null>(null)
   const [isSearching, setIsSearching] = useState(!selectedStudent)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -88,6 +106,9 @@ export function SetupStep({
 
   const filteredStudents = useMemo(() => {
     let result = students
+    if (schoolLevel !== 'all') {
+      result = result.filter((s) => getSchoolLevel(s.grade) === schoolLevel)
+    }
     if (activeClass) {
       result = result.filter((s) =>
         s.class_enrollments?.some((e) => e.classes?.name === activeClass)
@@ -102,7 +123,7 @@ export function SetupStep({
       )
     }
     return result
-  }, [students, search, activeClass])
+  }, [students, search, schoolLevel, activeClass])
 
   function buildSelected(s: Student): SelectedStudent {
     return {
@@ -123,6 +144,7 @@ export function SetupStep({
     onSelectStudent(buildSelected(found))
     setIsSearching(false)
     setSearch('')
+    setSchoolLevel('all')
     setActiveClass(null)
   }
 
@@ -142,6 +164,7 @@ export function SetupStep({
     onClearStudent()
     setIsSearching(true)
     setSearch('')
+    setSchoolLevel('all')
     setActiveClass(null)
   }
 
@@ -336,6 +359,29 @@ export function SetupStep({
                 )}
               </div>
 
+              {/* 학교급 필터 */}
+              <div className="flex flex-wrap gap-1.5">
+                {SCHOOL_LEVELS.map(({ value, label }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => {
+                      setSchoolLevel(value)
+                      setActiveClass(null)
+                    }}
+                    className={cn(
+                      'px-3 py-1 rounded-full text-xs border transition-all',
+                      schoolLevel === value
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-background text-muted-foreground hover:bg-muted border-border'
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* 반 필터 */}
               {allClasses.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   <button
