@@ -24,7 +24,7 @@ import {
 } from "@dnd-kit/core"
 import {
   SortableContext,
-  verticalListSortingStrategy,
+  rectSortingStrategy,
   arrayMove,
   sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable"
@@ -433,37 +433,24 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
           onDragEnd={handleDragEnd}
         >
           <SortableContext
-            items={isEditMode
-              ? [...tempWidgets].filter(w => w.visible).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map(w => w.id)
-              : widgets.filter(w => w.visible).map(w => w.id)
+            items={(isEditMode ? tempWidgets : widgets)
+              .filter(w => w.visible)
+              .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+              .map(w => w.id)
             }
-            strategy={verticalListSortingStrategy}
+            strategy={rectSortingStrategy}
           >
-            {isEditMode ? (
-              /* Edit Mode: Simple list for easy drag-and-drop */
-              <div className="space-y-4">
-                <div className="p-4 bg-accent/20 border-2 border-dashed border-primary/30 rounded-lg">
-                  <p className="text-sm text-muted-foreground text-center">
-                    위젯을 드래그하여 순서를 변경하세요. 저장하면 새 순서가 적용됩니다.
-                  </p>
+            {/* 항상 섹션 기반 레이아웃 사용 — 편집 모드에서도 실제 대시보드 모습 유지 */}
+            <div className="space-y-6">
+              {isEditMode && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground bg-accent/30 px-4 py-2.5 rounded-lg border border-primary/20 animate-in fade-in slide-in-from-top-1 duration-300">
+                  <span>각 위젯 상단의 핸들을 드래그하여 순서를 변경하거나, 눈 아이콘으로 숨길 수 있습니다.</span>
                 </div>
-                {tempWidgets
-                  .filter(w => w.visible)
-                  .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-                  .map((widget) => (
-                    <div key={widget.id}>
-                      {renderWidget(widget.id)}
-                    </div>
-                  ))}
-              </div>
-            ) : (
-              /* View Mode: Section-based layout, sorted by widget order */
-              <div className="space-y-6">
-                {getSortedSections(DASHBOARD_LAYOUT, visibleWidgetIds, widgets).map((section, index) =>
-                  renderSection(section, index)
-                )}
-              </div>
-            )}
+              )}
+              {getSortedSections(DASHBOARD_LAYOUT, visibleWidgetIds, isEditMode ? tempWidgets : widgets).map((section, index) =>
+                renderSection(section, index)
+              )}
+            </div>
           </SortableContext>
           <DragOverlay>
             {activeId ? (
