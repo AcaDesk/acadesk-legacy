@@ -1,11 +1,20 @@
 'use client'
 
+import { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Badge } from '@ui/badge'
 import { Separator } from '@ui/separator'
 import { Button } from '@ui/button'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@ui/accordion'
 import { TrendingUp, TrendingDown, Minus, Edit2 } from 'lucide-react'
+import {
+  type ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+} from '@ui/chart'
 import {
   BarChart,
   Bar,
@@ -14,9 +23,6 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
 } from 'recharts'
 import dynamic from 'next/dynamic'
 
@@ -118,6 +124,17 @@ interface ReportViewerProps {
   showEditButton?: boolean
 }
 
+// Module-level chart configs
+const barChartConfig = {
+  myScore: { label: '내 점수', color: 'var(--chart-1)' },
+  classAvg: { label: '반 평균', color: 'var(--chart-2)' },
+} satisfies ChartConfig
+
+const scoreTrendConfig = {
+  studentScore: { label: '학생 점수', color: 'var(--chart-1)' },
+  classAvg: { label: '반 평균', color: 'var(--chart-2)' },
+} satisfies ChartConfig
+
 const CustomAxisTick = (props: any) => {
   const { x, y, payload } = props;
   const { value } = payload;
@@ -127,7 +144,7 @@ const CustomAxisTick = (props: any) => {
   if (words.length === 1 || !value) {
     return (
       <g transform={`translate(${x},${y})`}>
-        <text x={0} y={0} dy={16} textAnchor="middle" fill="hsl(var(--muted-foreground))" fontSize={12}>
+        <text x={0} y={0} dy={16} textAnchor="middle" fill="var(--muted-foreground)" fontSize={12}>
           {value}
         </text>
       </g>
@@ -139,7 +156,7 @@ const CustomAxisTick = (props: any) => {
 
   return (
     <g transform={`translate(${x},${y})`}>
-      <text x={0} y={0} dy={16} textAnchor="middle" fill="hsl(var(--muted-foreground))" fontSize={12}>
+      <text x={0} y={0} dy={16} textAnchor="middle" fill="var(--muted-foreground)" fontSize={12}>
         <tspan x={0} dy="0em">{line1}</tspan>
         <tspan x={0} dy="1.2em">{line2}</tspan>
       </text>
@@ -173,6 +190,42 @@ export function ReportViewer({ reportData, onEditComment, showEditButton = false
     if (validChanges.length === 0) return null
     return Math.round(validChanges.reduce((sum, s) => sum + (s.change || 0), 0) / validChanges.length * 10) / 10
   })()
+
+  // 차트 토글 상태
+  const [showBarClassAvg, setShowBarClassAvg] = useState(false)
+  const [showLineClassAvg, setShowLineClassAvg] = useState(false)
+
+  // 과목별 꺾은선 차트 데이터 (tests 배열 기반)
+  const subjectLineConfig = Object.fromEntries(
+    reportData.scores.map((score, idx) => [
+      score.category,
+      { label: score.category, color: `var(--chart-${(idx % 5) + 1})` },
+    ])
+  ) as ChartConfig
+
+  const subjectLineData = (() => {
+    const allTestEntries = new Map<string, string>() // testName -> date
+    reportData.scores.forEach(s => {
+      s.tests.forEach(t => {
+        if (!allTestEntries.has(t.name)) allTestEntries.set(t.name, t.date)
+      })
+    })
+    const sortedTestNames = Array.from(allTestEntries.entries())
+      .sort((a, b) => new Date(a[1]).getTime() - new Date(b[1]).getTime())
+      .map(([name]) => name)
+
+    return sortedTestNames.map(testName => {
+      const point: Record<string, string | number | null> = { testName }
+      reportData.scores.forEach(score => {
+        const test = score.tests.find(t => t.name === testName)
+        point[score.category] = test ? test.percentage : null
+      })
+      return point
+    })
+  })()
+
+  const showSubjectLineChart =
+    subjectLineData.length >= 2 && reportData.scores.some(s => s.tests.length >= 2)
 
   // Format comment for display
   function getFormattedComment(): string {
@@ -302,73 +355,102 @@ ${reportData.comment.nextGoals}`
         </Card>
       </div>
 
+      {/* Subject KPI Cards: 과목별 점수 */}
+      {reportData.scores && reportData.scores.length > 0 && (
+        <div className={`grid gap-3 ${
+          reportData.scores.length <= 2 ? 'grid-cols-2' :
+          reportData.scores.length === 3 ? 'grid-cols-3' :
+          reportData.scores.length === 4 ? 'grid-cols-4' :
+          'grid-cols-3 sm:grid-cols-4 lg:grid-cols-5'
+        }`}>
+          {reportData.scores.map((score, idx) => (
+            <Card key={idx}>
+              <CardHeader className="pb-2">
+                <CardDescription className="text-xs truncate">{score.category}</CardDescription>
+                <CardTitle className="text-2xl font-bold text-primary">
+                  {score.current !== null ? `${score.current}점` : '-'}
+                </CardTitle>
+                {score.change !== null && (
+                  <div className="flex items-center gap-1 mt-0.5">
+                    {getTrendIcon(score.change)}
+                    <span className={`text-xs font-medium ${
+                      score.change > 0 ? 'text-success' :
+                      score.change < 0 ? 'text-red-600' :
+                      'text-muted-foreground'
+                    }`}>
+                      {score.change > 0 ? '+' : ''}{score.change}점
+                    </span>
+                  </div>
+                )}
+              </CardHeader>
+            </Card>
+          ))}
+        </div>
+      )}
+
       {/* Bar Chart: 과목별 성적 */}
       {reportData.scores && reportData.scores.length > 0 && (() => {
         const hasClassAvg = reportData.scores.some(s => s.average !== null && s.average !== undefined)
         const barData = reportData.scores.map((score) => ({
           name: score.category,
-          '내 점수': score.current ?? 0,
-          ...(hasClassAvg ? { '반 평균': score.average ?? 0 } : {}),
+          myScore: score.current ?? 0,
+          classAvg: score.average ?? 0,
         }))
         return (
           <Card>
             <CardHeader>
-              <CardTitle>과목별 성적</CardTitle>
-              <CardDescription>
-                이번 달 과목별 점수{hasClassAvg ? ' 및 반 평균' : ''}
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>과목별 성적</CardTitle>
+                  <CardDescription>
+                    이번 달 과목별 점수{hasClassAvg && showBarClassAvg ? ' 및 반 평균' : ''}
+                  </CardDescription>
+                </div>
+                {hasClassAvg && (
+                  <Button
+                    variant={showBarClassAvg ? 'secondary' : 'outline'}
+                    size="sm"
+                    onClick={() => setShowBarClassAvg(v => !v)}
+                    className="text-xs h-7 shrink-0"
+                  >
+                    {showBarClassAvg ? '반 평균 숨기기' : '반 평균 보기'}
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={barData} barGap={4} barCategoryGap="30%">
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} vertical={false} />
-                    <XAxis
-                      dataKey="name"
-                      stroke="hsl(var(--muted-foreground))"
-                      tickLine={false}
-                      axisLine={false}
-                      interval={0}
-                      tick={<CustomAxisTick />}
-                      height={30}
-                    />
-                    <YAxis
-                      stroke="hsl(var(--muted-foreground))"
-                      fontSize={12}
-                      tickLine={false}
-                      axisLine={false}
-                      domain={[0, 100]}
-                      tickFormatter={(v) => `${v}`}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--background))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                      }}
-                      formatter={(value: number, name: string) => [`${value}점`, name]}
-                      cursor={{ fill: 'hsl(var(--muted))', opacity: 0.5 }}
-                    />
-                    <Legend
-                      wrapperStyle={{ paddingTop: '16px', fontSize: '12px' }}
-                    />
-                    <Bar
-                      dataKey="내 점수"
-                      fill="hsl(var(--primary))"
-                      radius={[6, 6, 0, 0]}
-                    />
-                    {hasClassAvg && (
-                      <Bar
-                        dataKey="반 평균"
-                        fill="hsl(var(--muted-foreground))"
-                        fillOpacity={0.35}
-                        radius={[6, 6, 0, 0]}
-                      />
-                    )}
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              <ChartContainer config={barChartConfig} className="aspect-auto h-72 w-full">
+                <BarChart accessibilityLayer data={barData} barGap={4} barCategoryGap="30%">
+                  <CartesianGrid vertical={false} />
+                  <XAxis
+                    dataKey="name"
+                    tickLine={false}
+                    axisLine={false}
+                    interval={0}
+                    tick={<CustomAxisTick />}
+                    height={30}
+                    tickMargin={8}
+                  />
+                  <YAxis
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                    domain={[0, 100]}
+                    tickFormatter={(v) => `${v}`}
+                  />
+                  <ChartTooltip
+                    cursor={false}
+                    content={<ChartTooltipContent indicator="dashed" formatter={(value) => [`${value}점`]} />}
+                  />
+                  {showBarClassAvg && hasClassAvg && (
+                    <ChartLegend content={<ChartLegendContent />} />
+                  )}
+                  <Bar dataKey="myScore" name="내 점수" fill="var(--color-myScore)" radius={4} />
+                  {showBarClassAvg && hasClassAvg && (
+                    <Bar dataKey="classAvg" name="반 평균" fill="var(--color-classAvg)" radius={4} />
+                  )}
+                </BarChart>
+              </ChartContainer>
             </CardContent>
           </Card>
         )
@@ -388,79 +470,135 @@ ${reportData.comment.nextGoals}`
 
       {/* Line Chart: 성적 추이 */}
       {reportData.scoreTrend && reportData.scoreTrend.length >= 2 && (() => {
-        const hasTrendRetest = reportData.scoreTrend!.some(d => (d['재시험률'] ?? 0) > 0)
+        const trendData = reportData.scoreTrend!.map(d => ({
+          name: d.name,
+          studentScore: d['학생 점수'],
+          classAvg: d['반 평균'],
+        }))
         return (
           <Card>
             <CardHeader>
-              <CardTitle>성적 추이</CardTitle>
-              <CardDescription>최근 3개월 평균 성적 변화</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>성적 추이</CardTitle>
+                  <CardDescription>최근 3개월 평균 성적 변화</CardDescription>
+                </div>
+                <Button
+                  variant={showLineClassAvg ? 'secondary' : 'outline'}
+                  size="sm"
+                  onClick={() => setShowLineClassAvg(v => !v)}
+                  className="text-xs h-7 shrink-0"
+                >
+                  {showLineClassAvg ? '반 평균 숨기기' : '반 평균 보기'}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={reportData.scoreTrend} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} vertical={false} />
-                    <XAxis
-                      dataKey="name"
-                      stroke="hsl(var(--muted-foreground))"
-                      tickLine={false}
-                      axisLine={false}
-                      fontSize={13}
-                    />
-                    <YAxis
-                      stroke="hsl(var(--muted-foreground))"
-                      fontSize={12}
-                      tickLine={false}
-                      axisLine={false}
-                      domain={[0, 100]}
-                      tickFormatter={(v) => `${v}`}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--background))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                      }}
-                      formatter={(value: number, name: string) => [
-                        name === '재시험률' ? `${value}%` : `${value}점`,
-                        name,
-                      ]}
-                    />
-                    <Legend wrapperStyle={{ paddingTop: '12px', fontSize: '12px' }} />
+              <ChartContainer config={scoreTrendConfig} className="aspect-auto h-64 w-full">
+                <LineChart
+                  accessibilityLayer
+                  data={trendData}
+                  margin={{ left: 12, right: 12 }}
+                >
+                  <CartesianGrid vertical={false} />
+                  <XAxis
+                    dataKey="name"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                  />
+                  <YAxis
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                    domain={[0, 100]}
+                    tickFormatter={(v) => `${v}`}
+                  />
+                  <ChartTooltip
+                    cursor={false}
+                    content={<ChartTooltipContent formatter={(value) => [`${value}점`]} />}
+                  />
+                  {showLineClassAvg && (
+                    <ChartLegend content={<ChartLegendContent />} />
+                  )}
+                  <Line
+                    dataKey="studentScore"
+                    name="학생 점수"
+                    type="monotone"
+                    stroke="var(--color-studentScore)"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                  {showLineClassAvg && (
                     <Line
+                      dataKey="classAvg"
+                      name="반 평균"
                       type="monotone"
-                      dataKey="학생 점수"
-                      stroke="hsl(var(--primary))"
-                      strokeWidth={2.5}
-                      dot={{ r: 5, fill: 'hsl(var(--primary))', strokeWidth: 0 }}
-                      activeDot={{ r: 7 }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="반 평균"
-                      stroke="hsl(var(--muted-foreground))"
-                      strokeWidth={1.5}
+                      stroke="var(--color-classAvg)"
+                      strokeWidth={2}
                       strokeDasharray="5 4"
-                      dot={{ r: 4, fill: 'hsl(var(--muted-foreground))', strokeWidth: 0 }}
+                      dot={false}
                     />
-                    {hasTrendRetest && (
-                      <Line
-                        type="monotone"
-                        dataKey="재시험률"
-                        stroke="hsl(var(--destructive))"
-                        strokeWidth={1.5}
-                        strokeDasharray="3 3"
-                        dot={{ r: 4 }}
-                      />
-                    )}
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
+                  )}
+                </LineChart>
+              </ChartContainer>
             </CardContent>
           </Card>
         )
       })()}
+
+      {/* Line Chart: 과목별 성적 변화 */}
+      {showSubjectLineChart && (
+        <Card>
+          <CardHeader>
+            <CardTitle>과목별 성적 변화</CardTitle>
+            <CardDescription>시험별 과목 점수 추이</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer config={subjectLineConfig} className="aspect-auto h-64 w-full">
+              <LineChart
+                accessibilityLayer
+                data={subjectLineData}
+                margin={{ left: 12, right: 12 }}
+              >
+                <CartesianGrid vertical={false} />
+                <XAxis
+                  dataKey="testName"
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                  tickFormatter={(value: string) =>
+                    value.length > 6 ? `${value.slice(0, 6)}…` : value
+                  }
+                />
+                <YAxis
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                  domain={[0, 100]}
+                  tickFormatter={(v) => `${v}`}
+                />
+                <ChartTooltip
+                  cursor={false}
+                  content={<ChartTooltipContent formatter={(value) => [`${value}점`]} />}
+                />
+                <ChartLegend content={<ChartLegendContent />} />
+                {reportData.scores.map((score) => (
+                  <Line
+                    key={score.category}
+                    dataKey={score.category}
+                    type="monotone"
+                    stroke={`var(--color-${score.category})`}
+                    strokeWidth={2}
+                    dot={false}
+                    connectNulls={false}
+                  />
+                ))}
+              </LineChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Accordion: 성적 상세 */}
       {reportData.scores && reportData.scores.length > 0 && (
