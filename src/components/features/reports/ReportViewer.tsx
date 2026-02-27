@@ -420,7 +420,7 @@ ${reportData.comment.nextGoals}`
             </CardHeader>
             <CardContent>
               <ChartContainer config={barChartConfig} className="aspect-auto h-72 w-full">
-                <BarChart accessibilityLayer data={barData} barGap={4} barCategoryGap="30%">
+                <BarChart accessibilityLayer data={barData} barGap={showBarClassAvg ? 2 : 4} barCategoryGap="30%">
                   <CartesianGrid vertical={false} />
                   <XAxis
                     dataKey="name"
@@ -748,7 +748,7 @@ ${reportData.comment.nextGoals}`
                                   {test.name}
                                 </div>
                                 <div className="font-medium">
-                                  {test.percentage !== null ? `${test.percentage}%` : (
+                                  {test.percentage !== null ? `${test.percentage}점` : (
                                     <span className="text-muted-foreground">미입력</span>
                                   )}
                                 </div>

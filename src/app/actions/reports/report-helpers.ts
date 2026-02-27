@@ -892,5 +892,7 @@ export async function getScoreTrendData(
     })
   )
 
-  return monthResults
+  // 시험 데이터가 없는 달(학생 점수 = 0)은 추이 차트에서 제외
+  // PostgREST !inner 조인 날짜 필터가 간헐적으로 0건을 반환하는 케이스도 함께 처리
+  return monthResults.filter((p) => p['학생 점수'] > 0)
 }
