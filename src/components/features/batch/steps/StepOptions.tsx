@@ -6,8 +6,8 @@ import { patchBatchDraft } from '@/app/actions/batch/drafts'
 import { OptionsFormSwitch } from '../shared/OptionsFormSwitch'
 import { WizardNavButtons } from '../wizard/WizardNavButtons'
 import { Label } from '@ui/label'
-import { Input } from '@ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
+import { DatePicker } from '@ui/date-picker'
 import type { BatchActionType, BatchOptions, BatchSchedule } from '@/core/types/batch.types'
 
 interface StepOptionsProps {
@@ -15,14 +15,6 @@ interface StepOptionsProps {
   actionType: BatchActionType | null
   initialOptions: BatchOptions
   initialSchedule: BatchSchedule
-}
-
-function toDateTimeLocalValue(iso?: string): string {
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60_000)
-  return local.toISOString().slice(0, 16)
 }
 
 export function StepOptions({ draftId, actionType, initialOptions, initialSchedule }: StepOptionsProps) {
@@ -68,65 +60,65 @@ export function StepOptions({ draftId, actionType, initialOptions, initialSchedu
     })
   }
 
+  const scheduledDate = schedule.mode === 'scheduled' && schedule.scheduledAt
+    ? new Date(schedule.scheduledAt)
+    : undefined
+
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold mb-2">옵션 설정</h3>
-        <p className="text-sm text-muted-foreground">
-          작업 세부 옵션을 설정하세요.
-        </p>
-      </div>
-
-      <div className="max-w-xl">
-        <OptionsFormSwitch
-          actionType={actionType}
-          value={options}
-          onChange={setOptions}
-        />
-      </div>
-
-      <div className="max-w-xl space-y-3 border rounded-lg p-4">
-        <div>
-          <Label className="text-sm font-medium mb-1.5 block">실행 시점</Label>
-          <Select
-            value={schedule.mode}
-            onValueChange={(mode) => {
-              if (mode === 'now') {
-                setSchedule({ mode: 'now' })
-                return
-              }
-              setSchedule({
-                mode: 'scheduled',
-                scheduledAt: schedule.scheduledAt,
-              })
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="now">즉시 실행</SelectItem>
-              <SelectItem value="scheduled">예약 실행</SelectItem>
-            </SelectContent>
-          </Select>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        {/* 왼쪽: 작업 옵션 폼 */}
+        <div className="lg:col-span-2">
+          <OptionsFormSwitch
+            actionType={actionType}
+            value={options}
+            onChange={setOptions}
+          />
         </div>
 
-        {schedule.mode === 'scheduled' && (
+        {/* 오른쪽: 실행 시점 */}
+        <div className="border rounded-lg p-4 space-y-4">
           <div>
-            <Label className="text-sm font-medium mb-1.5 block">예약 일시</Label>
-            <Input
-              type="datetime-local"
-              value={toDateTimeLocalValue(schedule.scheduledAt)}
-              onChange={(e) => {
-                const next = e.target.value
-                setSchedule({
-                  mode: 'scheduled',
-                  scheduledAt: next ? new Date(next).toISOString() : undefined,
-                })
+            <p className="text-sm font-semibold mb-3">실행 시점</p>
+            <Select
+              value={schedule.mode}
+              onValueChange={(mode) => {
+                if (mode === 'now') {
+                  setSchedule({ mode: 'now' })
+                } else {
+                  setSchedule({ mode: 'scheduled', scheduledAt: schedule.scheduledAt })
+                }
               }}
-            />
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="now">즉시 실행</SelectItem>
+                <SelectItem value="scheduled">예약 실행</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-        )}
+
+          {schedule.mode === 'scheduled' && (
+            <div>
+              <Label className="text-sm font-medium mb-1.5 block">예약 일시</Label>
+              <DatePicker
+                value={scheduledDate}
+                onChange={(date) => {
+                  if (!date) {
+                    setSchedule({ mode: 'scheduled', scheduledAt: undefined })
+                    return
+                  }
+                  setSchedule({ mode: 'scheduled', scheduledAt: date.toISOString() })
+                }}
+                placeholder="날짜 선택"
+                dateFormat="yyyy년 MM월 dd일"
+                disabled={(date) => date < new Date()}
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       <WizardNavButtons

@@ -217,5 +217,6 @@ export function getStepIndex(step: BatchDraftStep): number {
 }
 
 export function isStepAccessible(currentStep: BatchDraftStep, targetStep: BatchDraftStep): boolean {
-  return getStepIndex(targetStep) <= getStepIndex(currentStep)
+  // +1 여유를 두어 낙관적 네비게이션(fire-and-forget 저장 중 다음 스텝 진입)을 허용
+  return getStepIndex(targetStep) <= getStepIndex(currentStep) + 1
 }

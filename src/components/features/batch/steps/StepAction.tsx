@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
 import { useToast } from '@/hooks/use-toast'
 import { patchBatchDraft } from '@/app/actions/batch/drafts'
 import { ActionCardGroup } from '../shared/ActionCardGroup'
@@ -15,7 +15,6 @@ interface StepActionProps {
 
 export function StepAction({ draftId, initialActionType, targetCount }: StepActionProps) {
   const { toast } = useToast()
-  const [isPending, startTransition] = useTransition()
   const [actionType, setActionType] = useState<BatchActionType | null>(initialActionType)
 
   const handleNext = async (): Promise<boolean> => {
@@ -24,20 +23,16 @@ export function StepAction({ draftId, initialActionType, targetCount }: StepActi
       return false
     }
 
-    return new Promise<boolean>((resolve) => {
-      startTransition(async () => {
-        const result = await patchBatchDraft(draftId, {
-          action_type: actionType,
-          step: 'options',
-        })
-        if (!result.success) {
-          toast({ title: '저장 실패', description: result.error ?? '', variant: 'destructive' })
-          resolve(false)
-        } else {
-          resolve(true)
-        }
-      })
+    // Fire-and-forget: 저장을 기다리지 않고 즉시 네비게이션
+    // options 페이지는 URL 파라미터로 action_type을 전달받음
+    patchBatchDraft(draftId, {
+      action_type: actionType,
+      step: 'options',
+    }).catch(() => {
+      toast({ title: '저장 중 오류가 발생했습니다. 페이지를 새로고침하세요.', variant: 'destructive' })
     })
+
+    return true
   }
 
   return (
@@ -60,7 +55,7 @@ export function StepAction({ draftId, initialActionType, targetCount }: StepActi
         currentStep="action"
         onNext={handleNext}
         isNextDisabled={!actionType}
-        isLoading={isPending}
+        nextSearchParams={actionType ? { action: actionType } : undefined}
       />
     </div>
   )

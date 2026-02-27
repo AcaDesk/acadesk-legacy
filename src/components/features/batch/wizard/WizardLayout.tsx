@@ -8,9 +8,11 @@ interface WizardLayoutProps {
 
 export function WizardLayout({ draft, children }: WizardLayoutProps) {
   return (
-    <div className="p-6 lg:p-8 space-y-6">
-      <WizardStepper currentStep={draft.step} />
-      {children}
+    <div className="px-6 lg:px-8 py-6 lg:py-8">
+      <div className="max-w-3xl mx-auto space-y-8">
+        <WizardStepper currentStep={draft.step} />
+        {children}
+      </div>
     </div>
   )
 }

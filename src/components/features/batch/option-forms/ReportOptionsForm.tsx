@@ -1,14 +1,8 @@
 'use client'
 
 import { Label } from '@ui/label'
-import { Input } from '@ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
+import { DatePicker } from '@ui/date-picker'
 import { Checkbox } from '@ui/checkbox'
 import type { ReportOptions } from '@/core/types/batch.types'
 
@@ -24,20 +18,38 @@ const REPORT_SECTIONS = [
   { key: 'comment', label: '강사 코멘트' },
 ]
 
+const MONTHS = [
+  '1월', '2월', '3월', '4월', '5월', '6월',
+  '7월', '8월', '9월', '10월', '11월', '12월',
+]
+
+function parseDateStr(str: string): Date {
+  const [y, m, d] = str.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
+function formatDateStr(date: Date): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 export function ReportOptionsForm({ value, onChange }: ReportOptionsFormProps) {
   const now = new Date()
   const currentYear = now.getFullYear()
   const currentMonth = now.getMonth() + 1
+
   const day = now.getDay()
   const monday = new Date(now)
   monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1))
   const sunday = new Date(monday)
   sunday.setDate(monday.getDate() + 6)
-  const defaultWeekStart = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`
-  const defaultWeekEnd = `${sunday.getFullYear()}-${String(sunday.getMonth() + 1).padStart(2, '0')}-${String(sunday.getDate()).padStart(2, '0')}`
+
+  const yearOptions = Array.from({ length: 11 }, (_, i) => 2020 + i)
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div>
         <Label className="text-sm font-medium mb-1.5 block">리포트 타입</Label>
         <Select
@@ -48,12 +60,17 @@ export function ReportOptionsForm({ value, onChange }: ReportOptionsFormProps) {
               onChange({
                 ...value,
                 reportType: 'weekly',
-                weekStartDate: value.weekStartDate ?? defaultWeekStart,
-                weekEndDate: value.weekEndDate ?? defaultWeekEnd,
+                weekStartDate: value.weekStartDate ?? formatDateStr(monday),
+                weekEndDate: value.weekEndDate ?? formatDateStr(sunday),
               })
-              return
+            } else {
+              onChange({
+                ...value,
+                reportType: 'monthly',
+                year: value.year ?? currentYear,
+                month: value.month ?? currentMonth,
+              })
             }
-            onChange({ ...value, reportType: 'monthly' })
           }}
         >
           <SelectTrigger>
@@ -70,18 +87,22 @@ export function ReportOptionsForm({ value, onChange }: ReportOptionsFormProps) {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <Label className="text-sm font-medium mb-1.5 block">시작일</Label>
-            <Input
-              type="date"
-              value={value.weekStartDate ?? defaultWeekStart}
-              onChange={(e) => onChange({ ...value, weekStartDate: e.target.value })}
+            <DatePicker
+              value={value.weekStartDate ? parseDateStr(value.weekStartDate) : monday}
+              onChange={(date) => date && onChange({ ...value, weekStartDate: formatDateStr(date) })}
+              dateFormat="yyyy년 MM월 dd일"
             />
           </div>
           <div>
             <Label className="text-sm font-medium mb-1.5 block">종료일</Label>
-            <Input
-              type="date"
-              value={value.weekEndDate ?? defaultWeekEnd}
-              onChange={(e) => onChange({ ...value, weekEndDate: e.target.value })}
+            <DatePicker
+              value={value.weekEndDate ? parseDateStr(value.weekEndDate) : sunday}
+              onChange={(date) => date && onChange({ ...value, weekEndDate: formatDateStr(date) })}
+              dateFormat="yyyy년 MM월 dd일"
+              disabled={(date) => {
+                const startDate = value.weekStartDate ? parseDateStr(value.weekStartDate) : monday
+                return date < startDate
+              }}
             />
           </div>
         </div>
@@ -89,23 +110,35 @@ export function ReportOptionsForm({ value, onChange }: ReportOptionsFormProps) {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <Label className="text-sm font-medium mb-1.5 block">기준 년도</Label>
-            <Input
-              type="number"
-              value={value.year || currentYear}
-              onChange={(e) => onChange({ ...value, year: Number(e.target.value) })}
-              min={2020}
-              max={2030}
-            />
+            <Select
+              value={String(value.year || currentYear)}
+              onValueChange={(v) => onChange({ ...value, year: Number(v) })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {yearOptions.map((year) => (
+                  <SelectItem key={year} value={String(year)}>{year}년</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <Label className="text-sm font-medium mb-1.5 block">기준 월</Label>
-            <Input
-              type="number"
-              value={value.month || currentMonth}
-              onChange={(e) => onChange({ ...value, month: Number(e.target.value) })}
-              min={1}
-              max={12}
-            />
+            <Select
+              value={String(value.month || currentMonth)}
+              onValueChange={(v) => onChange({ ...value, month: Number(v) })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MONTHS.map((label, i) => (
+                  <SelectItem key={i + 1} value={String(i + 1)}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       )}
