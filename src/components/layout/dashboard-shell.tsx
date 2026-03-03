@@ -14,8 +14,10 @@ import {
   Sun,
   Moon,
   Monitor,
+  MonitorPlay,
 } from "lucide-react"
 import { useTheme } from "next-themes"
+import { cn } from "@/lib/utils"
 import { AppNav } from "@/components/layout/app-nav"
 import { Breadcrumbs } from "@/components/layout/breadcrumbs"
 import { HelpMenu } from "@/components/layout/help-menu"
@@ -40,6 +42,8 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@ui/avatar"
 import { ConfirmationDialog } from "@ui/confirmation-dialog"
 import { useMediaQuery } from "@/hooks/use-media-query"
+import { useStandaloneMode } from "@/hooks/use-standalone-mode"
+import { usePathname, useRouter } from "next/navigation"
 
 interface DashboardShellProps {
   children: React.ReactNode
@@ -79,6 +83,32 @@ const SidebarContent = memo(function SidebarContent({
       {/* 네비게이션 */}
       <div className="flex-1 overflow-y-auto">
         <AppNav isCollapsed={isCollapsed} onNavigate={onNavigate} />
+      </div>
+
+      {/* 하단 액션 */}
+      <div className={cn("border-t p-2 shrink-0", isCollapsed ? "px-2" : "px-3")}>
+        <Link href="/kiosk" onClick={onNavigate}>
+          <div
+            className={cn(
+              "flex items-center gap-3 rounded-lg py-2 text-sm font-medium transition-all duration-200",
+              "text-muted-foreground hover:bg-muted hover:text-foreground",
+              "hover:scale-[1.02] active:scale-[0.98]",
+              isCollapsed ? "justify-center px-2" : "px-3"
+            )}
+            title={isCollapsed ? "키오스크 모드" : undefined}
+          >
+            <MonitorPlay className="h-4 w-4 flex-shrink-0" />
+            {!isCollapsed && (
+              <motion.span
+                className="whitespace-nowrap"
+                animate={{ opacity: isCollapsed ? 0 : 1 }}
+                transition={{ duration: 0.2 }}
+              >
+                키오스크 모드
+              </motion.span>
+            )}
+          </div>
+        </Link>
       </div>
     </div>
   )
@@ -125,6 +155,7 @@ const Header = memo(function Header({
   userRole?: string
   userTenantName?: string
   userAvatarUrl?: string
+  isStandalone?: boolean
 }) {
   const { theme, setTheme } = useTheme()
   const [themeMounted, setThemeMounted] = useState(false)
@@ -162,8 +193,11 @@ const Header = memo(function Header({
 
   return (
     <>
-      <header className="flex h-16 items-center justify-between border-b bg-card px-4 md:px-6">
-        {/* 모바일: 햄버거 메뉴 + 로고 */}
+      <header className={cn(
+        "flex items-center justify-between border-b bg-card px-4 md:px-6",
+        isStandalone ? "h-12" : "h-16"
+      )}>
+        {/* 모바일: 햄버거 메뉴 + 로고 / standalone: 타이틀 */}
         <div className="flex items-center gap-4 md:hidden">
           {showMenuButton && (
             <Button
@@ -175,16 +209,23 @@ const Header = memo(function Header({
               <Menu className="h-5 w-5" />
             </Button>
           )}
-          <h1 className="text-lg font-bold">Acadesk</h1>
+          <h1 className="text-lg font-bold">
+            {isStandalone ? '출석 관리' : 'Acadesk'}
+          </h1>
         </div>
 
-        {/* 우측 액션 영역: 도움말 + 알림 + 테마 + 사용자 메뉴 */}
-        <div className="ml-auto flex items-center gap-2">
-          {/* 도움말 */}
-          <HelpMenu />
+        {/* 데스크톱 standalone 타이틀 */}
+        {isStandalone && (
+          <div className="hidden md:flex items-center gap-2">
+            <h1 className="text-lg font-bold">출석 관리</h1>
+          </div>
+        )}
 
-          {/* 알림 */}
-          <NotificationPopover />
+        {/* 우측 액션 영역 */}
+        <div className="ml-auto flex items-center gap-2">
+          {/* 도움말 + 알림: standalone에서 숨김 */}
+          {!isStandalone && <HelpMenu />}
+          {!isStandalone && <NotificationPopover />}
 
           {/* 테마 전환: 모바일에서는 사용자 메뉴로 통합 */}
           <div className="hidden sm:block">
@@ -222,19 +263,23 @@ const Header = memo(function Header({
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/profile" className="cursor-pointer">
-                  <User className="mr-2 h-4 w-4" />
-                  <span>내 정보</span>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/settings" className="cursor-pointer">
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span>설정</span>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
+              {!isStandalone && (
+                <>
+                  <DropdownMenuItem asChild>
+                    <Link href="/profile" className="cursor-pointer">
+                      <User className="mr-2 h-4 w-4" />
+                      <span>내 정보</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/settings" className="cursor-pointer">
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span>설정</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
               <DropdownMenuLabel className="font-normal text-xs text-muted-foreground">테마</DropdownMenuLabel>
               <DropdownMenuItem onClick={() => setTheme('light')} className="cursor-pointer">
                 <Sun className="mr-2 h-4 w-4" />
@@ -312,6 +357,18 @@ export function DashboardShell({
   // 로그아웃 처리
   const { logout, isLoading: isLoggingOut } = useLogout()
 
+  // PWA standalone 모드 감지
+  const isStandalone = useStandaloneMode()
+  const pathname = usePathname()
+  const router = useRouter()
+
+  // standalone 모드에서 출석 페이지 이외 접근 시 리다이렉트
+  useEffect(() => {
+    if (isStandalone && !pathname.startsWith('/attendance')) {
+      router.replace('/attendance')
+    }
+  }, [isStandalone, pathname, router])
+
   // 태블릿 이상 여부 감지 (768px 이상에서 사이드바 표시)
   const isDesktop = useMediaQuery("(min-width: 768px)")
   // 큰 데스크톱 감지 (1024px 이상)
@@ -332,8 +389,8 @@ export function DashboardShell({
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* 데스크톱: 고정 사이드바 */}
-      {isDesktop && (
+      {/* 데스크톱: 고정 사이드바 (standalone 모드에서는 숨김) */}
+      {isDesktop && !isStandalone && (
         <motion.div
           className="relative flex-shrink-0"
           animate={{
@@ -362,8 +419,8 @@ export function DashboardShell({
         </motion.div>
       )}
 
-      {/* 모바일: Sheet (오프캔버스) 메뉴 */}
-      {!isDesktop && (
+      {/* 모바일: Sheet (오프캔버스) 메뉴 (standalone 모드에서는 숨김) */}
+      {!isDesktop && !isStandalone && (
         <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
           <SheetContent side="left" className="w-64 p-0">
             <SheetHeader className="sr-only">
@@ -378,7 +435,7 @@ export function DashboardShell({
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header
           onMenuClick={toggleMobileMenu}
-          showMenuButton={!isDesktop}
+          showMenuButton={!isDesktop && !isStandalone}
           onLogout={logout}
           isLoggingOut={isLoggingOut}
           userName={userName}
@@ -386,13 +443,16 @@ export function DashboardShell({
           userRole={userRole}
           userTenantName={userTenantName}
           userAvatarUrl={userAvatarUrl}
+          isStandalone={isStandalone}
         />
 
         {/* 메인 - 페이지 컨텐츠만 전환 */}
         <main className="flex-1 overflow-y-auto overflow-x-hidden bg-background">
-          <div className="px-6 lg:px-8 pt-6">
-            <Breadcrumbs />
-          </div>
+          {!isStandalone && (
+            <div className="px-6 lg:px-8 pt-6">
+              <Breadcrumbs />
+            </div>
+          )}
           {children}
         </main>
       </div>
