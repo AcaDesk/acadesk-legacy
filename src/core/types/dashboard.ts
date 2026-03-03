@@ -58,41 +58,42 @@ export interface LayoutPreset {
 // All available widgets with their feature dependencies
 // Using 12-column grid system + column/order for edit mode
 // rowHeight=60 기준 픽셀 높이: h * 60 + (h-1) * 16
-// KPI h=2 → 136px, h=6 → 440px, h=8 → 592px, h=5 → 364px, h=4 → 288px
+// KPI h=3 → 212px (CardHeader~48px + CardContent~108px = 156px 필요, 여유 56px)
+// h=6 → 440px, h=8 → 592px, h=5 → 364px, h=4 → 288px
 const ALL_WIDGETS: DashboardWidget[] = [
-  // Row 0: KPI 카드 — 12컬럼에 6개 균등 배치 (각 w=2, h=2)
-  { id: 'kpi-total-students',  title: '전체 학생',   name: '전체 학생 KPI',   visible: true,  x: 0,  y: 0, w: 2, h: 2, minW: 2, minH: 2, column: 'left',  order: 0 },
-  { id: 'kpi-active-students', title: '활동 학생',   name: '활동 학생 KPI',   visible: true,  x: 2,  y: 0, w: 2, h: 2, minW: 2, minH: 2, column: 'left',  order: 1 },
-  { id: 'kpi-attendance-rate', title: '출석률',      name: '출석률 KPI',      visible: true,  x: 4,  y: 0, w: 2, h: 2, minW: 2, minH: 2, column: 'left',  order: 2, requiredFeatures: ['attendanceManagement'] },
-  { id: 'kpi-average-score',   title: '평균 성적',   name: '평균 성적 KPI',   visible: true,  x: 6,  y: 0, w: 2, h: 2, minW: 2, minH: 2, column: 'right', order: 3, requiredFeatures: ['gradesManagement'] },
-  { id: 'kpi-completion-rate', title: '과제 완료율', name: '과제 완료율 KPI', visible: true,  x: 8,  y: 0, w: 2, h: 2, minW: 2, minH: 2, column: 'right', order: 4, requiredFeatures: ['todoManagement'] },
-  { id: 'kpi-monthly-revenue', title: '이번 달 매출', name: '매출 KPI',       visible: false, x: 10, y: 0, w: 2, h: 2, minW: 2, minH: 2, column: 'right', order: 5, requiredFeatures: ['tuitionManagement'] },
+  // Row 0-2: KPI 카드 — 12컬럼에 6개 균등 배치 (각 w=2, h=3)
+  { id: 'kpi-total-students',  title: '전체 학생',   name: '전체 학생 KPI',   visible: true,  x: 0,  y: 0, w: 2, h: 3, minW: 2, minH: 3, column: 'left',  order: 0 },
+  { id: 'kpi-active-students', title: '활동 학생',   name: '활동 학생 KPI',   visible: true,  x: 2,  y: 0, w: 2, h: 3, minW: 2, minH: 3, column: 'left',  order: 1 },
+  { id: 'kpi-attendance-rate', title: '출석률',      name: '출석률 KPI',      visible: true,  x: 4,  y: 0, w: 2, h: 3, minW: 2, minH: 3, column: 'left',  order: 2, requiredFeatures: ['attendanceManagement'] },
+  { id: 'kpi-average-score',   title: '평균 성적',   name: '평균 성적 KPI',   visible: true,  x: 6,  y: 0, w: 2, h: 3, minW: 2, minH: 3, column: 'right', order: 3, requiredFeatures: ['gradesManagement'] },
+  { id: 'kpi-completion-rate', title: '과제 완료율', name: '과제 완료율 KPI', visible: true,  x: 8,  y: 0, w: 2, h: 3, minW: 2, minH: 3, column: 'right', order: 4, requiredFeatures: ['todoManagement'] },
+  { id: 'kpi-monthly-revenue', title: '이번 달 매출', name: '매출 KPI',       visible: false, x: 10, y: 0, w: 2, h: 3, minW: 2, minH: 3, column: 'right', order: 5, requiredFeatures: ['tuitionManagement'] },
 
-  // Row 2-7: 메인 2컬럼 위젯
-  { id: 'today-tasks',          title: '오늘의 할 일',   name: '오늘의 할 일',     visible: true, x: 0, y: 2,  w: 6, h: 6, minW: 4, minH: 3, column: 'left',  order: 6,  requiredFeatures: ['todoManagement', 'classManagement'] },
-  { id: 'quick-stats',          title: '빠른 통계',      name: '빠른 통계',        visible: true, x: 6, y: 2,  w: 6, h: 6, minW: 3, minH: 3, column: 'right', order: 7 },
+  // Row 3-8: 메인 2컬럼 위젯
+  { id: 'today-tasks',          title: '오늘의 할 일',   name: '오늘의 할 일',     visible: true, x: 0, y: 3,  w: 6, h: 6, minW: 4, minH: 3, column: 'left',  order: 6,  requiredFeatures: ['todoManagement', 'classManagement'] },
+  { id: 'quick-stats',          title: '빠른 통계',      name: '빠른 통계',        visible: true, x: 6, y: 3,  w: 6, h: 6, minW: 3, minH: 3, column: 'right', order: 7 },
 
-  // Row 8-12: 전체 너비
-  { id: 'activity-feed',        title: '최근 활동',      name: '최근 활동 피드',   visible: true, x: 0, y: 8,  w: 12, h: 5, minW: 6, minH: 3, column: 'left',  order: 8 },
+  // Row 9-13: 전체 너비
+  { id: 'activity-feed',        title: '최근 활동',      name: '최근 활동 피드',   visible: true, x: 0, y: 9,  w: 12, h: 5, minW: 6, minH: 3, column: 'left',  order: 8 },
 
-  // Row 13-20: 2컬럼
-  { id: 'calendar',             title: '캘린더',         name: '일정 캘린더',      visible: true, x: 0, y: 13, w: 6, h: 8, minW: 4, minH: 4, column: 'left',  order: 9,  requiredFeatures: ['calendarIntegration'] },
-  { id: 'today-communications', title: '오늘의 소통',    name: '오늘의 소통',      visible: true, x: 6, y: 13, w: 6, h: 8, minW: 4, minH: 4, column: 'right', order: 10, requiredFeatures: ['consultationManagement'] },
+  // Row 14-21: 2컬럼
+  { id: 'calendar',             title: '캘린더',         name: '일정 캘린더',      visible: true, x: 0, y: 14, w: 6, h: 8, minW: 4, minH: 4, column: 'left',  order: 9,  requiredFeatures: ['calendarIntegration'] },
+  { id: 'today-communications', title: '오늘의 소통',    name: '오늘의 소통',      visible: true, x: 6, y: 14, w: 6, h: 8, minW: 4, minH: 4, column: 'right', order: 10, requiredFeatures: ['consultationManagement'] },
 
-  // Row 21-26: 전체 너비
-  { id: 'weekly-performance',   title: '주간 성과',      name: '주간 성과 분석',   visible: true, x: 0, y: 21, w: 12, h: 6, minW: 6, minH: 3, column: 'left',  order: 11, requiredFeatures: ['gradesManagement'] },
+  // Row 22-27: 전체 너비
+  { id: 'weekly-performance',   title: '주간 성과',      name: '주간 성과 분석',   visible: true, x: 0, y: 22, w: 12, h: 6, minW: 6, minH: 3, column: 'left',  order: 11, requiredFeatures: ['gradesManagement'] },
 
-  // Row 27-32: 2컬럼
-  { id: 'student-alerts',       title: '학생 알림',      name: '학생 알림',        visible: true, x: 0, y: 27, w: 6, h: 6, minW: 4, minH: 3, column: 'left',  order: 12, requiredFeatures: ['notificationSystem'] },
-  { id: 'recent-students',      title: '최근 등록 학생', name: '최근 등록 학생',   visible: true, x: 6, y: 27, w: 6, h: 6, minW: 4, minH: 3, column: 'right', order: 13, requiredFeatures: ['studentManagement'] },
+  // Row 28-33: 2컬럼
+  { id: 'student-alerts',       title: '학생 알림',      name: '학생 알림',        visible: true, x: 0, y: 28, w: 6, h: 6, minW: 4, minH: 3, column: 'left',  order: 12, requiredFeatures: ['notificationSystem'] },
+  { id: 'recent-students',      title: '최근 등록 학생', name: '최근 등록 학생',   visible: true, x: 6, y: 28, w: 6, h: 6, minW: 4, minH: 3, column: 'right', order: 13, requiredFeatures: ['studentManagement'] },
 
-  // Row 33-36: 전체 너비
-  { id: 'quick-actions',        title: '빠른 실행',      name: '빠른 실행',        visible: true, x: 0, y: 33, w: 12, h: 4, minW: 6, minH: 2, column: 'left',  order: 14 },
+  // Row 34-37: 전체 너비
+  { id: 'quick-actions',        title: '빠른 실행',      name: '빠른 실행',        visible: true, x: 0, y: 34, w: 12, h: 4, minW: 6, minH: 2, column: 'left',  order: 14 },
 
   // 숨겨진 위젯 (편집 모드에서 고스트로 표시)
-  { id: 'attendance-summary',   title: '출석 현황',      name: '출석 요약',        visible: false, x: 0, y: 37, w: 6, h: 5, minW: 4, minH: 3, column: 'left',  order: 15, requiredFeatures: ['attendanceManagement'] },
-  { id: 'class-status',         title: '수업 현황',      name: '수업 상태',        visible: false, x: 6, y: 37, w: 6, h: 5, minW: 4, minH: 3, column: 'right', order: 16, requiredFeatures: ['classManagement'] },
-  { id: 'financial-snapshot',   title: '재무 현황',      name: '재무 스냅샷',      visible: false, x: 0, y: 42, w: 6, h: 5, minW: 4, minH: 3, column: 'left',  order: 17, requiredFeatures: ['tuitionManagement'] },
+  { id: 'attendance-summary',   title: '출석 현황',      name: '출석 요약',        visible: false, x: 0, y: 38, w: 6, h: 5, minW: 4, minH: 3, column: 'left',  order: 15, requiredFeatures: ['attendanceManagement'] },
+  { id: 'class-status',         title: '수업 현황',      name: '수업 상태',        visible: false, x: 6, y: 38, w: 6, h: 5, minW: 4, minH: 3, column: 'right', order: 16, requiredFeatures: ['classManagement'] },
+  { id: 'financial-snapshot',   title: '재무 현황',      name: '재무 스냅샷',      visible: false, x: 0, y: 43, w: 6, h: 5, minW: 4, minH: 3, column: 'left',  order: 17, requiredFeatures: ['tuitionManagement'] },
 ]
 
 /**
@@ -288,33 +289,33 @@ export const LAYOUT_PRESETS: Record<DashboardPreset, LayoutPreset> = {
     name: '기본 레이아웃',
     description: 'KPI와 주요 위젯을 균형있게 배치',
     widgets: [
-      // KPI 카드 6개 — 1줄, 각 w=2, h=2 (136px)
-      { id: 'kpi-total-students',  visible: true,  x: 0,  y: 0, w: 2, h: 2 },
-      { id: 'kpi-active-students', visible: true,  x: 2,  y: 0, w: 2, h: 2 },
-      { id: 'kpi-attendance-rate', visible: true,  x: 4,  y: 0, w: 2, h: 2 },
-      { id: 'kpi-average-score',   visible: true,  x: 6,  y: 0, w: 2, h: 2 },
-      { id: 'kpi-completion-rate', visible: true,  x: 8,  y: 0, w: 2, h: 2 },
-      { id: 'kpi-monthly-revenue', visible: false, x: 10, y: 0, w: 2, h: 2 },
+      // KPI 카드 6개 — 1줄, 각 w=2, h=3 (212px)
+      { id: 'kpi-total-students',  visible: true,  x: 0,  y: 0, w: 2, h: 3 },
+      { id: 'kpi-active-students', visible: true,  x: 2,  y: 0, w: 2, h: 3 },
+      { id: 'kpi-attendance-rate', visible: true,  x: 4,  y: 0, w: 2, h: 3 },
+      { id: 'kpi-average-score',   visible: true,  x: 6,  y: 0, w: 2, h: 3 },
+      { id: 'kpi-completion-rate', visible: true,  x: 8,  y: 0, w: 2, h: 3 },
+      { id: 'kpi-monthly-revenue', visible: false, x: 10, y: 0, w: 2, h: 3 },
       // 주요 위젯
-      { id: 'today-tasks',          visible: true, x: 0, y: 2,  w: 6,  h: 6 },
-      { id: 'quick-stats',          visible: true, x: 6, y: 2,  w: 6,  h: 6 },
-      { id: 'activity-feed',        visible: true, x: 0, y: 8,  w: 12, h: 5 },
-      { id: 'calendar',             visible: true, x: 0, y: 13, w: 6,  h: 8 },
-      { id: 'today-communications', visible: true, x: 6, y: 13, w: 6,  h: 8 },
+      { id: 'today-tasks',          visible: true, x: 0, y: 3,  w: 6,  h: 6 },
+      { id: 'quick-stats',          visible: true, x: 6, y: 3,  w: 6,  h: 6 },
+      { id: 'activity-feed',        visible: true, x: 0, y: 9,  w: 12, h: 5 },
+      { id: 'calendar',             visible: true, x: 0, y: 14, w: 6,  h: 8 },
+      { id: 'today-communications', visible: true, x: 6, y: 14, w: 6,  h: 8 },
     ]
   },
   compact: {
     name: '컴팩트 레이아웃',
     description: '핵심 정보만 집약적으로 표시',
     widgets: [
-      // KPI 3개 (w=4 균등 배치), h=2
-      { id: 'kpi-total-students',  visible: true, x: 0, y: 0, w: 4, h: 2 },
-      { id: 'kpi-attendance-rate', visible: true, x: 4, y: 0, w: 4, h: 2 },
-      { id: 'kpi-average-score',   visible: true, x: 8, y: 0, w: 4, h: 2 },
+      // KPI 3개 (w=4 균등 배치), h=3
+      { id: 'kpi-total-students',  visible: true, x: 0, y: 0, w: 4, h: 3 },
+      { id: 'kpi-attendance-rate', visible: true, x: 4, y: 0, w: 4, h: 3 },
+      { id: 'kpi-average-score',   visible: true, x: 8, y: 0, w: 4, h: 3 },
       // 핵심 위젯
-      { id: 'today-tasks',     visible: true, x: 0, y: 2, w: 6,  h: 6 },
-      { id: 'student-alerts',  visible: true, x: 6, y: 2, w: 6,  h: 6 },
-      { id: 'quick-actions',   visible: true, x: 0, y: 8, w: 12, h: 4 },
+      { id: 'today-tasks',     visible: true, x: 0, y: 3, w: 6,  h: 6 },
+      { id: 'student-alerts',  visible: true, x: 6, y: 3, w: 6,  h: 6 },
+      { id: 'quick-actions',   visible: true, x: 0, y: 9, w: 12, h: 4 },
     ]
   },
   focus: {
@@ -331,22 +332,22 @@ export const LAYOUT_PRESETS: Record<DashboardPreset, LayoutPreset> = {
     name: '전체 보기',
     description: '모든 정보를 한 화면에 표시',
     widgets: [
-      // KPI 6개 — 1줄, w=2, h=2
-      { id: 'kpi-total-students',  visible: true, x: 0,  y: 0, w: 2, h: 2 },
-      { id: 'kpi-active-students', visible: true, x: 2,  y: 0, w: 2, h: 2 },
-      { id: 'kpi-attendance-rate', visible: true, x: 4,  y: 0, w: 2, h: 2 },
-      { id: 'kpi-average-score',   visible: true, x: 6,  y: 0, w: 2, h: 2 },
-      { id: 'kpi-completion-rate', visible: true, x: 8,  y: 0, w: 2, h: 2 },
-      { id: 'kpi-monthly-revenue', visible: true, x: 10, y: 0, w: 2, h: 2 },
+      // KPI 6개 — 1줄, w=2, h=3
+      { id: 'kpi-total-students',  visible: true, x: 0,  y: 0, w: 2, h: 3 },
+      { id: 'kpi-active-students', visible: true, x: 2,  y: 0, w: 2, h: 3 },
+      { id: 'kpi-attendance-rate', visible: true, x: 4,  y: 0, w: 2, h: 3 },
+      { id: 'kpi-average-score',   visible: true, x: 6,  y: 0, w: 2, h: 3 },
+      { id: 'kpi-completion-rate', visible: true, x: 8,  y: 0, w: 2, h: 3 },
+      { id: 'kpi-monthly-revenue', visible: true, x: 10, y: 0, w: 2, h: 3 },
       // 3열 위젯 (w=4)
-      { id: 'today-tasks',          visible: true, x: 0, y: 2,  w: 4, h: 5 },
-      { id: 'quick-stats',          visible: true, x: 4, y: 2,  w: 4, h: 5 },
-      { id: 'student-alerts',       visible: true, x: 8, y: 2,  w: 4, h: 5 },
+      { id: 'today-tasks',          visible: true, x: 0, y: 3,  w: 4, h: 5 },
+      { id: 'quick-stats',          visible: true, x: 4, y: 3,  w: 4, h: 5 },
+      { id: 'student-alerts',       visible: true, x: 8, y: 3,  w: 4, h: 5 },
       // 2열 위젯 (w=6)
-      { id: 'activity-feed',        visible: true, x: 0, y: 7,  w: 6, h: 5 },
-      { id: 'calendar',             visible: true, x: 6, y: 7,  w: 6, h: 5 },
-      { id: 'recent-students',      visible: true, x: 0, y: 12, w: 6, h: 5 },
-      { id: 'today-communications', visible: true, x: 6, y: 12, w: 6, h: 5 },
+      { id: 'activity-feed',        visible: true, x: 0, y: 8,  w: 6, h: 5 },
+      { id: 'calendar',             visible: true, x: 6, y: 8,  w: 6, h: 5 },
+      { id: 'recent-students',      visible: true, x: 0, y: 13, w: 6, h: 5 },
+      { id: 'today-communications', visible: true, x: 6, y: 13, w: 6, h: 5 },
     ]
   }
 }

@@ -26,22 +26,28 @@ export function DashboardWidgetWrapper({
       <Card className="transition-all duration-300 ease-out overflow-hidden group h-full flex flex-col ring-2 ring-primary/30 shadow-lg hover:ring-primary/50 hover:shadow-xl">
         {/* Edit Mode Controls - react-grid-layout drag handle */}
         <div className={cn(
-          "flex items-center justify-between gap-2 px-3 py-2 bg-accent/30 border-b border-border shrink-0",
-          "animate-in slide-in-from-top-2 fade-in duration-300"
+          "flex items-center justify-between gap-2 border-b border-border shrink-0 bg-accent/30",
+          "animate-in slide-in-from-top-2 fade-in duration-300",
+          disablePadding ? "px-2 py-1" : "px-3 py-2"
         )}>
           {/* 드래그 핸들: react-grid-layout이 draggableHandle=".widget-drag-handle"로 감지 */}
           <div
             className={cn(
-              "widget-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 rounded-md",
-              "hover:bg-primary/10 hover:shadow-sm transition-all duration-200",
-              "hover:scale-110 active:scale-95",
-              "animate-in fade-in zoom-in-95 duration-300 delay-75 flex items-center gap-1"
+              "widget-drag-handle cursor-grab active:cursor-grabbing touch-none rounded-md",
+              "hover:bg-primary/10 transition-all duration-200",
+              "animate-in fade-in zoom-in-95 duration-300 delay-75 flex items-center gap-1",
+              disablePadding ? "p-0.5" : "p-1"
             )}
           >
-            <GripVertical className="h-4 w-4 text-muted-foreground hover:text-primary transition-colors" />
-            <span className="text-xs text-muted-foreground font-medium animate-in fade-in duration-300 delay-100">
-              드래그하여 이동
-            </span>
+            <GripVertical className={cn(
+              "text-muted-foreground hover:text-primary transition-colors",
+              disablePadding ? "h-3.5 w-3.5" : "h-4 w-4"
+            )} />
+            {!disablePadding && (
+              <span className="text-xs text-muted-foreground font-medium animate-in fade-in duration-300 delay-100">
+                드래그하여 이동
+              </span>
+            )}
           </div>
 
           {onHide && (
@@ -49,8 +55,9 @@ export function DashboardWidgetWrapper({
               variant="ghost"
               size="icon"
               className={cn(
-                "h-6 w-6 hover:bg-destructive/10 hover:text-destructive transition-all",
-                "animate-in fade-in zoom-in-95 duration-300 delay-150"
+                "hover:bg-destructive/10 hover:text-destructive transition-all",
+                "animate-in fade-in zoom-in-95 duration-300 delay-150",
+                disablePadding ? "h-5 w-5" : "h-6 w-6"
               )}
               onClick={onHide}
               title="위젯 숨기기"
