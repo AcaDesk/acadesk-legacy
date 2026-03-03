@@ -81,7 +81,8 @@ export function StatsCard({
     </Card>
   )
 
-  if (href) {
+  // onClick(드릴다운)이 있으면 Link 이동 대신 클릭 핸들러만 실행
+  if (href && !onClick) {
     return <Link href={href} className="block h-full">{cardContent}</Link>
   }
 
