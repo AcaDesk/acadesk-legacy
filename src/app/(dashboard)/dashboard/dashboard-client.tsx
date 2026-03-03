@@ -560,6 +560,8 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
             rowHeight={60}
             isDraggable={isEditMode}
             isResizable={isEditMode}
+            compactType={null}
+            preventCollision={false}
             measureBeforeMount={false}
             onLayoutChange={handleLayoutChange}
             onDragStart={handleDragStart}

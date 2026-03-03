@@ -282,69 +282,71 @@ export interface DashboardData {
 // Layout Presets
 // ============================================================================
 
+// rowHeight=60 기준: 픽셀 높이 = h * 60 + (h-1) * 16
 export const LAYOUT_PRESETS: Record<DashboardPreset, LayoutPreset> = {
   default: {
     name: '기본 레이아웃',
     description: 'KPI와 주요 위젯을 균형있게 배치',
     widgets: [
-      // KPI 카드들 - 상단 2줄
-      { id: 'kpi-total-students', visible: true, x: 0, y: 0, w: 4, h: 1 },
-      { id: 'kpi-active-students', visible: true, x: 4, y: 0, w: 4, h: 1 },
-      { id: 'kpi-attendance-rate', visible: true, x: 8, y: 0, w: 4, h: 1 },
-      { id: 'kpi-average-score', visible: true, x: 0, y: 1, w: 4, h: 1 },
-      { id: 'kpi-completion-rate', visible: true, x: 4, y: 1, w: 4, h: 1 },
-      { id: 'kpi-monthly-revenue', visible: false, x: 8, y: 1, w: 4, h: 1 },
-      // 주요 위젯들
-      { id: 'today-tasks', visible: true, x: 0, y: 2, w: 6, h: 2 },
-      { id: 'quick-stats', visible: true, x: 6, y: 2, w: 6, h: 2 },
-      { id: 'activity-feed', visible: true, x: 0, y: 4, w: 12, h: 3 },
-      { id: 'calendar', visible: true, x: 0, y: 7, w: 6, h: 2 },
-      { id: 'today-communications', visible: true, x: 6, y: 7, w: 6, h: 2 },
+      // KPI 카드 6개 — 1줄, 각 w=2, h=2 (136px)
+      { id: 'kpi-total-students',  visible: true,  x: 0,  y: 0, w: 2, h: 2 },
+      { id: 'kpi-active-students', visible: true,  x: 2,  y: 0, w: 2, h: 2 },
+      { id: 'kpi-attendance-rate', visible: true,  x: 4,  y: 0, w: 2, h: 2 },
+      { id: 'kpi-average-score',   visible: true,  x: 6,  y: 0, w: 2, h: 2 },
+      { id: 'kpi-completion-rate', visible: true,  x: 8,  y: 0, w: 2, h: 2 },
+      { id: 'kpi-monthly-revenue', visible: false, x: 10, y: 0, w: 2, h: 2 },
+      // 주요 위젯
+      { id: 'today-tasks',          visible: true, x: 0, y: 2,  w: 6,  h: 6 },
+      { id: 'quick-stats',          visible: true, x: 6, y: 2,  w: 6,  h: 6 },
+      { id: 'activity-feed',        visible: true, x: 0, y: 8,  w: 12, h: 5 },
+      { id: 'calendar',             visible: true, x: 0, y: 13, w: 6,  h: 8 },
+      { id: 'today-communications', visible: true, x: 6, y: 13, w: 6,  h: 8 },
     ]
   },
   compact: {
     name: '컴팩트 레이아웃',
     description: '핵심 정보만 집약적으로 표시',
     widgets: [
-      // KPI 카드 3개만
-      { id: 'kpi-total-students', visible: true, x: 0, y: 0, w: 4, h: 1 },
-      { id: 'kpi-attendance-rate', visible: true, x: 4, y: 0, w: 4, h: 1 },
-      { id: 'kpi-average-score', visible: true, x: 8, y: 0, w: 4, h: 1 },
-      // 핵심 위젯만
-      { id: 'today-tasks', visible: true, x: 0, y: 1, w: 6, h: 2 },
-      { id: 'student-alerts', visible: true, x: 6, y: 1, w: 6, h: 2 },
-      { id: 'quick-actions', visible: true, x: 0, y: 3, w: 12, h: 1 },
+      // KPI 3개 (w=4 균등 배치), h=2
+      { id: 'kpi-total-students',  visible: true, x: 0, y: 0, w: 4, h: 2 },
+      { id: 'kpi-attendance-rate', visible: true, x: 4, y: 0, w: 4, h: 2 },
+      { id: 'kpi-average-score',   visible: true, x: 8, y: 0, w: 4, h: 2 },
+      // 핵심 위젯
+      { id: 'today-tasks',     visible: true, x: 0, y: 2, w: 6,  h: 6 },
+      { id: 'student-alerts',  visible: true, x: 6, y: 2, w: 6,  h: 6 },
+      { id: 'quick-actions',   visible: true, x: 0, y: 8, w: 12, h: 4 },
     ]
   },
   focus: {
     name: '집중 모드',
     description: '오늘 할 일과 중요 알림에 집중',
     widgets: [
-      { id: 'today-tasks', visible: true, x: 0, y: 0, w: 12, h: 3 },
-      { id: 'student-alerts', visible: true, x: 0, y: 3, w: 6, h: 2 },
-      { id: 'today-communications', visible: true, x: 6, y: 3, w: 6, h: 2 },
-      { id: 'activity-feed', visible: true, x: 0, y: 5, w: 12, h: 3 },
+      { id: 'today-tasks',          visible: true, x: 0, y: 0,  w: 12, h: 7 },
+      { id: 'student-alerts',       visible: true, x: 0, y: 7,  w: 6,  h: 6 },
+      { id: 'today-communications', visible: true, x: 6, y: 7,  w: 6,  h: 6 },
+      { id: 'activity-feed',        visible: true, x: 0, y: 13, w: 12, h: 5 },
     ]
   },
   overview: {
     name: '전체 보기',
     description: '모든 정보를 한 화면에 표시',
     widgets: [
-      // 모든 KPI
-      { id: 'kpi-total-students', visible: true, x: 0, y: 0, w: 2, h: 1 },
-      { id: 'kpi-active-students', visible: true, x: 2, y: 0, w: 2, h: 1 },
-      { id: 'kpi-attendance-rate', visible: true, x: 4, y: 0, w: 2, h: 1 },
-      { id: 'kpi-average-score', visible: true, x: 6, y: 0, w: 2, h: 1 },
-      { id: 'kpi-completion-rate', visible: true, x: 8, y: 0, w: 2, h: 1 },
-      { id: 'kpi-monthly-revenue', visible: true, x: 10, y: 0, w: 2, h: 1 },
-      // 모든 위젯
-      { id: 'today-tasks', visible: true, x: 0, y: 1, w: 4, h: 2 },
-      { id: 'quick-stats', visible: true, x: 4, y: 1, w: 4, h: 2 },
-      { id: 'student-alerts', visible: true, x: 8, y: 1, w: 4, h: 2 },
-      { id: 'activity-feed', visible: true, x: 0, y: 3, w: 6, h: 2 },
-      { id: 'calendar', visible: true, x: 6, y: 3, w: 6, h: 2 },
-      { id: 'recent-students', visible: true, x: 0, y: 5, w: 6, h: 2 },
-      { id: 'today-communications', visible: true, x: 6, y: 5, w: 6, h: 2 },
+      // KPI 6개 — 1줄, w=2, h=2
+      { id: 'kpi-total-students',  visible: true, x: 0,  y: 0, w: 2, h: 2 },
+      { id: 'kpi-active-students', visible: true, x: 2,  y: 0, w: 2, h: 2 },
+      { id: 'kpi-attendance-rate', visible: true, x: 4,  y: 0, w: 2, h: 2 },
+      { id: 'kpi-average-score',   visible: true, x: 6,  y: 0, w: 2, h: 2 },
+      { id: 'kpi-completion-rate', visible: true, x: 8,  y: 0, w: 2, h: 2 },
+      { id: 'kpi-monthly-revenue', visible: true, x: 10, y: 0, w: 2, h: 2 },
+      // 3열 위젯 (w=4)
+      { id: 'today-tasks',          visible: true, x: 0, y: 2,  w: 4, h: 5 },
+      { id: 'quick-stats',          visible: true, x: 4, y: 2,  w: 4, h: 5 },
+      { id: 'student-alerts',       visible: true, x: 8, y: 2,  w: 4, h: 5 },
+      // 2열 위젯 (w=6)
+      { id: 'activity-feed',        visible: true, x: 0, y: 7,  w: 6, h: 5 },
+      { id: 'calendar',             visible: true, x: 6, y: 7,  w: 6, h: 5 },
+      { id: 'recent-students',      visible: true, x: 0, y: 12, w: 6, h: 5 },
+      { id: 'today-communications', visible: true, x: 6, y: 12, w: 6, h: 5 },
     ]
   }
 }
