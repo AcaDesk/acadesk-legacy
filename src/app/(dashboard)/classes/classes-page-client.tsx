@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useTransition } from 'react'
+import { useState, useMemo, useTransition, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
@@ -114,10 +114,16 @@ export function ClassesPageClient({ initialData }: ClassesPageClientProps) {
     previousPage,
     hasNextPage,
     hasPreviousPage,
+    resetPage,
   } = usePagination({
     data: filteredClasses,
     itemsPerPage: 6,
   })
+
+  // 검색어 변경 시 페이지를 1로 초기화
+  useEffect(() => {
+    resetPage()
+  }, [searchTerm])
 
   const activeClasses = filteredClasses.filter(c => c.status === 'active' && c.active)
   const totalStudents = activeClasses.reduce((sum, c) => sum + c.studentCount, 0)

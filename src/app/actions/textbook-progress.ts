@@ -400,8 +400,8 @@ export async function getRecentProgress(options?: {
       .select(
         `
         *,
-        students!student_id(id, name),
-        textbooks!textbook_id(id, title),
+        students!textbook_progress_student_fk(id, name),
+        textbooks!textbook_progress_textbook_fk(id, title),
         textbook_units!unit_id(id, unit_order, unit_code, unit_title),
         users!textbook_progress_recorded_by_fkey(id, name)
       `

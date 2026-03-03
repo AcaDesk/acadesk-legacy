@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Plus, Book, Search, Trash2 } from 'lucide-react'
@@ -75,10 +75,15 @@ export function TextbooksClient({ textbooks: initialTextbooks }: TextbooksClient
     )
   }, [textbooks, searchQuery])
 
-  const { paginatedData, currentPage, totalPages, goToPage } = usePagination({
+  const { paginatedData, currentPage, totalPages, goToPage, resetPage } = usePagination({
     data: filteredTextbooks,
     itemsPerPage: pageSize,
   })
+
+  // 검색어 변경 시 페이지를 1로 초기화
+  useEffect(() => {
+    resetPage()
+  }, [searchQuery])
 
   // Selection handlers
   const isAllSelected = paginatedData.length > 0 && paginatedData.every(t => selectedIds.has(t.id))
