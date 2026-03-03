@@ -188,7 +188,36 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
       try {
         const result = await getDashboardPreferences()
         if (result.success && result.preferences?.widgets) {
-          const widgetsWithNames = result.preferences.widgets
+          const saved = result.preferences.widgets
+
+          // 구버전 레이아웃 감지: react-grid-layout 이전에는 KPI 외 위젯이 h≤2였음
+          // 신버전은 h≥4 이상이므로 구버전으로 판단되면 기본 위치로 리셋
+          const isLegacyLayout = saved.some(
+            (w: DashboardWidget) => !w.id.startsWith('kpi-') && w.visible && w.h <= 2
+          )
+
+          if (isLegacyLayout) {
+            // 구버전: visible 플래그만 보존하고 나머지는 DEFAULT_WIDGETS 기준으로 리셋
+            const visibilityMap = new Map(
+              saved
+                .filter((w: DashboardWidget) => {
+                  const def = DEFAULT_WIDGETS.find(d => d.id === w.id)
+                  return def && isWidgetAvailable({ ...w, requiredFeatures: def.requiredFeatures })
+                })
+                .map((w: DashboardWidget) => [w.id, w.visible])
+            )
+            const migrated = DEFAULT_WIDGETS.map(def => ({
+              ...def,
+              visible: visibilityMap.has(def.id)
+                ? (visibilityMap.get(def.id) ?? def.visible)
+                : def.visible,
+            }))
+            setWidgets(migrated)
+            return
+          }
+
+          // 신버전: 저장된 값 그대로 사용
+          const widgetsWithNames = saved
             .filter((widget: DashboardWidget) => {
               const defaultWidget = DEFAULT_WIDGETS.find(w => w.id === widget.id)
               if (!defaultWidget) return false
@@ -531,6 +560,7 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
             rowHeight={60}
             isDraggable={isEditMode}
             isResizable={isEditMode}
+            measureBeforeMount={false}
             onLayoutChange={handleLayoutChange}
             onDragStart={handleDragStart}
             onResizeStart={handleResizeStart}
@@ -543,7 +573,7 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
             {gridItems.map(({ i }) => {
               const widget = currentWidgets.find(w => w.id === i)
               return (
-                <div key={i} className="overflow-hidden">
+                <div key={i} className="h-full overflow-hidden">
                   {widget?.visible
                     ? renderWidget(i as DashboardWidgetId)
                     : renderGhostWidget(i as DashboardWidgetId)}

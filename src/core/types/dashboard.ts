@@ -57,30 +57,42 @@ export interface LayoutPreset {
 
 // All available widgets with their feature dependencies
 // Using 12-column grid system + column/order for edit mode
+// rowHeight=60 기준 픽셀 높이: h * 60 + (h-1) * 16
+// KPI h=2 → 136px, h=6 → 440px, h=8 → 592px, h=5 → 364px, h=4 → 288px
 const ALL_WIDGETS: DashboardWidget[] = [
-  // Row 0: KPI Cards - 기본적으로 표시됨, 개별적으로 숨김 가능
-  { id: 'kpi-total-students', title: '전체 학생', name: '전체 학생 KPI', visible: true, x: 0, y: 0, w: 4, h: 1, minW: 2, minH: 1, column: 'left', order: 0 },
-  { id: 'kpi-active-students', title: '활동 학생', name: '활동 학생 KPI', visible: true, x: 4, y: 0, w: 4, h: 1, minW: 2, minH: 1, column: 'left', order: 1 },
-  { id: 'kpi-attendance-rate', title: '출석률', name: '출석률 KPI', visible: true, x: 8, y: 0, w: 4, h: 1, minW: 2, minH: 1, column: 'left', order: 2, requiredFeatures: ['attendanceManagement'] },
-  { id: 'kpi-average-score', title: '평균 성적', name: '평균 성적 KPI', visible: true, x: 0, y: 1, w: 4, h: 1, minW: 2, minH: 1, column: 'right', order: 0, requiredFeatures: ['gradesManagement'] },
-  { id: 'kpi-completion-rate', title: '과제 완료율', name: '과제 완료율 KPI', visible: true, x: 4, y: 1, w: 4, h: 1, minW: 2, minH: 1, column: 'right', order: 1, requiredFeatures: ['todoManagement'] },
-  { id: 'kpi-monthly-revenue', title: '이번 달 매출', name: '매출 KPI', visible: false, x: 8, y: 1, w: 4, h: 1, minW: 2, minH: 1, column: 'right', order: 2, requiredFeatures: ['tuitionManagement'] },
+  // Row 0: KPI 카드 — 12컬럼에 6개 균등 배치 (각 w=2, h=2)
+  { id: 'kpi-total-students',  title: '전체 학생',   name: '전체 학생 KPI',   visible: true,  x: 0,  y: 0, w: 2, h: 2, minW: 2, minH: 2, column: 'left',  order: 0 },
+  { id: 'kpi-active-students', title: '활동 학생',   name: '활동 학생 KPI',   visible: true,  x: 2,  y: 0, w: 2, h: 2, minW: 2, minH: 2, column: 'left',  order: 1 },
+  { id: 'kpi-attendance-rate', title: '출석률',      name: '출석률 KPI',      visible: true,  x: 4,  y: 0, w: 2, h: 2, minW: 2, minH: 2, column: 'left',  order: 2, requiredFeatures: ['attendanceManagement'] },
+  { id: 'kpi-average-score',   title: '평균 성적',   name: '평균 성적 KPI',   visible: true,  x: 6,  y: 0, w: 2, h: 2, minW: 2, minH: 2, column: 'right', order: 3, requiredFeatures: ['gradesManagement'] },
+  { id: 'kpi-completion-rate', title: '과제 완료율', name: '과제 완료율 KPI', visible: true,  x: 8,  y: 0, w: 2, h: 2, minW: 2, minH: 2, column: 'right', order: 4, requiredFeatures: ['todoManagement'] },
+  { id: 'kpi-monthly-revenue', title: '이번 달 매출', name: '매출 KPI',       visible: false, x: 10, y: 0, w: 2, h: 2, minW: 2, minH: 2, column: 'right', order: 5, requiredFeatures: ['tuitionManagement'] },
 
-  // Main widgets (visible by default)
-  { id: 'today-tasks', title: '오늘의 할 일', name: '오늘의 할 일', visible: true, x: 0, y: 2, w: 6, h: 2, minW: 4, minH: 2, column: 'left', order: 3, requiredFeatures: ['todoManagement', 'classManagement'] },
-  { id: 'quick-stats', title: '빠른 통계', name: '빠른 통계', visible: true, x: 6, y: 2, w: 6, h: 2, minW: 3, minH: 2, column: 'right', order: 3 },
-  { id: 'activity-feed', title: '최근 활동', name: '최근 활동 피드', visible: true, x: 0, y: 4, w: 12, h: 3, minW: 6, minH: 2, column: 'left', order: 4 },
-  { id: 'calendar', title: '캘린더', name: '일정 캘린더', visible: true, x: 0, y: 7, w: 6, h: 2, minW: 4, minH: 2, column: 'left', order: 5, requiredFeatures: ['calendarIntegration'] },
-  { id: 'today-communications', title: '오늘의 소통', name: '오늘의 소통', visible: true, x: 6, y: 7, w: 6, h: 2, minW: 4, minH: 2, column: 'right', order: 4, requiredFeatures: ['consultationManagement'] },
-  { id: 'weekly-performance', title: '주간 성과', name: '주간 성과 분석', visible: true, x: 0, y: 9, w: 12, h: 2, minW: 6, minH: 2, column: 'left', order: 6, requiredFeatures: ['gradesManagement'] },
-  { id: 'student-alerts', title: '학생 알림', name: '학생 알림', visible: true, x: 0, y: 11, w: 6, h: 2, minW: 4, minH: 2, column: 'left', order: 7, requiredFeatures: ['notificationSystem'] },
-  { id: 'recent-students', title: '최근 등록 학생', name: '최근 등록 학생', visible: true, x: 6, y: 11, w: 6, h: 2, minW: 4, minH: 2, column: 'right', order: 5, requiredFeatures: ['studentManagement'] },
-  { id: 'quick-actions', title: '빠른 실행', name: '빠른 실행', visible: true, x: 0, y: 13, w: 12, h: 2, minW: 6, minH: 2, column: 'left', order: 8 },
+  // Row 2-7: 메인 2컬럼 위젯
+  { id: 'today-tasks',          title: '오늘의 할 일',   name: '오늘의 할 일',     visible: true, x: 0, y: 2,  w: 6, h: 6, minW: 4, minH: 3, column: 'left',  order: 6,  requiredFeatures: ['todoManagement', 'classManagement'] },
+  { id: 'quick-stats',          title: '빠른 통계',      name: '빠른 통계',        visible: true, x: 6, y: 2,  w: 6, h: 6, minW: 3, minH: 3, column: 'right', order: 7 },
 
-  // Additional widgets (hidden by default)
-  { id: 'attendance-summary', title: '출석 현황', name: '출석 요약', visible: false, x: 0, y: 15, w: 6, h: 2, minW: 4, minH: 2, column: 'left', order: 9, requiredFeatures: ['attendanceManagement'] },
-  { id: 'class-status', title: '수업 현황', name: '수업 상태', visible: false, x: 6, y: 15, w: 6, h: 2, minW: 4, minH: 2, column: 'right', order: 6, requiredFeatures: ['classManagement'] },
-  { id: 'financial-snapshot', title: '재무 현황', name: '재무 스냅샷', visible: false, x: 0, y: 17, w: 6, h: 2, minW: 4, minH: 2, column: 'left', order: 10, requiredFeatures: ['tuitionManagement'] },
+  // Row 8-12: 전체 너비
+  { id: 'activity-feed',        title: '최근 활동',      name: '최근 활동 피드',   visible: true, x: 0, y: 8,  w: 12, h: 5, minW: 6, minH: 3, column: 'left',  order: 8 },
+
+  // Row 13-20: 2컬럼
+  { id: 'calendar',             title: '캘린더',         name: '일정 캘린더',      visible: true, x: 0, y: 13, w: 6, h: 8, minW: 4, minH: 4, column: 'left',  order: 9,  requiredFeatures: ['calendarIntegration'] },
+  { id: 'today-communications', title: '오늘의 소통',    name: '오늘의 소통',      visible: true, x: 6, y: 13, w: 6, h: 8, minW: 4, minH: 4, column: 'right', order: 10, requiredFeatures: ['consultationManagement'] },
+
+  // Row 21-26: 전체 너비
+  { id: 'weekly-performance',   title: '주간 성과',      name: '주간 성과 분석',   visible: true, x: 0, y: 21, w: 12, h: 6, minW: 6, minH: 3, column: 'left',  order: 11, requiredFeatures: ['gradesManagement'] },
+
+  // Row 27-32: 2컬럼
+  { id: 'student-alerts',       title: '학생 알림',      name: '학생 알림',        visible: true, x: 0, y: 27, w: 6, h: 6, minW: 4, minH: 3, column: 'left',  order: 12, requiredFeatures: ['notificationSystem'] },
+  { id: 'recent-students',      title: '최근 등록 학생', name: '최근 등록 학생',   visible: true, x: 6, y: 27, w: 6, h: 6, minW: 4, minH: 3, column: 'right', order: 13, requiredFeatures: ['studentManagement'] },
+
+  // Row 33-36: 전체 너비
+  { id: 'quick-actions',        title: '빠른 실행',      name: '빠른 실행',        visible: true, x: 0, y: 33, w: 12, h: 4, minW: 6, minH: 2, column: 'left',  order: 14 },
+
+  // 숨겨진 위젯 (편집 모드에서 고스트로 표시)
+  { id: 'attendance-summary',   title: '출석 현황',      name: '출석 요약',        visible: false, x: 0, y: 37, w: 6, h: 5, minW: 4, minH: 3, column: 'left',  order: 15, requiredFeatures: ['attendanceManagement'] },
+  { id: 'class-status',         title: '수업 현황',      name: '수업 상태',        visible: false, x: 6, y: 37, w: 6, h: 5, minW: 4, minH: 3, column: 'right', order: 16, requiredFeatures: ['classManagement'] },
+  { id: 'financial-snapshot',   title: '재무 현황',      name: '재무 스냅샷',      visible: false, x: 0, y: 42, w: 6, h: 5, minW: 4, minH: 3, column: 'left',  order: 17, requiredFeatures: ['tuitionManagement'] },
 ]
 
 /**

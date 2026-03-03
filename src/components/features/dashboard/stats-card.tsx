@@ -82,7 +82,7 @@ export function StatsCard({
   )
 
   if (href) {
-    return <Link href={href}>{cardContent}</Link>
+    return <Link href={href} className="block h-full">{cardContent}</Link>
   }
 
   return cardContent
