@@ -16,6 +16,7 @@ const SESSION_DURATION_MS = 8 * 60 * 60 * 1000 // 8시간
 
 /**
  * 키오스크 세션 생성
+ * sessionStorage + localStorage 이중 저장 (PWA standalone에서 sessionStorage는 앱 종료 시 소멸)
  */
 export function createKioskSession(student: {
   id: string
@@ -32,17 +33,22 @@ export function createKioskSession(student: {
   }
 
   if (typeof window !== 'undefined') {
-    sessionStorage.setItem(KIOSK_SESSION_KEY, JSON.stringify(session))
+    const json = JSON.stringify(session)
+    sessionStorage.setItem(KIOSK_SESSION_KEY, json)
+    localStorage.setItem(KIOSK_SESSION_KEY, json)
   }
 }
 
 /**
  * 현재 키오스크 세션 조회
+ * sessionStorage → localStorage 순으로 폴백
  */
 export function getKioskSession(): KioskSession | null {
   if (typeof window === 'undefined') return null
 
-  const sessionData = sessionStorage.getItem(KIOSK_SESSION_KEY)
+  const sessionData =
+    sessionStorage.getItem(KIOSK_SESSION_KEY) ||
+    localStorage.getItem(KIOSK_SESSION_KEY)
   if (!sessionData) return null
 
   try {
@@ -58,6 +64,11 @@ export function getKioskSession(): KioskSession | null {
       return null
     }
 
+    // sessionStorage에 없으면 localStorage에서 복원
+    if (!sessionStorage.getItem(KIOSK_SESSION_KEY)) {
+      sessionStorage.setItem(KIOSK_SESSION_KEY, sessionData)
+    }
+
     return session
   } catch {
     return null
@@ -70,6 +81,7 @@ export function getKioskSession(): KioskSession | null {
 export function clearKioskSession(): void {
   if (typeof window !== 'undefined') {
     sessionStorage.removeItem(KIOSK_SESSION_KEY)
+    localStorage.removeItem(KIOSK_SESSION_KEY)
   }
 }
 

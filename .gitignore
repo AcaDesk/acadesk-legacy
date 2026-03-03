@@ -26,6 +26,12 @@ build/
 dist/
 
 # -------------------------
+# PWA / Service Worker
+# -------------------------
+public/sw*
+public/swe-worker*
+
+# -------------------------
 # TypeScript
 # -------------------------
 *.tsbuildinfo

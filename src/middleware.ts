@@ -30,9 +30,9 @@ export async function middleware(request: NextRequest) {
   return response ?? NextResponse.next({ request: { headers: requestHeaders } })
 }
 
-// 정적 자산/내부 경로는 제외
+// 정적 자산/내부 경로는 제외 (SW, manifest 포함)
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|assets/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|txt|xml|woff|woff2|ttf)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|assets/|sw\\.js|sw\\.js\\.map|swe-worker|workbox-|manifest\\.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|txt|xml|woff|woff2|ttf)$).*)',
   ],
 }

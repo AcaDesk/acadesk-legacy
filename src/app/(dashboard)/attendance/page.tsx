@@ -9,6 +9,7 @@ import { AttendanceCheckPage } from '@/components/features/attendance/attendance
 import { getAttendanceRoster, getAttendanceRecordsByDate } from '@/app/actions/attendance';
 import { getActiveClasses } from '@/app/actions/classes';
 import { getTodayKST } from '@/lib/utils';
+import { verifyStaff } from '@/lib/auth/verify-permission';
 
 export const metadata: Metadata = {
   title: "출석 관리",
@@ -32,6 +33,7 @@ export default async function AttendancePage() {
 
   // 서버에서 초기 데이터 prefetch (로스터 + 클래스 병렬 조회)
   const today = getTodayKST()
+  const { tenantId } = await verifyStaff()
   const [rosterResult, classesResult] = await Promise.all([
     getAttendanceRoster(),
     getActiveClasses(),
@@ -71,6 +73,7 @@ export default async function AttendancePage() {
               initialClasses={initialClasses}
               initialRecords={initialRecords}
               initialDate={today}
+              tenantId={tenantId}
             />
           </SectionErrorBoundary>
         </section>

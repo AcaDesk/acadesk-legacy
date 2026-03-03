@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   description: "학생용 과제 확인 모드입니다. 학생들이 직접 자신의 TODO와 과제 현황을 확인할 수 있습니다.",
 }
 
+// PWA 오프라인 지원을 위해 동적 렌더링 강제 (SSG 프리렌더 스킵)
+export const dynamic = 'force-dynamic'
+
 export default function KioskLayout({
   children,
 }: {

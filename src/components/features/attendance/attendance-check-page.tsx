@@ -24,6 +24,18 @@ import {
 } from '@/app/actions/attendance'
 import { UI_TO_DB_STATUS, type UIAttendanceStatus } from '@/core/types/attendance'
 import { getTodayKST } from '@/lib/utils'
+import { useNetworkStatus } from '@/hooks/use-network-status'
+import { PendingSyncBadge } from '@ui/pending-sync-badge'
+import {
+  saveRosterToIDB,
+  saveAttendanceRecordsToIDB,
+  getAttendanceRecordsFromIDB,
+  getRosterFromIDB,
+  updateAttendanceRecordInIDB,
+  deleteAttendanceRecordFromIDB,
+  type AttendanceRecord as IDBAttendanceRecord,
+} from '@/lib/pwa/indexeddb'
+import { enqueueMutation } from '@/lib/pwa/offline-queue'
 
 type SchoolLevel = 'all' | 'elementary' | 'middle' | 'high'
 
@@ -54,6 +66,7 @@ interface AttendanceCheckPageProps {
   initialClasses?: any[]
   initialRecords?: any[]
   initialDate?: string
+  tenantId?: string
 }
 
 /**
@@ -120,11 +133,13 @@ export function AttendanceCheckPage({
   initialClasses,
   initialRecords,
   initialDate,
+  tenantId,
 }: AttendanceCheckPageProps) {
   const { toast } = useToast()
   const [isPending, startTransition] = useTransition()
   const [isLoading, setIsLoading] = useState(!initialRoster)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const { isOnline } = useNetworkStatus()
 
   const [currentDate, setCurrentDate] = useState(
     initialDate || getTodayKST()
@@ -136,6 +151,7 @@ export function AttendanceCheckPage({
   const [contactDialogOpen, setContactDialogOpen] = useState(false)
   const [selectedContactStudent, setSelectedContactStudent] = useState<StudentAttendance | null>(null)
   const [contactPreparingStudentId, setContactPreparingStudentId] = useState<string | null>(null)
+  const [contactContext, setContactContext] = useState<'absent' | 'self_study' | 'makeup' | 'late' | 'early_leave' | null>(null)
 
   // 로스터: 한 번만 로드하고 ref에 고정
   const rosterRef = useRef<any[]>(initialRoster || [])
@@ -163,10 +179,38 @@ export function AttendanceCheckPage({
     return []
   })
 
-  // 초기 레코드를 캐시에 삽입
+  // 초기 레코드를 캐시에 삽입 + IDB에 백그라운드 저장
   useEffect(() => {
     if (initialRecords && initialDate) {
       recordsCacheRef.current.set(initialDate, initialRecords)
+    }
+    // SSR 데이터를 IDB에 백그라운드로 저장 (오프라인 폴백용)
+    if (tenantId) {
+      if (initialRoster && initialRoster.length > 0) {
+        saveRosterToIDB(tenantId, initialRoster.map((e: any) => ({
+          tenantId,
+          studentId: e.student_id,
+          studentName: e.students?.users?.name || '',
+          className: null,
+          classId: e.class_id || null,
+          schoolName: e.students?.school || null,
+          schoolLevel: null,
+          grade: e.students?.grade || null,
+        }))).catch(() => {})
+      }
+      if (initialRecords && initialDate) {
+        saveAttendanceRecordsToIDB(tenantId, initialDate, initialRecords.map((a: any) => ({
+          tenantId,
+          date: initialDate,
+          studentId: a.student_id,
+          status: a.status || null,
+          checkInAt: a.check_in_at || null,
+          sessionId: a.session_id || null,
+          classId: a.attendance_sessions?.class_id || null,
+          isSelfStudy: a.is_self_study || false,
+          isMakeupClass: a.is_makeup_class || false,
+        }))).catch(() => {})
+      }
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -216,7 +260,20 @@ export function AttendanceCheckPage({
     loadRoster()
   }, [initialRoster, toast])
 
-  // 출석기록 로드 (날짜 변경 시)
+  // IDB 레코드 → 서버 형태로 변환 (buildStudentList 호환)
+  const idbRecordsToServerFormat = useCallback((idbRecords: IDBAttendanceRecord[]) => {
+    return idbRecords.map(r => ({
+      student_id: r.studentId,
+      status: r.status,
+      check_in_at: r.checkInAt,
+      session_id: r.sessionId,
+      is_self_study: r.isSelfStudy,
+      is_makeup_class: r.isMakeupClass,
+      attendance_sessions: r.classId ? { class_id: r.classId } : null,
+    }))
+  }, [])
+
+  // 출석기록 로드 (날짜 변경 시) — 오프라인 IDB 폴백 포함
   const loadRecordsForDate = useCallback(async (date: string) => {
     const roster = rosterRef.current
     if (roster.length === 0) return
@@ -240,8 +297,15 @@ export function AttendanceCheckPage({
       })
 
       if (!result.success || !result.data) {
-        // 캐시가 있으면 캐시 데이터로 유지
-        if (!cached) {
+        // 서버 실패 + 오프라인 → IDB 폴백
+        if (!cached && tenantId) {
+          const idbRecords = await getAttendanceRecordsFromIDB(tenantId, date).catch(() => [])
+          if (idbRecords.length > 0) {
+            const serverFormat = idbRecordsToServerFormat(idbRecords)
+            recordsCacheRef.current.set(date, serverFormat)
+            setStudents(buildStudentList(roster, serverFormat, classesRef.current))
+            return
+          }
           toast({
             title: '데이터 로딩 실패',
             description: result.error || '출석 데이터를 불러올 수 없습니다.',
@@ -254,9 +318,34 @@ export function AttendanceCheckPage({
       const attendances = result.data.attendances
       recordsCacheRef.current.set(date, attendances)
       setStudents(buildStudentList(roster, attendances, classesRef.current))
+
+      // 서버 성공 시 IDB에도 저장
+      if (tenantId) {
+        saveAttendanceRecordsToIDB(tenantId, date, attendances.map((a: any) => ({
+          tenantId,
+          date,
+          studentId: a.student_id,
+          status: a.status || null,
+          checkInAt: a.check_in_at || null,
+          sessionId: a.session_id || null,
+          classId: a.attendance_sessions?.class_id || null,
+          isSelfStudy: a.is_self_study || false,
+          isMakeupClass: a.is_makeup_class || false,
+        }))).catch(() => {})
+      }
     } catch (error) {
       console.error('Load records error:', error)
-      if (!cached) {
+      // 서버 에러 + 오프라인 → IDB 폴백
+      if (!cached && tenantId) {
+        try {
+          const idbRecords = await getAttendanceRecordsFromIDB(tenantId, date)
+          if (idbRecords.length > 0) {
+            const serverFormat = idbRecordsToServerFormat(idbRecords)
+            recordsCacheRef.current.set(date, serverFormat)
+            setStudents(buildStudentList(roster, serverFormat, classesRef.current))
+            return
+          }
+        } catch { /* IDB 실패도 무시 */ }
         toast({
           title: '오류 발생',
           description: '출석 데이터를 불러오는 중 오류가 발생했습니다.',
@@ -266,7 +355,7 @@ export function AttendanceCheckPage({
     } finally {
       setIsRefreshing(false)
     }
-  }, [toast])
+  }, [toast, tenantId, idbRecordsToServerFormat])
 
   // 초기 로드: 로스터 + 클래스가 모두 준비되면 오늘 출석기록 로드
   useEffect(() => {
@@ -331,12 +420,22 @@ export function AttendanceCheckPage({
         )
       )
 
+      const cancelPayload = {
+        date: currentDate,
+        studentId: student.studentId,
+        classId: student.classId,
+      }
+
+      if (!isOnline && tenantId) {
+        // 오프라인: 큐에 추가 + IDB 레코드 삭제
+        enqueueMutation(tenantId, 'cancelAttendance', cancelPayload).catch(() => {})
+        deleteAttendanceRecordFromIDB(tenantId, currentDate, student.studentId).catch(() => {})
+        recordsCacheRef.current.delete(currentDate)
+        return
+      }
+
       startTransition(async () => {
-        const result = await cancelAttendance({
-          date: currentDate,
-          studentId: student.studentId,
-          classId: student.classId,
-        })
+        const result = await cancelAttendance(cancelPayload)
 
         if (!result.success) {
           toast({
@@ -373,16 +472,36 @@ export function AttendanceCheckPage({
         )
       )
 
-      startTransition(async () => {
-        const result = await saveAttendance({
-          classId: student.classId,
+      const savePayload = {
+        classId: student.classId,
+        date: currentDate,
+        studentId: student.studentId,
+        status: UI_TO_DB_STATUS[status],
+        checkInAt: (status === 'present' || status === 'late') ? time : undefined,
+        isSelfStudy: student.isSelfStudy,
+        isMakeupClass: student.isMakeupClass,
+      }
+
+      if (!isOnline && tenantId) {
+        // 오프라인: 큐에 추가 + IDB 레코드 업데이트
+        enqueueMutation(tenantId, 'saveAttendance', savePayload).catch(() => {})
+        updateAttendanceRecordInIDB({
+          tenantId,
           date: currentDate,
           studentId: student.studentId,
           status: UI_TO_DB_STATUS[status],
-          checkInAt: (status === 'present' || status === 'late') ? time : undefined,
+          checkInAt: (status === 'present' || status === 'late') ? time : null,
+          sessionId: student.sessionId || null,
+          classId: student.classId || null,
           isSelfStudy: student.isSelfStudy,
           isMakeupClass: student.isMakeupClass,
-        })
+        }).catch(() => {})
+        recordsCacheRef.current.delete(currentDate)
+        return
+      }
+
+      startTransition(async () => {
+        const result = await saveAttendance(savePayload)
 
         if (!result.success) {
           toast({
@@ -401,11 +520,42 @@ export function AttendanceCheckPage({
     }
   }
 
+  // 자습/보강 공통 서버 업데이트 헬퍼
+  const saveToggleFlag = (student: StudentAttendance, isSelfStudy: boolean, isMakeupClass: boolean) => {
+    const payload = {
+      classId: student.classId,
+      date: currentDate,
+      studentId: student.studentId,
+      status: student.status ? UI_TO_DB_STATUS[student.status] : 'present',
+      isSelfStudy,
+      isMakeupClass,
+    }
+
+    if (!isOnline && tenantId) {
+      enqueueMutation(tenantId, 'saveAttendance', payload).catch(() => {})
+      recordsCacheRef.current.delete(currentDate)
+      return
+    }
+
+    startTransition(async () => {
+      const result = await saveAttendance(payload)
+      if (!result.success) {
+        toast({
+          title: '저장 실패',
+          description: `${student.name} 학생 상태 저장에 실패했습니다.`,
+          variant: 'destructive',
+        })
+        recordsCacheRef.current.delete(currentDate)
+        loadRecordsForDate(currentDate)
+      } else {
+        recordsCacheRef.current.delete(currentDate)
+      }
+    })
+  }
+
   // 자습 토글
   const toggleSelfStudy = (student: StudentAttendance) => {
     const newValue = !student.isSelfStudy
-
-    // Optimistic update
     setStudents((prev) =>
       prev.map((s) =>
         s.studentId === student.studentId && s.classId === student.classId
@@ -413,39 +563,12 @@ export function AttendanceCheckPage({
           : s
       )
     )
-
-    // Server update
-    startTransition(async () => {
-      const result = await saveAttendance({
-        classId: student.classId,
-        date: currentDate,
-        studentId: student.studentId,
-        status: student.status ? UI_TO_DB_STATUS[student.status] : 'present',
-        isSelfStudy: newValue,
-        isMakeupClass: student.isMakeupClass,
-      })
-
-      if (!result.success) {
-        toast({
-          title: '저장 실패',
-          description: result.error
-            ? `${student.name} 학생 자습 상태 저장에 실패했습니다. (${result.error})`
-            : `${student.name} 학생 자습 상태 저장에 실패했습니다.`,
-          variant: 'destructive',
-        })
-        recordsCacheRef.current.delete(currentDate)
-        loadRecordsForDate(currentDate)
-      } else {
-        recordsCacheRef.current.delete(currentDate)
-      }
-    })
+    saveToggleFlag(student, newValue, student.isMakeupClass)
   }
 
   // 보강 토글
   const toggleMakeupClass = (student: StudentAttendance) => {
     const newValue = !student.isMakeupClass
-
-    // Optimistic update
     setStudents((prev) =>
       prev.map((s) =>
         s.studentId === student.studentId && s.classId === student.classId
@@ -453,48 +576,32 @@ export function AttendanceCheckPage({
           : s
       )
     )
-
-    // Server update
-    startTransition(async () => {
-      const result = await saveAttendance({
-        classId: student.classId,
-        date: currentDate,
-        studentId: student.studentId,
-        status: student.status ? UI_TO_DB_STATUS[student.status] : 'present',
-        isSelfStudy: student.isSelfStudy,
-        isMakeupClass: newValue,
-      })
-
-      if (!result.success) {
-        toast({
-          title: '저장 실패',
-          description: result.error
-            ? `${student.name} 학생 보강 상태 저장에 실패했습니다. (${result.error})`
-            : `${student.name} 학생 보강 상태 저장에 실패했습니다.`,
-          variant: 'destructive',
-        })
-        recordsCacheRef.current.delete(currentDate)
-        loadRecordsForDate(currentDate)
-      } else {
-        recordsCacheRef.current.delete(currentDate)
-      }
-    })
+    saveToggleFlag(student, student.isSelfStudy, newValue)
   }
 
-  const openContactDialog = async (student: StudentAttendance) => {
+  const getAttendanceContext = (student: StudentAttendance): 'absent' | 'self_study' | 'makeup' | 'late' | 'early_leave' | null => {
+    if (student.isSelfStudy) return 'self_study'
+    if (student.isMakeupClass) return 'makeup'
+    if (student.status === 'absent') return 'absent'
+    if (student.status === 'late') return 'late'
+    if (student.status === 'early_leave') return 'early_leave'
+    return 'absent'
+  }
+
+  const openContactDialog = (student: StudentAttendance) => {
     if (contactPreparingStudentId) return
 
-    if (student.sessionId) {
-      setSelectedContactStudent(student)
-      setContactDialogOpen(true)
-      return
-    }
+    // 다이얼로그를 즉시 열고, 세션이 없으면 백그라운드에서 생성
+    const ctx = getAttendanceContext(student)
+    setContactContext(ctx)
+    setSelectedContactStudent(student)
+    setContactDialogOpen(true)
 
-    // 세션이 없는 경우 먼저 출석 레코드를 보장해서 session_id를 확보
-    setContactPreparingStudentId(student.studentId)
-    try {
+    // 세션이 없는 경우 백그라운드에서 출석 레코드 생성 → sessionId 업데이트
+    if (!student.sessionId) {
+      setContactPreparingStudentId(student.studentId)
       const fallbackStatus = student.status ?? 'absent'
-      const result = await saveAttendance({
+      saveAttendance({
         classId: student.classId,
         date: currentDate,
         studentId: student.studentId,
@@ -502,43 +609,30 @@ export function AttendanceCheckPage({
         checkInAt: fallbackStatus === 'late' ? new Date().toISOString() : undefined,
         isSelfStudy: student.isSelfStudy,
         isMakeupClass: student.isMakeupClass,
+      }).then((result) => {
+        if (result.success && result.data) {
+          const saved = result.data as any
+          const updatedStudent: StudentAttendance = {
+            ...student,
+            id: saved.id || student.id,
+            sessionId: saved.session_id,
+            status: saved.status ? (DB_TO_UI_STATUS[saved.status] || student.status) : student.status,
+          }
+          setStudents((prev) =>
+            prev.map((s) =>
+              s.studentId === student.studentId && s.classId === student.classId
+                ? updatedStudent
+                : s
+            )
+          )
+          setSelectedContactStudent(updatedStudent)
+          recordsCacheRef.current.delete(currentDate)
+        }
+      }).catch(() => {
+        // 백그라운드 실패는 조용히 처리 (다이얼로그는 이미 열려 있음)
+      }).finally(() => {
+        setContactPreparingStudentId(null)
       })
-
-      if (!result.success || !result.data) {
-        throw new Error(result.error || '연락 준비를 위한 출석 저장에 실패했습니다.')
-      }
-
-      const saved = result.data as any
-      const updatedStudent: StudentAttendance = {
-        ...student,
-        id: saved.id || student.id,
-        sessionId: saved.session_id,
-        status: saved.status ? (DB_TO_UI_STATUS[saved.status] || student.status) : student.status,
-      }
-
-      setStudents((prev) =>
-        prev.map((s) =>
-          s.studentId === student.studentId && s.classId === student.classId
-            ? updatedStudent
-            : s
-        )
-      )
-      recordsCacheRef.current.delete(currentDate)
-
-      if (!updatedStudent.sessionId) {
-        throw new Error('세션 정보를 찾을 수 없어 연락 창을 열 수 없습니다.')
-      }
-
-      setSelectedContactStudent(updatedStudent)
-      setContactDialogOpen(true)
-    } catch (error) {
-      toast({
-        title: '연락 창 열기 실패',
-        description: error instanceof Error ? error.message : '보호자 연락 창을 열지 못했습니다.',
-        variant: 'destructive',
-      })
-    } finally {
-      setContactPreparingStudentId(null)
     }
   }
 
@@ -639,6 +733,7 @@ export function AttendanceCheckPage({
               저장 중...
             </div>
           )}
+          <PendingSyncBadge tenantId={tenantId} />
         </div>
 
         <Button variant="outline" className="w-full md:w-auto">
@@ -772,16 +867,20 @@ export function AttendanceCheckPage({
         </>
       )}
 
-      {selectedContactStudent?.sessionId && (
+      {selectedContactStudent && (
         <ContactGuardianDialog
           open={contactDialogOpen}
           onOpenChange={(open) => {
             setContactDialogOpen(open)
-            if (!open) setSelectedContactStudent(null)
+            if (!open) {
+              setSelectedContactStudent(null)
+              setContactContext(null)
+            }
           }}
           studentId={selectedContactStudent.studentId}
           studentName={selectedContactStudent.name}
-          sessionId={selectedContactStudent.sessionId}
+          sessionId={selectedContactStudent.sessionId ?? null}
+          attendanceContext={contactContext}
         />
       )}
     </div>

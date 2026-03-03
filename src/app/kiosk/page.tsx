@@ -22,6 +22,15 @@ import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { getKioskSession, clearKioskSession } from '@/lib/kiosk-session'
 import { getStudentTodosForToday, toggleTodoComplete, type StudentTodo } from '@/app/actions/kiosk'
+import { useNetworkStatus } from '@/hooks/use-network-status'
+import { PendingSyncBadge } from '@ui/pending-sync-badge'
+import {
+  saveKioskTodosToIDB,
+  getKioskTodosFromIDB,
+  updateKioskTodoInIDB,
+  type KioskTodo,
+} from '@/lib/pwa/indexeddb'
+import { enqueueMutation } from '@/lib/pwa/offline-queue'
 
 export default function KioskPage() {
   // All Hooks must be called before any early returns
@@ -37,6 +46,7 @@ export default function KioskPage() {
 
   const router = useRouter()
   const { toast } = useToast()
+  const { isOnline } = useNetworkStatus()
 
   // 세션 체크
   useEffect(() => {
@@ -63,6 +73,39 @@ export default function KioskPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentId, isCheckingSession])
 
+  // IDB ↔ ServerTodo 변환 헬퍼
+  function todosToIDB(serverTodos: StudentTodo[]): KioskTodo[] {
+    return serverTodos.map(t => ({
+      tenantId: tenantId!,
+      studentId: studentId!,
+      todoId: t.id,
+      title: t.title,
+      subject: t.subject,
+      dueDate: t.due_date,
+      priority: t.priority,
+      completedAt: t.completed_at,
+      verifiedAt: t.verified_at,
+      notes: t.notes,
+      description: t.description,
+      estimatedDurationMinutes: t.estimated_duration_minutes,
+    }))
+  }
+
+  function idbToTodos(idbTodos: KioskTodo[]): StudentTodo[] {
+    return idbTodos.map(t => ({
+      id: t.todoId,
+      title: t.title,
+      subject: t.subject,
+      due_date: t.dueDate,
+      priority: t.priority,
+      completed_at: t.completedAt,
+      verified_at: t.verifiedAt,
+      notes: t.notes,
+      description: t.description,
+      estimated_duration_minutes: t.estimatedDurationMinutes,
+    }))
+  }
+
   // Function definitions
   async function loadTodos() {
     if (!studentId || !tenantId) return
@@ -72,6 +115,12 @@ export default function KioskPage() {
 
       if (!result.success) {
         console.error('TODO 로드 오류:', result.error)
+        // 서버 실패 → IDB 폴백
+        const idbTodos = await getKioskTodosFromIDB(tenantId, studentId).catch(() => [])
+        if (idbTodos.length > 0) {
+          setTodos(idbToTodos(idbTodos))
+          return
+        }
         toast({
           title: '오류',
           description: result.error || 'TODO를 불러올 수 없습니다.',
@@ -82,8 +131,9 @@ export default function KioskPage() {
 
       setTodos(result.todos || [])
 
-      // Check if all todos are verified
+      // 서버 성공 시 IDB에 저장
       if (result.todos && result.todos.length > 0) {
+        saveKioskTodosToIDB(tenantId, studentId, todosToIDB(result.todos)).catch(() => {})
         const allVerified = result.todos.every(t => t.verified_at !== null)
         if (allVerified) {
           setShowCelebration(true)
@@ -91,6 +141,13 @@ export default function KioskPage() {
       }
     } catch (error) {
       console.error('Error loading todos:', error)
+      // 네트워크 에러 → IDB 폴백
+      if (tenantId && studentId) {
+        const idbTodos = await getKioskTodosFromIDB(tenantId, studentId).catch(() => [])
+        if (idbTodos.length > 0) {
+          setTodos(idbToTodos(idbTodos))
+        }
+      }
     }
   }
 
@@ -98,6 +155,52 @@ export default function KioskPage() {
     if (!studentId || !tenantId) return
 
     setLoading(true)
+
+    // 오프라인: optimistic UI + 큐 추가
+    if (!isOnline) {
+      const newCompletedAt = currentStatus ? null : new Date().toISOString()
+
+      // Optimistic UI 업데이트
+      setTodos(prev =>
+        prev.map(t =>
+          t.id === todoId ? { ...t, completed_at: newCompletedAt } : t
+        )
+      )
+
+      // 큐에 추가
+      enqueueMutation(tenantId, 'toggleTodoComplete', {
+        todoId,
+        studentId,
+        tenantId,
+        currentStatus,
+      }).catch(() => {})
+
+      // IDB 업데이트
+      const todo = todos.find(t => t.id === todoId)
+      if (todo) {
+        updateKioskTodoInIDB({
+          tenantId,
+          studentId,
+          todoId,
+          title: todo.title,
+          subject: todo.subject,
+          dueDate: todo.due_date,
+          priority: todo.priority,
+          completedAt: newCompletedAt,
+          verifiedAt: todo.verified_at,
+          notes: todo.notes,
+          description: todo.description,
+          estimatedDurationMinutes: todo.estimated_duration_minutes,
+        }).catch(() => {})
+      }
+
+      toast({
+        title: currentStatus ? '완료 취소' : '완료 체크',
+        description: '오프라인 — 연결 복구 후 동기화됩니다.',
+      })
+      setLoading(false)
+      return
+    }
 
     try {
       const result = await toggleTodoComplete(todoId, studentId, tenantId, !!currentStatus)
@@ -281,16 +384,19 @@ export default function KioskPage() {
                   </div>
                 </div>
 
-                {/* 로그아웃 버튼 */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleLogout}
-                  className="gap-2"
-                >
-                  <LogOut className="h-4 w-4" />
-                  로그아웃
-                </Button>
+                {/* 동기화 뱃지 + 로그아웃 버튼 */}
+                <div className="flex items-center gap-2">
+                  <PendingSyncBadge tenantId={tenantId ?? undefined} />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleLogout}
+                    className="gap-2"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    로그아웃
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
