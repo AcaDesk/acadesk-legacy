@@ -5,7 +5,7 @@ import { Button } from '@ui/button';
 import { Badge } from '@ui/badge';
 import { Separator } from '@ui/separator';
 import { Input } from '@ui/input';
-import { RefreshCw, Save, X, Plus, Search, Settings2, Layout, LayoutGrid, LayoutList, Focus, Eye } from 'lucide-react';
+import { RefreshCw, Save, X, Plus, Search, Settings2, Layout, LayoutGrid, LayoutList, Focus, Eye, Undo2, Timer, TimerOff } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,6 +43,12 @@ interface DashboardHeaderProps {
   isSaving?: boolean;
   hasChanges?: boolean;
   className?: string;
+  // 자동 새로고침 (#5)
+  autoRefreshEnabled?: boolean;
+  onToggleAutoRefresh?: () => void;
+  // Undo (#6)
+  onUndo?: () => void;
+  canUndo?: boolean;
 }
 
 export function DashboardHeader({
@@ -60,6 +66,10 @@ export function DashboardHeader({
   isSaving = false,
   hasChanges = false,
   className,
+  autoRefreshEnabled = true,
+  onToggleAutoRefresh,
+  onUndo,
+  canUndo = false,
 }: DashboardHeaderProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -240,6 +250,21 @@ export function DashboardHeader({
               <Separator orientation="vertical" className="h-6" />
             )}
 
+            {/* Undo 버튼 (#6) */}
+            {onUndo && (
+              <Button
+                onClick={onUndo}
+                variant="outline"
+                size="sm"
+                disabled={!canUndo || isSaving}
+                className="gap-2"
+                title="되돌리기 (Ctrl+Z)"
+              >
+                <Undo2 className="h-4 w-4" />
+                <span className="hidden sm:inline">되돌리기</span>
+              </Button>
+            )}
+
             <Button
               onClick={onCancel}
               variant="outline"
@@ -268,6 +293,25 @@ export function DashboardHeader({
         ) : (
           // 보기 모드 컨트롤
           <div className="flex items-center gap-2">
+            {/* 자동 새로고침 토글 (#5) */}
+            {onToggleAutoRefresh && (
+              <Button
+                onClick={onToggleAutoRefresh}
+                variant="ghost"
+                size="sm"
+                className="gap-2 text-muted-foreground hover:text-foreground"
+                title={autoRefreshEnabled ? '자동 새로고침 끄기 (5분마다)' : '자동 새로고침 켜기'}
+              >
+                {autoRefreshEnabled ? (
+                  <Timer className="h-4 w-4 text-green-600 dark:text-green-400" />
+                ) : (
+                  <TimerOff className="h-4 w-4" />
+                )}
+                <span className="hidden sm:inline text-xs">
+                  {autoRefreshEnabled ? '자동 갱신 중' : '자동 갱신 꺼짐'}
+                </span>
+              </Button>
+            )}
             {onRefresh && (
               <Button
                 onClick={onRefresh}

@@ -3,14 +3,11 @@
 import { ReactNode } from "react"
 import { Card, CardContent } from "@ui/card"
 import { Button } from "@ui/button"
-import { useSortable } from "@dnd-kit/sortable"
-import { CSS } from "@dnd-kit/utilities"
 import { GripVertical, EyeOff } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface DashboardWidgetWrapperProps {
   widgetId: string
-  isEditMode: boolean
   children: ReactNode
   onHide?: () => void
   className?: string
@@ -18,93 +15,52 @@ interface DashboardWidgetWrapperProps {
 }
 
 export function DashboardWidgetWrapper({
-  widgetId,
-  isEditMode,
   children,
   onHide,
   className,
   disablePadding = false,
 }: DashboardWidgetWrapperProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-    isSorting,
-  } = useSortable({
-    id: widgetId,
-    disabled: !isEditMode,
-    animateLayoutChanges: () => true,
-  })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition: transition || (isSorting ? 'transform 250ms cubic-bezier(0.25, 1, 0.5, 1)' : undefined),
-    opacity: isDragging ? 0.5 : 1,
-  }
-
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={cn(
-        "relative transition-all duration-200",
-        isDragging && "z-50 cursor-grabbing",
-        className
-      )}
-    >
+    <div className={cn("relative h-full", className)}>
       {/* Widget Content */}
-      <Card
-        className={cn(
-          "transition-all duration-300 ease-out overflow-hidden group h-full flex flex-col",
-          isEditMode && "ring-2 ring-primary/30 shadow-lg hover:ring-primary/50 hover:shadow-xl",
-          !isEditMode && "hover:shadow-md hover:border-primary/20",
-          isDragging && "rotate-3 scale-105 ring-4 ring-primary/40",
-        )}
-      >
-        {/* Edit Mode Controls - Compact header inside the card */}
-        {isEditMode && (
-          <div className={cn(
-            "flex items-center justify-between gap-2 px-3 py-2 bg-accent/30 border-b border-border shrink-0",
-            "animate-in slide-in-from-top-2 fade-in duration-300"
-          )}>
-            <button
-              className={cn(
-                "cursor-grab active:cursor-grabbing touch-none p-1 rounded-md",
-                "hover:bg-primary/10 hover:shadow-sm transition-all duration-200",
-                "hover:scale-110 active:scale-95",
-                "animate-in fade-in zoom-in-95 duration-300 delay-75"
-              )}
-              {...attributes}
-              {...listeners}
-            >
-              <GripVertical className="h-4 w-4 text-muted-foreground hover:text-primary transition-colors" />
-            </button>
-
-            <span className="text-xs text-muted-foreground font-medium flex-1 text-center animate-in fade-in duration-300 delay-100">
+      <Card className="transition-all duration-300 ease-out overflow-hidden group h-full flex flex-col ring-2 ring-primary/30 shadow-lg hover:ring-primary/50 hover:shadow-xl">
+        {/* Edit Mode Controls - react-grid-layout drag handle */}
+        <div className={cn(
+          "flex items-center justify-between gap-2 px-3 py-2 bg-accent/30 border-b border-border shrink-0",
+          "animate-in slide-in-from-top-2 fade-in duration-300"
+        )}>
+          {/* 드래그 핸들: react-grid-layout이 draggableHandle=".widget-drag-handle"로 감지 */}
+          <div
+            className={cn(
+              "widget-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 rounded-md",
+              "hover:bg-primary/10 hover:shadow-sm transition-all duration-200",
+              "hover:scale-110 active:scale-95",
+              "animate-in fade-in zoom-in-95 duration-300 delay-75 flex items-center gap-1"
+            )}
+          >
+            <GripVertical className="h-4 w-4 text-muted-foreground hover:text-primary transition-colors" />
+            <span className="text-xs text-muted-foreground font-medium animate-in fade-in duration-300 delay-100">
               드래그하여 이동
             </span>
-
-            {onHide && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className={cn(
-                  "h-6 w-6 hover:bg-destructive/10 hover:text-destructive transition-all",
-                  "animate-in fade-in zoom-in-95 duration-300 delay-150"
-                )}
-                onClick={onHide}
-                title="위젯 숨기기"
-              >
-                <EyeOff className="h-3 w-3" />
-              </Button>
-            )}
           </div>
-        )}
 
-        {/* Main Content - Flex-1 to fill remaining space */}
+          {onHide && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "h-6 w-6 hover:bg-destructive/10 hover:text-destructive transition-all",
+                "animate-in fade-in zoom-in-95 duration-300 delay-150"
+              )}
+              onClick={onHide}
+              title="위젯 숨기기"
+            >
+              <EyeOff className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
+
+        {/* Main Content */}
         {disablePadding ? (
           <div className="flex-1 flex flex-col">
             {children}

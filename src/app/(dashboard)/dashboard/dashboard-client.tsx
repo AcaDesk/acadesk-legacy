@@ -1,67 +1,151 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback, useTransition } from "react"
+import { useState, useEffect, useMemo, useCallback, useTransition, useRef } from "react"
 import { useRouter } from "next/navigation"
+import { useQuery } from "@tanstack/react-query"
+import ReactGridLayout, { WidthProvider } from "react-grid-layout/legacy"
+import type { Layout, LayoutItem } from "react-grid-layout/legacy"
+import "react-grid-layout/css/styles.css"
 import { DashboardHeader } from "@/components/features/dashboard/dashboard-header"
 import { DashboardWidgetWrapper, DashboardWidgetSkeleton } from "@/components/features/dashboard/dashboard-widget-wrapper"
 import { WelcomeBanner } from "@/components/features/dashboard/welcome-banner"
-import { DEFAULT_WIDGETS, type DashboardWidget, isWidgetAvailable, LAYOUT_PRESETS, type DashboardPreset, type DashboardWidgetId, type DashboardData, type TodaySession } from "@/core/types/dashboard"
+import { KPIPeriodSelector } from "@/components/features/dashboard/kpi-period-selector"
+import { WidgetGhostPlaceholder } from "@/components/features/dashboard/widget-ghost-placeholder"
+import { WidgetDrilldownDialog } from "@/components/features/dashboard/widget-drilldown-dialog"
+import { WidgetWithControls } from "@/components/features/dashboard/widget-with-controls"
+import {
+  DEFAULT_WIDGETS,
+  type DashboardWidget,
+  isWidgetAvailable,
+  LAYOUT_PRESETS,
+  type DashboardPreset,
+  type DashboardWidgetId,
+  type DashboardData,
+  type TodaySession,
+} from "@/core/types/dashboard"
 import { renderWidgetContent } from "./widget-factory"
 import { WidgetErrorBoundary } from "@/components/features/dashboard/widget-error-boundary"
-import { DASHBOARD_LAYOUT, getVisibleWidgetsInSection, getSortedSections } from "./dashboard-layout-config"
 import { cn } from "@/lib/utils"
 import { saveDashboardPreferences, getDashboardPreferences } from "@/app/actions/dashboard-preferences"
-import {
-  DndContext,
-  DragEndEvent,
-  DragStartEvent,
-  DragOverlay,
-  PointerSensor,
-  KeyboardSensor,
-  useSensor,
-  useSensors,
-  closestCenter,
-} from "@dnd-kit/core"
-import {
-  SortableContext,
-  rectSortingStrategy,
-  arrayMove,
-  sortableKeyboardCoordinates,
-} from "@dnd-kit/sortable"
+import { getKPIStatsByPeriod, type KPIPeriod } from "@/app/actions/dashboard-kpi"
+import type { DrilldownWidgetId } from "@/app/actions/dashboard-drilldown"
+
+const AutoWidthGridLayout = WidthProvider(ReactGridLayout)
+
+// KPI 드릴다운이 지원되는 위젯 ID
+const DRILLDOWN_WIDGET_IDS = new Set<string>([
+  'kpi-total-students',
+  'kpi-attendance-rate',
+  'kpi-average-score',
+  'kpi-completion-rate',
+])
 
 export function DashboardClient({ data: initialData }: { data: DashboardData }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const { stats, recentStudents, todaySessions, birthdayStudents, scheduledConsultations, studentAlerts, financialData, classStatus, parentsToContact, calendarEvents, activityLogs, weeklyPerformance } = initialData
+  const {
+    stats,
+    recentStudents,
+    todaySessions,
+    birthdayStudents,
+    scheduledConsultations,
+    studentAlerts,
+    financialData,
+    classStatus,
+    parentsToContact,
+    calendarEvents,
+    activityLogs,
+    weeklyPerformance,
+  } = initialData
 
+  // 레이아웃 상태
   const [widgets, setWidgets] = useState<DashboardWidget[]>(DEFAULT_WIDGETS)
   const [isLoading, setIsLoading] = useState(true)
   const [isEditMode, setIsEditMode] = useState(false)
   const [tempWidgets, setTempWidgets] = useState<DashboardWidget[]>([])
   const [isSaving, setIsSaving] = useState(false)
-  const [activeId, setActiveId] = useState<string | null>(null)
 
-  // DnD Sensors
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  )
+  // Undo 히스토리 (#6)
+  const [widgetHistory, setWidgetHistory] = useState<DashboardWidget[][]>([])
 
-  // Memoized computed values
+  // 자동 새로고침 (#5)
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(() => {
+    if (typeof window === 'undefined') return true
+    return localStorage.getItem('dashboard-auto-refresh') !== 'false'
+  })
+
+  // 위젯 컨트롤 (#1 최대화, #4 새로고침)
+  const [maximizedWidgetId, setMaximizedWidgetId] = useState<string | null>(null)
+  const [refreshingWidgetId, setRefreshingWidgetId] = useState<string | null>(null)
+
+  // KPI 기간 선택 (#3)
+  const [kpiPeriod, setKpiPeriod] = useState<KPIPeriod>('today')
+
+  // 드릴다운 (#8)
+  const [drilldownWidgetId, setDrilldownWidgetId] = useState<DrilldownWidgetId | null>(null)
+
+  // KPI 기간별 통계
+  const { data: kpiStatsData } = useQuery({
+    queryKey: ['kpi-stats', kpiPeriod],
+    queryFn: () => getKPIStatsByPeriod(kpiPeriod),
+    staleTime: 60_000,
+    enabled: kpiPeriod !== 'today',
+  })
+
+  const activeStats = (kpiPeriod !== 'today' && kpiStatsData?.success && kpiStatsData.stats)
+    ? kpiStatsData.stats
+    : stats
+
+  // 자동 새로고침 (#5)
+  useEffect(() => {
+    if (!autoRefreshEnabled) return
+    const id = setInterval(() => startTransition(() => router.refresh()), 5 * 60 * 1000)
+    return () => clearInterval(id)
+  }, [autoRefreshEnabled, router])
+
+  // Undo 핸들러 (ref로 최신 버전 유지)
+  const handleUndoRef = useRef<() => void>(() => {})
+
+  const handleUndo = useCallback(() => {
+    if (widgetHistory.length === 0) return
+    const last = widgetHistory[widgetHistory.length - 1]
+    setTempWidgets(last)
+    setWidgetHistory(prev => prev.slice(0, -1))
+  }, [widgetHistory])
+
+  // ref 항상 최신 상태 유지
+  useEffect(() => {
+    handleUndoRef.current = handleUndo
+  }, [handleUndo])
+
+  // Ctrl+Z 단축키 (#6)
+  useEffect(() => {
+    if (!isEditMode) return
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault()
+        handleUndoRef.current()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [isEditMode])
+
+  // 히스토리 저장 함수
+  const pushHistory = useCallback((snapshot: DashboardWidget[]) => {
+    setWidgetHistory(prev => [...prev.slice(-9), snapshot])
+  }, [])
+
+  // ── Memoized 계산값 ──────────────────────────────────────────────
+
   const attendanceRate = useMemo(() => {
-    return stats.totalStudents > 0
-      ? Math.round((stats.todayAttendance / stats.totalStudents) * 100)
+    return activeStats.totalStudents > 0
+      ? Math.round((activeStats.todayAttendance / activeStats.totalStudents) * 100)
       : 0
-  }, [stats.totalStudents, stats.todayAttendance])
+  }, [activeStats.totalStudents, activeStats.todayAttendance])
 
-  const averageScore = useMemo(() => stats.averageScore, [stats.averageScore])
-  const completionRate = useMemo(() => stats.completionRate, [stats.completionRate])
+  const averageScore = useMemo(() => activeStats.averageScore, [activeStats.averageScore])
+  const completionRate = useMemo(() => activeStats.completionRate, [activeStats.completionRate])
 
   const upcomingSessions = useMemo(() => {
     return todaySessions.filter((s: TodaySession) => {
@@ -79,21 +163,16 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
     return tempWidgets.some((tempWidget) => {
       const widget = widgets.find(w => w.id === tempWidget.id)
       if (!widget) return true
-      return tempWidget.visible !== widget.visible || tempWidget.order !== widget.order
+      return (
+        tempWidget.visible !== widget.visible ||
+        tempWidget.x !== widget.x ||
+        tempWidget.y !== widget.y ||
+        tempWidget.w !== widget.w ||
+        tempWidget.h !== widget.h
+      )
     })
   }, [tempWidgets, widgets, isEditMode])
 
-  // Visible widget IDs set for quick lookup
-  const visibleWidgetIds = useMemo(() => {
-    const currentWidgets = isEditMode ? tempWidgets : widgets
-    return new Set(
-      currentWidgets
-        .filter(w => w.visible)
-        .map(w => w.id)
-    )
-  }, [isEditMode, tempWidgets, widgets])
-
-  // Hidden widgets for header
   const hiddenWidgets = useMemo(() => {
     return isEditMode
       ? tempWidgets
@@ -102,7 +181,8 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
       : []
   }, [isEditMode, tempWidgets])
 
-  // Load user preferences
+  // ── 사용자 설정 로드 ────────────────────────────────────────────
+
   useEffect(() => {
     const loadPreferences = async () => {
       try {
@@ -114,7 +194,7 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
               if (!defaultWidget) return false
               return isWidgetAvailable({
                 ...widget,
-                requiredFeatures: defaultWidget.requiredFeatures
+                requiredFeatures: defaultWidget.requiredFeatures,
               })
             })
             .map((widget: DashboardWidget) => {
@@ -122,16 +202,14 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
               return {
                 ...widget,
                 name: widget.name || defaultWidget?.name || widget.title || widget.id,
-                requiredFeatures: defaultWidget?.requiredFeatures
+                requiredFeatures: defaultWidget?.requiredFeatures,
               }
             })
-          // Merge new widgets from DEFAULT_WIDGETS that aren't in saved preferences
           const savedWidgetIds = new Set(widgetsWithNames.map((w: DashboardWidget) => w.id))
           const newWidgets = DEFAULT_WIDGETS
             .filter(w => !savedWidgetIds.has(w.id))
             .map(w => ({ ...w, visible: false }))
-          const mergedWidgets = [...widgetsWithNames, ...newWidgets]
-          setWidgets(mergedWidgets)
+          setWidgets([...widgetsWithNames, ...newWidgets])
         }
       } catch (error) {
         console.error('Failed to load preferences:', error)
@@ -142,40 +220,47 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
     loadPreferences()
   }, [])
 
-  // Handlers
+  // ── 핸들러 ──────────────────────────────────────────────────────
+
   const handleManualRefresh = useCallback(() => {
-    startTransition(() => {
-      router.refresh()
-    })
+    startTransition(() => { router.refresh() })
   }, [router])
+
+  const handleToggleAutoRefresh = useCallback(() => {
+    setAutoRefreshEnabled(prev => {
+      const next = !prev
+      localStorage.setItem('dashboard-auto-refresh', String(next))
+      return next
+    })
+  }, [])
 
   const handleEnterEditMode = useCallback(() => {
     const widgetsWithNames = widgets.map(widget => ({
       ...widget,
-      name: widget.name || widget.title || widget.id
+      name: widget.name || widget.title || widget.id,
     }))
     setTempWidgets(widgetsWithNames)
+    setWidgetHistory([])
     setIsEditMode(true)
   }, [widgets])
 
   const handleCancelEdit = useCallback(() => {
     setTempWidgets([])
+    setWidgetHistory([])
     setIsEditMode(false)
   }, [])
 
   const handleSaveChanges = useCallback(async () => {
     if (!hasChanges) return
     setIsSaving(true)
-
     try {
       const result = await saveDashboardPreferences({ widgets: tempWidgets })
-
       if (!result.success) {
         throw new Error(result.error || 'Failed to save preferences')
       }
-
       setWidgets(tempWidgets)
       setTempWidgets([])
+      setWidgetHistory([])
       setIsEditMode(false)
     } catch (error) {
       console.error('Failed to save preferences:', error)
@@ -185,18 +270,21 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
   }, [hasChanges, tempWidgets])
 
   const handleToggleWidget = useCallback((widgetId: string) => {
+    pushHistory(tempWidgets)
     setTempWidgets(prev => prev.map(widget =>
       widget.id === widgetId ? { ...widget, visible: !widget.visible } : widget
     ))
-  }, [])
+  }, [tempWidgets, pushHistory])
 
   const handleShowWidget = useCallback((widgetId: string) => {
+    pushHistory(tempWidgets)
     setTempWidgets(prev => prev.map(widget =>
       widget.id === widgetId ? { ...widget, visible: true } : widget
     ))
-  }, [])
+  }, [tempWidgets, pushHistory])
 
   const handleApplyPreset = useCallback((presetName: DashboardPreset) => {
+    pushHistory(tempWidgets)
     const preset = LAYOUT_PRESETS[presetName]
     if (!preset) return
 
@@ -207,54 +295,87 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
           ...defaultWidget,
           ...presetWidget,
           name: defaultWidget.name,
-          requiredFeatures: defaultWidget.requiredFeatures
+          requiredFeatures: defaultWidget.requiredFeatures,
         }
       }
-      return {
-        ...defaultWidget,
-        visible: false,
-      }
+      return { ...defaultWidget, visible: false }
     })
-
     setTempWidgets(updatedWidgets)
+  }, [tempWidgets, pushHistory])
+
+  const handleMaximizeWidget = useCallback((id: string) => {
+    setMaximizedWidgetId(prev => (prev === id ? null : id))
   }, [])
 
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    setActiveId(event.active.id as string)
-  }, [])
+  const handleRefreshWidget = useCallback((id: string) => {
+    setRefreshingWidgetId(id)
+    startTransition(() => { router.refresh() })
+    setTimeout(() => setRefreshingWidgetId(null), 1500)
+  }, [router])
 
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
-    const { active, over } = event
-    setActiveId(null)
+  // ── react-grid-layout 이벤트 ────────────────────────────────────
 
-    if (!over || active.id === over.id) return
+  // drag/resize 시작 시 히스토리 저장 (변경 전 상태 보존)
+  const handleDragStart = useCallback(
+    (_layout: Layout, _oldItem: LayoutItem | null) => { pushHistory(tempWidgets) },
+    [tempWidgets, pushHistory]
+  )
+  const handleResizeStart = useCallback(
+    (_layout: Layout, _oldItem: LayoutItem | null) => { pushHistory(tempWidgets) },
+    [tempWidgets, pushHistory]
+  )
 
-    setTempWidgets((widgets) => {
-      // Sort by order first to match SortableContext/DOM order
-      const sorted = [...widgets].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-      const oldIndex = sorted.findIndex(w => w.id === active.id)
-      const newIndex = sorted.findIndex(w => w.id === over.id)
-
-      const newWidgets = arrayMove(sorted, oldIndex, newIndex)
-
-      // Update order values
-      return newWidgets.map((widget, index) => ({
-        ...widget,
-        order: index
-      }))
+  // 레이아웃 변경 시 tempWidgets의 x,y,w,h 동기화
+  const handleLayoutChange = useCallback((layout: Layout) => {
+    if (!isEditMode) return
+    setTempWidgets(prev => {
+      let changed = false
+      const next = prev.map(w => {
+        const l = layout.find(l => l.i === w.id)
+        if (!l) return w
+        if (w.x === l.x && w.y === l.y && w.w === l.w && w.h === l.h) return w
+        changed = true
+        return { ...w, x: l.x, y: l.y, w: l.w, h: l.h }
+      })
+      return changed ? next : prev
     })
-  }, [])
+  }, [isEditMode])
 
+  // ── 그리드 아이템 구성 ──────────────────────────────────────────
 
-  // Render individual widget
+  const currentWidgets = isEditMode ? tempWidgets : widgets
+
+  const gridItems = useMemo(() => {
+    return currentWidgets
+      .filter(w => w.visible || isEditMode)
+      .map(w => ({
+        i: w.id,
+        x: w.x,
+        y: w.y,
+        w: w.w,
+        h: w.h,
+        minW: w.minW ?? 2,
+        minH: w.minH ?? 2,
+        ...(w.maxW !== undefined && { maxW: w.maxW }),
+        ...(w.maxH !== undefined && { maxH: w.maxH }),
+        static: !isEditMode,
+        isDraggable: isEditMode,
+        isResizable: isEditMode,
+      }))
+  }, [currentWidgets, isEditMode])
+
+  // ── 위젯 렌더링 ─────────────────────────────────────────────────
+
   const renderWidget = useCallback((widgetId: DashboardWidgetId) => {
-    const currentWidgets = isEditMode ? tempWidgets : widgets
     const widget = currentWidgets.find(w => w.id === widgetId)
-    if (!widget || !widget.visible) return null
+    if (!widget) return null
+
+    const isKpiWidget = widgetId.startsWith('kpi-')
+    const supportsDrilldown = DRILLDOWN_WIDGET_IDS.has(widgetId)
 
     const content = renderWidgetContent({
       widgetId,
-      stats,
+      stats: activeStats,
       attendanceRate,
       averageScore,
       completionRate,
@@ -271,38 +392,52 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
       activityLogs: activityLogs || [],
       weeklyPerformance,
       isEditMode,
+      onDrilldown: supportsDrilldown
+        ? () => setDrilldownWidgetId(widgetId as DrilldownWidgetId)
+        : undefined,
     })
 
     if (!content) return null
 
-    const wrappedContent = (
-      <WidgetErrorBoundary
-        widgetId={widgetId}
-        widgetTitle={widget.title || widget.name}
-      >
+    const wrapped = (
+      <WidgetErrorBoundary widgetId={widgetId} widgetTitle={widget.title || widget.name}>
         {content}
       </WidgetErrorBoundary>
     )
 
+    // 편집 모드: DashboardWidgetWrapper (드래그 핸들 + 숨기기)
     if (isEditMode) {
       return (
         <DashboardWidgetWrapper
           widgetId={widgetId}
-          isEditMode={true}
           onHide={() => handleToggleWidget(widgetId)}
-          disablePadding={widgetId.startsWith('kpi-')}
+          disablePadding={isKpiWidget}
         >
-          {wrappedContent}
+          {wrapped}
         </DashboardWidgetWrapper>
       )
     }
 
-    return wrappedContent
+    // 보기 모드: KPI가 아닌 위젯은 WidgetWithControls로 감싸기
+    if (!isKpiWidget) {
+      return (
+        <WidgetWithControls
+          widgetId={widgetId}
+          isMaximized={maximizedWidgetId === widgetId}
+          isRefreshing={refreshingWidgetId === widgetId}
+          onMaximize={handleMaximizeWidget}
+          onRefresh={handleRefreshWidget}
+        >
+          {wrapped}
+        </WidgetWithControls>
+      )
+    }
+
+    return wrapped
   }, [
+    currentWidgets,
     isEditMode,
-    tempWidgets,
-    widgets,
-    stats,
+    activeStats,
     attendanceRate,
     averageScore,
     completionRate,
@@ -318,90 +453,36 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
     calendarEvents,
     activityLogs,
     weeklyPerformance,
-    handleToggleWidget
+    maximizedWidgetId,
+    refreshingWidgetId,
+    handleToggleWidget,
+    handleMaximizeWidget,
+    handleRefreshWidget,
   ])
 
-  // Render layout section
-  const renderSection = useCallback((section: typeof DASHBOARD_LAYOUT[0], sectionIndex: number) => {
-    const currentWidgets = isEditMode ? tempWidgets : widgets
-    const visibleWidgets = getVisibleWidgetsInSection(section, visibleWidgetIds, currentWidgets)
-    if (visibleWidgets.length === 0) return null
-
-    const animationDelay = sectionIndex * 100
-
-    if (section.type === 'kpi-grid') {
-      return (
-        <div
-          key={`section-${sectionIndex}`}
-          className={cn(
-            "animate-in fade-in-50 slide-in-from-bottom-2 duration-500",
-            isEditMode && "bg-accent/30 border-2 border-dashed border-primary/50 rounded-lg p-4"
-          )}
-          style={{ animationDelay: `${animationDelay}ms` }}
-        >
-          {isEditMode && (
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-muted-foreground">KPI 카드 영역</h3>
-              <p className="text-xs text-muted-foreground">개별 카드를 숨기거나 표시할 수 있습니다</p>
-            </div>
-          )}
-          <div className={section.className}>
-            {visibleWidgets.map(widgetId => (
-              <div key={widgetId}>
-                {renderWidget(widgetId)}
-              </div>
-            ))}
-          </div>
-        </div>
-      )
-    }
-
-    if (section.type === 'two-column') {
-      return (
-        <div
-          key={`section-${sectionIndex}`}
-          className={cn(
-            section.className,
-            "animate-in fade-in-50 slide-in-from-bottom-2 duration-500"
-          )}
-          style={{ animationDelay: `${animationDelay}ms` }}
-        >
-          {visibleWidgets.map(widgetId => (
-            <div key={widgetId}>
-              {renderWidget(widgetId)}
-            </div>
-          ))}
-        </div>
-      )
-    }
-
-    // full-width
+  const renderGhostWidget = useCallback((widgetId: DashboardWidgetId) => {
     return (
-      <div
-        key={`section-${sectionIndex}`}
-        className="animate-in fade-in-50 slide-in-from-bottom-2 duration-500"
-        style={{ animationDelay: `${animationDelay}ms` }}
-      >
-        {visibleWidgets.map(widgetId => (
-          <div key={widgetId}>
-            {renderWidget(widgetId)}
-          </div>
-        ))}
-      </div>
+      <WidgetGhostPlaceholder
+        widgetId={widgetId}
+        onShow={handleShowWidget}
+      />
     )
-  }, [isEditMode, visibleWidgetIds, renderWidget, widgets, tempWidgets])
+  }, [handleShowWidget])
+
+  // ── 렌더 ───────────────────────────────────────────────────────
 
   return (
     <div className="space-y-6" role="main" aria-labelledby="dashboard-title">
       {/* Welcome Banner */}
       <section aria-label="환영 배너" className="animate-in fade-in-50 slide-in-from-top-2 duration-500">
         <WelcomeBanner
-          totalStudents={stats.totalStudents}
+          totalStudents={activeStats.totalStudents}
           attendanceRate={attendanceRate}
           averageScore={averageScore}
         />
       </section>
 
+      {/* 헤더 */}
       <DashboardHeader
         title="대시보드"
         description="학원 운영 현황을 한눈에 확인하세요"
@@ -416,6 +497,10 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
         isLoading={isPending}
         isSaving={isSaving}
         hasChanges={hasChanges}
+        autoRefreshEnabled={autoRefreshEnabled}
+        onToggleAutoRefresh={handleToggleAutoRefresh}
+        onUndo={handleUndo}
+        canUndo={widgetHistory.length > 0}
       />
 
       {isLoading ? (
@@ -426,40 +511,57 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
           <DashboardWidgetSkeleton variant="list" />
         </div>
       ) : (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={(isEditMode ? tempWidgets : widgets)
-              .filter(w => w.visible)
-              .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-              .map(w => w.id)
-            }
-            strategy={rectSortingStrategy}
-          >
-            {/* 항상 섹션 기반 레이아웃 사용 — 편집 모드에서도 실제 대시보드 모습 유지 */}
-            <div className="space-y-6">
-              {isEditMode && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground bg-accent/30 px-4 py-2.5 rounded-lg border border-primary/20 animate-in fade-in slide-in-from-top-1 duration-300">
-                  <span>각 위젯 상단의 핸들을 드래그하여 순서를 변경하거나, 눈 아이콘으로 숨길 수 있습니다.</span>
-                </div>
-              )}
-              {getSortedSections(DASHBOARD_LAYOUT, visibleWidgetIds, isEditMode ? tempWidgets : widgets).map((section, index) =>
-                renderSection(section, index)
-              )}
+        <div className="space-y-3">
+          {/* KPI 기간 선택기 (#3) — 보기 모드에서만 표시 */}
+          {!isEditMode && (
+            <KPIPeriodSelector period={kpiPeriod} onChange={setKpiPeriod} />
+          )}
+
+          {/* 편집 모드 안내 */}
+          {isEditMode && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground bg-accent/30 px-4 py-2.5 rounded-lg border border-primary/20 animate-in fade-in slide-in-from-top-1 duration-300">
+              <span>위젯을 드래그하여 이동하거나 우하단 모서리를 드래그하여 크기를 조절할 수 있습니다.</span>
             </div>
-          </SortableContext>
-          <DragOverlay>
-            {activeId ? (
-              <div className="opacity-50">
-                {renderWidget(activeId as DashboardWidgetId)}
-              </div>
-            ) : null}
-          </DragOverlay>
-        </DndContext>
+          )}
+
+          {/* react-grid-layout */}
+          <AutoWidthGridLayout
+            layout={gridItems}
+            cols={12}
+            rowHeight={60}
+            isDraggable={isEditMode}
+            isResizable={isEditMode}
+            onLayoutChange={handleLayoutChange}
+            onDragStart={handleDragStart}
+            onResizeStart={handleResizeStart}
+            draggableHandle=".widget-drag-handle"
+            resizeHandles={['se']}
+            margin={[16, 16]}
+            containerPadding={[0, 0]}
+            className={cn(isEditMode && 'edit-mode-grid')}
+          >
+            {gridItems.map(({ i }) => {
+              const widget = currentWidgets.find(w => w.id === i)
+              return (
+                <div key={i} className="overflow-hidden">
+                  {widget?.visible
+                    ? renderWidget(i as DashboardWidgetId)
+                    : renderGhostWidget(i as DashboardWidgetId)}
+                </div>
+              )
+            })}
+          </AutoWidthGridLayout>
+        </div>
+      )}
+
+      {/* 드릴다운 모달 (#8) */}
+      {drilldownWidgetId && (
+        <WidgetDrilldownDialog
+          widgetId={drilldownWidgetId}
+          period={kpiPeriod}
+          open={drilldownWidgetId !== null}
+          onClose={() => setDrilldownWidgetId(null)}
+        />
       )}
     </div>
   )

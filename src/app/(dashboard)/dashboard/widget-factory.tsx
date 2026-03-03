@@ -50,6 +50,8 @@ export interface WidgetFactoryProps {
   activityLogs: ActivityLog[]
   weeklyPerformance?: WeeklyPerformanceData
   isEditMode: boolean
+  // 드릴다운 콜백 (#8): KPI 카드 클릭 시 호출
+  onDrilldown?: () => void
 }
 
 /**
@@ -75,6 +77,7 @@ export function renderWidgetContent({
   activityLogs,
   weeklyPerformance,
   isEditMode,
+  onDrilldown,
 }: WidgetFactoryProps): React.ReactNode {
   switch (widgetId) {
     // KPI Widgets
@@ -92,6 +95,7 @@ export function renderWidgetContent({
           index={0}
           href="/students"
           variant="default"
+          onClick={onDrilldown}
         />
       )
     }
@@ -129,6 +133,7 @@ export function renderWidgetContent({
           index={2}
           variant="success"
           href="/attendance"
+          onClick={onDrilldown}
         />
       )
     }
@@ -147,6 +152,7 @@ export function renderWidgetContent({
           index={3}
           href="/grades"
           variant="primary"
+          onClick={onDrilldown}
         />
       )
     }
@@ -165,6 +171,7 @@ export function renderWidgetContent({
           index={4}
           variant={completionRate >= 90 ? "success" : "warning"}
           href="/todos"
+          onClick={onDrilldown}
         />
       )
     }
