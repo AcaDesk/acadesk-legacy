@@ -251,3 +251,30 @@
     animation: shimmer 2s infinite;
   }
 }
+
+/* react-grid-layout 리사이즈 핸들 스타일 */
+.react-resizable-handle {
+  opacity: 0;
+  transition: opacity 200ms;
+}
+.edit-mode-grid .react-resizable-handle {
+  opacity: 1;
+}
+.react-resizable-handle-se {
+  background: var(--primary);
+  width: 12px;
+  height: 12px;
+  border-radius: 2px 0 2px 0;
+  bottom: 0;
+  right: 0;
+}
+.react-grid-item.react-grid-placeholder {
+  background: var(--primary);
+  opacity: 0.1;
+  border-radius: 0.5rem;
+  border: 2px dashed var(--primary);
+}
+.react-grid-item.react-draggable-dragging {
+  opacity: 0.8;
+  z-index: 50;
+}
