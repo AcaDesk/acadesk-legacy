@@ -1,7 +1,13 @@
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import "./globals.css"
 import { Toaster } from "@ui/toaster"
 import { Providers } from "./providers"
+
+export const viewport: Viewport = {
+  themeColor: '#0f172a',
+  maximumScale: 1,
+  userScalable: false,
+}
 
 export const metadata: Metadata = {
   title: {
@@ -12,6 +18,12 @@ export const metadata: Metadata = {
   keywords: ["학원 관리", "학원 시스템", "학생 관리", "출석 관리", "성적 관리", "리포트 자동화", "Acadesk"],
   authors: [{ name: "Acadesk" }],
   creator: "Acadesk",
+  applicationName: "Acadesk",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Acadesk',
+  },
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
   openGraph: {
     title: "Acadesk - 학원 관리 시스템",

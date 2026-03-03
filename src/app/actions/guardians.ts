@@ -720,6 +720,65 @@ export async function getGuardiansForContact(studentId: string) {
 }
 
 /**
+ * 보호자에게 SMS 발송 + 연락 기록 저장
+ */
+export async function sendGuardianSMS(data: {
+  studentId: string
+  guardianId: string
+  sessionId: string | null
+  phone: string
+  message: string
+}) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+    const { sendAligoSMS } = await import('@/lib/messaging/aligo-sms')
+
+    // SMS 발송
+    const smsResult = await sendAligoSMS({
+      to: [data.phone],
+      message: data.message,
+    })
+
+    if (!smsResult.success) {
+      return {
+        success: false,
+        error: smsResult.error || 'SMS 발송에 실패했습니다.',
+      }
+    }
+
+    // sessionId가 있을 때만 notification_logs 기록
+    if (data.sessionId) {
+      const { error: logError } = await supabase.from('notification_logs').insert({
+        tenant_id: tenantId,
+        student_id: data.studentId,
+        session_id: data.sessionId,
+        notification_type: 'sms',
+        status: 'sent',
+        message: data.message,
+        sent_at: new Date().toISOString(),
+      })
+
+      if (logError) {
+        console.error('[sendGuardianSMS] Log insert error:', logError)
+        // 로그 실패해도 SMS는 발송됐으므로 성공으로 처리
+      }
+    }
+
+    revalidatePath(`/students/${data.studentId}`)
+    revalidatePath('/attendance')
+
+    return { success: true, error: null }
+  } catch (error) {
+    console.error('[sendGuardianSMS] Exception:', error)
+    return {
+      success: false,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
  * 보호자 연락 기록 저장
  * @param data - 연락 기록 데이터
  * @returns 성공 여부
