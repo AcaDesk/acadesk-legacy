@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { Bell, CheckCheck } from 'lucide-react'
 import {
@@ -25,6 +25,7 @@ import { getErrorMessage } from '@/lib/error-handlers'
 import { formatDistanceToNow } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { isFeatureActive } from '@/lib/features.config'
+import { createClient } from '@/lib/supabase/client'
 
 export function NotificationPopover() {
   const [open, setOpen] = useState(false)
@@ -32,33 +33,23 @@ export function NotificationPopover() {
   const [notifications, setNotifications] = useState<InAppNotification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [loading, setLoading] = useState(false)
+  // Realtime 채널 정리용 ref
+  const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
 
   const { user: currentUser } = useCurrentUser()
   const { toast } = useToast()
 
-  const loadUnreadCount = useCallback(async () => {
-    if (!currentUser || !currentUser.tenantId || !isNotificationActive) return
-
-    try {
-      const countResult = await getUnreadNotificationCount()
-      if (countResult.success && countResult.data !== undefined) {
-        setUnreadCount(countResult.data)
-      }
-    } catch {
-      // 주기적 폴링에서는 조용히 실패하여 UX 방해를 줄임
-    }
-  }, [currentUser, isNotificationActive])
-
   // 알림 목록 로드
   const loadNotifications = useCallback(async () => {
-    // tenant_id가 없으면 데이터 페칭하지 않음 (온보딩 전 또는 승인 대기 중)
     if (!currentUser || !currentUser.tenantId) return
 
     try {
       setLoading(true)
 
-      const notificationsResult = await getNotifications(20)
-      const countResult = await getUnreadNotificationCount()
+      const [notificationsResult, countResult] = await Promise.all([
+        getNotifications(20),
+        getUnreadNotificationCount(),
+      ])
 
       if (notificationsResult.success && notificationsResult.data) {
         setNotifications(notificationsResult.data)
@@ -68,14 +59,11 @@ export function NotificationPopover() {
         setUnreadCount(countResult.data)
       }
     } catch (error) {
-      // 테이블이 아직 생성되지 않은 경우 무시 (마이그레이션 미적용 시)
       const errorMessage = getErrorMessage(error)
       if (errorMessage.includes('relation') || errorMessage.includes('does not exist')) {
-        // 테이블이 없는 경우 조용히 실패
         setNotifications([])
         setUnreadCount(0)
       } else {
-        // 다른 에러는 토스트 표시
         toast({
           title: '알림 로드 실패',
           description: errorMessage,
@@ -87,25 +75,47 @@ export function NotificationPopover() {
     }
   }, [currentUser, toast])
 
-  // 컴포넌트 마운트 시 알림 로드
+  // 컴포넌트 마운트 시 최초 로드
   useEffect(() => {
     if (currentUser && isNotificationActive) {
-      loadNotifications()
+      void loadNotifications()
     }
   }, [currentUser, isNotificationActive, loadNotifications])
 
-  // 배지 신뢰도 개선: 읽지 않은 수를 주기적으로 갱신
+  // Supabase Realtime 구독 — 새 알림 INSERT 즉시 반영
   useEffect(() => {
-    if (!currentUser || !isNotificationActive) return
+    if (!currentUser?.id || !isNotificationActive) return
 
-    const intervalId = window.setInterval(() => {
-      void loadUnreadCount()
-    }, 60000)
+    const supabase = createClient()
 
-    return () => window.clearInterval(intervalId)
-  }, [currentUser, isNotificationActive, loadUnreadCount])
+    const channel = supabase
+      .channel(`notifications:${currentUser.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'in_app_notifications',
+          filter: `user_id=eq.${currentUser.id}`,
+        },
+        (payload) => {
+          // 낙관적 상태 업데이트 — 서버 재요청 없음
+          const newNotif = payload.new as InAppNotification
+          setNotifications((prev) => [newNotif, ...prev].slice(0, 20))
+          setUnreadCount((prev) => prev + 1)
+        }
+      )
+      .subscribe()
 
-  // 팝오버가 열려 있을 때는 목록을 더 자주 갱신
+    channelRef.current = channel
+
+    return () => {
+      void supabase.removeChannel(channel)
+      channelRef.current = null
+    }
+  }, [currentUser?.id, isNotificationActive])
+
+  // 팝오버가 열릴 때마다 최신 상태 동기화 (다른 세션에서 읽음 처리 반영)
   useEffect(() => {
     if (!open || !currentUser || !isNotificationActive) return
 
@@ -118,21 +128,23 @@ export function NotificationPopover() {
     return () => window.clearInterval(intervalId)
   }, [open, currentUser, isNotificationActive, loadNotifications])
 
-  // 알림 클릭 시 읽음 처리
-  const handleNotificationClick = async (notification: InAppNotification) => {
+  // 알림 클릭 — 낙관적 읽음 처리 (서버 재로드 없음)
+  const handleNotificationClick = (notification: InAppNotification) => {
     if (!notification.is_read) {
-      try {
-        await markNotificationAsRead(notification.id)
-        await loadNotifications() // 다시 로드하여 읽음 상태 반영
-      } catch {
-        // 에러는 무시 (사용자 경험을 방해하지 않음)
-      }
+      // 낙관적 업데이트
+      setNotifications((prev) =>
+        prev.map((n) =>
+          n.id === notification.id ? { ...n, is_read: true, read_at: new Date().toISOString() } : n
+        )
+      )
+      setUnreadCount((prev) => Math.max(0, prev - 1))
+
+      // 서버 비동기 처리 (결과 무시)
+      void markNotificationAsRead(notification.id)
     }
 
-    // action_url이 있으면 해당 페이지로 이동
     if (notification.action_url) {
       setOpen(false)
-      // Link 컴포넌트로 이동은 부모에서 처리
     }
   }
 
@@ -147,10 +159,13 @@ export function NotificationPopover() {
         throw new Error(result.error || '읽음 처리 실패')
       }
 
-      await loadNotifications()
-      toast({
-        title: '모든 알림을 읽음 처리했습니다',
-      })
+      // 낙관적 업데이트
+      setNotifications((prev) =>
+        prev.map((n) => ({ ...n, is_read: true, read_at: new Date().toISOString() }))
+      )
+      setUnreadCount(0)
+
+      toast({ title: '모든 알림을 읽음 처리했습니다' })
     } catch (error) {
       toast({
         title: '읽음 처리 실패',

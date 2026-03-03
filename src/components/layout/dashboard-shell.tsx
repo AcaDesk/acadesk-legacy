@@ -145,6 +145,7 @@ const Header = memo(function Header({
   userRole,
   userTenantName,
   userAvatarUrl,
+  isStandalone,
 }: {
   onMenuClick?: () => void
   showMenuButton?: boolean
@@ -158,6 +159,7 @@ const Header = memo(function Header({
   isStandalone?: boolean
 }) {
   const { theme, setTheme } = useTheme()
+  const router = useRouter()
   const [themeMounted, setThemeMounted] = useState(false)
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false)
 
@@ -223,6 +225,19 @@ const Header = memo(function Header({
 
         {/* 우측 액션 영역 */}
         <div className="ml-auto flex items-center gap-2">
+          {/* standalone: 키오스크(학생 TODO) 전환 버튼 */}
+          {isStandalone && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => router.push('/kiosk/login')}
+              aria-label="학생 로그인"
+              title="학생 로그인"
+            >
+              <MonitorPlay className="h-5 w-5" />
+            </Button>
+          )}
+
           {/* 도움말 + 알림: standalone에서 숨김 */}
           {!isStandalone && <HelpMenu />}
           {!isStandalone && <NotificationPopover />}
@@ -364,7 +379,7 @@ export function DashboardShell({
 
   // standalone 모드에서 출석 페이지 이외 접근 시 리다이렉트
   useEffect(() => {
-    if (isStandalone && !pathname.startsWith('/attendance')) {
+    if (isStandalone && !pathname.startsWith('/attendance') && !pathname.startsWith('/kiosk')) {
       router.replace('/attendance')
     }
   }, [isStandalone, pathname, router])

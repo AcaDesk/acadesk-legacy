@@ -2,10 +2,10 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Acadesk - 학원 관리 시스템',
+    name: 'Acadesk',
     short_name: 'Acadesk',
-    description: '효율적인 학원 운영을 위한 올인원 관리 플랫폼',
-    start_url: '/dashboard',
+    description: '학원 출석 관리',
+    start_url: '/',
     display: 'standalone',
     background_color: '#ffffff',
     theme_color: '#0f172a',

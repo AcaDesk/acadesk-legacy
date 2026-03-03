@@ -15,6 +15,7 @@ import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getTodayKST, getDateKST } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { createNotification } from '@/lib/notification-helpers'
 
 // ============================================================================
 // Validation Schemas
@@ -432,6 +433,23 @@ export async function createConsultation(
     if (validated.studentId) {
       revalidatePath(`/students/${validated.studentId}`)
     }
+
+    // 상담 등록 알림 발송 (fire-and-forget)
+    const subjectName = validated.isLead
+      ? (validated.leadName ?? '잠재고객')
+      : '학생'
+
+    void createNotification({
+      supabase,
+      tenantId,
+      actorUserId: userId,
+      type: 'consultation_scheduled',
+      title: '상담 등록',
+      message: `${subjectName} 상담이 등록되었습니다: ${validated.title}`,
+      referenceType: 'consultation',
+      referenceId: data?.id ?? null,
+      actionUrl: '/consultations',
+    })
 
     return {
       success: true,
