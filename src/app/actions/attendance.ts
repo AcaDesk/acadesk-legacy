@@ -13,6 +13,7 @@ import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { createNotification } from '@/lib/notification-helpers'
 
 // ============================================================================
 // Validation Schemas
@@ -335,7 +336,7 @@ export async function saveAttendance(params: {
 }) {
   try {
     // 1. 권한 검증 (staff)
-    const { tenantId } = await verifyStaff()
+    const { tenantId, userId } = await verifyStaff()
 
     // 2. Service Role 클라이언트로 DB 작업
     const supabase = createServiceRoleClient()
@@ -410,6 +411,33 @@ export async function saveAttendance(params: {
       .single()
 
     if (error) throw error
+
+    // 결석·지각 시 다른 스태프에게 알림 발송 (fire-and-forget)
+    if (params.status === 'absent' || params.status === 'late') {
+      // 학생 이름 조회 (알림 메시지용)
+      const { data: studentRow } = await supabase
+        .from('students')
+        .select('users!inner(name)')
+        .eq('id', params.studentId)
+        .eq('tenant_id', tenantId)
+        .single()
+
+      const studentUsersData = studentRow?.users as unknown as { name: string } | null
+      const studentName = studentUsersData?.name || '학생'
+      const statusLabel = params.status === 'absent' ? '결석' : '지각'
+
+      void createNotification({
+        supabase,
+        tenantId,
+        actorUserId: userId,
+        type: 'attendance_alert',
+        title: `${statusLabel} 알림`,
+        message: `${studentName} 학생이 ${params.date} 출석에서 ${statusLabel} 처리되었습니다.`,
+        referenceType: 'attendance',
+        referenceId: data?.id ?? null,
+        actionUrl: '/attendance',
+      })
+    }
 
     revalidatePath('/attendance')
 

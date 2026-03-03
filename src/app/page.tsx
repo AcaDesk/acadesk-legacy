@@ -51,7 +51,7 @@ export default async function HomePage() {
             <Button asChild variant="ghost" className="w-full gap-2">
               <Link href="/kiosk/login">
                 <User className="h-4 w-4" />
-                학생 키오스크
+                학생 로그인
               </Link>
             </Button>
           </div>

@@ -12,6 +12,7 @@ import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { createNotification } from '@/lib/notification-helpers'
 
 // ============================================================================
 // Validation Schemas
@@ -721,6 +722,7 @@ export async function getGuardiansForContact(studentId: string) {
 
 /**
  * 보호자에게 SMS 발송 + 연락 기록 저장
+ * 설정된 메시징 provider(Aligo/Solapi)를 사용합니다.
  */
 export async function sendGuardianSMS(data: {
   studentId: string
@@ -730,13 +732,15 @@ export async function sendGuardianSMS(data: {
   message: string
 }) {
   try {
-    const { tenantId } = await verifyStaff()
+    const { tenantId, userId } = await verifyStaff()
     const supabase = createServiceRoleClient()
-    const { sendAligoSMS } = await import('@/lib/messaging/aligo-sms')
+    const { sendMessage } = await import('@/lib/messaging/provider')
 
-    // SMS 발송
-    const smsResult = await sendAligoSMS({
-      to: [data.phone],
+    // 설정된 provider로 SMS 발송 (자동으로 SMS/LMS 타입 결정)
+    const msgType = data.message.length <= 90 ? 'sms' : 'lms'
+    const smsResult = await sendMessage({
+      type: msgType,
+      to: data.phone,
       message: data.message,
     })
 
@@ -761,9 +765,21 @@ export async function sendGuardianSMS(data: {
 
       if (logError) {
         console.error('[sendGuardianSMS] Log insert error:', logError)
-        // 로그 실패해도 SMS는 발송됐으므로 성공으로 처리
       }
     }
+
+    // 보호자 문자 발송 알림 (fire-and-forget)
+    void createNotification({
+      supabase,
+      tenantId,
+      actorUserId: userId,
+      type: 'new_message',
+      title: '보호자 문자 발송',
+      message: `학생(${data.studentId}) 보호자에게 SMS가 발송되었습니다.`,
+      referenceType: 'student',
+      referenceId: data.studentId,
+      actionUrl: '/notifications',
+    })
 
     revalidatePath(`/students/${data.studentId}`)
     revalidatePath('/attendance')
@@ -771,6 +787,78 @@ export async function sendGuardianSMS(data: {
     return { success: true, error: null }
   } catch (error) {
     console.error('[sendGuardianSMS] Exception:', error)
+    return {
+      success: false,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * 보호자에게 카카오 알림톡 발송 + 연락 기록 저장
+ * Solapi + 카카오 채널 연동이 필요합니다.
+ */
+export async function sendGuardianAlimtalk(data: {
+  studentId: string
+  guardianId: string
+  sessionId: string | null
+  phone: string
+  templateId: string
+  variables: Record<string, string>
+}) {
+  try {
+    const { tenantId, userId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+    const { sendAlimtalk } = await import('@/lib/messaging/provider')
+
+    const result = await sendAlimtalk({
+      to: data.phone,
+      templateId: data.templateId,
+      variables: data.variables,
+    })
+
+    if (!result.success) {
+      return {
+        success: false,
+        error: result.error || '알림톡 발송에 실패했습니다.',
+      }
+    }
+
+    if (data.sessionId) {
+      const { error: logError } = await supabase.from('notification_logs').insert({
+        tenant_id: tenantId,
+        student_id: data.studentId,
+        session_id: data.sessionId,
+        notification_type: 'kakao',
+        status: 'sent',
+        message: `알림톡 발송 (templateId: ${data.templateId})`,
+        sent_at: new Date().toISOString(),
+      })
+
+      if (logError) {
+        console.error('[sendGuardianAlimtalk] Log insert error:', logError)
+      }
+    }
+
+    // 알림톡 발송 알림 (fire-and-forget)
+    void createNotification({
+      supabase,
+      tenantId,
+      actorUserId: userId,
+      type: 'new_message',
+      title: '보호자 알림톡 발송',
+      message: `학생(${data.studentId}) 보호자에게 카카오 알림톡이 발송되었습니다.`,
+      referenceType: 'student',
+      referenceId: data.studentId,
+      actionUrl: '/notifications',
+    })
+
+    revalidatePath(`/students/${data.studentId}`)
+    revalidatePath('/attendance')
+
+    return { success: true, error: null }
+  } catch (error) {
+    console.error('[sendGuardianAlimtalk] Exception:', error)
     return {
       success: false,
       error: getErrorMessage(error),

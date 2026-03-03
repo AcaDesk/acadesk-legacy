@@ -11,6 +11,7 @@ import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { createNotification } from '@/lib/notification-helpers'
 
 // ============================================================================
 // Validation Schemas
@@ -221,6 +222,21 @@ export async function verifyTodos(input: z.infer<typeof verifyTodosSchema>) {
     // 7. Revalidate pages
     revalidatePath('/todos/verify')
     revalidatePath('/dashboard')
+
+    // TODO 검증 알림 발송 (fire-and-forget)
+    if (eligibleTodoIds.length > 0) {
+      void createNotification({
+        supabase,
+        tenantId,
+        actorUserId: userId,
+        type: 'todo_verified',
+        title: 'TODO 검증 완료',
+        message: `${eligibleTodoIds.length}개의 TODO가 검증 처리되었습니다.`,
+        referenceType: 'todo',
+        referenceId: null,
+        actionUrl: '/todos/verify',
+      })
+    }
 
     return {
       success: true,

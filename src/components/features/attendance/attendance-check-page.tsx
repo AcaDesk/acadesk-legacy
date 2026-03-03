@@ -660,98 +660,84 @@ export function AttendanceCheckPage({
   ).length
 
   return (
-    <div className="space-y-6 pb-20 flex flex-col h-full">
+    <div className="space-y-4 md:space-y-6 pb-20 flex flex-col h-full">
       {/* 1. Top Header: Date & Summary & Download */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full md:w-auto">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 md:gap-4 shrink-0">
+        <div className="flex items-center gap-2 w-full md:w-auto">
           {/* Date Picker UI */}
-          <div className="flex items-center gap-2">
-            <div className="flex items-center bg-card border border-border rounded-lg p-1 shadow-sm">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handlePrevDay}
-                className="h-8 w-8"
-                title="이전 날짜"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
+          <div className="flex items-center bg-card border border-border rounded-lg p-1 shadow-sm">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handlePrevDay}
+              className="h-8 w-8"
+              title="이전 날짜"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
 
-              <div className="relative">
-                <div className="px-4 py-1 text-sm font-semibold text-foreground flex items-center gap-2 cursor-pointer hover:bg-accent/50 rounded-md transition-colors">
-                  <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                  {getFormattedDate(currentDate)}
-                </div>
-                <input
-                  type="date"
-                  value={currentDate}
-                  onChange={(e) => setCurrentDate(e.target.value)}
-                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                />
+            <div className="relative">
+              <div className="px-3 sm:px-4 py-1 text-sm font-semibold text-foreground flex items-center gap-2 cursor-pointer hover:bg-accent/50 rounded-md transition-colors">
+                <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                {getFormattedDate(currentDate)}
               </div>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleNextDay}
-                className="h-8 w-8"
-                title="다음 날짜"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+              <input
+                type="date"
+                value={currentDate}
+                onChange={(e) => setCurrentDate(e.target.value)}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+              />
             </div>
 
-            <Button variant="secondary" size="sm" onClick={handleToday}>
-              오늘
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleNextDay}
+              className="h-8 w-8"
+              title="다음 날짜"
+            >
+              <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
 
-          <div className="h-8 w-px bg-border hidden sm:block" />
+          <Button variant="secondary" size="sm" onClick={handleToday}>
+            오늘
+          </Button>
 
-          <div>
-            <p className="text-xs text-muted-foreground font-medium">
-              출석 현황
-            </p>
-            <p className="text-sm font-semibold text-foreground flex items-center gap-1">
+          {/* 출석 현황 (모바일: 인라인) */}
+          <div className="ml-auto flex items-center gap-2">
+            {isPending && (
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            )}
+            <PendingSyncBadge tenantId={tenantId} />
+            <span className="text-sm font-semibold text-foreground">
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <>
-                  <span className="text-green-600 dark:text-green-400">
-                    {presentCount}명
-                  </span>
-                  <span className="text-muted-foreground">/</span>
-                  <span>{filteredStudents.length}명</span>
+                  <span className="text-green-600 dark:text-green-400">{presentCount}</span>
+                  <span className="text-muted-foreground">/{filteredStudents.length}</span>
                 </>
               )}
-            </p>
+            </span>
           </div>
-
-          {isPending && (
-            <div className="flex items-center gap-2 text-muted-foreground text-sm">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              저장 중...
-            </div>
-          )}
-          <PendingSyncBadge tenantId={tenantId} />
         </div>
 
-        <Button variant="outline" className="w-full md:w-auto">
+        <Button variant="outline" className="hidden md:flex">
           <Download className="h-4 w-4 mr-2" />
-          <span className="hidden sm:inline">엑셀 다운로드</span>
-          <span className="sm:hidden">다운로드</span>
+          엑셀 다운로드
         </Button>
       </div>
 
       {/* 2. Control Bar: Classes & Filters */}
-      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 bg-muted/50 p-2 rounded-lg border border-border shrink-0">
-        {/* Class Tabs */}
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide w-full xl:w-auto pb-1 xl:pb-0">
+      <div className="flex flex-col gap-2 md:gap-4 shrink-0">
+        {/* Class Tabs — 모바일에서도 수평 스크롤 */}
+        <div className="flex gap-1.5 md:gap-2 overflow-x-auto scrollbar-hide pb-0.5 md:bg-muted/50 md:p-2 md:rounded-lg md:border md:border-border">
           <Button
             variant={!selectedClassId ? 'default' : 'outline'}
             size="sm"
             onClick={() => setSelectedClassId(null)}
-            className={cn('whitespace-nowrap', !selectedClassId && 'shadow-md')}
+            className={cn('whitespace-nowrap h-7 md:h-9 text-xs md:text-sm px-2.5 md:px-3', !selectedClassId && 'shadow-md')}
           >
             전체
           </Button>
@@ -762,7 +748,7 @@ export function AttendanceCheckPage({
               size="sm"
               onClick={() => setSelectedClassId(cls.id)}
               className={cn(
-                'whitespace-nowrap',
+                'whitespace-nowrap h-7 md:h-9 text-xs md:text-sm px-2.5 md:px-3',
                 selectedClassId === cls.id && 'shadow-md'
               )}
             >
@@ -771,36 +757,40 @@ export function AttendanceCheckPage({
           ))}
         </div>
 
-        {/* Filter & Search */}
-        <div className="flex flex-col sm:flex-row gap-2 w-full xl:w-auto">
-          <div className="flex bg-card p-1 rounded-lg border border-border shadow-sm shrink-0">
+        {/* Filter & Search — 모바일: 한 줄로 압축 */}
+        <div className="flex gap-1.5 md:gap-2 items-center md:bg-muted/50 md:p-2 md:rounded-lg md:border md:border-border">
+          {/* 학교급 필터 — 모바일에서는 축약 */}
+          <div className="flex bg-card p-0.5 md:p-1 rounded-md md:rounded-lg border border-border shadow-sm shrink-0">
             {([
-              { value: 'all', label: '전체' },
-              { value: 'elementary', label: '초등' },
-              { value: 'middle', label: '중등' },
-              { value: 'high', label: '고등' },
-            ] as const).map(({ value, label }) => (
+              { value: 'all', label: '전체', mobileLabel: '전체' },
+              { value: 'elementary', label: '초등', mobileLabel: '초' },
+              { value: 'middle', label: '중등', mobileLabel: '중' },
+              { value: 'high', label: '고등', mobileLabel: '고' },
+            ] as const).map(({ value, label, mobileLabel }) => (
               <button
                 key={value}
                 onClick={() => setSelectedSchoolLevel(value)}
                 className={cn(
-                  'flex-1 sm:flex-none px-3 py-1.5 rounded-md text-xs font-semibold transition-all',
+                  'px-2 md:px-3 py-1 md:py-1.5 rounded-sm md:rounded-md text-[11px] md:text-xs font-semibold transition-all',
                   selectedSchoolLevel === value
                     ? 'bg-primary text-primary-foreground'
                     : 'text-muted-foreground hover:text-foreground'
                 )}
               >
-                {label}
+                <span className="md:hidden">{mobileLabel}</span>
+                <span className="hidden md:inline">{label}</span>
               </button>
             ))}
           </div>
-          <div className="flex bg-card p-1 rounded-lg border border-border shadow-sm shrink-0">
+
+          {/* 출석 상태 필터 */}
+          <div className="flex bg-card p-0.5 md:p-1 rounded-md md:rounded-lg border border-border shadow-sm shrink-0">
             {(['all', 'present', 'absent'] as const).map((filter) => (
               <button
                 key={filter}
                 onClick={() => setFilterStatus(filter)}
                 className={cn(
-                  'flex-1 sm:flex-none px-3 py-1.5 rounded-md text-xs font-semibold transition-all',
+                  'px-2 md:px-3 py-1 md:py-1.5 rounded-sm md:rounded-md text-[11px] md:text-xs font-semibold transition-all',
                   filterStatus === filter
                     ? 'bg-primary text-primary-foreground'
                     : 'text-muted-foreground hover:text-foreground'
@@ -814,14 +804,16 @@ export function AttendanceCheckPage({
               </button>
             ))}
           </div>
-          <div className="relative flex-1 sm:w-56">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+
+          {/* 검색 */}
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-2.5 md:left-3 top-1/2 -translate-y-1/2 h-3.5 md:h-4 w-3.5 md:w-4 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="이름 검색"
+              placeholder="검색"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 h-9"
+              className="pl-7 md:pl-9 h-7 md:h-9 text-xs md:text-sm"
             />
           </div>
         </div>
