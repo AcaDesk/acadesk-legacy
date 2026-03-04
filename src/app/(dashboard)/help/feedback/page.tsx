@@ -10,6 +10,7 @@ import { Send, Loader2, ThumbsUp } from 'lucide-react'
 import { useState } from 'react'
 import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
+import { createSupportTicket } from '@/app/actions/support'
 import {
   Select,
   SelectContent,
@@ -42,21 +43,14 @@ export default function FeedbackPage() {
     setIsSubmitting(true)
 
     try {
-      // API로 피드백 전송
-      const response = await fetch('/api/support', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ticket_type: 'feedback',
-          category,
-          subject,
-          message: feedback,
-        }),
+      const result = await createSupportTicket({
+        ticket_type: 'feedback',
+        category,
+        subject,
+        message: feedback,
       })
 
-      const result = await response.json()
-
-      if (!response.ok) {
+      if (!result.success) {
         throw new Error(result.error || '피드백 전송에 실패했습니다.')
       }
 
