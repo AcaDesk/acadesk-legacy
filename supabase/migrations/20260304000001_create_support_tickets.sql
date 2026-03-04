@@ -54,13 +54,12 @@ CREATE POLICY "Users can view own tickets"
     AND deleted_at IS NULL
   );
 
--- 같은 테넌트 직원(owner/instructor)은 모든 티켓 조회
+-- 같은 테넌트 직원은 모든 티켓 조회
 CREATE POLICY "Staff can view tenant tickets"
   ON support_tickets FOR SELECT
   USING (
-    tenant_id = get_current_tenant_id()
+    tenant_id = (current_setting('app.current_tenant_id', true))::uuid
     AND deleted_at IS NULL
-    AND get_current_user_role() IN ('owner', 'instructor')
   );
 
 -- 본인 티켓 생성
@@ -68,7 +67,6 @@ CREATE POLICY "Users can create tickets"
   ON support_tickets FOR INSERT
   WITH CHECK (
     user_id = auth.uid()
-    AND tenant_id = get_current_tenant_id()
   );
 
 -- 본인 티켓 수정 (삭제 등)
@@ -78,3 +76,6 @@ CREATE POLICY "Users can update own tickets"
     user_id = auth.uid()
     AND deleted_at IS NULL
   );
+
+-- Service role grants (서버 액션에서 사용)
+GRANT ALL ON public.support_tickets TO service_role;
