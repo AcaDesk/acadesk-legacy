@@ -69,11 +69,11 @@ export function DashboardWidgetWrapper({
 
         {/* Main Content */}
         {disablePadding ? (
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
             {children}
           </div>
         ) : (
-          <CardContent className="p-6 flex-1 flex flex-col">
+          <CardContent className="p-6 flex-1 flex flex-col min-h-0 overflow-hidden">
             {children}
           </CardContent>
         )}

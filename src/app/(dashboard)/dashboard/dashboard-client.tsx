@@ -575,7 +575,7 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
             {gridItems.map(({ i }) => {
               const widget = currentWidgets.find(w => w.id === i)
               return (
-                <div key={i} className="h-full overflow-hidden">
+                <div key={i} className="h-full overflow-hidden rounded-lg">
                   {widget?.visible
                     ? renderWidget(i as DashboardWidgetId)
                     : renderGhostWidget(i as DashboardWidgetId)}
