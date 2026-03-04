@@ -23,7 +23,7 @@ export default function SettingsLayout({
         </aside>
 
         {/* Content */}
-        <main className="flex-1 min-w-0">
+        <main className="flex-1 min-w-0 md:pt-10">
           {children}
         </main>
       </div>
