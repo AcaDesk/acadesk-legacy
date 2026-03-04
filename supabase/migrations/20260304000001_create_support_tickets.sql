@@ -39,7 +39,7 @@ CREATE INDEX idx_support_tickets_status    ON support_tickets(tenant_id, status)
 -- updated_at 자동 갱신 트리거
 CREATE TRIGGER set_support_tickets_updated_at
   BEFORE UPDATE ON support_tickets
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- ============================================
 -- RLS 정책
