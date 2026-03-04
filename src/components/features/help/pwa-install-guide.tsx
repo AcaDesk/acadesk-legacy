@@ -62,19 +62,9 @@ function Step({
   )
 }
 
-export function PwaInstallGuide() {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-3">
-          <Smartphone className="h-6 w-6 text-primary" />
-          앱 설치 (PWA)
-        </CardTitle>
-        <CardDescription>
-          홈 화면에 추가하면 앱처럼 빠르게 접속할 수 있습니다. 출석 태블릿에 설치하면 편리합니다.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+export function PwaInstallGuide({ embedded = false }: { embedded?: boolean }) {
+  const content = (
+    <>
         <Tabs defaultValue="iphone">
           <TabsList className="w-full">
             <TabsTrigger value="iphone" className="flex-1 gap-1.5">
@@ -206,6 +196,24 @@ export function PwaInstallGuide() {
           설치 후 홈 화면의 <strong className="mx-1">Acadesk</strong> 아이콘을 탭하면 앱처럼 실행됩니다.
           출석 체크 중 학생에게 태블릿을 넘겨 TODO를 확인하게 할 수도 있습니다.
         </div>
+    </>
+  )
+
+  if (embedded) return content
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-3">
+          <Smartphone className="h-6 w-6 text-primary" />
+          앱 설치 (PWA)
+        </CardTitle>
+        <CardDescription>
+          홈 화면에 추가하면 앱처럼 빠르게 접속할 수 있습니다. 출석 태블릿에 설치하면 편리합니다.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {content}
       </CardContent>
     </Card>
   )
