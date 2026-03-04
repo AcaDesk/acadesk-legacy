@@ -8,6 +8,7 @@ import {
   BarChart3,
 } from 'lucide-react'
 import { GuideClient } from './guide-client'
+import { PwaInstallGuide } from '@/components/features/help/pwa-install-guide'
 
 // Static guide data
 const guideCategories = [
@@ -142,6 +143,9 @@ export default function GuidePage() {
       subtitle="Acadesk의 주요 기능 사용법을 안내합니다"
     >
       <GuideClient categories={guideCategories} iconMap={iconMap} />
+      <div className="mt-6">
+        <PwaInstallGuide />
+      </div>
     </PageWrapper>
   )
 }
