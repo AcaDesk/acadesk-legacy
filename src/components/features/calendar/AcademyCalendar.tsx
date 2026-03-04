@@ -169,42 +169,42 @@ export function AcademyCalendar({
         {/* 왼쪽: 네비게이션 + 뷰 전환 */}
         <div className="flex items-center gap-3">
           {/* 이전/다음 + 월 표시 */}
-          <div className="flex items-center gap-1 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-1">
+          <div className="flex items-center gap-1 bg-card rounded-lg border border-border p-1">
             <button
               onClick={handlePrev}
-              className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+              className="p-1 hover:bg-muted rounded-md transition-colors"
             >
-              <ChevronLeft size={18} className="text-gray-500 dark:text-gray-400" />
+              <ChevronLeft size={18} className="text-muted-foreground" />
             </button>
-            <span className="text-sm font-bold px-3 text-gray-900 dark:text-white min-w-[180px] text-center">
+            <span className="text-sm font-bold px-3 text-foreground min-w-[180px] text-center">
               {headerLabel}
             </span>
             <button
               onClick={handleNext}
-              className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+              className="p-1 hover:bg-muted rounded-md transition-colors"
             >
-              <ChevronRight size={18} className="text-gray-500 dark:text-gray-400" />
+              <ChevronRight size={18} className="text-muted-foreground" />
             </button>
           </div>
 
           {/* 오늘 버튼 */}
           <button
             onClick={handleToday}
-            className="text-xs font-bold text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            className="text-xs font-bold text-muted-foreground border border-border px-3 py-1.5 rounded-lg hover:bg-muted/50 transition-colors"
           >
             오늘
           </button>
 
-          <div className="h-6 w-px bg-gray-200 dark:bg-gray-700" />
+          <div className="h-6 w-px bg-border" />
 
           {/* 월/주 뷰 전환 */}
-          <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+          <div className="flex bg-muted p-1 rounded-lg">
             <button
               onClick={() => setViewMode('month')}
               className={`p-1.5 rounded-md transition-all ${
                 viewMode === 'month'
-                  ? 'bg-white dark:bg-gray-600 shadow-sm text-black dark:text-white'
-                  : 'text-gray-400 hover:text-black dark:hover:text-white'
+                  ? 'bg-background shadow-sm text-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
               title="월간"
             >
@@ -214,8 +214,8 @@ export function AcademyCalendar({
               onClick={() => setViewMode('week')}
               className={`p-1.5 rounded-md transition-all ${
                 viewMode === 'week'
-                  ? 'bg-white dark:bg-gray-600 shadow-sm text-black dark:text-white'
-                  : 'text-gray-400 hover:text-black dark:hover:text-white'
+                  ? 'bg-background shadow-sm text-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
               title="주간"
             >
@@ -231,7 +231,7 @@ export function AcademyCalendar({
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold border transition-all ${
               isGoogleConnected
                 ? 'bg-orange-50 border-orange-200 text-orange-700 dark:bg-orange-900/30 dark:border-orange-800 dark:text-orange-400'
-                : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700'
+                : 'bg-card border-border text-muted-foreground hover:bg-muted'
             }`}
           >
             {isSyncing ? (
@@ -246,7 +246,7 @@ export function AcademyCalendar({
 
           <button
             onClick={onAddEvent}
-            className="flex items-center gap-2 px-4 py-2 bg-black dark:bg-white dark:text-black text-white rounded-lg text-sm font-bold hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-foreground text-background rounded-lg text-sm font-bold hover:opacity-90 transition-colors"
           >
             <Plus size={16} />
             일정 등록
@@ -255,17 +255,17 @@ export function AcademyCalendar({
       </div>
 
       {/* ── 캘린더 본체 ── */}
-      <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden flex flex-col min-h-0">
+      <div className="flex-1 bg-card rounded-2xl border border-border shadow-sm overflow-hidden flex flex-col min-h-0">
         {/* ── 월간 뷰 ── */}
         {viewMode === 'month' && (
           <>
             {/* 요일 헤더 */}
-            <div className="grid grid-cols-7 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 shrink-0">
+            <div className="grid grid-cols-7 border-b border-border bg-muted/50 shrink-0">
               {DAY_LABELS.map((day, i) => (
                 <div
                   key={day}
                   className={`py-3 text-center text-xs font-bold ${
-                    i === 0 ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'
+                    i === 0 ? 'text-red-500' : 'text-muted-foreground'
                   }`}
                 >
                   {day}
@@ -288,20 +288,20 @@ export function AcademyCalendar({
                 return (
                   <div
                     key={idx}
-                    className={`border-b border-r border-gray-100 dark:border-gray-700/50 p-2 relative group hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors overflow-hidden ${
-                      !isCurrentMonth ? 'bg-gray-50/50 dark:bg-gray-900/50' : ''
+                    className={`border-b border-r border-border/50 p-2 relative group hover:bg-muted/30 transition-colors overflow-hidden ${
+                      !isCurrentMonth ? 'bg-muted/20' : ''
                     }`}
                   >
                     {/* 날짜 숫자 */}
                     <span
                       className={`text-sm font-medium inline-flex items-center justify-center w-7 h-7 rounded-full ${
                         isToday
-                          ? 'bg-black text-white dark:bg-white dark:text-black font-extrabold'
+                          ? 'bg-foreground text-background font-extrabold'
                           : !isCurrentMonth
-                            ? 'text-gray-300 dark:text-gray-600'
+                            ? 'text-muted-foreground/40'
                             : isSun
                               ? 'text-red-500'
-                              : 'text-gray-700 dark:text-gray-300'
+                              : 'text-foreground'
                       }`}
                     >
                       {date.getDate()}
@@ -332,7 +332,7 @@ export function AcademyCalendar({
                     {isCurrentMonth && (
                       <button
                         onClick={() => handleDateClick(date)}
-                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md text-gray-400 transition-opacity"
+                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded-md text-muted-foreground transition-opacity"
                       >
                         <Plus size={12} />
                       </button>
@@ -348,19 +348,19 @@ export function AcademyCalendar({
         {viewMode === 'week' && (
           <div className="flex flex-col h-full min-h-0">
             {/* 주간 헤더 */}
-            <div className="grid grid-cols-8 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 divide-x divide-gray-100 dark:divide-gray-700 shrink-0">
-              <div className="p-3 text-center text-xs font-bold text-gray-400 flex items-center justify-center">
+            <div className="grid grid-cols-8 border-b border-border bg-muted/50 divide-x divide-border/50 shrink-0">
+              <div className="p-3 text-center text-xs font-bold text-muted-foreground flex items-center justify-center">
                 시간
               </div>
               {weekDays.map((d, i) => (
                 <div
                   key={i}
-                  className={`p-3 text-center ${i === 0 ? 'text-red-500' : 'text-gray-700 dark:text-gray-300'}`}
+                  className={`p-3 text-center ${i === 0 ? 'text-red-500' : 'text-foreground'}`}
                 >
                   <p className="text-[10px] font-bold uppercase mb-0.5">{DAY_LABELS[i]}</p>
                   <p
                     className={`text-lg font-extrabold mx-auto w-8 h-8 flex items-center justify-center rounded-full ${
-                      isSameDay(d, today) ? 'bg-black text-white dark:bg-white dark:text-black' : ''
+                      isSameDay(d, today) ? 'bg-foreground text-background' : ''
                     }`}
                   >
                     {d.getDate()}
@@ -371,13 +371,13 @@ export function AcademyCalendar({
 
             {/* 시간 그리드 */}
             <div className="flex-1 overflow-y-auto">
-              <div className="grid grid-cols-8 divide-x divide-gray-100 dark:divide-gray-700">
+              <div className="grid grid-cols-8 divide-x divide-border/50">
                 {/* 시간 컬럼 */}
-                <div className="bg-gray-50/30 dark:bg-gray-900/30 border-r border-gray-200 dark:border-gray-700">
+                <div className="bg-muted/20 border-r border-border">
                   {timeSlots.map((hour) => (
                     <div
                       key={hour}
-                      className="h-20 border-b border-gray-100 dark:border-gray-700 text-xs text-gray-400 font-medium p-2 text-center"
+                      className="h-20 border-b border-border/50 text-xs text-muted-foreground font-medium p-2 text-center"
                     >
                       <span className="relative -top-2">{hour}:00</span>
                     </div>
@@ -393,7 +393,7 @@ export function AcademyCalendar({
                       {timeSlots.map((hour) => (
                         <div
                           key={hour}
-                          className="h-20 border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors cursor-pointer"
+                          className="h-20 border-b border-border/50 hover:bg-muted/30 transition-colors cursor-pointer"
                           onClick={() => {
                             const start = new Date(d)
                             start.setHours(hour, 0, 0, 0)
