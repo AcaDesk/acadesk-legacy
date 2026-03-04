@@ -22,6 +22,7 @@ import {
 } from '@ui/select'
 import { Label } from '@ui/label'
 import { useToast } from '@/hooks/use-toast'
+import { createSupportTicket } from '@/app/actions/support'
 
 interface BugReportDialogProps {
   open: boolean
@@ -52,24 +53,17 @@ export function BugReportDialog({ open, onOpenChange }: BugReportDialogProps) {
     setIsSubmitting(true)
 
     try {
-      // API로 버그 리포트 전송
-      const response = await fetch('/api/support', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ticket_type: 'bug_report',
-          subject: `[버그] ${page}`,
-          message: description,
-          severity,
-          page,
-          steps_to_reproduce: steps,
-          browser: navigator.userAgent,
-        }),
+      const result = await createSupportTicket({
+        ticket_type: 'bug_report',
+        subject: `[버그] ${page}`,
+        message: description,
+        severity: severity as 'critical' | 'high' | 'medium' | 'low',
+        page,
+        steps_to_reproduce: steps,
+        browser: navigator.userAgent,
       })
 
-      const result = await response.json()
-
-      if (!response.ok) {
+      if (!result.success) {
         throw new Error(result.error || '버그 리포트 전송에 실패했습니다.')
       }
 

@@ -23,6 +23,7 @@ import {
 import { Label } from '@ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
+import { createSupportTicket } from '@/app/actions/support'
 
 interface InquiryDialogProps {
   open: boolean
@@ -53,21 +54,14 @@ export function InquiryDialog({ open, onOpenChange }: InquiryDialogProps) {
     setIsSubmitting(true)
 
     try {
-      // API로 문의 전송
-      const response = await fetch('/api/support', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ticket_type: 'inquiry',
-          category,
-          subject,
-          message,
-        }),
+      const result = await createSupportTicket({
+        ticket_type: 'inquiry',
+        category,
+        subject,
+        message,
       })
 
-      const result = await response.json()
-
-      if (!response.ok) {
+      if (!result.success) {
         throw new Error(result.error || '문의 접수에 실패했습니다.')
       }
 
