@@ -1,11 +1,10 @@
 /**
  * Kiosk Attendance Server Actions
- * 출석 키오스크 전용 Server Actions (인증 없이 PIN 기반으로 동작)
+ * 출석 키오스크 전용 Server Actions (보호자 전화번호 뒷자리 기반 인증)
  */
 
 'use server'
 
-import bcrypt from 'bcryptjs'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
 
@@ -19,77 +18,83 @@ export interface KioskStudentInfo {
 }
 
 /**
- * PIN으로 학생 조회 및 오늘 출석 상태 반환
- * - tenant 내 kiosk_pin 등록 학생 전체에 bcrypt 병렬 비교
- * - 오늘 날짜 기준 attendance 레코드로 현재 상태 결정
+ * 보호자 전화번호 뒷 4자리로 학생 조회
+ * - 1명 매칭: 바로 출석 확인 화면으로
+ * - 여러 명 매칭(형제자매): 이름 선택 화면으로
+ * - 0명: 에러
  */
-export async function lookupStudentByPin(
+export async function lookupStudentsByPhone(
   tenantId: string,
-  pin: string
-): Promise<{ success: boolean; student?: KioskStudentInfo; error?: string }> {
+  phoneLast4: string
+): Promise<{ success: boolean; students?: KioskStudentInfo[]; error?: string }> {
   try {
     const supabase = createServiceRoleClient()
 
-    // 1. kiosk_pin이 등록된 학생 전체 조회
+    // 1. tenant 내 모든 학생 + primary 보호자 전화번호 조회
     const { data: students, error: studentsError } = await supabase
       .from('students')
-      .select('id, name, grade, kiosk_pin')
+      .select(`
+        id, name, grade,
+        student_guardians(
+          is_primary,
+          guardians(phone)
+        )
+      `)
       .eq('tenant_id', tenantId)
-      .not('kiosk_pin', 'is', null)
       .is('deleted_at', null)
 
     if (studentsError) throw studentsError
-
     if (!students || students.length === 0) {
-      return { success: false, error: 'PIN 등록된 학생이 없습니다.' }
+      return { success: false, error: '등록된 학생이 없습니다.' }
     }
 
-    // 2. bcrypt 병렬 비교
-    const comparisons = await Promise.all(
-      students.map(async (s) => ({
-        student: s,
-        match: await bcrypt.compare(pin, s.kiosk_pin as string),
-      }))
+    // 2. 전화번호 뒷 4자리 매칭 (숫자만 비교)
+    const matched = students.filter((s) => {
+      const guardians = s.student_guardians as unknown as Array<{
+        is_primary: boolean
+        guardians: { phone: string } | null
+      }> | null
+
+      // primary 보호자 우선, 없으면 전체 보호자 검사
+      const phones = (guardians ?? [])
+        .filter((g) => g.guardians?.phone)
+        .map((g) => g.guardians!.phone.replace(/\D/g, ''))
+
+      return phones.some((p) => p.endsWith(phoneLast4))
+    })
+
+    if (matched.length === 0) {
+      return { success: false, error: '일치하는 학생이 없습니다.\n보호자 전화번호를 확인해주세요.' }
+    }
+
+    // 3. 오늘 출석 상태 조회
+    const today = new Date().toISOString().split('T')[0]
+    const matchedIds = matched.map((s) => s.id)
+
+    const { data: attendances } = await supabase
+      .from('attendance')
+      .select('student_id, check_in_at, check_out_at')
+      .eq('tenant_id', tenantId)
+      .in('student_id', matchedIds)
+      .eq('attendance_date', today)
+
+    const attendanceMap = new Map(
+      (attendances ?? []).map((a) => [a.student_id, a])
     )
 
-    const matched = comparisons.find((r) => r.match)
-    if (!matched) {
-      return { success: false, error: 'PIN이 올바르지 않습니다.' }
-    }
-
-    const student = matched.student
-
-    // 3. 오늘 날짜의 attendance 레코드 조회
-    const today = new Date().toISOString().split('T')[0]
-    const { data: attendance } = await supabase
-      .from('attendance')
-      .select('id, check_in_at, check_out_at')
-      .eq('tenant_id', tenantId)
-      .eq('student_id', student.id)
-      .eq('attendance_date', today)
-      .maybeSingle()
-
     // 4. 현재 상태 결정
-    let currentStatus: KioskStudentStatus = 'out'
-    if (attendance) {
-      if (attendance.check_out_at) {
-        currentStatus = 'done'
-      } else if (attendance.check_in_at) {
-        currentStatus = 'in'
-      }
-    }
+    const result: KioskStudentInfo[] = matched.map((s) => {
+      const a = attendanceMap.get(s.id)
+      let currentStatus: KioskStudentStatus = 'out'
+      if (a?.check_out_at) currentStatus = 'done'
+      else if (a?.check_in_at) currentStatus = 'in'
 
-    return {
-      success: true,
-      student: {
-        id: student.id,
-        name: student.name,
-        grade: student.grade,
-        currentStatus,
-      },
-    }
+      return { id: s.id, name: s.name, grade: s.grade, currentStatus }
+    })
+
+    return { success: true, students: result }
   } catch (error) {
-    console.error('lookupStudentByPin error:', error)
+    console.error('lookupStudentsByPhone error:', error)
     return { success: false, error: getErrorMessage(error) }
   }
 }
@@ -103,7 +108,6 @@ async function getOrCreateKioskSession(
   classId: string,
   today: string
 ): Promise<string> {
-  // 기존 세션 조회
   const { data: existing } = await supabase
     .from('attendance_sessions')
     .select('id')
@@ -115,7 +119,6 @@ async function getOrCreateKioskSession(
 
   if (existing) return existing.id
 
-  // 세션 생성
   const sessionDate = new Date(today)
   const startTime = new Date(sessionDate)
   startTime.setHours(9, 0, 0, 0)
@@ -136,7 +139,6 @@ async function getOrCreateKioskSession(
     .single()
 
   if (insertError) {
-    // 동시 요청으로 이미 생성된 경우 재조회
     if (insertError.code === '23505') {
       const { data: retry, error: retryError } = await supabase
         .from('attendance_sessions')
@@ -158,9 +160,6 @@ async function getOrCreateKioskSession(
 
 /**
  * 키오스크 출석 기록 (등원/하원)
- * - 학생의 class_enrollment로 class_id 조회
- * - 미배정 학생은 기본 클래스로 처리
- * - attendance 테이블 upsert: check_in_at 또는 check_out_at 업데이트
  */
 export async function recordKioskAttendance(
   studentId: string,
@@ -215,14 +214,12 @@ export async function recordKioskAttendance(
       }
     }
 
-    if (!classId) {
-      throw new Error('출석 저장용 클래스를 찾을 수 없습니다.')
-    }
+    if (!classId) throw new Error('출석 저장용 클래스를 찾을 수 없습니다.')
 
     // 3. 세션 조회 또는 생성
     const sessionId = await getOrCreateKioskSession(supabase, tenantId, classId, today)
 
-    // 4. attendance upsert (지정한 필드만 업데이트)
+    // 4. attendance upsert
     const baseFields = {
       tenant_id: tenantId,
       session_id: sessionId,
