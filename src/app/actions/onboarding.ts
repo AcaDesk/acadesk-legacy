@@ -308,10 +308,8 @@ export async function completeOwnerOnboarding(
         }
       }
 
-      // Revalidate: 대시보드와 레이아웃 모두
-      revalidatePath('/', 'layout')
-      revalidatePath('/dashboard')
-      revalidatePath('/dashboard', 'page')
+      // Revalidate: 대시보드 레이아웃만 무효화
+      revalidatePath('/dashboard', 'layout')
 
       console.log('[completeOwnerOnboarding] Academy settings updated:', {
         requestId,
@@ -417,10 +415,8 @@ export async function completeOwnerOnboarding(
       tenantId,
     })
 
-    // 8. Revalidate paths (대시보드와 레이아웃 모두)
-    revalidatePath('/', 'layout')
-    revalidatePath('/dashboard')
-    revalidatePath('/dashboard', 'page')
+    // 8. 대시보드 캐시 무효화
+    revalidatePath('/dashboard', 'layout')
 
     console.log('[completeOwnerOnboarding] Owner onboarding completed successfully:', {
       requestId,
