@@ -279,7 +279,23 @@ export function GuardianTableImproved({
     onColumnVisibilityChange: setColumnVisibility,
     onGlobalFilterChange: setGlobalFilter,
     onRowSelectionChange: setRowSelection,
-    globalFilterFn: 'auto',
+    globalFilterFn: (row, _columnId, filterValue: string) => {
+      const guardian = row.original
+      const searchableText = [
+        guardian.users?.name || '',
+        guardian.users?.phone || '',
+        guardian.users?.email || '',
+        ...(guardian.guardian_students || []).flatMap((gs) => {
+          const studentName = gs.students?.users?.name || ''
+          const relation = getGuardianRelationshipLabel(gs.relationship)
+          return [`${studentName} ${relation}`, `${studentName}${relation}`]
+        }),
+      ]
+        .join(' ')
+        .toLowerCase()
+
+      return searchableText.includes(filterValue.toLowerCase())
+    },
     state: {
       sorting,
       columnFilters,
