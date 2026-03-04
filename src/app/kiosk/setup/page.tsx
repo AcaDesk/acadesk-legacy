@@ -3,265 +3,244 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { Settings, Lock, Save, CheckCircle2, ArrowLeft } from 'lucide-react'
+import { MonitorPlay, LogIn, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
-import { Input } from '@ui/input'
-import { Label } from '@ui/label'
-import { useToast } from '@/hooks/use-toast'
+import { createBrowserClient } from '@/lib/supabase/client'
+import { Avatar, AvatarFallback } from '@ui/avatar'
 
-const SETUP_PASSWORD = 'admin1234' // 관리자 비밀번호
+interface TenantInfo {
+  tenantId: string
+  tenantName: string
+  userName: string
+  roleCode: string
+}
+
+const ROLE_LABELS: Record<string, string> = {
+  owner: '원장',
+  instructor: '강사',
+  assistant: '조교',
+  parent: '학부모',
+  student: '학생',
+}
 
 export default function KioskSetupPage() {
-  const [password, setPassword] = useState('')
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [tenantId, setTenantId] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-
   const router = useRouter()
-  const { toast } = useToast()
+  const [status, setStatus] = useState<'loading' | 'ready' | 'no_session' | 'error'>('loading')
+  const [tenantInfo, setTenantInfo] = useState<TenantInfo | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const [savedTenantId, setSavedTenantId] = useState<string | null>(null)
 
-  // 로컬스토리지에서 기존 설정 불러오기
   useEffect(() => {
-    const savedTenantId = localStorage.getItem('kiosk_tenant_id')
-    if (savedTenantId) {
-      setTenantId(savedTenantId)
-    }
-  }, [isAuthenticated])
+    setSavedTenantId(localStorage.getItem('kiosk_tenant_id'))
+    loadSessionInfo()
+  }, [])
 
-  const handlePasswordSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (password === SETUP_PASSWORD) {
-      setIsAuthenticated(true)
-      toast({
-        title: '인증 성공',
-        description: '관리자 권한이 확인되었습니다.',
-      })
-    } else {
-      toast({
-        title: '인증 실패',
-        description: '비밀번호가 올바르지 않습니다.',
-        variant: 'destructive',
-      })
-      setPassword('')
-    }
-  }
-
-  const handleSaveSetup = () => {
-    if (!tenantId.trim()) {
-      toast({
-        title: '입력 오류',
-        description: '테넌트 ID를 입력해주세요.',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    setIsLoading(true)
-
+  async function loadSessionInfo() {
     try {
-      // 로컬스토리지에 저장
-      localStorage.setItem('kiosk_tenant_id', tenantId.trim())
+      const supabase = createBrowserClient()
 
-      toast({
-        title: '설정 저장 완료',
-        description: '키오스크 단말기 설정이 저장되었습니다.',
-      })
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        setStatus('no_session')
+        return
+      }
 
-      // 3초 후 로그인 페이지로 이동
-      setTimeout(() => {
-        router.push('/kiosk/login')
-      }, 2000)
-    } catch (error) {
-      console.error('설정 저장 오류:', error)
-      toast({
-        title: '저장 실패',
-        description: '설정을 저장하는 중 오류가 발생했습니다.',
-        variant: 'destructive',
+      // 사용자 정보 조회
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('tenant_id, role_code, name')
+        .eq('id', session.user.id)
+        .maybeSingle()
+
+      if (userError || !userData?.tenant_id) {
+        setStatus('error')
+        return
+      }
+
+      // 학원 이름 조회
+      const { data: tenantData } = await supabase
+        .from('tenants')
+        .select('name')
+        .eq('id', userData.tenant_id)
+        .maybeSingle()
+
+      setTenantInfo({
+        tenantId: userData.tenant_id,
+        tenantName: tenantData?.name ?? '학원',
+        userName: userData.name ?? '사용자',
+        roleCode: userData.role_code ?? '',
       })
-    } finally {
-      setIsLoading(false)
+      setStatus('ready')
+    } catch {
+      setStatus('error')
     }
   }
 
-  const handleClearSetup = () => {
-    localStorage.removeItem('kiosk_tenant_id')
-    setTenantId('')
-    toast({
-      title: '설정 초기화',
-      description: '키오스크 설정이 초기화되었습니다.',
-    })
+  function handleSetup() {
+    if (!tenantInfo) return
+    setIsSaving(true)
+    localStorage.setItem('kiosk_tenant_id', tenantInfo.tenantId)
+    setTimeout(() => {
+      router.push('/kiosk/attendance')
+    }, 600)
   }
 
-  if (!isAuthenticated) {
+  // ── 로딩 ─────────────────────────────────────────────────────────────────
+  if (status === 'loading') {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary/5 via-background to-primary/10 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex items-center gap-3 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span>세션 확인 중...</span>
+        </div>
+      </div>
+    )
+  }
+
+  // ── 로그인 없음 ──────────────────────────────────────────────────────────
+  if (status === 'no_session') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-primary/10 p-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
           className="w-full max-w-md"
         >
           <Card className="shadow-xl">
-            <CardHeader className="space-y-2 text-center">
-              <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.2, duration: 0.4 }}
-                className="mx-auto mb-2 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10"
-              >
-                <Lock className="h-8 w-8 text-primary" />
-              </motion.div>
-              <CardTitle className="text-2xl">관리자 인증</CardTitle>
+            <CardHeader className="text-center space-y-3">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
+                <MonitorPlay className="h-8 w-8 text-primary" />
+              </div>
+              <CardTitle className="text-2xl">키오스크 설정</CardTitle>
               <CardDescription>
-                키오스크 설정을 변경하려면 비밀번호를 입력하세요
+                설정을 진행하려면 관리자 계정으로 로그인해주세요
               </CardDescription>
             </CardHeader>
-
-            <form onSubmit={handlePasswordSubmit}>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="password">관리자 비밀번호</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="비밀번호를 입력하세요"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    autoFocus
-                  />
-                </div>
-
-                <Button type="submit" className="w-full" size="lg">
-                  <Lock className="h-5 w-5 mr-2" />
-                  인증
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => router.push('/dashboard')}
-                >
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  대시보드로 돌아가기
-                </Button>
-              </CardContent>
-            </form>
+            <CardContent className="space-y-3">
+              <Button
+                size="lg"
+                className="w-full gap-2"
+                onClick={() => router.push('/login?redirectTo=/kiosk/setup')}
+              >
+                <LogIn className="h-5 w-5" />
+                로그인하러 가기
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full"
+                onClick={() => router.push('/kiosk/attendance')}
+              >
+                키오스크로 바로 가기
+              </Button>
+            </CardContent>
           </Card>
         </motion.div>
       </div>
     )
   }
 
+  // ── 에러 ─────────────────────────────────────────────────────────────────
+  if (status === 'error' || !tenantInfo) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="text-center space-y-4">
+          <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
+          <p className="text-muted-foreground">사용자 정보를 불러올 수 없습니다.</p>
+          <Button variant="outline" onClick={loadSessionInfo}>다시 시도</Button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── 메인: 세션 감지 완료 ───────────────────────────────────────────────
+  const isAlreadySet = savedTenantId === tenantInfo.tenantId
+  const roleLabel = ROLE_LABELS[tenantInfo.roleCode] ?? tenantInfo.roleCode
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary/5 via-background to-primary/10 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-primary/10 p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-2xl"
+        className="w-full max-w-md"
       >
         <Card className="shadow-xl">
-          <CardHeader className="space-y-2">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-                <Settings className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <CardTitle className="text-2xl">키오스크 단말기 설정</CardTitle>
-                <CardDescription>
-                  이 단말기가 사용할 학원(테넌트)을 설정하세요
-                </CardDescription>
-              </div>
+          <CardHeader className="text-center space-y-3">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
+              <MonitorPlay className="h-8 w-8 text-primary" />
             </div>
+            <CardTitle className="text-2xl">키오스크 설정</CardTitle>
+            <CardDescription>
+              이 기기에서 사용할 학원을 확인하세요
+            </CardDescription>
           </CardHeader>
 
-          <CardContent className="space-y-6">
-            {/* 테넌트 ID 입력 */}
-            <div className="space-y-2">
-              <Label htmlFor="tenantId">테넌트 ID</Label>
-              <Input
-                id="tenantId"
-                type="text"
-                placeholder="예: cf5ba30f-4081-494f-952f-45a7264a0c5d"
-                value={tenantId}
-                onChange={(e) => setTenantId(e.target.value)}
-                className="font-mono"
-              />
-              <p className="text-xs text-muted-foreground">
-                학원의 고유 테넌트 ID를 입력하세요. 관리 페이지에서 확인할 수 있습니다.
-              </p>
+          <CardContent className="space-y-5">
+            {/* 로그인된 사용자 정보 */}
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+              <Avatar className="h-10 w-10">
+                <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                  {tenantInfo.userName.charAt(0)}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <p className="font-medium text-sm">{tenantInfo.userName}</p>
+                <p className="text-xs text-muted-foreground">{roleLabel}</p>
+              </div>
             </div>
 
-            {/* 현재 설정 상태 */}
-            {tenantId && (
-              <div className="rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-950">
-                <div className="flex items-start gap-3">
-                  <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-green-900 dark:text-green-100">
-                      현재 설정된 테넌트 ID
-                    </p>
-                    <p className="text-xs font-mono text-green-700 dark:text-green-300 mt-1">
-                      {tenantId}
-                    </p>
-                  </div>
+            {/* 감지된 학원 */}
+            <div className="rounded-lg border border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/40 p-4">
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-green-900 dark:text-green-100">
+                    학원 자동 감지 완료
+                  </p>
+                  <p className="text-base font-bold mt-0.5 text-green-800 dark:text-green-200">
+                    {tenantInfo.tenantName}
+                  </p>
+                  <p className="text-xs font-mono text-green-600 dark:text-green-400 mt-1 truncate">
+                    {tenantInfo.tenantId}
+                  </p>
                 </div>
               </div>
-            )}
-
-            {/* 안내 사항 */}
-            <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
-              <p className="text-sm font-medium mb-2">📌 설정 안내</p>
-              <ul className="space-y-1 text-xs text-muted-foreground">
-                <li>• 이 설정은 현재 브라우저에만 저장됩니다</li>
-                <li>• 한 번 설정하면 이 단말기에서 해당 학원의 학생만 로그인할 수 있습니다</li>
-                <li>• 다른 학원으로 변경하려면 다시 이 페이지에 접속하세요</li>
-                <li>• 브라우저 캐시를 지우면 설정이 초기화됩니다</li>
-              </ul>
             </div>
 
-            {/* 버튼 */}
-            <div className="flex gap-3">
-              <Button
-                onClick={handleSaveSetup}
-                disabled={isLoading || !tenantId.trim()}
-                className="flex-1"
-                size="lg"
-              >
-                <Save className="h-5 w-5 mr-2" />
-                {isLoading ? '저장 중...' : '설정 저장'}
-              </Button>
+            {isAlreadySet && (
+              <p className="text-xs text-center text-muted-foreground">
+                이미 이 학원으로 설정되어 있습니다
+              </p>
+            )}
 
+            {/* 액션 버튼 */}
+            <div className="space-y-2">
               <Button
-                onClick={handleClearSetup}
-                variant="outline"
-                disabled={isLoading}
                 size="lg"
+                className="w-full gap-2"
+                onClick={handleSetup}
+                disabled={isSaving}
               >
-                초기화
+                {isSaving ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <MonitorPlay className="h-5 w-5" />
+                )}
+                {isSaving ? '설정 중...' : '이 학원으로 설정'}
               </Button>
-
               <Button
-                onClick={() => router.push('/kiosk/login')}
-                variant="outline"
-                disabled={isLoading}
                 size="lg"
+                variant="outline"
+                className="w-full"
+                onClick={() => router.push('/dashboard')}
+                disabled={isSaving}
               >
-                취소
+                대시보드로 돌아가기
               </Button>
             </div>
           </CardContent>
         </Card>
-
-        {/* 하단 안내 */}
-        <div className="mt-4 text-center">
-          <p className="text-xs text-muted-foreground">
-            설정이 완료되면 자동으로 로그인 페이지로 이동합니다
-          </p>
-        </div>
       </motion.div>
     </div>
   )
