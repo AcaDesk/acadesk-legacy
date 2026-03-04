@@ -19,6 +19,7 @@ import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { BulkMessageDialog } from '@/components/features/notifications/bulk-message-dialog'
 import { ManageTemplatesDialog } from '@/components/features/notifications/manage-templates-dialog'
+import { MessageDetailModal } from '@/components/features/notifications/message-detail-modal'
 import { getMessagingBalance } from '@/app/actions/messaging/config'
 
 const PAGE_SIZE = 50
@@ -64,6 +65,8 @@ export function NotificationsContent({ initialLogs, initialBalance, tenantId }: 
   const [manageTemplatesOpen, setManageTemplatesOpen] = useState(false)
   const [balance, setBalance] = useState<BalanceInfo | null>(initialBalance)
   const [balanceLoading, setBalanceLoading] = useState(false)
+  const [selectedLog, setSelectedLog] = useState<NotificationLog | null>(null)
+  const [detailModalOpen, setDetailModalOpen] = useState(false)
 
   const { toast } = useToast()
   const supabase = createClient()
@@ -466,7 +469,14 @@ export function NotificationsContent({ initialLogs, initialBalance, tenantId }: 
                     </TableHeader>
                     <TableBody>
                       {filteredLogs.map((log) => (
-                        <TableRow key={log.id}>
+                        <TableRow
+                          key={log.id}
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => {
+                            setSelectedLog(log)
+                            setDetailModalOpen(true)
+                          }}
+                        >
                           <TableCell>
                             <div>
                               <div className="font-medium">
@@ -540,6 +550,12 @@ export function NotificationsContent({ initialLogs, initialBalance, tenantId }: 
         <ManageTemplatesDialog
           open={manageTemplatesOpen}
           onOpenChange={setManageTemplatesOpen}
+        />
+
+        <MessageDetailModal
+          log={selectedLog}
+          open={detailModalOpen}
+          onOpenChange={setDetailModalOpen}
         />
       </div>
     </PageWrapper>
