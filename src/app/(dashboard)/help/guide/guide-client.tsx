@@ -620,7 +620,7 @@ export function GuideClient() {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 lg:gap-10">
+    <div className="flex flex-col lg:flex-row gap-6 lg:gap-10 max-w-5xl mx-auto">
       {/* ── Sidebar ── */}
       <div className="w-full lg:w-60 shrink-0 lg:sticky lg:top-0 self-start">
         <div className="flex items-center justify-between mb-4 lg:mb-5">
