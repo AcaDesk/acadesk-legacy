@@ -55,7 +55,6 @@ export function useLogout(options: UseLogoutOptions = {}) {
 
       // 로그인 페이지로 리다이렉트
       router.push('/auth/login')
-      router.refresh()
     } catch (error) {
       console.error('[useLogout] Logout error:', error)
       setIsLoading(false)

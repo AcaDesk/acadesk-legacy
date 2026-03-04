@@ -223,7 +223,7 @@ export async function signIn(input: z.infer<typeof signInSchema>): Promise<{ suc
         error: stageResult.error,
       })
       // 상태 확인 실패해도 대시보드로 보냄
-      revalidatePath('/', 'layout')
+      revalidatePath('/dashboard', 'layout')
       redirect('/dashboard')
     }
 
@@ -242,7 +242,7 @@ export async function signIn(input: z.infer<typeof signInSchema>): Promise<{ suc
     console.log('[signIn] Redirecting to:', { requestId, redirectUrl, stageCode })
 
     // 6. Revalidate and redirect
-    revalidatePath('/', 'layout')
+    revalidatePath('/dashboard', 'layout')
     redirect(redirectUrl)
   } catch (error) {
     // redirect()는 NEXT_REDIRECT 에러를 throw하므로 정상 케이스
@@ -333,7 +333,8 @@ export async function signInWithOAuth(
 /**
  * 로그아웃
  *
- * @returns 성공 여부 및 에러 메시지
+ * 서버에서 세션 종료 후 직접 로그인 페이지로 redirect합니다.
+ * 클라이언트 라우팅 단계를 제거하여 로그아웃 속도를 개선합니다.
  */
 export async function signOut() {
   try {
@@ -345,24 +346,20 @@ export async function signOut() {
 
     if (error) {
       console.error('Sign out error:', error)
-      return {
-        success: false,
-        error: getAuthErrorMessage(error),
-      }
+      // 에러가 발생해도 로그인 페이지로 이동 (세션이 이미 만료되었을 수 있음)
     }
 
-    // 3. Revalidate and redirect
-    revalidatePath('/', 'layout')
-
-    return {
-      success: true,
-    }
+    // 3. 대시보드 캐시만 무효화 후 리다이렉트
+    revalidatePath('/dashboard', 'layout')
+    redirect('/auth/login')
   } catch (error) {
-    console.error('Sign out error:', error)
-    return {
-      success: false,
-      error: getErrorMessage(error),
+    // redirect()는 NEXT_REDIRECT 에러를 throw하므로 정상 케이스
+    if (error && typeof error === 'object' && 'digest' in error && String(error.digest).startsWith('NEXT_REDIRECT')) {
+      throw error
     }
+
+    console.error('Sign out error:', error)
+    redirect('/auth/login')
   }
 }
 
@@ -674,8 +671,8 @@ export async function handleAuthCallback(code: string, type: string = 'signup'):
       hasNextUrl: !!nextUrl,
     })
 
-    // 7. Revalidate layout
-    revalidatePath('/', 'layout')
+    // 7. 대시보드 캐시 무효화
+    revalidatePath('/dashboard', 'layout')
 
     // 8. 온보딩 상태에 따라 리다이렉트
     if (nextUrl) {
@@ -787,8 +784,8 @@ export async function postAuthSetup(): Promise<never> {
       hasNextUrl: !!nextUrl,
     })
 
-    // 5. 캐시 무효화
-    revalidatePath('/', 'layout')
+    // 5. 대시보드 캐시 무효화
+    revalidatePath('/dashboard', 'layout')
 
     // 6. 서버에서 직접 리다이렉트 (쿠키-리다이렉트 타이밍 레이스 방지)
     const redirectUrl =
