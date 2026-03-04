@@ -15,7 +15,7 @@ import {
   DialogTitle,
 } from '@ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { Trophy, CheckCircle, Clock, AlertCircle, PartyPopper, LogOut, Loader2, Calendar, FileText } from 'lucide-react'
+import { Trophy, CheckCircle, Clock, AlertCircle, PartyPopper, LogOut, Loader2, Calendar, FileText, LayoutDashboard } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
@@ -384,9 +384,18 @@ export default function KioskPage() {
                   </div>
                 </div>
 
-                {/* 동기화 뱃지 + 로그아웃 버튼 */}
+                {/* 동기화 뱃지 + 버튼 영역 */}
                 <div className="flex items-center gap-2">
                   <PendingSyncBadge tenantId={tenantId ?? undefined} />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push('/dashboard')}
+                    className="gap-2"
+                  >
+                    <LayoutDashboard className="h-4 w-4" />
+                    대시보드
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
