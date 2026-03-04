@@ -89,14 +89,7 @@ export function GuardianTableImproved({
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
 
   const selectedIds = React.useMemo(() => {
-    return Object.keys(rowSelection)
-      .filter((key) => rowSelection[key])
-      .map((key) => {
-        const row = table.getRowModel().rows.find((r) => r.id === key)
-        return row?.original.id
-      })
-      .filter((id): id is string => Boolean(id))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return Object.keys(rowSelection).filter((key) => rowSelection[key])
   }, [rowSelection])
 
   const columns: ColumnDef<Guardian>[] = [
@@ -270,6 +263,7 @@ export function GuardianTableImproved({
   const table = useReactTable({
     data,
     columns,
+    getRowId: (row) => row.id,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
