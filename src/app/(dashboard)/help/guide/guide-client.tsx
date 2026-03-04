@@ -620,7 +620,12 @@ export function GuideClient() {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 lg:gap-10 max-w-5xl mx-auto">
+    <div className="max-w-5xl mx-auto">
+      <div className="space-y-1 mb-6">
+        <h1 className="text-3xl font-bold tracking-tight">사용 가이드</h1>
+        <p className="text-muted-foreground">Acadesk의 주요 기능 사용법을 안내합니다</p>
+      </div>
+    <div className="flex flex-col lg:flex-row gap-6 lg:gap-10">
       {/* ── Sidebar ── */}
       <div className="w-full lg:w-60 shrink-0 lg:sticky lg:top-0 self-start">
         <div className="flex items-center justify-between mb-4 lg:mb-5">
@@ -737,6 +742,7 @@ export function GuideClient() {
           ) : null}
         </div>
       </div>
+    </div>
     </div>
   )
 }
