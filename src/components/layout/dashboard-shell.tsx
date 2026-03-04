@@ -68,16 +68,18 @@ const SidebarContent = memo(function SidebarContent({
     <div className="flex h-full flex-col">
       {/* 로고 */}
       <div className="flex h-16 items-center border-b px-6">
-        <motion.div
-          animate={{
-            opacity: isCollapsed ? 0 : 1,
-            x: isCollapsed ? -20 : 0
-          }}
-          transition={{ duration: 0.2, ease: "easeOut" }}
-          className="whitespace-nowrap"
-        >
-          <h1 className="text-xl font-bold">Acadesk</h1>
-        </motion.div>
+        <Link href="/dashboard" onClick={onNavigate}>
+          <motion.div
+            animate={{
+              opacity: isCollapsed ? 0 : 1,
+              x: isCollapsed ? -20 : 0
+            }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="whitespace-nowrap"
+          >
+            <h1 className="text-xl font-bold hover:text-primary transition-colors">Acadesk</h1>
+          </motion.div>
+        </Link>
       </div>
 
       {/* 네비게이션 */}
@@ -87,7 +89,7 @@ const SidebarContent = memo(function SidebarContent({
 
       {/* 하단 액션 */}
       <div className={cn("border-t p-2 shrink-0", isCollapsed ? "px-2" : "px-3")}>
-        <Link href="/kiosk" onClick={onNavigate}>
+        <Link href="/kiosk/attendance" onClick={onNavigate}>
           <div
             className={cn(
               "flex items-center gap-3 rounded-lg py-2 text-sm font-medium transition-all duration-200",
