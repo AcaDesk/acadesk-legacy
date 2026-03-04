@@ -57,6 +57,10 @@ const serverEnvSchema = z.object({
   ALIGO_API_KEY: z.string().optional(),
   ALIGO_USER_ID: z.string().optional(),
   ALIGO_SENDER_PHONE: z.string().optional(),
+
+  // Resend (이메일)
+  RESEND_API_KEY: z.string().optional(),
+  SUPPORT_NOTIFY_EMAIL: z.string().email().optional(),
 })
 
 /**

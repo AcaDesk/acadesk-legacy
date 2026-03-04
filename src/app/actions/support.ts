@@ -8,6 +8,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { Resend } from 'resend'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
@@ -30,6 +31,64 @@ const createTicketSchema = z.object({
 })
 
 // ============================================================================
+// Email notification
+// ============================================================================
+
+const typeLabels: Record<string, string> = {
+  inquiry: '문의',
+  bug_report: '버그 제보',
+  feedback: '피드백',
+}
+
+const severityLabels: Record<string, string> = {
+  critical: '심각',
+  high: '높음',
+  medium: '보통',
+  low: '낮음',
+}
+
+async function sendTicketNotification(
+  ticket: z.infer<typeof createTicketSchema>,
+  userEmail: string,
+  userName: string,
+) {
+  const apiKey = process.env.RESEND_API_KEY
+  const notifyEmail = process.env.SUPPORT_NOTIFY_EMAIL
+  if (!apiKey || !notifyEmail) return
+
+  const resend = new Resend(apiKey)
+  const typeLabel = typeLabels[ticket.ticket_type] || ticket.ticket_type
+
+  const details = [
+    `유형: ${typeLabel}`,
+    ticket.category ? `카테고리: ${ticket.category}` : null,
+    ticket.severity ? `심각도: ${severityLabels[ticket.severity] || ticket.severity}` : null,
+    ticket.page ? `발생 페이지: ${ticket.page}` : null,
+    `제출자: ${userName} (${userEmail})`,
+    '',
+    `제목: ${ticket.subject}`,
+    '',
+    ticket.message,
+    ticket.steps_to_reproduce ? `\n재현 방법:\n${ticket.steps_to_reproduce}` : null,
+    ticket.browser ? `\n브라우저: ${ticket.browser}` : null,
+  ]
+    .filter(Boolean)
+    .join('\n')
+
+  try {
+    await resend.emails.send({
+      from: 'Acadesk <noreply@acadesk.kr>',
+      to: notifyEmail,
+      subject: `[${typeLabel}] ${ticket.subject}`,
+      text: details,
+    })
+  } catch (err) {
+    // 이메일 실패해도 티켓 생성은 성공으로 처리
+    console.error('Support notification email failed:', err)
+  }
+}
+
+// ============================================================================
 // Actions
 // ============================================================================
 
@@ -40,7 +99,7 @@ export async function createSupportTicket(
   data: z.infer<typeof createTicketSchema>
 ) {
   try {
-    const { tenantId, userId } = await verifyStaff()
+    const { tenantId, userId, email, name } = await verifyStaff()
     const validated = createTicketSchema.parse(data)
     const supabase = createServiceRoleClient()
 
@@ -62,6 +121,9 @@ export async function createSupportTicket(
       .single()
 
     if (error) throw error
+
+    // 이메일 알림 (비동기, 실패해도 무시)
+    sendTicketNotification(validated, email ?? '', name ?? '')
 
     revalidatePath('/help/inquiries')
 
