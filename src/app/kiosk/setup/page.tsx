@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { Settings, Lock, Save, CheckCircle2 } from 'lucide-react'
+import { Settings, Lock, Save, CheckCircle2, ArrowLeft } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
@@ -142,9 +142,10 @@ export default function KioskSetupPage() {
                   type="button"
                   variant="outline"
                   className="w-full"
-                  onClick={() => router.push('/kiosk/login')}
+                  onClick={() => router.push('/dashboard')}
                 >
-                  취소
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  대시보드로 돌아가기
                 </Button>
               </CardContent>
             </form>
