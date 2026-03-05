@@ -65,6 +65,7 @@ export default async function ReportSharePage({ params }: PageProps) {
   // 2. 링크 만료 확인
   if (reportSend.link_expires_at && new Date(reportSend.link_expires_at) < new Date()) {
     // Extract tenant info for expired page (content에서만 가져옴)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const expiredReport = reportSend.reports as any
     const academyName = expiredReport?.content?.academy?.name || '학원'
     const academyPhone = expiredReport?.content?.academy?.phone

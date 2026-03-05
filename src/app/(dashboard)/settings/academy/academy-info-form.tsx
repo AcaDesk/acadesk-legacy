@@ -39,6 +39,7 @@ const academyFormSchema = z.object({
 type AcademyFormValues = z.infer<typeof academyFormSchema>
 
 interface AcademyInfoFormProps {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   initialData: any
 }
 

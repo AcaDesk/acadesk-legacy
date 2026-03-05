@@ -42,7 +42,7 @@ export interface UserWithTenant {
     name: string
     slug: string
     timezone: string
-    settings: Record<string, any>
+    settings: Record<string, unknown>
   }
 }
 

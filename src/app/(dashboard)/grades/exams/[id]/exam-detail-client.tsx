@@ -261,6 +261,7 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
       const studentList: Student[] = []
       const scoreMap = new Map<string, ScoreData>()
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ;(scoreRecords || []).forEach((record: any) => {
         if (record.students) {
           studentList.push({

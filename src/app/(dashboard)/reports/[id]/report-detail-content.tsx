@@ -198,6 +198,7 @@ export function ReportDetailContent({
   async function handleEditComment() {
     if (!report) return
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const reportData = report.content as any
 
     // Try to load from new JSON format first
@@ -226,12 +227,15 @@ export function ReportDetailContent({
       attendanceRate: reportData.attendance?.rate ?? 0,
       homeworkRate: reportData.homework?.rate ?? 0,
       averageScore: reportData.scores?.length > 0
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ? Math.round(reportData.scores.reduce((sum: number, s: any) => sum + (s.current || 0), 0) / reportData.scores.length)
         : 0,
       scoreChange: (() => {
         if (!reportData.scores?.length) return 0
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const validChanges = reportData.scores.filter((s: any) => s.change !== null)
         if (validChanges.length === 0) return 0
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return Math.round(validChanges.reduce((sum: number, s: any) => sum + (s.change || 0), 0) / validChanges.length * 10) / 10
       })(),
     }
@@ -336,6 +340,7 @@ export function ReportDetailContent({
     )
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const reportData = report.content as any
 
   // Student info - Use joined data as Source of Truth

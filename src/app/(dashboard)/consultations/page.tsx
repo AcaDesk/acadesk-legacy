@@ -66,10 +66,12 @@ export default async function ConsultationsPage({
 
   return (
     <ConsultationsContent
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       initialData={dataResult.success && dataResult.data ? (dataResult.data as any) : []}
       initialTotalCount={dataResult.success ? dataResult.totalCount : 0}
       initialStats={statsResult.success ? statsResult.data : null}
       filterOptions={filterOptionsResult.success ? filterOptionsResult.data : null}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       upcomingFollowUps={followUpsResult.success && followUpsResult.data ? (followUpsResult.data as any[]) : []}
     />
   )

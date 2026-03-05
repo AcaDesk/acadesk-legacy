@@ -113,7 +113,7 @@ export function detectBotFromRequest(request: Request): BotDetectionResult {
  * @param result - 봇 감지 결과
  * @param context - 추가 컨텍스트 (예: 라우트 이름, 요청 ID)
  */
-export function logBotDetection(result: BotDetectionResult, context?: Record<string, any>): void {
+export function logBotDetection(result: BotDetectionResult, context?: Record<string, unknown>): void {
   if (result.isBot) {
     console.warn('[BotDetection] Bot/Scanner detected:', {
       ...context,

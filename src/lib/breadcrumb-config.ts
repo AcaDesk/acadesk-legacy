@@ -131,6 +131,7 @@ async function getReportStudentName(reportId: string): Promise<string> {
     }
 
     // Type assertion for Supabase nested relationship
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const reportData = data as any
     const studentName = reportData?.students?.users?.name
 

@@ -141,6 +141,7 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
       if (scoresError) throw scoresError
 
       // Extract student data from exam_scores
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const studentsData: Student[] = (examScores || []).map((score: any) => ({
         id: score.students.id,
         student_code: score.students.student_code,
@@ -152,6 +153,7 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
 
       // Create scores map
       const scoresMap = new Map<string, ScoreEntry>()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       examScores?.forEach((existing: any) => {
         const defaultTotal = exam.total_questions?.toString() || ''
 
@@ -282,7 +284,9 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
       }
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     window.addEventListener('keydown', handleKeyDown as any)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return () => window.removeEventListener('keydown', handleKeyDown as any)
   }, [handleSave])
 

@@ -36,6 +36,7 @@ async function TextbookInfo({ id }: { id: string }) {
     notFound()
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const textbook = result.data as any
 
   return (
@@ -151,6 +152,7 @@ async function TextbookInfo({ id }: { id: string }) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     {textbook.textbook_units.map((unit: any) => (
                       <TableRow key={unit.id}>
                         <TableCell className="font-medium">

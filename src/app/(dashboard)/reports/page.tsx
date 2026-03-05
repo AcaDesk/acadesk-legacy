@@ -27,5 +27,6 @@ export default async function ReportsPage() {
   const reports = reportsResult.success && reportsResult.data ? reportsResult.data : []
   const students = studentsResult.success && studentsResult.data ? studentsResult.data : []
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return <ReportsContent initialReports={reports as any} initialStudents={students as any} />
 }

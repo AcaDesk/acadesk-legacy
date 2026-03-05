@@ -127,11 +127,11 @@ export async function sendAligoSMS({
         error: result.message || '알리고 SMS 발송 실패',
       }
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error('[sendAligoSMS] Error:', error)
     return {
       success: false,
-      error: error.message || 'SMS 발송 중 오류가 발생했습니다.',
+      error: error instanceof Error ? error.message : 'SMS 발송 중 오류가 발생했습니다.',
     }
   }
 }
@@ -196,11 +196,11 @@ export async function getAligoBalance(): Promise<{
         error: result.message,
       }
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error('[getAligoBalance] Error:', error)
     return {
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : '잔액 조회 중 오류가 발생했습니다.',
     }
   }
 }

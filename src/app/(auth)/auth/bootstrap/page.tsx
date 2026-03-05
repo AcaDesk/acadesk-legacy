@@ -101,7 +101,7 @@ export default function BootstrapPage() {
           return
         }
 
-        const stage = stageResult.data as any
+        const stage = stageResult.data as { stage?: { next_url?: string; code?: string } }
         const nextUrl = stage.stage?.next_url
         const stageCode = stage.stage?.code
 
