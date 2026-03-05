@@ -36,8 +36,9 @@ export async function lookupStudentsByPhone(
       .select(`
         id, name, grade,
         student_guardians(
-          is_primary,
-          guardians(phone)
+          guardians(
+            users(phone)
+          )
         )
       `)
       .eq('tenant_id', tenantId)
@@ -51,14 +52,12 @@ export async function lookupStudentsByPhone(
     // 2. 전화번호 뒷 4자리 매칭 (숫자만 비교)
     const matched = students.filter((s) => {
       const guardians = s.student_guardians as unknown as Array<{
-        is_primary: boolean
-        guardians: { phone: string } | null
+        guardians: { users: { phone: string } | null } | null
       }> | null
 
-      // primary 보호자 우선, 없으면 전체 보호자 검사
       const phones = (guardians ?? [])
-        .filter((g) => g.guardians?.phone)
-        .map((g) => g.guardians!.phone.replace(/\D/g, ''))
+        .filter((g) => g.guardians?.users?.phone)
+        .map((g) => g.guardians!.users!.phone.replace(/\D/g, ''))
 
       return phones.some((p) => p.endsWith(phoneLast4))
     })

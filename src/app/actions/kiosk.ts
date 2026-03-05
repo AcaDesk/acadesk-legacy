@@ -306,7 +306,7 @@ export async function authenticateKioskByNameAndPhone(
         student_guardians!inner(
           is_primary,
           guardians!inner(
-            phone
+            users(phone)
           )
         )
       `)
@@ -327,8 +327,8 @@ export async function authenticateKioskByNameAndPhone(
     }
 
     // Primary 보호자 전화번호 가져오기
-    const typedGuardians = student.student_guardians as unknown as Array<{ is_primary: boolean; guardians: { phone: string } | null }> | null
-    const guardianPhone = typedGuardians?.[0]?.guardians?.phone
+    const typedGuardians = student.student_guardians as unknown as Array<{ is_primary: boolean; guardians: { users: { phone: string } | null } | null }> | null
+    const guardianPhone = typedGuardians?.[0]?.guardians?.users?.phone
 
     if (!guardianPhone) {
       // 보호자 전화번호가 없으면 기본 PIN 1234 사용
