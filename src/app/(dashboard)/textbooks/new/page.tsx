@@ -34,6 +34,7 @@ export default function NewTextbookPage() {
   const [publisher, setPublisher] = useState('')
   const [isbn, setIsbn] = useState('')
   const [totalCopies, setTotalCopies] = useState('1')
+  const [managementCode, setManagementCode] = useState('')
   const [price, setPrice] = useState('')
   const [isActive, setIsActive] = useState(true)
 
@@ -92,6 +93,7 @@ export default function NewTextbookPage() {
         title: title.trim(),
         publisher: publisher.trim() || undefined,
         isbn: isbn.trim() || undefined,
+        managementCode: managementCode.trim() || undefined,
         totalCopies:
           Number.isInteger(parsedTotalCopies) && parsedTotalCopies > 0
             ? parsedTotalCopies
@@ -191,6 +193,17 @@ export default function NewTextbookPage() {
                   placeholder="예: 978-89-12345-67-8"
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="managementCode">관리번호</Label>
+              <Input
+                id="managementCode"
+                value={managementCode}
+                onChange={(e) => setManagementCode(e.target.value)}
+                placeholder="예: 수학-01, T-001"
+                maxLength={100}
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
