@@ -22,6 +22,7 @@ function makeChainable(resolveWith: unknown) {
         if (prop === 'then') return promise.then.bind(promise)
         if (prop === 'catch') return promise.catch.bind(promise)
         if (prop === 'finally') return promise.finally.bind(promise)
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         return (..._args: unknown[]) => createProxy()
       },
     })
@@ -38,6 +39,7 @@ const TENANT_ID = 'tenant-uuid-001'
 const STUDENT_ID = 'student-uuid-001'
 const CLASS_ID = 'class-uuid-001'
 const SESSION_ID = 'session-uuid-001'
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const TODAY = '2026-03-04'
 
 /** 정상 보호자 연결 학생 (하이픈 형식) */
@@ -45,7 +47,7 @@ const studentHyphenPhone = {
   id: STUDENT_ID,
   name: '홍길동',
   grade: '중2',
-  student_guardians: [{ is_primary: true, guardians: { phone: '010-1234-5678' } }],
+  student_guardians: [{ guardians: { users: { phone: '010-1234-5678' } } }],
 }
 
 /** 정상 보호자 연결 학생 (하이픈 없는 형식) */
@@ -53,7 +55,7 @@ const studentRawPhone = {
   id: 'student-uuid-002',
   name: '김철수',
   grade: '중1',
-  student_guardians: [{ is_primary: true, guardians: { phone: '01012345678' } }],
+  student_guardians: [{ guardians: { users: { phone: '01012345678' } } }],
 }
 
 /** 보호자 미등록 학생 */
@@ -69,7 +71,7 @@ const studentNoPhone = {
   id: 'student-uuid-004',
   name: '박민준',
   grade: '초6',
-  student_guardians: [{ is_primary: true, guardians: { phone: null } }],
+  student_guardians: [{ guardians: { users: { phone: null } } }],
 }
 
 /** 형제: 같은 전화번호 */
@@ -77,7 +79,7 @@ const sibling = {
   id: 'student-uuid-005',
   name: '홍길순',
   grade: '초6',
-  student_guardians: [{ is_primary: true, guardians: { phone: '010-1234-5678' } }],
+  student_guardians: [{ guardians: { users: { phone: '010-1234-5678' } } }],
 }
 
 // ─── lookupStudentsByPhone ────────────────────────────────────────────────────
