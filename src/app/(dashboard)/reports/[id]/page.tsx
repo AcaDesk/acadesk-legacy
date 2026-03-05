@@ -129,6 +129,7 @@ export default async function ReportDetailPage({
 
   return (
     <ReportDetailContent
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       initialReport={report as any}
       initialReportSends={reportSends}
       initialReportReads={reportReads}

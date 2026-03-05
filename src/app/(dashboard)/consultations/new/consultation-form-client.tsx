@@ -125,7 +125,7 @@ export function ConsultationFormClient({
         ? new Date(consultation.consultation_date)
         : undefined,
       consultationTime: initialTime,
-      consultationType: (consultation?.consultation_type as any) || 'in_person',
+      consultationType: (consultation?.consultation_type as 'parent_meeting' | 'phone_call' | 'video_call' | 'in_person') || 'in_person',
       durationMinutes: consultation?.duration_minutes || undefined,
       title: consultation?.title || '',
       summary: consultation?.summary || '',

@@ -46,6 +46,7 @@ export default async function GuardianDetailPage({ params }: GuardianDetailPageP
 
   // Type-safe transformation
   // TODO(any): Supabase nested query types need proper typing
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rawUsers = result.data.users as any
   const usersData = Array.isArray(rawUsers) ? rawUsers[0] : rawUsers
 
@@ -61,6 +62,7 @@ export default async function GuardianDetailPage({ params }: GuardianDetailPageP
           phone: usersData.phone as string | null,
         }
       : null,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     student_guardians: ((result.data.student_guardians || []) as any[]).map((sg) => ({
       is_primary: sg.is_primary || false,
       students: sg.students

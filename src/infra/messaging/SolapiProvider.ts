@@ -241,6 +241,7 @@ export class SolapiProvider implements IMessageProvider {
       }
 
       // SDK getMessages 메서드 사용
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const params: any = {}
 
       if (filters?.limit) params.limit = filters.limit
@@ -286,6 +287,7 @@ export class SolapiProvider implements IMessageProvider {
       }
 
       // SDK getStatistics 메서드 사용
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const params: any = {}
 
       if (startDate) params.startDate = startDate
@@ -369,6 +371,7 @@ export class SolapiProvider implements IMessageProvider {
       }
 
       const categories = await this.messageService.getKakaoChannelCategories()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return categories.map((cat: any) => ({
         code: cat.code,
         name: cat.name,
@@ -426,6 +429,7 @@ export class SolapiProvider implements IMessageProvider {
       }
 
       const response = await this.messageService.getKakaoChannels()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return (response.channelList || []).map((ch: any) => ({
         channelId: ch.channelId,
         searchId: ch.searchId,
@@ -478,6 +482,7 @@ export class SolapiProvider implements IMessageProvider {
       }
 
       const categories = await this.messageService.getKakaoAlimtalkTemplateCategories()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return categories.map((cat: any) => ({
         code: cat.code,
         name: cat.name,
@@ -504,6 +509,7 @@ export class SolapiProvider implements IMessageProvider {
       }
 
       // Cast to any to avoid SDK type mismatch (discriminated union types)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const templateRequest: any = {
         channelId: data.channelId,
         name: data.name,
@@ -554,6 +560,7 @@ export class SolapiProvider implements IMessageProvider {
         return []
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const params: any = { channelId }
       if (filters?.status) params.status = filters.status.toUpperCase()
       if (filters?.name) params.name = filters.name
@@ -561,6 +568,7 @@ export class SolapiProvider implements IMessageProvider {
       const result = await this.messageService.getKakaoAlimtalkTemplates(params)
       const templates = result.templateList || []
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return templates.map((tpl: any) => ({
         solapiTemplateId: tpl.templateId,
         name: tpl.name,
@@ -647,6 +655,7 @@ export class SolapiProvider implements IMessageProvider {
         return { status: 'inspecting' }
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const updateData: any = {}
       if (data.name) updateData.name = data.name
       if (data.content) updateData.content = data.content
@@ -709,6 +718,7 @@ export class SolapiProvider implements IMessageProvider {
       }
 
       // 알림톡 메시지 객체 구성
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const messageObject: any = {
         to: this.sanitizePhoneNumber(request.to),
         from: this.sanitizePhoneNumber(request.senderPhone || this.config.senderPhone),
@@ -754,6 +764,7 @@ export class SolapiProvider implements IMessageProvider {
       return {
         success: false,
         error: error instanceof Error ? error.message : '알림톡 발송 실패',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         errorCode: (error as any)?.code,
       }
     }

@@ -177,6 +177,7 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
   async function handleSave() {
     setSaving(true)
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let payload: any = { provider: formData.provider }
 
       if (formData.provider === 'aligo') {

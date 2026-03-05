@@ -45,6 +45,7 @@ export default async function EditConsultationPage({
       students={students || []}
       schools={SCHOOLS}
       mode="edit"
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       consultation={result.data as any}
     />
   )

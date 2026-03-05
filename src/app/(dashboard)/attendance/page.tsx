@@ -43,7 +43,7 @@ export default async function AttendancePage() {
   const initialClasses = classesResult.success && classesResult.data ? classesResult.data : []
 
   // 로스터에서 studentIds 추출 후 오늘 출석기록 조회
-  const studentIds = [...new Set(initialRoster.map((e: any) => e.student_id))]
+  const studentIds = [...new Set(initialRoster.map((e: { student_id: string }) => e.student_id))]
   const recordsResult = studentIds.length > 0
     ? await getAttendanceRecordsByDate({ date: today, studentIds })
     : { success: true as const, data: { attendances: [] } }

@@ -75,7 +75,7 @@ export async function verifyPermission(): Promise<UserContext> {
   if (userError) {
     console.error('[verifyPermission] Error fetching user data:', {
       userId: user.id,
-      code: (userError as any)?.code,
+      code: (userError as { code?: string })?.code,
       message: userError.message,
     })
     throw new Error('사용자 정보를 가져오는 중 오류가 발생했습니다.')
