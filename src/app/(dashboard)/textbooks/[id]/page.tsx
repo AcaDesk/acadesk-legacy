@@ -39,30 +39,30 @@ async function TextbookInfo({ id }: { id: string }) {
   const textbook = result.data as any
 
   return (
-    <div className="p-6 lg:p-8 space-y-6">
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-4">
-          <Button asChild variant="ghost" size="icon">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start gap-3 sm:gap-4">
+          <Button asChild variant="ghost" size="icon" className="shrink-0">
             <Link href="/textbooks">
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold tracking-tight">{textbook.title}</h1>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight break-words">{textbook.title}</h1>
               {textbook.is_active ? (
                 <Badge>활성</Badge>
               ) : (
                 <Badge variant="secondary">비활성</Badge>
               )}
             </div>
-            <p className="mt-2 text-muted-foreground">
+            <p className="mt-1 sm:mt-2 text-sm sm:text-base text-muted-foreground">
               {textbook.publisher && `${textbook.publisher} | `}
               {textbook.isbn && `ISBN: ${textbook.isbn}`}
             </p>
           </div>
         </div>
-        <Button asChild variant="outline">
+        <Button asChild variant="outline" className="self-end sm:self-auto shrink-0">
           <Link href={`/textbooks/${id}/edit`}>
             <Edit className="mr-2 h-4 w-4" />
             수정
@@ -70,13 +70,13 @@ async function TextbookInfo({ id }: { id: string }) {
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-3">
             <CardDescription>보유 권수</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-xl sm:text-2xl font-bold">
               {textbook.total_copies || 1}권
             </div>
           </CardContent>
@@ -87,7 +87,7 @@ async function TextbookInfo({ id }: { id: string }) {
             <CardDescription>가격</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-xl sm:text-2xl font-bold">
               {textbook.price
                 ? `${textbook.price.toLocaleString()}원`
                 : '미정'}
@@ -100,7 +100,7 @@ async function TextbookInfo({ id }: { id: string }) {
             <CardDescription>단원 수</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-xl sm:text-2xl font-bold">
               {textbook.textbook_units?.length || 0}개
             </div>
           </CardContent>
@@ -111,7 +111,7 @@ async function TextbookInfo({ id }: { id: string }) {
             <CardDescription>등록일</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-xl sm:text-2xl font-bold">
               {new Date(textbook.created_at).toLocaleDateString('ko-KR', {
                 year: 'numeric',
                 month: 'long',
@@ -138,14 +138,14 @@ async function TextbookInfo({ id }: { id: string }) {
                   총 {textbook.textbook_units.length}개의 단원
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-20">순서</TableHead>
-                      <TableHead className="w-32">단원 코드</TableHead>
+                      <TableHead className="w-16 sm:w-20">순서</TableHead>
+                      <TableHead className="w-24 sm:w-32">단원 코드</TableHead>
                       <TableHead>단원명</TableHead>
-                      <TableHead className="w-32 text-right">
+                      <TableHead className="w-24 sm:w-32 text-right">
                         페이지 수
                       </TableHead>
                     </TableRow>

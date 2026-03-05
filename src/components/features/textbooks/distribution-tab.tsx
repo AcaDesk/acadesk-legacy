@@ -148,14 +148,14 @@ export function DistributionTab({ textbookId }: { textbookId: string }) {
     return (
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle>배부 현황</CardTitle>
               <CardDescription>
                 이 교재를 배부받은 학생 목록
               </CardDescription>
             </div>
-            <Button>
+            <Button className="self-start sm:self-auto">
               <UserPlus className="mr-2 h-4 w-4" />
               학생에게 배부
             </Button>
@@ -173,99 +173,168 @@ export function DistributionTab({ textbookId }: { textbookId: string }) {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle>배부 현황</CardTitle>
             <CardDescription>
               총 {distributions.length}명의 학생에게 배부
             </CardDescription>
           </div>
-          <Button>
+          <Button className="self-start sm:self-auto">
             <UserPlus className="mr-2 h-4 w-4" />
             학생에게 배부
           </Button>
         </div>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>학생</TableHead>
-              <TableHead>학년/반</TableHead>
-              <TableHead>배부일</TableHead>
-              <TableHead>결제</TableHead>
-              <TableHead>상태</TableHead>
-              <TableHead>비고</TableHead>
-              <TableHead className="text-right">작업</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {distributions.map((dist) => (
-              <TableRow key={dist.id}>
-                <TableCell className="font-medium">
+        {/* Desktop: Table View */}
+        <div className="hidden md:block overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>학생</TableHead>
+                <TableHead>학년/반</TableHead>
+                <TableHead>배부일</TableHead>
+                <TableHead>결제</TableHead>
+                <TableHead>상태</TableHead>
+                <TableHead>비고</TableHead>
+                <TableHead className="text-right">작업</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {distributions.map((dist) => (
+                <TableRow key={dist.id}>
+                  <TableCell className="font-medium">
+                    {dist.students ? (
+                      <Link
+                        href={`/students/${dist.students.id}`}
+                        className="hover:underline inline-flex items-center gap-1"
+                      >
+                        {dist.students.name}
+                        <ExternalLink className="h-3 w-3" />
+                      </Link>
+                    ) : (
+                      '-'
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {dist.students?.grade || '-'}
+                  </TableCell>
+                  <TableCell>
+                    {new Date(dist.issue_date).toLocaleDateString('ko-KR')}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`paid-${dist.id}`}
+                        checked={dist.paid}
+                        onCheckedChange={() => togglePaid(dist.id, dist.paid)}
+                        disabled={updating === dist.id}
+                      />
+                      <label
+                        htmlFor={`paid-${dist.id}`}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                      >
+                        {dist.paid ? '완료' : '미완료'}
+                      </label>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <select
+                      value={dist.status}
+                      onChange={(e) =>
+                        changeStatus(
+                          dist.id,
+                          e.target.value as 'in_use' | 'completed' | 'returned'
+                        )
+                      }
+                      disabled={updating === dist.id}
+                      className="text-sm border rounded px-2 py-1"
+                    >
+                      <option value="in_use">사용 중</option>
+                      <option value="completed">완료</option>
+                      <option value="returned">반납</option>
+                    </select>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {dist.notes || '-'}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="sm">
+                      수정
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Mobile: Card View */}
+        <div className="space-y-3 md:hidden">
+          {distributions.map((dist) => (
+            <div key={dist.id} className="rounded-lg border p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
                   {dist.students ? (
                     <Link
                       href={`/students/${dist.students.id}`}
-                      className="hover:underline inline-flex items-center gap-1"
+                      className="font-medium hover:underline inline-flex items-center gap-1"
                     >
                       {dist.students.name}
                       <ExternalLink className="h-3 w-3" />
                     </Link>
                   ) : (
-                    '-'
+                    <span className="text-muted-foreground">-</span>
                   )}
-                </TableCell>
-                <TableCell>
-                  {dist.students?.grade || '-'}
-                </TableCell>
-                <TableCell>
+                  {dist.students?.grade && (
+                    <span className="ml-2 text-sm text-muted-foreground">{dist.students.grade}</span>
+                  )}
+                </div>
+                <Button variant="ghost" size="sm">
+                  수정
+                </Button>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+                <span className="text-muted-foreground">
                   {new Date(dist.issue_date).toLocaleDateString('ko-KR')}
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`paid-${dist.id}`}
-                      checked={dist.paid}
-                      onCheckedChange={() => togglePaid(dist.id, dist.paid)}
-                      disabled={updating === dist.id}
-                    />
-                    <label
-                      htmlFor={`paid-${dist.id}`}
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                    >
-                      {dist.paid ? '완료' : '미완료'}
-                    </label>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <select
-                    value={dist.status}
-                    onChange={(e) =>
-                      changeStatus(
-                        dist.id,
-                        e.target.value as 'in_use' | 'completed' | 'returned'
-                      )
-                    }
+                </span>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`paid-m-${dist.id}`}
+                    checked={dist.paid}
+                    onCheckedChange={() => togglePaid(dist.id, dist.paid)}
                     disabled={updating === dist.id}
-                    className="text-sm border rounded px-2 py-1"
+                  />
+                  <label
+                    htmlFor={`paid-m-${dist.id}`}
+                    className="text-sm cursor-pointer"
                   >
-                    <option value="in_use">사용 중</option>
-                    <option value="completed">완료</option>
-                    <option value="returned">반납</option>
-                  </select>
-                </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {dist.notes || '-'}
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button variant="ghost" size="sm">
-                    수정
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                    {dist.paid ? '결제 완료' : '미결제'}
+                  </label>
+                </div>
+                <select
+                  value={dist.status}
+                  onChange={(e) =>
+                    changeStatus(
+                      dist.id,
+                      e.target.value as 'in_use' | 'completed' | 'returned'
+                    )
+                  }
+                  disabled={updating === dist.id}
+                  className="text-sm border rounded px-2 py-1"
+                >
+                  <option value="in_use">사용 중</option>
+                  <option value="completed">완료</option>
+                  <option value="returned">반납</option>
+                </select>
+              </div>
+              {dist.notes && (
+                <p className="text-sm text-muted-foreground">{dist.notes}</p>
+              )}
+            </div>
+          ))}
+        </div>
       </CardContent>
     </Card>
   )

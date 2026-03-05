@@ -141,88 +141,128 @@ export function ProgressTab({ textbookId }: { textbookId: string }) {
 
           return (
             <div key={student.id} className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Link
-                    href={`/students/${student.id}`}
-                    className="font-semibold hover:underline inline-flex items-center gap-1"
-                  >
-                    {student.name}
-                    <ExternalLink className="h-3 w-3" />
-                  </Link>
-                  <Badge variant="secondary">
-                    {records.length}건 기록
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <Link
+                  href={`/students/${student.id}`}
+                  className="font-semibold hover:underline inline-flex items-center gap-1"
+                >
+                  {student.name}
+                  <ExternalLink className="h-3 w-3" />
+                </Link>
+                <Badge variant="secondary">
+                  {records.length}건 기록
+                </Badge>
+                {totalPages > 0 && (
+                  <Badge variant="outline">
+                    총 {totalPages}페이지
                   </Badge>
-                  {totalPages > 0 && (
-                    <Badge variant="outline">
-                      총 {totalPages}페이지
-                    </Badge>
-                  )}
-                  {latestPercent && (
-                    <Badge>
-                      {latestPercent}% 완료
-                    </Badge>
-                  )}
-                </div>
+                )}
+                {latestPercent && (
+                  <Badge>
+                    {latestPercent}% 완료
+                  </Badge>
+                )}
               </div>
 
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-32">날짜</TableHead>
-                    <TableHead>단원</TableHead>
-                    <TableHead className="w-32 text-right">페이지</TableHead>
-                    <TableHead className="w-32 text-right">진도율</TableHead>
-                    <TableHead>메모</TableHead>
-                    <TableHead className="w-32">기록자</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {records.map((record) => (
-                    <TableRow key={record.id}>
-                      <TableCell className="text-sm">
+              {/* Desktop: Table View */}
+              <div className="hidden sm:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-32">날짜</TableHead>
+                      <TableHead>단원</TableHead>
+                      <TableHead className="w-32 text-right">페이지</TableHead>
+                      <TableHead className="w-32 text-right">진도율</TableHead>
+                      <TableHead>메모</TableHead>
+                      <TableHead className="w-32">기록자</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {records.map((record) => (
+                      <TableRow key={record.id}>
+                        <TableCell className="text-sm">
+                          {new Date(record.date).toLocaleDateString('ko-KR', {
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                        </TableCell>
+                        <TableCell>
+                          {record.textbook_units ? (
+                            <div className="text-sm">
+                              <span className="font-mono text-xs text-muted-foreground mr-1">
+                                {record.textbook_units.unit_code ||
+                                  `U${record.textbook_units.unit_order}`}
+                              </span>
+                              {record.textbook_units.unit_title}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {record.pages_done ? (
+                            `${record.pages_done}p`
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {record.percent_done ? (
+                            `${record.percent_done}%`
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
+                          {record.memo || '-'}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {record.users?.name || '-'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile: Card View */}
+              <div className="space-y-2 sm:hidden">
+                {records.map((record) => (
+                  <div key={record.id} className="rounded-md border p-3 space-y-1.5">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">
                         {new Date(record.date).toLocaleDateString('ko-KR', {
                           month: 'short',
                           day: 'numeric',
                         })}
-                      </TableCell>
-                      <TableCell>
-                        {record.textbook_units ? (
-                          <div className="text-sm">
-                            <span className="font-mono text-xs text-muted-foreground mr-1">
-                              {record.textbook_units.unit_code ||
-                                `U${record.textbook_units.unit_order}`}
-                            </span>
-                            {record.textbook_units.unit_title}
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
+                      </span>
+                      <div className="flex gap-2">
+                        {record.pages_done && (
+                          <span>{record.pages_done}p</span>
                         )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {record.pages_done ? (
-                          `${record.pages_done}p`
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
+                        {record.percent_done && (
+                          <span className="font-medium">{record.percent_done}%</span>
                         )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {record.percent_done ? (
-                          `${record.percent_done}%`
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
-                        {record.memo || '-'}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {record.users?.name || '-'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      </div>
+                    </div>
+                    {record.textbook_units && (
+                      <div className="text-sm">
+                        <span className="font-mono text-xs text-muted-foreground mr-1">
+                          {record.textbook_units.unit_code ||
+                            `U${record.textbook_units.unit_order}`}
+                        </span>
+                        {record.textbook_units.unit_title}
+                      </div>
+                    )}
+                    {record.memo && (
+                      <p className="text-xs text-muted-foreground line-clamp-2">{record.memo}</p>
+                    )}
+                    {record.users?.name && (
+                      <p className="text-xs text-muted-foreground">기록: {record.users.name}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )
         })}

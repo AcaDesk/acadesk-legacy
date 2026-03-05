@@ -52,7 +52,7 @@ export default async function TextbooksPage() {
       <div className="p-6 lg:p-8 space-y-6">
         {/* Header */}
         <section aria-label="페이지 헤더" className={PAGE_ANIMATIONS.header}>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <PageHeader
               title="교재 관리"
               description="교재를 등록하고 학생별 진도를 관리하세요"

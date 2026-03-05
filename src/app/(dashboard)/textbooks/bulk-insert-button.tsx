@@ -642,7 +642,7 @@ export function BulkInsertTextbooksButton() {
       </Button>
 
       <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>교재 일괄 삽입</DialogTitle>
             <DialogDescription>
@@ -776,14 +776,14 @@ export function BulkInsertTextbooksButton() {
             검증 결과를 확인했고, 정상 행만 등록하는 것에 동의합니다.
           </label>
 
-          <DialogFooter>
-            <Button variant="secondary" onClick={handleValidate} disabled={isValidating || reviewedRows.length === 0}>
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <Button variant="secondary" onClick={handleValidate} disabled={isValidating || reviewedRows.length === 0} className="w-full sm:w-auto">
               {isValidating ? '검증 중...' : '사전 검증'}
             </Button>
-            <Button variant="outline" onClick={() => setOpenDialog(false)}>
+            <Button variant="outline" onClick={() => setOpenDialog(false)} className="w-full sm:w-auto">
               취소
             </Button>
-            <Button
+            <Button className="w-full sm:w-auto"
               onClick={handleBulkInsert}
               disabled={
                 isSubmitting ||

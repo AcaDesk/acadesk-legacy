@@ -579,41 +579,125 @@ export function NewLendingClient({ students, textbooks }: NewLendingClientProps)
                 className="min-h-[200px]"
               />
             ) : (
-              <div className="rounded-md border overflow-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>교재명</TableHead>
-                      <TableHead className="w-[160px]">대출일</TableHead>
-                      <TableHead className="w-[160px]">반납 예정일</TableHead>
-                      <TableHead className="w-[140px]">메모</TableHead>
-                      <TableHead className="w-[50px]" />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {cartItems.map((item) => {
-                      const error = cartItemErrors.get(item.id)
-                      return (
-                        <TableRow
-                          key={item.id}
-                          className={error ? 'bg-destructive/5' : undefined}
-                        >
-                          <TableCell>
-                            <div>
-                              <span className="font-medium">{item.title}</span>
-                              {item.author && (
-                                <span className="text-muted-foreground text-xs ml-1">
-                                  {item.author}
-                                </span>
+              <>
+                {/* Desktop: Table View */}
+                <div className="hidden sm:block rounded-md border overflow-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>교재명</TableHead>
+                        <TableHead className="w-[160px]">대출일</TableHead>
+                        <TableHead className="w-[160px]">반납 예정일</TableHead>
+                        <TableHead className="w-[140px]">메모</TableHead>
+                        <TableHead className="w-[50px]" />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {cartItems.map((item) => {
+                        const error = cartItemErrors.get(item.id)
+                        return (
+                          <TableRow
+                            key={item.id}
+                            className={error ? 'bg-destructive/5' : undefined}
+                          >
+                            <TableCell>
+                              <div>
+                                <span className="font-medium">{item.title}</span>
+                                {item.author && (
+                                  <span className="text-muted-foreground text-xs ml-1">
+                                    {item.author}
+                                  </span>
+                                )}
+                              </div>
+                              {error && (
+                                <p className="text-xs text-destructive mt-1">
+                                  {error}
+                                </p>
                               )}
-                            </div>
-                            {error && (
-                              <p className="text-xs text-destructive mt-1">
-                                {error}
-                              </p>
+                            </TableCell>
+                            <TableCell>
+                              <DatePicker
+                                value={parseYMD(item.borrowedAt)}
+                                onChange={(date) =>
+                                  updateCartItemDate(item.id, 'borrowedAt', date)
+                                }
+                                dateFormat="yyyy-MM-dd"
+                                className="h-8 text-xs"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <DatePicker
+                                value={parseYMD(item.dueDate)}
+                                onChange={(date) =>
+                                  updateCartItemDate(item.id, 'dueDate', date)
+                                }
+                                dateFormat="yyyy-MM-dd"
+                                className="h-8 text-xs"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                value={item.notes}
+                                onChange={(e) =>
+                                  updateCartItemNotes(item.id, e.target.value)
+                                }
+                                placeholder="메모"
+                                className="h-8 text-xs"
+                                maxLength={500}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => removeFromCart(item.id)}
+                              >
+                                <Trash2 className="h-4 w-4 text-muted-foreground" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Mobile: Card View */}
+                <div className="space-y-3 sm:hidden">
+                  {cartItems.map((item) => {
+                    const error = cartItemErrors.get(item.id)
+                    return (
+                      <div
+                        key={item.id}
+                        className={`rounded-lg border p-3 space-y-3 ${error ? 'border-destructive/50 bg-destructive/5' : ''}`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <span className="font-medium">{item.title}</span>
+                            {item.author && (
+                              <span className="text-muted-foreground text-xs ml-1">
+                                {item.author}
+                              </span>
                             )}
-                          </TableCell>
-                          <TableCell>
+                            {error && (
+                              <p className="text-xs text-destructive mt-1">{error}</p>
+                            )}
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 shrink-0"
+                            onClick={() => removeFromCart(item.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">대출일</Label>
                             <DatePicker
                               value={parseYMD(item.borrowedAt)}
                               onChange={(date) =>
@@ -622,8 +706,9 @@ export function NewLendingClient({ students, textbooks }: NewLendingClientProps)
                               dateFormat="yyyy-MM-dd"
                               className="h-8 text-xs"
                             />
-                          </TableCell>
-                          <TableCell>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">반납 예정일</Label>
                             <DatePicker
                               value={parseYMD(item.dueDate)}
                               onChange={(date) =>
@@ -632,35 +717,22 @@ export function NewLendingClient({ students, textbooks }: NewLendingClientProps)
                               dateFormat="yyyy-MM-dd"
                               className="h-8 text-xs"
                             />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              value={item.notes}
-                              onChange={(e) =>
-                                updateCartItemNotes(item.id, e.target.value)
-                              }
-                              placeholder="메모"
-                              className="h-8 text-xs"
-                              maxLength={500}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => removeFromCart(item.id)}
-                            >
-                              <Trash2 className="h-4 w-4 text-muted-foreground" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
+                          </div>
+                        </div>
+                        <Input
+                          value={item.notes}
+                          onChange={(e) =>
+                            updateCartItemNotes(item.id, e.target.value)
+                          }
+                          placeholder="메모"
+                          className="h-8 text-xs"
+                          maxLength={500}
+                        />
+                      </div>
+                    )
+                  })}
+                </div>
+              </>
             )}
           </CardContent>
         </Card>

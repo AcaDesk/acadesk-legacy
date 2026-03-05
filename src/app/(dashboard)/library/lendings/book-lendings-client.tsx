@@ -470,36 +470,36 @@ export function BookLendingsClient({ initialLendings }: BookLendingsClientProps)
     >
       <div className="space-y-6">
         {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="pb-3">
               <CardDescription>전체 대출</CardDescription>
-              <CardTitle className="text-3xl">{stats.total}건</CardTitle>
+              <CardTitle className="text-2xl sm:text-3xl">{stats.total}건</CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-3">
               <CardDescription>대출 중</CardDescription>
-              <CardTitle className="text-3xl text-info">{stats.active}건</CardTitle>
+              <CardTitle className="text-2xl sm:text-3xl text-info">{stats.active}건</CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-3">
               <CardDescription>연체</CardDescription>
-              <CardTitle className="text-3xl text-red-600">{stats.overdue}건</CardTitle>
+              <CardTitle className="text-2xl sm:text-3xl text-red-600">{stats.overdue}건</CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-3">
               <CardDescription>반납 완료</CardDescription>
-              <CardTitle className="text-3xl text-green-600">{stats.returned}건</CardTitle>
+              <CardTitle className="text-2xl sm:text-3xl text-green-600">{stats.returned}건</CardTitle>
             </CardHeader>
           </Card>
         </div>
 
         {/* Filters */}
-        <div className="flex flex-col gap-4 sm:flex-row">
-          <div className="relative flex-1">
+        <div className="space-y-3">
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="도서명, 저자, 학생명, 바코드로 검색..."
@@ -508,7 +508,7 @@ export function BookLendingsClient({ initialLendings }: BookLendingsClientProps)
               className="pl-10"
             />
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant={filterStatus === 'all' ? 'default' : 'outline'}
               size="sm"
@@ -528,7 +528,7 @@ export function BookLendingsClient({ initialLendings }: BookLendingsClientProps)
               size="sm"
               onClick={() => setFilterStatus('due_soon')}
             >
-              반납 임박 ({stats.dueSoon})
+              임박 ({stats.dueSoon})
             </Button>
             <Button
               variant={filterStatus === 'overdue' ? 'default' : 'outline'}
@@ -542,7 +542,7 @@ export function BookLendingsClient({ initialLendings }: BookLendingsClientProps)
               size="sm"
               onClick={() => setFilterStatus('returned')}
             >
-              반납 완료 ({stats.returned})
+              반납 ({stats.returned})
             </Button>
             <Button
               variant={showUnsentOnly ? 'default' : 'outline'}
@@ -556,14 +556,14 @@ export function BookLendingsClient({ initialLendings }: BookLendingsClientProps)
               size="sm"
               onClick={() => setSortBy('due_asc')}
             >
-              반납일 빠른순
+              반납일순
             </Button>
             <Button
               variant={sortBy === 'borrowed_desc' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setSortBy('borrowed_desc')}
             >
-              최신 대출순
+              최신순
             </Button>
           </div>
         </div>
@@ -586,7 +586,7 @@ export function BookLendingsClient({ initialLendings }: BookLendingsClientProps)
             <CardDescription>학생/교재/반납 예정일 조건으로 목록을 좁힙니다.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-3 md:grid-cols-4">
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-4">
               <Select value={selectedStudentId} onValueChange={setSelectedStudentId}>
                 <SelectTrigger>
                   <SelectValue placeholder="학생 선택" />
@@ -663,94 +663,148 @@ export function BookLendingsClient({ initialLendings }: BookLendingsClientProps)
                 {searchTerm && <p className="text-sm mt-2">검색 결과가 없습니다.</p>}
               </div>
             ) : (
-              <div className="border rounded-lg overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>학생</TableHead>
-                      <TableHead>도서</TableHead>
-                      <TableHead>대출일</TableHead>
-                      <TableHead>반납 예정일</TableHead>
-                      <TableHead>상태</TableHead>
-                      <TableHead>알림</TableHead>
-                      <TableHead className="text-right">작업</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paginatedLendings.map((lending) => (
-                      <TableRow key={lending.id}>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">
-                              {lending.students?.users?.name || '이름 없음'}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {lending.students?.student_code}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">{lending.textbooks?.title}</div>
-                            {lending.textbooks?.author && (
-                              <div className="text-xs text-muted-foreground">
-                                {lending.textbooks.author}
+              <>
+                {/* Desktop: Table View */}
+                <div className="hidden md:block border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>학생</TableHead>
+                        <TableHead>도서</TableHead>
+                        <TableHead>대출일</TableHead>
+                        <TableHead>반납 예정일</TableHead>
+                        <TableHead>상태</TableHead>
+                        <TableHead>알림</TableHead>
+                        <TableHead className="text-right">작업</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paginatedLendings.map((lending) => (
+                        <TableRow key={lending.id}>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">
+                                {lending.students?.users?.name || '이름 없음'}
                               </div>
-                            )}
-                            {lending.textbooks?.barcode && (
                               <div className="text-xs text-muted-foreground">
-                                #{lending.textbooks.barcode}
+                                {lending.students?.student_code}
                               </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {formatYmdKST(lending.borrowed_at)}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {formatYmdKST(lending.due_date)}
-                        </TableCell>
-                        <TableCell>{getStatusBadge(lending)}</TableCell>
-                        <TableCell>
-                          {lending.reminder_sent_at ? (
-                            <div className="text-xs text-muted-foreground">
-                              {formatDateTimeKST(lending.reminder_sent_at)}
                             </div>
-                          ) : !lending.returned_at ? (
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">{lending.textbooks?.title}</div>
+                              {lending.textbooks?.author && (
+                                <div className="text-xs text-muted-foreground">
+                                  {lending.textbooks.author}
+                                </div>
+                              )}
+                              {lending.textbooks?.barcode && (
+                                <div className="text-xs text-muted-foreground">
+                                  #{lending.textbooks.barcode}
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {formatYmdKST(lending.borrowed_at)}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {formatYmdKST(lending.due_date)}
+                          </TableCell>
+                          <TableCell>{getStatusBadge(lending)}</TableCell>
+                          <TableCell>
+                            {lending.reminder_sent_at ? (
+                              <div className="text-xs text-muted-foreground">
+                                {formatDateTimeKST(lending.reminder_sent_at)}
+                              </div>
+                            ) : !lending.returned_at ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setReminderTarget(lending)}
+                                disabled={isSendingReminderId === lending.id || isReturningId === lending.id}
+                              >
+                                <Send className="h-3 w-3 mr-1" />
+                                {isSendingReminderId === lending.id ? '전송 중...' : '전송'}
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {!lending.returned_at && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setReturnTarget(lending)}
+                                disabled={isReturningId === lending.id || isSendingReminderId === lending.id}
+                              >
+                                {isReturningId === lending.id ? '처리 중...' : '반납 처리'}
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Mobile: Card View */}
+                <div className="space-y-3 md:hidden">
+                  {paginatedLendings.map((lending) => (
+                    <div key={lending.id} className="rounded-lg border p-3 space-y-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="font-medium truncate">
+                            {lending.students?.users?.name || '이름 없음'}
+                          </div>
+                          <div className="text-sm text-muted-foreground truncate">
+                            {lending.textbooks?.title}
+                          </div>
+                        </div>
+                        {getStatusBadge(lending)}
+                      </div>
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                        <span>대출: {formatYmdKST(lending.borrowed_at)}</span>
+                        <span>반납예정: {formatYmdKST(lending.due_date)}</span>
+                        {lending.reminder_sent_at && (
+                          <span>알림: {formatDateTimeKST(lending.reminder_sent_at)}</span>
+                        )}
+                      </div>
+                      {!lending.returned_at && (
+                        <div className="flex gap-2 pt-1">
+                          {!lending.reminder_sent_at && (
                             <Button
                               variant="ghost"
                               size="sm"
+                              className="h-8"
                               onClick={() => setReminderTarget(lending)}
                               disabled={isSendingReminderId === lending.id || isReturningId === lending.id}
                             >
                               <Send className="h-3 w-3 mr-1" />
-                              {isSendingReminderId === lending.id ? '전송 중...' : '전송'}
-                            </Button>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {!lending.returned_at && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setReturnTarget(lending)}
-                              disabled={isReturningId === lending.id || isSendingReminderId === lending.id}
-                            >
-                              {isReturningId === lending.id ? '처리 중...' : '반납 처리'}
+                              {isSendingReminderId === lending.id ? '전송 중...' : '알림 전송'}
                             </Button>
                           )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8"
+                            onClick={() => setReturnTarget(lending)}
+                            disabled={isReturningId === lending.id || isSendingReminderId === lending.id}
+                          >
+                            {isReturningId === lending.id ? '처리 중...' : '반납 처리'}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
 
             {filteredLendings.length > 0 && (
-              <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-sm text-muted-foreground">
                 <div>
                   총 {filteredLendings.length}건 중 {(currentPage - 1) * PAGE_SIZE + 1}-
                   {Math.min(currentPage * PAGE_SIZE, filteredLendings.length)}건 표시

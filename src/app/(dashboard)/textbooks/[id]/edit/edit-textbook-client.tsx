@@ -175,16 +175,16 @@ export function EditTextbookClient({ textbookId, initialData }: EditTextbookClie
   }
 
   return (
-    <div className="p-6 lg:p-8 space-y-6">
-      <div className="flex items-center gap-4">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+      <div className="flex items-center gap-3 sm:gap-4">
         <Button asChild variant="ghost" size="icon">
           <Link href={`/textbooks/${textbookId}`}>
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">교재 수정</h1>
-          <p className="mt-2 text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">교재 수정</h1>
+          <p className="mt-1 sm:mt-2 text-sm sm:text-base text-muted-foreground">
             교재 정보와 단원을 수정하세요
           </p>
         </div>
@@ -210,7 +210,7 @@ export function EditTextbookClient({ textbookId, initialData }: EditTextbookClie
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="publisher">출판사</Label>
                 <Input
@@ -243,7 +243,7 @@ export function EditTextbookClient({ textbookId, initialData }: EditTextbookClie
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="totalCopies">보유 권수</Label>
                 <Input
@@ -313,7 +313,7 @@ export function EditTextbookClient({ textbookId, initialData }: EditTextbookClie
                       <CardContent className="pt-6">
                         <div className="flex items-start gap-4">
                           <div className="flex-1 space-y-4">
-                            <div className="grid grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                               <div className="space-y-2">
                                 <Label>순서</Label>
                                 <Input

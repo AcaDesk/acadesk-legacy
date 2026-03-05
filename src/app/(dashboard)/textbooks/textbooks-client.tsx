@@ -148,6 +148,20 @@ export function TextbooksClient({ textbooks: initialTextbooks, lendingCountByTex
     }
   }, [selectedIds, router, toast])
 
+  function renderLendingInfo(textbook: Textbook) {
+    const total = textbook.total_copies || 1
+    const lending = lendingCountByTextbookId[textbook.id] || 0
+    const available = Math.max(total - lending, 0)
+    if (lending === 0) return `${total}권`
+    return (
+      <span>
+        <span className="text-muted-foreground">{available}/{total}권</span>
+        {' '}
+        <span className="text-xs text-amber-600">({lending}대출중)</span>
+      </span>
+    )
+  }
+
   if (textbooks.length === 0) {
     return (
       <section aria-label="교재 목록" {...PAGE_ANIMATIONS.getSection(0)}>
@@ -173,7 +187,7 @@ export function TextbooksClient({ textbooks: initialTextbooks, lendingCountByTex
       {/* Search Bar */}
       <section aria-label="검색" className={PAGE_ANIMATIONS.firstSection}>
         <div className="flex items-center gap-4">
-          <div className="relative flex-1 max-w-sm">
+          <div className="relative flex-1 sm:max-w-sm">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="search"
@@ -220,151 +234,193 @@ export function TextbooksClient({ textbooks: initialTextbooks, lendingCountByTex
               description={`"${searchQuery}"에 해당하는 교재를 찾을 수 없습니다`}
             />
           ) : (
-            <Card>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-10 pl-4">
-                        <Checkbox
-                          checked={isAllSelected ? true : isSomeSelected ? 'indeterminate' : false}
-                          onCheckedChange={handleSelectAll}
-                          aria-label="전체 선택"
-                        />
-                      </TableHead>
-                      <TableHead>교재명</TableHead>
-                      <TableHead>저자</TableHead>
-                      <TableHead>출판사</TableHead>
-                      <TableHead>관리번호</TableHead>
-                      <TableHead>바코드</TableHead>
-                      <TableHead>보유/대출</TableHead>
-                      <TableHead>가격</TableHead>
-                      <TableHead>단원 수</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paginatedData.map((textbook) => (
-                      <TableRow
-                        key={textbook.id}
-                        className="cursor-pointer"
-                        data-state={selectedIds.has(textbook.id) ? 'selected' : undefined}
-                      >
-                        <TableCell className="pl-4" onClick={(e) => e.stopPropagation()}>
+            <>
+              {/* Desktop: Table View */}
+              <Card className="hidden md:block">
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-10 pl-4">
                           <Checkbox
-                            checked={selectedIds.has(textbook.id)}
-                            onCheckedChange={() => handleSelectOne(textbook.id)}
-                            aria-label={`${textbook.title} 선택`}
+                            checked={isAllSelected ? true : isSomeSelected ? 'indeterminate' : false}
+                            onCheckedChange={handleSelectAll}
+                            aria-label="전체 선택"
                           />
-                        </TableCell>
-                        <TableCell className="font-medium">
+                        </TableHead>
+                        <TableHead>교재명</TableHead>
+                        <TableHead>저자</TableHead>
+                        <TableHead>출판사</TableHead>
+                        <TableHead>관리번호</TableHead>
+                        <TableHead>바코드</TableHead>
+                        <TableHead>보유/대출</TableHead>
+                        <TableHead>가격</TableHead>
+                        <TableHead>단원 수</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paginatedData.map((textbook) => (
+                        <TableRow
+                          key={textbook.id}
+                          className="cursor-pointer"
+                          data-state={selectedIds.has(textbook.id) ? 'selected' : undefined}
+                        >
+                          <TableCell className="pl-4" onClick={(e) => e.stopPropagation()}>
+                            <Checkbox
+                              checked={selectedIds.has(textbook.id)}
+                              onCheckedChange={() => handleSelectOne(textbook.id)}
+                              aria-label={`${textbook.title} 선택`}
+                            />
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            <Link
+                              href={`/textbooks/${textbook.id}`}
+                              className="hover:underline"
+                            >
+                              {textbook.title}
+                            </Link>
+                          </TableCell>
+                          <TableCell className="text-sm">{textbook.author || '-'}</TableCell>
+                          <TableCell className="text-sm">{textbook.publisher || '-'}</TableCell>
+                          <TableCell className="font-mono text-sm">
+                            {textbook.management_code || '-'}
+                          </TableCell>
+                          <TableCell className="font-mono text-sm">
+                            {textbook.barcode || '-'}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {renderLendingInfo(textbook)}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {textbook.price
+                              ? `${textbook.price.toLocaleString()}원`
+                              : '-'}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {textbook.textbook_units?.length || 0}개
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+
+              {/* Mobile: Card View */}
+              <div className="space-y-3 md:hidden">
+                {paginatedData.map((textbook) => (
+                  <Card
+                    key={textbook.id}
+                    data-state={selectedIds.has(textbook.id) ? 'selected' : undefined}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          checked={selectedIds.has(textbook.id)}
+                          onCheckedChange={() => handleSelectOne(textbook.id)}
+                          aria-label={`${textbook.title} 선택`}
+                          className="mt-1"
+                        />
+                        <div className="flex-1 min-w-0">
                           <Link
                             href={`/textbooks/${textbook.id}`}
-                            className="hover:underline"
+                            className="font-medium hover:underline line-clamp-1"
                           >
                             {textbook.title}
                           </Link>
-                        </TableCell>
-                        <TableCell className="text-sm">{textbook.author || '-'}</TableCell>
-                        <TableCell className="text-sm">{textbook.publisher || '-'}</TableCell>
-                        <TableCell className="font-mono text-sm">
-                          {textbook.management_code || '-'}
-                        </TableCell>
-                        <TableCell className="font-mono text-sm">
-                          {textbook.barcode || '-'}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {(() => {
-                            const total = textbook.total_copies || 1
-                            const lending = lendingCountByTextbookId[textbook.id] || 0
-                            const available = Math.max(total - lending, 0)
-                            if (lending === 0) return `${total}권`
-                            return (
-                              <span>
-                                <span className="text-muted-foreground">{available}/{total}권</span>
-                                {' '}
-                                <span className="text-xs text-amber-600">({lending}대출중)</span>
+                          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                            {textbook.publisher && (
+                              <span>{textbook.publisher}</span>
+                            )}
+                            {textbook.author && (
+                              <span>{textbook.author}</span>
+                            )}
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                            {textbook.management_code && (
+                              <span className="font-mono text-xs text-muted-foreground">
+                                관리번호: {textbook.management_code}
                               </span>
-                            )
-                          })()}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {textbook.price
-                            ? `${textbook.price.toLocaleString()}원`
-                            : '-'}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {textbook.textbook_units?.length || 0}개
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                            )}
+                            <span>{renderLendingInfo(textbook)}</span>
+                            {textbook.price && (
+                              <span>{textbook.price.toLocaleString()}원</span>
+                            )}
+                            <span className="text-muted-foreground">
+                              {textbook.textbook_units?.length || 0}단원
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
 
-                {/* Pagination */}
-                <div className="flex items-center justify-between border-t px-4 py-3">
-                  <div className="text-sm text-muted-foreground">
-                    전체 {filteredTextbooks.length}개
+              {/* Pagination */}
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t px-2 py-3 mt-2">
+                <div className="text-sm text-muted-foreground">
+                  전체 {filteredTextbooks.length}개
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="hidden sm:flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground whitespace-nowrap">페이지당 행 수</span>
+                    <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+                      <SelectTrigger className="h-8 w-[70px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="10">10</SelectItem>
+                        <SelectItem value="15">15</SelectItem>
+                        <SelectItem value="30">30</SelectItem>
+                        <SelectItem value="50">50</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground whitespace-nowrap">페이지당 행 수</span>
-                      <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
-                        <SelectTrigger className="h-8 w-[70px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="10">10</SelectItem>
-                          <SelectItem value="15">15</SelectItem>
-                          <SelectItem value="30">30</SelectItem>
-                          <SelectItem value="50">50</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <span className="text-sm text-muted-foreground whitespace-nowrap">
-                      페이지 {currentPage} / {totalPages}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="hidden lg:flex h-8 w-8"
-                        onClick={() => goToPage(1)}
-                        disabled={currentPage === 1}
-                      >
-                        <IconChevronsLeft className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => goToPage(currentPage - 1)}
-                        disabled={currentPage === 1}
-                      >
-                        <IconChevronLeft className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => goToPage(currentPage + 1)}
-                        disabled={currentPage === totalPages}
-                      >
-                        <IconChevronRight className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="hidden lg:flex h-8 w-8"
-                        onClick={() => goToPage(totalPages)}
-                        disabled={currentPage === totalPages}
-                      >
-                        <IconChevronsRight className="h-4 w-4" />
-                      </Button>
-                    </div>
+                  <span className="text-sm text-muted-foreground whitespace-nowrap">
+                    페이지 {currentPage} / {totalPages}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="hidden lg:flex h-8 w-8"
+                      onClick={() => goToPage(1)}
+                      disabled={currentPage === 1}
+                    >
+                      <IconChevronsLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => goToPage(currentPage - 1)}
+                      disabled={currentPage === 1}
+                    >
+                      <IconChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => goToPage(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                    >
+                      <IconChevronRight className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="hidden lg:flex h-8 w-8"
+                      onClick={() => goToPage(totalPages)}
+                      disabled={currentPage === totalPages}
+                    >
+                      <IconChevronsRight className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </>
           )}
         </SectionErrorBoundary>
       </section>
