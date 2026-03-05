@@ -32,6 +32,7 @@ type ParsedTextbookInput = {
   isbn?: string
   barcode?: string
   totalCopies?: number
+  managementCode?: string
 }
 
 type ReviewedRow = {
@@ -124,6 +125,7 @@ function parseBulkInput(rawText: string): ParsedTextbookInput[] {
         const parsed = Number(raw)
         return Number.isFinite(parsed) ? parsed : Number.NaN
       })(),
+      managementCode: (cols[6] || '').trim() || undefined,
     }))
     .filter(
       (row) =>
@@ -138,13 +140,21 @@ function parseBulkInput(rawText: string): ParsedTextbookInput[] {
 
 function validateRows(rows: ParsedTextbookInput[]): ReviewedRow[] {
   const barcodeMap = new Map<string, number[]>()
+  const managementCodeMap = new Map<string, number[]>()
 
   for (const row of rows) {
-    const key = (row.barcode || '').trim().toLowerCase()
-    if (!key) continue
-    const list = barcodeMap.get(key) || []
-    list.push(row.rowNumber)
-    barcodeMap.set(key, list)
+    const barcodeKey = (row.barcode || '').trim().toLowerCase()
+    if (barcodeKey) {
+      const list = barcodeMap.get(barcodeKey) || []
+      list.push(row.rowNumber)
+      barcodeMap.set(barcodeKey, list)
+    }
+    const mcKey = (row.managementCode || '').trim().toLowerCase()
+    if (mcKey) {
+      const list = managementCodeMap.get(mcKey) || []
+      list.push(row.rowNumber)
+      managementCodeMap.set(mcKey, list)
+    }
   }
 
   return rows.map((row) => {
@@ -155,6 +165,7 @@ function validateRows(rows: ParsedTextbookInput[]): ReviewedRow[] {
     const publisher = (row.publisher || '').trim()
     const isbn = (row.isbn || '').trim()
     const barcode = (row.barcode || '').trim()
+    const managementCode = (row.managementCode || '').trim()
     const totalCopies = row.totalCopies
 
     if (!title) errors.push('교재명은 필수입니다.')
@@ -163,6 +174,7 @@ function validateRows(rows: ParsedTextbookInput[]): ReviewedRow[] {
     if (publisher.length > 100) errors.push('출판사는 100자 이하여야 합니다.')
     if (isbn.length > 50) errors.push('ISBN은 50자 이하여야 합니다.')
     if (barcode.length > 100) errors.push('바코드는 100자 이하여야 합니다.')
+    if (managementCode.length > 100) errors.push('관리번호는 100자 이하여야 합니다.')
 
     if (barcode && /\s/.test(barcode)) {
       errors.push('바코드에 공백이 포함되어 있습니다.')
@@ -172,6 +184,13 @@ function validateRows(rows: ParsedTextbookInput[]): ReviewedRow[] {
       const duplicateRows = barcodeMap.get(barcode.toLowerCase()) || []
       if (duplicateRows.length > 1) {
         errors.push(`입력 내 중복 바코드입니다. (행: ${duplicateRows.join(', ')})`)
+      }
+    }
+
+    if (managementCode) {
+      const duplicateRows = managementCodeMap.get(managementCode.toLowerCase()) || []
+      if (duplicateRows.length > 1) {
+        errors.push(`입력 내 중복 관리번호입니다. (행: ${duplicateRows.join(', ')})`)
       }
     }
 
@@ -194,6 +213,7 @@ function validateRows(rows: ParsedTextbookInput[]): ReviewedRow[] {
         isbn: isbn || undefined,
         barcode: barcode || undefined,
         totalCopies,
+        managementCode: managementCode || undefined,
       },
       errors,
       warnings,
@@ -334,7 +354,7 @@ export function BulkInsertTextbooksButton() {
       return
     }
 
-    const header = ['행', '교재명', '저자', '출판사', 'ISBN', '바코드', '보유수', '오류', '경고']
+    const header = ['행', '교재명', '저자', '출판사', 'ISBN', '바코드', '보유수', '관리번호', '오류', '경고']
     const lines = [header.join(',')]
 
     for (const item of errorRowsForDownload) {
@@ -347,6 +367,7 @@ export function BulkInsertTextbooksButton() {
         row.isbn || '',
         row.barcode || '',
         row.totalCopies !== undefined ? String(row.totalCopies) : '',
+        row.managementCode || '',
         mergedErrors.join(' / '),
         mergedWarnings.join(' / '),
       ].map(csvEscape)
@@ -366,10 +387,10 @@ export function BulkInsertTextbooksButton() {
   }
 
   function downloadTemplate() {
-    const header = ['교재명', '저자', '출판사', 'ISBN', '바코드', '보유수']
-    const sample1 = ['수학의 정석', '홍성대', '성지출판', '9781234567890', 'MATH-001', '3']
-    const sample2 = ['수학의 바이블', '이창희', '이투스북', '', 'MATH-002', '2']
-    const sample3 = ['개념원리 수학', '', '개념원리', '9781234567893', '', '1']
+    const header = ['교재명', '저자', '출판사', 'ISBN', '바코드', '보유수', '관리번호']
+    const sample1 = ['수학의 정석', '홍성대', '성지출판', '9781234567890', 'MATH-001', '3', 'M-001']
+    const sample2 = ['수학의 바이블', '이창희', '이투스북', '', 'MATH-002', '2', '']
+    const sample3 = ['개념원리 수학', '', '개념원리', '9781234567893', '', '1', 'M-003']
 
     const lines = [header, sample1, sample2, sample3]
       .map((row) => row.map(csvEscape).join(','))
@@ -390,10 +411,10 @@ export function BulkInsertTextbooksButton() {
   async function downloadExcelTemplate() {
     const { Workbook } = await import('exceljs')
     const dataRows = [
-      ['교재명', '저자', '출판사', 'ISBN', '바코드', '보유수'],
-      ['수학의 정석', '홍성대', '성지출판', '9781234567890', 'MATH-001', 3],
-      ['수학의 바이블', '이창희', '이투스북', '', 'MATH-002', 2],
-      ['개념원리 수학', '', '개념원리', '9781234567893', '', 1],
+      ['교재명', '저자', '출판사', 'ISBN', '바코드', '보유수', '관리번호'],
+      ['수학의 정석', '홍성대', '성지출판', '9781234567890', 'MATH-001', 3, 'M-001'],
+      ['수학의 바이블', '이창희', '이투스북', '', 'MATH-002', 2, ''],
+      ['개념원리 수학', '', '개념원리', '9781234567893', '', 1, 'M-003'],
     ]
 
     const guideRows = [
@@ -403,19 +424,20 @@ export function BulkInsertTextbooksButton() {
       ['- 첫 번째 시트(교재일괄등록)만 업로드됩니다.'],
       ['- 첫 행은 헤더이며 자동 인식됩니다.'],
       ['- 필수 입력: 교재명'],
-      ['- 선택 입력: 저자, 출판사, ISBN, 바코드'],
+      ['- 선택 입력: 저자, 출판사, ISBN, 바코드, 보유수, 관리번호'],
       ['- 보유수 미입력 시 기본값은 1입니다.'],
       ['- 보유수는 1 이상의 정수만 허용됩니다.'],
       [''],
       ['2) 중복/오류 규칙'],
       ['- 바코드는 공백 없이 입력하세요.'],
-      ['- 동일 파일 내 바코드 중복은 등록 차단됩니다.'],
-      ['- 기존 교재와 바코드 중복도 등록 차단됩니다.'],
+      ['- 동일 파일 내 바코드/관리번호 중복은 등록 차단됩니다.'],
+      ['- 기존 교재와 바코드/관리번호 중복도 등록 차단됩니다.'],
       ['- ISBN 중복은 경고로 표시되며 등록은 가능합니다.'],
       [''],
       ['3) 권장 형식'],
       ['- ISBN은 숫자/하이픈 형식을 권장합니다. (예: 978-89-000-0000-0)'],
-      ['- 바코드는 학원 내 유일값을 사용하세요. (예: MATH-001)'],
+      ['- 바코드는 스캐너용 식별자입니다. (예: MATH-001)'],
+      ['- 관리번호는 원내 자체 코드입니다. (예: M-001, 수학-01)'],
       [''],
       ['4) 처리 순서'],
       ['- 템플릿 작성 -> 업로드 -> 사전 검증 -> 오류 수정 -> 최종 등록'],
@@ -424,7 +446,7 @@ export function BulkInsertTextbooksButton() {
     const workbook = new Workbook()
     const dataSheet = workbook.addWorksheet('교재일괄등록')
     dataSheet.addRows(dataRows)
-    const dataWidths = [28, 18, 18, 20, 18, 10]
+    const dataWidths = [28, 18, 18, 20, 18, 10, 18]
     dataWidths.forEach((w, i) => { dataSheet.getColumn(i + 1).width = w })
 
     const guideSheet = workbook.addWorksheet('입력가이드')
@@ -474,6 +496,7 @@ export function BulkInsertTextbooksButton() {
         isbn: row.isbn,
         barcode: row.barcode,
         totalCopies: row.totalCopies,
+        managementCode: row.managementCode,
       }))
 
       const result = await validateBulkTextbooks({ textbooks: payload })
@@ -572,6 +595,7 @@ export function BulkInsertTextbooksButton() {
         isbn: row.isbn,
         barcode: row.barcode,
         totalCopies: row.totalCopies,
+        managementCode: row.managementCode,
       }))
 
       const result = await bulkCreateTextbooks({ textbooks: payload })
@@ -622,7 +646,7 @@ export function BulkInsertTextbooksButton() {
           <DialogHeader>
             <DialogTitle>교재 일괄 삽입</DialogTitle>
             <DialogDescription>
-              `교재명,저자,출판사,ISBN,바코드,보유수` 순서로 입력하세요. 탭/콤마 모두 지원하며 1행 헤더는 자동 무시됩니다.
+              `교재명,저자,출판사,ISBN,바코드,보유수,관리번호` 순서로 입력하세요. 탭/콤마 모두 지원하며 1행 헤더는 자동 무시됩니다.
             </DialogDescription>
           </DialogHeader>
 

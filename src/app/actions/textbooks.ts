@@ -516,10 +516,12 @@ export async function getTextbookById(id: string, includeUnits = true) {
 
     // Filter out deleted units if included
     // TODO(types): Type will be available after migration is applied
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (includeUnits && (data as any).textbook_units) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ;(data as any).textbook_units = (data as any).textbook_units
-        .filter((unit: any) => !unit.deleted_at)
-        .sort((a: any, b: any) => a.unit_order - b.unit_order)
+        .filter((unit: { deleted_at: string | null }) => !unit.deleted_at)
+        .sort((a: { unit_order: number }, b: { unit_order: number }) => a.unit_order - b.unit_order)
     }
 
     return {
