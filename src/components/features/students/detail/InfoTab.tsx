@@ -22,6 +22,7 @@ import { ko } from 'date-fns/locale'
 import { useStudentDetail } from '@/hooks/use-student-detail'
 import { StudentBasicInfo } from './StudentBasicInfo'
 import { StudentSiblingsCard } from './StudentSiblingsCard'
+import { ChangeHistorySection } from './ChangeHistorySection'
 import { formatPhoneNumber } from '@/lib/utils'
 
 const containerVariants = {
@@ -434,6 +435,11 @@ export function InfoTab() {
         </Card>
         </motion.div>
       )}
+
+      {/* Change History */}
+      <motion.div variants={itemVariants}>
+        <ChangeHistorySection studentId={student.id} />
+      </motion.div>
     </motion.div>
   )
 }

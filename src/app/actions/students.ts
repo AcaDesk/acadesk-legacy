@@ -28,3 +28,10 @@ export {
   bulkEnrollClass,
   updateStudentClassEnrollments,
 } from './students/bulk'
+
+// Promotion operations
+export {
+  getPromotionCandidates,
+  executePromotion,
+  getStudentChangeLogs,
+} from './students/promotion'

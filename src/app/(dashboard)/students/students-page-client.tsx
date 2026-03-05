@@ -1,12 +1,14 @@
 'use client'
 
 import { useState, useEffect, ReactNode } from 'react'
-import { Plus, Upload } from 'lucide-react'
+import { Plus, Upload, ArrowUpCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@ui/button'
 import { PageHeader } from '@ui/page-header'
 import { AddStudentWizard, type StudentInitialValues } from '@/components/features/students/add-student-wizard'
 import { RoleGuard } from '@/components/auth/role-guard'
+import { Badge } from '@ui/badge'
+import { isFeatureAvailable, isFeatureBeta } from '@/lib/features.config'
 
 interface StudentsPageClientProps {
   children: ReactNode
@@ -42,6 +44,15 @@ export function StudentsPageClient({ children, initialValues }: StudentsPageClie
         action={
           <RoleGuard allowedRoles={['owner', 'instructor']}>
             <div className="flex gap-2">
+              {isFeatureAvailable('studentPromotion') && (
+                <Button variant="outline" onClick={() => router.push('/students/promote')}>
+                  <ArrowUpCircle className="mr-2 h-4 w-4" />
+                  진급 관리
+                  {isFeatureBeta('studentPromotion') && (
+                    <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">Beta</Badge>
+                  )}
+                </Button>
+              )}
               <Button variant="outline" onClick={() => router.push('/students/import')}>
                 <Upload className="mr-2 h-4 w-4" />
                 일괄 등록
