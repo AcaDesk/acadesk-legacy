@@ -277,7 +277,7 @@ export default function KioskAttendancePage() {
             </div>
 
             <div className="text-center space-y-1">
-              <h2 className="text-xl font-semibold">보호자 전화번호 뒷 4자리를 입력해주세요</h2>
+              <h2 className="text-xl font-semibold">보호자 전화번호 뒷 4자리를<br />입력해주세요</h2>
               <AnimatePresence mode="wait">
                 {error && (
                   <motion.p key={error} initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
