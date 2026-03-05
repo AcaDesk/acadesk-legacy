@@ -25,6 +25,9 @@ export const FEATURES = {
   /** 학생 관리 */
   studentManagement: 'active' as FeatureStatus,
 
+  /** 진급 관리 */
+  studentPromotion: 'beta' as FeatureStatus,
+
   /** 출석 관리 */
   attendanceManagement: 'active' as FeatureStatus,
 
