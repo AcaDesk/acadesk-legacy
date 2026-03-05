@@ -70,6 +70,7 @@ export default async function TextbooksPage() {
         </section>
 
         {/* Client Component for interactive features */}
+        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
         <TextbooksClient
           textbooks={textbooks as any}
           lendingCountByTextbookId={lendingCountByTextbookId}

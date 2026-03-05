@@ -131,7 +131,7 @@ const fetchFormOptions = unstable_cache(
           .order('student_code', { ascending: true }),
         serviceClient
           .from('textbooks')
-          .select('id, title, author, barcode, is_active, total_copies')
+          .select('id, title, author, barcode, management_code, is_active, total_copies')
           .eq('tenant_id', tenantId)
           .is('deleted_at', null)
           .eq('is_active', true)
@@ -172,6 +172,7 @@ const fetchFormOptions = unstable_cache(
       title: textbook.title as string,
       author: (textbook.author as string | null) || null,
       barcode: (textbook.barcode as string | null) || null,
+      managementCode: (textbook.management_code as string | null) || null,
       totalCopies: (textbook.total_copies as number | null) || 1,
       activeLendingCount: activeCountByTextbookId.get(textbook.id as string) || 0,
       availableCopies: Math.max(

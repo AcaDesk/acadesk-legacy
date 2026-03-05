@@ -58,6 +58,7 @@ interface NewLendingClientProps {
     title: string
     author: string | null
     barcode: string | null
+    managementCode: string | null
     totalCopies: number
     activeLendingCount: number
     availableCopies: number
@@ -183,7 +184,8 @@ export function NewLendingClient({ students, textbooks }: NewLendingClientProps)
       (t) =>
         t.title.toLowerCase().includes(search) ||
         (t.author && t.author.toLowerCase().includes(search)) ||
-        (t.barcode && t.barcode.toLowerCase().includes(search))
+        (t.barcode && t.barcode.toLowerCase().includes(search)) ||
+        (t.managementCode && t.managementCode.toLowerCase().includes(search))
     )
   }, [textbooksWithRemaining, textbookSearch])
 
@@ -492,7 +494,7 @@ export function NewLendingClient({ students, textbooks }: NewLendingClientProps)
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="교재명, 저자, 바코드로 검색..."
+                placeholder="교재명, 저자, 관리번호, 바코드로 검색..."
                 value={textbookSearch}
                 onChange={(e) => setTextbookSearch(e.target.value)}
                 className="pl-10"
@@ -536,7 +538,12 @@ export function NewLendingClient({ students, textbooks }: NewLendingClientProps)
                               {textbook.author}
                             </span>
                           )}
-                          {textbook.barcode && (
+                          {textbook.managementCode && (
+                            <span className="text-muted-foreground ml-2">
+                              #{textbook.managementCode}
+                            </span>
+                          )}
+                          {textbook.barcode && !textbook.managementCode && (
                             <span className="text-muted-foreground ml-2">
                               #{textbook.barcode}
                             </span>

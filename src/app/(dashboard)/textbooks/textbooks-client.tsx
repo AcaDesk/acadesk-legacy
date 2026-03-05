@@ -46,6 +46,7 @@ type Textbook = {
   total_copies: number | null
   price: number | null
   is_active: boolean
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   textbook_units?: any[]
 }
 
