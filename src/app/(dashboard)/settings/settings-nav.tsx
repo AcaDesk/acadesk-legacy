@@ -10,6 +10,7 @@ import {
   MessageSquare,
   FileText,
   Settings,
+  MonitorPlay,
 } from 'lucide-react'
 
 const navItems = [
@@ -37,6 +38,11 @@ const navItems = [
     title: '메시지 템플릿',
     href: '/settings/message-templates',
     icon: FileText,
+  },
+  {
+    title: '키오스크',
+    href: '/settings/kiosk',
+    icon: MonitorPlay,
   },
 ]
 
