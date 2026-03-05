@@ -128,7 +128,7 @@ export function ManageTemplatesDialog({
       name: template.name,
       content: template.content,
       type: template.type,
-      category: template.category as any,
+      category: template.category as typeof formData.category,
     })
   }
 

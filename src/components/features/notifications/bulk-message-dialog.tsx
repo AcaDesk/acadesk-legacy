@@ -158,6 +158,7 @@ export function BulkMessageDialog({
 
       if (error) throw error
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const studentList = (data || []).map((s: any) => {
         // Get primary guardian's phone (first guardian if available)
         const guardians = s.student_guardians || []
@@ -212,7 +213,7 @@ export function BulkMessageDialog({
     })))
   }
 
-  function useTemplate(template: MessageTemplate) {
+  function applyTemplate(template: MessageTemplate) {
     setValue('message', template.content)
   }
 
@@ -354,7 +355,7 @@ export function BulkMessageDialog({
               <Label>템플릿 선택 (선택사항)</Label>
               <Select onValueChange={(templateId) => {
                 const template = templates.find(t => t.id === templateId)
-                if (template) useTemplate(template)
+                if (template) applyTemplate(template)
               }}>
                 <SelectTrigger>
                   <SelectValue placeholder="템플릿을 선택하면 메시지 내용이 자동 입력됩니다" />
@@ -457,7 +458,7 @@ export function BulkMessageDialog({
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => useTemplate(template)}
+                    onClick={() => applyTemplate(template)}
                   >
                     {template.name}
                   </Button>

@@ -36,13 +36,13 @@ export interface DashboardDataCompat {
     todayAttendance: number
     pendingTodos: number
   }
-  recentStudents: any[]
-  todaySessions: any[]
-  birthdayStudents: any[]
-  scheduledConsultations: any[]
+  recentStudents: unknown[]
+  todaySessions: unknown[]
+  birthdayStudents: unknown[]
+  scheduledConsultations: unknown[]
   studentAlerts: {
-    longAbsence: any[]
-    pendingAssignments: any[]
+    longAbsence: unknown[]
+    pendingAssignments: unknown[]
   }
   financialData: {
     currentMonthRevenue: number
@@ -50,10 +50,10 @@ export interface DashboardDataCompat {
     unpaidTotal: number
     unpaidCount: number
   }
-  classStatus: any[]
-  parentsToContact: any[]
-  calendarEvents: any[]
-  activityLogs: any[]
+  classStatus: unknown[]
+  parentsToContact: unknown[]
+  calendarEvents: unknown[]
+  activityLogs: unknown[]
 }
 
 export interface UseDashboardDataReturn {

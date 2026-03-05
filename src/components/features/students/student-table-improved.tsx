@@ -20,6 +20,7 @@ import {
   Edit,
   Trash2,
   UserCircle,
+  UserX,
   Settings2,
   ChevronDown,
   ArrowUpDown,
@@ -99,6 +100,11 @@ export interface Student {
   recentAttendance?: Array<{
     status: string
   }>
+  guardians?: Array<{
+    id?: string
+    name?: string
+    phone?: string | null
+  }>
 }
 
 type BadgeFilter =
@@ -110,25 +116,40 @@ type BadgeFilter =
   | 'new_student'
   | 'birthday_today'
   | 'birthday_soon'
+  | 'no_guardian'
   | null
 
 interface StudentTableProps {
   data: Student[]
   loading?: boolean
   onDelete?: (id: string, name: string) => void
+  badgeFilter?: BadgeFilter
+  onBadgeFilterChange?: (filter: BadgeFilter) => void
 }
 
 export function StudentTableImproved({
   data,
   loading = false,
   onDelete,
+  badgeFilter: externalBadgeFilter,
+  onBadgeFilterChange,
 }: StudentTableProps) {
   const router = useRouter()
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
   const [rowSelection, setRowSelection] = React.useState({})
-  const [badgeFilter, setBadgeFilter] = React.useState<BadgeFilter>(null)
+  const [internalBadgeFilter, setInternalBadgeFilter] = React.useState<BadgeFilter>(null)
+
+  // controlled 또는 uncontrolled 모드 지원
+  const badgeFilter = externalBadgeFilter !== undefined ? externalBadgeFilter : internalBadgeFilter
+  const setBadgeFilter = React.useCallback((filter: BadgeFilter) => {
+    if (onBadgeFilterChange) {
+      onBadgeFilterChange(filter)
+    } else {
+      setInternalBadgeFilter(filter)
+    }
+  }, [onBadgeFilterChange])
   const [bulkActionsOpen, setBulkActionsOpen] = React.useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
   const [studentToDelete, setStudentToDelete] = React.useState<{ id: string; name: string } | null>(null)
@@ -206,6 +227,8 @@ export function StudentTableImproved({
           return isBirthdayToday(student.birth_date)
         case 'birthday_soon':
           return isBirthdaySoon(student.birth_date)
+        case 'no_guardian':
+          return !student.guardians || student.guardians.length === 0
         default:
           return true
       }
@@ -376,6 +399,24 @@ export function StudentTableImproved({
                       }}
                     >
                       신규
+                    </Badge>
+                  )}
+
+                  {/* 보호자 미연결 뱃지 */}
+                  {(!student.guardians || student.guardians.length === 0) && (
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-xs border-yellow-500 text-yellow-600 cursor-pointer hover:bg-yellow-50 transition-colors",
+                        badgeFilter === 'no_guardian' && "ring-2 ring-offset-1 ring-yellow-500"
+                      )}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleBadgeClick('no_guardian')
+                      }}
+                    >
+                      <UserX className="mr-1 h-3 w-3" />
+                      보호자 없음
                     </Badge>
                   )}
 
@@ -628,6 +669,7 @@ export function StudentTableImproved({
       case 'new_student': return '신규'
       case 'birthday_today': return '생일 🎂'
       case 'birthday_soon': return '생일임박'
+      case 'no_guardian': return '보호자 미연결'
       default: return ''
     }
   }

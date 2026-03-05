@@ -353,7 +353,18 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
 
     let successCount = 0
     let failCount = 0
-    const logs: any[] = []
+    type MessageLog = {
+      tenant_id: string
+      student_id: string
+      session_id: null
+      notification_type: string
+      message: string
+      subject: string | null
+      status: string
+      error_message: string | null
+      sent_at: string
+    }
+    const logs: MessageLog[] = []
 
     type StudentWithGuardians = {
       id: string

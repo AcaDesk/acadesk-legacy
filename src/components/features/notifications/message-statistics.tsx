@@ -17,7 +17,7 @@ interface MessageStatisticsProps {
 
 export function MessageStatistics({ className }: MessageStatisticsProps) {
   const [loading, setLoading] = useState(false)
-  const [statistics, setStatistics] = useState<any>(null)
+  const [statistics, setStatistics] = useState<{ total: number; success: number; pending: number; failed: number } | null>(null)
   const [dateRange, setDateRange] = useState<{
     from: Date
     to: Date

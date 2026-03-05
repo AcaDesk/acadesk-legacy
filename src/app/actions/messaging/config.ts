@@ -13,6 +13,8 @@ import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { createAligoProvider } from '@/infra/messaging/AligoProvider'
+import { createSolapiProvider } from '@/infra/messaging/SolapiProvider'
 
 // ============================================================================
 // Types
@@ -312,7 +314,6 @@ export async function sendTestMessage(phoneNumber: string) {
 function createMessagingProvider(config: MessagingConfig) {
   switch (config.provider) {
     case 'aligo': {
-      const { createAligoProvider } = require('@/infra/messaging/AligoProvider')
       return createAligoProvider({
         apiKey: config.aligo_api_key || '',
         userId: config.aligo_user_id || '',
@@ -320,7 +321,6 @@ function createMessagingProvider(config: MessagingConfig) {
       })
     }
     case 'solapi': {
-      const { createSolapiProvider } = require('@/infra/messaging/SolapiProvider')
       return createSolapiProvider({
         apiKey: config.solapi_api_key || '',
         apiSecret: config.solapi_api_secret || '',

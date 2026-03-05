@@ -28,6 +28,7 @@ export interface Student {
   name: string
   grade?: string | null
   // Allow additional custom properties
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any
 }
 

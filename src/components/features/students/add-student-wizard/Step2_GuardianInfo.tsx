@@ -129,6 +129,7 @@ export function Step2_GuardianInfo() {
       }
 
       // Convert to Guardian type (phone must be string, not null)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const guardians = result.data.map((g: any) => {
         // 보호자 이름이 없으면 첫 번째 학생 이름으로 대체
         let displayName = g.users?.name || ''

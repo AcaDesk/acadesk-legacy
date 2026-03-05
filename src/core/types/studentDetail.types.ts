@@ -50,7 +50,7 @@ export interface StudentDetail {
 
 export interface ExamScore {
   id: string
-  percentage: number
+  percentage: number | null
   created_at: string
   exam_id: string
   exams: {

@@ -300,8 +300,8 @@ export async function updateStudent(
     }
 
     // 4. Separate user updates from student updates
-    const userUpdates: Record<string, any> = {}
-    const studentUpdates: Record<string, any> = {}
+    const userUpdates: Record<string, unknown> = {}
+    const studentUpdates: Record<string, unknown> = {}
 
     // User table fields
     if (updates.name !== undefined) userUpdates.name = updates.name

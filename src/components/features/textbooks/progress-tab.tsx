@@ -71,6 +71,7 @@ export function ProgressTab({ textbookId }: { textbookId: string }) {
         return
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setProgressRecords(result.data as any)
     } catch (error) {
       showErrorToast('진도 기록 로드 실패', error, 'ProgressTab.loadProgress')

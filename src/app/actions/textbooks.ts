@@ -9,7 +9,7 @@
 
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
@@ -26,6 +26,7 @@ const createTextbookSchema = z.object({
   publisher: z.string().optional(),
   isbn: z.string().optional(),
   barcode: z.string().optional(),
+  managementCode: z.string().max(100).optional(),
   totalCopies: z.number().int().positive().optional(),
   price: z.number().int().nonnegative().optional(),
   isActive: z.boolean().optional(),
@@ -38,6 +39,7 @@ const bulkCreateTextbookItemSchema = z.object({
   isbn: z.string().trim().max(50).optional().nullable(),
   barcode: z.string().trim().max(100).optional().nullable(),
   totalCopies: z.number().int().positive().optional().nullable(),
+  managementCode: z.string().trim().max(100).optional().nullable(),
 })
 
 const bulkValidateTextbookItemSchema = bulkCreateTextbookItemSchema.extend({
@@ -57,6 +59,7 @@ const updateTextbookSchema = z.object({
   title: z.string().min(1, '교재명은 필수입니다').optional(),
   publisher: z.string().optional().nullable(),
   isbn: z.string().optional().nullable(),
+  managementCode: z.string().max(100).nullable().optional(),
   totalCopies: z.number().int().positive().optional().nullable(),
   price: z.number().int().nonnegative().optional().nullable(),
   isActive: z.boolean().optional(),
@@ -168,6 +171,7 @@ export async function bulkCreateTextbooks(
       publisher: item.publisher?.trim() || null,
       isbn: item.isbn?.trim() || null,
       barcode: item.barcode?.trim() || null,
+      management_code: item.managementCode?.trim() || null,
       total_copies: item.totalCopies || 1,
     }))
 
@@ -205,6 +209,7 @@ export async function bulkCreateTextbooks(
       publisher: string | null
       isbn: string | null
       barcode: string | null
+      management_code: string | null
       total_copies: number
     }> = []
 
@@ -226,6 +231,7 @@ export async function bulkCreateTextbooks(
         publisher: item.publisher,
         isbn: item.isbn,
         barcode: item.barcode,
+        management_code: item.management_code,
         total_copies: item.total_copies,
       })
     }
@@ -249,6 +255,7 @@ export async function bulkCreateTextbooks(
 
     revalidatePath('/textbooks')
     revalidatePath('/library/lendings')
+    revalidateTag('library-form-options')
 
     return {
       success: true,
@@ -302,6 +309,7 @@ export async function validateBulkTextbooks(
       publisher: item.publisher?.trim() || null,
       isbn: item.isbn?.trim() || null,
       barcode: item.barcode?.trim() || null,
+      management_code: item.managementCode?.trim() || null,
       total_copies: item.totalCopies || 1,
     }))
 
@@ -311,12 +319,17 @@ export async function validateBulkTextbooks(
     const isbns = normalized
       .map((item) => item.isbn)
       .filter((code): code is string => Boolean(code))
+    const managementCodes = normalized
+      .map((item) => item.management_code)
+      .filter((code): code is string => Boolean(code))
 
     const dedupedBarcodes = Array.from(new Set(barcodes))
     const dedupedIsbns = Array.from(new Set(isbns))
+    const dedupedManagementCodes = Array.from(new Set(managementCodes))
 
     const existingBarcodeSet = new Set<string>()
     const existingIsbnSet = new Set<string>()
+    const existingManagementCodeSet = new Set<string>()
     const validationWarnings: string[] = []
 
     if (dedupedBarcodes.length > 0) {
@@ -359,8 +372,30 @@ export async function validateBulkTextbooks(
       }
     }
 
+    if (dedupedManagementCodes.length > 0) {
+      const { data, error } = await supabase
+        .from('textbooks')
+        .select('management_code')
+        .eq('tenant_id', tenantId)
+        .in('management_code', dedupedManagementCodes)
+        .is('deleted_at', null)
+      if (error) {
+        if (shouldSkipDuplicateCheck(error)) {
+          validationWarnings.push('관리번호 중복 검사를 건너뛰었습니다. (스키마/환경 확인 필요)')
+        } else {
+          throw error
+        }
+      } else {
+        for (const row of data || []) {
+          const code = (row as { management_code?: string | null }).management_code
+          if (code) existingManagementCodeSet.add(code)
+        }
+      }
+    }
+
     const inputBarcodeRows = new Map<string, number[]>()
     const inputIsbnRows = new Map<string, number[]>()
+    const inputManagementCodeRows = new Map<string, number[]>()
 
     for (const item of normalized) {
       if (item.barcode) {
@@ -372,6 +407,11 @@ export async function validateBulkTextbooks(
         const list = inputIsbnRows.get(item.isbn) || []
         list.push(item.rowNumber)
         inputIsbnRows.set(item.isbn, list)
+      }
+      if (item.management_code) {
+        const list = inputManagementCodeRows.get(item.management_code) || []
+        list.push(item.rowNumber)
+        inputManagementCodeRows.set(item.management_code, list)
       }
     }
 
@@ -400,6 +440,16 @@ export async function validateBulkTextbooks(
         }
         if (existingIsbnSet.has(item.isbn)) {
           warnings.push('기존 데이터와 ISBN 중복')
+        }
+      }
+
+      if (item.management_code) {
+        const duplicateInputRows = inputManagementCodeRows.get(item.management_code) || []
+        if (duplicateInputRows.length > 1) {
+          errors.push(`입력 내 중복 관리번호 (행: ${duplicateInputRows.join(', ')})`)
+        }
+        if (existingManagementCodeSet.has(item.management_code)) {
+          errors.push('기존 데이터와 관리번호 중복')
         }
       }
 
@@ -510,6 +560,7 @@ export async function createTextbook(
         publisher: validated.publisher || null,
         isbn: validated.isbn || null,
         barcode: validated.barcode || null,
+        management_code: validated.managementCode || null,
         total_copies: validated.totalCopies || 1,
         price: validated.price ?? null,
         is_active: validated.isActive ?? true,
@@ -522,6 +573,8 @@ export async function createTextbook(
     }
 
     revalidatePath('/textbooks')
+    revalidatePath('/library/lendings')
+    revalidateTag('library-form-options')
 
     return {
       success: true,
@@ -565,6 +618,9 @@ export async function updateTextbook(
     if (validated.isbn !== undefined) {
       updateData.isbn = validated.isbn
     }
+    if (validated.managementCode !== undefined) {
+      updateData.management_code = validated.managementCode
+    }
     if (validated.totalCopies !== undefined) {
       updateData.total_copies = validated.totalCopies
     }
@@ -594,6 +650,8 @@ export async function updateTextbook(
 
     revalidatePath('/textbooks')
     revalidatePath(`/textbooks/${validated.id}`)
+    revalidatePath('/library/lendings')
+    revalidateTag('library-form-options')
 
     return {
       success: true,
@@ -633,6 +691,8 @@ export async function deleteTextbook(id: string) {
     }
 
     revalidatePath('/textbooks')
+    revalidatePath('/library/lendings')
+    revalidateTag('library-form-options')
 
     return {
       success: true,
@@ -677,6 +737,8 @@ export async function bulkDeleteTextbooks(ids: string[]) {
     }
 
     revalidatePath('/textbooks')
+    revalidatePath('/library/lendings')
+    revalidateTag('library-form-options')
 
     return {
       success: true,

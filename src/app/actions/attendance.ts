@@ -154,7 +154,7 @@ export async function getAttendanceRoster() {
         let normalizedEnrollments = enrollments || []
 
         // 미배정 학생 병합
-        const enrolledStudentIds = new Set(normalizedEnrollments.map((e: any) => e.student_id))
+        const enrolledStudentIds = new Set(normalizedEnrollments.map((e: { student_id: string }) => e.student_id))
 
         const { data: allStudents, error: allStudentsError } = await supabase
           .from('students')
@@ -173,8 +173,8 @@ export async function getAttendanceRoster() {
         if (allStudentsError) throw allStudentsError
 
         const unassignedStudents = (allStudents || [])
-          .filter((s: any) => !enrolledStudentIds.has(s.id))
-          .map((s: any) => ({
+          .filter((s: { id: string }) => !enrolledStudentIds.has(s.id))
+          .map((s: { id: string; student_code: string; grade: string; school: string; users: { name: string } | null }) => ({
             class_id: null,
             student_id: s.id,
             students: s,
@@ -274,7 +274,7 @@ export async function getAttendanceByDate(params: {
 
     let enrollments = rosterResult.data.students
     if (params.classId) {
-      enrollments = enrollments.filter((e: any) => e.class_id === params.classId)
+      enrollments = enrollments.filter((e: { class_id: string | null }) => e.class_id === params.classId)
     }
 
     if (enrollments.length === 0) {
@@ -287,7 +287,7 @@ export async function getAttendanceByDate(params: {
       }
     }
 
-    const studentIds = [...new Set(enrollments.map((e: any) => e.student_id))]
+    const studentIds = [...new Set(enrollments.map((e: { student_id: string }) => e.student_id))]
 
     const recordsResult = await getAttendanceRecordsByDate({
       date: params.date,
@@ -548,7 +548,7 @@ export async function bulkNotifyAbsentStudents(
     for (const sg of allGuardians || []) {
       // 첫 번째 보호자만 사용 (기존 로직과 동일)
       if (!guardiansByStudent.has(sg.student_id)) {
-        const guardian = sg.guardians as any
+        const guardian = sg.guardians as { user_id?: string } | null
         if (guardian?.user_id) {
           guardiansByStudent.set(sg.student_id, { user_id: guardian.user_id })
         }

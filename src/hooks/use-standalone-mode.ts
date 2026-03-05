@@ -11,6 +11,7 @@ function subscribe(callback: () => void) {
 function getSnapshot(): boolean {
   if (typeof window === 'undefined') return false
   // iOS Safari standalone 감지
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   if ('standalone' in window.navigator && (window.navigator as any).standalone) return true
   // 표준 display-mode 감지
   return window.matchMedia('(display-mode: standalone)').matches

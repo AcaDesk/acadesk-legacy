@@ -42,6 +42,7 @@ type Textbook = {
   publisher: string | null
   isbn: string | null
   barcode: string | null
+  management_code: string | null
   total_copies: number | null
   price: number | null
   is_active: boolean
@@ -50,9 +51,10 @@ type Textbook = {
 
 interface TextbooksClientProps {
   textbooks: Textbook[]
+  lendingCountByTextbookId?: Record<string, number>
 }
 
-export function TextbooksClient({ textbooks: initialTextbooks }: TextbooksClientProps) {
+export function TextbooksClient({ textbooks: initialTextbooks, lendingCountByTextbookId = {} }: TextbooksClientProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [textbooks, setTextbooks] = useState(initialTextbooks)
@@ -71,7 +73,8 @@ export function TextbooksClient({ textbooks: initialTextbooks }: TextbooksClient
       (textbook.author?.toLowerCase() || '').includes(query) ||
       (textbook.publisher?.toLowerCase() || '').includes(query) ||
       (textbook.barcode?.toLowerCase() || '').includes(query) ||
-      (textbook.isbn?.toLowerCase() || '').includes(query)
+      (textbook.isbn?.toLowerCase() || '').includes(query) ||
+      (textbook.management_code?.toLowerCase() || '').includes(query)
     )
   }, [textbooks, searchQuery])
 
@@ -173,7 +176,7 @@ export function TextbooksClient({ textbooks: initialTextbooks }: TextbooksClient
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="search"
-              placeholder="교재명, 저자, 출판사, 바코드 검색..."
+              placeholder="교재명, 저자, 출판사, 관리번호, 바코드 검색..."
               className="pl-10"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -231,8 +234,9 @@ export function TextbooksClient({ textbooks: initialTextbooks }: TextbooksClient
                       <TableHead>교재명</TableHead>
                       <TableHead>저자</TableHead>
                       <TableHead>출판사</TableHead>
+                      <TableHead>관리번호</TableHead>
                       <TableHead>바코드</TableHead>
-                      <TableHead>보유 권수</TableHead>
+                      <TableHead>보유/대출</TableHead>
                       <TableHead>가격</TableHead>
                       <TableHead>단원 수</TableHead>
                     </TableRow>
@@ -262,10 +266,25 @@ export function TextbooksClient({ textbooks: initialTextbooks }: TextbooksClient
                         <TableCell className="text-sm">{textbook.author || '-'}</TableCell>
                         <TableCell className="text-sm">{textbook.publisher || '-'}</TableCell>
                         <TableCell className="font-mono text-sm">
+                          {textbook.management_code || '-'}
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">
                           {textbook.barcode || '-'}
                         </TableCell>
                         <TableCell className="text-sm">
-                          {textbook.total_copies || 1}권
+                          {(() => {
+                            const total = textbook.total_copies || 1
+                            const lending = lendingCountByTextbookId[textbook.id] || 0
+                            const available = Math.max(total - lending, 0)
+                            if (lending === 0) return `${total}권`
+                            return (
+                              <span>
+                                <span className="text-muted-foreground">{available}/{total}권</span>
+                                {' '}
+                                <span className="text-xs text-amber-600">({lending}대출중)</span>
+                              </span>
+                            )
+                          })()}
                         </TableCell>
                         <TableCell className="text-sm">
                           {textbook.price

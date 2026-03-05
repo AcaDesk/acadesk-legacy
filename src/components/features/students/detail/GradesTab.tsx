@@ -52,16 +52,19 @@ export function GradesTab() {
     return <Minus className="h-4 w-4 text-muted-foreground" />
   }
 
-  // 차트 데이터 변환
-  const gradesChartData = recentScores.map((score) => ({
-    examName: score.exams?.name || '시험',
-    score: score.percentage,
-    classAverage: classAverages[score.exam_id] || undefined,
-    date: score.exams?.exam_date,
-  }))
+  // 차트 데이터 변환 (percentage null 제외)
+  const gradesChartData = recentScores
+    .filter((s) => s.percentage != null)
+    .map((score) => ({
+      examName: score.exams?.name || '시험',
+      score: score.percentage as number,
+      classAverage: classAverages[score.exam_id] || undefined,
+      date: score.exams?.exam_date,
+    }))
 
-  // 과목별 성적 분석 (최근 점수 기준)
+  // 과목별 성적 분석 (최근 점수 기준, null 제외)
   const subjectScores = recentScores.reduce((acc: Record<string, number[]>, score) => {
+    if (score.percentage == null) return acc
     const subject = score.exams?.class_id || 'unknown'
     if (!acc[subject]) {
       acc[subject] = []
@@ -76,16 +79,17 @@ export function GradesTab() {
     score: Math.round(scores.reduce((sum: number, s: number) => sum + s, 0) / scores.length),
   }))
 
-  // 성적 통계
+  // 성적 통계 (percentage가 null인 항목 제외)
+  const scoredList = recentScores.filter((s): s is typeof s & { percentage: number } => s.percentage != null)
   const totalScores = recentScores.length
-  const avgScore = totalScores > 0
-    ? Math.round(recentScores.reduce((sum, s) => sum + s.percentage, 0) / totalScores)
+  const avgScore = scoredList.length > 0
+    ? Math.round(scoredList.reduce((sum, s) => sum + s.percentage, 0) / scoredList.length)
     : 0
-  const highestScore = totalScores > 0
-    ? Math.max(...recentScores.map(s => s.percentage))
+  const highestScore = scoredList.length > 0
+    ? Math.max(...scoredList.map(s => s.percentage))
     : 0
-  const lowestScore = totalScores > 0
-    ? Math.min(...recentScores.map(s => s.percentage))
+  const lowestScore = scoredList.length > 0
+    ? Math.min(...scoredList.map(s => s.percentage))
     : 0
 
   return (
@@ -240,10 +244,16 @@ export function GradesTab() {
                         </div>
                       )}
                       <div className="flex items-center gap-2 shrink-0">
-                        {classAvg > 0 && getTrendIcon(score.percentage, classAvg)}
+                        {classAvg > 0 && score.percentage != null && getTrendIcon(score.percentage, classAvg)}
                         <div className="text-right">
-                          <p className="text-2xl font-bold">{score.percentage}</p>
-                          <p className="text-xs text-muted-foreground">점</p>
+                          {score.percentage != null ? (
+                            <>
+                              <p className="text-2xl font-bold">{score.percentage}</p>
+                              <p className="text-xs text-muted-foreground">점</p>
+                            </>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">미입력</p>
+                          )}
                         </div>
                       </div>
                     </div>

@@ -214,7 +214,7 @@ export async function updateClass(input: z.infer<typeof updateClassSchema>) {
     const supabase = createServiceRoleClient()
 
     // 4. Build update object
-    const updateData: Record<string, any> = {
+    const updateData: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     }
 

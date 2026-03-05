@@ -23,7 +23,6 @@ import {
   Target,
   CheckCircle,
   BookOpen,
-  ChevronRight,
 } from 'lucide-react'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { usePagination } from '@/hooks/use-pagination'
@@ -139,14 +138,6 @@ export function ClassDetailClient({ classData, students }: ClassDetailClientProp
       <div className="space-y-6">
         {/* Header */}
         <div className="space-y-4">
-          <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-            <button onClick={() => router.push('/classes')} className="hover:text-foreground transition-colors">
-              수업 관리
-            </button>
-            <ChevronRight className="h-4 w-4" />
-            <span className="text-foreground font-medium">{classData.name}</span>
-          </nav>
-
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold tracking-tight">{classData.name}</h1>

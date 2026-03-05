@@ -33,6 +33,7 @@ interface ClassEnrollment {
 
 interface AlertItem {
   type: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   icon: React.ComponentType<any>
   title: string
   description: string

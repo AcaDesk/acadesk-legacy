@@ -126,7 +126,7 @@ export function KakaoTemplateForm({
     }
   }
 
-  function handleChange(field: keyof FormData, value: any) {
+  function handleChange(field: keyof FormData, value: FormData[keyof FormData]) {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 

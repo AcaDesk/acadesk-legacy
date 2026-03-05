@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Download, Trash2, GraduationCap, Users } from 'lucide-react'
+import { Download, Trash2, GraduationCap, Users, UserPlus } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -23,8 +23,9 @@ import {
   bulkEnrollClass,
 } from '@/app/actions/students'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
+import { BulkGuardianLinkDialog } from './bulk-guardian-link-dialog'
 
-type BulkAction = 'delete' | 'grade' | 'class' | 'export'
+type BulkAction = 'delete' | 'grade' | 'class' | 'export' | 'guardian'
 
 interface BulkActionsDialogProps {
   open: boolean
@@ -50,6 +51,9 @@ export function BulkActionsDialog({
   // Delete confirmation dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  // Guardian link dialog state
+  const [guardianLinkOpen, setGuardianLinkOpen] = useState(false)
 
   // Load classes when dialog opens
   useEffect(() => {
@@ -393,6 +397,21 @@ export function BulkActionsDialog({
 
             <Button
               variant="outline"
+              className="w-full justify-start h-auto py-4"
+              onClick={() => {
+                onOpenChange(false)
+                setGuardianLinkOpen(true)
+              }}
+            >
+              <UserPlus className="mr-3 h-5 w-5" />
+              <div className="text-left">
+                <div className="font-medium">보호자 연결</div>
+                <div className="text-xs text-muted-foreground">선택한 학생들에게 보호자를 일괄 연결합니다</div>
+              </div>
+            </Button>
+
+            <Button
+              variant="outline"
               className="w-full justify-start h-auto py-4 text-destructive hover:text-destructive hover:bg-destructive/10"
               onClick={() => setSelectedAction('delete')}
             >
@@ -420,6 +439,14 @@ export function BulkActionsDialog({
         variant="destructive"
         isLoading={isDeleting}
         onConfirm={handleConfirmDelete}
+      />
+
+      {/* Bulk Guardian Link Dialog */}
+      <BulkGuardianLinkDialog
+        open={guardianLinkOpen}
+        onOpenChange={setGuardianLinkOpen}
+        selectedStudents={selectedStudents}
+        onComplete={onComplete}
       />
     </Dialog>
   )

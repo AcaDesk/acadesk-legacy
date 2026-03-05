@@ -154,7 +154,7 @@ export async function getStudentPointHistory(studentId: string, limit = 20) {
     //   .limit(limit)
 
     // Placeholder: 빈 배열 반환
-    const history: any[] = []
+    const history: never[] = []
 
     console.log('[getStudentPointHistory] Request completed:', {
       requestId,

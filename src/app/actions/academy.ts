@@ -124,7 +124,7 @@ export async function updateAcademyInfo(
     }
 
     // 7. Build update object (only base fields in columns)
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       settings: updatedSettings,
       updated_at: new Date().toISOString(),
     }
@@ -166,7 +166,7 @@ export async function updateAcademyInfo(
  * @param operatingHours - Operating hours configuration
  * @returns Success or error
  */
-export async function updateOperatingHours(operatingHours: Record<string, any>) {
+export async function updateOperatingHours(operatingHours: Record<string, unknown>) {
   try {
     // 1. Verify authentication and get tenant
     const { tenantId } = await verifyStaff()

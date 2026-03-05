@@ -1,8 +1,10 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
+import { format } from 'date-fns'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
+import { DatePicker } from '@ui/date-picker'
 import { Badge } from '@ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
@@ -75,8 +77,8 @@ export function BookLendingsClient({ initialLendings }: BookLendingsClientProps)
   const [selectedStudentId, setSelectedStudentId] = useState<string>('all')
   const [selectedTextbookKey, setSelectedTextbookKey] = useState<string>('all')
   const [dueRange, setDueRange] = useState<DueRangeFilter>('all')
-  const [customDueStart, setCustomDueStart] = useState('')
-  const [customDueEnd, setCustomDueEnd] = useState('')
+  const [customDueStart, setCustomDueStart] = useState<Date | undefined>(undefined)
+  const [customDueEnd, setCustomDueEnd] = useState<Date | undefined>(undefined)
   const [currentPage, setCurrentPage] = useState(1)
   const [bulkReminderDialogOpen, setBulkReminderDialogOpen] = useState(false)
   const [isSendingBulkReminder, setIsSendingBulkReminder] = useState(false)
@@ -192,8 +194,10 @@ export function BookLendingsClient({ initialLendings }: BookLendingsClientProps)
         if (dueRange === '7days') return diff >= 0 && diff <= 7
         if (dueRange === 'custom') {
           if (!customDueStart && !customDueEnd) return true
-          if (customDueStart && l.due_date < customDueStart) return false
-          if (customDueEnd && l.due_date > customDueEnd) return false
+          const startStr = customDueStart ? format(customDueStart, 'yyyy-MM-dd') : null
+          const endStr = customDueEnd ? format(customDueEnd, 'yyyy-MM-dd') : null
+          if (startStr && l.due_date < startStr) return false
+          if (endStr && l.due_date > endStr) return false
           return true
         }
         return true
@@ -255,8 +259,8 @@ export function BookLendingsClient({ initialLendings }: BookLendingsClientProps)
     setSelectedStudentId('all')
     setSelectedTextbookKey('all')
     setDueRange('all')
-    setCustomDueStart('')
-    setCustomDueEnd('')
+    setCustomDueStart(undefined)
+    setCustomDueEnd(undefined)
   }
 
   function applyPreset(preset: QuickPreset) {
@@ -630,15 +634,15 @@ export function BookLendingsClient({ initialLendings }: BookLendingsClientProps)
 
             {dueRange === 'custom' && (
               <div className="mt-3 grid gap-3 md:grid-cols-2">
-                <Input
-                  type="date"
+                <DatePicker
                   value={customDueStart}
-                  onChange={(e) => setCustomDueStart(e.target.value)}
+                  onChange={setCustomDueStart}
+                  placeholder="시작 날짜"
                 />
-                <Input
-                  type="date"
+                <DatePicker
                   value={customDueEnd}
-                  onChange={(e) => setCustomDueEnd(e.target.value)}
+                  onChange={setCustomDueEnd}
+                  placeholder="종료 날짜"
                 />
               </div>
             )}
