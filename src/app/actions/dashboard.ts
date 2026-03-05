@@ -186,6 +186,7 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
     }
 
     const recentStudents = recentStudentsResult.status === 'fulfilled' && recentStudentsResult.value.data
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ? recentStudentsResult.value.data.map((s: any) => ({
           id: s.id,
           name: s.users?.name || 'Unknown',
@@ -195,6 +196,7 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
       : []
 
     const todaySessions = todaySessionsResult.status === 'fulfilled' && todaySessionsResult.value.data
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ? todaySessionsResult.value.data.map((s: any) => ({
           id: s.id,
           class_name: s.classes?.name || 'Unknown',
@@ -209,11 +211,13 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
     const currentMonthNum = parseInt(today.split('-')[1], 10)
     const birthdayStudents = birthdayStudentsResult.status === 'fulfilled' && birthdayStudentsResult.value.data
       ? birthdayStudentsResult.value.data
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .filter((s: any) => {
             if (!s.users?.birthday) return false
             const birthdayMonth = parseInt(s.users.birthday.split('-')[1], 10)
             return birthdayMonth === currentMonthNum
           })
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .map((s: any) => ({
             id: s.id,
             name: s.users?.name || 'Unknown',
@@ -223,6 +227,7 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
       : []
 
     const scheduledConsultations = scheduledConsultationsResult.status === 'fulfilled' && scheduledConsultationsResult.value.data
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ? scheduledConsultationsResult.value.data.map((c: any) => ({
           id: c.id,
           parent_name: c.guardians?.users?.name || 'Unknown',
@@ -243,13 +248,14 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
     // Process class enrollments for counts
     const enrollmentCountsByClass = new Map<string, number>()
     if (classEnrollmentsResult.status === 'fulfilled' && classEnrollmentsResult.value.data) {
-      for (const enrollment of classEnrollmentsResult.value.data as any[]) {
+      for (const enrollment of classEnrollmentsResult.value.data as { class_id: string }[]) {
         const classId = enrollment.class_id
         enrollmentCountsByClass.set(classId, (enrollmentCountsByClass.get(classId) || 0) + 1)
       }
     }
 
     const classStatus = classStatusResult.status === 'fulfilled' && classStatusResult.value.data
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ? classStatusResult.value.data.map((c: any) => {
           const enrolledCount = enrollmentCountsByClass.get(c.id) || 0
           return {
@@ -272,6 +278,7 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
       : []
 
     const calendarEvents = calendarEventsResult.status === 'fulfilled' && calendarEventsResult.value.data
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ? calendarEventsResult.value.data.map((e: any) => ({
           id: e.id,
           title: e.title,
@@ -283,6 +290,7 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
       : []
 
     const activityLogs = activityLogsResult.status === 'fulfilled' && activityLogsResult.value.data
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ? activityLogsResult.value.data.map((log: any) => ({
           id: log.id,
           activity_type: log.activity_type,
@@ -343,7 +351,7 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
 // Helper Functions
 // ============================================================================
 
-async function fetchStudentAlerts(supabase: any, tenantId: string, today: string) {
+async function fetchStudentAlerts(supabase: ReturnType<typeof createServiceRoleClient>, tenantId: string, today: string) {
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
   try {
@@ -368,13 +376,13 @@ async function fetchStudentAlerts(supabase: any, tenantId: string, today: string
 
     // Set으로 출석 기록이 있는 학생 ID 저장 (O(1) 조회)
     const studentsWithAttendance = new Set(
-      attendanceRecords.map((r: any) => r.student_id)
+      attendanceRecords.map((r: { student_id: string }) => r.student_id)
     )
 
     // 출석 기록이 없는 학생 필터링
     const longAbsence = allStudents
-      .filter((student: any) => !studentsWithAttendance.has(student.id))
-      .map((student: any) => ({
+      .filter((student: { id: string }) => !studentsWithAttendance.has(student.id))
+      .map((student: { id: string; users?: { name: string }; grade?: string }) => ({
         id: student.id,
         name: student.users?.name || 'Unknown',
         grade: student.grade || '',
@@ -395,7 +403,7 @@ async function fetchStudentAlerts(supabase: any, tenantId: string, today: string
     const pendingAssignmentsMap = new Map<string, { name: string; grade: string; count: number }>()
 
     if (studentsWithPendingTodos) {
-      studentsWithPendingTodos.forEach((todo: any) => {
+      studentsWithPendingTodos.forEach((todo: { student_id: string; students?: { users?: { name: string }; grade?: string } }) => {
         const studentId = todo.student_id
         const student = todo.students
 
@@ -441,7 +449,7 @@ async function fetchStudentAlerts(supabase: any, tenantId: string, today: string
 }
 
 async function fetchWeeklyPerformance(
-  supabase: any,
+  supabase: ReturnType<typeof createServiceRoleClient>,
   tenantId: string,
   today: string
 ): Promise<WeeklyPerformanceData> {
@@ -484,7 +492,7 @@ async function fetchWeeklyPerformance(
     // Group attendance by date
     const attendanceByDate = new Map<string, { present: number; total: number }>()
     if (attendanceResult.data) {
-      for (const record of attendanceResult.data as any[]) {
+      for (const record of attendanceResult.data as { attendance_date: string; status: string }[]) {
         const date = record.attendance_date
         if (!attendanceByDate.has(date)) {
           attendanceByDate.set(date, { present: 0, total: 0 })
@@ -500,7 +508,7 @@ async function fetchWeeklyPerformance(
     // Group todo completions by date (KST)
     const todosByDate = new Map<string, number>()
     if (todosResult.data) {
-      for (const todo of todosResult.data as any[]) {
+      for (const todo of todosResult.data as { completed_at: string }[]) {
         const date = new Date(todo.completed_at).toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' })
         todosByDate.set(date, (todosByDate.get(date) || 0) + 1)
       }
@@ -525,7 +533,7 @@ async function fetchWeeklyPerformance(
   }
 }
 
-async function fetchStats(supabase: any, tenantId: string, today: string) {
+async function fetchStats(supabase: ReturnType<typeof createServiceRoleClient>, tenantId: string, today: string) {
   // Date calculations - derive all boundaries from KST-based today
   const [todayYear, todayMonth] = today.split('-').map(Number)
   const prevMonth = todayMonth === 1 ? 12 : todayMonth - 1
@@ -668,7 +676,7 @@ async function fetchStats(supabase: any, tenantId: string, today: string) {
   // Calculate average score
   let averageScore = 0
   if (avgScoreResult.status === 'fulfilled' && avgScoreResult.value.data && avgScoreResult.value.data.length > 0) {
-    const scores = avgScoreResult.value.data.map((s: any) => s.percentage || 0)
+    const scores = avgScoreResult.value.data.map((s: { percentage: number | null }) => s.percentage || 0)
     averageScore = Math.round(scores.reduce((a: number, b: number) => a + b, 0) / scores.length)
   }
 
@@ -676,14 +684,14 @@ async function fetchStats(supabase: any, tenantId: string, today: string) {
   let completionRate = 0
   if (completionRateResult.status === 'fulfilled' && completionRateResult.value.data) {
     const todos = completionRateResult.value.data
-    const completedCount = todos.filter((t: any) => t.completed_at !== null).length
+    const completedCount = todos.filter((t: { completed_at: string | null }) => t.completed_at !== null).length
     completionRate = todos.length > 0 ? Math.round((completedCount / todos.length) * 100) : 0
   }
 
   // Calculate previous month average score
   let previousMonthAvgScore = 0
   if (previousMonthAvgScoreResult.status === 'fulfilled' && previousMonthAvgScoreResult.value.data && previousMonthAvgScoreResult.value.data.length > 0) {
-    const scores = previousMonthAvgScoreResult.value.data.map((s: any) => s.percentage || 0)
+    const scores = previousMonthAvgScoreResult.value.data.map((s: { percentage: number | null }) => s.percentage || 0)
     previousMonthAvgScore = Math.round(scores.reduce((a: number, b: number) => a + b, 0) / scores.length)
   }
 
@@ -691,7 +699,7 @@ async function fetchStats(supabase: any, tenantId: string, today: string) {
   let previousWeekCompletionRate = 0
   if (previousWeekCompletionRateResult.status === 'fulfilled' && previousWeekCompletionRateResult.value.data) {
     const todos = previousWeekCompletionRateResult.value.data
-    const completedCount = todos.filter((t: any) => t.completed_at !== null).length
+    const completedCount = todos.filter((t: { completed_at: string | null }) => t.completed_at !== null).length
     previousWeekCompletionRate = todos.length > 0 ? Math.round((completedCount / todos.length) * 100) : 0
   }
 

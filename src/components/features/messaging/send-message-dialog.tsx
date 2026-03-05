@@ -212,7 +212,7 @@ export function SendMessageDialog({
           {/* 발송 채널 선택 */}
           <div className="space-y-2">
             <Label>발송 채널</Label>
-            <RadioGroup value={channel} onValueChange={(value: any) => setChannel(value)}>
+            <RadioGroup value={channel} onValueChange={(value) => setChannel(value as 'alimtalk' | 'sms')}>
               <div className="grid grid-cols-2 gap-4">
                 <Label
                   htmlFor="alimtalk"

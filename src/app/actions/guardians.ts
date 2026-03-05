@@ -1184,6 +1184,173 @@ export async function bulkDeleteGuardians(ids: string[]) {
 }
 
 /**
+ * 보호자를 여러 학생에게 일괄 연결
+ * @param guardianId - 보호자 ID
+ * @param studentIds - 학생 ID 배열
+ * @param relation - 관계
+ * @returns 성공 여부 및 연결/건너뛴 수
+ */
+export async function bulkLinkGuardianToStudents(
+  guardianId: string,
+  studentIds: string[],
+  relation: string
+) {
+  try {
+    if (!studentIds.length) {
+      return { success: false, error: '연결할 학생을 선택해주세요' }
+    }
+
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    // 이미 연결된 쌍 확인
+    const { data: existingLinks } = await supabase
+      .from('student_guardians')
+      .select('student_id')
+      .eq('guardian_id', guardianId)
+      .eq('tenant_id', tenantId)
+      .in('student_id', studentIds)
+
+    const alreadyLinked = new Set((existingLinks || []).map(l => l.student_id))
+    const toLink = studentIds.filter(id => !alreadyLinked.has(id))
+
+    if (!toLink.length) {
+      return { success: true, data: { linkedCount: 0, skippedCount: alreadyLinked.size } }
+    }
+
+    const records = toLink.map(studentId => ({
+      tenant_id: tenantId,
+      student_id: studentId,
+      guardian_id: guardianId,
+      relation,
+      is_primary: false,
+      is_primary_contact: false,
+      can_view_reports: true,
+      receives_notifications: true,
+      receives_billing: false,
+      can_pickup: true,
+    }))
+
+    const { error } = await supabase.from('student_guardians').insert(records)
+    if (error) throw error
+
+    revalidatePath('/students')
+
+    return {
+      success: true,
+      data: { linkedCount: toLink.length, skippedCount: alreadyLinked.size },
+    }
+  } catch (error) {
+    console.error('[bulkLinkGuardianToStudents] Error:', error)
+    return { success: false, error: getErrorMessage(error) }
+  }
+}
+
+/**
+ * emergency_contact 전화번호로 기존 보호자 자동 매칭 제안
+ * @param studentIds - 학생 ID 배열
+ * @returns 매칭 제안 목록 ({studentId, studentName, guardianId, guardianName, phone})
+ */
+export async function getAutoMatchSuggestions(studentIds: string[]) {
+  try {
+    if (!studentIds.length) return { success: true, data: [] }
+
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    // 1. 학생의 emergency_contact 조회
+    const { data: students, error: studentsError } = await supabase
+      .from('students')
+      .select('id, emergency_contact, users (name)')
+      .in('id', studentIds)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+
+    if (studentsError) throw studentsError
+
+    const studentsWithContact = (students || []).filter(s => s.emergency_contact)
+    if (!studentsWithContact.length) return { success: true, data: [] }
+
+    // 2. 모든 보호자의 전화번호 조회
+    const { data: guardians, error: guardiansError } = await supabase
+      .from('guardians')
+      .select('id, users (name, phone)')
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+
+    if (guardiansError) throw guardiansError
+
+    // 3. 이미 연결된 쌍 조회 (중복 제외)
+    const { data: existingLinks } = await supabase
+      .from('student_guardians')
+      .select('student_id, guardian_id')
+      .in('student_id', studentIds)
+      .eq('tenant_id', tenantId)
+
+    const linkedSet = new Set(
+      (existingLinks || []).map(l => `${l.student_id}:${l.guardian_id}`)
+    )
+
+    // 4. 전화번호 정규화 (숫자만 추출, 마지막 11자리)
+    function normalizePhone(phone: string): string {
+      return phone.replace(/\D/g, '').slice(-11)
+    }
+
+    // 5. 보호자 전화번호 맵 생성
+    interface GuardianRow {
+      id: string
+      users: { name: string | null; phone: string | null } | { name: string | null; phone: string | null }[] | null
+    }
+    const guardianPhoneMap = new Map<string, { id: string; name: string }>()
+    for (const g of (guardians || []) as GuardianRow[]) {
+      const usersData = Array.isArray(g.users) ? g.users[0] : g.users
+      if (usersData?.phone) {
+        const normalized = normalizePhone(usersData.phone)
+        if (normalized) {
+          guardianPhoneMap.set(normalized, { id: g.id, name: usersData.name || '' })
+        }
+      }
+    }
+
+    // 6. 매칭
+    interface StudentRow {
+      id: string
+      emergency_contact: string | null
+      users: { name: string | null } | { name: string | null }[] | null
+    }
+    const suggestions: Array<{
+      studentId: string
+      studentName: string
+      guardianId: string
+      guardianName: string
+      phone: string
+    }> = []
+
+    for (const student of studentsWithContact as StudentRow[]) {
+      if (!student.emergency_contact) continue
+      const normalized = normalizePhone(student.emergency_contact)
+      const match = guardianPhoneMap.get(normalized)
+      if (!match) continue
+      if (linkedSet.has(`${student.id}:${match.id}`)) continue
+
+      const usersData = Array.isArray(student.users) ? student.users[0] : student.users
+      suggestions.push({
+        studentId: student.id,
+        studentName: usersData?.name || '',
+        guardianId: match.id,
+        guardianName: match.name,
+        phone: student.emergency_contact,
+      })
+    }
+
+    return { success: true, data: suggestions }
+  } catch (error) {
+    console.error('[getAutoMatchSuggestions] Error:', error)
+    return { success: false, data: [], error: getErrorMessage(error) }
+  }
+}
+
+/**
  * 주 보호자 토글
  * @param guardianId - 보호자 ID
  * @param studentId - 학생 ID

@@ -35,6 +35,7 @@ interface MessageHistoryProps {
 
 export function MessageHistory({ className }: MessageHistoryProps) {
   const [loading, setLoading] = useState(false)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [messages, setMessages] = useState<any[]>([])
   const [messageType, setMessageType] = useState<'all' | 'SMS' | 'LMS' | 'MMS'>('all')
   const [limit, setLimit] = useState(20)
@@ -126,7 +127,7 @@ export function MessageHistory({ className }: MessageHistoryProps) {
               <label className="text-sm font-medium mb-2 block">메시지 타입</label>
               <Select
                 value={messageType}
-                onValueChange={(value: any) => setMessageType(value)}
+                onValueChange={(value) => setMessageType(value as 'all' | 'SMS' | 'LMS' | 'MMS')}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -252,6 +253,7 @@ export function MessageHistory({ className }: MessageHistoryProps) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                   {messages.map((message: any, index) => (
                     <TableRow key={message.messageId || index}>
                       <TableCell className="text-sm">

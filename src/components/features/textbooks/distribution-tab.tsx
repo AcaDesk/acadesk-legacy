@@ -70,6 +70,7 @@ export function DistributionTab({ textbookId }: { textbookId: string }) {
         return
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setDistributions(result.data as any)
     } catch (error) {
       showErrorToast('배부 현황 로드 실패', error, 'DistributionTab.loadDistributions')

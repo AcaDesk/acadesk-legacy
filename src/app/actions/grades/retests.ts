@@ -80,7 +80,7 @@ export async function getRetestStudents() {
     }
 
     // Get student IDs to fetch class information
-    const studentIds = (data || []).map((item: any) => item.students?.id).filter(Boolean)
+    const studentIds = (data || []).map((item: { students?: { id?: string } }) => item.students?.id).filter(Boolean)
 
     // Fetch class information separately via student_classes junction table
     const { data: studentClassData } = await supabase
@@ -96,7 +96,7 @@ export async function getRetestStudents() {
     // Create a map of student_id to class_name
     const classMap = new Map<string, string>()
     if (studentClassData) {
-      studentClassData.forEach((sc: any) => {
+      studentClassData.forEach((sc: { student_id: string; classes?: { name?: string } }) => {
         if (!classMap.has(sc.student_id)) {
           classMap.set(sc.student_id, sc.classes?.name || '')
         }
@@ -104,6 +104,7 @@ export async function getRetestStudents() {
     }
 
     // Transform data to match RetestStudent interface
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const transformedData: RetestStudent[] = (data || []).map((item: any) => ({
       exam_score_id: item.id,
       exam_id: item.exams?.id || '',

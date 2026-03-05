@@ -113,7 +113,7 @@ export async function prepareReportSending(reportId: string) {
     }
 
     // settings에서 필드 추출
-    const settings = (academyData.settings as Record<string, any>) || {}
+    const settings = (academyData.settings as Record<string, unknown>) || {}
     const academy = {
       name: academyData.name,
       phone: settings.phone || null,

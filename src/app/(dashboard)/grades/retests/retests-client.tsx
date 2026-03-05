@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { getTodayKST } from '@/lib/utils'
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
@@ -36,6 +36,7 @@ import {
 import { Loader2, MoreVertical, AlertTriangle, CheckCircle2, Clock, Calendar } from 'lucide-react'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
+import { DatePicker } from '@ui/date-picker'
 
 export function RetestsClient() {
   const router = useRouter()
@@ -53,7 +54,7 @@ export function RetestsClient() {
   const [targetStudent, setTargetStudent] = useState<RetestStudent | null>(null)
 
   // Retest creation form
-  const [retestDate, setRetestDate] = useState('')
+  const [retestDate, setRetestDate] = useState<Date | undefined>(undefined)
   const [originalExamName, setOriginalExamName] = useState('')
 
   // Load students
@@ -196,7 +197,7 @@ export function RetestsClient() {
     setOriginalExamName(firstStudent.exam_name)
 
     // Set default retest date to today
-    setRetestDate(getTodayKST())
+    setRetestDate(new Date())
 
     setCreateRetestDialogOpen(true)
   }
@@ -221,7 +222,7 @@ export function RetestsClient() {
 
     setActionLoading('create')
     try {
-      const result = await createRetestExam(examId, studentIds, retestDate)
+      const result = await createRetestExam(examId, studentIds, format(retestDate, 'yyyy-MM-dd'))
 
       if (!result.success || !result.data) {
         throw new Error(result.error || '재시험 생성 실패')
@@ -244,7 +245,7 @@ export function RetestsClient() {
       setActionLoading(null)
       setCreateRetestDialogOpen(false)
       setSelectedStudents(new Set())
-      setRetestDate('')
+      setRetestDate(undefined)
       setOriginalExamName('')
     }
   }
@@ -483,12 +484,11 @@ export function RetestsClient() {
                 <Calendar className="w-4 h-4" />
                 재시험 날짜
               </Label>
-              <Input
+              <DatePicker
                 id="retest-date"
-                type="date"
                 value={retestDate}
-                onChange={(e) => setRetestDate(e.target.value)}
-                required
+                onChange={setRetestDate}
+                placeholder="재시험 날짜 선택"
               />
               <p className="text-xs text-muted-foreground">
                 재시험을 실시할 날짜를 선택하세요. 나중에 변경할 수 있습니다.

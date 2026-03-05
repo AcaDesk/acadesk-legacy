@@ -33,10 +33,10 @@ export interface TenantSettings {
   website?: string | null
 
   // Operating Hours (set via updateOperatingHours)
-  operating_hours?: Record<string, any> | null
+  operating_hours?: Record<string, unknown> | null
 
   // Additional custom settings
-  [key: string]: any
+  [key: string]: unknown
 }
 
 export interface Tenant extends Timestamps {

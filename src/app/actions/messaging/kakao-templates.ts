@@ -82,6 +82,7 @@ async function getTenantChannelId(tenantId: string): Promise<string | null> {
 /**
  * Map DB row to KakaoTemplate type
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapDbToTemplate(row: any): KakaoTemplate {
   return {
     id: row.id,
@@ -372,7 +373,7 @@ export async function updateKakaoTemplate(
     )
 
     // Update local DB
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       status: solapiResult.status,
       rejection_reason: null, // Clear rejection reason on update
       updated_at: new Date().toISOString(),
@@ -533,6 +534,7 @@ export async function syncKakaoTemplates(): Promise<{
       category_code: string
       message_type: string
       emphasize_type: string
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       buttons: any[]
       status: string
     }> = []

@@ -9,7 +9,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@ui/popover'
-import { Calendar as CalendarIcon, X } from 'lucide-react'
+import { Calendar as CalendarIcon, X, UserX } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
@@ -30,6 +30,7 @@ export function StudentList() {
   const [classes, setClasses] = useState<Array<{ id: string; name: string }>>([])
   const [grades, setGrades] = useState<string[]>([])
   const [schools, setSchools] = useState<string[]>([])
+  const [badgeFilter, setBadgeFilter] = useState<'overdue' | 'unpaid' | 'partially_paid' | 'paid' | 'attendance_issue' | 'new_student' | 'birthday_today' | 'birthday_soon' | 'no_guardian' | null>(null)
 
   const { toast } = useToast()
   const requestSeqRef = useRef(0)
@@ -105,6 +106,7 @@ export function StudentList() {
         classes: { name: c.name || '' }
       })),
       recentAttendance: s.recentAttendance ?? [],
+      guardians: s.guardians ?? [],
     })) as Student[]
   }
 
@@ -187,8 +189,28 @@ export function StudentList() {
     setEnrollmentDateTo(undefined)
   }
 
+  const noGuardianCount = students.filter(s => !s.guardians || s.guardians.length === 0).length
+
   return (
     <div className="space-y-4">
+      {/* 보호자 미연결 알림 배너 */}
+      {!loading && noGuardianCount > 0 && (
+        <div className="flex items-center justify-between gap-2 px-4 py-3 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+          <div className="flex items-center gap-2 text-sm text-yellow-700 dark:text-yellow-400">
+            <UserX className="h-4 w-4 flex-shrink-0" />
+            <span>보호자가 연결되지 않은 학생이 <strong>{noGuardianCount}명</strong> 있습니다.</span>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-yellow-400 text-yellow-700 hover:bg-yellow-100 dark:border-yellow-700 dark:text-yellow-400 dark:hover:bg-yellow-900/30"
+            onClick={() => setBadgeFilter(badgeFilter === 'no_guardian' ? null : 'no_guardian')}
+          >
+            {badgeFilter === 'no_guardian' ? '필터 해제' : '보기'}
+          </Button>
+        </div>
+      )}
+
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-end">
         {/* Grade Filter */}
@@ -327,6 +349,8 @@ export function StudentList() {
         data={students}
         loading={loading}
         onDelete={handleDelete}
+        badgeFilter={badgeFilter}
+        onBadgeFilterChange={setBadgeFilter}
       />
     </div>
   )

@@ -39,6 +39,7 @@ interface EditTextbookClientProps {
     title: string
     publisher: string
     isbn: string
+    managementCode: string
     totalCopies: string
     price: string
     isActive: boolean
@@ -54,6 +55,7 @@ export function EditTextbookClient({ textbookId, initialData }: EditTextbookClie
   const [title, setTitle] = useState(initialData.title)
   const [publisher, setPublisher] = useState(initialData.publisher)
   const [isbn, setIsbn] = useState(initialData.isbn)
+  const [managementCode, setManagementCode] = useState(initialData.managementCode)
   const [totalCopies, setTotalCopies] = useState(initialData.totalCopies)
   const [price, setPrice] = useState(initialData.price)
   const [isActive, setIsActive] = useState(initialData.isActive)
@@ -111,6 +113,7 @@ export function EditTextbookClient({ textbookId, initialData }: EditTextbookClie
         title: title.trim(),
         publisher: publisher.trim() || undefined,
         isbn: isbn.trim() || undefined,
+        managementCode: managementCode.trim() || null,
         totalCopies:
           Number.isInteger(parsedTotalCopies) && parsedTotalCopies > 0
             ? parsedTotalCopies
@@ -227,6 +230,17 @@ export function EditTextbookClient({ textbookId, initialData }: EditTextbookClie
                   placeholder="예: 978-89-12345-67-8"
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="managementCode">관리번호</Label>
+              <Input
+                id="managementCode"
+                value={managementCode}
+                onChange={(e) => setManagementCode(e.target.value)}
+                placeholder="예: 수학-01, T-001"
+                maxLength={100}
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">

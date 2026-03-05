@@ -260,14 +260,18 @@ export async function getConsultationById(id: string, includeDetails = true) {
     // TODO(types): Type will be available after migration is applied
     // Filter out deleted notes and participants
     if (includeDetails) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if ((data as any).consultation_notes) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ;(data as any).consultation_notes = (data as any).consultation_notes
-          .filter((note: any) => !note.deleted_at)
-          .sort((a: any, b: any) => a.note_order - b.note_order)
+          .filter((note: { deleted_at: string | null }) => !note.deleted_at)
+          .sort((a: { note_order: number }, b: { note_order: number }) => a.note_order - b.note_order)
       }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if ((data as any).consultation_participants) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ;(data as any).consultation_participants = (data as any).consultation_participants
-          .filter((p: any) => !p.deleted_at)
+          .filter((p: { deleted_at: string | null }) => !p.deleted_at)
       }
     }
 

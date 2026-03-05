@@ -135,6 +135,7 @@ const scoreTrendConfig = {
   classAvg: { label: '반 평균', color: 'var(--chart-2)' },
 } satisfies ChartConfig
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const CustomAxisTick = (props: any) => {
   const { x, y, payload } = props;
   const { value } = payload;

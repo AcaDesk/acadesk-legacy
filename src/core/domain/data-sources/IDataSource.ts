@@ -9,7 +9,7 @@
  * Query Builder Interface
  * Supabase의 Query Builder를 추상화
  */
-export interface IQueryBuilder<T = any> {
+export interface IQueryBuilder<T = unknown> {
   select(columns?: string, options?: { count?: 'exact' | 'planned' | 'estimated'; head?: boolean }): this
   insert(data: Partial<T> | Partial<T>[]): this
   update(data: Partial<T>): this
@@ -33,8 +33,11 @@ export interface IQueryBuilder<T = any> {
   single<R = T>(): Promise<{ data: R | null; error: Error | null }>
   maybeSingle<R = T>(): Promise<{ data: R | null; error: Error | null }>
   then<R = T[]>(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onfulfilled?: ((value: { data: R | null; error: Error | null; count?: number | null }) => any) | null,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onrejected?: ((reason: any) => any) | null
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ): Promise<any>
 }
 
@@ -46,12 +49,12 @@ export interface IDataSource {
   /**
    * 테이블 쿼리 시작
    */
-  from<T = any>(table: string): IQueryBuilder<T>
+  from<T = unknown>(table: string): IQueryBuilder<T>
 
   /**
    * RPC (Stored Procedure) 호출
    */
-  rpc<T = any>(
+  rpc<T = unknown>(
     fn: string,
     params?: object
   ): Promise<{ data: T | null; error: Error | null }>
@@ -60,17 +63,17 @@ export interface IDataSource {
    * Auth 관련 메서드 (필요시 확장)
    */
   auth?: {
-    getUser(): Promise<{ data: { user: any } | null; error: Error | null }>
+    getUser(): Promise<{ data: { user: Record<string, unknown> } | null; error: Error | null }>
     signOut(): Promise<{ error: Error | null }>
     signUp(credentials: {
       email: string
       password: string
       options?: { emailRedirectTo?: string; data?: object }
-    }): Promise<{ data: { user: any; session: any } | null; error: Error | null }>
+    }): Promise<{ data: { user: Record<string, unknown>; session: Record<string, unknown> } | null; error: Error | null }>
     signInWithPassword(credentials: {
       email: string
       password: string
-    }): Promise<{ data: { user: any; session: any } | null; error: Error | null }>
+    }): Promise<{ data: { user: Record<string, unknown>; session: Record<string, unknown> } | null; error: Error | null }>
     signInWithOAuth(options: {
       provider: string
       options?: { redirectTo?: string; scopes?: string }
@@ -83,7 +86,7 @@ export interface IDataSource {
       email?: string
       password?: string
       data?: object
-    }): Promise<{ data: { user: any } | null; error: Error | null }>
+    }): Promise<{ data: { user: Record<string, unknown> } | null; error: Error | null }>
   }
 }
 

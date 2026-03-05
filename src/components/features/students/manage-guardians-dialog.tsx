@@ -119,6 +119,7 @@ export function ManageGuardiansDialog({
       }
 
       // Transform to GuardianWithUser format
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const guardiansWithUser: GuardianWithUser[] = result.data.map((sg: any) => ({
         id: sg.guardians?.id || '',
         user_id: sg.guardians?.user_id || '',
@@ -157,6 +158,7 @@ export function ManageGuardiansDialog({
       }
 
       // Transform to simple format for dropdown
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const available = result.data.map((g: any) => ({
         id: g.id,
         name: g.users?.name || '',

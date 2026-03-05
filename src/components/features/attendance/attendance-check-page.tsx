@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
+import { DatePicker } from '@ui/date-picker'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { ContactGuardianDialog } from '@/components/features/attendance/contact-guardian-dialog'
@@ -23,7 +24,7 @@ import {
   cancelAttendance,
 } from '@/app/actions/attendance'
 import { UI_TO_DB_STATUS, type UIAttendanceStatus } from '@/core/types/attendance'
-import { getTodayKST } from '@/lib/utils'
+import { getTodayKST, formatDate } from '@/lib/utils'
 import { useNetworkStatus } from '@/hooks/use-network-status'
 import { PendingSyncBadge } from '@ui/pending-sync-badge'
 import {
@@ -62,8 +63,11 @@ interface ClassInfo {
 
 // 서버에서 전달받는 초기 데이터 타입
 interface AttendanceCheckPageProps {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   initialRoster?: any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   initialClasses?: any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   initialRecords?: any[]
   initialDate?: string
   tenantId?: string
@@ -73,14 +77,18 @@ interface AttendanceCheckPageProps {
  * 로스터 + 출석기록을 결합하여 StudentAttendance 리스트 생성
  */
 function buildStudentList(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   enrollments: any[],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   attendances: any[],
   classesMap: ClassInfo[]
 ): StudentAttendance[] {
   // 출석 기록을 class_id + student_id 복합키로 맵핑 (status priority 기반 dedup)
   const STATUS_PRIORITY: Record<string, number> = { present: 2, late: 1, left_early: 1, absent: 0, excused: 0 }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const attendanceMap = new Map<string, any>()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const attendanceByStudentId = new Map<string, any>()
 
   for (const a of attendances) {
@@ -96,12 +104,12 @@ function buildStudentList(
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return enrollments.map((e: any) => {
     const student = e.students
-    const attendance = (
-      attendanceMap.get(`${e.class_id}:${e.student_id}`) ||
-      (e.class_id ? undefined : attendanceByStudentId.get(e.student_id))
-    ) as any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const attendance = (attendanceMap.get(`${e.class_id}:${e.student_id}`) ||
+      (e.class_id ? undefined : attendanceByStudentId.get(e.student_id))) as any
 
     const classInfo = classesMap.find(c => c.id === e.class_id)
 
@@ -154,6 +162,7 @@ export function AttendanceCheckPage({
   const [contactContext, setContactContext] = useState<'absent' | 'self_study' | 'makeup' | 'late' | 'early_leave' | null>(null)
 
   // 로스터: 한 번만 로드하고 ref에 고정
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rosterRef = useRef<any[]>(initialRoster || [])
   const rosterLoadedRef = useRef(!!initialRoster)
 
@@ -161,7 +170,9 @@ export function AttendanceCheckPage({
   const classesRef = useRef<ClassInfo[]>(
     initialClasses
       ? initialClasses
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .filter((c: any) => !(c as any).meta?.attendance_default)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .map((c: any) => ({ id: c.id, name: c.name }))
       : []
   )
@@ -169,6 +180,7 @@ export function AttendanceCheckPage({
   const [classesLoaded, setClassesLoaded] = useState(!!initialClasses)
 
   // 출석기록 메모리 캐시: key = date, value = attendance records
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recordsCacheRef = useRef(new Map<string, any[]>())
 
   // 학생 목록 (뷰용)
@@ -187,6 +199,7 @@ export function AttendanceCheckPage({
     // SSR 데이터를 IDB에 백그라운드로 저장 (오프라인 폴백용)
     if (tenantId) {
       if (initialRoster && initialRoster.length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         saveRosterToIDB(tenantId, initialRoster.map((e: any) => ({
           tenantId,
           studentId: e.student_id,
@@ -199,6 +212,7 @@ export function AttendanceCheckPage({
         }))).catch(() => {})
       }
       if (initialRecords && initialDate) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         saveAttendanceRecordsToIDB(tenantId, initialDate, initialRecords.map((a: any) => ({
           tenantId,
           date: initialDate,
@@ -223,6 +237,7 @@ export function AttendanceCheckPage({
         const result = await getActiveClasses()
         if (result.success && result.data && result.data.length > 0) {
           const filtered = result.data
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .filter(c => !(c as any).meta?.attendance_default)
             .map(c => ({ id: c.id, name: c.name }))
           classesRef.current = filtered
@@ -278,6 +293,7 @@ export function AttendanceCheckPage({
     const roster = rosterRef.current
     if (roster.length === 0) return
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const studentIds = [...new Set(roster.map((e: any) => e.student_id))]
 
     // 캐시 hit → 즉시 렌더 + 백그라운드 refresh
@@ -321,6 +337,7 @@ export function AttendanceCheckPage({
 
       // 서버 성공 시 IDB에도 저장
       if (tenantId) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         saveAttendanceRecordsToIDB(tenantId, date, attendances.map((a: any) => ({
           tenantId,
           date,
@@ -611,6 +628,7 @@ export function AttendanceCheckPage({
         isMakeupClass: student.isMakeupClass,
       }).then((result) => {
         if (result.success && result.data) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const saved = result.data as any
           const updatedStudent: StudentAttendance = {
             ...student,
@@ -676,18 +694,12 @@ export function AttendanceCheckPage({
               <ChevronLeft className="h-4 w-4" />
             </Button>
 
-            <div className="relative">
-              <div className="px-3 sm:px-4 py-1 text-sm font-semibold text-foreground flex items-center gap-2 cursor-pointer hover:bg-accent/50 rounded-md transition-colors">
-                <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                {getFormattedDate(currentDate)}
-              </div>
-              <input
-                type="date"
-                value={currentDate}
-                onChange={(e) => setCurrentDate(e.target.value)}
-                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-              />
-            </div>
+            <DatePicker
+              value={new Date(currentDate + 'T00:00:00')}
+              onChange={(date) => date && setCurrentDate(formatDate(date))}
+              dateFormat="yyyy.MM.dd (eee)"
+              className="h-8 px-3 py-1 text-sm font-semibold"
+            />
 
             <Button
               variant="ghost"

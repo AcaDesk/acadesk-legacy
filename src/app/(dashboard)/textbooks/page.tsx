@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { Plus } from 'lucide-react'
 import { getTextbooks } from '@/app/actions/textbooks'
+import { createServiceRoleClient } from '@/lib/supabase/service-role'
+import { verifyStaff } from '@/lib/auth/verify-permission'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@ui/page-header'
 import { PageErrorBoundary } from '@/components/layout/page-error-boundary'
@@ -20,8 +22,30 @@ export default async function TextbooksPage() {
   await requireAuth()
 
   // Fetch textbooks server-side
-  const result = await getTextbooks({ includeUnits: true })
+  const [result, staffResult] = await Promise.all([
+    getTextbooks({ includeUnits: true }),
+    verifyStaff().catch(() => null),
+  ])
   const textbooks = result.success && result.data ? result.data : []
+
+  // Fetch active lending counts per textbook
+  let lendingCountByTextbookId: Record<string, number> = {}
+  if (staffResult) {
+    try {
+      const supabase = createServiceRoleClient()
+      const { data: lendings } = await supabase
+        .from('book_lendings')
+        .select('textbook_id')
+        .eq('tenant_id', staffResult.tenantId)
+        .is('returned_at', null)
+      for (const row of lendings || []) {
+        const id = row.textbook_id as string
+        lendingCountByTextbookId[id] = (lendingCountByTextbookId[id] || 0) + 1
+      }
+    } catch {
+      // 대출 상태 조회 실패 시 조용히 무시
+    }
+  }
 
   return (
     <PageErrorBoundary pageName="교재 관리">
@@ -46,7 +70,10 @@ export default async function TextbooksPage() {
         </section>
 
         {/* Client Component for interactive features */}
-        <TextbooksClient textbooks={textbooks as any} />
+        <TextbooksClient
+          textbooks={textbooks as any}
+          lendingCountByTextbookId={lendingCountByTextbookId}
+        />
       </div>
     </PageErrorBoundary>
   )

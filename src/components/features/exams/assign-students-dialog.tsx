@@ -164,6 +164,7 @@ export function AssignStudentsDialog({
 
       const assignedIds = new Set(assignedScores?.map(s => s.student_id) || [])
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const studentList: Student[] = (allStudents || []).map((s: any) => ({
         id: s.id,
         student_code: s.student_code,

@@ -186,6 +186,7 @@ export class SolapiProvider implements IMessageProvider {
         }
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const message: any = messageArray[0]
 
       // 상태 매핑

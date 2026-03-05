@@ -92,11 +92,13 @@ export async function createUserProfileServer(userId: string) {
       console.error('[createUserProfileServer] Auth user not found:', {
         requestId,
         userId,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         code: (authError as any)?.code,
         message: authError?.message,
       })
       return {
         success: false,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         error: `인증 사용자 조회 실패: ${(authError as any)?.code ?? ''} ${authError?.message ?? ''}`,
       }
     }
@@ -129,13 +131,17 @@ export async function createUserProfileServer(userId: string) {
       console.error('[createUserProfileServer] Upsert error:', {
         requestId,
         userId,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         code: (upsertError as any)?.code,
         message: upsertError.message,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         details: (upsertError as any)?.details,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         hint: (upsertError as any)?.hint,
       })
       return {
         success: false,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         error: `프로필 생성 실패: ${(upsertError as any)?.code ?? ''} ${upsertError.message}`,
       }
     }
@@ -499,14 +505,18 @@ export async function checkOnboardingStage(inviteToken?: string) {
       console.error('[checkOnboardingStage] users select error:', {
         requestId,
         userId,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         code: (userError as any)?.code,
         message: userError.message,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         details: (userError as any)?.details,
       })
       // PGRST116은 "no rows returned" - 이건 NO_PROFILE로 처리
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if ((userError as any)?.code !== 'PGRST116') {
         return {
           success: false,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           error: `프로필 조회 실패: ${(userError as any)?.code ?? ''} ${userError.message}`,
           data: null,
         }
