@@ -360,6 +360,10 @@ export const BREADCRUMB_CONFIG: BreadcrumbConfig = {
   '/notifications': '알림',
   '/notifications/[id]': '알림 상세',
 
+  // Jobs (작업이력)
+  '/jobs': '작업이력',
+  '/jobs/[id]': '작업 상세',
+
   // Kiosk (키오스크)
   '/kiosk': '키오스크',
   '/kiosk/login': '키오스크 로그인',
