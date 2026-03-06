@@ -13,7 +13,7 @@ import { getStudentFilterOptions } from '@/app/actions/students'
 import {
   buildPromotionPlans,
   groupByCategory,
-  groupTransfersByCurrentSchool,
+  groupTransfersByCurrentGrade,
   type PromotionPlan,
   type PromotionCategory,
 } from '@/lib/promotion-utils'

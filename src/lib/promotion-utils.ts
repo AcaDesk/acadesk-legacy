@@ -106,15 +106,15 @@ export function groupByCategory(plans: PromotionPlan[]): Record<PromotionCategor
 }
 
 /**
- * 학교 전환 학생을 현재 학교별로 그룹핑
+ * 학교 전환 학생을 현재 학년별로 그룹핑
  */
-export function groupTransfersByCurrentSchool(
+export function groupTransfersByCurrentGrade(
   plans: PromotionPlan[]
 ): Record<string, PromotionPlan[]> {
   const groups: Record<string, PromotionPlan[]> = {}
   for (const plan of plans) {
     if (plan.category !== 'school_transfer') continue
-    const key = plan.currentSchool || '학교 미입력'
+    const key = plan.currentGrade || '학년 미입력'
     if (!groups[key]) groups[key] = []
     groups[key].push(plan)
   }
