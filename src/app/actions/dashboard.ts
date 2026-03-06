@@ -382,7 +382,8 @@ async function fetchStudentAlerts(supabase: ReturnType<typeof createServiceRoleC
     // 출석 기록이 없는 학생 필터링
     const longAbsence = allStudents
       .filter((student: { id: string }) => !studentsWithAttendance.has(student.id))
-      .map((student: { id: string; users?: { name: string }; grade?: string }) => ({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((student: any) => ({
         id: student.id,
         name: student.users?.name || 'Unknown',
         grade: student.grade || '',
@@ -403,7 +404,8 @@ async function fetchStudentAlerts(supabase: ReturnType<typeof createServiceRoleC
     const pendingAssignmentsMap = new Map<string, { name: string; grade: string; count: number }>()
 
     if (studentsWithPendingTodos) {
-      studentsWithPendingTodos.forEach((todo: { student_id: string; students?: { users?: { name: string }; grade?: string } }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      studentsWithPendingTodos.forEach((todo: any) => {
         const studentId = todo.student_id
         const student = todo.students
 

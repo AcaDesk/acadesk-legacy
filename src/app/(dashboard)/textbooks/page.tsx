@@ -29,7 +29,7 @@ export default async function TextbooksPage() {
   const textbooks = result.success && result.data ? result.data : []
 
   // Fetch active lending counts per textbook
-  let lendingCountByTextbookId: Record<string, number> = {}
+  const lendingCountByTextbookId: Record<string, number> = {}
   if (staffResult) {
     try {
       const supabase = createServiceRoleClient()

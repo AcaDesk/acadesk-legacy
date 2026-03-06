@@ -17,7 +17,8 @@ interface MessageStatisticsProps {
 
 export function MessageStatistics({ className }: MessageStatisticsProps) {
   const [loading, setLoading] = useState(false)
-  const [statistics, setStatistics] = useState<{ total: number; success: number; pending: number; failed: number } | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [statistics, setStatistics] = useState<any>(null)
   const [dateRange, setDateRange] = useState<{
     from: Date
     to: Date

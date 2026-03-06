@@ -189,7 +189,7 @@ export function OverviewTab() {
                     ? Math.round(
                         recentScores
                           .slice(0, 5)
-                          .reduce((sum, s) => sum + s.percentage, 0) /
+                          .reduce((sum, s) => sum + (s.percentage ?? 0), 0) /
                           Math.min(recentScores.length, 5)
                       )
                     : '-'}

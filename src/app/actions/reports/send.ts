@@ -116,7 +116,7 @@ export async function prepareReportSending(reportId: string) {
     const settings = (academyData.settings as Record<string, unknown>) || {}
     const academy = {
       name: academyData.name,
-      phone: settings.phone || null,
+      phone: (settings.phone as string) || null,
     }
 
     // 4. 리포트 정보 조회

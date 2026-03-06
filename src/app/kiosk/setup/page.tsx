@@ -3,12 +3,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { MonitorPlay, LogIn, CheckCircle2, AlertCircle, Loader2, KeyRound, Save } from 'lucide-react'
+import { MonitorPlay, LogIn, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
-import { Input } from '@ui/input'
-import { Label } from '@ui/label'
-import { useToast } from '@/hooks/use-toast'
 import { createBrowserClient } from '@/lib/supabase/client'
 import { Avatar, AvatarFallback } from '@ui/avatar'
 
@@ -29,24 +26,15 @@ const ROLE_LABELS: Record<string, string> = {
 
 export default function KioskSetupPage() {
   const router = useRouter()
-  const { toast } = useToast()
 
   const [status, setStatus] = useState<'loading' | 'ready' | 'no_session' | 'error'>('loading')
   const [tenantInfo, setTenantInfo] = useState<TenantInfo | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [savedTenantId, setSavedTenantId] = useState<string | null>(null)
 
-  // 관리자 종료 PIN 설정
-  const [exitPin, setExitPin] = useState('')
-  const [exitPinConfirm, setExitPinConfirm] = useState('')
-  const [isSavingPin, setIsSavingPin] = useState(false)
-  const [currentExitPin, setCurrentExitPin] = useState<string | null>(null)
-
   useEffect(() => {
     const stored = localStorage.getItem('kiosk_tenant_id')
     setSavedTenantId(stored)
-    const storedPin = localStorage.getItem('kiosk_exit_pin')
-    setCurrentExitPin(storedPin ?? '9999 (기본값)')
     loadSessionInfo()
   }, [])
 
@@ -90,26 +78,6 @@ export default function KioskSetupPage() {
     setTimeout(() => {
       router.push('/kiosk/attendance')
     }, 600)
-  }
-
-  function handleSaveExitPin() {
-    if (exitPin.length !== 4 || !/^\d{4}$/.test(exitPin)) {
-      toast({ title: '오류', description: '4자리 숫자로 입력해주세요.', variant: 'destructive' })
-      return
-    }
-    if (exitPin !== exitPinConfirm) {
-      toast({ title: '오류', description: 'PIN이 일치하지 않습니다.', variant: 'destructive' })
-      return
-    }
-    setIsSavingPin(true)
-    localStorage.setItem('kiosk_exit_pin', exitPin)
-    setCurrentExitPin(exitPin)
-    setExitPin('')
-    setExitPinConfirm('')
-    setTimeout(() => {
-      setIsSavingPin(false)
-      toast({ title: '저장 완료', description: '관리자 종료 PIN이 변경되었습니다.' })
-    }, 300)
   }
 
   // ── 로딩 ─────────────────────────────────────────────────────────────────
@@ -170,13 +138,12 @@ export default function KioskSetupPage() {
   const roleLabel = ROLE_LABELS[tenantInfo.roleCode] ?? tenantInfo.roleCode
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-primary/10 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary/10 p-4 flex items-center justify-center overflow-y-auto">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md space-y-4"
+        className="w-full max-w-md py-8"
       >
-        {/* ── 학원 설정 ── */}
         <Card className="shadow-xl">
           <CardHeader className="text-center space-y-3">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
@@ -221,68 +188,8 @@ export default function KioskSetupPage() {
                 {isSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : <MonitorPlay className="h-5 w-5" />}
                 {isSaving ? '설정 중...' : '이 학원으로 설정'}
               </Button>
-              <Button size="lg" variant="outline" className="w-full" onClick={() => router.push('/dashboard')} disabled={isSaving}>
-                대시보드로 돌아가기
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* ── 관리자 종료 PIN 설정 ── */}
-        <Card className="shadow-xl">
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted">
-                <KeyRound className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div>
-                <CardTitle className="text-lg">관리자 종료 PIN</CardTitle>
-                <CardDescription>키오스크 종료 시 사용하는 4자리 PIN</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">현재 PIN</span>
-              <span className="font-mono font-medium">
-                {currentExitPin ? '●●●●' : '미설정 (기본: 9999)'}
-              </span>
-            </div>
-
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="exitPin">새 PIN (4자리)</Label>
-                <Input
-                  id="exitPin"
-                  type="password"
-                  inputMode="numeric"
-                  maxLength={4}
-                  placeholder="새 PIN 입력"
-                  value={exitPin}
-                  onChange={(e) => setExitPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="exitPinConfirm">PIN 확인</Label>
-                <Input
-                  id="exitPinConfirm"
-                  type="password"
-                  inputMode="numeric"
-                  maxLength={4}
-                  placeholder="PIN 재입력"
-                  value={exitPinConfirm}
-                  onChange={(e) => setExitPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleSaveExitPin() }}
-                />
-              </div>
-              <Button
-                className="w-full gap-2"
-                onClick={handleSaveExitPin}
-                disabled={isSavingPin || exitPin.length !== 4 || exitPinConfirm.length !== 4}
-              >
-                {isSavingPin ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                PIN 저장
+              <Button size="lg" variant="outline" className="w-full" onClick={() => router.push('/settings/kiosk')} disabled={isSaving}>
+                설정 페이지로 돌아가기
               </Button>
             </div>
           </CardContent>

@@ -109,6 +109,7 @@ function buildStudentList(
     const student = e.students
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const attendance = (attendanceMap.get(`${e.class_id}:${e.student_id}`) ||
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (e.class_id ? undefined : attendanceByStudentId.get(e.student_id))) as any
 
     const classInfo = classesMap.find(c => c.id === e.class_id)
