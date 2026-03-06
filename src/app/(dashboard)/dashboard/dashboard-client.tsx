@@ -16,6 +16,7 @@ import { WidgetWithControls } from "@/components/features/dashboard/widget-with-
 import {
   DEFAULT_WIDGETS,
   type DashboardWidget,
+  type DashboardPreferences,
   isWidgetAvailable,
   LAYOUT_PRESETS,
   type DashboardPreset,
@@ -26,7 +27,7 @@ import {
 import { renderWidgetContent } from "./widget-factory"
 import { WidgetErrorBoundary } from "@/components/features/dashboard/widget-error-boundary"
 import { cn } from "@/lib/utils"
-import { saveDashboardPreferences, getDashboardPreferences } from "@/app/actions/dashboard-preferences"
+import { saveDashboardPreferences } from "@/app/actions/dashboard-preferences"
 import { getKPIStatsByPeriod, type KPIPeriod } from "@/app/actions/dashboard-kpi"
 import type { DrilldownWidgetId } from "@/app/actions/dashboard-drilldown"
 
@@ -44,7 +45,66 @@ const DRILLDOWN_WIDGET_IDS = new Set<string>([
   'kpi-completion-rate',
 ])
 
-export function DashboardClient({ data: initialData }: { data: DashboardData }) {
+/**
+ * 서버에서 로드한 저장된 위젯 설정을 초기 위젯 배열로 변환
+ * (기존 useEffect 로직과 동일, 초기 상태값 계산용)
+ */
+function resolveInitialWidgets(saved: DashboardWidget[] | undefined): DashboardWidget[] {
+  if (!saved || saved.length === 0) return DEFAULT_WIDGETS
+
+  // 구버전 레이아웃 감지: react-grid-layout 이전에는 KPI 외 위젯이 h≤2였음
+  const isLegacyLayout = saved.some(
+    (w) => !w.id.startsWith('kpi-') && w.visible && w.h <= 2
+  )
+
+  if (isLegacyLayout) {
+    const visibilityMap = new Map(
+      saved
+        .filter((w) => {
+          const def = DEFAULT_WIDGETS.find(d => d.id === w.id)
+          return def && isWidgetAvailable({ ...w, requiredFeatures: def.requiredFeatures })
+        })
+        .map((w) => [w.id, w.visible])
+    )
+    return DEFAULT_WIDGETS.map(def => ({
+      ...def,
+      visible: visibilityMap.has(def.id)
+        ? (visibilityMap.get(def.id) ?? def.visible)
+        : def.visible,
+    }))
+  }
+
+  // 신버전: 저장된 값 그대로 사용
+  const widgetsWithNames = saved
+    .filter((widget) => {
+      const defaultWidget = DEFAULT_WIDGETS.find(w => w.id === widget.id)
+      if (!defaultWidget) return false
+      return isWidgetAvailable({
+        ...widget,
+        requiredFeatures: defaultWidget.requiredFeatures,
+      })
+    })
+    .map((widget) => {
+      const defaultWidget = DEFAULT_WIDGETS.find(w => w.id === widget.id)
+      return {
+        ...widget,
+        name: widget.name || defaultWidget?.name || widget.title || widget.id,
+        requiredFeatures: defaultWidget?.requiredFeatures,
+      }
+    })
+  const savedWidgetIds = new Set(widgetsWithNames.map((w) => w.id))
+  const newWidgets = DEFAULT_WIDGETS
+    .filter(w => !savedWidgetIds.has(w.id))
+    .map(w => ({ ...w, visible: false }))
+  return [...widgetsWithNames, ...newWidgets]
+}
+
+interface DashboardClientProps {
+  data: DashboardData
+  savedPreferences?: DashboardPreferences | null
+}
+
+export function DashboardClient({ data: initialData, savedPreferences }: DashboardClientProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const {
@@ -62,8 +122,10 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
     weeklyPerformance,
   } = initialData
 
-  // 레이아웃 상태
-  const [widgets, setWidgets] = useState<DashboardWidget[]>(DEFAULT_WIDGETS)
+  // 레이아웃 상태 (서버에서 로드한 설정으로 초기화하여 깜빡임 방지)
+  const [widgets, setWidgets] = useState<DashboardWidget[]>(
+    () => resolveInitialWidgets(savedPreferences?.widgets)
+  )
   const [isEditMode, setIsEditMode] = useState(false)
   const [tempWidgets, setTempWidgets] = useState<DashboardWidget[]>([])
   const [isSaving, setIsSaving] = useState(false)
@@ -184,80 +246,8 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
       : []
   }, [isEditMode, tempWidgets])
 
-  // ── 사용자 설정 로드 ────────────────────────────────────────────
-
-  useEffect(() => {
-    let isMounted = true
-
-    const loadPreferences = async () => {
-      try {
-        const result = await getDashboardPreferences()
-        if (!isMounted) return
-
-        if (result.success && result.preferences?.widgets) {
-          const saved = result.preferences.widgets
-
-          // 구버전 레이아웃 감지: react-grid-layout 이전에는 KPI 외 위젯이 h≤2였음
-          // 신버전은 h≥4 이상이므로 구버전으로 판단되면 기본 위치로 리셋
-          const isLegacyLayout = saved.some(
-            (w: DashboardWidget) => !w.id.startsWith('kpi-') && w.visible && w.h <= 2
-          )
-
-          if (isLegacyLayout) {
-            // 구버전: visible 플래그만 보존하고 나머지는 DEFAULT_WIDGETS 기준으로 리셋
-            const visibilityMap = new Map(
-              saved
-                .filter((w: DashboardWidget) => {
-                  const def = DEFAULT_WIDGETS.find(d => d.id === w.id)
-                  return def && isWidgetAvailable({ ...w, requiredFeatures: def.requiredFeatures })
-                })
-                .map((w: DashboardWidget) => [w.id, w.visible])
-            )
-            const migrated = DEFAULT_WIDGETS.map(def => ({
-              ...def,
-              visible: visibilityMap.has(def.id)
-                ? (visibilityMap.get(def.id) ?? def.visible)
-                : def.visible,
-            }))
-            setWidgets(migrated)
-            return
-          }
-
-          // 신버전: 저장된 값 그대로 사용
-          const widgetsWithNames = saved
-            .filter((widget: DashboardWidget) => {
-              const defaultWidget = DEFAULT_WIDGETS.find(w => w.id === widget.id)
-              if (!defaultWidget) return false
-              return isWidgetAvailable({
-                ...widget,
-                requiredFeatures: defaultWidget.requiredFeatures,
-              })
-            })
-            .map((widget: DashboardWidget) => {
-              const defaultWidget = DEFAULT_WIDGETS.find(w => w.id === widget.id)
-              return {
-                ...widget,
-                name: widget.name || defaultWidget?.name || widget.title || widget.id,
-                requiredFeatures: defaultWidget?.requiredFeatures,
-              }
-            })
-          const savedWidgetIds = new Set(widgetsWithNames.map((w: DashboardWidget) => w.id))
-          const newWidgets = DEFAULT_WIDGETS
-            .filter(w => !savedWidgetIds.has(w.id))
-            .map(w => ({ ...w, visible: false }))
-          setWidgets([...widgetsWithNames, ...newWidgets])
-        }
-      } catch (error) {
-        console.error('Failed to load preferences:', error)
-      }
-    }
-
-    void loadPreferences()
-
-    return () => {
-      isMounted = false
-    }
-  }, [])
+  // 사용자 설정은 서버에서 미리 로드하여 savedPreferences prop으로 전달됨
+  // (깜빡임 방지 — 클라이언트 측 비동기 로드 제거)
 
   // ── 핸들러 ──────────────────────────────────────────────────────
 

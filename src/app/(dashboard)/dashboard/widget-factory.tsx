@@ -1,17 +1,7 @@
+import dynamic from "next/dynamic"
 import { Users, Calendar, Trophy, Target, BookOpen, DollarSign } from "lucide-react"
 import { StatsCard } from "@/components/features/dashboard/stats-card"
-import { TodayTasks } from "@/components/features/dashboard/today-tasks"
-import { TodayCommunications } from "@/components/features/dashboard/today-communications"
-import { StudentAlerts } from "@/components/features/dashboard/student-alerts"
-import { FinancialSnapshot } from "@/components/features/dashboard/financial-snapshot"
-import { ClassStatus } from "@/components/features/dashboard/class-status"
-import { AttendanceSummary } from "@/components/features/dashboard/attendance-summary"
-import { WeeklyPerformance } from "@/components/features/dashboard/weekly-performance"
-import { RecentStudentsCard } from "@/components/features/dashboard/recent-students-card"
-import { CalendarWidget } from "@/components/features/dashboard/calendar-widget"
-import { QuickActions } from "@/components/features/dashboard/quick-actions"
-import { QuickStats } from "@/components/features/dashboard/quick-stats"
-import { RecentActivityFeed } from "@/components/features/dashboard/recent-activity-feed"
+import { DashboardWidgetSkeleton } from "@/components/features/dashboard/dashboard-widget-wrapper"
 import type {
   DashboardWidgetId,
   RecentStudent,
@@ -27,6 +17,55 @@ import type {
   FinancialData,
   WeeklyPerformanceData,
 } from "@/core/types/dashboard"
+
+const TodayTasks = dynamic(
+  () => import("@/components/features/dashboard/today-tasks").then((m) => m.TodayTasks),
+  { loading: () => <DashboardWidgetSkeleton variant="default" /> }
+)
+const TodayCommunications = dynamic(
+  () => import("@/components/features/dashboard/today-communications").then((m) => m.TodayCommunications),
+  { loading: () => <DashboardWidgetSkeleton variant="list" /> }
+)
+const StudentAlerts = dynamic(
+  () => import("@/components/features/dashboard/student-alerts").then((m) => m.StudentAlerts),
+  { loading: () => <DashboardWidgetSkeleton variant="list" /> }
+)
+const FinancialSnapshot = dynamic(
+  () => import("@/components/features/dashboard/financial-snapshot").then((m) => m.FinancialSnapshot),
+  { loading: () => <DashboardWidgetSkeleton variant="default" /> }
+)
+const ClassStatus = dynamic(
+  () => import("@/components/features/dashboard/class-status").then((m) => m.ClassStatus),
+  { loading: () => <DashboardWidgetSkeleton variant="list" /> }
+)
+const AttendanceSummary = dynamic(
+  () => import("@/components/features/dashboard/attendance-summary").then((m) => m.AttendanceSummary),
+  { loading: () => <DashboardWidgetSkeleton variant="default" /> }
+)
+const WeeklyPerformance = dynamic(
+  () => import("@/components/features/dashboard/weekly-performance").then((m) => m.WeeklyPerformance),
+  { loading: () => <DashboardWidgetSkeleton variant="chart" /> }
+)
+const RecentStudentsCard = dynamic(
+  () => import("@/components/features/dashboard/recent-students-card").then((m) => m.RecentStudentsCard),
+  { loading: () => <DashboardWidgetSkeleton variant="list" /> }
+)
+const CalendarWidget = dynamic(
+  () => import("@/components/features/dashboard/calendar-widget").then((m) => m.CalendarWidget),
+  { loading: () => <DashboardWidgetSkeleton variant="default" /> }
+)
+const QuickActions = dynamic(
+  () => import("@/components/features/dashboard/quick-actions").then((m) => m.QuickActions),
+  { loading: () => <DashboardWidgetSkeleton variant="default" /> }
+)
+const QuickStats = dynamic(
+  () => import("@/components/features/dashboard/quick-stats").then((m) => m.QuickStats),
+  { loading: () => <DashboardWidgetSkeleton variant="stats" /> }
+)
+const RecentActivityFeed = dynamic(
+  () => import("@/components/features/dashboard/recent-activity-feed").then((m) => m.RecentActivityFeed),
+  { loading: () => <DashboardWidgetSkeleton variant="list" /> }
+)
 
 export interface WidgetFactoryProps {
   widgetId: DashboardWidgetId
