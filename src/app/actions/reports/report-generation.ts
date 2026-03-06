@@ -13,14 +13,11 @@ import { getErrorMessage } from '@/lib/error-handlers'
 import type { ReportData } from '@/core/types/report.types'
 import type { TenantSettings } from '@/core/types/database'
 import {
+  collectReportMetricsByStudent,
+  getMonthlyTrendPeriods,
   type StudentDataWithUser,
   getAttendanceData,
   getHomeworkData,
-  getScoresData,
-  getGradesChartData,
-  getAttendanceChartData,
-  getCurrentScoreData,
-  getScoreTrendData,
   generateInstructorComment,
 } from './report-helpers'
 
@@ -97,15 +94,26 @@ export async function generateWeeklyReport(
       website: settings.website || null,
     }
 
-    // 6. 독립적 헬퍼 6개 병렬 실행
-    const [attendance, homework, scores, gradesChartData, attendanceChartData, currentScore] = await Promise.all([
-      getAttendanceData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
-      getHomeworkData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
-      getScoresData(supabase, studentId, periodStartStr, periodEndStr, prevPeriodStartStr, prevPeriodEndStr, tenantId),
-      getGradesChartData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
-      getAttendanceChartData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
-      getCurrentScoreData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
-    ])
+    const metricsByStudent = await collectReportMetricsByStudent(supabase, {
+      studentIds: [studentId],
+      tenantId,
+      currentPeriod: {
+        start: periodStartStr,
+        end: periodEndStr,
+      },
+      previousPeriod: {
+        start: prevPeriodStartStr,
+        end: prevPeriodEndStr,
+      },
+    })
+
+    const metrics = metricsByStudent.get(studentId)
+    const attendance = metrics?.attendance || { total: 0, present: 0, late: 0, absent: 0, rate: 0 }
+    const homework = metrics?.homework || { total: 0, completed: 0, rate: 0 }
+    const scores = metrics?.scores || []
+    const gradesChartData = metrics?.gradesChartData || []
+    const attendanceChartData = metrics?.attendanceChartData || []
+    const currentScore = metrics?.currentScore || { myScore: 0, classAverage: 0, highestScore: 0 }
 
     // 7. 강사 코멘트 생성 (attendance + scores 결과에 의존)
     const instructorComment = generateInstructorComment(attendance, scores)
@@ -229,16 +237,29 @@ export async function generateMonthlyReport(
       website: settings.website || null,
     }
 
-    // 6. 독립적 헬퍼 7개 병렬 실행
-    const [attendance, homework, scores, gradesChartData, attendanceChartData, currentScore, scoreTrend] = await Promise.all([
-      getAttendanceData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
-      getHomeworkData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
-      getScoresData(supabase, studentId, periodStartStr, periodEndStr, prevPeriodStartStr, prevPeriodEndStr, tenantId),
-      getGradesChartData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
-      getAttendanceChartData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
-      getCurrentScoreData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
-      getScoreTrendData(supabase, studentId, year, month, tenantId),
-    ])
+    const trendPeriods = getMonthlyTrendPeriods(year, month)
+    const metricsByStudent = await collectReportMetricsByStudent(supabase, {
+      studentIds: [studentId],
+      tenantId,
+      currentPeriod: {
+        start: periodStartStr,
+        end: periodEndStr,
+      },
+      previousPeriod: {
+        start: prevPeriodStartStr,
+        end: prevPeriodEndStr,
+      },
+      trendPeriods,
+    })
+
+    const metrics = metricsByStudent.get(studentId)
+    const attendance = metrics?.attendance || { total: 0, present: 0, late: 0, absent: 0, rate: 0 }
+    const homework = metrics?.homework || { total: 0, completed: 0, rate: 0 }
+    const scores = metrics?.scores || []
+    const gradesChartData = metrics?.gradesChartData || []
+    const attendanceChartData = metrics?.attendanceChartData || []
+    const currentScore = metrics?.currentScore || { myScore: 0, classAverage: 0, highestScore: 0 }
+    const scoreTrend = metrics?.scoreTrend || []
 
     // 7. 강사 코멘트 생성 (attendance + scores 결과에 의존)
     const instructorComment = generateInstructorComment(attendance, scores)
@@ -671,6 +692,26 @@ export async function generateBulkMonthlyReports(
       (existingReports || []).map((r) => r.student_id)
     )
 
+    const studentsToGenerate = studentIds.filter((studentId) => {
+      if (existingStudentIds.has(studentId)) return false
+      return studentsMap.has(studentId)
+    })
+
+    const trendPeriods = getMonthlyTrendPeriods(year, month)
+    const metricsByStudent = await collectReportMetricsByStudent(supabase, {
+      studentIds: studentsToGenerate,
+      tenantId,
+      currentPeriod: {
+        start: periodStartStr,
+        end: periodEndStr,
+      },
+      previousPeriod: {
+        start: prevPeriodStartStr,
+        end: prevPeriodEndStr,
+      },
+      trendPeriods,
+    })
+
     // 6. 학생별 리포트 생성 내부 함수
     async function generateForStudent(
       studentId: string
@@ -686,16 +727,14 @@ export async function generateBulkMonthlyReports(
       }
 
       try {
-        // 7개 헬퍼 병렬 실행
-        const [attendance, homework, scores, gradesChartData, attendanceChartData, currentScore, scoreTrend] = await Promise.all([
-          getAttendanceData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
-          getHomeworkData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
-          getScoresData(supabase, studentId, periodStartStr, periodEndStr, prevPeriodStartStr, prevPeriodEndStr, tenantId),
-          getGradesChartData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
-          getAttendanceChartData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
-          getCurrentScoreData(supabase, studentId, periodStartStr, periodEndStr, tenantId),
-          getScoreTrendData(supabase, studentId, year, month, tenantId),
-        ])
+        const metrics = metricsByStudent.get(studentId)
+        const attendance = metrics?.attendance || { total: 0, present: 0, late: 0, absent: 0, rate: 0 }
+        const homework = metrics?.homework || { total: 0, completed: 0, rate: 0 }
+        const scores = metrics?.scores || []
+        const gradesChartData = metrics?.gradesChartData || []
+        const attendanceChartData = metrics?.attendanceChartData || []
+        const currentScore = metrics?.currentScore || { myScore: 0, classAverage: 0, highestScore: 0 }
+        const scoreTrend = metrics?.scoreTrend || []
 
         const instructorComment = generateInstructorComment(attendance, scores)
 

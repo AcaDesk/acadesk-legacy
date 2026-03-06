@@ -7,7 +7,7 @@
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 
 // ============================================================================
-// Helper Types
+// Shared Types
 // ============================================================================
 
 export interface StudentDataWithUser {
@@ -19,72 +19,77 @@ export interface StudentDataWithUser {
   } | null
 }
 
-export interface ExamScoreWithDetails {
-  percentage: number
-  feedback?: string | null
-  exams?: {
-    name: string
-    exam_date: string
-    category_code: string
-    subject_id: string | null
-    ref_exam_categories?: {
-      label: string
-    } | null
-    subjects?: {
-      name: string
-      color: string
-    } | null
-  } | null
-}
-
-export interface ExamScoreBasicType {
-  percentage: number
-  exams?: {
-    category_code: string
-    subject_id: string | null
-    name?: string
-  } | null
-}
-
-export interface ExamScoreChartType {
-  score: number
-  total_score: number
-  percentage: number
-  exams?: {
-    name: string
-    exam_date: string
-  } | null
-}
-
-interface ScoreWithExamDates {
-  percentage: number
-  is_retest?: boolean
-  created_at?: string
-  student_id?: string
-  exams?: {
-    name?: string
-    exam_date?: string | null
-    created_at?: string
-    category_code?: string
-    subject_id?: string | null
-    ref_exam_categories?: { label: string } | null
-    subjects?: { name: string; color: string } | null
-  } | null
-}
-
-/** Supabase !inner 조인 결과를 ScoreWithExamDates 배열로 캐스팅 (런타임: 객체, TS 추론: 배열 보정) */
-function castScores(data: unknown[] | null): ScoreWithExamDates[] {
-  return (data ?? []) as ScoreWithExamDates[]
-}
-
 export interface AttendanceRecordType {
   attendance_date: string
   status: 'present' | 'late' | 'absent' | 'none'
   notes?: string | null
 }
 
+export interface ReportPeriod {
+  start: string
+  end: string
+}
+
+export interface TrendPeriod extends ReportPeriod {
+  key: string
+  label: string
+}
+
+export interface ScoreSummaryItem {
+  category: string
+  current: number | null
+  previous: number | null
+  change: number | null
+  average: number | null
+  retestRate: number | null
+  tests: Array<{
+    name: string
+    date: string
+    percentage: number
+    feedback: string | null
+  }>
+}
+
+export interface StudentReportMetrics {
+  attendance: {
+    total: number
+    present: number
+    late: number
+    absent: number
+    rate: number
+  }
+  homework: {
+    total: number
+    completed: number
+    rate: number
+  }
+  scores: ScoreSummaryItem[]
+  gradesChartData: Array<{
+    examName: string
+    score: number
+    classAverage?: number
+    date?: string
+  }>
+  attendanceChartData: Array<{
+    date: Date
+    status: 'present' | 'late' | 'absent' | 'none'
+    note?: string
+  }>
+  currentScore: {
+    myScore: number
+    classAverage: number
+    highestScore: number
+  }
+  scoreTrend: Array<{
+    name: string
+    '학생 점수': number
+    '반 평균': number
+    '재시험률'?: number
+  }>
+}
+
 // ============================================================================
-// Helper Functions for Subject Grouping
+// Subject Grouping
 // ============================================================================
 
 /**
@@ -92,24 +97,17 @@ export interface AttendanceRecordType {
  * subject_id가 없는 시험도 전월대비 비교가 가능하도록 함
  */
 const SUBJECT_KEYWORDS: Record<string, string> = {
-  // Reading 관련
-  'reading': 'subject_reading',
-  'phonics': 'subject_reading',
-  // Grammar 관련
-  'grammar': 'subject_grammar',
-  'writing': 'subject_grammar',
-  // Speaking 관련
-  'speaking': 'subject_speaking',
-  'listening': 'subject_speaking',
-  // Vocabulary 관련
-  'vocabulary': 'subject_vocabulary',
-  'vocab': 'subject_vocabulary',
-  '단어': 'subject_vocabulary',
+  reading: 'subject_reading',
+  phonics: 'subject_reading',
+  grammar: 'subject_grammar',
+  writing: 'subject_grammar',
+  speaking: 'subject_speaking',
+  listening: 'subject_speaking',
+  vocabulary: 'subject_vocabulary',
+  vocab: 'subject_vocabulary',
+  단어: 'subject_vocabulary',
 }
 
-/**
- * 시험명에서 과목 키워드를 추출하여 그룹 키 반환
- */
 function extractSubjectKeyFromName(examName: string): string | null {
   const lowerName = examName.toLowerCase()
 
@@ -131,23 +129,19 @@ export function createGroupKey(
   categoryCode: string | null,
   examName: string
 ): string {
-  // 1. subject_id가 있으면 사용
   if (subjectId) {
     return `subject_${subjectId}`
   }
 
-  // 2. 시험명에서 과목 키워드 추출 시도
   const extractedKey = extractSubjectKeyFromName(examName)
   if (extractedKey) {
     return extractedKey
   }
 
-  // 3. category_code가 있으면 사용
   if (categoryCode) {
     return `category_${categoryCode}`
   }
 
-  // 4. 최후의 수단으로 시험명 사용
   return `exam_${examName}`
 }
 
@@ -155,10 +149,775 @@ export function createGroupKey(
 // Supabase Client Type
 // ============================================================================
 
-type ServiceRoleClient = Awaited<ReturnType<typeof createServiceRoleClient>>
+type ServiceRoleClient = ReturnType<typeof createServiceRoleClient>
 
 // ============================================================================
-// Data Collection Helpers
+// Internal Types
+// ============================================================================
+
+interface AttendanceRow {
+  student_id: string
+  attendance_date: string
+  status: 'present' | 'late' | 'absent' | 'none'
+  notes?: string | null
+}
+
+interface HomeworkRow {
+  student_id: string
+  completed_at: string | null
+}
+
+interface ExamRow {
+  id: string
+  name: string
+  exam_date: string | null
+  created_at: string
+  category_code: string | null
+  subject_id: string | null
+  ref_exam_categories?: { label: string } | Array<{ label: string }> | null
+  subjects?: { name: string; color: string | null } | Array<{ name: string; color: string | null }> | null
+}
+
+interface ExamMeta {
+  id: string
+  name: string
+  exam_date: string | null
+  created_at: string
+  category_code: string | null
+  subject_id: string | null
+  categoryLabel: string | null
+  subjectName: string | null
+  subjectColor: string | null
+}
+
+interface ScoreRow {
+  student_id: string
+  exam_id: string
+  percentage: number | null
+  feedback: string | null
+  is_retest: boolean | null
+  score: number | null
+  total_score: number | null
+}
+
+interface ScoreRecord extends ScoreRow {
+  exam: ExamMeta
+}
+
+interface PeriodMembership {
+  current: boolean
+  previous: boolean
+  trendKeys: string[]
+}
+
+interface ScoreContext {
+  currentStudentScores: Map<string, ScoreRecord[]>
+  previousStudentScores: Map<string, ScoreRecord[]>
+  currentClassScores: ScoreRecord[]
+  trendStudentScores: Map<string, Map<string, ScoreRecord[]>>
+  trendClassScores: Map<string, ScoreRecord[]>
+}
+
+const STATUS_PRIORITY: Record<string, number> = {
+  present: 2,
+  late: 1,
+  absent: 0,
+  none: -1,
+}
+
+// ============================================================================
+// Generic Helpers
+// ============================================================================
+
+function toDatePart(value: string | null | undefined): string | null {
+  return value ? value.slice(0, 10) : null
+}
+
+function isDateInPeriod(date: string | null, period: ReportPeriod): boolean {
+  return Boolean(date && date >= period.start && date <= period.end)
+}
+
+function firstRelation<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) {
+    return value[0] ?? null
+  }
+  return value ?? null
+}
+
+function normalizeExam(row: ExamRow): ExamMeta {
+  const category = firstRelation(row.ref_exam_categories)
+  const subject = firstRelation(row.subjects)
+
+  return {
+    id: row.id,
+    name: row.name,
+    exam_date: row.exam_date,
+    created_at: row.created_at,
+    category_code: row.category_code,
+    subject_id: row.subject_id,
+    categoryLabel: category?.label || null,
+    subjectName: subject?.name || null,
+    subjectColor: subject?.color || null,
+  }
+}
+
+function getEffectiveExamDate(exam: ExamMeta): string {
+  return toDatePart(exam.exam_date) || toDatePart(exam.created_at) || ''
+}
+
+function pushToMapList<T>(map: Map<string, T[]>, key: string, item: T) {
+  const existing = map.get(key)
+  if (existing) {
+    existing.push(item)
+    return
+  }
+  map.set(key, [item])
+}
+
+function pushToNestedMapList<T>(
+  map: Map<string, Map<string, T[]>>,
+  outerKey: string,
+  innerKey: string,
+  item: T
+) {
+  const nested = map.get(outerKey)
+  if (!nested) {
+    const inner = new Map<string, T[]>()
+    inner.set(innerKey, [item])
+    map.set(outerKey, inner)
+    return
+  }
+
+  pushToMapList(nested, innerKey, item)
+}
+
+function average(values: number[]): number | null {
+  if (values.length === 0) return null
+  return values.reduce((sum, value) => sum + value, 0) / values.length
+}
+
+function roundOneDecimal(value: number | null): number | null {
+  if (value === null) return null
+  return Math.round(value * 10) / 10
+}
+
+function dedupeAttendanceRecords(records: AttendanceRow[]): AttendanceRow[] {
+  const dateMap = new Map<string, AttendanceRow>()
+
+  for (const record of records) {
+    const date = record.attendance_date
+    const existing = dateMap.get(date)
+    const recordPriority = STATUS_PRIORITY[record.status] ?? -1
+    const existingPriority = existing ? (STATUS_PRIORITY[existing.status] ?? -1) : -1
+
+    if (!existing || recordPriority > existingPriority) {
+      dateMap.set(date, record)
+    }
+  }
+
+  return Array.from(dateMap.values()).sort((a, b) =>
+    a.attendance_date.localeCompare(b.attendance_date)
+  )
+}
+
+function buildAttendanceMetrics(records: AttendanceRow[]) {
+  const deduped = dedupeAttendanceRecords(records)
+
+  const total = deduped.length
+  const present = deduped.filter((record) => record.status === 'present').length
+  const late = deduped.filter((record) => record.status === 'late').length
+  const absent = deduped.filter((record) => record.status === 'absent').length
+  const rate = total > 0 ? Math.round(((present + late) / total) * 100) : 0
+
+  return { total, present, late, absent, rate }
+}
+
+function buildAttendanceChart(records: AttendanceRow[]) {
+  return dedupeAttendanceRecords(records).map((record) => ({
+    date: new Date(record.attendance_date),
+    status: record.status,
+    note: record.notes || undefined,
+  }))
+}
+
+function buildHomeworkMetrics(records: HomeworkRow[]) {
+  const total = records.length
+  const completed = records.filter((record) => record.completed_at !== null).length
+  const rate = total > 0 ? Math.round((completed / total) * 100) : 0
+
+  return { total, completed, rate }
+}
+
+function buildScoresSummary(
+  currentScores: ScoreRecord[],
+  previousScores: ScoreRecord[],
+  classCurrentScores: ScoreRecord[]
+): ScoreSummaryItem[] {
+  interface CategoryBucket {
+    category: string
+    tests: Array<{
+      name: string
+      date: string
+      percentage: number
+      feedback: string | null
+    }>
+    percentages: number[]
+    retestCount: number
+    totalCount: number
+  }
+
+  const categories = new Map<string, CategoryBucket>()
+
+  for (const score of currentScores) {
+    if (score.percentage === null) continue
+
+    const groupKey = createGroupKey(
+      score.exam.subject_id,
+      score.exam.category_code,
+      score.exam.name
+    )
+    const displayLabel =
+      score.exam.subjectName ||
+      score.exam.categoryLabel ||
+      score.exam.name
+
+    if (!categories.has(groupKey)) {
+      categories.set(groupKey, {
+        category: displayLabel,
+        tests: [],
+        percentages: [],
+        retestCount: 0,
+        totalCount: 0,
+      })
+    }
+
+    const bucket = categories.get(groupKey)!
+    bucket.tests.push({
+      name: score.exam.name,
+      date: getEffectiveExamDate(score.exam),
+      percentage: score.percentage,
+      feedback: score.feedback || null,
+    })
+    bucket.percentages.push(score.percentage)
+    bucket.totalCount++
+    if (score.is_retest) {
+      bucket.retestCount++
+    }
+  }
+
+  const previousByCategory = new Map<string, number[]>()
+  for (const score of previousScores) {
+    if (score.percentage === null) continue
+
+    const groupKey = createGroupKey(
+      score.exam.subject_id,
+      score.exam.category_code,
+      score.exam.name
+    )
+    pushToMapList(previousByCategory, groupKey, score.percentage)
+  }
+
+  const classByCategory = new Map<
+    string,
+    { percentages: number[]; retestCount: number; totalCount: number }
+  >()
+
+  for (const score of classCurrentScores) {
+    if (score.percentage === null) continue
+
+    const groupKey = createGroupKey(
+      score.exam.subject_id,
+      score.exam.category_code,
+      score.exam.name
+    )
+
+    const existing = classByCategory.get(groupKey)
+    if (existing) {
+      existing.percentages.push(score.percentage)
+      existing.totalCount++
+      if (score.is_retest) {
+        existing.retestCount++
+      }
+      continue
+    }
+
+    classByCategory.set(groupKey, {
+      percentages: [score.percentage],
+      retestCount: score.is_retest ? 1 : 0,
+      totalCount: 1,
+    })
+  }
+
+  return Array.from(categories.entries()).map(([categoryKey, bucket]) => {
+    const currentAvg = average(bucket.percentages)
+    const previousAvg = average(previousByCategory.get(categoryKey) || [])
+    const classBucket = classByCategory.get(categoryKey)
+    const classAverage = classBucket
+      ? average(classBucket.percentages)
+      : null
+    const retestRate =
+      classBucket && classBucket.totalCount > 0
+        ? Math.round((classBucket.retestCount / classBucket.totalCount) * 1000) / 10
+        : null
+
+    return {
+      category: bucket.category,
+      current: roundOneDecimal(currentAvg),
+      previous: roundOneDecimal(previousAvg),
+      change:
+        currentAvg !== null && previousAvg !== null
+          ? roundOneDecimal(currentAvg - previousAvg)
+          : null,
+      average: roundOneDecimal(classAverage),
+      retestRate,
+      tests: bucket.tests.sort((a, b) => a.date.localeCompare(b.date)),
+    }
+  })
+}
+
+function buildGradesChartData(currentScores: ScoreRecord[]) {
+  return currentScores
+    .filter((score) => score.percentage !== null)
+    .sort((a, b) => getEffectiveExamDate(a.exam).localeCompare(getEffectiveExamDate(b.exam)))
+    .map((score) => ({
+      examName: score.exam.name,
+      score: Math.round((score.percentage || 0) * 10) / 10,
+      classAverage: undefined,
+      date: score.exam.exam_date || undefined,
+    }))
+}
+
+function buildCurrentScoreSummary(
+  currentStudentScores: ScoreRecord[],
+  currentClassScores: ScoreRecord[]
+) {
+  const myScores = currentStudentScores.filter((score) => score.percentage !== null)
+
+  if (myScores.length === 0) {
+    return {
+      myScore: 0,
+      classAverage: 0,
+      highestScore: 0,
+    }
+  }
+
+  const myAverage = average(myScores.map((score) => score.percentage as number)) || 0
+  const classScores = currentClassScores.filter((score) => score.percentage !== null)
+
+  if (classScores.length === 0) {
+    const rounded = Math.round(myAverage * 10) / 10
+    return {
+      myScore: rounded,
+      classAverage: rounded,
+      highestScore: rounded,
+    }
+  }
+
+  const classAverage = average(classScores.map((score) => score.percentage as number)) || myAverage
+  const averagesByStudent = new Map<string, number[]>()
+
+  for (const score of classScores) {
+    pushToMapList(averagesByStudent, score.student_id, score.percentage as number)
+  }
+
+  const highestScore = Math.max(
+    ...Array.from(averagesByStudent.values()).map((scores) => average(scores) || 0)
+  )
+
+  return {
+    myScore: Math.round(myAverage * 10) / 10,
+    classAverage: Math.round(classAverage * 10) / 10,
+    highestScore: Math.round(highestScore * 10) / 10,
+  }
+}
+
+function buildScoreTrendData(
+  trendPeriods: TrendPeriod[],
+  studentScoresByPeriod: Map<string, ScoreRecord[]>,
+  classScoresByPeriod: Map<string, ScoreRecord[]>
+) {
+  return trendPeriods
+    .map((trendPeriod) => {
+      const myScores = (studentScoresByPeriod.get(trendPeriod.key) || []).filter(
+        (score) => score.percentage !== null
+      )
+      const classScores = (classScoresByPeriod.get(trendPeriod.key) || []).filter(
+        (score) => score.percentage !== null
+      )
+
+      const myAverage = average(myScores.map((score) => score.percentage as number)) || 0
+      const classAverage = average(classScores.map((score) => score.percentage as number)) || 0
+      const retestCount = myScores.filter((score) => score.is_retest).length
+      const retestRate =
+        myScores.length > 0
+          ? Math.round((retestCount / myScores.length) * 1000) / 10
+          : 0
+
+      const point: {
+        name: string
+        '학생 점수': number
+        '반 평균': number
+        '재시험률'?: number
+      } = {
+        name: trendPeriod.label,
+        '학생 점수': Math.round(myAverage * 10) / 10,
+        '반 평균': Math.round(classAverage * 10) / 10,
+      }
+
+      if (retestRate > 0) {
+        point['재시험률'] = retestRate
+      }
+
+      return point
+    })
+    .filter((point) => point['학생 점수'] > 0)
+}
+
+function createEmptyScoreContext(): ScoreContext {
+  return {
+    currentStudentScores: new Map(),
+    previousStudentScores: new Map(),
+    currentClassScores: [],
+    trendStudentScores: new Map(),
+    trendClassScores: new Map(),
+  }
+}
+
+// ============================================================================
+// Attendance / Homework Fetchers
+// ============================================================================
+
+async function fetchAttendanceRows(
+  supabase: ServiceRoleClient,
+  studentIds: string[],
+  period: ReportPeriod,
+  tenantId: string
+) {
+  if (studentIds.length === 0) {
+    return new Map<string, AttendanceRow[]>()
+  }
+
+  const { data } = await supabase
+    .from('attendance')
+    .select('student_id, attendance_date, status, notes')
+    .eq('tenant_id', tenantId)
+    .in('student_id', studentIds)
+    .gte('attendance_date', period.start)
+    .lte('attendance_date', period.end)
+    .is('deleted_at', null)
+
+  const attendanceByStudent = new Map<string, AttendanceRow[]>()
+  for (const row of (data || []) as AttendanceRow[]) {
+    pushToMapList(attendanceByStudent, row.student_id, row)
+  }
+
+  return attendanceByStudent
+}
+
+async function fetchHomeworkRows(
+  supabase: ServiceRoleClient,
+  studentIds: string[],
+  period: ReportPeriod,
+  tenantId: string
+) {
+  if (studentIds.length === 0) {
+    return new Map<string, HomeworkRow[]>()
+  }
+
+  const { data } = await supabase
+    .from('student_todos')
+    .select('student_id, completed_at')
+    .eq('tenant_id', tenantId)
+    .in('student_id', studentIds)
+    .gte('due_date', period.start)
+    .lte('due_date', period.end)
+    .is('deleted_at', null)
+
+  const homeworkByStudent = new Map<string, HomeworkRow[]>()
+  for (const row of (data || []) as HomeworkRow[]) {
+    pushToMapList(homeworkByStudent, row.student_id, row)
+  }
+
+  return homeworkByStudent
+}
+
+// ============================================================================
+// Score Fetchers
+// ============================================================================
+
+async function fetchRelevantExams(
+  supabase: ServiceRoleClient,
+  tenantId: string,
+  currentPeriod: ReportPeriod,
+  previousPeriod?: ReportPeriod,
+  trendPeriods: TrendPeriod[] = []
+) {
+  const periods = [
+    currentPeriod,
+    ...(previousPeriod ? [previousPeriod] : []),
+    ...trendPeriods,
+  ]
+
+  if (periods.length === 0) {
+    return new Map<string, ExamMeta>()
+  }
+
+  const starts = periods.map((period) => period.start).sort()
+  const ends = periods.map((period) => period.end).sort()
+  const minStart = starts[0]
+  const maxEnd = ends[ends.length - 1]
+
+  const selectFields =
+    'id, name, exam_date, created_at, category_code, subject_id, ref_exam_categories(label), subjects(name, color)'
+
+  const [{ data: datedExams }, { data: legacyExams }] = await Promise.all([
+    supabase
+      .from('exams')
+      .select(selectFields)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .gte('exam_date', minStart)
+      .lte('exam_date', maxEnd),
+    supabase
+      .from('exams')
+      .select(selectFields)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .is('exam_date', null)
+      .gte('created_at', `${minStart}T00:00:00`)
+      .lte('created_at', `${maxEnd}T23:59:59.999`),
+  ])
+
+  const examMap = new Map<string, ExamMeta>()
+  for (const row of [...((datedExams || []) as ExamRow[]), ...((legacyExams || []) as ExamRow[])]) {
+    const exam = normalizeExam(row)
+    const effectiveDate = getEffectiveExamDate(exam)
+
+    if (!effectiveDate) continue
+    if (effectiveDate < minStart || effectiveDate > maxEnd) continue
+
+    examMap.set(exam.id, exam)
+  }
+
+  return examMap
+}
+
+function buildPeriodMemberships(
+  exams: Map<string, ExamMeta>,
+  currentPeriod: ReportPeriod,
+  previousPeriod?: ReportPeriod,
+  trendPeriods: TrendPeriod[] = []
+) {
+  const memberships = new Map<string, PeriodMembership>()
+
+  for (const [examId, exam] of exams.entries()) {
+    const effectiveDate = getEffectiveExamDate(exam)
+    const membership: PeriodMembership = {
+      current: isDateInPeriod(effectiveDate, currentPeriod),
+      previous: previousPeriod ? isDateInPeriod(effectiveDate, previousPeriod) : false,
+      trendKeys: trendPeriods
+        .filter((trendPeriod) => isDateInPeriod(effectiveDate, trendPeriod))
+        .map((trendPeriod) => trendPeriod.key),
+    }
+
+    memberships.set(examId, membership)
+  }
+
+  return memberships
+}
+
+async function fetchScoreContext(
+  supabase: ServiceRoleClient,
+  tenantId: string,
+  studentIds: string[],
+  currentPeriod: ReportPeriod,
+  previousPeriod?: ReportPeriod,
+  trendPeriods: TrendPeriod[] = []
+): Promise<ScoreContext> {
+  const exams = await fetchRelevantExams(
+    supabase,
+    tenantId,
+    currentPeriod,
+    previousPeriod,
+    trendPeriods
+  )
+
+  if (exams.size === 0 || studentIds.length === 0) {
+    return createEmptyScoreContext()
+  }
+
+  const memberships = buildPeriodMemberships(exams, currentPeriod, previousPeriod, trendPeriods)
+  const studentExamIds = Array.from(exams.keys())
+  const classExamIds = Array.from(
+    new Set(
+      studentExamIds.filter((examId) => {
+        const membership = memberships.get(examId)
+        return Boolean(membership?.current || (membership?.trendKeys.length || 0) > 0)
+      })
+    )
+  )
+
+  const scoreSelect =
+    'student_id, exam_id, percentage, feedback, is_retest, score, total_score'
+
+  const [{ data: studentScoreRows }, classScoreResult] = await Promise.all([
+    supabase
+      .from('exam_scores')
+      .select(scoreSelect)
+      .eq('tenant_id', tenantId)
+      .in('student_id', studentIds)
+      .in('exam_id', studentExamIds)
+      .is('deleted_at', null),
+    classExamIds.length > 0
+      ? supabase
+          .from('exam_scores')
+          .select(scoreSelect)
+          .eq('tenant_id', tenantId)
+          .in('exam_id', classExamIds)
+          .is('deleted_at', null)
+      : Promise.resolve({ data: [] as ScoreRow[] }),
+  ])
+
+  const context = createEmptyScoreContext()
+
+  for (const row of (studentScoreRows || []) as ScoreRow[]) {
+    const exam = exams.get(row.exam_id)
+    const membership = memberships.get(row.exam_id)
+
+    if (!exam || !membership) continue
+
+    const record: ScoreRecord = {
+      ...row,
+      exam,
+    }
+
+    if (membership.current) {
+      pushToMapList(context.currentStudentScores, row.student_id, record)
+    }
+
+    if (membership.previous) {
+      pushToMapList(context.previousStudentScores, row.student_id, record)
+    }
+
+    for (const trendKey of membership.trendKeys) {
+      pushToNestedMapList(context.trendStudentScores, trendKey, row.student_id, record)
+    }
+  }
+
+  for (const row of ((classScoreResult as { data?: ScoreRow[] }).data || []) as ScoreRow[]) {
+    const exam = exams.get(row.exam_id)
+    const membership = memberships.get(row.exam_id)
+
+    if (!exam || !membership) continue
+
+    const record: ScoreRecord = {
+      ...row,
+      exam,
+    }
+
+    if (membership.current) {
+      context.currentClassScores.push(record)
+    }
+
+    for (const trendKey of membership.trendKeys) {
+      pushToMapList(context.trendClassScores, trendKey, record)
+    }
+  }
+
+  return context
+}
+
+// ============================================================================
+// Public Batch Metric Collector
+// ============================================================================
+
+export async function collectReportMetricsByStudent(
+  supabase: ServiceRoleClient,
+  params: {
+    studentIds: string[]
+    tenantId: string
+    currentPeriod: ReportPeriod
+    previousPeriod?: ReportPeriod
+    trendPeriods?: TrendPeriod[]
+  }
+) {
+  const uniqueStudentIds = Array.from(new Set(params.studentIds.filter(Boolean)))
+  const trendPeriods = params.trendPeriods || []
+
+  const [attendanceByStudent, homeworkByStudent, scoreContext] = await Promise.all([
+    fetchAttendanceRows(supabase, uniqueStudentIds, params.currentPeriod, params.tenantId),
+    fetchHomeworkRows(supabase, uniqueStudentIds, params.currentPeriod, params.tenantId),
+    fetchScoreContext(
+      supabase,
+      params.tenantId,
+      uniqueStudentIds,
+      params.currentPeriod,
+      params.previousPeriod,
+      trendPeriods
+    ),
+  ])
+
+  const metricsByStudent = new Map<string, StudentReportMetrics>()
+
+  for (const studentId of uniqueStudentIds) {
+    const attendanceRecords = attendanceByStudent.get(studentId) || []
+    const homeworkRecords = homeworkByStudent.get(studentId) || []
+    const currentScores = scoreContext.currentStudentScores.get(studentId) || []
+    const previousScores = scoreContext.previousStudentScores.get(studentId) || []
+    const trendScoresByPeriod = new Map<string, ScoreRecord[]>()
+
+    for (const trendPeriod of trendPeriods) {
+      trendScoresByPeriod.set(
+        trendPeriod.key,
+        scoreContext.trendStudentScores.get(trendPeriod.key)?.get(studentId) || []
+      )
+    }
+
+    metricsByStudent.set(studentId, {
+      attendance: buildAttendanceMetrics(attendanceRecords),
+      homework: buildHomeworkMetrics(homeworkRecords),
+      scores: buildScoresSummary(
+        currentScores,
+        previousScores,
+        scoreContext.currentClassScores
+      ),
+      gradesChartData: buildGradesChartData(currentScores),
+      attendanceChartData: buildAttendanceChart(attendanceRecords),
+      currentScore: buildCurrentScoreSummary(
+        currentScores,
+        scoreContext.currentClassScores
+      ),
+      scoreTrend: buildScoreTrendData(
+        trendPeriods,
+        trendScoresByPeriod,
+        scoreContext.trendClassScores
+      ),
+    })
+  }
+
+  return metricsByStudent
+}
+
+export function getMonthlyTrendPeriods(currentYear: number, currentMonth: number): TrendPeriod[] {
+  return [2, 1, 0].map((offset) => {
+    const targetDate = new Date(currentYear, currentMonth - 1 - offset, 1)
+    const year = targetDate.getFullYear()
+    const month = targetDate.getMonth() + 1
+    const lastDay = new Date(year, month, 0).getDate()
+    const start = `${year}-${String(month).padStart(2, '0')}-01`
+    const end = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+
+    return {
+      key: `${year}-${String(month).padStart(2, '0')}`,
+      label: `${month}월`,
+      start,
+      end,
+    }
+  })
+}
+
+// ============================================================================
+// Public Single-Student Wrappers
 // ============================================================================
 
 /**
@@ -171,34 +930,14 @@ export async function getAttendanceData(
   periodEnd: string,
   tenantId: string
 ) {
-  const { data } = await supabase
-    .from('attendance')
-    .select('status, attendance_date')
-    .eq('student_id', studentId)
-    .eq('tenant_id', tenantId)
-    .gte('attendance_date', periodStart)
-    .lte('attendance_date', periodEnd)
+  const attendanceByStudent = await fetchAttendanceRows(
+    supabase,
+    [studentId],
+    { start: periodStart, end: periodEnd },
+    tenantId
+  )
 
-  // 같은 날 복수 세션이 있을 경우 일수 기준으로 dedupe
-  // 우선순위: present > late > absent (최선 상태 채택)
-  const STATUS_PRIORITY: Record<string, number> = { present: 2, late: 1, absent: 0 }
-  const dateMap = new Map<string, string>()
-  for (const record of data || []) {
-    const date = record.attendance_date
-    const existing = dateMap.get(date)
-    if (!existing || (STATUS_PRIORITY[record.status] ?? 0) > (STATUS_PRIORITY[existing] ?? 0)) {
-      dateMap.set(date, record.status)
-    }
-  }
-
-  const dedupedStatuses = Array.from(dateMap.values())
-  const total = dedupedStatuses.length
-  const present = dedupedStatuses.filter((s) => s === 'present').length
-  const late = dedupedStatuses.filter((s) => s === 'late').length
-  const absent = dedupedStatuses.filter((s) => s === 'absent').length
-  const rate = total > 0 ? Math.round(((present + late) / total) * 100) : 0
-
-  return { total, present, late, absent, rate }
+  return buildAttendanceMetrics(attendanceByStudent.get(studentId) || [])
 }
 
 /**
@@ -211,19 +950,14 @@ export async function getHomeworkData(
   periodEnd: string,
   tenantId: string
 ) {
-  const { data } = await supabase
-    .from('student_todos')
-    .select('completed_at')
-    .eq('student_id', studentId)
-    .eq('tenant_id', tenantId)
-    .gte('due_date', periodStart)
-    .lte('due_date', periodEnd)
+  const homeworkByStudent = await fetchHomeworkRows(
+    supabase,
+    [studentId],
+    { start: periodStart, end: periodEnd },
+    tenantId
+  )
 
-  const total = data?.length || 0
-  const completed = data?.filter((t) => t.completed_at !== null).length || 0
-  const rate = total > 0 ? Math.round((completed / total) * 100) : 0
-
-  return { total, completed, rate }
+  return buildHomeworkMetrics(homeworkByStudent.get(studentId) || [])
 }
 
 /**
@@ -238,245 +972,20 @@ export async function getScoresData(
   prevPeriodEnd: string,
   tenantId: string
 ) {
-  // 날짜 비교 헬퍼 함수
-  const extractDatePart = (dateStr: string): string => dateStr.slice(0, 10)
-
-  // JS 레벨 날짜 범위 필터 (exam_date 우선, 없으면 exams.created_at 폴백)
-  // PostgREST의 !inner 조인 + 관련 테이블 칼럼 필터는 간헐적으로 0건을 반환하는 경우가 있어
-  // 학생 점수는 날짜 필터 없이 전체 조회 후 JS에서 필터링한다
-  function isInPeriod(score: ScoreWithExamDates, start: string, end: string): boolean {
-    const effectiveDate =
-      score.exams?.exam_date?.slice(0, 10) || score.exams?.created_at?.slice(0, 10)
-    return !!effectiveDate && effectiveDate >= start && effectiveDate <= end
-  }
-
-  // 3개 쿼리 병렬 실행:
-  // 1) 학생 전체 성적 (날짜 필터 없음 → JS 필터)
-  // 2) 반 평균 현재 기간 (exam_date 있는 것, PostgREST 필터)
-  // 3) 반 평균 레거시 (exam_date NULL, created_at JS 필터)
-  const [
-    { data: allStudentScores },
-    { data: classScoresWithDate },
-    { data: classLegacyScores },
-  ] = await Promise.all([
-    supabase
-      .from('exam_scores')
-      .select(`
-        percentage,
-        feedback,
-        is_retest,
-        created_at,
-        exams!inner (
-          name,
-          exam_date,
-          created_at,
-          category_code,
-          subject_id,
-          ref_exam_categories (label),
-          subjects (name, color)
-        )
-      `)
-      .eq('student_id', studentId)
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null),
-    supabase
-      .from('exam_scores')
-      .select(`
-        percentage,
-        is_retest,
-        exams!inner (name, category_code, subject_id, exam_date, created_at)
-      `)
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
-      .gte('exams.exam_date', periodStart)
-      .lte('exams.exam_date', periodEnd),
-    supabase
-      .from('exam_scores')
-      .select(`
-        percentage,
-        is_retest,
-        exams!inner (name, category_code, subject_id, exam_date, created_at)
-      `)
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
-      .is('exams.exam_date', null),
-  ])
-
-  const allScores = castScores(allStudentScores)
-  const currentScores = allScores.filter((s) => isInPeriod(s, periodStart, periodEnd))
-  const previousScores = allScores.filter((s) => isInPeriod(s, prevPeriodStart, prevPeriodEnd))
-
-  const filteredClassLegacy = castScores(classLegacyScores).filter((score) => {
-    const createdAt = score.exams?.created_at
-    if (!createdAt) return false
-    const datePart = extractDatePart(createdAt)
-    return datePart >= periodStart && datePart <= periodEnd
+  const metrics = await collectReportMetricsByStudent(supabase, {
+    studentIds: [studentId],
+    tenantId,
+    currentPeriod: {
+      start: periodStart,
+      end: periodEnd,
+    },
+    previousPeriod: {
+      start: prevPeriodStart,
+      end: prevPeriodEnd,
+    },
   })
 
-  const classScores = [...(classScoresWithDate || []), ...filteredClassLegacy]
-
-  // 카테고리별로 그룹화
-  interface CategoryDataMap {
-    category: string
-    tests: Array<{
-      name: string
-      date: string
-      percentage: number
-      feedback: string | null
-    }>
-    percentages: number[]
-    retestCount: number
-    totalCount: number
-  }
-
-  const categories = new Map<string, CategoryDataMap>()
-
-  currentScores?.forEach((score) => {
-    const examScore = score as unknown as ExamScoreWithDetails & { is_retest?: boolean }
-
-    // percentage가 null인 시험은 건너뛰기 (점수 미입력)
-    if (examScore.percentage === null) {
-      console.log('[getScoresData] Skipping exam without score:', {
-        examName: examScore.exams?.name,
-      })
-      return
-    }
-
-    const subjectId = examScore.exams?.subject_id || null
-    const categoryCode = examScore.exams?.category_code || null
-    const examName = examScore.exams?.name || '시험'
-
-    // 그룹화 키: subject_id > 시험명 키워드 추출 > category_code > 시험명
-    const groupKey = createGroupKey(subjectId, categoryCode, examName)
-
-    // 라벨: 과목명 > 카테고리명 > 시험명 우선순위
-    const subjectName = examScore.exams?.subjects?.name
-    const categoryLabel = examScore.exams?.ref_exam_categories?.label || categoryCode || ''
-    const displayLabel = subjectName || categoryLabel || examName
-
-    if (!categories.has(groupKey)) {
-      categories.set(groupKey, {
-        category: displayLabel,
-        tests: [],
-        percentages: [],
-        retestCount: 0,
-        totalCount: 0,
-      })
-    }
-
-    const categoryData = categories.get(groupKey)
-    if (categoryData) {
-      categoryData.tests.push({
-        name: examScore.exams?.name || '',
-        date: examScore.exams?.exam_date || '',
-        percentage: examScore.percentage,
-        feedback: examScore.feedback || null,
-      })
-      categoryData.percentages.push(examScore.percentage)
-      categoryData.totalCount++
-      if (examScore.is_retest) {
-        categoryData.retestCount++
-      }
-    }
-  })
-
-  // 이전 기간 평균 계산
-  const prevAverages = new Map<string, number[]>()
-  previousScores?.forEach((score) => {
-    const examScore = score as unknown as ExamScoreBasicType
-
-    // percentage가 null인 시험은 건너뛰기
-    if (examScore.percentage === null) {
-      return
-    }
-
-    const subjectId = examScore.exams?.subject_id || null
-    const categoryCode = examScore.exams?.category_code || null
-    const examName = examScore.exams?.name || '시험'
-
-    // 그룹화 키: subject_id > 시험명 키워드 추출 > category_code > 시험명
-    const groupKey = createGroupKey(subjectId, categoryCode, examName)
-
-    if (!prevAverages.has(groupKey)) {
-      prevAverages.set(groupKey, [])
-    }
-    const categoryScores = prevAverages.get(groupKey)
-    if (categoryScores) {
-      categoryScores.push(examScore.percentage)
-    }
-  })
-
-  // 카테고리별 반 평균 및 재시험률 계산
-  const classAverages = new Map<string, { percentages: number[]; retestCount: number; totalCount: number }>()
-  classScores?.forEach((score) => {
-    const typedScore = score as unknown as { percentage: number; is_retest?: boolean; exams?: { category_code: string; subject_id: string | null; name?: string } }
-
-    // percentage가 null인 시험은 건너뛰기
-    if (typedScore.percentage === null) {
-      return
-    }
-
-    const subjectId = typedScore.exams?.subject_id || null
-    const categoryCode = typedScore.exams?.category_code || null
-    const examName = typedScore.exams?.name || '시험'
-
-    // 그룹화 키: subject_id > 시험명 키워드 추출 > category_code > 시험명
-    const groupKey = createGroupKey(subjectId, categoryCode, examName)
-
-    if (!classAverages.has(groupKey)) {
-      classAverages.set(groupKey, { percentages: [], retestCount: 0, totalCount: 0 })
-    }
-
-    const classData = classAverages.get(groupKey)
-    if (classData) {
-      classData.percentages.push(typedScore.percentage)
-      classData.totalCount++
-      if (typedScore.is_retest) {
-        classData.retestCount++
-      }
-    }
-  })
-
-  // 최종 결과 생성
-  return Array.from(categories.entries()).map(([category, data]) => {
-    // 성적이 없는 경우 처리
-    const currentAvg =
-      data.percentages.length > 0
-        ? data.percentages.reduce((sum: number, p: number) => sum + p, 0) / data.percentages.length
-        : null
-
-    const prevScores = prevAverages.get(category) || []
-    const previousAvg =
-      prevScores.length > 0
-        ? prevScores.reduce((sum, p) => sum + p, 0) / prevScores.length
-        : null
-
-    const change =
-      currentAvg !== null && previousAvg !== null
-        ? Math.round((currentAvg - previousAvg) * 10) / 10
-        : null
-
-    // 반 평균 계산
-    const classData = classAverages.get(category)
-    const average = classData && classData.percentages.length > 0
-      ? Math.round((classData.percentages.reduce((sum, p) => sum + p, 0) / classData.percentages.length) * 10) / 10
-      : null
-
-    // 재시험률 계산
-    const retestRate = classData && classData.totalCount > 0
-      ? Math.round((classData.retestCount / classData.totalCount) * 100 * 10) / 10
-      : null
-
-    return {
-      category: data.category,
-      current: currentAvg !== null ? Math.round(currentAvg * 10) / 10 : null,
-      previous: previousAvg !== null ? Math.round(previousAvg * 10) / 10 : null,
-      change,
-      average,
-      retestRate,
-      tests: data.tests,
-    }
-  })
+  return metrics.get(studentId)?.scores || []
 }
 
 /**
@@ -494,7 +1003,6 @@ export function generateInstructorComment(
 ): string {
   const comments: string[] = []
 
-  // 출석 관련 코멘트
   if (attendance.rate >= 95) {
     comments.push('출석률이 매우 우수합니다.')
   } else if (attendance.rate >= 85) {
@@ -503,27 +1011,26 @@ export function generateInstructorComment(
     comments.push('출석에 더욱 신경 써주시기 바랍니다.')
   }
 
-  // 성적 관련 코멘트
-  const improvingCategories = scores.filter((s) => s.change && s.change > 5)
-  const decliningCategories = scores.filter((s) => s.change && s.change < -5)
+  const improvingCategories = scores.filter((score) => score.change && score.change > 5)
+  const decliningCategories = scores.filter((score) => score.change && score.change < -5)
 
   if (improvingCategories.length > 0) {
     comments.push(
-      `${improvingCategories.map((c) => c.category).join(', ')} 영역에서 눈에 띄는 향상을 보이고 있습니다.`
+      `${improvingCategories.map((category) => category.category).join(', ')} 영역에서 눈에 띄는 향상을 보이고 있습니다.`
     )
   }
 
   if (decliningCategories.length > 0) {
     comments.push(
-      `${decliningCategories.map((c) => c.category).join(', ')} 영역에 좀 더 집중이 필요합니다.`
+      `${decliningCategories.map((category) => category.category).join(', ')} 영역에 좀 더 집중이 필요합니다.`
     )
   }
 
-  // 전반적인 평가 (성적이 있는 과목만 계산)
-  const scoresWithData = scores.filter((s) => s.current !== null)
+  const scoresWithData = scores.filter((score) => score.current !== null)
   if (scoresWithData.length > 0) {
     const avgScore =
-      scoresWithData.reduce((sum, s) => sum + (s.current || 0), 0) / scoresWithData.length
+      scoresWithData.reduce((sum, score) => sum + (score.current || 0), 0) /
+      scoresWithData.length
 
     if (avgScore >= 90) {
       comments.push('전반적으로 매우 우수한 성취도를 보이고 있습니다.')
@@ -549,72 +1056,16 @@ export async function getGradesChartData(
   periodEnd: string,
   tenantId: string
 ) {
-  // 날짜 비교 헬퍼 함수
-  const extractDatePart = (dateStr: string): string => dateStr.slice(0, 10)
-
-  const selectFields = `
-    score,
-    total_score,
-    percentage,
-    exams!inner (
-      name,
-      exam_date,
-      created_at
-    )
-  `
-
-  // DB 레벨 날짜 필터 + 레거시(NULL exam_date) 병렬 조회
-  const [{ data: scoresWithDate }, { data: legacyScores }] = await Promise.all([
-    supabase
-      .from('exam_scores')
-      .select(selectFields)
-      .eq('student_id', studentId)
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
-      .gte('exams.exam_date', periodStart)
-      .lte('exams.exam_date', periodEnd),
-    supabase
-      .from('exam_scores')
-      .select(selectFields)
-      .eq('student_id', studentId)
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
-      .is('exams.exam_date', null),
-  ])
-
-  // 레거시 데이터 중 created_at이 범위 내인 것만 포함
-  const filteredLegacy = castScores(legacyScores).filter((score) => {
-    const createdAt = score.exams?.created_at
-    if (!createdAt) return false
-    const datePart = extractDatePart(createdAt)
-    return datePart >= periodStart && datePart <= periodEnd
+  const metrics = await collectReportMetricsByStudent(supabase, {
+    studentIds: [studentId],
+    tenantId,
+    currentPeriod: {
+      start: periodStart,
+      end: periodEnd,
+    },
   })
 
-  const examScores = [...castScores(scoresWithDate), ...filteredLegacy].sort((a, b) => {
-    const dateA = a.exams?.exam_date || a.exams?.created_at || ''
-    const dateB = b.exams?.exam_date || b.exams?.created_at || ''
-    return dateA.localeCompare(dateB)
-  })
-
-  if (!examScores || examScores.length === 0) {
-    return []
-  }
-
-  const chartData = examScores.map((examScore) => {
-    const typedScore = examScore as unknown as ExamScoreChartType
-    const examName = typedScore.exams?.name || '시험'
-    const scoreValue = typedScore.percentage || 0
-    const date = typedScore.exams?.exam_date
-
-    return {
-      examName,
-      score: Math.round(scoreValue * 10) / 10,
-      classAverage: undefined,
-      date,
-    }
-  })
-
-  return chartData
+  return metrics.get(studentId)?.gradesChartData || []
 }
 
 /**
@@ -627,41 +1078,14 @@ export async function getAttendanceChartData(
   periodEnd: string,
   tenantId: string
 ) {
-  const { data: attendanceRecords } = await supabase
-    .from('attendance')
-    .select('attendance_date, status, notes')
-    .eq('student_id', studentId)
-    .eq('tenant_id', tenantId)
-    .gte('attendance_date', periodStart)
-    .lte('attendance_date', periodEnd)
-    .order('attendance_date', { ascending: true })
+  const attendanceByStudent = await fetchAttendanceRows(
+    supabase,
+    [studentId],
+    { start: periodStart, end: periodEnd },
+    tenantId
+  )
 
-  if (!attendanceRecords) {
-    return []
-  }
-
-  // 같은 날 복수 세션이 있을 경우 일수 기준으로 dedupe
-  // 우선순위: present > late > absent (최선 상태 채택)
-  const STATUS_PRIORITY: Record<string, number> = { present: 2, late: 1, absent: 0 }
-  const dateMap = new Map<string, typeof attendanceRecords[number]>()
-  for (const record of attendanceRecords) {
-    const date = record.attendance_date
-    const existing = dateMap.get(date)
-    const recordPriority = STATUS_PRIORITY[record.status] ?? 0
-    const existingPriority = existing ? (STATUS_PRIORITY[existing.status] ?? 0) : -1
-    if (!existing || recordPriority > existingPriority) {
-      dateMap.set(date, record)
-    }
-  }
-
-  return Array.from(dateMap.values()).map((record) => {
-    const attendanceRecord = record as unknown as AttendanceRecordType
-    return {
-      date: new Date(attendanceRecord.attendance_date),
-      status: attendanceRecord.status,
-      note: attendanceRecord.notes || undefined,
-    }
-  })
+  return buildAttendanceChart(attendanceByStudent.get(studentId) || [])
 }
 
 /**
@@ -674,108 +1098,22 @@ export async function getCurrentScoreData(
   periodEnd: string,
   tenantId: string
 ) {
-  // 날짜 비교 헬퍼 함수
-  const extractDatePart = (dateStr: string): string => dateStr.slice(0, 10)
-
-  // 4개 쿼리 병렬 실행 (학생 점수 + 레거시, 전체 점수 + 레거시)
-  const [
-    { data: allMyScores },
-    { data: legacyScores },
-    { data: allScoresData },
-    { data: allLegacyScores },
-  ] = await Promise.all([
-    supabase
-      .from('exam_scores')
-      .select('percentage, exams!inner(exam_date, created_at)')
-      .eq('student_id', studentId)
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
-      .gte('exams.exam_date', periodStart)
-      .lte('exams.exam_date', periodEnd),
-    supabase
-      .from('exam_scores')
-      .select('percentage, exams!inner(exam_date, created_at)')
-      .eq('student_id', studentId)
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
-      .is('exams.exam_date', null),
-    supabase
-      .from('exam_scores')
-      .select('percentage, student_id, exams!inner(exam_date, created_at)')
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
-      .gte('exams.exam_date', periodStart)
-      .lte('exams.exam_date', periodEnd),
-    supabase
-      .from('exam_scores')
-      .select('percentage, student_id, exams!inner(exam_date, created_at)')
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
-      .is('exams.exam_date', null),
-  ])
-
-  // 레거시 데이터 중 created_at이 범위 내인 것만 포함
-  const filteredLegacyScores = castScores(legacyScores).filter((score) => {
-    const createdAt = score.exams?.created_at
-    if (!createdAt) return false
-    const datePart = extractDatePart(createdAt)
-    return datePart >= periodStart && datePart <= periodEnd
+  const metrics = await collectReportMetricsByStudent(supabase, {
+    studentIds: [studentId],
+    tenantId,
+    currentPeriod: {
+      start: periodStart,
+      end: periodEnd,
+    },
   })
 
-  const myScores = [...(allMyScores || []), ...filteredLegacyScores]
-
-  if (!myScores || myScores.length === 0) {
-    return {
+  return (
+    metrics.get(studentId)?.currentScore || {
       myScore: 0,
       classAverage: 0,
       highestScore: 0,
     }
-  }
-
-  // 내 평균 점수 계산
-  const myAverage =
-    myScores.reduce((sum, score) => sum + score.percentage, 0) / myScores.length
-
-  // 레거시 데이터 중 created_at이 범위 내인 것만 포함
-  const filteredAllLegacy = castScores(allLegacyScores).filter((score) => {
-    const createdAt = score.exams?.created_at
-    if (!createdAt) return false
-    const datePart = extractDatePart(createdAt)
-    return datePart >= periodStart && datePart <= periodEnd
-  })
-
-  const allScores = [...castScores(allScoresData), ...filteredAllLegacy]
-
-  let classAverage = myAverage
-  let highestScore = myAverage
-
-  if (allScores && allScores.length > 0) {
-    // 반 평균 계산
-    classAverage =
-      allScores.reduce((sum, score) => sum + score.percentage, 0) / allScores.length
-
-    // 최고 점수 계산 (학생별 평균 중 최고)
-    const studentAverages = new Map<string, number[]>()
-    allScores.forEach((score) => {
-      const sid = score.student_id
-      if (!sid) return
-      if (!studentAverages.has(sid)) {
-        studentAverages.set(sid, [])
-      }
-      studentAverages.get(sid)?.push(score.percentage)
-    })
-
-    const averages = Array.from(studentAverages.values()).map(
-      (scores) => scores.reduce((sum, s) => sum + s, 0) / scores.length
-    )
-    highestScore = Math.max(...averages)
-  }
-
-  return {
-    myScore: Math.round(myAverage * 10) / 10,
-    classAverage: Math.round(classAverage * 10) / 10,
-    highestScore: Math.round(highestScore * 10) / 10,
-  }
+  )
 }
 
 /**
@@ -788,111 +1126,18 @@ export async function getScoreTrendData(
   currentMonth: number,
   tenantId: string
 ) {
-  // 날짜 비교 헬퍼 함수
-  const extractDatePart = (dateStr: string): string => dateStr.slice(0, 10)
+  const trendPeriods = getMonthlyTrendPeriods(currentYear, currentMonth)
+  const currentPeriod = trendPeriods[trendPeriods.length - 1]
 
-  // 최근 3개월 기간 정보 사전 계산
-  const monthConfigs = [2, 1, 0].map((i) => {
-    const targetDate = new Date(currentYear, currentMonth - 1 - i, 1)
-    const targetYear = targetDate.getFullYear()
-    const targetMonth = targetDate.getMonth() + 1
-    const lastDay = new Date(targetYear, targetMonth, 0).getDate()
-    const periodStart = `${targetYear}-${String(targetMonth).padStart(2, '0')}-01`
-    const periodEnd = `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
-    return { targetMonth, periodStart, periodEnd }
+  const metrics = await collectReportMetricsByStudent(supabase, {
+    studentIds: [studentId],
+    tenantId,
+    currentPeriod: {
+      start: currentPeriod.start,
+      end: currentPeriod.end,
+    },
+    trendPeriods,
   })
 
-  // 3개월 × 4개 쿼리 = 12개 쿼리 동시 실행 (날짜 필터 포함)
-  const monthResults = await Promise.all(
-    monthConfigs.map(async ({ targetMonth, periodStart, periodEnd }) => {
-      const [
-        { data: myScoresWithDate },
-        { data: myLegacyScores },
-        { data: classScoresWithDate },
-        { data: classLegacyScores },
-      ] = await Promise.all([
-        supabase
-          .from('exam_scores')
-          .select('percentage, is_retest, exams!inner(exam_date, created_at)')
-          .eq('student_id', studentId)
-          .eq('tenant_id', tenantId)
-          .is('deleted_at', null)
-          .gte('exams.exam_date', periodStart)
-          .lte('exams.exam_date', periodEnd),
-        supabase
-          .from('exam_scores')
-          .select('percentage, is_retest, exams!inner(exam_date, created_at)')
-          .eq('student_id', studentId)
-          .eq('tenant_id', tenantId)
-          .is('deleted_at', null)
-          .is('exams.exam_date', null),
-        supabase
-          .from('exam_scores')
-          .select('percentage, exams!inner(exam_date, created_at)')
-          .eq('tenant_id', tenantId)
-          .is('deleted_at', null)
-          .gte('exams.exam_date', periodStart)
-          .lte('exams.exam_date', periodEnd),
-        supabase
-          .from('exam_scores')
-          .select('percentage, exams!inner(exam_date, created_at)')
-          .eq('tenant_id', tenantId)
-          .is('deleted_at', null)
-          .is('exams.exam_date', null),
-      ])
-
-      // 레거시 데이터 필터링 (created_at 기준)
-      const filteredMyLegacy = castScores(myLegacyScores).filter((score) => {
-        const createdAt = score.exams?.created_at
-        if (!createdAt) return false
-        const datePart = extractDatePart(createdAt)
-        return datePart >= periodStart && datePart <= periodEnd
-      })
-      const myScores = [...castScores(myScoresWithDate), ...filteredMyLegacy]
-
-      const filteredClassLegacy = castScores(classLegacyScores).filter((score) => {
-        const createdAt = score.exams?.created_at
-        if (!createdAt) return false
-        const datePart = extractDatePart(createdAt)
-        return datePart >= periodStart && datePart <= periodEnd
-      })
-      const allScores = [...castScores(classScoresWithDate), ...filteredClassLegacy]
-
-      const myAverage =
-        myScores.length > 0
-          ? myScores.reduce((sum, s) => sum + s.percentage, 0) / myScores.length
-          : 0
-
-      const classAverage =
-        allScores.length > 0
-          ? allScores.reduce((sum, s) => sum + s.percentage, 0) / allScores.length
-          : 0
-
-      // 재시험률 계산
-      const retestCount = myScores.filter((s) => s.is_retest).length
-      const totalCount = myScores.length
-      const retestRate = totalCount > 0 ? Math.round((retestCount / totalCount) * 100 * 10) / 10 : 0
-
-      const dataPoint: {
-        name: string
-        '학생 점수': number
-        '반 평균': number
-        '재시험률'?: number
-      } = {
-        name: `${targetMonth}월`,
-        '학생 점수': Math.round(myAverage * 10) / 10,
-        '반 평균': Math.round(classAverage * 10) / 10,
-      }
-
-      if (retestRate > 0) {
-        dataPoint['재시험률'] = retestRate
-      }
-
-      return dataPoint
-    })
-  )
-
-  // 시험 데이터가 없는 달(학생 점수 = 0)은 추이 차트에서 제외
-  // PostgREST !inner 조인 날짜 필터가 간헐적으로 0건을 반환하는 케이스도 함께 처리
-  return monthResults.filter((p) => p['학생 점수'] > 0)
+  return metrics.get(studentId)?.scoreTrend || []
 }
