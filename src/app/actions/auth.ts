@@ -30,8 +30,10 @@ const signUpSchema = z.object({
   password: z
     .string()
     .min(8, '비밀번호는 8자 이상이어야 합니다.')
-    .regex(/[a-zA-Z]/, '영문자를 포함해야 합니다.')
-    .regex(/[0-9]/, '숫자를 포함해야 합니다.'),
+    .regex(/[a-z]/, '소문자를 포함해야 합니다.')
+    .regex(/[A-Z]/, '대문자를 포함해야 합니다.')
+    .regex(/[0-9]/, '숫자를 포함해야 합니다.')
+    .regex(/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/, '특수문자를 포함해야 합니다.'),
   termsAgreed: z.boolean().refine((v) => v === true, { message: '이용약관에 동의해주세요.' }),
   privacyAgreed: z.boolean().refine((v) => v === true, { message: '개인정보처리방침에 동의해주세요.' }),
 })
@@ -54,8 +56,10 @@ const updatePasswordSchema = z.object({
   newPassword: z
     .string()
     .min(8, '비밀번호는 8자 이상이어야 합니다.')
-    .regex(/[a-zA-Z]/, '영문자를 포함해야 합니다.')
-    .regex(/[0-9]/, '숫자를 포함해야 합니다.'),
+    .regex(/[a-z]/, '소문자를 포함해야 합니다.')
+    .regex(/[A-Z]/, '대문자를 포함해야 합니다.')
+    .regex(/[0-9]/, '숫자를 포함해야 합니다.')
+    .regex(/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/, '특수문자를 포함해야 합니다.'),
 })
 
 // ============================================================================
@@ -185,7 +189,7 @@ export async function signIn(input: z.infer<typeof signInSchema>): Promise<{ suc
     // 1. Validate input
     const validated = signInSchema.parse(input)
 
-    console.log('[signIn] Login attempt:', { requestId, email: validated.email })
+    console.log('[signIn] Login attempt:', { requestId })
 
     // 2. Create server client
     const supabase = await createServerClient()
@@ -570,7 +574,7 @@ export async function handleAuthCallback(code: string, type: string = 'signup'):
   const requestId = crypto.randomUUID()
 
   try {
-    console.log('[handleAuthCallback] Request started:', { requestId, type, hasCode: !!code })
+    console.log('[handleAuthCallback] Request started:', { requestId, type })
 
     // 1. code 파라미터 검증
     if (!code) {
@@ -587,9 +591,7 @@ export async function handleAuthCallback(code: string, type: string = 'signup'):
     if (exchangeErr) {
       console.error('[handleAuthCallback] Session exchange failed:', {
         requestId,
-        code: exchangeErr.code,
         message: exchangeErr.message,
-        status: exchangeErr.status,
       })
 
       // 에러 타입 분류

@@ -606,7 +606,7 @@ ${params.comment ? `💬 종합평가\n${params.comment}\n\n` : ''}문의: ${par
  * - 학원 정보 1회만 조회
  * - 학생 정보 IN 조건으로 한 번에 조회
  * - 중복 리포트 스킵
- * - 3명씩 병렬 처리
+ * - 저장 단계는 10명씩 병렬 처리
  *
  * @param studentIds - 학생 ID 배열
  * @param year - 연도
@@ -789,8 +789,8 @@ export async function generateBulkMonthlyReports(
       }
     }
 
-    // 7. 3명씩 병렬 처리
-    const BATCH_SIZE = 3
+    // 7. 저장은 10명씩 병렬 처리
+    const BATCH_SIZE = 10
     const results: Array<{ studentId: string; success: boolean; reportId?: string; error?: string; skipped?: boolean }> = []
 
     for (let i = 0; i < studentIds.length; i += BATCH_SIZE) {

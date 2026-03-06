@@ -108,19 +108,18 @@ const updateStudentTextbookSchema = z.object({
  */
 export async function getTextbooks(options?: {
   activeOnly?: boolean
-  includeUnits?: boolean
+  search?: string
+  page?: number
+  pageSize?: number
 }) {
   try {
     const { tenantId } = await verifyStaff()
     const supabase = createServiceRoleClient()
+    const shouldPaginate = Boolean(options?.page && options?.pageSize)
 
     let query = supabase
       .from('textbooks')
-      .select(
-        options?.includeUnits
-          ? '*, textbook_units(*)'
-          : '*'
-      )
+      .select('*', { count: shouldPaginate ? 'exact' : undefined })
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
 
@@ -128,7 +127,26 @@ export async function getTextbooks(options?: {
       query = query.eq('is_active', true)
     }
 
-    const { data, error } = await query.order('created_at', {
+    if (options?.search?.trim()) {
+      const term = options.search.trim().slice(0, 100)
+      const safeTerm = term.replace(/[%_\\]/g, '\\$&')
+      query = query.or([
+        `title.ilike.%${safeTerm}%`,
+        `author.ilike.%${safeTerm}%`,
+        `publisher.ilike.%${safeTerm}%`,
+        `barcode.ilike.%${safeTerm}%`,
+        `isbn.ilike.%${safeTerm}%`,
+        `management_code.ilike.%${safeTerm}%`,
+      ].join(','))
+    }
+
+    if (shouldPaginate && options?.page && options?.pageSize) {
+      const from = (options.page - 1) * options.pageSize
+      const to = from + options.pageSize - 1
+      query = query.range(from, to)
+    }
+
+    const { data, error, count } = await query.order('created_at', {
       ascending: false,
     })
 
@@ -139,6 +157,9 @@ export async function getTextbooks(options?: {
     return {
       success: true,
       data: data || [],
+      totalCount: count ?? (data || []).length,
+      page: options?.page ?? 1,
+      pageSize: options?.pageSize ?? (data || []).length,
       error: null,
     }
   } catch (error) {
@@ -146,6 +167,9 @@ export async function getTextbooks(options?: {
     return {
       success: false,
       data: null,
+      totalCount: 0,
+      page: options?.page ?? 1,
+      pageSize: options?.pageSize ?? 0,
       error: getErrorMessage(error),
     }
   }

@@ -13,12 +13,15 @@ import { useToast } from '@/hooks/use-toast'
 import { TemplateDownloadButton } from './template-download-button'
 import { FileUpload } from './file-upload'
 import { ImportPreview } from './import-preview'
-import { parseExcelFile, validateImportItems, validateExcelHeaders, downloadErrorReport } from '@/lib/excel-parser'
 import { previewStudentImport, confirmStudentImport } from '@/app/actions/student-import'
 import type { StudentImportItem } from '@/core/types/student-import'
 import type { StudentImportPreview } from '@/core/types/student-import-preview'
 
 type Step = 'upload' | 'preview' | 'complete'
+
+async function loadExcelParser() {
+  return import('@/lib/excel-parser')
+}
 
 export function StudentImportWizard() {
   const { toast } = useToast()
@@ -41,8 +44,10 @@ export function StudentImportWizard() {
     setInvalidItems([])
 
     try {
+      const excelParser = await loadExcelParser()
+
       // 1. 헤더 검증 (치명적 오류)
-      const headerValidation = await validateExcelHeaders(file)
+      const headerValidation = await excelParser.validateExcelHeaders(file)
       if (!headerValidation.valid) {
         setError(
           `필수 항목이 누락되었습니다:\n${headerValidation.missing.join(', ')}\n\n템플릿을 다시 다운로드하여 사용해주세요.`
@@ -51,7 +56,7 @@ export function StudentImportWizard() {
       }
 
       // 2. 엑셀 파일 파싱
-      const parsedItems = await parseExcelFile(file)
+      const parsedItems = await excelParser.parseExcelFile(file)
 
       if (parsedItems.length === 0) {
         setError('파일에 유효한 데이터가 없습니다.')
@@ -64,7 +69,7 @@ export function StudentImportWizard() {
       }
 
       // 3. 클라이언트 측 기본 유효성 검사 (파일 내 중복 포함)
-      const validation = validateImportItems(parsedItems)
+      const validation = excelParser.validateImportItems(parsedItems)
 
       // 모든 항목 저장 (오류 리포트용)
       setAllItems(parsedItems)
@@ -138,7 +143,8 @@ export function StudentImportWizard() {
   const handleDownloadErrorReport = async () => {
     if (invalidItems.length === 0) return
     try {
-      await downloadErrorReport(allItems, invalidItems)
+      const excelParser = await loadExcelParser()
+      await excelParser.downloadErrorReport(allItems, invalidItems)
     } catch (err) {
       console.error('오류 리포트 다운로드 실패:', err)
       toast({

@@ -1,6 +1,7 @@
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { DashboardClient } from './dashboard-client'
 import { getDashboardData } from '@/app/actions/dashboard'
+import { getDashboardPreferences } from '@/app/actions/dashboard-preferences'
 import { requireAuth } from '@/lib/auth/helpers'
 import type { Metadata } from 'next'
 import type { DashboardData } from '@/core/types/dashboard'
@@ -26,8 +27,11 @@ export default async function DashboardPage() {
   // 1. 인증 확인 (명시적 체크 - layout에서 이미 했지만 방어적 프로그래밍)
   await requireAuth()
 
-  // 2. 대시보드 데이터 로드 (Server Action - service_role 기반)
-  const result = await getDashboardData()
+  // 2. 대시보드 데이터 + 사용자 설정 병렬 로드
+  const [result, prefsResult] = await Promise.all([
+    getDashboardData(),
+    getDashboardPreferences(),
+  ])
 
   // Fallback to empty data if error
   const dashboardData: DashboardData = result.success && result.data
@@ -63,9 +67,12 @@ export default async function DashboardPage() {
         activityLogs: [],
       }
 
+  // 서버에서 로드한 위젯 설정 (깜빡임 방지)
+  const savedPreferences = prefsResult.success ? prefsResult.preferences : null
+
   return (
     <PageWrapper>
-      <DashboardClient data={dashboardData} />
+      <DashboardClient data={dashboardData} savedPreferences={savedPreferences} />
     </PageWrapper>
   )
 }

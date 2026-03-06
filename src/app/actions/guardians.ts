@@ -119,7 +119,8 @@ export async function createGuardian(data: z.infer<typeof createGuardianSchema>)
         // 롤백: 생성된 guardian, user 삭제
         await supabase.from('guardians').delete().eq('id', newGuardian.id)
         await supabase.from('users').delete().eq('id', newUser.id)
-        throw new Error('학생과 보호자를 연결하는 데 실패했습니다: ' + linkError.message)
+        console.error('[addGuardian] Link error:', linkError.message)
+        throw new Error('학생과 보호자를 연결하는 데 실패했습니다')
       }
     }
 
@@ -563,6 +564,7 @@ export async function searchGuardians(query: string, limit: number = 10) {
     const { tenantId } = await verifyStaff()
     const supabase = createServiceRoleClient()
 
+    const safeQuery = query.trim().slice(0, 100).replace(/[%_\\]/g, '\\$&')
     const guardianIdSet = new Set<string>()
 
     // 1. users 테이블에서 보호자 이름/전화번호/이메일로 검색
@@ -572,7 +574,7 @@ export async function searchGuardians(query: string, limit: number = 10) {
       .eq('tenant_id', tenantId)
       .eq('role_code', 'guardian')
       .is('deleted_at', null)
-      .or(`name.ilike.%${query}%,phone.ilike.%${query}%,email.ilike.%${query}%`)
+      .or(`name.ilike.%${safeQuery}%,phone.ilike.%${safeQuery}%,email.ilike.%${safeQuery}%`)
       .limit(limit)
 
     if (guardianUsersError) {
@@ -596,7 +598,7 @@ export async function searchGuardians(query: string, limit: number = 10) {
       .eq('tenant_id', tenantId)
       .eq('role_code', 'student')
       .is('deleted_at', null)
-      .ilike('name', `%${query}%`)
+      .ilike('name', `%${safeQuery}%`)
       .limit(limit)
 
     if (studentUsersError) {

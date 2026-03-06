@@ -6,7 +6,6 @@
 
 import { Button } from '@ui/button'
 import { Download } from 'lucide-react'
-import { downloadStudentImportTemplate } from '@/lib/excel-template'
 import { useToast } from '@/hooks/use-toast'
 
 export function TemplateDownloadButton() {
@@ -14,6 +13,7 @@ export function TemplateDownloadButton() {
 
   const handleDownload = async () => {
     try {
+      const { downloadStudentImportTemplate } = await import('@/lib/excel-template')
       await downloadStudentImportTemplate()
     } catch (error) {
       console.error('템플릿 다운로드 실패:', error)

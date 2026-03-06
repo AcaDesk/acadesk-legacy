@@ -11,6 +11,7 @@
 
 'use server'
 
+import { unstable_cache } from 'next/cache'
 import { verifyStaffPermission } from '@/lib/auth/service-role-helpers'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getTodayKST } from '@/lib/utils'
@@ -58,19 +59,42 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
 
     const { tenant_id: tenantId } = permissionResult.data
 
-    // 2. Create service_role client (bypasses RLS)
+    const today = getTodayKST()
+    const dashboardData = await getCachedDashboardPayload(tenantId, today)
+
+    console.log('[getDashboardData] Request completed:', {
+      requestId,
+      tenantId,
+      dataKeys: Object.keys(dashboardData),
+    })
+
+    return {
+      success: true,
+      data: dashboardData,
+    }
+  } catch (error) {
+    console.error('[getDashboardData] Error:', {
+      requestId,
+      error: error instanceof Error ? error.message : String(error),
+    })
+
+    if (error instanceof Error) {
+      return { success: false, error: error.message }
+    }
+    return { success: false, error: '대시보드 데이터 조회 중 오류가 발생했습니다.' }
+  }
+}
+
+const getCachedDashboardPayload = unstable_cache(
+  async (tenantId: string, today: string): Promise<DashboardData> => {
     const supabase = createServiceRoleClient()
 
-    const today = getTodayKST()
-
-    // Date calculations for calendar and weekly queries
     const [todayYear, todayMonth] = today.split('-').map(Number)
     const currentMonthStart = `${todayYear}-${String(todayMonth).padStart(2, '0')}-01`
     const nextMonth = todayMonth === 12 ? 1 : todayMonth + 1
     const nextYear = todayMonth === 12 ? todayYear + 1 : todayYear
     const nextMonthStart = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`
 
-    // 3. Fetch all dashboard data in parallel
     const [
       statsResult,
       recentStudentsResult,
@@ -86,10 +110,7 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
       weeklyPerformanceResult,
       classEnrollmentsResult,
     ] = await Promise.allSettled([
-      // Stats
       fetchStats(supabase, tenantId, today),
-
-      // Recent students (last 30 days)
       supabase
         .from('students')
         .select('id, users!inner(name), grade, created_at')
@@ -97,8 +118,6 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
         .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
         .order('created_at', { ascending: false })
         .limit(5),
-
-      // Today's sessions
       supabase
         .from('class_sessions')
         .select('id, classes!inner(name), scheduled_start, scheduled_end, status, users!instructor_id(name)')
@@ -106,16 +125,12 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
         .gte('scheduled_start', `${today}T00:00:00`)
         .lte('scheduled_start', `${today}T23:59:59`)
         .order('scheduled_start', { ascending: true }),
-
-      // Birthday students (this month) - no limit, filtered server-side by month
       supabase
         .from('students')
         .select('id, users!inner(name, birthday), grade')
         .eq('tenant_id', tenantId)
         .is('deleted_at', null)
         .not('users.birthday', 'is', null),
-
-      // Scheduled consultations (next 7 days)
       supabase
         .from('consultations')
         .select('id, guardians!inner(users!inner(name)), students!inner(users!inner(name)), scheduled_at, topic')
@@ -124,14 +139,8 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
         .lte('scheduled_at', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString())
         .order('scheduled_at', { ascending: true })
         .limit(10),
-
-      // Student alerts - 실제 쿼리
       fetchStudentAlerts(supabase, tenantId, today),
-
-      // Financial data (placeholder - needs payment system)
       Promise.resolve({ data: { currentMonthRevenue: 0, previousMonthRevenue: 0, unpaidTotal: 0, unpaidCount: 0 } }),
-
-      // Class status
       supabase
         .from('classes')
         .select('id, name, capacity, users!inner(name)')
@@ -139,11 +148,7 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
         .eq('status', 'active')
         .order('name', { ascending: true })
         .limit(10),
-
-      // Parents to contact (placeholder)
       Promise.resolve({ data: [] }),
-
-      // Calendar events (this month)
       supabase
         .from('calendar_events')
         .select('id, title, event_type, start_at, end_at')
@@ -152,19 +157,13 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
         .lt('start_at', nextMonthStart)
         .is('deleted_at', null)
         .order('start_at', { ascending: true }),
-
-      // Activity logs
       supabase
         .from('student_activity_logs')
         .select('id, activity_type, description, created_at, students!inner(users!inner(name))')
         .eq('students.tenant_id', tenantId)
         .order('created_at', { ascending: false })
         .limit(20),
-
-      // Weekly performance data (7-day attendance + todo completions)
       fetchWeeklyPerformance(supabase, tenantId, today),
-
-      // Class enrollments (active enrollment counts per class)
       supabase
         .from('class_enrollments')
         .select('class_id')
@@ -173,7 +172,6 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
         .is('deleted_at', null),
     ])
 
-    // 4. Process results
     const stats = statsResult.status === 'fulfilled' ? statsResult.value : {
       totalStudents: 0,
       activeClasses: 0,
@@ -207,7 +205,6 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
         }))
       : []
 
-    // Filter birthday students for current month (KST-based)
     const currentMonthNum = parseInt(today.split('-')[1], 10)
     const birthdayStudents = birthdayStudentsResult.status === 'fulfilled' && birthdayStudentsResult.value.data
       ? birthdayStudentsResult.value.data
@@ -245,7 +242,6 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
       ? financialDataResult.value.data
       : undefined
 
-    // Process class enrollments for counts
     const enrollmentCountsByClass = new Map<string, number>()
     if (classEnrollmentsResult.status === 'fulfilled' && classEnrollmentsResult.value.data) {
       for (const enrollment of classEnrollmentsResult.value.data as { class_id: string }[]) {
@@ -308,8 +304,7 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
       ? weeklyPerformanceResult.value
       : undefined
 
-    // 5. Return aggregated data
-    const dashboardData: DashboardData = {
+    return {
       stats,
       recentStudents,
       todaySessions,
@@ -323,29 +318,10 @@ export async function getDashboardData(): Promise<DashboardDataResult> {
       activityLogs,
       weeklyPerformance,
     }
-
-    console.log('[getDashboardData] Request completed:', {
-      requestId,
-      tenantId,
-      dataKeys: Object.keys(dashboardData),
-    })
-
-    return {
-      success: true,
-      data: dashboardData,
-    }
-  } catch (error) {
-    console.error('[getDashboardData] Error:', {
-      requestId,
-      error: error instanceof Error ? error.message : String(error),
-    })
-
-    if (error instanceof Error) {
-      return { success: false, error: error.message }
-    }
-    return { success: false, error: '대시보드 데이터 조회 중 오류가 발생했습니다.' }
-  }
-}
+  },
+  ['dashboard-data-v2'],
+  { revalidate: 300 }
+)
 
 // ============================================================================
 // Helper Functions
@@ -536,198 +512,52 @@ async function fetchWeeklyPerformance(
 }
 
 async function fetchStats(supabase: ReturnType<typeof createServiceRoleClient>, tenantId: string, today: string) {
-  // Date calculations - derive all boundaries from KST-based today
-  const [todayYear, todayMonth] = today.split('-').map(Number)
-  const prevMonth = todayMonth === 1 ? 12 : todayMonth - 1
-  const prevYear = todayMonth === 1 ? todayYear - 1 : todayYear
-  const lastMonthStart = `${prevYear}-${String(prevMonth).padStart(2, '0')}-01`
-  const currentMonthStart = `${todayYear}-${String(todayMonth).padStart(2, '0')}-01`
-  const todayDateKST = new Date(today + 'T00:00:00+09:00')
-  const weekAgo = new Date(todayDateKST)
-  weekAgo.setDate(weekAgo.getDate() - 7)
-  const lastWeekStart = weekAgo.toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' })
-  const thirtyDaysAgo = new Date(todayDateKST)
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-  const thirtyDaysAgoISO = thirtyDaysAgo.toISOString()
+  const { data, error } = await supabase
+    .rpc('get_dashboard_stats', {
+      p_tenant_id: tenantId,
+      p_today: today,
+    })
+    .single()
 
-  const [
-    studentsCount,
-    classesCount,
-    todayAttendanceCount,
-    pendingTodosCount,
-    reportsCount,
-    unsentReportsCount,
-    // New: averageScore calculation
-    avgScoreResult,
-    // New: completionRate calculation
-    completionRateResult,
-    // Trend data
-    previousMonthStudentsCount,
-    previousWeekAttendanceCount,
-    previousMonthAvgScoreResult,
-    previousWeekCompletionRateResult,
-    // Lead consultations data
-    leadConsultationsCount,
-    convertedConsultationsCount,
-  ] = await Promise.allSettled([
-    // Total students
-    supabase
-      .from('students')
-      .select('id', { count: 'exact', head: true })
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null),
-
-    // Active classes
-    supabase
-      .from('classes')
-      .select('id', { count: 'exact', head: true })
-      .eq('tenant_id', tenantId)
-      .eq('status', 'active'),
-
-    // Today's attendance
-    supabase
-      .from('attendance')
-      .select('id', { count: 'exact', head: true })
-      .eq('tenant_id', tenantId)
-      .eq('attendance_date', today)
-      .eq('status', 'present'),
-
-    // Pending todos
-    supabase
-      .from('student_todos')
-      .select('id', { count: 'exact', head: true })
-      .eq('tenant_id', tenantId)
-      .is('completed_at', null)
-      .is('verified_at', null),
-
-    // Total reports (placeholder)
-    Promise.resolve({ count: 0 }),
-
-    // Unsent reports (placeholder)
-    Promise.resolve({ count: 0 }),
-
-    // Average Score - 최근 30일 exam_scores 평균
-    supabase
-      .from('exam_scores')
-      .select('percentage')
-      .eq('tenant_id', tenantId)
-      .gte('created_at', thirtyDaysAgoISO)
-      .is('deleted_at', null),
-
-    // Completion Rate - 전체 todos의 완료율
-    supabase
-      .from('student_todos')
-      .select('id, completed_at')
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null),
-
-    // Previous month students (for trend)
-    supabase
-      .from('students')
-      .select('id', { count: 'exact', head: true })
-      .eq('tenant_id', tenantId)
-      .lt('created_at', currentMonthStart)
-      .is('deleted_at', null),
-
-    // Previous week attendance (for trend)
-    supabase
-      .from('attendance')
-      .select('id', { count: 'exact', head: true })
-      .eq('tenant_id', tenantId)
-      .gte('attendance_date', lastWeekStart)
-      .lt('attendance_date', today)
-      .eq('status', 'present'),
-
-    // Previous month average score (for trend)
-    supabase
-      .from('exam_scores')
-      .select('percentage')
-      .eq('tenant_id', tenantId)
-      .gte('created_at', lastMonthStart)
-      .lt('created_at', currentMonthStart)
-      .is('deleted_at', null),
-
-    // Previous week completion rate (for trend)
-    supabase
-      .from('student_todos')
-      .select('id, completed_at')
-      .eq('tenant_id', tenantId)
-      .gte('created_at', lastWeekStart)
-      .lt('created_at', today)
-      .is('deleted_at', null),
-
-    // Lead consultations (신규 입회 상담 - 아직 전환 안 됨)
-    supabase
-      .from('consultations')
-      .select('id', { count: 'exact', head: true })
-      .eq('tenant_id', tenantId)
-      .eq('is_lead', true)
-      .is('converted_to_student_id', null)
-      .is('deleted_at', null),
-
-    // Converted consultations (입회 완료)
-    supabase
-      .from('consultations')
-      .select('id', { count: 'exact', head: true })
-      .eq('tenant_id', tenantId)
-      .eq('is_lead', true)
-      .not('converted_to_student_id', 'is', null)
-      .is('deleted_at', null),
-  ])
-
-  // Calculate average score
-  let averageScore = 0
-  if (avgScoreResult.status === 'fulfilled' && avgScoreResult.value.data && avgScoreResult.value.data.length > 0) {
-    const scores = avgScoreResult.value.data.map((s: { percentage: number | null }) => s.percentage || 0)
-    averageScore = Math.round(scores.reduce((a: number, b: number) => a + b, 0) / scores.length)
+  if (error) {
+    throw error
   }
 
-  // Calculate completion rate
-  let completionRate = 0
-  if (completionRateResult.status === 'fulfilled' && completionRateResult.value.data) {
-    const todos = completionRateResult.value.data
-    const completedCount = todos.filter((t: { completed_at: string | null }) => t.completed_at !== null).length
-    completionRate = todos.length > 0 ? Math.round((completedCount / todos.length) * 100) : 0
+  const stats = (data || {}) as {
+    total_students?: number
+    active_classes?: number
+    today_attendance?: number
+    pending_todos?: number
+    average_score?: number
+    completion_rate?: number
+    previous_month_students?: number
+    previous_week_attendance?: number
+    previous_month_avg_score?: number
+    previous_week_completion_rate?: number
+    lead_consultations?: number
+    converted_consultations?: number
   }
 
-  // Calculate previous month average score
-  let previousMonthAvgScore = 0
-  if (previousMonthAvgScoreResult.status === 'fulfilled' && previousMonthAvgScoreResult.value.data && previousMonthAvgScoreResult.value.data.length > 0) {
-    const scores = previousMonthAvgScoreResult.value.data.map((s: { percentage: number | null }) => s.percentage || 0)
-    previousMonthAvgScore = Math.round(scores.reduce((a: number, b: number) => a + b, 0) / scores.length)
-  }
-
-  // Calculate previous week completion rate
-  let previousWeekCompletionRate = 0
-  if (previousWeekCompletionRateResult.status === 'fulfilled' && previousWeekCompletionRateResult.value.data) {
-    const todos = previousWeekCompletionRateResult.value.data
-    const completedCount = todos.filter((t: { completed_at: string | null }) => t.completed_at !== null).length
-    previousWeekCompletionRate = todos.length > 0 ? Math.round((completedCount / todos.length) * 100) : 0
-  }
-
-  // Extract lead consultation counts
-  const leadConsultations = leadConsultationsCount.status === 'fulfilled' ? (leadConsultationsCount.value.count || 0) : 0
-  const convertedConsultations = convertedConsultationsCount.status === 'fulfilled' ? (convertedConsultationsCount.value.count || 0) : 0
-
-  // Calculate conversion rate (입회율)
+  const leadConsultations = stats.lead_consultations || 0
+  const convertedConsultations = stats.converted_consultations || 0
   const totalLeadConsultations = leadConsultations + convertedConsultations
   const conversionRate = totalLeadConsultations > 0
     ? Math.round((convertedConsultations / totalLeadConsultations) * 100)
     : 0
 
   return {
-    totalStudents: studentsCount.status === 'fulfilled' ? (studentsCount.value.count || 0) : 0,
-    activeClasses: classesCount.status === 'fulfilled' ? (classesCount.value.count || 0) : 0,
-    todayAttendance: todayAttendanceCount.status === 'fulfilled' ? (todayAttendanceCount.value.count || 0) : 0,
-    pendingTodos: pendingTodosCount.status === 'fulfilled' ? (pendingTodosCount.value.count || 0) : 0,
-    totalReports: reportsCount.status === 'fulfilled' ? (reportsCount.value.count || 0) : 0,
-    unsentReports: unsentReportsCount.status === 'fulfilled' ? (unsentReportsCount.value.count || 0) : 0,
-    averageScore,
-    completionRate,
-    previousMonthStudents: previousMonthStudentsCount.status === 'fulfilled' ? (previousMonthStudentsCount.value.count || 0) : undefined,
-    previousWeekAttendance: previousWeekAttendanceCount.status === 'fulfilled' ? (previousWeekAttendanceCount.value.count || 0) : undefined,
-    previousMonthAvgScore,
-    previousWeekCompletionRate,
+    totalStudents: stats.total_students || 0,
+    activeClasses: stats.active_classes || 0,
+    todayAttendance: stats.today_attendance || 0,
+    pendingTodos: stats.pending_todos || 0,
+    totalReports: 0,
+    unsentReports: 0,
+    averageScore: Math.round(stats.average_score || 0),
+    completionRate: Math.round(stats.completion_rate || 0),
+    previousMonthStudents: stats.previous_month_students || 0,
+    previousWeekAttendance: stats.previous_week_attendance || 0,
+    previousMonthAvgScore: Math.round(stats.previous_month_avg_score || 0),
+    previousWeekCompletionRate: Math.round(stats.previous_week_completion_rate || 0),
     leadConsultations,
     convertedConsultations,
     conversionRate,

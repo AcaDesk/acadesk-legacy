@@ -174,7 +174,8 @@ export async function getKakaoTemplates(filters?: {
     }
 
     if (filters?.name) {
-      query = query.ilike('name', `%${filters.name}%`)
+      const safeName = filters.name.trim().slice(0, 100).replace(/[%_\\]/g, '\\$&')
+      query = query.ilike('name', `%${safeName}%`)
     }
 
     const { data, error } = await query

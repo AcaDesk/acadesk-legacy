@@ -86,7 +86,8 @@ export async function createStudentComplete(
         if (userError?.code === '23505' && userError?.message?.includes('uq_users_email_active')) {
           throw new Error(`이메일이 이미 사용 중입니다. 학부모 검색에서 기존 보호자를 선택하거나 다른 이메일을 사용해주세요.`)
         }
-        throw new Error('보호자 사용자 생성에 실패했습니다: ' + userError?.message)
+        console.error('[createStudentComplete] Guardian user creation error:', userError?.message)
+        throw new Error('보호자 사용자 생성에 실패했습니다')
       }
 
       // 4-2. Create guardian record
@@ -104,7 +105,8 @@ export async function createStudentComplete(
         .single()
 
       if (guardianError || !guardianRecord) {
-        throw new Error('보호자 정보 생성에 실패했습니다: ' + guardianError?.message)
+        console.error('[createStudentComplete] Guardian record creation error:', guardianError?.message)
+        throw new Error('보호자 정보 생성에 실패했습니다')
       }
 
       guardianId = guardianRecord.id
@@ -128,9 +130,9 @@ export async function createStudentComplete(
 
     // 5. Generate unique student_code
     const studentCodePrefix = `STU${new Date().getFullYear().toString().slice(-2)}`
-    const randomSuffix = Math.floor(Math.random() * 100000)
-      .toString()
-      .padStart(5, '0')
+    const randomBytes = new Uint32Array(1)
+    crypto.getRandomValues(randomBytes)
+    const randomSuffix = (randomBytes[0] % 100000).toString().padStart(5, '0')
     const studentCode = `${studentCodePrefix}-${randomSuffix}`
 
     // 6. Create user record for student
@@ -153,7 +155,8 @@ export async function createStudentComplete(
       .single()
 
     if (studentUserError || !studentUserData) {
-      throw new Error('학생 사용자 생성에 실패했습니다: ' + studentUserError?.message)
+      console.error('[createStudentComplete] Student user creation error:', studentUserError?.message)
+      throw new Error('학생 사용자 생성에 실패했습니다')
     }
 
     // 7. Hash kiosk_pin if provided
@@ -186,7 +189,8 @@ export async function createStudentComplete(
       .single()
 
     if (studentError || !studentRecord) {
-      throw new Error('학생 정보 생성에 실패했습니다: ' + studentError?.message)
+      console.error('[createStudentComplete] Student record creation error:', studentError?.message)
+      throw new Error('학생 정보 생성에 실패했습니다')
     }
 
     studentId = studentRecord.id
@@ -224,8 +228,8 @@ export async function createStudentComplete(
           .insert(guardianLinkData)
 
         if (linkError) {
-          // ❌ 보호자 연결은 중요한 작업이므로 에러를 throw합니다
-          throw new Error('보호자와 학생을 연결하는 데 실패했습니다: ' + linkError.message)
+          console.error('[createStudentComplete] Guardian link error:', linkError.message)
+          throw new Error('보호자와 학생을 연결하는 데 실패했습니다')
         }
       }
     }

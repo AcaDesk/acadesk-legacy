@@ -44,16 +44,13 @@ export function createServiceRoleClient() {
   const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!supabaseUrl) {
-    throw new Error(
-      'NEXT_PUBLIC_SUPABASE_URL is not defined. Check your environment variables.'
-    )
+    console.error('[Service Role] NEXT_PUBLIC_SUPABASE_URL is not defined')
+    throw new Error('서버 설정 오류가 발생했습니다. 관리자에게 문의해주세요.')
   }
 
   if (!supabaseServiceRoleKey) {
-    throw new Error(
-      'SUPABASE_SERVICE_ROLE_KEY is not defined. This is required for server-side operations. ' +
-      'Check your .env.local file and ensure SUPABASE_SERVICE_ROLE_KEY is set.'
-    )
+    console.error('[Service Role] SUPABASE_SERVICE_ROLE_KEY is not defined')
+    throw new Error('서버 설정 오류가 발생했습니다. 관리자에게 문의해주세요.')
   }
 
   return createClient(supabaseUrl, supabaseServiceRoleKey, {

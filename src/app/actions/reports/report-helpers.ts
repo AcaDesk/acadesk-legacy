@@ -158,7 +158,7 @@ type ServiceRoleClient = ReturnType<typeof createServiceRoleClient>
 interface AttendanceRow {
   student_id: string
   attendance_date: string
-  status: 'present' | 'late' | 'absent' | 'none'
+  status: string
   notes?: string | null
 }
 
@@ -332,12 +332,21 @@ function buildAttendanceMetrics(records: AttendanceRow[]) {
   return { total, present, late, absent, rate }
 }
 
-function buildAttendanceChart(records: AttendanceRow[]) {
-  return dedupeAttendanceRecords(records).map((record) => ({
-    date: new Date(record.attendance_date),
-    status: record.status,
-    note: record.notes || undefined,
-  }))
+function buildAttendanceChart(
+  records: AttendanceRow[]
+): Array<{ date: Date; status: 'present' | 'late' | 'absent' | 'none'; note?: string }> {
+  return dedupeAttendanceRecords(records).map((record) => {
+    const status: 'present' | 'late' | 'absent' | 'none' =
+      record.status === 'present' || record.status === 'late' || record.status === 'absent'
+        ? record.status
+        : 'none'
+
+    return {
+      date: new Date(record.attendance_date),
+      status,
+      note: record.notes || undefined,
+    }
+  })
 }
 
 function buildHomeworkMetrics(records: HomeworkRow[]) {

@@ -61,7 +61,8 @@ export async function createShortUrl(
       .single()
 
     if (error) {
-      throw new Error('단축 URL 생성 실패: ' + error.message)
+      console.error('[createShortUrl] Creation error:', error.message)
+      throw new Error('단축 URL 생성에 실패했습니다')
     }
 
     return {
@@ -250,7 +251,8 @@ export async function prepareReportSending(reportId: string) {
       .select('id, share_link_id, recipient_id, recipient_name, recipient_phone')
 
     if (insertError || !insertedReportSends) {
-      throw new Error('발송 레코드 생성 실패: ' + insertError?.message)
+      console.error('[sendReportBatch] Insert error:', insertError?.message)
+      throw new Error('발송 레코드 생성에 실패했습니다')
     }
 
     // 5-2. 배치 INSERT: short_urls
@@ -269,7 +271,8 @@ export async function prepareReportSending(reportId: string) {
       .select('id, short_code, report_send_id')
 
     if (shortUrlError || !insertedShortUrls) {
-      throw new Error('단축 URL 생성 실패: ' + shortUrlError?.message)
+      console.error('[sendReportBatch] Short URL error:', shortUrlError?.message)
+      throw new Error('단축 URL 생성에 실패했습니다')
     }
 
     // short_url을 report_send_id로 매핑

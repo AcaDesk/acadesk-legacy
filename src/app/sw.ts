@@ -1,5 +1,13 @@
 import { defaultCache } from '@serwist/next/worker'
-import { type PrecacheEntry, type SerwistGlobalConfig, Serwist } from 'serwist'
+import {
+  CacheFirst,
+  ExpirationPlugin,
+  NetworkFirst,
+  NetworkOnly,
+  type PrecacheEntry,
+  type SerwistGlobalConfig,
+  Serwist,
+} from 'serwist'
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -17,33 +25,35 @@ const serwist = new Serwist({
   runtimeCaching: [
     // 출석/키오스크 페이지 — NetworkFirst (5초 타임아웃)
     {
-      urlPattern: /\/(attendance|kiosk)(\/|$)/,
-      handler: 'NetworkFirst',
-      options: {
+      matcher: /\/(attendance|kiosk)(\/|$)/,
+      handler: new NetworkFirst({
         cacheName: 'pwa-pages',
         networkTimeoutSeconds: 5,
-        expiration: {
-          maxEntries: 16,
-          maxAgeSeconds: 24 * 60 * 60, // 1일
-        },
-      },
+        plugins: [
+          new ExpirationPlugin({
+            maxEntries: 16,
+            maxAgeSeconds: 24 * 60 * 60,
+          }),
+        ],
+      }),
     },
     // Supabase API — NetworkOnly (데이터는 IDB가 처리)
     {
-      urlPattern: /supabase\.co/,
-      handler: 'NetworkOnly',
+      matcher: /supabase\.co/,
+      handler: new NetworkOnly(),
     },
     // 정적 자산 — CacheFirst
     {
-      urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp|ico|woff|woff2)$/,
-      handler: 'CacheFirst',
-      options: {
+      matcher: /\.(?:png|jpg|jpeg|svg|gif|webp|ico|woff|woff2)$/,
+      handler: new CacheFirst({
         cacheName: 'static-assets',
-        expiration: {
-          maxEntries: 64,
-          maxAgeSeconds: 30 * 24 * 60 * 60, // 30일
-        },
-      },
+        plugins: [
+          new ExpirationPlugin({
+            maxEntries: 64,
+            maxAgeSeconds: 30 * 24 * 60 * 60,
+          }),
+        ],
+      }),
     },
     // Next.js 기본 캐시 전략
     ...defaultCache,
