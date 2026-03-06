@@ -279,10 +279,9 @@ export function TextbooksClient({ textbooks: initialTextbooks, lendingCountByTex
                             const available = Math.max(total - lending, 0)
                             if (lending === 0) return `${total}권`
                             return (
-                              <span>
+                              <span className="inline-flex items-center gap-1.5">
                                 <span className="text-muted-foreground">{available}/{total}권</span>
-                                {' '}
-                                <span className="text-xs text-amber-600">({lending}대출중)</span>
+                                <span className="inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">대출 {lending}</span>
                               </span>
                             )
                           })()}
