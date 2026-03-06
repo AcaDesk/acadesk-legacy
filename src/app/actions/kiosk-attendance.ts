@@ -224,6 +224,7 @@ export async function recordKioskAttendance(
       session_id: sessionId,
       student_id: studentId,
       status: 'present',
+      source: 'kiosk',
       is_self_study: false,
       is_makeup_class: false,
     }

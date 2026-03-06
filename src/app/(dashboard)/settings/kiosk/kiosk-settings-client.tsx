@@ -8,7 +8,7 @@ import { Input } from '@ui/input'
 import { Label } from '@ui/label'
 import { Badge } from '@ui/badge'
 import { useToast } from '@/hooks/use-toast'
-import { MonitorPlay, KeyRound, Save, Loader2, ExternalLink, CheckCircle2, XCircle } from 'lucide-react'
+import { MonitorPlay, KeyRound, Save, Loader2, CheckCircle2, XCircle } from 'lucide-react'
 
 export function KioskSettingsClient() {
   const router = useRouter()
@@ -102,14 +102,6 @@ export function KioskSettingsClient() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              className="gap-2"
-              onClick={() => router.push('/kiosk/setup')}
-            >
-              <ExternalLink className="h-4 w-4" />
-              키오스크 설정 페이지
-            </Button>
             <Button
               variant="outline"
               className="gap-2"

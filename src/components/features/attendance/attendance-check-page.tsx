@@ -131,6 +131,14 @@ function buildStudentList(
             hour12: false,
           })
         : undefined,
+      departureTime: attendance?.check_out_at
+        ? new Date(attendance.check_out_at).toLocaleTimeString('ko-KR', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+          })
+        : undefined,
+      source: attendance?.source || undefined,
       isSelfStudy: attendance?.is_self_study || false,
       isMakeupClass: attendance?.is_makeup_class || false,
     }
@@ -220,6 +228,8 @@ export function AttendanceCheckPage({
           studentId: a.student_id,
           status: a.status || null,
           checkInAt: a.check_in_at || null,
+          checkOutAt: a.check_out_at || null,
+          source: a.source || null,
           sessionId: a.session_id || null,
           classId: a.attendance_sessions?.class_id || null,
           isSelfStudy: a.is_self_study || false,
@@ -282,6 +292,8 @@ export function AttendanceCheckPage({
       student_id: r.studentId,
       status: r.status,
       check_in_at: r.checkInAt,
+      check_out_at: (r as any).checkOutAt ?? null,
+      source: (r as any).source ?? null,
       session_id: r.sessionId,
       is_self_study: r.isSelfStudy,
       is_makeup_class: r.isMakeupClass,
@@ -345,6 +357,8 @@ export function AttendanceCheckPage({
           studentId: a.student_id,
           status: a.status || null,
           checkInAt: a.check_in_at || null,
+          checkOutAt: a.check_out_at || null,
+          source: a.source || null,
           sessionId: a.session_id || null,
           classId: a.attendance_sessions?.class_id || null,
           isSelfStudy: a.is_self_study || false,
@@ -433,7 +447,7 @@ export function AttendanceCheckPage({
       setStudents((prev) =>
         prev.map((s) =>
           s.studentId === student.studentId && s.classId === student.classId
-            ? { ...s, status: null, arrivalTime: undefined, isSelfStudy: false, isMakeupClass: false }
+            ? { ...s, status: null, arrivalTime: undefined, departureTime: undefined, source: undefined, isSelfStudy: false, isMakeupClass: false }
             : s
         )
       )
@@ -477,6 +491,7 @@ export function AttendanceCheckPage({
             ? {
                 ...s,
                 status,
+                source: 'manual' as const,
                 arrivalTime:
                   (status === 'present' || status === 'late') && !s.arrivalTime
                     ? new Date().toLocaleTimeString('ko-KR', {
