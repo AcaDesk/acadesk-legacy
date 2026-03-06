@@ -228,6 +228,8 @@ export async function getAttendanceRecordsByDate(params: {
         student_id,
         status,
         check_in_at,
+        check_out_at,
+        source,
         is_self_study,
         is_makeup_class,
         attendance_sessions!session_id (
@@ -401,6 +403,7 @@ export async function saveAttendance(params: {
         student_id: params.studentId,
         status: params.status,
         check_in_at: params.checkInAt,
+        source: 'manual',
         reason: params.reason,
         is_self_study: params.isSelfStudy ?? false,
         is_makeup_class: params.isMakeupClass ?? false,

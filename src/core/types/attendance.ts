@@ -56,6 +56,7 @@ export interface Attendance {
   status: AttendanceStatusType;
   check_in_at?: string;
   check_out_at?: string;
+  source?: 'kiosk' | 'manual';
   notes?: string;
   reason?: string;
   is_self_study?: boolean;

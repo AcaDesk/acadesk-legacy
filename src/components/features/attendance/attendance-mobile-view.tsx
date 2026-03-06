@@ -4,6 +4,8 @@ import { useState } from 'react'
 import {
   BookOpen,
   MessageCircle,
+  Monitor,
+  Pencil,
   PlusCircle,
   MoreHorizontal,
 } from 'lucide-react'
@@ -21,6 +23,8 @@ export interface StudentAttendance {
   className: string
   status: UIAttendanceStatus | null
   arrivalTime?: string
+  departureTime?: string
+  source?: 'kiosk' | 'manual'
   isSelfStudy: boolean
   isMakeupClass: boolean
 }
@@ -107,9 +111,24 @@ function StudentRow({
             </div>
           )}
         </div>
-        <span className="text-xs font-mono text-muted-foreground shrink-0 ml-2">
-          {student.arrivalTime || '--:--'}
-        </span>
+        <div className="flex flex-col items-end gap-0 shrink-0 ml-2">
+          <div className="flex items-center gap-1">
+            {student.source === 'kiosk' && (
+              <Monitor className="h-3 w-3 text-blue-500" />
+            )}
+            {student.source === 'manual' && (
+              <Pencil className="h-3 w-3 text-muted-foreground/60" />
+            )}
+            <span className="text-xs font-mono text-muted-foreground">
+              {student.arrivalTime || '--:--'}
+            </span>
+          </div>
+          {student.departureTime && (
+            <span className="text-[11px] font-mono text-muted-foreground/60">
+              ↓ {student.departureTime}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* 출결 버튼 행 */}

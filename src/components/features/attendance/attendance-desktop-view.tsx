@@ -3,6 +3,8 @@
 import {
   BookOpen,
   MessageCircle,
+  Monitor,
+  Pencil,
   PlusCircle,
 } from 'lucide-react'
 import { Card } from '@ui/card'
@@ -24,14 +26,14 @@ export function AttendanceDesktopView({
         <table className="w-full text-left border-collapse table-fixed">
           <colgroup>
             <col className="w-[22%]" />
-            <col className="w-[12%]" />
-            <col className="w-[40%]" />
+            <col className="w-[16%]" />
+            <col className="w-[36%]" />
             <col className="w-[26%]" />
           </colgroup>
           <thead>
             <tr className="bg-muted/50 text-xs text-muted-foreground border-b border-border sticky top-0 z-10 backdrop-blur-sm">
               <th className="px-6 py-4 font-semibold">학생 정보</th>
-              <th className="px-6 py-4 font-semibold">등원 시간</th>
+              <th className="px-6 py-4 font-semibold">등/하원 시간</th>
               <th className="px-6 py-4 font-semibold text-center">
                 출결 상태 변경
               </th>
@@ -55,16 +57,43 @@ export function AttendanceDesktopView({
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                  <span
-                    className={cn(
-                      'font-mono text-sm font-semibold',
-                      student.arrivalTime
-                        ? 'text-foreground'
-                        : 'text-muted-foreground/50'
+                  <div className="flex flex-col gap-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className={cn(
+                          'font-mono text-sm font-semibold',
+                          student.arrivalTime
+                            ? 'text-foreground'
+                            : 'text-muted-foreground/50'
+                        )}
+                      >
+                        {student.arrivalTime || '--:--'}
+                      </span>
+                      {student.source === 'kiosk' && (
+                        <span
+                          className="inline-flex items-center gap-0.5 text-[10px] px-1 py-0.5 rounded font-medium leading-none bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400"
+                          title="키오스크 자동 등록"
+                        >
+                          <Monitor className="h-2.5 w-2.5" />
+                          키오스크
+                        </span>
+                      )}
+                      {student.source === 'manual' && (
+                        <span
+                          className="inline-flex items-center gap-0.5 text-[10px] px-1 py-0.5 rounded font-medium leading-none bg-muted text-muted-foreground"
+                          title="원장/강사 수동 처리"
+                        >
+                          <Pencil className="h-2.5 w-2.5" />
+                          수동
+                        </span>
+                      )}
+                    </div>
+                    {student.departureTime && (
+                      <span className="font-mono text-xs text-muted-foreground">
+                        ↓ {student.departureTime}
+                      </span>
                     )}
-                  >
-                    {student.arrivalTime || '--:--'}
-                  </span>
+                  </div>
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex justify-center items-center gap-1 bg-muted p-1 rounded-lg w-fit mx-auto">
