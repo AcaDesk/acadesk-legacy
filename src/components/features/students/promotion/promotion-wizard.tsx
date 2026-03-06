@@ -76,15 +76,10 @@ export function PromotionWizard() {
     }
   }, [toast])
 
-  // 학교 배정
-  const handleSchoolAssign = useCallback((currentSchool: string, newSchool: string) => {
+  // 학교 배정 (학생 개별)
+  const handleSchoolAssign = useCallback((studentId: string, newSchool: string) => {
     setPlans((prev) =>
-      prev.map((p) => {
-        if (p.category !== 'school_transfer') return p
-        const key = p.currentSchool || '학교 미입력'
-        if (key !== currentSchool) return p
-        return { ...p, nextSchool: newSchool }
-      })
+      prev.map((p) => (p.studentId === studentId ? { ...p, nextSchool: newSchool } : p))
     )
   }, [])
 
