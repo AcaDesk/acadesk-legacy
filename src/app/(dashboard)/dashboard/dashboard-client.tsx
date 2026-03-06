@@ -1,17 +1,17 @@
 "use client"
 
 import { useState, useEffect, useMemo, useCallback, useTransition, useRef } from "react"
+import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
 import ReactGridLayout, { WidthProvider } from "react-grid-layout/legacy"
 import type { Layout, LayoutItem } from "react-grid-layout/legacy"
 import "react-grid-layout/css/styles.css"
 import { DashboardHeader } from "@/components/features/dashboard/dashboard-header"
-import { DashboardWidgetWrapper, DashboardWidgetSkeleton } from "@/components/features/dashboard/dashboard-widget-wrapper"
+import { DashboardWidgetWrapper } from "@/components/features/dashboard/dashboard-widget-wrapper"
 import { WelcomeBanner } from "@/components/features/dashboard/welcome-banner"
 import { KPIPeriodSelector } from "@/components/features/dashboard/kpi-period-selector"
 import { WidgetGhostPlaceholder } from "@/components/features/dashboard/widget-ghost-placeholder"
-import { WidgetDrilldownDialog } from "@/components/features/dashboard/widget-drilldown-dialog"
 import { WidgetWithControls } from "@/components/features/dashboard/widget-with-controls"
 import {
   DEFAULT_WIDGETS,
@@ -31,6 +31,10 @@ import { getKPIStatsByPeriod, type KPIPeriod } from "@/app/actions/dashboard-kpi
 import type { DrilldownWidgetId } from "@/app/actions/dashboard-drilldown"
 
 const AutoWidthGridLayout = WidthProvider(ReactGridLayout)
+const WidgetDrilldownDialog = dynamic(
+  () => import("@/components/features/dashboard/widget-drilldown-dialog").then((m) => m.WidgetDrilldownDialog),
+  { loading: () => null }
+)
 
 // KPI 드릴다운이 지원되는 위젯 ID
 const DRILLDOWN_WIDGET_IDS = new Set<string>([
@@ -60,7 +64,6 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
 
   // 레이아웃 상태
   const [widgets, setWidgets] = useState<DashboardWidget[]>(DEFAULT_WIDGETS)
-  const [isLoading, setIsLoading] = useState(true)
   const [isEditMode, setIsEditMode] = useState(false)
   const [tempWidgets, setTempWidgets] = useState<DashboardWidget[]>([])
   const [isSaving, setIsSaving] = useState(false)
@@ -184,9 +187,13 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
   // ── 사용자 설정 로드 ────────────────────────────────────────────
 
   useEffect(() => {
+    let isMounted = true
+
     const loadPreferences = async () => {
       try {
         const result = await getDashboardPreferences()
+        if (!isMounted) return
+
         if (result.success && result.preferences?.widgets) {
           const saved = result.preferences.widgets
 
@@ -242,11 +249,14 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
         }
       } catch (error) {
         console.error('Failed to load preferences:', error)
-      } finally {
-        setIsLoading(false)
       }
     }
-    loadPreferences()
+
+    void loadPreferences()
+
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   // ── 핸들러 ──────────────────────────────────────────────────────
@@ -344,23 +354,31 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
 
   // ── react-grid-layout 이벤트 ────────────────────────────────────
 
+  // drag/resize 진행 중 플래그 (onLayoutChange에서 중간값 무시용)
+  const isInteractingRef = useRef(false)
+
   // drag/resize 시작 시 히스토리 저장 (변경 전 상태 보존)
   const handleDragStart = useCallback(
-    (_layout: Layout, _oldItem: LayoutItem | null) => { pushHistory(tempWidgets) },
+    (_layout: Layout, _oldItem: LayoutItem | null) => {
+      isInteractingRef.current = true
+      pushHistory(tempWidgets)
+    },
     [tempWidgets, pushHistory]
   )
   const handleResizeStart = useCallback(
-    (_layout: Layout, _oldItem: LayoutItem | null) => { pushHistory(tempWidgets) },
+    (_layout: Layout, _oldItem: LayoutItem | null) => {
+      isInteractingRef.current = true
+      pushHistory(tempWidgets)
+    },
     [tempWidgets, pushHistory]
   )
 
-  // 레이아웃 변경 시 tempWidgets의 x,y,w,h 동기화
-  const handleLayoutChange = useCallback((layout: Layout) => {
-    if (!isEditMode) return
+  // layout 배열로 tempWidgets의 x,y,w,h 동기화하는 공통 함수
+  const syncLayoutToWidgets = useCallback((layout: Layout) => {
     setTempWidgets(prev => {
       let changed = false
       const next = prev.map(w => {
-        const l = layout.find(l => l.i === w.id)
+        const l = layout.find(li => li.i === w.id)
         if (!l) return w
         if (w.x === l.x && w.y === l.y && w.w === l.w && w.h === l.h) return w
         changed = true
@@ -368,7 +386,25 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
       })
       return changed ? next : prev
     })
-  }, [isEditMode])
+  }, [])
+
+  // drag/resize 완료 시 최종값 반영
+  const handleDragStop = useCallback((layout: Layout) => {
+    isInteractingRef.current = false
+    syncLayoutToWidgets(layout)
+  }, [syncLayoutToWidgets])
+
+  const handleResizeStop = useCallback((layout: Layout) => {
+    isInteractingRef.current = false
+    syncLayoutToWidgets(layout)
+  }, [syncLayoutToWidgets])
+
+  // 레이아웃 변경 시 tempWidgets의 x,y,w,h 동기화
+  // (drag/resize 중에는 무시 — stop 핸들러에서 최종값 반영)
+  const handleLayoutChange = useCallback((layout: Layout) => {
+    if (!isEditMode || isInteractingRef.current) return
+    syncLayoutToWidgets(layout)
+  }, [isEditMode, syncLayoutToWidgets])
 
   // ── 그리드 아이템 구성 ──────────────────────────────────────────
 
@@ -532,59 +568,52 @@ export function DashboardClient({ data: initialData }: { data: DashboardData }) 
         canUndo={widgetHistory.length > 0}
       />
 
-      {isLoading ? (
-        <div className="space-y-6 animate-in fade-in-50 duration-700">
-          <DashboardWidgetSkeleton variant="stats" />
-          <DashboardWidgetSkeleton variant="default" />
-          <DashboardWidgetSkeleton variant="chart" />
-          <DashboardWidgetSkeleton variant="list" />
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {/* KPI 기간 선택기 (#3) — 보기 모드에서만 표시 */}
-          {!isEditMode && (
-            <KPIPeriodSelector period={kpiPeriod} onChange={setKpiPeriod} />
-          )}
+      <div className="space-y-3">
+        {/* KPI 기간 선택기 (#3) — 보기 모드에서만 표시 */}
+        {!isEditMode && (
+          <KPIPeriodSelector period={kpiPeriod} onChange={setKpiPeriod} />
+        )}
 
-          {/* 편집 모드 안내 */}
-          {isEditMode && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground bg-accent/30 px-4 py-2.5 rounded-lg border border-primary/20 animate-in fade-in slide-in-from-top-1 duration-300">
-              <span>위젯을 드래그하여 이동하거나 우하단 모서리를 드래그하여 크기를 조절할 수 있습니다.</span>
-            </div>
-          )}
+        {/* 편집 모드 안내 */}
+        {isEditMode && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground bg-accent/30 px-4 py-2.5 rounded-lg border border-primary/20 animate-in fade-in slide-in-from-top-1 duration-300">
+            <span>위젯을 드래그하여 이동하거나 우하단 모서리를 드래그하여 크기를 조절할 수 있습니다.</span>
+          </div>
+        )}
 
-          {/* react-grid-layout */}
-          <AutoWidthGridLayout
-            layout={gridItems}
-            cols={12}
-            rowHeight={60}
-            isDraggable={isEditMode}
-            isResizable={isEditMode}
-            compactType={null}
-            preventCollision={false}
-            measureBeforeMount={false}
-            onLayoutChange={handleLayoutChange}
-            onDragStart={handleDragStart}
-            onResizeStart={handleResizeStart}
-            draggableHandle=".widget-drag-handle"
-            resizeHandles={['se']}
-            margin={[16, 16]}
-            containerPadding={[0, 0]}
-            className={cn(isEditMode && 'edit-mode-grid')}
-          >
-            {gridItems.map(({ i }) => {
-              const widget = currentWidgets.find(w => w.id === i)
-              return (
-                <div key={i} className="h-full overflow-hidden rounded-lg">
-                  {widget?.visible
-                    ? renderWidget(i as DashboardWidgetId)
-                    : renderGhostWidget(i as DashboardWidgetId)}
-                </div>
-              )
-            })}
-          </AutoWidthGridLayout>
-        </div>
-      )}
+        {/* react-grid-layout */}
+        <AutoWidthGridLayout
+          layout={gridItems}
+          cols={12}
+          rowHeight={60}
+          isDraggable={isEditMode}
+          isResizable={isEditMode}
+          compactType={null}
+          preventCollision={false}
+          measureBeforeMount={false}
+          onLayoutChange={handleLayoutChange}
+          onDragStart={handleDragStart}
+          onDragStop={handleDragStop}
+          onResizeStart={handleResizeStart}
+          onResizeStop={handleResizeStop}
+          draggableHandle=".widget-drag-handle"
+          resizeHandles={['se']}
+          margin={[16, 16]}
+          containerPadding={[0, 0]}
+          className={cn(isEditMode && 'edit-mode-grid')}
+        >
+          {gridItems.map(({ i }) => {
+            const widget = currentWidgets.find(w => w.id === i)
+            return (
+              <div key={i} className="h-full overflow-hidden rounded-lg">
+                {widget?.visible
+                  ? renderWidget(i as DashboardWidgetId)
+                  : renderGhostWidget(i as DashboardWidgetId)}
+              </div>
+            )
+          })}
+        </AutoWidthGridLayout>
+      </div>
 
       {/* 드릴다운 모달 (#8) */}
       {drilldownWidgetId && (
