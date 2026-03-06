@@ -8,7 +8,7 @@ import { groupTransfersByCurrentSchool, type PromotionPlan } from '@/lib/promoti
 interface PromotionSchoolAssignmentProps {
   plans: PromotionPlan[]
   schools: string[]
-  onSchoolAssign: (currentSchool: string, newSchool: string) => void
+  onSchoolAssign: (studentId: string, newSchool: string) => void
 }
 
 export function PromotionSchoolAssignment({
@@ -26,13 +26,11 @@ export function PromotionSchoolAssignment({
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        학교 전환 학생들의 새 학교를 지정해주세요. 같은 학교 출신 학생들을 그룹으로 묶어 표시합니다.
+        학교 전환 학생들의 새 학교를 학생별로 지정해주세요.
       </p>
 
       {schoolKeys.map((currentSchool) => {
         const groupPlans = groups[currentSchool]
-        // 그룹 내 첫 학생의 nextSchool을 기준으로 현재 선택값 표시
-        const currentAssignment = groupPlans[0]?.nextSchool || ''
 
         return (
           <Card key={currentSchool}>
@@ -48,20 +46,19 @@ export function PromotionSchoolAssignment({
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-                {groupPlans.map((p) => (
-                  <Badge key={p.studentId} variant="outline">{p.studentName}</Badge>
-                ))}
-              </div>
-              <div className="max-w-sm">
-                <label className="text-sm font-medium mb-1.5 block">새 학교</label>
-                <SchoolSelector
-                  value={currentAssignment}
-                  onChange={(value) => onSchoolAssign(currentSchool, value)}
-                  schools={schools}
-                  placeholder="학교 선택 또는 입력..."
-                />
-              </div>
+              {groupPlans.map((p) => (
+                <div key={p.studentId} className="flex items-center gap-3">
+                  <span className="text-sm font-medium w-24 shrink-0">{p.studentName}</span>
+                  <div className="flex-1 max-w-sm">
+                    <SchoolSelector
+                      value={p.nextSchool || ''}
+                      onChange={(value) => onSchoolAssign(p.studentId, value)}
+                      schools={schools}
+                      placeholder="학교 선택 또는 입력..."
+                    />
+                  </div>
+                </div>
+              ))}
             </CardContent>
           </Card>
         )
