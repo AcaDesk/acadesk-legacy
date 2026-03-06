@@ -18,7 +18,6 @@ export async function getPromotionCandidates() {
       .select('id, users!inner(name), grade, school')
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
-      .is('withdrawn_at', null)
       .order('grade', { ascending: true })
 
     if (error) throw error

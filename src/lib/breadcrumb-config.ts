@@ -234,6 +234,7 @@ export const BREADCRUMB_CONFIG: BreadcrumbConfig = {
   '/students': '학생 관리',
   '/students/new': '학생 등록',
   '/students/import': '학생 가져오기',
+  '/students/promote': '진급 관리',
   '/students/[id]': getStudentName,
   '/students/[id]/edit': '학생 수정',
 
