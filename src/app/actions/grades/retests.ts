@@ -296,7 +296,8 @@ export async function createRetestExam(
       .single()
 
     if (createError || !retestExam) {
-      throw new Error('재시험 생성 실패: ' + createError?.message)
+      console.error('[createRetestExam] Creation error:', createError?.message)
+      throw new Error('재시험 생성에 실패했습니다')
     }
 
     // 3. Assign students to retest
@@ -318,7 +319,8 @@ export async function createRetestExam(
     if (assignError) {
       // Rollback: delete created exam
       await supabase.from('exams').delete().eq('id', retestExam.id)
-      throw new Error('학생 배정 실패: ' + assignError.message)
+      console.error('[createRetestExam] Student assignment error:', assignError.message)
+      throw new Error('학생 배정에 실패했습니다')
     }
 
     // 4. Update original scores to mark as retest assigned

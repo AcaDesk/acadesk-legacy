@@ -168,7 +168,8 @@ export async function getExams(filters?: {
     const { data: exams, error } = await query
 
     if (error) {
-      throw new Error(`시험 조회 실패: ${error.message}`)
+      console.error('[getExams] Query error:', error.message)
+      throw new Error('시험 조회에 실패했습니다')
     }
 
     // 6. Get score counts for all exams in one query
@@ -315,7 +316,8 @@ export async function createExam(input: z.infer<typeof examSchema>) {
       .single()
 
     if (error || !exam) {
-      throw new Error('시험 생성에 실패했습니다: ' + error?.message)
+      console.error('[createExam] Creation error:', error?.message)
+      throw new Error('시험 생성에 실패했습니다')
     }
 
     // 5. Revalidate pages
@@ -801,7 +803,8 @@ export async function getClassesForExam() {
       .order('name')
 
     if (error) {
-      throw new Error('수업 조회 실패: ' + error.message)
+      console.error('[getClassesForExam] Query error:', error.message)
+      throw new Error('수업 조회에 실패했습니다')
     }
 
     return {

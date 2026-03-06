@@ -125,6 +125,14 @@ interface StudentTableProps {
   onDelete?: (id: string, name: string) => void
   badgeFilter?: BadgeFilter
   onBadgeFilterChange?: (filter: BadgeFilter) => void
+  searchValue?: string
+  onSearchChange?: (value: string) => void
+  totalCount?: number
+  currentPage?: number
+  pageSize?: number
+  onPageChange?: (page: number) => void
+  onPageSizeChange?: (pageSize: number) => void
+  manualPagination?: boolean
 }
 
 export function StudentTableImproved({
@@ -133,6 +141,14 @@ export function StudentTableImproved({
   onDelete,
   badgeFilter: externalBadgeFilter,
   onBadgeFilterChange,
+  searchValue,
+  onSearchChange,
+  totalCount,
+  currentPage = 1,
+  pageSize = 20,
+  onPageChange,
+  onPageSizeChange,
+  manualPagination = false,
 }: StudentTableProps) {
   const router = useRouter()
   const [sorting, setSorting] = React.useState<SortingState>([])
@@ -611,40 +627,55 @@ export function StudentTableImproved({
     },
   ]
 
+  const totalRows = manualPagination ? (totalCount ?? filteredData.length) : filteredData.length
+  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize))
+
   const table = useReactTable({
     data: filteredData,
     columns,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
+    getPaginationRowModel: manualPagination ? undefined : getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
+    manualPagination,
+    pageCount: manualPagination ? totalPages : undefined,
     state: {
       sorting,
       columnFilters,
       columnVisibility,
       rowSelection,
+      ...(manualPagination
+        ? {
+            pagination: {
+              pageIndex: Math.max(currentPage - 1, 0),
+              pageSize,
+            },
+          }
+        : {}),
     },
     initialState: {
       pagination: {
-        pageSize: 20,
+        pageSize,
       },
     },
   })
 
-  const searchValue = (table.getColumn('users')?.getFilterValue() as string) ?? ''
+  const internalSearchValue = (table.getColumn('users')?.getFilterValue() as string) ?? ''
+  const activeSearchValue = manualPagination ? (searchValue ?? '') : internalSearchValue
 
   // 데이터가 변경되면 페이지 조정 (삭제 후 빈 페이지 방지)
   React.useEffect(() => {
+    if (manualPagination) return
     const pageCount = table.getPageCount()
     const currentPage = table.getState().pagination.pageIndex
     if (pageCount > 0 && currentPage >= pageCount) {
       table.setPageIndex(pageCount - 1)
     }
-  }, [filteredData, table])
+  }, [filteredData, manualPagination, table])
 
   // 선택된 학생 목록 가져오기
   const selectedStudents = table.getFilteredSelectedRowModel().rows.map(row => row.original)
@@ -715,20 +746,30 @@ export function StudentTableImproved({
         <div className="flex flex-1 items-center gap-2">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="이름, 학번, 전화번호로 검색..."
-              value={searchValue}
-              onChange={(event) =>
-                table.getColumn('users')?.setFilterValue(event.target.value)
-              }
-              className="pl-10 transition-all duration-200 focus:ring-2 focus:ring-primary/20"
-            />
-            {searchValue && (
+              <Input
+                placeholder="이름, 학번, 전화번호로 검색..."
+                value={activeSearchValue}
+                onChange={(event) => {
+                  if (manualPagination) {
+                    onSearchChange?.(event.target.value)
+                    return
+                  }
+                  table.getColumn('users')?.setFilterValue(event.target.value)
+                }}
+                className="pl-10 transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+              />
+            {activeSearchValue && (
               <Button
                 variant="ghost"
                 size="icon"
                 className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-                onClick={() => table.getColumn('users')?.setFilterValue('')}
+                onClick={() => {
+                  if (manualPagination) {
+                    onSearchChange?.('')
+                    return
+                  }
+                  table.getColumn('users')?.setFilterValue('')
+                }}
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -922,7 +963,7 @@ export function StudentTableImproved({
               {table.getFilteredSelectedRowModel().rows.length}개 행 선택됨 /{' '}
             </>
           )}
-          전체 {table.getFilteredRowModel().rows.length}개
+          전체 {manualPagination ? totalRows : table.getFilteredRowModel().rows.length}개
         </div>
         <div className="flex w-full items-center gap-8 lg:w-fit">
           <div className="hidden items-center gap-2 lg:flex">
@@ -930,13 +971,17 @@ export function StudentTableImproved({
               페이지당 행 수
             </label>
             <Select
-              value={`${table.getState().pagination.pageSize}`}
+              value={`${manualPagination ? pageSize : table.getState().pagination.pageSize}`}
               onValueChange={(value) => {
+                if (manualPagination) {
+                  onPageSizeChange?.(Number(value))
+                  return
+                }
                 table.setPageSize(Number(value))
               }}
             >
               <SelectTrigger className="w-20" id="rows-per-page">
-                <SelectValue placeholder={table.getState().pagination.pageSize} />
+                <SelectValue placeholder={manualPagination ? pageSize : table.getState().pagination.pageSize} />
               </SelectTrigger>
               <SelectContent side="top">
                 {[10, 20, 30, 40, 50].map((pageSize) => (
@@ -948,16 +993,22 @@ export function StudentTableImproved({
             </Select>
           </div>
           <div className="flex w-fit items-center justify-center text-sm font-medium">
-            {table.getPageCount() > 0
-              ? `페이지 ${table.getState().pagination.pageIndex + 1} / ${table.getPageCount()}`
+            {(manualPagination ? totalPages : table.getPageCount()) > 0
+              ? `페이지 ${manualPagination ? currentPage : table.getState().pagination.pageIndex + 1} / ${manualPagination ? totalPages : table.getPageCount()}`
               : '데이터 없음'}
           </div>
           <div className="ml-auto flex items-center gap-2 lg:ml-0">
             <Button
               variant="outline"
               className="hidden h-8 w-8 p-0 lg:flex"
-              onClick={() => table.setPageIndex(0)}
-              disabled={!table.getCanPreviousPage()}
+              onClick={() => {
+                if (manualPagination) {
+                  onPageChange?.(1)
+                  return
+                }
+                table.setPageIndex(0)
+              }}
+              disabled={manualPagination ? currentPage <= 1 : !table.getCanPreviousPage()}
             >
               <span className="sr-only">첫 페이지로</span>
               <IconChevronsLeft className="h-4 w-4" />
@@ -965,8 +1016,14 @@ export function StudentTableImproved({
             <Button
               variant="outline"
               className="h-8 w-8 p-0"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
+              onClick={() => {
+                if (manualPagination) {
+                  onPageChange?.(Math.max(1, currentPage - 1))
+                  return
+                }
+                table.previousPage()
+              }}
+              disabled={manualPagination ? currentPage <= 1 : !table.getCanPreviousPage()}
             >
               <span className="sr-only">이전 페이지</span>
               <IconChevronLeft className="h-4 w-4" />
@@ -974,8 +1031,14 @@ export function StudentTableImproved({
             <Button
               variant="outline"
               className="h-8 w-8 p-0"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
+              onClick={() => {
+                if (manualPagination) {
+                  onPageChange?.(Math.min(totalPages, currentPage + 1))
+                  return
+                }
+                table.nextPage()
+              }}
+              disabled={manualPagination ? currentPage >= totalPages : !table.getCanNextPage()}
             >
               <span className="sr-only">다음 페이지</span>
               <IconChevronRight className="h-4 w-4" />
@@ -983,8 +1046,14 @@ export function StudentTableImproved({
             <Button
               variant="outline"
               className="hidden h-8 w-8 p-0 lg:flex"
-              onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-              disabled={!table.getCanNextPage()}
+              onClick={() => {
+                if (manualPagination) {
+                  onPageChange?.(totalPages)
+                  return
+                }
+                table.setPageIndex(table.getPageCount() - 1)
+              }}
+              disabled={manualPagination ? currentPage >= totalPages : !table.getCanNextPage()}
             >
               <span className="sr-only">마지막 페이지로</span>
               <IconChevronsRight className="h-4 w-4" />

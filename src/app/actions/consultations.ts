@@ -135,7 +135,7 @@ export async function getConsultations(options?: {
 
     let query = supabase
       .from('consultations')
-      .select('*, students!student_id(id, name), users!consultations_conducted_by_fkey(id, name)', { count: 'exact' })
+      .select('*, students!student_id(id, name), users!consultations_conducted_by_fkey(id, name)', { count: 'planned' })
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
 
@@ -163,28 +163,14 @@ export async function getConsultations(options?: {
 
     // 검색어 필터: student name, lead_name, title, summary 매칭
     if (options?.searchTerm && options.searchTerm.trim()) {
-      const term = options.searchTerm.trim()
-
-      // 먼저 매칭되는 학생 ID를 찾기
-      const { data: matchingStudents } = await supabase
-        .from('students')
-        .select('id')
-        .eq('tenant_id', tenantId)
-        .is('deleted_at', null)
-        .ilike('name', `%${term}%`)
-
-      const studentIds = matchingStudents?.map(s => s.id) || []
-
-      // 직접 필터 가능한 필드 + 매칭된 학생 ID로 OR 조건
-      const orFilters: string[] = [
-        `title.ilike.%${term}%`,
-        `summary.ilike.%${term}%`,
-        `lead_name.ilike.%${term}%`,
-      ]
-      if (studentIds.length > 0) {
-        orFilters.push(`student_id.in.(${studentIds.join(',')})`)
-      }
-      query = query.or(orFilters.join(','))
+      const term = options.searchTerm.trim().slice(0, 100)
+      const safeTerm = term.replace(/[%_\\]/g, '\\$&')
+      query = query.or([
+        `title.ilike.%${safeTerm}%`,
+        `summary.ilike.%${safeTerm}%`,
+        `lead_name.ilike.%${safeTerm}%`,
+        `students.name.ilike.%${safeTerm}%`,
+      ].join(','))
     }
 
     query = query.order('consultation_date', { ascending: false })
@@ -302,25 +288,25 @@ export async function getConsultationStats() {
     const [totalResult, leadResult, studentResult, convertedResult] = await Promise.all([
       supabase
         .from('consultations')
-        .select('*', { count: 'exact', head: true })
+        .select('*', { count: 'planned', head: true })
         .eq('tenant_id', tenantId)
         .is('deleted_at', null),
       supabase
         .from('consultations')
-        .select('*', { count: 'exact', head: true })
+        .select('*', { count: 'planned', head: true })
         .eq('tenant_id', tenantId)
         .eq('is_lead', true)
         .is('converted_to_student_id', null)
         .is('deleted_at', null),
       supabase
         .from('consultations')
-        .select('*', { count: 'exact', head: true })
+        .select('*', { count: 'planned', head: true })
         .eq('tenant_id', tenantId)
         .eq('is_lead', false)
         .is('deleted_at', null),
       supabase
         .from('consultations')
-        .select('*', { count: 'exact', head: true })
+        .select('*', { count: 'planned', head: true })
         .eq('tenant_id', tenantId)
         .eq('is_lead', true)
         .not('converted_to_student_id', 'is', null)
@@ -355,30 +341,52 @@ export async function getConsultationFilterOptions() {
     const { tenantId } = await verifyStaff()
     const supabase = createServiceRoleClient()
 
-    // 해당 tenant의 상담을 진행한 적 있는 사용자 목록 조회
-    const { data, error } = await supabase
+    const { data: consultationRows, error: consultationError } = await supabase
       .from('consultations')
-      .select('conducted_by, users!consultations_conducted_by_fkey(id, name)')
+      .select('conducted_by')
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
 
-    if (error) {
-      throw error
+    if (consultationError) {
+      throw consultationError
     }
 
-    // 중복 제거
-    const conductorMap = new Map<string, { id: string; name: string }>()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    for (const row of (data || []) as any[]) {
-      if (row.conducted_by && row.users?.id) {
-        conductorMap.set(row.users.id, { id: row.users.id, name: row.users.name })
+    const conductorIds = Array.from(
+      new Set(
+        (consultationRows || [])
+          .map((row) => row.conducted_by)
+          .filter((value): value is string => Boolean(value))
+      )
+    )
+
+    if (conductorIds.length === 0) {
+      return {
+        success: true,
+        data: {
+          conductors: [],
+        },
+        error: null,
       }
+    }
+
+    const { data: users, error: usersError } = await supabase
+      .from('users')
+      .select('id, name')
+      .eq('tenant_id', tenantId)
+      .in('id', conductorIds)
+      .order('name', { ascending: true })
+
+    if (usersError) {
+      throw usersError
     }
 
     return {
       success: true,
       data: {
-        conductors: Array.from(conductorMap.values()),
+        conductors: (users || []).map((user) => ({
+          id: user.id,
+          name: user.name || 'Unknown',
+        })),
       },
       error: null,
     }

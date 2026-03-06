@@ -57,20 +57,20 @@ export function getErrorMessage(error: unknown, context?: string): string {
       const code = error.code as string
 
       // PostgreSQL Error Codes
-      if (code === '23505') return '이미 존재하는 데이터입니다' // Unique violation
-      if (code === '23503') return '참조된 데이터가 존재하지 않습니다' // Foreign key violation
-      if (code === '23502') return '필수 입력값이 누락되었습니다' // Not null violation
-      if (code === '42501') return '권한이 없습니다' // Insufficient privilege
-      if (code === '42P01') return '테이블을 찾을 수 없습니다' // Undefined table
+      if (code === '23505') return '이미 존재하는 데이터입니다'
+      if (code === '23503') return '관련 데이터를 확인해주세요'
+      if (code === '23502') return '필수 입력값이 누락되었습니다'
+      if (code === '42501') return '권한이 없습니다'
+      if (code === '42P01') return '요청을 처리할 수 없습니다. 관리자에게 문의해주세요'
 
       // PostgREST Error Codes
-      if (code === 'PGRST116') return '데이터를 찾을 수 없습니다' // No rows returned
-      if (code === 'PGRST301') return '인증이 필요합니다' // JWT expired
-      if (code === 'PGRST302') return '인증 정보가 올바르지 않습니다' // JWT invalid
+      if (code === 'PGRST116') return '데이터를 찾을 수 없습니다'
+      if (code === 'PGRST301') return '인증이 만료되었습니다. 다시 로그인해주세요'
+      if (code === 'PGRST302') return '인증 정보가 올바르지 않습니다'
 
       // HTTP Error Codes
       if (code === '403') return '이 작업을 수행할 권한이 없습니다'
-      if (code === '404') return '요청한 리소스를 찾을 수 없습니다'
+      if (code === '404') return '요청한 데이터를 찾을 수 없습니다'
       if (code === '429') return '너무 많은 요청이 발생했습니다. 잠시 후 다시 시도해주세요'
     }
 
@@ -86,7 +86,8 @@ export function getErrorMessage(error: unknown, context?: string): string {
       return '요청 시간이 초과되었습니다. 다시 시도해주세요'
     }
 
-    return error.message
+    // 알려진 사용자 에러 패턴이 아닌 경우, 내부 정보 노출 방지
+    return '요청을 처리하는 중 오류가 발생했습니다'
   }
 
   // Generic error
@@ -98,7 +99,8 @@ export function getErrorMessage(error: unknown, context?: string): string {
       return '네트워크 연결을 확인해주세요'
     }
 
-    return error.message
+    // 내부 에러 메시지를 사용자에게 직접 노출하지 않음
+    return '요청을 처리하는 중 오류가 발생했습니다'
   }
 
   // Unknown error type

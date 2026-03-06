@@ -77,7 +77,8 @@ export async function bulkDeleteStudents(studentIds: string[]) {
       .eq('tenant_id', tenantId)
 
     if (error) {
-      throw new Error(`학생 삭제 실패: ${error.message}`)
+      console.error('[bulkDeleteStudents] Delete error:', error.message)
+      throw new Error('학생 삭제에 실패했습니다')
     }
 
     // 4. Revalidate
@@ -122,7 +123,8 @@ export async function bulkEnrollClass(studentIds: string[], classId: string) {
       })
 
     if (error) {
-      throw new Error(`수업 배정 실패: ${error.message}`)
+      console.error('[bulkAssignClass] Assignment error:', error.message)
+      throw new Error('수업 배정에 실패했습니다')
     }
 
     // 4. Revalidate

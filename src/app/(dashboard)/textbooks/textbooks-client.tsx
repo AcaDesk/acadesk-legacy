@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Plus, Book, Search, Trash2 } from 'lucide-react'
 import { IconChevronLeft, IconChevronRight, IconChevronsLeft, IconChevronsRight } from '@tabler/icons-react'
 import { Button } from '@/components/ui/button'
@@ -31,7 +31,6 @@ import { EmptyState } from '@/components/ui/loading-state'
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 import { SectionErrorBoundary } from '@/components/layout/page-error-boundary'
 import { PAGE_ANIMATIONS } from '@/lib/animation-config'
-import { usePagination } from '@/hooks/use-pagination'
 import { useToast } from '@/hooks/use-toast'
 import { bulkDeleteTextbooks } from '@/app/actions/textbooks'
 
@@ -46,64 +45,106 @@ type Textbook = {
   total_copies: number | null
   price: number | null
   is_active: boolean
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  textbook_units?: any[]
 }
 
 interface TextbooksClientProps {
   textbooks: Textbook[]
   lendingCountByTextbookId?: Record<string, number>
+  unitCountByTextbookId?: Record<string, number>
+  searchQuery: string
+  currentPage: number
+  pageSize: number
+  totalCount: number
 }
 
-export function TextbooksClient({ textbooks: initialTextbooks, lendingCountByTextbookId = {} }: TextbooksClientProps) {
+export function TextbooksClient({
+  textbooks: initialTextbooks,
+  lendingCountByTextbookId = {},
+  unitCountByTextbookId = {},
+  searchQuery,
+  currentPage,
+  pageSize,
+  totalCount,
+}: TextbooksClientProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
   const [textbooks, setTextbooks] = useState(initialTextbooks)
-  const [searchQuery, setSearchQuery] = useState('')
+  const [searchInput, setSearchInput] = useState(searchQuery)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [pageSize, setPageSize] = useState(15)
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
 
-  // Filter textbooks based on search query
-  const filteredTextbooks = useMemo(() => {
-    if (!searchQuery) return textbooks
-    const query = searchQuery.toLowerCase()
-    return textbooks.filter((textbook) =>
-      textbook.title.toLowerCase().includes(query) ||
-      (textbook.author?.toLowerCase() || '').includes(query) ||
-      (textbook.publisher?.toLowerCase() || '').includes(query) ||
-      (textbook.barcode?.toLowerCase() || '').includes(query) ||
-      (textbook.isbn?.toLowerCase() || '').includes(query) ||
-      (textbook.management_code?.toLowerCase() || '').includes(query)
-    )
-  }, [textbooks, searchQuery])
-
-  const { paginatedData, currentPage, totalPages, goToPage, resetPage } = usePagination({
-    data: filteredTextbooks,
-    itemsPerPage: pageSize,
-  })
-
-  // 검색어 변경 시 페이지를 1로 초기화
   useEffect(() => {
-    resetPage()
+    setTextbooks(initialTextbooks)
+  }, [initialTextbooks])
+
+  useEffect(() => {
+    setSearchInput(searchQuery)
   }, [searchQuery])
 
+  useEffect(() => {
+    setSelectedIds(new Set())
+  }, [textbooks])
+
+  const updateQuery = useCallback((params: {
+    search?: string
+    page?: number
+    pageSize?: number
+  }) => {
+    const next = new URLSearchParams(searchParams.toString())
+
+    if (params.search && params.search.trim()) {
+      next.set('search', params.search.trim())
+    } else {
+      next.delete('search')
+    }
+
+    if (params.page && params.page > 1) {
+      next.set('page', String(params.page))
+    } else {
+      next.delete('page')
+    }
+
+    if (params.pageSize && params.pageSize !== 15) {
+      next.set('pageSize', String(params.pageSize))
+    } else {
+      next.delete('pageSize')
+    }
+
+    const query = next.toString()
+    router.replace(query ? `?${query}` : '/textbooks', { scroll: false })
+  }, [router, searchParams])
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      if (searchInput === searchQuery) return
+      updateQuery({
+        search: searchInput || undefined,
+        page: 1,
+        pageSize,
+      })
+    }, 300)
+
+    return () => window.clearTimeout(timeout)
+  }, [searchInput, searchQuery, pageSize, updateQuery])
+
   // Selection handlers
-  const isAllSelected = paginatedData.length > 0 && paginatedData.every(t => selectedIds.has(t.id))
-  const isSomeSelected = paginatedData.some(t => selectedIds.has(t.id))
+  const isAllSelected = textbooks.length > 0 && textbooks.every(t => selectedIds.has(t.id))
+  const isSomeSelected = textbooks.some(t => selectedIds.has(t.id))
 
   const handleSelectAll = useCallback(() => {
     setSelectedIds(prev => {
       const next = new Set(prev)
       if (isAllSelected) {
-        paginatedData.forEach(t => next.delete(t.id))
+        textbooks.forEach(t => next.delete(t.id))
       } else {
-        paginatedData.forEach(t => next.add(t.id))
+        textbooks.forEach(t => next.add(t.id))
       }
       return next
     })
-  }, [isAllSelected, paginatedData])
+  }, [isAllSelected, textbooks])
 
   const handleSelectOne = useCallback((id: string) => {
     setSelectedIds(prev => {
@@ -148,7 +189,7 @@ export function TextbooksClient({ textbooks: initialTextbooks, lendingCountByTex
     }
   }, [selectedIds, router, toast])
 
-  if (textbooks.length === 0) {
+  if (textbooks.length === 0 && !searchQuery) {
     return (
       <section aria-label="교재 목록" {...PAGE_ANIMATIONS.getSection(0)}>
         <EmptyState
@@ -179,8 +220,8 @@ export function TextbooksClient({ textbooks: initialTextbooks, lendingCountByTex
               type="search"
               placeholder="교재명, 저자, 출판사, 관리번호, 바코드 검색..."
               className="pl-10"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
             />
           </div>
         </div>
@@ -213,7 +254,7 @@ export function TextbooksClient({ textbooks: initialTextbooks, lendingCountByTex
       {/* Textbook List */}
       <section aria-label="교재 목록" {...PAGE_ANIMATIONS.getSection(1)}>
         <SectionErrorBoundary sectionName="교재 목록">
-          {filteredTextbooks.length === 0 ? (
+          {textbooks.length === 0 ? (
             <EmptyState
               icon={<Search className="h-12 w-12" />}
               title="검색 결과가 없습니다"
@@ -243,7 +284,7 @@ export function TextbooksClient({ textbooks: initialTextbooks, lendingCountByTex
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {paginatedData.map((textbook) => (
+                    {textbooks.map((textbook) => (
                       <TableRow
                         key={textbook.id}
                         className="cursor-pointer"
@@ -292,7 +333,7 @@ export function TextbooksClient({ textbooks: initialTextbooks, lendingCountByTex
                             : '-'}
                         </TableCell>
                         <TableCell className="text-sm">
-                          {textbook.textbook_units?.length || 0}개
+                          {unitCountByTextbookId[textbook.id] || 0}개
                         </TableCell>
                       </TableRow>
                     ))}
@@ -302,12 +343,19 @@ export function TextbooksClient({ textbooks: initialTextbooks, lendingCountByTex
                 {/* Pagination */}
                 <div className="flex items-center justify-between border-t px-4 py-3">
                   <div className="text-sm text-muted-foreground">
-                    전체 {filteredTextbooks.length}개
+                    전체 {totalCount}개
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-muted-foreground whitespace-nowrap">페이지당 행 수</span>
-                      <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+                      <Select
+                        value={String(pageSize)}
+                        onValueChange={(value) => updateQuery({
+                          search: searchQuery || undefined,
+                          page: 1,
+                          pageSize: Number(value),
+                        })}
+                      >
                         <SelectTrigger className="h-8 w-[70px]">
                           <SelectValue />
                         </SelectTrigger>
@@ -327,7 +375,7 @@ export function TextbooksClient({ textbooks: initialTextbooks, lendingCountByTex
                         variant="outline"
                         size="icon"
                         className="hidden lg:flex h-8 w-8"
-                        onClick={() => goToPage(1)}
+                        onClick={() => updateQuery({ search: searchQuery || undefined, page: 1, pageSize })}
                         disabled={currentPage === 1}
                       >
                         <IconChevronsLeft className="h-4 w-4" />
@@ -336,7 +384,11 @@ export function TextbooksClient({ textbooks: initialTextbooks, lendingCountByTex
                         variant="outline"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => goToPage(currentPage - 1)}
+                        onClick={() => updateQuery({
+                          search: searchQuery || undefined,
+                          page: Math.max(1, currentPage - 1),
+                          pageSize,
+                        })}
                         disabled={currentPage === 1}
                       >
                         <IconChevronLeft className="h-4 w-4" />
@@ -345,7 +397,11 @@ export function TextbooksClient({ textbooks: initialTextbooks, lendingCountByTex
                         variant="outline"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => goToPage(currentPage + 1)}
+                        onClick={() => updateQuery({
+                          search: searchQuery || undefined,
+                          page: Math.min(totalPages, currentPage + 1),
+                          pageSize,
+                        })}
                         disabled={currentPage === totalPages}
                       >
                         <IconChevronRight className="h-4 w-4" />
@@ -354,7 +410,7 @@ export function TextbooksClient({ textbooks: initialTextbooks, lendingCountByTex
                         variant="outline"
                         size="icon"
                         className="hidden lg:flex h-8 w-8"
-                        onClick={() => goToPage(totalPages)}
+                        onClick={() => updateQuery({ search: searchQuery || undefined, page: totalPages, pageSize })}
                         disabled={currentPage === totalPages}
                       >
                         <IconChevronsRight className="h-4 w-4" />

@@ -115,14 +115,15 @@ export async function getExamScores(
     }
 
     // 검색어 필터 적용 (중첩 관계 검색)
-    if (searchTerm && searchTerm.trim()) {
+    const safeSearchTerm = searchTerm?.trim().slice(0, 100).replace(/[%_\\]/g, '\\$&')
+    if (safeSearchTerm) {
       // 먼저 매칭되는 학생 ID를 찾기
       const { data: matchingStudents } = await supabase
         .from('students')
         .select('id, student_code, users!user_id(name)')
         .eq('tenant_id', tenantId)
         .is('deleted_at', null)
-        .or(`student_code.ilike.%${searchTerm}%,users.name.ilike.%${searchTerm}%`)
+        .or(`student_code.ilike.%${safeSearchTerm}%,users.name.ilike.%${safeSearchTerm}%`)
 
       // 매칭되는 시험 ID를 찾기
       const { data: matchingExams } = await supabase
@@ -130,7 +131,7 @@ export async function getExamScores(
         .select('id')
         .eq('tenant_id', tenantId)
         .is('deleted_at', null)
-        .ilike('name', `%${searchTerm}%`)
+        .ilike('name', `%${safeSearchTerm}%`)
 
       const studentIds = matchingStudents?.map(s => s.id) || []
       const examIds = matchingExams?.map(e => e.id) || []
@@ -165,7 +166,8 @@ export async function getExamScores(
     const { data: scores, error, count } = await query
 
     if (error) {
-      throw new Error(`성적 조회 실패: ${error.message}`)
+      console.error('[getExamScores] Query error:', error.message)
+      throw new Error('성적 조회에 실패했습니다')
     }
 
     // 퍼센트 계산 (저장되지 않은 경우)
@@ -227,7 +229,8 @@ export async function createExamScore(
       .single()
 
     if (error) {
-      throw new Error(`성적 입력 실패: ${error.message}`)
+      console.error('[upsertExamScore] Upsert error:', error.message)
+      throw new Error('성적 입력에 실패했습니다')
     }
 
     // 4. 캐시 무효화
@@ -285,7 +288,8 @@ export async function bulkUpsertExamScores(
       .select()
 
     if (error) {
-      throw new Error(`성적 일괄 입력 실패: ${error.message}`)
+      console.error('[bulkUpsertExamScores] Upsert error:', error.message)
+      throw new Error('성적 일괄 입력에 실패했습니다')
     }
 
     // 4. 캐시 무효화
@@ -322,7 +326,8 @@ export async function deleteExamScore(examScoreId: string) {
       .eq('tenant_id', tenantId)
 
     if (error) {
-      throw new Error(`성적 삭제 실패: ${error.message}`)
+      console.error('[deleteExamScore] Delete error:', error.message)
+      throw new Error('성적 삭제에 실패했습니다')
     }
 
     // 3. 캐시 무효화

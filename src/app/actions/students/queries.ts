@@ -28,22 +28,11 @@ export async function getStudentDetail(studentId: string) {
       .single()
 
     if (rpcError) {
-      console.error('[getStudentDetail] RPC Error:', {
-        studentId,
-        tenantId,
-        error: rpcError,
-        message: rpcError.message,
-        details: rpcError.details,
-        hint: rpcError.hint,
-      })
+      console.error('[getStudentDetail] RPC Error:', rpcError.message)
       throw rpcError
     }
 
     if (!data) {
-      console.log('[getStudentDetail] Student not found:', {
-        studentId,
-        tenantId,
-      })
       return {
         success: false,
         error: '학생을 찾을 수 없습니다',
@@ -87,6 +76,9 @@ export async function getStudents(filters?: {
   marketingSource?: string
   enrollmentDateFrom?: string
   enrollmentDateTo?: string
+  search?: string
+  page?: number
+  pageSize?: number
 }) {
   try {
     // 1. Verify authentication and get tenant
@@ -94,6 +86,41 @@ export async function getStudents(filters?: {
 
     // 2. Create service_role client
     const serviceClient = createServiceRoleClient()
+
+    const page = filters?.page
+    const pageSize = filters?.pageSize
+    const shouldPaginate = Boolean(page && pageSize)
+
+    let classFilteredStudentIds: string[] | null = null
+    if (filters?.classId && filters.classId !== 'all') {
+      const { data: classEnrollments, error: classFilterError } = await serviceClient
+        .from('class_enrollments')
+        .select('student_id')
+        .eq('tenant_id', tenantId)
+        .eq('class_id', filters.classId)
+        .eq('status', 'active')
+        .is('deleted_at', null)
+
+      if (classFilterError) {
+        console.error('[getStudents] Class filter error:', classFilterError.message)
+        throw new Error('학생 조회에 실패했습니다')
+      }
+
+      classFilteredStudentIds = Array.from(
+        new Set((classEnrollments || []).map((enrollment) => enrollment.student_id))
+      )
+
+      if (classFilteredStudentIds.length === 0) {
+        return {
+          success: true,
+          data: [],
+          totalCount: 0,
+          page: page ?? 1,
+          pageSize: pageSize ?? 0,
+          error: null,
+        }
+      }
+    }
 
     // 3. Build query
     let query = serviceClient
@@ -109,7 +136,7 @@ export async function getStudents(filters?: {
         profile_image_url,
         commute_method,
         marketing_source,
-        users (
+        users!inner (
           name,
           email,
           phone
@@ -131,10 +158,14 @@ export async function getStudents(filters?: {
             )
           )
         )
-      `)
+      `, { count: shouldPaginate ? 'exact' : undefined })
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
+
+    if (classFilteredStudentIds) {
+      query = query.in('id', classFilteredStudentIds)
+    }
 
     // 4. Apply filters
     if (filters?.grade && filters.grade !== 'all') {
@@ -161,18 +192,29 @@ export async function getStudents(filters?: {
       query = query.lte('enrollment_date', filters.enrollmentDateTo)
     }
 
-    // 5. Execute query
-    const { data: students, error } = await query
+    if (filters?.search?.trim()) {
+      const term = filters.search.trim().slice(0, 100)
+      const safeTerm = term.replace(/[%_\\]/g, '\\$&')
+      query = query.or([
+        `student_code.ilike.%${safeTerm}%`,
+        `student_phone.ilike.%${safeTerm}%`,
+        `users.name.ilike.%${safeTerm}%`,
+        `users.phone.ilike.%${safeTerm}%`,
+      ].join(','))
+    }
 
-    console.log('[getStudents] Query result:', {
-      studentsCount: students?.length || 0,
-      error: error?.message,
-      tenantId
-    })
+    if (shouldPaginate && page && pageSize) {
+      const from = (page - 1) * pageSize
+      const to = from + pageSize - 1
+      query = query.range(from, to)
+    }
+
+    // 5. Execute query
+    const { data: students, error, count } = await query
 
     if (error) {
-      console.error('[getStudents] Query error:', error)
-      throw new Error(`학생 조회 실패: ${error.message}`)
+      console.error('[getStudents] Query error:', error.message)
+      throw new Error('학생 조회에 실패했습니다')
     }
 
     // 6. Transform data
@@ -228,16 +270,8 @@ export async function getStudents(filters?: {
       })) || [],
     })) || []
 
-    // 7. Filter by class if specified (before attendance query to reduce scope)
-    let filteredStudents = transformedStudents
-    if (filters?.classId && filters.classId !== 'all') {
-      filteredStudents = transformedStudents.filter(s =>
-        s.classes.some((c) => c.id === filters.classId)
-      )
-    }
-
-    // 8. Batch-fetch recent attendance (last 30 days) for badge display
-    const studentIds = filteredStudents.map(s => s.id)
+    // 7. Batch-fetch recent attendance (last 30 days) for current page only
+    const studentIds = transformedStudents.map(s => s.id)
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
     const attendanceByStudentId = new Map<string, Array<{ status: string }>>()
@@ -251,11 +285,7 @@ export async function getStudents(filters?: {
         .gte('attendance_date', thirtyDaysAgo.toISOString().split('T')[0])
 
       if (attendanceError) {
-        console.error('[getStudents] Attendance query error:', {
-          error: attendanceError.message,
-          studentCount: studentIds.length,
-          tenantId,
-        })
+        console.error('[getStudents] Attendance query error:', attendanceError.message)
       }
 
       for (const a of (recentAttendance || [])) {
@@ -266,20 +296,17 @@ export async function getStudents(filters?: {
     }
 
     // Attach attendance data to each student
-    const studentsWithAttendance = filteredStudents.map(s => ({
+    const studentsWithAttendance = transformedStudents.map(s => ({
       ...s,
       recentAttendance: attendanceByStudentId.get(s.id) || [],
     }))
 
-    console.log('[getStudents] Returning data:', {
-      totalStudents: transformedStudents.length,
-      filteredStudents: studentsWithAttendance.length,
-      filters
-    })
-
     return {
       success: true,
       data: studentsWithAttendance,
+      totalCount: count ?? studentsWithAttendance.length,
+      page: page ?? 1,
+      pageSize: pageSize ?? studentsWithAttendance.length,
       error: null,
     }
   } catch (error) {
@@ -287,6 +314,9 @@ export async function getStudents(filters?: {
     return {
       success: false,
       data: null,
+      totalCount: 0,
+      page: filters?.page ?? 1,
+      pageSize: filters?.pageSize ?? 0,
       error: getErrorMessage(error),
     }
   }

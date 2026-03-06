@@ -26,6 +26,11 @@ export function StudentList() {
   const [selectedMarketingSource, setSelectedMarketingSource] = useState<string>('all')
   const [enrollmentDateFrom, setEnrollmentDateFrom] = useState<Date | undefined>()
   const [enrollmentDateTo, setEnrollmentDateTo] = useState<Date | undefined>()
+  const [searchInput, setSearchInput] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+  const [totalCount, setTotalCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [classes, setClasses] = useState<Array<{ id: string; name: string }>>([])
   const [grades, setGrades] = useState<string[]>([])
@@ -34,22 +39,21 @@ export function StudentList() {
 
   const { toast } = useToast()
   const requestSeqRef = useRef(0)
-  const isInitializedRef = useRef(false)
+  const prevFilterKeyRef = useRef('')
 
-  // Load filter options and initial students in parallel on mount
   useEffect(() => {
-    async function loadInitialData() {
-      const requestSeq = ++requestSeqRef.current
-      setLoading(true)
-      try {
-        // 병렬로 필터 옵션과 학생 데이터를 동시에 로드
-        const [filterResult, studentsResult] = await Promise.all([
-          getStudentFilterOptions(),
-          getStudents({})
-        ])
+    const timeout = window.setTimeout(() => {
+      setDebouncedSearch(searchInput.trim())
+    }, 300)
 
-        // Race condition guard
-        if (requestSeq !== requestSeqRef.current) return
+    return () => window.clearTimeout(timeout)
+  }, [searchInput])
+
+  // Load filter options on mount
+  useEffect(() => {
+    async function loadFilterOptions() {
+      try {
+        const filterResult = await getStudentFilterOptions()
 
         // 필터 옵션 설정
         if (filterResult.success && filterResult.data) {
@@ -59,30 +63,17 @@ export function StudentList() {
         } else {
           console.error('[StudentList] Failed to load filter options:', filterResult.error)
         }
-
-        // 학생 데이터 설정
-        if (studentsResult.success && studentsResult.data) {
-          setStudents(formatStudents(studentsResult.data))
-        } else {
-          console.error('[StudentList] Failed to load students:', studentsResult.error)
-        }
       } catch (error) {
-        if (requestSeq !== requestSeqRef.current) return
-        console.error('[StudentList] Failed to load initial data:', error)
+        console.error('[StudentList] Failed to load filter options:', error)
         toast({
           title: '데이터 로드 실패',
           description: getErrorMessage(error),
           variant: 'destructive',
         })
-      } finally {
-        if (requestSeq === requestSeqRef.current) {
-          isInitializedRef.current = true
-          setLoading(false)
-        }
       }
     }
 
-    loadInitialData()
+    loadFilterOptions()
   }, [toast])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -123,6 +114,9 @@ export function StudentList() {
         marketingSource: selectedMarketingSource !== 'all' ? selectedMarketingSource : undefined,
         enrollmentDateFrom: enrollmentDateFrom ? format(enrollmentDateFrom, 'yyyy-MM-dd') : undefined,
         enrollmentDateTo: enrollmentDateTo ? format(enrollmentDateTo, 'yyyy-MM-dd') : undefined,
+        search: debouncedSearch || undefined,
+        page: currentPage,
+        pageSize,
       })
 
       // Race condition guard
@@ -133,6 +127,7 @@ export function StudentList() {
       }
 
       setStudents(formatStudents(result.data))
+      setTotalCount(result.totalCount ?? result.data.length)
     } catch (error) {
       if (requestSeq !== requestSeqRef.current) return
       console.error('[StudentList] Failed to load students:', error)
@@ -146,13 +141,42 @@ export function StudentList() {
         setLoading(false)
       }
     }
-  }, [selectedGrade, selectedClass, selectedSchool, selectedCommuteMethod, selectedMarketingSource, enrollmentDateFrom, enrollmentDateTo, toast])
+  }, [
+    selectedGrade,
+    selectedClass,
+    selectedSchool,
+    selectedCommuteMethod,
+    selectedMarketingSource,
+    enrollmentDateFrom,
+    enrollmentDateTo,
+    debouncedSearch,
+    currentPage,
+    pageSize,
+    toast,
+  ])
 
-  // Load students when filters change (skip initial load)
+  const filterKey = JSON.stringify({
+    selectedGrade,
+    selectedClass,
+    selectedSchool,
+    selectedCommuteMethod,
+    selectedMarketingSource,
+    enrollmentDateFrom: enrollmentDateFrom ? format(enrollmentDateFrom, 'yyyy-MM-dd') : null,
+    enrollmentDateTo: enrollmentDateTo ? format(enrollmentDateTo, 'yyyy-MM-dd') : null,
+    debouncedSearch,
+  })
+
   useEffect(() => {
-    if (!isInitializedRef.current) return
+    const filterChanged = prevFilterKeyRef.current !== filterKey
+    prevFilterKeyRef.current = filterKey
+
+    if (filterChanged && currentPage !== 1) {
+      setCurrentPage(1)
+      return
+    }
+
     loadStudents()
-  }, [loadStudents])
+  }, [filterKey, currentPage, pageSize, loadStudents])
 
   async function handleDelete(studentId: string, studentName: string) {
     try {
@@ -187,6 +211,7 @@ export function StudentList() {
     setSelectedMarketingSource('all')
     setEnrollmentDateFrom(undefined)
     setEnrollmentDateTo(undefined)
+    setCurrentPage(1)
   }
 
   const noGuardianCount = students.filter(s => !s.guardians || s.guardians.length === 0).length
@@ -351,6 +376,20 @@ export function StudentList() {
         onDelete={handleDelete}
         badgeFilter={badgeFilter}
         onBadgeFilterChange={setBadgeFilter}
+        searchValue={searchInput}
+        onSearchChange={(value) => {
+          setSearchInput(value)
+          setCurrentPage(1)
+        }}
+        totalCount={totalCount}
+        currentPage={currentPage}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={(nextPageSize) => {
+          setPageSize(nextPageSize)
+          setCurrentPage(1)
+        }}
+        manualPagination
       />
     </div>
   )

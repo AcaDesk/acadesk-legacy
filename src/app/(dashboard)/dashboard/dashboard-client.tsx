@@ -579,7 +579,8 @@ export function DashboardClient({ data: initialData, savedPreferences }: Dashboa
           isDraggable={isEditMode}
           isResizable={isEditMode}
           compactType={null}
-          preventCollision={false}
+          preventCollision={true}
+          maxRows={60}
           measureBeforeMount={false}
           onLayoutChange={handleLayoutChange}
           onDragStart={handleDragStart}

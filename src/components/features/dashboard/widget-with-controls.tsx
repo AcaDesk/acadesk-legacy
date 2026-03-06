@@ -1,6 +1,7 @@
 'use client'
 
 import { ReactNode, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Button } from '@ui/button'
 import { RotateCw, Maximize2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -40,9 +41,56 @@ export function WidgetWithControls({
     return () => document.removeEventListener('keydown', handleEscape)
   }, [isMaximized, widgetId, onMaximize])
 
+  // Prevent body scroll when maximized
+  useEffect(() => {
+    if (!isMaximized) return
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = '' }
+  }, [isMaximized])
+
   if (!showControls) {
     return <>{children}</>
   }
+
+  // 최대화 상태: Portal로 렌더링하여 react-grid-layout의 CSS transform 영향을 벗어남
+  // (transform이 fixed 포지셔닝의 containing block을 변경하는 CSS 문제 해결)
+  const maximizedOverlay = isMaximized && onMaximize
+    ? createPortal(
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-background/90 backdrop-blur-md z-40 animate-in fade-in-0 duration-200 cursor-pointer"
+            onClick={() => onMaximize(widgetId)}
+            title="배경을 클릭하여 닫기"
+          />
+
+          {/* Maximized content */}
+          <div className="fixed inset-8 z-50 animate-in zoom-in-95 duration-200 overflow-auto rounded-lg shadow-2xl">
+            {children}
+          </div>
+
+          {/* Close button */}
+          <Button
+            size="icon"
+            variant="default"
+            className={cn(
+              "fixed top-4 right-4 z-[60]",
+              "h-10 w-10 rounded-full shadow-xl",
+              "hover:bg-destructive hover:text-destructive-foreground",
+              "transition-all duration-200"
+            )}
+            onClick={(e) => {
+              e.stopPropagation()
+              onMaximize(widgetId)
+            }}
+            title="닫기 (ESC)"
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        </>,
+        document.body
+      )
+    : null
 
   return (
     <div className={cn("relative group h-full", className)}>
@@ -90,41 +138,13 @@ export function WidgetWithControls({
         </div>
       )}
 
-      {/* Close button for maximized state */}
-      {isMaximized && onMaximize && (
-        <Button
-          size="icon"
-          variant="default"
-          className={cn(
-            "absolute top-4 right-4 z-[60]",
-            "h-10 w-10 rounded-full shadow-xl",
-            "hover:bg-destructive hover:text-destructive-foreground",
-            "transition-all duration-200"
-          )}
-          onClick={(e) => {
-            e.stopPropagation()
-            onMaximize(widgetId)
-          }}
-          title="닫기 (ESC)"
-        >
-          <X className="h-5 w-5" />
-        </Button>
-      )}
-
-      {/* Maximized backdrop */}
-      {isMaximized && (
-        <div
-          className="fixed inset-0 bg-background/90 backdrop-blur-md z-40 animate-in fade-in-0 duration-200 cursor-pointer"
-          onClick={() => onMaximize?.(widgetId)}
-          title="배경을 클릭하여 닫기"
-        />
-      )}
+      {/* Portal로 렌더링되는 최대화 오버레이 */}
+      {maximizedOverlay}
 
       {/* Content wrapper */}
       <div className={cn(
         "h-full transition-opacity duration-200",
         isRefreshing && "opacity-60",
-        isMaximized && "fixed inset-8 z-50 animate-in zoom-in-95 duration-200 overflow-auto rounded-lg shadow-2xl"
       )}>
         {children}
       </div>

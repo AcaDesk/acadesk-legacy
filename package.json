@@ -89,7 +89,6 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
-    "@executeautomation/playwright-mcp-server": "^1.0.12",
     "@playwright/test": "^1.58.2",
     "@serwist/next": "^9.5.6",
     "@tailwindcss/postcss": "^4.1.18",
@@ -103,7 +102,7 @@
     "@types/react-big-calendar": "^1.16.3",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^5.0.4",
-    "@vitest/ui": "^3.2.4",
+    "@vitest/ui": "^4.0.18",
     "dotenv": "^17.2.3",
     "dotenv-cli": "^10.0.0",
     "esbuild": "^0.27.3",
@@ -116,6 +115,23 @@
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5",
     "vitest": "^4.0.18"
+  },
+  "pnpm": {
+    "overrides": {
+      "@typescript-eslint/typescript-estree>minimatch": "9.0.9",
+      "@eslint/eslintrc>ajv": "6.14.0",
+      "@eslint/eslintrc>js-yaml": "4.1.1",
+      "@eslint/eslintrc>minimatch": "3.1.4",
+      "eslint>ajv": "6.14.0",
+      "eslint>minimatch": "3.1.4",
+      "recharts>lodash": "4.17.23",
+      "react-big-calendar>lodash": "4.17.23",
+      "react-big-calendar>lodash-es": "4.17.23",
+      "react-markdown>mdast-util-to-hast": "13.2.1",
+      "readdir-glob>minimatch": "5.1.8",
+      "glob>minimatch": "9.0.7",
+      "vite>rollup": "4.59.0"
+    }
   },
   "packageManager": "pnpm@10.17.1+sha512.17c560fca4867ae9473a3899ad84a88334914f379be46d455cbf92e5cf4b39d34985d452d2583baf19967fa76cb5c17bc9e245529d0b98745721aa7200ecaf7a"
 }

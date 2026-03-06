@@ -21,53 +21,51 @@ export function DashboardWidgetWrapper({
   disablePadding = false,
 }: DashboardWidgetWrapperProps) {
   return (
-    <div className={cn("relative h-full", className)}>
-      {/* Widget Content */}
-      <Card className="transition-all duration-300 ease-out overflow-hidden group h-full flex flex-col ring-2 ring-primary/30 shadow-lg hover:ring-primary/50 hover:shadow-xl">
-        {/* Edit Mode Controls - react-grid-layout drag handle */}
-        <div className={cn(
-          "flex items-center justify-between gap-2 border-b border-border shrink-0 bg-accent/30",
-          "animate-in slide-in-from-top-2 fade-in duration-300",
-          disablePadding ? "px-2 py-1" : "px-3 py-2"
-        )}>
-          {/* 드래그 핸들: react-grid-layout이 draggableHandle=".widget-drag-handle"로 감지 */}
-          <div
-            className={cn(
-              "widget-drag-handle cursor-grab active:cursor-grabbing touch-none rounded-md",
-              "hover:bg-primary/10 transition-all duration-200",
-              "animate-in fade-in zoom-in-95 duration-300 delay-75 flex items-center gap-1",
-              disablePadding ? "p-0.5" : "p-1"
-            )}
-          >
-            <GripVertical className={cn(
-              "text-muted-foreground hover:text-primary transition-colors",
-              disablePadding ? "h-3.5 w-3.5" : "h-4 w-4"
-            )} />
-            {!disablePadding && (
-              <span className="text-xs text-muted-foreground font-medium animate-in fade-in duration-300 delay-100">
-                드래그하여 이동
-              </span>
-            )}
-          </div>
-
-          {onHide && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className={cn(
-                "hover:bg-destructive/10 hover:text-destructive transition-all",
-                "animate-in fade-in zoom-in-95 duration-300 delay-150",
-                disablePadding ? "h-5 w-5" : "h-6 w-6"
-              )}
-              onClick={onHide}
-              title="위젯 숨기기"
-            >
-              <EyeOff className="h-3 w-3" />
-            </Button>
+    <div className={cn("relative h-full group/edit", className)}>
+      {/* Edit Mode Controls — 오버레이로 표시하여 콘텐츠 영역 침범 방지 */}
+      <div className={cn(
+        "absolute top-0 left-0 right-0 z-10 flex items-center justify-between gap-2 rounded-t-lg",
+        "bg-accent/80 backdrop-blur-sm border-b border-primary/20",
+        "opacity-40 group-hover/edit:opacity-100 transition-all duration-200",
+        disablePadding ? "px-2 py-0.5" : "px-3 py-1.5"
+      )}>
+        {/* 드래그 핸들: react-grid-layout이 draggableHandle=".widget-drag-handle"로 감지 */}
+        <div
+          className={cn(
+            "widget-drag-handle cursor-grab active:cursor-grabbing touch-none rounded-md",
+            "hover:bg-primary/10 transition-all duration-200 flex items-center gap-1",
+            disablePadding ? "p-0.5" : "p-1"
+          )}
+        >
+          <GripVertical className={cn(
+            "text-muted-foreground hover:text-primary transition-colors",
+            disablePadding ? "h-3.5 w-3.5" : "h-4 w-4"
+          )} />
+          {!disablePadding && (
+            <span className="text-xs text-muted-foreground font-medium">
+              드래그하여 이동
+            </span>
           )}
         </div>
 
-        {/* Main Content */}
+        {onHide && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              "hover:bg-destructive/10 hover:text-destructive transition-all",
+              disablePadding ? "h-5 w-5" : "h-6 w-6"
+            )}
+            onClick={onHide}
+            title="위젯 숨기기"
+          >
+            <EyeOff className="h-3 w-3" />
+          </Button>
+        )}
+      </div>
+
+      {/* Widget Content — 편집/보기 모드 동일한 크기 유지 */}
+      <Card className="transition-all duration-300 ease-out overflow-hidden h-full flex flex-col ring-2 ring-primary/30 shadow-lg hover:ring-primary/50 hover:shadow-xl">
         {disablePadding ? (
           <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
             {children}
