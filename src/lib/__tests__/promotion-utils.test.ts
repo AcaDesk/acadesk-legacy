@@ -4,7 +4,7 @@ import {
   getPromotionCategory,
   buildPromotionPlans,
   groupByCategory,
-  groupTransfersByCurrentSchool,
+  groupTransfersByCurrentGrade,
 } from '../promotion-utils'
 
 describe('getNextGrade', () => {
@@ -130,8 +130,8 @@ describe('groupByCategory', () => {
   })
 })
 
-describe('groupTransfersByCurrentSchool', () => {
-  it('학교별 그룹핑', () => {
+describe('groupTransfersByCurrentGrade', () => {
+  it('학년별 그룹핑', () => {
     const plans = buildPromotionPlans([
       { id: '1', name: 'A', grade: '초6', school: '서울초' },
       { id: '2', name: 'B', grade: '초6', school: '서울초' },
@@ -139,11 +139,10 @@ describe('groupTransfersByCurrentSchool', () => {
       { id: '4', name: 'D', grade: '초6', school: null },
     ])
 
-    const groups = groupTransfersByCurrentSchool(plans)
+    const groups = groupTransfersByCurrentGrade(plans)
 
-    expect(groups['서울초']).toHaveLength(2)
-    expect(groups['강남중']).toHaveLength(1)
-    expect(groups['학교 미입력']).toHaveLength(1)
+    expect(groups['초6']).toHaveLength(3)
+    expect(groups['중3']).toHaveLength(1)
   })
 
   it('학교 전환 외 카테고리는 무시', () => {
@@ -152,7 +151,7 @@ describe('groupTransfersByCurrentSchool', () => {
       { id: '2', name: 'B', grade: '고3', school: '서울고' },
     ])
 
-    const groups = groupTransfersByCurrentSchool(plans)
+    const groups = groupTransfersByCurrentGrade(plans)
     expect(Object.keys(groups)).toHaveLength(0)
   })
 })

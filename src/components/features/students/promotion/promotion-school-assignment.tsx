@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
 import { Badge } from '@ui/badge'
 import { SchoolSelector } from '@/components/features/common/school-selector'
-import { groupTransfersByCurrentSchool, type PromotionPlan } from '@/lib/promotion-utils'
+import { groupTransfersByCurrentGrade, type PromotionPlan } from '@/lib/promotion-utils'
 
 interface PromotionSchoolAssignmentProps {
   plans: PromotionPlan[]
@@ -16,7 +16,7 @@ export function PromotionSchoolAssignment({
   schools,
   onSchoolAssign,
 }: PromotionSchoolAssignmentProps) {
-  const groups = groupTransfersByCurrentSchool(plans)
+  const groups = groupTransfersByCurrentGrade(plans)
   const schoolKeys = Object.keys(groups)
 
   if (schoolKeys.length === 0) {
@@ -29,18 +29,15 @@ export function PromotionSchoolAssignment({
         학교 전환 학생들의 새 학교를 학생별로 지정해주세요.
       </p>
 
-      {schoolKeys.map((currentSchool) => {
-        const groupPlans = groups[currentSchool]
+      {schoolKeys.map((currentGrade) => {
+        const groupPlans = groups[currentGrade]
 
         return (
-          <Card key={currentSchool}>
+          <Card key={currentGrade}>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">
-                  {currentSchool}
-                  <span className="ml-2 text-sm font-normal text-muted-foreground">
-                    ({groupPlans[0]?.currentGrade} → {groupPlans[0]?.nextGrade})
-                  </span>
+                  {currentGrade} → {groupPlans[0]?.nextGrade}
                 </CardTitle>
                 <Badge variant="secondary">{groupPlans.length}명</Badge>
               </div>
