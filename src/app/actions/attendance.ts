@@ -172,11 +172,9 @@ export async function getAttendanceRoster() {
 
         if (allStudentsError) throw allStudentsError
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const unassignedStudents = (allStudents || [])
           .filter((s: { id: string }) => !enrolledStudentIds.has(s.id))
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .map((s: any) => ({
+          .map((s: Record<string, unknown> & { id: string }) => ({
             class_id: null,
             student_id: s.id,
             students: s,

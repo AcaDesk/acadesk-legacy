@@ -5,7 +5,7 @@ import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
 import ReactGridLayout, { WidthProvider } from "react-grid-layout/legacy"
-import type { Layout, LayoutItem } from "react-grid-layout/legacy"
+import type { Layout } from "react-grid-layout/legacy"
 import "react-grid-layout/css/styles.css"
 import { DashboardHeader } from "@/components/features/dashboard/dashboard-header"
 import { DashboardWidgetWrapper } from "@/components/features/dashboard/dashboard-widget-wrapper"
@@ -52,6 +52,8 @@ const DRILLDOWN_WIDGET_IDS = new Set<string>([
 function resolveInitialWidgets(saved: DashboardWidget[] | undefined): DashboardWidget[] {
   if (!saved || saved.length === 0) return DEFAULT_WIDGETS
 
+  const defaultWidgetMap = new Map(DEFAULT_WIDGETS.map(w => [w.id, w]))
+
   // 구버전 레이아웃 감지: react-grid-layout 이전에는 KPI 외 위젯이 h≤2였음
   const isLegacyLayout = saved.some(
     (w) => !w.id.startsWith('kpi-') && w.visible && w.h <= 2
@@ -61,7 +63,7 @@ function resolveInitialWidgets(saved: DashboardWidget[] | undefined): DashboardW
     const visibilityMap = new Map(
       saved
         .filter((w) => {
-          const def = DEFAULT_WIDGETS.find(d => d.id === w.id)
+          const def = defaultWidgetMap.get(w.id)
           return def && isWidgetAvailable({ ...w, requiredFeatures: def.requiredFeatures })
         })
         .map((w) => [w.id, w.visible])
@@ -77,7 +79,7 @@ function resolveInitialWidgets(saved: DashboardWidget[] | undefined): DashboardW
   // 신버전: 저장된 값 그대로 사용
   const widgetsWithNames = saved
     .filter((widget) => {
-      const defaultWidget = DEFAULT_WIDGETS.find(w => w.id === widget.id)
+      const defaultWidget = defaultWidgetMap.get(widget.id)
       if (!defaultWidget) return false
       return isWidgetAvailable({
         ...widget,
@@ -85,11 +87,11 @@ function resolveInitialWidgets(saved: DashboardWidget[] | undefined): DashboardW
       })
     })
     .map((widget) => {
-      const defaultWidget = DEFAULT_WIDGETS.find(w => w.id === widget.id)
+      const defaultWidget = defaultWidgetMap.get(widget.id)!
       return {
         ...widget,
-        name: widget.name || defaultWidget?.name || widget.title || widget.id,
-        requiredFeatures: defaultWidget?.requiredFeatures,
+        name: widget.name || defaultWidget.name || widget.title || widget.id,
+        requiredFeatures: defaultWidget.requiredFeatures,
       }
     })
   const savedWidgetIds = new Set(widgetsWithNames.map((w) => w.id))
@@ -209,9 +211,6 @@ export function DashboardClient({ data: initialData, savedPreferences }: Dashboa
       : 0
   }, [activeStats.totalStudents, activeStats.todayAttendance])
 
-  const averageScore = useMemo(() => activeStats.averageScore, [activeStats.averageScore])
-  const completionRate = useMemo(() => activeStats.completionRate, [activeStats.completionRate])
-
   const upcomingSessions = useMemo(() => {
     return todaySessions.filter((s: TodaySession) => {
       if (s.status === 'completed') return false
@@ -225,8 +224,9 @@ export function DashboardClient({ data: initialData, savedPreferences }: Dashboa
   const hasChanges = useMemo(() => {
     if (!isEditMode) return false
     if (tempWidgets.length !== widgets.length) return true
+    const widgetMap = new Map(widgets.map(w => [w.id, w]))
     return tempWidgets.some((tempWidget) => {
-      const widget = widgets.find(w => w.id === tempWidget.id)
+      const widget = widgetMap.get(tempWidget.id)
       if (!widget) return true
       return (
         tempWidget.visible !== widget.visible ||
@@ -298,17 +298,10 @@ export function DashboardClient({ data: initialData, savedPreferences }: Dashboa
     }
   }, [hasChanges, tempWidgets])
 
-  const handleToggleWidget = useCallback((widgetId: string) => {
+  const handleSetWidgetVisibility = useCallback((widgetId: string, visible?: boolean) => {
     pushHistory(tempWidgets)
     setTempWidgets(prev => prev.map(widget =>
-      widget.id === widgetId ? { ...widget, visible: !widget.visible } : widget
-    ))
-  }, [tempWidgets, pushHistory])
-
-  const handleShowWidget = useCallback((widgetId: string) => {
-    pushHistory(tempWidgets)
-    setTempWidgets(prev => prev.map(widget =>
-      widget.id === widgetId ? { ...widget, visible: true } : widget
+      widget.id === widgetId ? { ...widget, visible: visible ?? !widget.visible } : widget
     ))
   }, [tempWidgets, pushHistory])
 
@@ -349,14 +342,14 @@ export function DashboardClient({ data: initialData, savedPreferences }: Dashboa
 
   // drag/resize 시작 시 히스토리 저장 (변경 전 상태 보존)
   const handleDragStart = useCallback(
-    (_layout: Layout, _oldItem: LayoutItem | null) => {
+    () => {
       isInteractingRef.current = true
       pushHistory(tempWidgets)
     },
     [tempWidgets, pushHistory]
   )
   const handleResizeStart = useCallback(
-    (_layout: Layout, _oldItem: LayoutItem | null) => {
+    () => {
       isInteractingRef.current = true
       pushHistory(tempWidgets)
     },

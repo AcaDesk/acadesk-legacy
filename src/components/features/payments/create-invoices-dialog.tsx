@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -87,22 +87,20 @@ export function CreateInvoicesDialog({
   const defaultTuition = watch('default_tuition')
 
   useEffect(() => {
-    if (open) {
-      loadStudents()
-    }
-  }, [open])
-
-  useEffect(() => {
     // Update all students' tuition when default changes
-    if (defaultTuition && students.length > 0) {
-      setStudents(students.map(s => ({
+    if (!defaultTuition) return
+
+    setStudents(prev => {
+      if (prev.length === 0) return prev
+
+      return prev.map(s => ({
         ...s,
         tuition_amount: s.selected ? parseInt(defaultTuition) * s.enrolled_classes : s.tuition_amount
-      })))
-    }
+      }))
+    })
   }, [defaultTuition])
 
-  async function loadStudents() {
+  const loadStudents = useCallback(async () => {
     if (!currentUser) return
 
     try {
@@ -176,7 +174,13 @@ export function CreateInvoicesDialog({
     } finally {
       setLoadingStudents(false)
     }
-  }
+  }, [currentUser, defaultTuition, toast])
+
+  useEffect(() => {
+    if (open) {
+      loadStudents()
+    }
+  }, [open, loadStudents])
 
   function toggleStudent(studentId: string) {
     setStudents(students.map(s =>

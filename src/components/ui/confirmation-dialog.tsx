@@ -118,9 +118,9 @@ export function ConfirmationDialog({
   isLoading = false,
   disabled = false,
 }: ConfirmationDialogProps) {
-  const handleConfirm = async () => {
+  const handleConfirm = React.useCallback(async () => {
     await onConfirm()
-  }
+  }, [onConfirm])
 
   // Enter 키로 확인 가능하도록
   const handleKeyDown = React.useCallback(

@@ -10,7 +10,7 @@
 
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { checkOnboardingStage } from '@/app/actions/onboarding'
 
 export interface AuthStage {
@@ -40,7 +40,7 @@ export function useAuthStage(options?: UseAuthStageOptions): UseAuthStageReturn 
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchStage = async () => {
+  const fetchStage = useCallback(async () => {
     try {
       setIsLoading(true)
       setError(null)
@@ -69,11 +69,11 @@ export function useAuthStage(options?: UseAuthStageOptions): UseAuthStageReturn 
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [options?.inviteToken])
 
   useEffect(() => {
     fetchStage()
-  }, [options?.inviteToken])
+  }, [fetchStage])
 
   // TODO: Implement invite acceptance with Server Action (별도 PR - staff_invites 스키마 확인 필요)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

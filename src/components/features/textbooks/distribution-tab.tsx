@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { UserPlus, ExternalLink } from 'lucide-react'
 import {
@@ -52,11 +52,7 @@ export function DistributionTab({ textbookId }: { textbookId: string }) {
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState<string | null>(null)
 
-  useEffect(() => {
-    loadDistributions()
-  }, [textbookId])
-
-  async function loadDistributions() {
+  const loadDistributions = useCallback(async () => {
     try {
       setLoading(true)
       const result = await getTextbookDistributions(textbookId)
@@ -77,7 +73,11 @@ export function DistributionTab({ textbookId }: { textbookId: string }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [textbookId])
+
+  useEffect(() => {
+    loadDistributions()
+  }, [loadDistributions])
 
   async function togglePaid(distributionId: string, currentPaid: boolean) {
     try {

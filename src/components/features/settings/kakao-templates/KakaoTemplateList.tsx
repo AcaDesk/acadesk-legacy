@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
@@ -67,16 +67,7 @@ export function KakaoTemplateList({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [templateToDelete, setTemplateToDelete] = useState<KakaoTemplate | null>(null)
 
-  // Load templates
-  useEffect(() => {
-    if (hasChannel) {
-      loadTemplates()
-    } else {
-      setIsLoading(false)
-    }
-  }, [hasChannel])
-
-  async function loadTemplates() {
+  const loadTemplates = useCallback(async () => {
     setIsLoading(true)
     try {
       const result = await getKakaoTemplates()
@@ -89,7 +80,16 @@ export function KakaoTemplateList({
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [onTemplatesLoaded])
+
+  // Load templates
+  useEffect(() => {
+    if (hasChannel) {
+      loadTemplates()
+    } else {
+      setIsLoading(false)
+    }
+  }, [hasChannel, loadTemplates])
 
   async function handleSync() {
     setIsSyncing(true)

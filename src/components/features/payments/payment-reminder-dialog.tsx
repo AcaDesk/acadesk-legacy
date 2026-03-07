@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -89,13 +89,7 @@ export function PaymentReminderDialog({
 
   const message = watch('message')
 
-  useEffect(() => {
-    if (open) {
-      loadUnpaidStudents()
-    }
-  }, [open, month])
-
-  async function loadUnpaidStudents() {
+  const loadUnpaidStudents = useCallback(async () => {
     if (!currentUser) return
 
     try {
@@ -126,7 +120,7 @@ export function PaymentReminderDialog({
           id: '1',
           student_code: 'ST002',
           student_name: '이영희',
-          billing_month: '2025-10',
+          billing_month: month || '2025-10',
           remaining_amount: 300000,
           days_overdue: 0,
           guardian_phone: '010-1234-5678',
@@ -137,7 +131,7 @@ export function PaymentReminderDialog({
           id: '2',
           student_code: 'ST003',
           student_name: '박민수',
-          billing_month: '2025-10',
+          billing_month: month || '2025-10',
           remaining_amount: 550000,
           days_overdue: 5,
           guardian_phone: '010-2345-6789',
@@ -148,7 +142,7 @@ export function PaymentReminderDialog({
           id: '3',
           student_code: 'ST004',
           student_name: '최지영',
-          billing_month: '2025-10',
+          billing_month: month || '2025-10',
           remaining_amount: 700000,
           days_overdue: 0,
           guardian_phone: null,
@@ -168,7 +162,13 @@ export function PaymentReminderDialog({
     } finally {
       setLoadingStudents(false)
     }
-  }
+  }, [currentUser, month, toast])
+
+  useEffect(() => {
+    if (open) {
+      loadUnpaidStudents()
+    }
+  }, [open, loadUnpaidStudents])
 
   function toggleStudent(studentId: string) {
     setStudents(students.map(s =>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { ExternalLink, TrendingUp } from 'lucide-react'
 import {
@@ -49,11 +49,7 @@ export function ProgressTab({ textbookId }: { textbookId: string }) {
   const [progressRecords, setProgressRecords] = useState<ProgressRecord[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    loadProgress()
-  }, [textbookId])
-
-  async function loadProgress() {
+  const loadProgress = useCallback(async () => {
     try {
       setLoading(true)
       const result = await getRecentProgress({
@@ -78,7 +74,11 @@ export function ProgressTab({ textbookId }: { textbookId: string }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [textbookId])
+
+  useEffect(() => {
+    loadProgress()
+  }, [loadProgress])
 
   if (loading) {
     return <WidgetSkeleton variant="table" />

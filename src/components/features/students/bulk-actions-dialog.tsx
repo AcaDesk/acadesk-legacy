@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Download, Trash2, GraduationCap, Users, UserPlus } from 'lucide-react'
 import {
   Dialog,
@@ -55,14 +55,7 @@ export function BulkActionsDialog({
   // Guardian link dialog state
   const [guardianLinkOpen, setGuardianLinkOpen] = useState(false)
 
-  // Load classes when dialog opens
-  useEffect(() => {
-    if (open && selectedAction === 'class') {
-      loadClasses()
-    }
-  }, [open, selectedAction])
-
-  async function loadClasses() {
+  const loadClasses = useCallback(async () => {
     try {
       // TODO: 클래스 조회 Server Action 추가 필요 (읽기 전용이므로 낮은 우선순위)
       // 임시로 직접 조회
@@ -84,7 +77,14 @@ export function BulkActionsDialog({
         variant: 'destructive',
       })
     }
-  }
+  }, [toast])
+
+  // Load classes when dialog opens
+  useEffect(() => {
+    if (open && selectedAction === 'class') {
+      loadClasses()
+    }
+  }, [open, selectedAction, loadClasses])
 
   function handleDeleteClick() {
     setDeleteDialogOpen(true)

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Search, Loader2, Check, ChevronsUpDown } from 'lucide-react'
 import { Input } from '@ui/input'
 import { Badge } from '@ui/badge'
@@ -154,14 +154,7 @@ export function StudentSearch(props: StudentSearchProps) {
   const students = externalStudents || internalStudents
   const loading = externalLoading || internalLoading
 
-  // Fetch students if needed
-  useEffect(() => {
-    if (fetchStudents && !externalStudents) {
-      loadStudents()
-    }
-  }, [fetchStudents, externalStudents])
-
-  async function loadStudents() {
+  const loadStudents = useCallback(async () => {
     try {
       setInternalLoading(true)
       const result = await getStudents()
@@ -181,7 +174,14 @@ export function StudentSearch(props: StudentSearchProps) {
     } finally {
       setInternalLoading(false)
     }
-  }
+  }, [toast])
+
+  // Fetch students if needed
+  useEffect(() => {
+    if (fetchStudents && !externalStudents) {
+      loadStudents()
+    }
+  }, [fetchStudents, externalStudents, loadStudents])
 
   // Filter and search students
   const filteredStudents = useMemo(() => {

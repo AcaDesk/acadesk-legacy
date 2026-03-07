@@ -10,7 +10,7 @@
 
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Loader2, Clock, LogOut, RefreshCw, HelpCircle } from 'lucide-react'
 import { routeAfterLogin } from '@/lib/auth/route-after-login'
@@ -73,7 +73,7 @@ export default function PendingPage() {
   })
 
   // 상태 재확인 (Server Action 사용)
-  const handleRefresh = async (silent = false) => {
+  const handleRefresh = useCallback(async (silent = false) => {
     try {
       setIsRefreshing(true)
 
@@ -94,7 +94,7 @@ export default function PendingPage() {
     } finally {
       setIsRefreshing(false)
     }
-  }
+  }, [router, toast])
 
   // 자동 상태 확인
   useEffect(() => {
@@ -125,7 +125,7 @@ export default function PendingPage() {
       window.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('focus', handleFocus)
     }
-  }, [isRefreshing])
+  }, [isRefreshing, handleRefresh])
 
 
   return (

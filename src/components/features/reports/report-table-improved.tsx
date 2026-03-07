@@ -398,7 +398,7 @@ export function ReportTableImproved({
         )
       },
     },
-  ], [mode, router, onSendClick, onDeleteClick])
+  ], [router, onSendClick, onDeleteClick])
 
   const table = useReactTable({
     data,
