@@ -48,6 +48,8 @@ export interface AttendanceRecord {
   studentId: string
   status: string | null
   checkInAt: string | null
+  checkOutAt: string | null
+  source: 'kiosk' | 'manual' | null
   sessionId: string | null
   classId: string | null
   isSelfStudy: boolean

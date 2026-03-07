@@ -1,5 +1,6 @@
 'use client'
 
+import dynamic from 'next/dynamic'
 import { useState, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
@@ -13,13 +14,24 @@ import { getStudentFilterOptions } from '@/app/actions/students'
 import {
   buildPromotionPlans,
   groupByCategory,
-  groupTransfersByCurrentGrade,
   type PromotionPlan,
   type PromotionCategory,
 } from '@/lib/promotion-utils'
-import { PromotionScanResult } from './promotion-scan-result'
-import { PromotionSchoolAssignment } from './promotion-school-assignment'
-import { PromotionReview } from './promotion-review'
+
+const PromotionScanResult = dynamic(
+  () => import('./promotion-scan-result').then((mod) => mod.PromotionScanResult),
+  { loading: () => <div className="h-32 animate-pulse rounded-lg bg-muted" /> }
+)
+
+const PromotionSchoolAssignment = dynamic(
+  () => import('./promotion-school-assignment').then((mod) => mod.PromotionSchoolAssignment),
+  { loading: () => <div className="h-64 animate-pulse rounded-lg bg-muted" /> }
+)
+
+const PromotionReview = dynamic(
+  () => import('./promotion-review').then((mod) => mod.PromotionReview),
+  { loading: () => <div className="h-72 animate-pulse rounded-lg bg-muted" /> }
+)
 
 type Step = 'scan' | 'configure' | 'review' | 'complete'
 

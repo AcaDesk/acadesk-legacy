@@ -920,6 +920,142 @@ export async function getUpcomingFollowUps(daysAhead = 7) {
   }
 }
 
+/**
+ * Get consultations page meta in one request.
+ *
+ * Used to hydrate non-critical dashboard data after the list has already rendered.
+ */
+export async function getConsultationPageMeta(daysAhead = 7) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    const today = getTodayKST()
+    const endDate = getDateKST(daysAhead)
+
+    const [
+      totalResult,
+      leadResult,
+      studentResult,
+      convertedResult,
+      consultationRowsResult,
+      followUpsResult,
+    ] = await Promise.all([
+      supabase
+        .from('consultations')
+        .select('*', { count: 'planned', head: true })
+        .eq('tenant_id', tenantId)
+        .is('deleted_at', null),
+      supabase
+        .from('consultations')
+        .select('*', { count: 'planned', head: true })
+        .eq('tenant_id', tenantId)
+        .eq('is_lead', true)
+        .is('converted_to_student_id', null)
+        .is('deleted_at', null),
+      supabase
+        .from('consultations')
+        .select('*', { count: 'planned', head: true })
+        .eq('tenant_id', tenantId)
+        .eq('is_lead', false)
+        .is('deleted_at', null),
+      supabase
+        .from('consultations')
+        .select('*', { count: 'planned', head: true })
+        .eq('tenant_id', tenantId)
+        .eq('is_lead', true)
+        .not('converted_to_student_id', 'is', null)
+        .is('deleted_at', null),
+      supabase
+        .from('consultations')
+        .select('conducted_by')
+        .eq('tenant_id', tenantId)
+        .is('deleted_at', null),
+      supabase
+        .from('consultations')
+        .select('*, students!student_id(id, name), users!consultations_conducted_by_fkey(id, name)')
+        .eq('tenant_id', tenantId)
+        .eq('follow_up_required', true)
+        .gte('next_consultation_date', today)
+        .lte('next_consultation_date', endDate)
+        .is('deleted_at', null)
+        .order('next_consultation_date', { ascending: true }),
+    ])
+
+    if (consultationRowsResult.error) {
+      throw consultationRowsResult.error
+    }
+
+    if (followUpsResult.error) {
+      throw followUpsResult.error
+    }
+
+    if (totalResult.error) {
+      throw totalResult.error
+    }
+
+    if (leadResult.error) {
+      throw leadResult.error
+    }
+
+    if (studentResult.error) {
+      throw studentResult.error
+    }
+
+    if (convertedResult.error) {
+      throw convertedResult.error
+    }
+
+    const conductorIds = Array.from(
+      new Set(
+        (consultationRowsResult.data || [])
+          .map((row) => row.conducted_by)
+          .filter((value): value is string => Boolean(value))
+      )
+    )
+
+    const { data: users, error: usersError } = conductorIds.length
+      ? await supabase
+          .from('users')
+          .select('id, name')
+          .eq('tenant_id', tenantId)
+          .in('id', conductorIds)
+          .order('name', { ascending: true })
+      : { data: [], error: null }
+
+    if (usersError) {
+      throw usersError
+    }
+
+    return {
+      success: true,
+      data: {
+        stats: {
+          total: totalResult.count ?? 0,
+          lead: leadResult.count ?? 0,
+          student: studentResult.count ?? 0,
+          converted: convertedResult.count ?? 0,
+        },
+        filterOptions: {
+          conductors: (users || []).map((user) => ({
+            id: user.id,
+            name: user.name || 'Unknown',
+          })),
+        },
+        upcomingFollowUps: followUpsResult.data || [],
+      },
+      error: null,
+    }
+  } catch (error) {
+    console.error('[getConsultationPageMeta] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
 // ============================================================================
 // Bulk Operations
 // ============================================================================

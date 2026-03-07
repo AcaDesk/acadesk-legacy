@@ -1,12 +1,12 @@
 'use client'
 
+import dynamic from 'next/dynamic'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
 import { Checkbox } from '@ui/checkbox'
-import { Calendar } from '@ui/calendar'
 import {
   MessageSquare,
   Plus,
@@ -66,9 +66,15 @@ import {
   getConsultations,
   bulkDeleteConsultations,
   bulkUpdateConductor,
+  getConsultationPageMeta,
 } from '@/app/actions/consultations'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { format } from 'date-fns'
+
+const ConsultationCalendar = dynamic(
+  () => import('@ui/calendar').then((mod) => mod.Calendar),
+  { loading: () => <div className="h-[294px] w-[280px] animate-pulse rounded-md bg-muted" /> }
+)
 
 type Consultation = {
   id: string
@@ -110,6 +116,12 @@ interface ConsultationsContentProps {
 }
 
 const PAGE_SIZE = 20
+const DEFAULT_STATS: Stats = {
+  total: 0,
+  lead: 0,
+  student: 0,
+  converted: 0,
+}
 
 const consultationTypeLabels: Record<string, string> = {
   parent_meeting: '학부모 상담',
@@ -173,6 +185,9 @@ export function ConsultationsContent({
   // 선택 모드
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [stats, setStats] = useState<Stats>(initialStats ?? DEFAULT_STATS)
+  const [conductorOptions, setConductorOptions] = useState<FilterOptions | null>(filterOptions)
+  const [upcomingFollowUpsState, setUpcomingFollowUpsState] = useState<Consultation[]>(upcomingFollowUps)
 
   // 일괄 작업 상태
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
@@ -187,6 +202,33 @@ export function ConsultationsContent({
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE)
+
+  useEffect(() => {
+    let active = true
+
+    async function loadPageMeta() {
+      try {
+        const metaResult = await getConsultationPageMeta(7)
+
+        if (!active) return
+
+        if (metaResult.success && metaResult.data) {
+          setStats(metaResult.data.stats)
+          setConductorOptions(metaResult.data.filterOptions)
+          setUpcomingFollowUpsState(metaResult.data.upcomingFollowUps as Consultation[])
+        }
+      } catch (error) {
+        if (!active) return
+        console.error('[ConsultationsContent] Failed to load page meta:', error)
+      }
+    }
+
+    void loadPageMeta()
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   // URL query 업데이트
   const updateUrl = useCallback((params: Record<string, string | undefined>) => {
@@ -427,9 +469,6 @@ export function ConsultationsContent({
     }
   }
 
-  // Stats
-  const stats = initialStats ?? { total: 0, lead: 0, student: 0, converted: 0 }
-
   return (
     <PageWrapper>
       <div className={PAGE_LAYOUT.SECTION_SPACING}>
@@ -464,12 +503,12 @@ export function ConsultationsContent({
         </section>
 
         {/* 후속 상담 알림 배너 */}
-        {upcomingFollowUps.length > 0 && !bannerDismissed && (
+        {upcomingFollowUpsState.length > 0 && !bannerDismissed && (
           <section>
             <div className="flex items-center gap-3 p-3 rounded-lg bg-orange-50 border border-orange-200 dark:bg-orange-950/20 dark:border-orange-800">
               <AlertCircle className="h-4 w-4 text-orange-600 shrink-0" />
               <span className="text-sm text-orange-800 dark:text-orange-300 flex-1">
-                <strong>{upcomingFollowUps.length}건</strong>의 후속 상담이 7일 내 예정되어 있습니다.
+                <strong>{upcomingFollowUpsState.length}건</strong>의 후속 상담이 7일 내 예정되어 있습니다.
               </span>
               <Button
                 size="sm"
@@ -586,9 +625,9 @@ export function ConsultationsContent({
 
           {/* 미니 캘린더 */}
           {calendarOpen && (
-            <Card>
+              <Card>
               <CardContent className="pt-4 pb-4 flex justify-center">
-                <Calendar
+                <ConsultationCalendar
                   mode="single"
                   selected={selectedCalendarDate}
                   onSelect={handleCalendarDateSelect}
@@ -620,7 +659,7 @@ export function ConsultationsContent({
                   </div>
 
                   {/* 진행자 */}
-                  {filterOptions?.conductors && filterOptions.conductors.length > 0 && (
+                  {conductorOptions?.conductors && conductorOptions.conductors.length > 0 && (
                     <div className="flex flex-col gap-1.5 min-w-[150px]">
                       <label className="text-sm font-medium">진행자</label>
                       <Select value={conductedBy} onValueChange={setConductedBy}>
@@ -629,7 +668,7 @@ export function ConsultationsContent({
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">전체</SelectItem>
-                          {filterOptions.conductors.map((c) => (
+                          {conductorOptions.conductors.map((c) => (
                             <SelectItem key={c.id} value={c.id}>
                               {c.name}
                             </SelectItem>
@@ -723,7 +762,7 @@ export function ConsultationsContent({
                   <Download className="h-4 w-4" />
                   CSV
                 </Button>
-                {filterOptions?.conductors && filterOptions.conductors.length > 0 && (
+                {conductorOptions?.conductors && conductorOptions.conductors.length > 0 && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -978,12 +1017,12 @@ export function ConsultationsContent({
             <p className="text-sm text-muted-foreground">
               선택한 {selectedIds.size}건의 상담 진행자를 변경합니다.
             </p>
-            <Select value={newConductorId} onValueChange={setNewConductorId}>
+                <Select value={newConductorId} onValueChange={setNewConductorId}>
               <SelectTrigger>
                 <SelectValue placeholder="진행자 선택" />
               </SelectTrigger>
               <SelectContent>
-                {filterOptions?.conductors.map((c) => (
+                {conductorOptions?.conductors.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.name}
                   </SelectItem>

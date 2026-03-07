@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useTransition, useRef } from 'react'
 import {
   Search,
-  Calendar as CalendarIcon,
   Download,
   ChevronLeft,
   ChevronRight,
@@ -31,7 +30,6 @@ import {
   saveRosterToIDB,
   saveAttendanceRecordsToIDB,
   getAttendanceRecordsFromIDB,
-  getRosterFromIDB,
   updateAttendanceRecordInIDB,
   deleteAttendanceRecordFromIDB,
   type AttendanceRecord as IDBAttendanceRecord,
@@ -107,7 +105,6 @@ function buildStudentList(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return enrollments.map((e: any) => {
     const student = e.students
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const attendance = (attendanceMap.get(`${e.class_id}:${e.student_id}`) ||
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (e.class_id ? undefined : attendanceByStudentId.get(e.student_id))) as any
@@ -292,8 +289,8 @@ export function AttendanceCheckPage({
       student_id: r.studentId,
       status: r.status,
       check_in_at: r.checkInAt,
-      check_out_at: (r as any).checkOutAt ?? null,
-      source: (r as any).source ?? null,
+      check_out_at: r.checkOutAt,
+      source: r.source,
       session_id: r.sessionId,
       is_self_study: r.isSelfStudy,
       is_makeup_class: r.isMakeupClass,
@@ -430,12 +427,6 @@ export function AttendanceCheckPage({
 
   const handleToday = () => {
     setCurrentDate(getTodayKST())
-  }
-
-  const getFormattedDate = (dateStr: string) => {
-    const d = new Date(dateStr)
-    const days = ['일', '월', '화', '수', '목', '금', '토']
-    return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} (${days[d.getDay()]})`
   }
 
   // 출석 상태 업데이트 (토글: 같은 상태 다시 누르면 취소)
