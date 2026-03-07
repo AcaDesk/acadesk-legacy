@@ -45,7 +45,7 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
   const [reports, setReports] = useState<ReportWithStudent[]>(initialReports)
   const [filteredReports, setFilteredReports] = useState<ReportWithStudent[]>(initialReports)
   const [allReports, setAllReports] = useState<ReportWithStudent[]>(initialReports)
-  const [students] = useState<StudentForFilter[]>(initialStudents)
+  const students = initialStudents
   const [selectedStudent, setSelectedStudent] = useState<string>('all')
   const [selectedType, setSelectedType] = useState<string>('all')
   const [selectedSchoolLevel, setSelectedSchoolLevel] = useState<string>('all')

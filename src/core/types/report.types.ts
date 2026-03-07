@@ -142,3 +142,22 @@ export interface ReportData {
   totalTodos?: number
   completedTodos?: number
 }
+
+export interface ReportSend {
+  id: string
+  recipient_name: string
+  recipient_phone: string
+  message_type: 'SMS' | 'LMS' | 'KAKAO'
+  send_status: 'pending' | 'sent' | 'failed' | 'delivered'
+  sent_at: string | null
+  send_error: string | null
+}
+
+export interface ReportRead {
+  id: string
+  report_send_id: string
+  user_type: 'guardian' | 'student' | null
+  read_at: string
+  pdf_downloaded: boolean
+  pdf_downloaded_at: string | null
+}
