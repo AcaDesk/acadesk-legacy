@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -70,11 +70,7 @@ export default function NewClassPage() {
     },
   })
 
-  useEffect(() => {
-    loadInstructors()
-  }, [])
-
-  async function loadInstructors() {
+  const loadInstructors = useCallback(async () => {
     try {
       setLoadingInstructors(true)
       const result = await getInstructors()
@@ -94,7 +90,11 @@ export default function NewClassPage() {
     } finally {
       setLoadingInstructors(false)
     }
-  }
+  }, [toast])
+
+  useEffect(() => {
+    loadInstructors()
+  }, [loadInstructors])
 
   async function onSubmit(data: ClassFormData) {
     setIsSubmitting(true)

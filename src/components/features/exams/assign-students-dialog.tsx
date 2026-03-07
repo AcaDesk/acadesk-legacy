@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@ui/dialog'
@@ -69,7 +69,7 @@ export function AssignStudentsDialog({
   onSuccess,
 }: AssignStudentsDialogProps) {
   const { toast } = useToast()
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const { user: currentUser } = useCurrentUser()
 
   const [students, setStudents] = useState<Student[]>([])
@@ -124,12 +124,6 @@ export function AssignStudentsDialog({
     return counts
   }, [students])
 
-  useEffect(() => {
-    if (open) {
-      loadStudents()
-    }
-  }, [open, examId])
-
   // Reset state when dialog closes
   useEffect(() => {
     if (!open) {
@@ -137,7 +131,7 @@ export function AssignStudentsDialog({
     }
   }, [open])
 
-  async function loadStudents() {
+  const loadStudents = useCallback(async () => {
     if (!currentUser || !currentUser.tenantId) return
 
     try {
@@ -187,7 +181,13 @@ export function AssignStudentsDialog({
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentUser, examId, supabase, toast])
+
+  useEffect(() => {
+    if (open) {
+      loadStudents()
+    }
+  }, [open, loadStudents])
 
   async function handleAssignFromClass() {
     if (!classId) {

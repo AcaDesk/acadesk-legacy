@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
@@ -25,7 +25,6 @@ import { useToast } from '@/hooks/use-toast'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@ui/dialog'
 import { Label } from '@ui/label'
-import { Input } from '@ui/input'
 import {
   getRetestStudents,
   waiveRetest,
@@ -57,12 +56,7 @@ export function RetestsClient() {
   const [retestDate, setRetestDate] = useState<Date | undefined>(undefined)
   const [originalExamName, setOriginalExamName] = useState('')
 
-  // Load students
-  useEffect(() => {
-    loadStudents()
-  }, [])
-
-  async function loadStudents() {
+  const loadStudents = useCallback(async () => {
     try {
       setLoading(true)
       const result = await getRetestStudents()
@@ -81,7 +75,12 @@ export function RetestsClient() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [toast])
+
+  // Load students
+  useEffect(() => {
+    loadStudents()
+  }, [loadStudents])
 
   // Toggle student selection
   function toggleStudent(examScoreId: string) {

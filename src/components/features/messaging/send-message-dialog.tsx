@@ -81,14 +81,7 @@ export function SendMessageDialog({
   const [sending, setSending] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  // Load templates from database when dialog opens
-  useEffect(() => {
-    if (open) {
-      loadTemplates()
-    }
-  }, [open])
-
-  async function loadTemplates() {
+  const loadTemplates = useCallback(async () => {
     setLoading(true)
     try {
       const result = await getMessageTemplates()
@@ -106,7 +99,14 @@ export function SendMessageDialog({
     } finally {
       setLoading(false)
     }
-  }
+  }, [toast])
+
+  // Load templates from database when dialog opens
+  useEffect(() => {
+    if (open) {
+      loadTemplates()
+    }
+  }, [open, loadTemplates])
 
   // 템플릿 변경 시 내용 자동 업데이트
   const handleTemplateChange = useCallback((templateId: string) => {

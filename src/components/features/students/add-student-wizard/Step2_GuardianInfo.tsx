@@ -1,4 +1,4 @@
-import { useReducer, useEffect, useRef } from 'react'
+import { useReducer, useEffect, useRef, useCallback } from 'react'
 import { useFormContext } from 'react-hook-form'
 import { Search, UserPlus, Check, Loader2, X } from 'lucide-react'
 import { useCurrentUser } from '@/hooks/use-current-user'
@@ -103,21 +103,7 @@ export function Step2_GuardianInfo() {
     searchInputRef.current?.focus()
   }, [])
 
-  // 검색 디바운스
-  useEffect(() => {
-    if (!state.query || state.query.length < 2) {
-      dispatch({ type: 'SET_RESULTS', payload: [] })
-      return
-    }
-
-    const timer = setTimeout(() => {
-      searchGuardians(state.query)
-    }, 300)
-
-    return () => clearTimeout(timer)
-  }, [state.query])
-
-  async function searchGuardians(query: string) {
+  const searchGuardians = useCallback(async (query: string) => {
     if (!currentUser || !currentUser.tenantId) return
 
     dispatch({ type: 'SET_SEARCHING', payload: true })
@@ -156,7 +142,21 @@ export function Step2_GuardianInfo() {
       console.error('Error searching guardians:', error)
       dispatch({ type: 'SET_RESULTS', payload: [] })
     }
-  }
+  }, [currentUser])
+
+  // 검색 디바운스
+  useEffect(() => {
+    if (!state.query || state.query.length < 2) {
+      dispatch({ type: 'SET_RESULTS', payload: [] })
+      return
+    }
+
+    const timer = setTimeout(() => {
+      searchGuardians(state.query)
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [state.query, searchGuardians])
 
   function handleSelectGuardian(guardian: Guardian) {
     dispatch({ type: 'SELECT_GUARDIAN', payload: guardian.id })

@@ -259,6 +259,9 @@ export default function KioskLoginPage() {
                           {/* 프로필 이미지 */}
                           <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
                             {student.profile_image_url ? (
+                              // Kiosk avatars come from tenant-configured remote URLs.
+                              // Keep a plain img here until remote image hosts are standardized.
+                              // eslint-disable-next-line @next/next/no-img-element
                               <img
                                 src={student.profile_image_url}
                                 alt={student.name}
@@ -325,6 +328,9 @@ export default function KioskLoginPage() {
                     className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-primary/10"
                   >
                     {selectedStudent.profile_image_url ? (
+                      // Kiosk avatars come from tenant-configured remote URLs.
+                      // Keep a plain img here until remote image hosts are standardized.
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={selectedStudent.profile_image_url}
                         alt={selectedStudent.name}

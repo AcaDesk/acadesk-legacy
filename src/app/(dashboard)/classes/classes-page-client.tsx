@@ -123,7 +123,7 @@ export function ClassesPageClient({ initialData }: ClassesPageClientProps) {
   // 검색어 변경 시 페이지를 1로 초기화
   useEffect(() => {
     resetPage()
-  }, [searchTerm])
+  }, [searchTerm, resetPage])
 
   const activeClasses = filteredClasses.filter(c => c.status === 'active' && c.active)
   const totalStudents = activeClasses.reduce((sum, c) => sum + c.studentCount, 0)
