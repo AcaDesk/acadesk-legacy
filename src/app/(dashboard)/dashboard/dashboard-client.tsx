@@ -341,14 +341,7 @@ export function DashboardClient({ data: initialData, savedPreferences }: Dashboa
   const isInteractingRef = useRef(false)
 
   // drag/resize 시작 시 히스토리 저장 (변경 전 상태 보존)
-  const handleDragStart = useCallback(
-    () => {
-      isInteractingRef.current = true
-      pushHistory(tempWidgets)
-    },
-    [tempWidgets, pushHistory]
-  )
-  const handleResizeStart = useCallback(
+  const handleInteractionStart = useCallback(
     () => {
       isInteractingRef.current = true
       pushHistory(tempWidgets)
@@ -372,12 +365,7 @@ export function DashboardClient({ data: initialData, savedPreferences }: Dashboa
   }, [])
 
   // drag/resize 완료 시 최종값 반영
-  const handleDragStop = useCallback((layout: Layout) => {
-    isInteractingRef.current = false
-    syncLayoutToWidgets(layout)
-  }, [syncLayoutToWidgets])
-
-  const handleResizeStop = useCallback((layout: Layout) => {
+  const handleInteractionStop = useCallback((layout: Layout) => {
     isInteractingRef.current = false
     syncLayoutToWidgets(layout)
   }, [syncLayoutToWidgets])
@@ -409,6 +397,7 @@ export function DashboardClient({ data: initialData, savedPreferences }: Dashboa
         static: !isEditMode,
         isDraggable: isEditMode,
         isResizable: isEditMode,
+        visible: w.visible,
       }))
   }, [currentWidgets, isEditMode])
 
@@ -425,8 +414,8 @@ export function DashboardClient({ data: initialData, savedPreferences }: Dashboa
       widgetId,
       stats: activeStats,
       attendanceRate,
-      averageScore,
-      completionRate,
+      averageScore: activeStats.averageScore,
+      completionRate: activeStats.completionRate,
       upcomingSessions,
       recentStudents,
       todaySessions,
@@ -458,7 +447,7 @@ export function DashboardClient({ data: initialData, savedPreferences }: Dashboa
       return (
         <DashboardWidgetWrapper
           widgetId={widgetId}
-          onHide={() => handleToggleWidget(widgetId)}
+          onHide={() => handleSetWidgetVisibility(widgetId, false)}
           disablePadding={isKpiWidget}
         >
           {wrapped}
@@ -487,8 +476,6 @@ export function DashboardClient({ data: initialData, savedPreferences }: Dashboa
     isEditMode,
     activeStats,
     attendanceRate,
-    averageScore,
-    completionRate,
     upcomingSessions,
     recentStudents,
     todaySessions,
@@ -503,7 +490,7 @@ export function DashboardClient({ data: initialData, savedPreferences }: Dashboa
     weeklyPerformance,
     maximizedWidgetId,
     refreshingWidgetId,
-    handleToggleWidget,
+    handleSetWidgetVisibility,
     handleMaximizeWidget,
     handleRefreshWidget,
   ])
@@ -512,10 +499,10 @@ export function DashboardClient({ data: initialData, savedPreferences }: Dashboa
     return (
       <WidgetGhostPlaceholder
         widgetId={widgetId}
-        onShow={handleShowWidget}
+        onShow={(id) => handleSetWidgetVisibility(id, true)}
       />
     )
-  }, [handleShowWidget])
+  }, [handleSetWidgetVisibility])
 
   // ── 렌더 ───────────────────────────────────────────────────────
 
@@ -526,7 +513,7 @@ export function DashboardClient({ data: initialData, savedPreferences }: Dashboa
         <WelcomeBanner
           totalStudents={activeStats.totalStudents}
           attendanceRate={attendanceRate}
-          averageScore={averageScore}
+          averageScore={activeStats.averageScore}
         />
       </section>
 
@@ -540,7 +527,7 @@ export function DashboardClient({ data: initialData, savedPreferences }: Dashboa
         onCancel={handleCancelEdit}
         onRefresh={handleManualRefresh}
         hiddenWidgets={hiddenWidgets}
-        onAddWidget={handleShowWidget}
+        onAddWidget={(id) => handleSetWidgetVisibility(id, true)}
         onApplyPreset={handleApplyPreset}
         isLoading={isPending}
         isSaving={isSaving}
@@ -576,26 +563,23 @@ export function DashboardClient({ data: initialData, savedPreferences }: Dashboa
           maxRows={60}
           measureBeforeMount={false}
           onLayoutChange={handleLayoutChange}
-          onDragStart={handleDragStart}
-          onDragStop={handleDragStop}
-          onResizeStart={handleResizeStart}
-          onResizeStop={handleResizeStop}
+          onDragStart={handleInteractionStart}
+          onDragStop={handleInteractionStop}
+          onResizeStart={handleInteractionStart}
+          onResizeStop={handleInteractionStop}
           draggableHandle=".widget-drag-handle"
           resizeHandles={['se']}
           margin={[16, 16]}
           containerPadding={[0, 0]}
           className={cn(isEditMode && 'edit-mode-grid')}
         >
-          {gridItems.map(({ i }) => {
-            const widget = currentWidgets.find(w => w.id === i)
-            return (
-              <div key={i} className="h-full overflow-hidden rounded-lg">
-                {widget?.visible
-                  ? renderWidget(i as DashboardWidgetId)
-                  : renderGhostWidget(i as DashboardWidgetId)}
-              </div>
-            )
-          })}
+          {gridItems.map(({ i, visible }) => (
+            <div key={i} className="h-full overflow-hidden rounded-lg">
+              {visible
+                ? renderWidget(i as DashboardWidgetId)
+                : renderGhostWidget(i as DashboardWidgetId)}
+            </div>
+          ))}
         </AutoWidthGridLayout>
       </div>
 
@@ -604,7 +588,7 @@ export function DashboardClient({ data: initialData, savedPreferences }: Dashboa
         <WidgetDrilldownDialog
           widgetId={drilldownWidgetId}
           period={kpiPeriod}
-          open={drilldownWidgetId !== null}
+          open
           onClose={() => setDrilldownWidgetId(null)}
         />
       )}
