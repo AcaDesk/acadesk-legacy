@@ -3,9 +3,6 @@ import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import {
   getConsultations,
-  getConsultationStats,
-  getConsultationFilterOptions,
-  getUpcomingFollowUps,
 } from '@/app/actions/consultations'
 import { ConsultationsContent } from './consultations-content'
 
@@ -46,33 +43,26 @@ export default async function ConsultationsPage({
   const endDate = (params.endDate as string) || undefined
   const search = (params.search as string) || undefined
 
-  // 병렬 fetch: URL 상태에 맞는 초기 데이터 + 통계 + 필터 옵션 + 후속 상담
-  const [dataResult, statsResult, filterOptionsResult, followUpsResult] = await Promise.all([
-    getConsultations({
-      page,
-      pageSize: 20,
-      isLead: tab === 'all' ? undefined : tab === 'lead',
-      consultationType: type,
-      conductedBy: conductor,
-      followUpOnly: followUp === 'required' ? true : undefined,
-      startDate,
-      endDate,
-      searchTerm: search,
-    }),
-    getConsultationStats(),
-    getConsultationFilterOptions(),
-    getUpcomingFollowUps(7),
-  ])
+  const dataResult = await getConsultations({
+    page,
+    pageSize: 20,
+    isLead: tab === 'all' ? undefined : tab === 'lead',
+    consultationType: type,
+    conductedBy: conductor,
+    followUpOnly: followUp === 'required' ? true : undefined,
+    startDate,
+    endDate,
+    searchTerm: search,
+  })
 
   return (
     <ConsultationsContent
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       initialData={dataResult.success && dataResult.data ? (dataResult.data as any) : []}
       initialTotalCount={dataResult.success ? dataResult.totalCount : 0}
-      initialStats={statsResult.success ? statsResult.data : null}
-      filterOptions={filterOptionsResult.success ? filterOptionsResult.data : null}
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      upcomingFollowUps={followUpsResult.success && followUpsResult.data ? (followUpsResult.data as any[]) : []}
+      initialStats={null}
+      filterOptions={null}
+      upcomingFollowUps={[]}
     />
   )
 }

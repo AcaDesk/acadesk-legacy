@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import dynamic from 'next/dynamic'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
@@ -17,10 +18,22 @@ import {
 import { Bell, CheckCircle, XCircle, Search, AlertCircle, MessageSquare, Settings, Wallet, RefreshCw, Loader2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
-import { BulkMessageDialog } from '@/components/features/notifications/bulk-message-dialog'
-import { ManageTemplatesDialog } from '@/components/features/notifications/manage-templates-dialog'
-import { MessageDetailModal } from '@/components/features/notifications/message-detail-modal'
 import { getMessagingBalance } from '@/app/actions/messaging/config'
+
+const BulkMessageDialog = dynamic(
+  () => import('@/components/features/notifications/bulk-message-dialog').then((mod) => mod.BulkMessageDialog),
+  { loading: () => null }
+)
+
+const ManageTemplatesDialog = dynamic(
+  () => import('@/components/features/notifications/manage-templates-dialog').then((mod) => mod.ManageTemplatesDialog),
+  { loading: () => null }
+)
+
+const MessageDetailModal = dynamic(
+  () => import('@/components/features/notifications/message-detail-modal').then((mod) => mod.MessageDetailModal),
+  { loading: () => null }
+)
 
 const PAGE_SIZE = 50
 
@@ -189,7 +202,7 @@ export function NotificationsContent({ initialLogs, initialBalance, tenantId }: 
     }
   }, [loadingMore, hasMore, logs, supabase, tenantId, toast])
 
-  async function loadBalance() {
+  const loadBalance = useCallback(async () => {
     try {
       setBalanceLoading(true)
       const result = await getMessagingBalance()
@@ -205,7 +218,13 @@ export function NotificationsContent({ initialLogs, initialBalance, tenantId }: 
     } finally {
       setBalanceLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (!initialBalance) {
+      void loadBalance()
+    }
+  }, [initialBalance, loadBalance])
 
   function getStatusBadge(status: string) {
     switch (status) {
@@ -538,25 +557,31 @@ export function NotificationsContent({ initialLogs, initialBalance, tenantId }: 
         </Card>
 
         {/* Message Dialogs */}
-        <BulkMessageDialog
-          open={sendMessageOpen}
-          onOpenChange={setSendMessageOpen}
-          tenantId={tenantId}
-          onMessageSent={() => {
-            loadNotificationLogs()
-          }}
-        />
+        {sendMessageOpen ? (
+          <BulkMessageDialog
+            open={sendMessageOpen}
+            onOpenChange={setSendMessageOpen}
+            tenantId={tenantId}
+            onMessageSent={() => {
+              loadNotificationLogs()
+            }}
+          />
+        ) : null}
 
-        <ManageTemplatesDialog
-          open={manageTemplatesOpen}
-          onOpenChange={setManageTemplatesOpen}
-        />
+        {manageTemplatesOpen ? (
+          <ManageTemplatesDialog
+            open={manageTemplatesOpen}
+            onOpenChange={setManageTemplatesOpen}
+          />
+        ) : null}
 
-        <MessageDetailModal
-          log={selectedLog}
-          open={detailModalOpen}
-          onOpenChange={setDetailModalOpen}
-        />
+        {detailModalOpen && selectedLog ? (
+          <MessageDetailModal
+            log={selectedLog}
+            open={detailModalOpen}
+            onOpenChange={setDetailModalOpen}
+          />
+        ) : null}
       </div>
     </PageWrapper>
   )

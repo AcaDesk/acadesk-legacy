@@ -7,9 +7,57 @@ import { getErrorMessage } from '@/lib/error-handlers'
 import { getGuardiansWithDetails, deleteGuardian, bulkDeleteGuardians } from '@/app/actions/guardians'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 
-export function GuardianList() {
-  const [guardians, setGuardians] = useState<Guardian[]>([])
-  const [loading, setLoading] = useState(true)
+interface GuardianDetailRow {
+  guardian: {
+    id: string
+    relationship: string | null
+  }
+  userName: string | null
+  userEmail: string | null
+  userPhone: string | null
+  students: Array<{
+    id: string
+    studentCode: string
+    name: string
+    relation: string
+    isPrimary: boolean
+  }>
+}
+
+function formatGuardians(data: GuardianDetailRow[]): Guardian[] {
+  return data.map((item) => ({
+    id: item.guardian.id,
+    relationship: item.guardian.relationship,
+    users: item.userName
+      ? {
+          name: item.userName,
+          email: item.userEmail,
+          phone: item.userPhone,
+        }
+      : null,
+    guardian_students: item.students.map((student) => ({
+      relationship: student.relation || '',
+      is_primary: student.isPrimary || false,
+      students: {
+        id: student.id,
+        student_code: student.studentCode,
+        users: {
+          name: student.name,
+        },
+      },
+    })),
+  }))
+}
+
+interface GuardianListProps {
+  initialData?: GuardianDetailRow[]
+}
+
+export function GuardianList({ initialData }: GuardianListProps) {
+  const [guardians, setGuardians] = useState<Guardian[]>(() =>
+    initialData ? formatGuardians(initialData) : []
+  )
+  const [loading, setLoading] = useState(!initialData)
 
   // Single delete state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -24,9 +72,11 @@ export function GuardianList() {
   const { toast } = useToast()
 
   useEffect(() => {
-    loadGuardians()
+    if (!initialData) {
+      void loadGuardians()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [initialData])
 
   async function loadGuardians() {
     try {
@@ -38,30 +88,7 @@ export function GuardianList() {
         throw new Error(result.error || '보호자 목록을 불러올 수 없습니다')
       }
 
-      const formattedGuardians: Guardian[] = result.data.map((item) => ({
-        id: item.guardian.id,
-        relationship: item.guardian.relationship,
-        users: item.userName
-          ? {
-              name: item.userName,
-              email: item.userEmail,
-              phone: item.userPhone,
-            }
-          : null,
-        guardian_students: item.students.map((student) => ({
-          relationship: student.relation || '',
-          is_primary: student.isPrimary || false,
-          students: {
-            id: student.id,
-            student_code: student.studentCode,
-            users: {
-              name: student.name,
-            },
-          },
-        })),
-      }))
-
-      setGuardians(formattedGuardians)
+      setGuardians(formatGuardians(result.data))
     } catch (error) {
       toast({
         title: '데이터 로드 오류',

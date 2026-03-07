@@ -1,4 +1,5 @@
-import { Suspense } from 'react'
+export const dynamic = 'force-dynamic'
+
 import Link from 'next/link'
 import { Plus } from 'lucide-react'
 import { Button } from '@ui/button'
@@ -12,6 +13,7 @@ import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { PAGE_ANIMATIONS } from '@/lib/animation-config'
 import { LoadingState } from '@/components/ui/loading-state'
+import { getGuardiansWithDetails } from '@/app/actions/guardians'
 
 export default async function GuardiansPage() {
   // 피처 플래그 체크
@@ -24,6 +26,8 @@ export default async function GuardiansPage() {
   if (featureStatus === 'maintenance') {
     return <Maintenance featureName="보호자 관리" reason="보호자 관리 시스템 개선 작업이 진행 중입니다." />;
   }
+
+  const guardiansResult = await getGuardiansWithDetails()
 
   return (
     <PageErrorBoundary pageName="보호자 관리">
@@ -55,9 +59,14 @@ export default async function GuardiansPage() {
                   <CardTitle>전체 보호자 목록</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Suspense fallback={<LoadingState variant="card" message="보호자 목록을 불러오는 중..." />}>
-                    <GuardianList />
-                  </Suspense>
+                  {guardiansResult.success ? (
+                    <GuardianList initialData={guardiansResult.data} />
+                  ) : (
+                    <LoadingState
+                      variant="card"
+                      message={guardiansResult.error || '보호자 목록을 불러오는 중 오류가 발생했습니다.'}
+                    />
+                  )}
                 </CardContent>
               </Card>
             </SectionErrorBoundary>

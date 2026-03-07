@@ -3,7 +3,6 @@ import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
-import { getMessagingBalance } from '@/app/actions/messaging/config'
 import { NotificationsContent } from './notifications-content'
 
 interface NotificationLog {
@@ -21,12 +20,6 @@ interface NotificationLog {
       phone: string | null
     } | null
   } | null
-}
-
-interface BalanceInfo {
-  balance: number
-  currency: string
-  provider: string
 }
 
 export default async function NotificationsPage() {
@@ -68,16 +61,5 @@ export default async function NotificationsPage() {
 
   const logs: NotificationLog[] = (logsData || []) as unknown as NotificationLog[]
 
-  // Fetch balance
-  let balance: BalanceInfo | null = null
-  try {
-    const balanceResult = await getMessagingBalance()
-    if (balanceResult.success && balanceResult.data) {
-      balance = balanceResult.data
-    }
-  } catch (error) {
-    console.error('Error loading balance:', error)
-  }
-
-  return <NotificationsContent initialLogs={logs} initialBalance={balance} tenantId={tenantId} />
+  return <NotificationsContent initialLogs={logs} initialBalance={null} tenantId={tenantId} />
 }
