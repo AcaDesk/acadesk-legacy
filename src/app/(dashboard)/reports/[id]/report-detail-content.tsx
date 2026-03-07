@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@ui/button'
@@ -28,29 +28,10 @@ import { Label } from '@ui/label'
 import { Send, CheckCircle, XCircle, Clock, MessageSquare, Eye } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
-import type { ReportWithStudent } from '@/core/types/report.types'
+import type { ReportWithStudent, ReportSend, ReportRead } from '@/core/types/report.types'
 import type { CategoryTemplates, ReportContextData } from '@/core/types/report-template.types'
 import { ReportViewer } from '@/components/features/reports/ReportViewer'
 import { TemplateSection } from '@/components/features/reports/template-section'
-
-interface ReportSend {
-  id: string
-  recipient_name: string
-  recipient_phone: string
-  message_type: 'SMS' | 'LMS' | 'KAKAO'
-  send_status: 'pending' | 'sent' | 'failed' | 'delivered'
-  sent_at: string | null
-  send_error: string | null
-}
-
-interface ReportRead {
-  id: string
-  report_send_id: string
-  user_type: 'guardian' | 'student' | null
-  read_at: string
-  pdf_downloaded: boolean
-  pdf_downloaded_at: string | null
-}
 
 interface ReportDetailContentProps {
   initialReport: ReportWithStudent
@@ -84,66 +65,62 @@ export function ReportDetailContent({
 
   const { toast } = useToast()
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const contentRef = useRef<HTMLDivElement>(null)
 
-  async function loadReport() {
+  const loadReport = useCallback(async () => {
     try {
-      // Load report
-      const { data, error } = await supabase
-        .from('reports')
-        .select(`
-          id,
-          report_type,
-          period_start,
-          period_end,
-          content,
-          generated_at,
-          sent_at,
-          students (
+      const [reportResult, sendsResult, readsResult] = await Promise.all([
+        supabase
+          .from('reports')
+          .select(`
             id,
-            student_code,
-            grade,
-            users (
-              name,
-              email
+            report_type,
+            period_start,
+            period_end,
+            content,
+            generated_at,
+            sent_at,
+            students (
+              id,
+              student_code,
+              grade,
+              users (
+                name,
+                email
+              )
             )
-          )
-        `)
-        .eq('id', reportId)
-        .single()
+          `)
+          .eq('id', reportId)
+          .single(),
+        supabase
+          .from('report_sends')
+          .select(`
+            id,
+            recipient_name,
+            recipient_phone,
+            message_type,
+            send_status,
+            sent_at,
+            send_error
+          `)
+          .eq('report_id', reportId)
+          .is('deleted_at', null)
+          .order('sent_at', { ascending: false, nullsFirst: false }),
+        supabase
+          .from('report_reads')
+          .select('id, report_send_id, user_type, read_at, pdf_downloaded, pdf_downloaded_at')
+          .eq('report_id', reportId)
+          .order('read_at', { ascending: true }),
+      ])
 
-      if (error) throw error
-      setReport(data as unknown as ReportWithStudent)
-
-      // Load send history
-      const { data: sendsData, error: sendsError } = await supabase
-        .from('report_sends')
-        .select(`
-          id,
-          recipient_name,
-          recipient_phone,
-          message_type,
-          send_status,
-          sent_at,
-          send_error
-        `)
-        .eq('report_id', reportId)
-        .is('deleted_at', null)
-        .order('sent_at', { ascending: false, nullsFirst: false })
-
-      if (!sendsError && sendsData) {
-        setReportSends(sendsData as ReportSend[])
+      if (reportResult.error) throw reportResult.error
+      setReport(reportResult.data as unknown as ReportWithStudent)
+      if (!sendsResult.error && sendsResult.data) {
+        setReportSends(sendsResult.data as ReportSend[])
       }
-
-      // Load read history
-      const { data: readsData } = await supabase
-        .from('report_reads')
-        .select('id, report_send_id, user_type, read_at, pdf_downloaded, pdf_downloaded_at')
-        .eq('report_id', reportId)
-        .order('read_at', { ascending: true })
-      if (readsData) {
-        setReportReads(readsData as ReportRead[])
+      if (readsResult.data) {
+        setReportReads(readsResult.data as ReportRead[])
       }
     } catch (error) {
       console.error('Error loading report:', error)
@@ -153,7 +130,7 @@ export function ReportDetailContent({
         variant: 'destructive',
       })
     }
-  }
+  }, [reportId, toast, supabase])
 
   function handleSendClick() {
     setSendDialogOpen(true)
@@ -274,8 +251,6 @@ export function ReportDetailContent({
       })
 
       setCommentDialogOpen(false)
-
-      await new Promise(resolve => setTimeout(resolve, 100))
       await loadReport()
     } catch (error) {
       console.error('Error saving comment:', error)
@@ -287,8 +262,18 @@ export function ReportDetailContent({
     } finally {
       setSavingComment(false)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [report, commentForm, savingComment])
+  }, [report, commentForm, savingComment, loadReport])
+
+  // 최초 열람 기록을 report_send_id 기준으로 맵핑
+  const readsBySendId = useMemo(() => {
+    const map = new Map<string, ReportRead>()
+    reportReads.forEach(r => {
+      if (!map.has(r.report_send_id)) {
+        map.set(r.report_send_id, r)
+      }
+    })
+    return map
+  }, [reportReads])
 
   // Ctrl/Cmd+Enter to save comment
   useEffect(() => {
@@ -320,14 +305,6 @@ export function ReportDetailContent({
     }
     return types[type] || type
   }
-
-  // 최초 열람 기록을 report_send_id 기준으로 맵핑
-  const readsBySendId = new Map<string, ReportRead>()
-  reportReads.forEach(r => {
-    if (!readsBySendId.has(r.report_send_id)) {
-      readsBySendId.set(r.report_send_id, r)
-    }
-  })
 
   if (!report) {
     return (

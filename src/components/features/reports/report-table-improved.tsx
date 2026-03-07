@@ -110,10 +110,16 @@ export function ReportTableImproved({
   }
 
   function formatPeriod(start: string, end: string) {
-    const startDate = new Date(start)
-    const endDate = new Date(end)
+    return `${format(new Date(start), 'yyyy.MM.dd')} ~ ${format(new Date(end), 'yyyy.MM.dd')}`
+  }
 
-    return `${startDate.getFullYear()}.${String(startDate.getMonth() + 1).padStart(2, '0')}.${String(startDate.getDate()).padStart(2, '0')} ~ ${endDate.getFullYear()}.${String(endDate.getMonth() + 1).padStart(2, '0')}.${String(endDate.getDate()).padStart(2, '0')}`
+  function calcAvgScore(report: ReportWithStudent): number {
+    const rawScores = report.content?.scores
+    const scores = Array.isArray(rawScores) ? rawScores : []
+    const scoresWithData = scores.filter((s) => s.current !== null)
+    return scoresWithData.length > 0
+      ? scoresWithData.reduce((sum, s) => sum + (s.current || 0), 0) / scoresWithData.length
+      : 0
   }
 
   const columns = React.useMemo<ColumnDef<ReportWithStudent>[]>(() => [
@@ -267,16 +273,7 @@ export function ReportTableImproved({
         )
       },
       cell: ({ row }) => {
-        const rawScores = row.original.content?.scores
-        const scores = Array.isArray(rawScores) ? rawScores : []
-        const scoresWithData = scores.filter((s) => s.current !== null)
-        const avgScore = scoresWithData.length > 0
-          ? Math.round(
-              scoresWithData.reduce((sum, s) => sum + (s.current || 0), 0) /
-              scoresWithData.length
-            )
-          : 0
-
+        const avgScore = Math.round(calcAvgScore(row.original))
         return (
           <div className="text-center">
             <Badge
@@ -293,17 +290,7 @@ export function ReportTableImproved({
           </div>
         )
       },
-      sortingFn: (rowA, rowB) => {
-        const getAvgScore = (report: ReportWithStudent) => {
-          const rawScores = report.content?.scores
-          const scores = Array.isArray(rawScores) ? rawScores : []
-          const scoresWithData = scores.filter((s) => s.current !== null)
-          return scoresWithData.length > 0
-            ? scoresWithData.reduce((sum, s) => sum + (s.current || 0), 0) / scoresWithData.length
-            : 0
-        }
-        return getAvgScore(rowA.original) - getAvgScore(rowB.original)
-      },
+      sortingFn: (rowA, rowB) => calcAvgScore(rowA.original) - calcAvgScore(rowB.original),
     },
     {
       accessorKey: 'generated_at',
@@ -429,21 +416,18 @@ export function ReportTableImproved({
   const selectedCount = selectedRows.length
 
   function handleBulkDelete() {
-    if (onBulkDeleteClick && selectedCount > 0) {
-      const selectedReports = selectedRows.map((row) => row.original)
-      onBulkDeleteClick(selectedReports)
-    }
+    if (!onBulkDeleteClick) return
+    const selectedReports = selectedRows.map((row) => row.original)
+    onBulkDeleteClick(selectedReports)
   }
 
   function handleBulkSend() {
-    if (onBulkSendClick && selectedCount > 0) {
-      // 미전송 리포트만 필터링
-      const selectedReports = selectedRows
-        .map((row) => row.original)
-        .filter((report) => report.sent_at === null)
-      if (selectedReports.length > 0) {
-        onBulkSendClick(selectedReports)
-      }
+    if (!onBulkSendClick) return
+    const selectedReports = selectedRows
+      .map((row) => row.original)
+      .filter((report) => report.sent_at === null)
+    if (selectedReports.length > 0) {
+      onBulkSendClick(selectedReports)
     }
   }
 
