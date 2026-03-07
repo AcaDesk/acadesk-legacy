@@ -606,7 +606,7 @@ async function fetchAttendanceRows(
     return new Map<string, AttendanceRow[]>()
   }
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('attendance')
     .select('student_id, attendance_date, status, notes')
     .eq('tenant_id', tenantId)
@@ -614,6 +614,10 @@ async function fetchAttendanceRows(
     .gte('attendance_date', period.start)
     .lte('attendance_date', period.end)
     .is('deleted_at', null)
+
+  if (error) {
+    console.error('[fetchAttendanceRows] Supabase error:', error.message)
+  }
 
   const attendanceByStudent = new Map<string, AttendanceRow[]>()
   for (const row of (data || []) as AttendanceRow[]) {
@@ -633,7 +637,7 @@ async function fetchHomeworkRows(
     return new Map<string, HomeworkRow[]>()
   }
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('student_todos')
     .select('student_id, completed_at')
     .eq('tenant_id', tenantId)
@@ -641,6 +645,10 @@ async function fetchHomeworkRows(
     .gte('due_date', period.start)
     .lte('due_date', period.end)
     .is('deleted_at', null)
+
+  if (error) {
+    console.error('[fetchHomeworkRows] Supabase error:', error.message)
+  }
 
   const homeworkByStudent = new Map<string, HomeworkRow[]>()
   for (const row of (data || []) as HomeworkRow[]) {
@@ -679,7 +687,7 @@ async function fetchRelevantExams(
   const selectFields =
     'id, name, exam_date, created_at, category_code, subject_id, ref_exam_categories(label), subjects(name, color)'
 
-  const [{ data: datedExams }, { data: legacyExams }] = await Promise.all([
+  const [datedExamsResult, legacyExamsResult] = await Promise.all([
     supabase
       .from('exams')
       .select(selectFields)
@@ -696,6 +704,16 @@ async function fetchRelevantExams(
       .gte('created_at', `${minStart}T00:00:00`)
       .lte('created_at', `${maxEnd}T23:59:59.999`),
   ])
+
+  if (datedExamsResult.error) {
+    console.error('[fetchRelevantExams] datedExams error:', datedExamsResult.error.message)
+  }
+  if (legacyExamsResult.error) {
+    console.error('[fetchRelevantExams] legacyExams error:', legacyExamsResult.error.message)
+  }
+
+  const datedExams = datedExamsResult.data
+  const legacyExams = legacyExamsResult.data
 
   const examMap = new Map<string, ExamMeta>()
   for (const row of [...((datedExams || []) as ExamRow[]), ...((legacyExams || []) as ExamRow[])]) {
@@ -769,7 +787,7 @@ async function fetchScoreContext(
   const scoreSelect =
     'student_id, exam_id, percentage, feedback, is_retest, score, total_score'
 
-  const [{ data: studentScoreRows }, classScoreResult] = await Promise.all([
+  const [studentScoreResult, classScoreResult] = await Promise.all([
     supabase
       .from('exam_scores')
       .select(scoreSelect)
@@ -784,8 +802,17 @@ async function fetchScoreContext(
           .eq('tenant_id', tenantId)
           .in('exam_id', classExamIds)
           .is('deleted_at', null)
-      : Promise.resolve({ data: [] as ScoreRow[] }),
+      : Promise.resolve({ data: [] as ScoreRow[], error: null }),
   ])
+
+  if (studentScoreResult.error) {
+    console.error('[fetchScoreContext] studentScores error:', studentScoreResult.error.message)
+  }
+  if (classScoreResult.error) {
+    console.error('[fetchScoreContext] classScores error:', classScoreResult.error.message)
+  }
+
+  const studentScoreRows = studentScoreResult.data
 
   const context = createEmptyScoreContext()
 
@@ -813,7 +840,7 @@ async function fetchScoreContext(
     }
   }
 
-  for (const row of ((classScoreResult as { data?: ScoreRow[] }).data || []) as ScoreRow[]) {
+  for (const row of ((classScoreResult.data || []) as ScoreRow[])) {
     const exam = exams.get(row.exam_id)
     const membership = memberships.get(row.exam_id)
 

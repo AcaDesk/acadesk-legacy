@@ -164,10 +164,12 @@ export function useReportStepper() {
       next.delete('confirm')
       return next
     })
+    setDataLoading(false)
     setDataLoaded(false)
     setReportData(null)
     setWarnings([])
     setDataError(null)
+    fetchKeyRef.current = ''
     setComment({ summary: '', strengths: '', improvements: '', nextGoals: '' })
     // Stay on 'setup' step — period section will appear
   }, [])
@@ -182,10 +184,12 @@ export function useReportStepper() {
       next.delete('confirm')
       return next
     })
+    setDataLoading(false)
     setDataLoaded(false)
     setReportData(null)
     setWarnings([])
     setDataError(null)
+    fetchKeyRef.current = ''
     setComment({ summary: '', strengths: '', improvements: '', nextGoals: '' })
     setSendAfterSave(false)
     setCurrentStep('setup')
@@ -206,10 +210,12 @@ export function useReportStepper() {
       next.delete('confirm')
       return next
     })
+    setDataLoading(false)
     setDataLoaded(false)
     setReportData(null)
     setWarnings([])
     setDataError(null)
+    fetchKeyRef.current = ''
     setComment({ summary: '', strengths: '', improvements: '', nextGoals: '' })
     setSendAfterSave(false)
   }, [])
@@ -239,10 +245,12 @@ export function useReportStepper() {
       next.delete('confirm')
       return next
     })
+    setDataLoading(false)
     setDataLoaded(false)
     setReportData(null)
     setWarnings([])
     setDataError(null)
+    fetchKeyRef.current = ''
     setComment({ summary: '', strengths: '', improvements: '', nextGoals: '' })
     setCurrentStep('data')
   }, [student, isPeriodValid, period.type, toast])
