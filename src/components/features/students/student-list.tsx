@@ -16,7 +16,7 @@ import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { StudentTableImproved, Student } from './student-table-improved'
 import { getErrorMessage } from '@/lib/error-handlers'
-import { deleteStudent } from '@/app/actions/students'
+import { getStudents, deleteStudent } from '@/app/actions/students'
 import { useStudentsQuery, useStudentFilterOptionsQuery } from '@/hooks/queries/use-students-query'
 import { queryKeys } from '@/lib/query-keys'
 
@@ -85,6 +85,40 @@ export function StudentList() {
   }
 
   const { data, isFetching, isError } = useStudentsQuery(filters)
+
+  // 다음 페이지 백그라운드 프리페치
+  useEffect(() => {
+    const totalCount = data?.totalCount ?? 0
+    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+    if (currentPage >= totalPages) return
+
+    const nextFilters = { ...filters, page: currentPage + 1 }
+    queryClient.prefetchQuery({
+      queryKey: queryKeys.students.list(nextFilters as unknown as Record<string, unknown>),
+      queryFn: async () => {
+        const result = await getStudents({
+          grade: nextFilters.grade,
+          classId: nextFilters.classId,
+          school: nextFilters.school,
+          commuteMethod: nextFilters.commuteMethod,
+          marketingSource: nextFilters.marketingSource,
+          enrollmentDateFrom: nextFilters.enrollmentDateFrom,
+          enrollmentDateTo: nextFilters.enrollmentDateTo,
+          search: nextFilters.search,
+          page: nextFilters.page,
+          pageSize: nextFilters.pageSize,
+        })
+        if (!result.success || !result.data) throw new Error(result.error || '')
+        return {
+          data: result.data,
+          totalCount: result.totalCount ?? result.data.length,
+          page: result.page ?? nextFilters.page,
+          pageSize: result.pageSize ?? nextFilters.pageSize,
+        }
+      },
+      staleTime: 30_000,
+    })
+  }, [currentPage, data?.totalCount, pageSize]) // eslint-disable-line react-hooks/exhaustive-deps
   const { data: filterOptions } = useStudentFilterOptionsQuery()
 
   const students = data ? formatStudents(data.data) : []
