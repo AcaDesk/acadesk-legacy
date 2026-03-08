@@ -17,6 +17,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/query-keys'
 
 export interface CurrentUser {
   id: string
@@ -38,8 +39,9 @@ export interface UseCurrentUserReturn {
 
 /**
  * Query key for current user
+ * @deprecated queryKeys.currentUser() 사용 권장
  */
-export const CURRENT_USER_QUERY_KEY = ['currentUser']
+export const CURRENT_USER_QUERY_KEY = queryKeys.currentUser()
 
 /**
  * Fetch current user from Supabase
@@ -90,7 +92,7 @@ export function useCurrentUser(): UseCurrentUserReturn {
     error,
     refetch,
   } = useQuery({
-    queryKey: CURRENT_USER_QUERY_KEY,
+    queryKey: queryKeys.currentUser(),
     queryFn: fetchCurrentUser,
     staleTime: 5 * 60 * 1000, // 5분간 캐시 유지
     gcTime: 30 * 60 * 1000,   // 30분간 가비지 컬렉션 대기

@@ -117,21 +117,21 @@ export async function getExamScores(
     // 검색어 필터 적용 (중첩 관계 검색)
     const safeSearchTerm = searchTerm?.trim().slice(0, 100).replace(/[%_\\]/g, '\\$&')
     if (safeSearchTerm) {
-      // 먼저 매칭되는 학생 ID를 찾기
-      const { data: matchingStudents } = await supabase
-        .from('students')
-        .select('id, student_code, users!user_id(name)')
-        .eq('tenant_id', tenantId)
-        .is('deleted_at', null)
-        .or(`student_code.ilike.%${safeSearchTerm}%,users.name.ilike.%${safeSearchTerm}%`)
-
-      // 매칭되는 시험 ID를 찾기
-      const { data: matchingExams } = await supabase
-        .from('exams')
-        .select('id')
-        .eq('tenant_id', tenantId)
-        .is('deleted_at', null)
-        .ilike('name', `%${safeSearchTerm}%`)
+      // 매칭되는 학생/시험 ID를 병렬로 조회
+      const [{ data: matchingStudents }, { data: matchingExams }] = await Promise.all([
+        supabase
+          .from('students')
+          .select('id, student_code, users!user_id(name)')
+          .eq('tenant_id', tenantId)
+          .is('deleted_at', null)
+          .or(`student_code.ilike.%${safeSearchTerm}%,users.name.ilike.%${safeSearchTerm}%`),
+        supabase
+          .from('exams')
+          .select('id')
+          .eq('tenant_id', tenantId)
+          .is('deleted_at', null)
+          .ilike('name', `%${safeSearchTerm}%`),
+      ])
 
       const studentIds = matchingStudents?.map(s => s.id) || []
       const examIds = matchingExams?.map(e => e.id) || []

@@ -137,23 +137,22 @@ export function AssignStudentsDialog({
     try {
       setLoading(true)
 
-      // Get all students with proper foreign key hint
-      const { data: allStudents, error: studentsError } = await supabase
-        .from('students')
-        .select('id, student_code, users!user_id(name), grade')
-        .eq('tenant_id', currentUser.tenantId)
-        .is('deleted_at', null)
-        .order('student_code')
+      // Fetch students and assigned scores in parallel
+      const [{ data: allStudents, error: studentsError }, { data: assignedScores, error: scoresError }] = await Promise.all([
+        supabase
+          .from('students')
+          .select('id, student_code, users!user_id(name), grade')
+          .eq('tenant_id', currentUser.tenantId)
+          .is('deleted_at', null)
+          .order('student_code'),
+        supabase
+          .from('exam_scores')
+          .select('student_id')
+          .eq('tenant_id', currentUser.tenantId)
+          .eq('exam_id', examId),
+      ])
 
       if (studentsError) throw studentsError
-
-      // Get already assigned students
-      const { data: assignedScores, error: scoresError } = await supabase
-        .from('exam_scores')
-        .select('student_id')
-        .eq('tenant_id', currentUser.tenantId)
-        .eq('exam_id', examId)
-
       if (scoresError) throw scoresError
 
       const assignedIds = new Set(assignedScores?.map(s => s.student_id) || [])
@@ -215,20 +214,15 @@ export function AssignStudentsDialog({
       const classStudentIds = enrollments?.map(e => e.student_id) || []
 
       // Add to selected and calculate how many were newly added
-      setSelectedIds(prev => {
-        const prevSet = new Set(prev)
-        const newSet = new Set([...prev, ...classStudentIds])
-        const addedCount = newSet.size - prevSet.size
-
-        toast({
-          title: '수업 학생 배정',
-          description:
-            addedCount === 0
-              ? '이미 모든 수업 학생이 선택되어 있습니다.'
-              : `${addedCount}명의 학생이 새로 선택되었습니다.`,
-        })
-
-        return Array.from(newSet)
+      const newSet = new Set([...selectedIds, ...classStudentIds])
+      const addedCount = newSet.size - selectedIds.length
+      setSelectedIds(Array.from(newSet))
+      toast({
+        title: '수업 학생 배정',
+        description:
+          addedCount === 0
+            ? '이미 모든 수업 학생이 선택되어 있습니다.'
+            : `${addedCount}명의 학생이 새로 선택되었습니다.`,
       })
     } catch (error) {
       console.error('Error loading class students:', error)
@@ -253,15 +247,14 @@ export function AssignStudentsDialog({
     try {
       setSaving(true)
 
-      // Get currently assigned students
-      const currentlyAssigned = new Set(students.filter(s => s.isAssigned).map(s => s.id))
+      const currentlyAssignedSet = new Set(currentlyAssignedIds)
       const selectedSet = new Set(selectedIds)
 
       // Students to add (selected but not currently assigned)
-      const toAdd = selectedIds.filter(id => !currentlyAssigned.has(id))
+      const toAdd = selectedIds.filter(id => !currentlyAssignedSet.has(id))
 
       // Students to remove (currently assigned but not selected)
-      const toRemove = Array.from(currentlyAssigned).filter(id => !selectedSet.has(id))
+      const toRemove = currentlyAssignedIds.filter(id => !selectedSet.has(id))
 
       // Add new students
       if (toAdd.length > 0) {

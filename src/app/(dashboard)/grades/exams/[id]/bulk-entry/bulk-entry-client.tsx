@@ -262,15 +262,6 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
     }
   }, [scores, autoSave, handleSave])
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (autoSaveTimerRef.current) {
-        clearTimeout(autoSaveTimerRef.current)
-      }
-    }
-  }, [])
-
   // Keyboard shortcut: Ctrl+S / Cmd+S
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -290,7 +281,7 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
     return () => window.removeEventListener('keydown', handleKeyDown as any)
   }, [handleSave])
 
-  function handleCorrectChange(studentId: string, value: string) {
+  function handleScoreFieldChange(studentId: string, field: 'correct' | 'total', value: string) {
     setScores(prev => {
       const newMap = new Map(prev)
       const current = newMap.get(studentId) || {
@@ -301,38 +292,14 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
         feedback: '',
       }
 
-      const correctNumber = Math.max(0, safeParseInt(value))
-      const totalNumber = safeParseInt(current.total)
+      const parsed = Math.max(0, safeParseInt(value))
+      const correctNumber = field === 'correct' ? parsed : safeParseInt(current.correct)
+      const totalNumber = field === 'total' ? parsed : safeParseInt(current.total)
       const percentage = computePercentage(correctNumber, totalNumber)
 
       newMap.set(studentId, {
         ...current,
-        correct: value, // 사용자가 입력한 raw 값 (문자열) 유지
-        percentage,
-      })
-
-      return newMap
-    })
-  }
-
-  function handleTotalChange(studentId: string, value: string) {
-    setScores(prev => {
-      const newMap = new Map(prev)
-      const current = newMap.get(studentId) || {
-        student_id: studentId,
-        correct: '',
-        total: '',
-        percentage: 0,
-        feedback: '',
-      }
-
-      const totalNumber = Math.max(0, safeParseInt(value))
-      const correctNumber = safeParseInt(current.correct)
-      const percentage = computePercentage(correctNumber, totalNumber)
-
-      newMap.set(studentId, {
-        ...current,
-        total: value,
+        [field]: value,
         percentage,
       })
 
@@ -901,7 +868,7 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
                             type="number"
                             min="0"
                             value={score?.correct || ''}
-                            onChange={(e) => handleCorrectChange(student.id, e.target.value)}
+                            onChange={(e) => handleScoreFieldChange(student.id, 'correct', e.target.value)}
                             onKeyDown={(e) => handleKeyDown(e, student.id, 'correct')}
                             onFocus={() => setActiveStudentId(student.id)}
                             placeholder="0"
@@ -921,7 +888,7 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
                               type="number"
                               min="0"
                               value={score?.total || ''}
-                              onChange={(e) => handleTotalChange(student.id, e.target.value)}
+                              onChange={(e) => handleScoreFieldChange(student.id, 'total', e.target.value)}
                               onKeyDown={(e) => handleKeyDown(e, student.id, 'total')}
                               onFocus={() => setActiveStudentId(student.id)}
                               placeholder={exam?.total_questions?.toString() || '0'}
