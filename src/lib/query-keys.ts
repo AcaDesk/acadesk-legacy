@@ -38,4 +38,9 @@ export const queryKeys = {
     all: () => ['textbooks'] as const,
     list: (filters: Record<string, unknown>) => ['textbooks', 'list', filters] as const,
   },
+
+  guardians: {
+    all: () => ['guardians'] as const,
+    list: () => ['guardians', 'list'] as const,
+  },
 } as const
