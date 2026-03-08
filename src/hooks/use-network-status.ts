@@ -65,8 +65,13 @@ export function useNetworkStatus() {
     }
   }, [])
 
-  // 온라인 복구 시 자동 동기화
+  // 온라인 복구 시 자동 동기화 (초기 마운트 제외)
+  const isMountedRef = useRef(false)
   useEffect(() => {
+    if (!isMountedRef.current) {
+      isMountedRef.current = true
+      return
+    }
     if (online) {
       triggerSync()
     }
