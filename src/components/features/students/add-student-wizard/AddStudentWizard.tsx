@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useForm, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format } from 'date-fns'
@@ -18,6 +18,33 @@ import { Step2_GuardianInfo } from './Step2_GuardianInfo'
 import { Step3_AdditionalInfo } from './Step3_AdditionalInfo'
 import { studentWizardSchema, type StudentWizardFormValues, type StepInfo } from './types'
 import { getTenantCodes } from '@/app/actions/tenant'
+import { createStudentComplete } from '@/app/actions/students'
+import { convertLeadToStudent } from '@/app/actions/consultations'
+
+// ============================================================================
+// Types
+// ============================================================================
+
+type NewGuardianData = {
+  name: string
+  phone: string | null
+  email: string | null
+  relationship: string | null
+  occupation: string | null
+  address: string | null
+  is_primary_contact: boolean
+  receives_notifications: boolean
+  receives_billing: boolean
+  can_pickup: boolean
+}
+
+type ExistingGuardianData = {
+  id: string
+  is_primary_contact: boolean
+  receives_notifications: boolean
+  receives_billing: boolean
+  can_pickup: boolean
+}
 
 // ============================================================================
 // Props
@@ -46,6 +73,7 @@ export function AddStudentWizard({ open, onOpenChange, onSuccess, initialValues 
   const [loading, setLoading] = useState(false)
   const [schools, setSchools] = useState<string[]>([])
   const [consultationId, setConsultationId] = useState<string | undefined>(initialValues?.consultationId)
+  const schoolsLoaded = useRef(false)
 
   const { toast } = useToast()
   const { user: currentUser } = useCurrentUser()
@@ -109,7 +137,8 @@ export function AddStudentWizard({ open, onOpenChange, onSuccess, initialValues 
   // ============================================================================
 
   useEffect(() => {
-    if (open) {
+    if (open && !schoolsLoaded.current) {
+      schoolsLoaded.current = true
       loadSchools()
     }
   }, [open])
@@ -196,9 +225,9 @@ export function AddStudentWizard({ open, onOpenChange, onSuccess, initialValues 
 
     setLoading(true)
     try {
-      // Hash PIN if provided
+      // Hash PIN if provided (Zod already validates /^\d{4}$/)
       let hashedPin: string | null = null
-      if (data.kioskPin && data.kioskPin.trim().length === 4) {
+      if (data.kioskPin) {
         hashedPin = await hashKioskPin(data.kioskPin)
       }
 
@@ -220,32 +249,11 @@ export function AddStudentWizard({ open, onOpenChange, onSuccess, initialValues 
       }
 
       // Prepare guardian data and mode
-      type NewGuardianData = {
-        name: string
-        phone: string | null
-        email: string | null
-        relationship: string | null
-        occupation: string | null
-        address: string | null
-        is_primary_contact: boolean
-        receives_notifications: boolean
-        receives_billing: boolean
-        can_pickup: boolean
-      }
-
-      type ExistingGuardianData = {
-        id: string
-        is_primary_contact: boolean
-        receives_notifications: boolean
-        receives_billing: boolean
-        can_pickup: boolean
-      }
-
       let guardianData: NewGuardianData | ExistingGuardianData | null = null
-      let guardianMode = 'skip'
+      let resolvedMode: 'new' | 'existing' | 'skip' = GUARDIAN_MODES.SKIP
 
       if (data.guardianMode === GUARDIAN_MODES.NEW && data.guardian) {
-        guardianMode = 'new'
+        resolvedMode = GUARDIAN_MODES.NEW
         guardianData = {
           name: data.guardian.name || '',
           phone: data.guardian.phone || null,
@@ -259,7 +267,7 @@ export function AddStudentWizard({ open, onOpenChange, onSuccess, initialValues 
           can_pickup: true,
         }
       } else if (data.guardianMode === GUARDIAN_MODES.EXISTING && data.existingGuardianId) {
-        guardianMode = 'existing'
+        resolvedMode = GUARDIAN_MODES.EXISTING
         guardianData = {
           id: data.existingGuardianId,
           is_primary_contact: true,
@@ -269,12 +277,10 @@ export function AddStudentWizard({ open, onOpenChange, onSuccess, initialValues 
         }
       }
 
-      // ✅ Call Server Action instead of direct UseCase
-      const { createStudentComplete } = await import('@/app/actions/students')
       const result = await createStudentComplete({
         student: studentData,
         guardian: guardianData,
-        guardianMode: guardianMode as 'new' | 'existing' | 'skip',
+        guardianMode: resolvedMode,
       })
 
       if (!result.success) {
@@ -284,16 +290,12 @@ export function AddStudentWizard({ open, onOpenChange, onSuccess, initialValues 
       // If this student was created from a consultation, mark it as converted
       if (consultationId && result.data?.studentId) {
         try {
-          const { convertLeadToStudent } = await import('@/app/actions/consultations')
           const convertResult = await convertLeadToStudent(consultationId, result.data.studentId)
-
           if (!convertResult.success) {
             console.error('Failed to mark consultation as converted:', convertResult.error)
-            // Don't fail the whole operation, just log
           }
         } catch (error) {
           console.error('Error converting consultation:', error)
-          // Don't fail the whole operation, just log
         }
       }
 
@@ -304,10 +306,10 @@ export function AddStudentWizard({ open, onOpenChange, onSuccess, initialValues 
       if (consultationId) {
         successTitle = '✅ 입회 처리 완료'
         successDescription = `${data.name} 학생이 등록되었고, 상담 기록이 "입회 완료"로 업데이트되었습니다.`
-      } else if (guardianMode === 'new' && data.guardian) {
+      } else if (resolvedMode === GUARDIAN_MODES.NEW && data.guardian) {
         successTitle = '학생 및 학부모 추가 완료'
         successDescription = `${data.name} 학생과 ${data.guardian.name} 학부모가 추가되었습니다.`
-      } else if (guardianMode === 'existing') {
+      } else if (resolvedMode === GUARDIAN_MODES.EXISTING) {
         successTitle = '학생 추가 및 학부모 연결 완료'
         successDescription = `${data.name} 학생이 추가되고 기존 학부모와 연결되었습니다.`
       }
