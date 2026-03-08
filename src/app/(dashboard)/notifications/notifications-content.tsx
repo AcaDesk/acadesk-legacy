@@ -77,7 +77,7 @@ export function NotificationsContent({ initialLogs, initialBalance, tenantId }: 
   const [sendMessageOpen, setSendMessageOpen] = useState(false)
   const [manageTemplatesOpen, setManageTemplatesOpen] = useState(false)
   const [balance, setBalance] = useState<BalanceInfo | null>(initialBalance)
-  const [balanceLoading, setBalanceLoading] = useState(false)
+  const [balanceLoading, setBalanceLoading] = useState(!initialBalance)
   const [selectedLog, setSelectedLog] = useState<NotificationLog | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
 
@@ -286,26 +286,28 @@ export function NotificationsContent({ initialLogs, initialBalance, tenantId }: 
           </div>
           <div className="flex items-center gap-4">
             {/* Balance Info */}
-            {balance && (
-              <div className="flex items-center gap-2 px-4 py-2 bg-muted/50 rounded-lg border">
-                <Wallet className="h-4 w-4 text-muted-foreground" />
-                <div className="text-sm">
-                  <span className="text-muted-foreground">잔액</span>
+            <div className="flex items-center gap-2 px-4 py-2 bg-muted/50 rounded-lg border">
+              <Wallet className="h-4 w-4 text-muted-foreground" />
+              <div className="text-sm">
+                <span className="text-muted-foreground">잔액</span>
+                {balanceLoading ? (
+                  <span className="ml-2 inline-block h-4 w-16 animate-pulse rounded bg-muted-foreground/20 align-middle" />
+                ) : (
                   <span className="ml-2 font-semibold">
-                    {balance.balance.toLocaleString()}원
+                    {balance ? `${balance.balance.toLocaleString()}원` : '-'}
                   </span>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={loadBalance}
-                  disabled={balanceLoading}
-                >
-                  <RefreshCw className={`h-3 w-3 ${balanceLoading ? 'animate-spin' : ''}`} />
-                </Button>
+                )}
               </div>
-            )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={loadBalance}
+                disabled={balanceLoading}
+              >
+                <RefreshCw className={`h-3 w-3 ${balanceLoading ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
             <div className="flex gap-2">
               <Button
                 variant="outline"
