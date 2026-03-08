@@ -9,7 +9,7 @@ import {
 } from '@ui/card'
 import { cn } from '@/lib/utils'
 
-type AttendanceStatus = 'present' | 'late' | 'absent' | 'none'
+type AttendanceStatus = 'present' | 'late' | 'left_early' | 'absent' | 'excused' | 'none'
 
 interface AttendanceDay {
   date: Date | string
@@ -29,15 +29,26 @@ interface AttendanceHeatmapProps {
 const statusColors: Record<AttendanceStatus, string> = {
   present: 'bg-green-500 hover:bg-green-600',
   late: 'bg-yellow-500 hover:bg-yellow-600',
+  left_early: 'bg-orange-500 hover:bg-orange-600',
   absent: 'bg-red-500 hover:bg-red-600',
+  excused: 'bg-rose-400 hover:bg-rose-500',
   none: 'bg-muted hover:bg-muted/80',
 }
 
 const statusLabels: Record<AttendanceStatus, string> = {
   present: '출석',
   late: '지각',
+  left_early: '조퇴',
   absent: '결석',
+  excused: '사유결석',
   none: '해당없음',
+}
+
+function toDateKey(date: Date | string): string {
+  if (typeof date === 'string') {
+    return date.slice(0, 10)
+  }
+  return date.toISOString().split('T')[0]
 }
 
 export function AttendanceHeatmap({
@@ -49,10 +60,10 @@ export function AttendanceHeatmap({
   compact = false,
 }: AttendanceHeatmapProps) {
   // 해당 월의 첫날과 마지막날 계산
-  const firstDay = new Date(year, month - 1, 1)
-  const lastDay = new Date(year, month, 0)
-  const daysInMonth = lastDay.getDate()
-  const startDayOfWeek = firstDay.getDay() // 0 (일) ~ 6 (토)
+  const firstDay = new Date(Date.UTC(year, month - 1, 1))
+  const lastDay = new Date(Date.UTC(year, month, 0))
+  const daysInMonth = lastDay.getUTCDate()
+  const startDayOfWeek = firstDay.getUTCDay() // 0 (일) ~ 6 (토)
 
   // date 필드를 Date 객체로 정규화 (서버에서 JSON 직렬화 시 문자열로 내려올 수 있음)
   const normalizedData = data.map((item) => ({
@@ -63,7 +74,7 @@ export function AttendanceHeatmap({
   // 데이터를 맵으로 변환 (빠른 조회)
   const dataMap = new Map<string, typeof normalizedData[number]>()
   normalizedData.forEach((item) => {
-    const key = item.date.toISOString().split('T')[0]
+    const key = toDateKey(item.date)
     dataMap.set(key, item)
   })
 
@@ -78,8 +89,8 @@ export function AttendanceHeatmap({
 
   // 날짜 추가
   for (let day = 1; day <= daysInMonth; day++) {
-    const date = new Date(year, month - 1, day)
-    const key = date.toISOString().split('T')[0]
+    const date = new Date(Date.UTC(year, month - 1, day))
+    const key = toDateKey(date)
     const dayData = dataMap.get(key)
 
     calendarDays.push(
@@ -94,12 +105,14 @@ export function AttendanceHeatmap({
   const stats = {
     present: normalizedData.filter((d) => d.status === 'present').length,
     late: normalizedData.filter((d) => d.status === 'late').length,
+    leftEarly: normalizedData.filter((d) => d.status === 'left_early').length,
     absent: normalizedData.filter((d) => d.status === 'absent').length,
+    excused: normalizedData.filter((d) => d.status === 'excused').length,
   }
 
-  const totalDays = stats.present + stats.late + stats.absent
+  const totalDays = stats.present + stats.late + stats.leftEarly + stats.absent + stats.excused
   const attendanceRate =
-    totalDays > 0 ? (((stats.present + stats.late * 0.5) / totalDays) * 100).toFixed(1) : '0'
+    totalDays > 0 ? (((stats.present + stats.late + stats.leftEarly) / totalDays) * 100).toFixed(1) : '0'
 
   return (
     <Card>
@@ -115,7 +128,9 @@ export function AttendanceHeatmap({
             <div className="flex items-center gap-3 text-xs">
               <span className="font-semibold text-green-600">{stats.present}출석</span>
               <span className="font-semibold text-yellow-600">{stats.late}지각</span>
+              <span className="font-semibold text-orange-600">{stats.leftEarly}조퇴</span>
               <span className="font-semibold text-red-600">{stats.absent}결석</span>
+              <span className="font-semibold text-rose-500">{stats.excused}사유</span>
               <span className="font-semibold">{attendanceRate}%</span>
             </div>
           )}
@@ -146,7 +161,7 @@ export function AttendanceHeatmap({
                   compact ? 'h-6 rounded-sm text-[10px]' : 'aspect-square rounded-md text-xs',
                   statusColors[day.status]
                 )}
-                title={`${day.date.getDate()}일 - ${statusLabels[day.status]}${day.note ? `: ${day.note}` : ''}`}
+                title={`${day.date.getUTCDate()}일 - ${statusLabels[day.status]}${day.note ? `: ${day.note}` : ''}`}
               >
                 <span
                   className={cn(
@@ -154,7 +169,7 @@ export function AttendanceHeatmap({
                     day.status === 'none' && 'text-muted-foreground'
                   )}
                 >
-                  {day.date.getDate()}
+                  {day.date.getUTCDate()}
                 </span>
                 {day.note && (
                   <div className="absolute bottom-0 left-1/2 hidden -translate-x-1/2 translate-y-full rounded bg-popover p-2 text-xs text-popover-foreground shadow-md group-hover:block z-10 whitespace-nowrap">
@@ -178,8 +193,16 @@ export function AttendanceHeatmap({
               <span>지각</span>
             </div>
             <div className="flex items-center gap-1">
+              <div className="h-2 w-2 rounded-sm bg-orange-500" />
+              <span>조퇴</span>
+            </div>
+            <div className="flex items-center gap-1">
               <div className="h-2 w-2 rounded-sm bg-red-500" />
               <span>결석</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="h-2 w-2 rounded-sm bg-rose-400" />
+              <span>사유결석</span>
             </div>
           </div>
         ) : (
@@ -194,13 +217,21 @@ export function AttendanceHeatmap({
                 <span>지각</span>
               </div>
               <div className="flex items-center gap-1.5 sm:gap-2">
+                <div className="h-3 w-3 rounded bg-orange-500" />
+                <span>조퇴</span>
+              </div>
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <div className="h-3 w-3 rounded bg-red-500" />
                 <span>결석</span>
+              </div>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <div className="h-3 w-3 rounded bg-rose-400" />
+                <span>사유결석</span>
               </div>
             </div>
 
             <div className="rounded-lg border bg-muted/50 p-3 sm:p-4">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-center">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 text-center">
                 <div>
                   <p className="text-xl sm:text-2xl font-bold text-green-500">{stats.present}</p>
                   <p className="text-xs text-muted-foreground">출석</p>
@@ -210,8 +241,16 @@ export function AttendanceHeatmap({
                   <p className="text-xs text-muted-foreground">지각</p>
                 </div>
                 <div>
+                  <p className="text-xl sm:text-2xl font-bold text-orange-500">{stats.leftEarly}</p>
+                  <p className="text-xs text-muted-foreground">조퇴</p>
+                </div>
+                <div>
                   <p className="text-xl sm:text-2xl font-bold text-red-500">{stats.absent}</p>
                   <p className="text-xs text-muted-foreground">결석</p>
+                </div>
+                <div>
+                  <p className="text-xl sm:text-2xl font-bold text-rose-500">{stats.excused}</p>
+                  <p className="text-xs text-muted-foreground">사유결석</p>
                 </div>
                 <div>
                   <p className="text-xl sm:text-2xl font-bold">{attendanceRate}%</p>

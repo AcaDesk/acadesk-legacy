@@ -25,6 +25,7 @@ import {
   CartesianGrid,
 } from 'recharts'
 import dynamic from 'next/dynamic'
+import type { ReportAttendanceStatus } from '@/core/types/report.types'
 
 const AttendanceHeatmap = dynamic(
   () => import('@/components/features/charts/attendance-heatmap').then(m => m.AttendanceHeatmap),
@@ -108,7 +109,7 @@ interface ReportViewerProps {
     }>
     attendanceChartData?: Array<{
       date: Date
-      status: 'present' | 'late' | 'absent' | 'none'
+      status: ReportAttendanceStatus
       note?: string
     }>
     attendanceRate?: number

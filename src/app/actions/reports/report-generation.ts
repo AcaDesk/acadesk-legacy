@@ -342,21 +342,62 @@ export async function saveReport(
       throw new Error('학생을 찾을 수 없습니다.')
     }
 
-    // 4. Insert report
-    const { data, error } = await supabase
+    const { data: existingReport, error: existingReportError } = await supabase
       .from('reports')
-      .insert({
-        tenant_id: tenantId,
-        student_id: reportData.student.id,
-        report_type: reportType,
-        period_start: reportData.period.start,
-        period_end: reportData.period.end,
-        content: reportData as unknown as Record<string, unknown>,
-      })
-      .select('id')
-      .single()
+      .select('id, sent_at')
+      .eq('tenant_id', tenantId)
+      .eq('student_id', reportData.student.id)
+      .eq('report_type', reportType)
+      .eq('period_start', reportData.period.start)
+      .eq('period_end', reportData.period.end)
+      .is('deleted_at', null)
+      .order('generated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
 
-    if (error) throw error
+    if (existingReportError) throw existingReportError
+
+    let data: { id: string } | null = null
+
+    if (existingReport) {
+      if (existingReport.sent_at) {
+        throw new Error('이미 전송된 동일 기간 리포트가 있습니다. 기존 리포트를 확인해주세요.')
+      }
+
+      const { data: updatedReport, error: updateError } = await supabase
+        .from('reports')
+        .update({
+          content: reportData as unknown as Record<string, unknown>,
+          generated_at: new Date().toISOString(),
+        })
+        .eq('id', existingReport.id)
+        .eq('tenant_id', tenantId)
+        .select('id')
+        .single()
+
+      if (updateError) throw updateError
+      data = updatedReport
+    } else {
+      const { data: insertedReport, error } = await supabase
+        .from('reports')
+        .insert({
+          tenant_id: tenantId,
+          student_id: reportData.student.id,
+          report_type: reportType,
+          period_start: reportData.period.start,
+          period_end: reportData.period.end,
+          content: reportData as unknown as Record<string, unknown>,
+        })
+        .select('id')
+        .single()
+
+      if (error) throw error
+      data = insertedReport
+    }
+
+    if (!data) {
+      throw new Error('리포트 저장에 실패했습니다.')
+    }
 
     // 5. Revalidate pages
     revalidatePath('/reports')

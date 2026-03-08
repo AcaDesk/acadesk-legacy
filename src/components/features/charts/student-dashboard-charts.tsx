@@ -3,6 +3,7 @@
 import { GradesLineChart } from './grades-line-chart'
 import { TodoCompletionDonut } from './todo-completion-donut'
 import { AttendanceHeatmap } from './attendance-heatmap'
+import type { ReportAttendanceStatus } from '@/core/types/report.types'
 
 interface StudentDashboardChartsProps {
   studentId: string
@@ -21,7 +22,7 @@ interface StudentDashboardChartsProps {
   // Attendance data
   attendanceData: Array<{
     date: Date
-    status: 'present' | 'late' | 'absent' | 'none'
+    status: ReportAttendanceStatus
     note?: string
   }>
   year?: number

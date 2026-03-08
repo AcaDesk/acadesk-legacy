@@ -41,6 +41,14 @@ export interface ReportWithStudent {
   students: ReportStudent | null
 }
 
+export type ReportAttendanceStatus =
+  | 'present'
+  | 'late'
+  | 'left_early'
+  | 'absent'
+  | 'excused'
+  | 'none'
+
 export interface ReportData {
   // Legacy format (for backward compatibility)
   student?: {
@@ -114,7 +122,7 @@ export interface ReportData {
   }>
   attendanceChartData?: Array<{
     date: Date
-    status: 'present' | 'late' | 'absent' | 'none'
+    status: ReportAttendanceStatus
     note?: string
   }>
 
