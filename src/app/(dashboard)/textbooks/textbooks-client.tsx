@@ -32,7 +32,7 @@ import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 import { SectionErrorBoundary } from '@/components/layout/page-error-boundary'
 import { PAGE_ANIMATIONS } from '@/lib/animation-config'
 import { useToast } from '@/hooks/use-toast'
-import { bulkDeleteTextbooks } from '@/app/actions/textbooks'
+import { getTextbooks, bulkDeleteTextbooks } from '@/app/actions/textbooks'
 import { useTextbooksQuery } from '@/hooks/queries/use-textbooks-query'
 import { queryKeys } from '@/lib/query-keys'
 
@@ -64,6 +64,31 @@ export function TextbooksClient() {
     page: currentPage,
     pageSize,
   })
+
+  // 다음 페이지 백그라운드 프리페치
+  useEffect(() => {
+    const total = data?.totalCount ?? 0
+    const pages = Math.max(1, Math.ceil(total / pageSize))
+    if (currentPage >= pages) return
+
+    const nextFilters = { search: debouncedSearch || undefined, page: currentPage + 1, pageSize }
+    queryClient.prefetchQuery({
+      queryKey: queryKeys.textbooks.list(nextFilters as unknown as Record<string, unknown>),
+      queryFn: async () => {
+        const result = await getTextbooks(nextFilters)
+        if (!result.success) throw new Error('교재 목록을 불러올 수 없습니다')
+        return {
+          data: result.data ?? [],
+          lendingCountByTextbookId: result.lendingCountByTextbookId ?? {},
+          unitCountByTextbookId: result.unitCountByTextbookId ?? {},
+          totalCount: result.totalCount ?? 0,
+          page: result.page ?? nextFilters.page,
+          pageSize: result.pageSize ?? nextFilters.pageSize,
+        }
+      },
+      staleTime: 60_000,
+    })
+  }, [currentPage, data?.totalCount, pageSize, debouncedSearch]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const textbooks = data?.data ?? []
   const lendingCountByTextbookId = data?.lendingCountByTextbookId ?? {}
