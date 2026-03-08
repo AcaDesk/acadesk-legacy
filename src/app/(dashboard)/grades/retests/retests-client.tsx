@@ -1,7 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useMemo, useState } from 'react'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
@@ -23,64 +22,41 @@ import {
 import { Checkbox } from '@ui/checkbox'
 import { useToast } from '@/hooks/use-toast'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
+import { LoadingState } from '@/components/ui/loading-state'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@ui/dialog'
 import { Label } from '@ui/label'
-import {
-  getRetestStudents,
-  waiveRetest,
-  postponeRetest,
-  createRetestExam,
-  type RetestStudent,
-} from '@/app/actions/grades/retests'
+import { type RetestStudent } from '@/app/actions/grades/retests'
 import { Loader2, MoreVertical, AlertTriangle, CheckCircle2, Clock, Calendar } from 'lucide-react'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { DatePicker } from '@ui/date-picker'
+import { useRetestStudentsQuery } from '@/hooks/queries/use-retest-students-query'
+import {
+  useWaiveRetestMutation,
+  usePostponeRetestMutation,
+  useCreateRetestMutation,
+} from '@/hooks/mutations/use-retest-mutations'
 
 export function RetestsClient() {
-  const router = useRouter()
   const { toast } = useToast()
 
-  const [students, setStudents] = useState<RetestStudent[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: students = [], isLoading } = useRetestStudentsQuery()
+  const waiveMutation = useWaiveRetestMutation()
+  const postponeMutation = usePostponeRetestMutation()
+  const createRetestMutation = useCreateRetestMutation()
+
   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set())
-  const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [targetStudent, setTargetStudent] = useState<RetestStudent | null>(null)
 
   // Confirmation dialogs
   const [waiveDialogOpen, setWaiveDialogOpen] = useState(false)
   const [postponeDialogOpen, setPostponeDialogOpen] = useState(false)
   const [createRetestDialogOpen, setCreateRetestDialogOpen] = useState(false)
-  const [targetStudent, setTargetStudent] = useState<RetestStudent | null>(null)
 
   // Retest creation form
   const [retestDate, setRetestDate] = useState<Date | undefined>(undefined)
   const [originalExamName, setOriginalExamName] = useState('')
-
-  const loadStudents = useCallback(async () => {
-    try {
-      setLoading(true)
-      const result = await getRetestStudents()
-
-      if (result.success && result.data) {
-        setStudents(result.data)
-      } else {
-        throw new Error(result.error || '재시험 대상 학생을 불러올 수 없습니다')
-      }
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: '로드 실패',
-        description: error instanceof Error ? error.message : '알 수 없는 오류',
-      })
-    } finally {
-      setLoading(false)
-    }
-  }, [toast])
-
-  // Load students
-  useEffect(() => {
-    loadStudents()
-  }, [loadStudents])
 
   // Toggle student selection
   function toggleStudent(examScoreId: string) {
@@ -93,76 +69,20 @@ export function RetestsClient() {
     setSelectedStudents(newSet)
   }
 
-  // Select all / deselect all - TODO: UI에 연결 예정
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  function toggleAll() {
-    if (selectedStudents.size === students.length) {
-      setSelectedStudents(new Set())
-    } else {
-      setSelectedStudents(new Set(students.map((s) => s.exam_score_id)))
-    }
+  function handleWaiveRetest() {
+    if (!targetStudent) return
+    waiveMutation.mutate(
+      { examScoreId: targetStudent.exam_score_id, studentName: targetStudent.student_name },
+      { onSettled: () => { setWaiveDialogOpen(false); setTargetStudent(null) } }
+    )
   }
 
-  // Handle waive retest
-  async function handleWaiveRetest() {
+  function handlePostponeRetest() {
     if (!targetStudent) return
-
-    setActionLoading('waive')
-    try {
-      const result = await waiveRetest(targetStudent.exam_score_id)
-
-      if (!result.success) {
-        throw new Error(result.error || '재시험 면제 실패')
-      }
-
-      toast({
-        title: '재시험 면제 완료',
-        description: `${targetStudent.student_name} 학생의 재시험이 면제되었습니다.`,
-      })
-
-      await loadStudents()
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: '재시험 면제 실패',
-        description: error instanceof Error ? error.message : '알 수 없는 오류',
-      })
-    } finally {
-      setActionLoading(null)
-      setWaiveDialogOpen(false)
-      setTargetStudent(null)
-    }
-  }
-
-  // Handle postpone retest
-  async function handlePostponeRetest() {
-    if (!targetStudent) return
-
-    setActionLoading('postpone')
-    try {
-      const result = await postponeRetest(targetStudent.exam_score_id)
-
-      if (!result.success) {
-        throw new Error(result.error || '재시험 연기 실패')
-      }
-
-      toast({
-        title: '재시험 연기 완료',
-        description: `${targetStudent.student_name} 학생의 재시험이 연기되었습니다.`,
-      })
-
-      await loadStudents()
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: '재시험 연기 실패',
-        description: error instanceof Error ? error.message : '알 수 없는 오류',
-      })
-    } finally {
-      setActionLoading(null)
-      setPostponeDialogOpen(false)
-      setTargetStudent(null)
-    }
+    postponeMutation.mutate(
+      { examScoreId: targetStudent.exam_score_id, studentName: targetStudent.student_name },
+      { onSettled: () => { setPostponeDialogOpen(false); setTargetStudent(null) } }
+    )
   }
 
   // Open create retest dialog with validation
@@ -201,56 +121,30 @@ export function RetestsClient() {
     setCreateRetestDialogOpen(true)
   }
 
-  // Handle create retest exam for selected students
-  async function handleCreateRetest() {
+  function handleCreateRetest() {
     if (!retestDate) {
-      toast({
-        variant: 'destructive',
-        title: '날짜를 선택하세요',
-        description: '재시험 날짜를 선택해주세요.',
-      })
+      toast({ variant: 'destructive', title: '날짜를 선택하세요', description: '재시험 날짜를 선택해주세요.' })
       return
     }
-
-    // Get unique exam IDs from selected students
-    const selectedStudentData = students.filter((s) =>
-      selectedStudents.has(s.exam_score_id)
-    )
+    const selectedStudentData = students.filter((s) => selectedStudents.has(s.exam_score_id))
     const examId = selectedStudentData[0].exam_id
     const studentIds = selectedStudentData.map((s) => s.student_id)
 
-    setActionLoading('create')
-    try {
-      const result = await createRetestExam(examId, studentIds, format(retestDate, 'yyyy-MM-dd'))
-
-      if (!result.success || !result.data) {
-        throw new Error(result.error || '재시험 생성 실패')
+    createRetestMutation.mutate(
+      { examId, studentIds, retestDate: format(retestDate, 'yyyy-MM-dd'), selectedCount: selectedStudents.size },
+      {
+        onSettled: () => {
+          setCreateRetestDialogOpen(false)
+          setSelectedStudents(new Set())
+          setRetestDate(undefined)
+          setOriginalExamName('')
+        },
       }
-
-      toast({
-        title: '재시험 생성 완료',
-        description: `${selectedStudents.size}명의 학생이 재시험에 배정되었습니다.`,
-      })
-
-      // Navigate to the new retest exam
-      router.push(`/grades/exams/${result.data.retestExamId}`)
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: '재시험 생성 실패',
-        description: error instanceof Error ? error.message : '알 수 없는 오류',
-      })
-    } finally {
-      setActionLoading(null)
-      setCreateRetestDialogOpen(false)
-      setSelectedStudents(new Set())
-      setRetestDate(undefined)
-      setOriginalExamName('')
-    }
+    )
   }
 
   // Group students by exam
-  const groupedStudents = students.reduce((acc, student) => {
+  const groupedStudents = useMemo(() => students.reduce((acc, student) => {
     if (!acc[student.exam_id]) {
       acc[student.exam_id] = {
         exam_name: student.exam_name,
@@ -261,27 +155,20 @@ export function RetestsClient() {
     }
     acc[student.exam_id].students.push(student)
     return acc
-  }, {} as Record<string, { exam_name: string; exam_date: string; passing_score: number; students: RetestStudent[] }>)
+  }, {} as Record<string, { exam_name: string; exam_date: string; passing_score: number; students: RetestStudent[] }>), [students])
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    )
+  if (isLoading) {
+    return <LoadingState variant="spinner" className="py-12" />
   }
 
   if (students.length === 0) {
     return (
-      <Card>
-        <CardContent className="py-12">
-          <div className="text-center">
-            <CheckCircle2 className="w-12 h-12 mx-auto text-green-500 mb-4" />
-            <p className="text-lg font-medium mb-2">재시험 대상 학생이 없습니다</p>
-            <p className="text-muted-foreground">모든 학생이 합격했거나 재시험이 처리되었습니다.</p>
-          </div>
-        </CardContent>
-      </Card>
+      <EmptyState
+        variant="card"
+        icon={<CheckCircle2 className="w-12 h-12 text-green-500" />}
+        title="재시험 대상 학생이 없습니다"
+        description="모든 학생이 합격했거나 재시험이 처리되었습니다."
+      />
     )
   }
 

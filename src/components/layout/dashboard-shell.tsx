@@ -44,6 +44,7 @@ import { ConfirmationDialog } from "@ui/confirmation-dialog"
 import { useMediaQuery } from "@/hooks/use-media-query"
 import { useStandaloneMode } from "@/hooks/use-standalone-mode"
 import { usePathname, useRouter } from "next/navigation"
+import { useUIStore } from "@/lib/stores/ui.store"
 
 interface DashboardShellProps {
   children: React.ReactNode
@@ -368,8 +369,7 @@ export function DashboardShell({
   userTenantName,
   userAvatarUrl,
 }: DashboardShellProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const { sidebarCollapsed: isCollapsed, setSidebarCollapsed, toggleSidebar, mobileMenuOpen, setMobileMenuOpen } = useUIStore()
 
   // 로그아웃 처리
   const { logout, isLoading: isLoggingOut } = useLogout()
@@ -395,13 +395,12 @@ export function DashboardShell({
   useEffect(() => {
     // 태블릿 크기(768px ~ 1023px)에서는 축소, 큰 데스크톱(1024px 이상)에서는 펼침
     if (isDesktop && !isLargeDesktop) {
-      setIsCollapsed(true)
+      setSidebarCollapsed(true)
     } else if (isLargeDesktop) {
-      setIsCollapsed(false)
+      setSidebarCollapsed(false)
     }
-  }, [isDesktop, isLargeDesktop])
+  }, [isDesktop, isLargeDesktop, setSidebarCollapsed])
 
-  const toggleSidebar = () => setIsCollapsed(!isCollapsed)
   const toggleMobileMenu = () => setMobileMenuOpen(!mobileMenuOpen)
 
   return (

@@ -34,6 +34,38 @@ export interface RetestStudent {
 }
 
 // ============================================================================
+// Helpers
+// ============================================================================
+
+async function updateExamScoreStatus(examScoreId: string, newStatus: string) {
+  const { tenantId } = await verifyStaff()
+  const supabase = createServiceRoleClient()
+
+  const { data: examScore, error: fetchError } = await supabase
+    .from('exam_scores')
+    .select('tenant_id, status')
+    .eq('id', examScoreId)
+    .single()
+
+  if (fetchError || !examScore) {
+    throw new Error('성적을 찾을 수 없습니다')
+  }
+
+  if (examScore.tenant_id !== tenantId) {
+    throw new Error('권한이 없습니다')
+  }
+
+  const { error: updateError } = await supabase
+    .from('exam_scores')
+    .update({ status: newStatus, updated_at: new Date().toISOString() })
+    .eq('id', examScoreId)
+
+  if (updateError) throw updateError
+
+  revalidatePath('/grades/retests')
+}
+
+// ============================================================================
 // Server Actions
 // ============================================================================
 
@@ -144,49 +176,11 @@ export async function getRetestStudents() {
  */
 export async function waiveRetest(examScoreId: string) {
   try {
-    const { tenantId } = await verifyStaff()
-    const supabase = createServiceRoleClient()
-
-    // 1. Verify exam_score belongs to tenant
-    const { data: examScore, error: fetchError } = await supabase
-      .from('exam_scores')
-      .select('tenant_id, status')
-      .eq('id', examScoreId)
-      .single()
-
-    if (fetchError || !examScore) {
-      throw new Error('성적을 찾을 수 없습니다')
-    }
-
-    if (examScore.tenant_id !== tenantId) {
-      throw new Error('권한이 없습니다')
-    }
-
-    // 2. Update status to retest_waived
-    const { error: updateError } = await supabase
-      .from('exam_scores')
-      .update({
-        status: 'retest_waived',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', examScoreId)
-
-    if (updateError) {
-      throw updateError
-    }
-
-    revalidatePath('/grades/retests')
-
-    return {
-      success: true,
-      error: null,
-    }
+    await updateExamScoreStatus(examScoreId, 'retest_waived')
+    return { success: true, error: null }
   } catch (error) {
     console.error('[waiveRetest] Error:', error)
-    return {
-      success: false,
-      error: getErrorMessage(error),
-    }
+    return { success: false, error: getErrorMessage(error) }
   }
 }
 
@@ -195,49 +189,11 @@ export async function waiveRetest(examScoreId: string) {
  */
 export async function postponeRetest(examScoreId: string) {
   try {
-    const { tenantId } = await verifyStaff()
-    const supabase = createServiceRoleClient()
-
-    // 1. Verify exam_score belongs to tenant
-    const { data: examScore, error: fetchError } = await supabase
-      .from('exam_scores')
-      .select('tenant_id, status')
-      .eq('id', examScoreId)
-      .single()
-
-    if (fetchError || !examScore) {
-      throw new Error('성적을 찾을 수 없습니다')
-    }
-
-    if (examScore.tenant_id !== tenantId) {
-      throw new Error('권한이 없습니다')
-    }
-
-    // 2. Update status to pending
-    const { error: updateError } = await supabase
-      .from('exam_scores')
-      .update({
-        status: 'pending',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', examScoreId)
-
-    if (updateError) {
-      throw updateError
-    }
-
-    revalidatePath('/grades/retests')
-
-    return {
-      success: true,
-      error: null,
-    }
+    await updateExamScoreStatus(examScoreId, 'pending')
+    return { success: true, error: null }
   } catch (error) {
     console.error('[postponeRetest] Error:', error)
-    return {
-      success: false,
-      error: getErrorMessage(error),
-    }
+    return { success: false, error: getErrorMessage(error) }
   }
 }
 

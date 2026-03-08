@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
@@ -41,6 +41,7 @@ import { AssignStudentsDialog } from '@/components/features/exams/assign-student
 import { createClient } from '@/lib/supabase/client'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import { EmptyState } from '@ui/empty-state'
+import { LoadingState } from '@/components/ui/loading-state'
 
 interface Exam {
   id: string
@@ -102,7 +103,7 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [gradeFilter, setGradeFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
-  const [undoTimeoutId, setUndoTimeoutId] = useState<NodeJS.Timeout | null>(null)
+  const undoTimeoutIdRef = useRef<NodeJS.Timeout | null>(null)
 
   // Get unique grades from students
   const availableGrades = useMemo(() => {
@@ -321,9 +322,9 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
     if (!currentUser || !currentUser.tenantId) return
 
     // Clear any existing undo timeout
-    if (undoTimeoutId) {
-      clearTimeout(undoTimeoutId)
-      setUndoTimeoutId(null)
+    if (undoTimeoutIdRef.current) {
+      clearTimeout(undoTimeoutIdRef.current)
+      undoTimeoutIdRef.current = null
     }
 
     try {
@@ -390,10 +391,9 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
       })
 
       // Set timeout to prevent undo after 10 seconds
-      const timeoutId = setTimeout(() => {
-        setUndoTimeoutId(null)
+      undoTimeoutIdRef.current = setTimeout(() => {
+        undoTimeoutIdRef.current = null
       }, 10000)
-      setUndoTimeoutId(timeoutId)
 
       loadStudents()
     } catch (error) {
@@ -685,9 +685,7 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="text-center py-8 text-muted-foreground">
-              로딩 중...
-            </div>
+            <LoadingState variant="spinner" className="py-8" />
           ) : students.length === 0 ? (
             <EmptyState
               icon={Users}
@@ -701,9 +699,11 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
               }
             />
           ) : filteredStudents.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <p>검색 결과가 없습니다.</p>
-            </div>
+            <EmptyState
+              variant="minimal"
+              title="조건에 맞는 학생이 없습니다"
+              description="필터나 검색어를 변경해보세요"
+            />
           ) : (
             <div className="rounded-md border max-h-[560px] overflow-auto">
               <Table>

@@ -45,7 +45,7 @@ supabase db push      # Apply migrations to remote database
 ## Architecture
 
 ### Tech Stack
-- **Framework**: Next.js 15.5.4 with App Router, React Server Components, Turbopack
+- **Framework**: Next.js 15 with App Router, React Server Components, Turbopack
 - **Language**: TypeScript with strict mode enabled
 - **Database**: Supabase (PostgreSQL 15) with Row Level Security (RLS)
 - **Auth**: Supabase Auth with JWT-based authentication
@@ -53,268 +53,136 @@ supabase db push      # Apply migrations to remote database
 - **State**: React Query (@tanstack/react-query) for server state
 - **Forms**: React Hook Form with Zod validation
 - **Testing**: Vitest + Testing Library (unit), Playwright (e2e)
-- **Package Manager**: pnpm (10.17.1)
+- **Package Manager**: pnpm
 
-### Clean Architecture Implementation
-
-The codebase strictly follows Clean Architecture with clear layer separation and dependency inversion:
+### Directory Structure
 
 ```
 src/
-├── app/                    # Presentation Layer (Next.js App Router)
-│   ├── (dashboard)/        # Dashboard routes (route groups)
-│   ├── (auth)/             # Auth routes (route groups)
+├── app/                    # Next.js App Router
+│   ├── (dashboard)/        # Main dashboard routes
+│   │   ├── attendance/     # Attendance management
+│   │   ├── batch/          # Batch messaging
+│   │   ├── classes/        # Class management
+│   │   ├── consultations/  # Consultation management
+│   │   ├── dashboard/      # Dashboard home
+│   │   ├── grades/         # Grade management
+│   │   ├── guardians/      # Guardian management
+│   │   ├── library/        # Book lending
+│   │   ├── notifications/  # Notification center
+│   │   ├── payments/       # Payment management
+│   │   ├── reports/        # Learning reports
+│   │   ├── settings/       # Academy settings
+│   │   ├── staff/          # Staff management
+│   │   ├── students/       # Student management
+│   │   ├── textbooks/      # Textbook management
+│   │   └── todos/          # Todo / self-study management
+│   ├── (auth)/             # Auth routes
+│   ├── admin/              # Platform admin (approval management)
 │   ├── api/                # API route handlers
-│   └── actions/            # Server Actions
+│   ├── kiosk/              # Kiosk mode (tablet attendance check-in)
+│   └── actions/            # Server Actions (all data mutations/queries)
+│       ├── students/       # Student actions (split by concern)
+│       ├── reports/        # Report actions
+│       ├── messaging/      # Messaging actions
+│       ├── batch/          # Batch job actions
+│       └── grades/         # Grade actions
 │
-├── application/            # Application Layer
-│   ├── use-cases/          # Business logic orchestration
-│   │   ├── student/        # Student domain use cases
-│   │   ├── attendance/     # Attendance domain use cases
-│   │   ├── todo/           # Todo domain use cases
-│   │   └── auth/           # Auth domain use cases
-│   └── factories/          # Dependency injection factories
-│       ├── *UseCaseFactory.ts          # Server-side factories
-│       └── *UseCaseFactory.client.ts   # Client-side factories
+├── core/                   # Domain types and interfaces
+│   ├── domain/             # Domain interfaces
+│   │   ├── data-sources/   # IDataSource interface
+│   │   └── messaging/      # IMessageProvider interface
+│   └── types/              # TypeScript domain types (*.types.ts)
 │
-├── domain/                 # Domain Layer (Business Rules)
-│   ├── entities/           # Domain entities with business logic
-│   │   ├── Student.ts      # Student entity
-│   │   ├── Todo.ts         # Todo entity
-│   │   └── Exam.ts         # Exam entity
-│   ├── value-objects/      # Immutable value objects
-│   │   ├── Priority.ts     # Priority value object
-│   │   ├── Email.ts        # Email value object
-│   │   └── Score.ts        # Score value object
-│   ├── data-sources/       # DataSource interfaces (DIP)
-│   │   └── IDataSource.ts  # Database abstraction interface
-│   └── repositories/       # Repository interfaces (DIP)
-│       ├── IStudentRepository.ts
-│       └── ITodoRepository.ts
-│
-├── infrastructure/         # Infrastructure Layer
-│   ├── data-sources/       # DataSource implementations
-│   │   ├── SupabaseDataSource.ts   # Supabase wrapper
-│   │   └── MockDataSource.ts       # Test mock
-│   ├── database/           # Concrete repository implementations
-│   │   ├── student.repository.ts
-│   │   ├── attendance.repository.ts
-│   │   └── base.repository.ts
-│   └── external/           # External service integrations
+├── infra/                  # Infrastructure implementations
+│   └── messaging/          # SMS/Kakao message providers
 │
 ├── components/             # UI Components
 │   ├── ui/                 # shadcn/ui base components
 │   ├── layout/             # Layout components (navbar, sidebar)
-│   ├── features/           # Feature-specific components
-│   │   ├── students/       # Student-related components
-│   │   ├── attendance/     # Attendance-related components
-│   │   └── dashboard/      # Dashboard widgets
+│   ├── features/           # Domain-specific components
 │   └── auth/               # Auth-related components
 │
-├── lib/                    # Utilities and Helpers
-│   ├── supabase/           # Supabase client helpers
+├── lib/                    # Utilities and helpers
+│   ├── supabase/           # Supabase clients
 │   │   ├── client.ts       # Client-side Supabase client
-│   │   ├── server.ts       # Server-side Supabase client
-│   │   └── middleware.ts   # Auth middleware
-│   ├── utils.ts            # General utilities (cn, etc.)
-│   ├── validators.ts       # Zod schemas
-│   ├── constants.ts        # App constants
+│   │   ├── server.ts       # Server-side Supabase client (cookie-based)
+│   │   └── service-role.ts # Service role client (bypasses RLS)
+│   ├── auth/               # Auth helpers and permission checks
+│   ├── features.config.ts  # Feature flags
+│   ├── server-action-helpers.ts  # withServerAction wrapper
+│   ├── server-action-types.ts    # ServerActionResult types
 │   ├── error-types.ts      # Custom error classes
-│   └── error-handlers.ts   # Error handling utilities
+│   ├── validators.ts       # Zod schemas
+│   └── constants.ts        # App constants
 │
-├── types/                  # TypeScript Types
-│   ├── database.types.ts   # Generated Supabase types
-│   └── *.types.ts          # Domain-specific types
-│
-└── hooks/                  # Custom React Hooks
-    ├── use-*.ts            # Custom hooks
-    └── use-student-detail.tsx  # Context-based hooks
+└── hooks/                  # Custom React hooks and context providers
 ```
 
 ### Critical Architectural Patterns
 
-#### 1. **Use Case Pattern with Dependency Injection**
+#### 1. **Server Action Pattern**
 
-All business logic is encapsulated in Use Cases, instantiated via Factory functions with DataSource abstraction:
-
-```typescript
-// Server-side factory (src/application/factories/studentUseCaseFactory.ts)
-import { createServerDataSource } from '@/lib/data-source-provider'
-
-export async function createCreateStudentUseCase(config?: DataSourceConfig) {
-  const dataSource = await createServerDataSource(config)
-  const repository = new StudentRepository(dataSource)
-  return new CreateStudentUseCase(repository)
-}
-
-// Client-side factory (src/application/factories/studentUseCaseFactory.client.ts)
-import { createClientDataSource } from '@/lib/data-source-provider'
-
-export function createGetStudentsUseCase(config?: DataSourceConfig) {
-  const dataSource = createClientDataSource(config)
-  const repository = new StudentRepository(dataSource)
-  return new GetStudentsUseCase(repository)
-}
-
-// Usage in Production
-const useCase = await createCreateStudentUseCase()
-const result = await useCase.execute(studentData)
-
-// Usage in Tests (with Mock)
-const useCase = await createCreateStudentUseCase({ forceMock: true })
-const result = await useCase.execute(testData)
-```
-
-**Key Points:**
-- Server factories are async (await createServerDataSource)
-- Client factories are sync (createClientDataSource)
-- Factories handle all dependency wiring including DataSource
-- Use Cases are never instantiated directly in components
-- Tests can inject MockDataSource via config parameter
-
-#### 2. **Domain Entities with Business Logic**
-
-Entities encapsulate domain rules and validation:
+All data access goes through Server Actions in `src/app/actions/`. Actions use `withServerAction` / `withServerActionVoid` wrappers that handle auth and error handling uniformly:
 
 ```typescript
-// src/domain/entities/Todo.ts
-export class Todo {
-  static create(props: TodoCreateProps): Todo {
-    // Entity creation with validation
-    const priority = Priority.fromLevel(props.priority)
-    return new Todo({ ...props, priority })
-  }
+// src/app/actions/students/queries.ts
+'use server'
+import { withServerAction } from '@/lib/server-action-helpers'
 
-  complete(): void {
-    if (this.isVerified()) {
-      throw new DomainError('Cannot modify verified todo')
-    }
-    this.props.completedAt = new Date()
-  }
-
-  isOverdue(): boolean {
-    return !this.props.completedAt && this.props.dueDate < new Date()
-  }
-}
-```
-
-**Never put business logic in:**
-- Components (Presentation Layer)
-- Repositories (Infrastructure Layer)
-- API routes (Presentation Layer)
-
-#### 3. **DataSource Abstraction for Testability**
-
-DataSource 추상화 계층으로 Supabase에 대한 강한 결합을 제거하고 테스트 가능성을 향상:
-
-```typescript
-// Domain interface (src/domain/data-sources/IDataSource.ts)
-export interface IDataSource {
-  from<T>(table: string): IQueryBuilder<T>
-  rpc<T>(fn: string, params?: object): Promise<{ data: T | null; error: Error | null }>
-}
-
-// Infrastructure implementations
-// 1. Production (src/infrastructure/data-sources/SupabaseDataSource.ts)
-export class SupabaseDataSource implements IDataSource {
-  constructor(private client: SupabaseClient) {}
-  // Supabase 클라이언트를 래핑
-}
-
-// 2. Testing (src/infrastructure/data-sources/MockDataSource.ts)
-export class MockDataSource implements IDataSource {
-  private store: Map<string, Map<string, any>> = new Map()
-  // In-memory 테스트 데이터
-  seed(table: string, data: any[]): void { ... }
-}
-
-// Usage in Tests
-const mockDataSource = createMockDataSource()
-mockDataSource.seed('students', [testData])
-const useCase = createGetStudentsUseCase({ customDataSource: mockDataSource })
-```
-
-**Key Benefits:**
-- Mock DataSource로 네트워크 없이 유닛 테스트 작성 가능
-- 환경별(local/staging/production) 쉬운 전환
-- 필요시 다른 데이터베이스로 교체 가능 (PostgreSQL, MySQL 등)
-- Repository는 IDataSource만 의존 (Dependency Inversion)
-
-**더 자세한 내용:** `docs/DATASOURCE_ABSTRACTION.md` 참조
-
-#### 4. **Repository Pattern with Interface Segregation**
-
-Repositories implement domain interfaces for dependency inversion:
-
-```typescript
-// Domain interface (src/domain/repositories/IStudentRepository.ts)
-export interface IStudentRepository {
-  findById(id: string): Promise<Student | null>
-  save(student: Student): Promise<void>
-}
-
-// Infrastructure implementation (src/infrastructure/database/student.repository.ts)
-export class StudentRepository implements IStudentRepository {
-  private dataSource: IDataSource
-
-  // IDataSource 또는 SupabaseClient 모두 받을 수 있음 (하위 호환성)
-  constructor(client: IDataSource | SupabaseClient) {
-    this.dataSource = this.isDataSource(client)
-      ? client
-      : new SupabaseDataSource(client)
-  }
-
-  async findById(id: string): Promise<Student | null> {
-    const { data } = await this.dataSource
+export async function getStudents() {
+  return withServerAction(async ({ tenantId, serviceClient }) => {
+    const { data, error } = await serviceClient
       .from('students')
-      .select('*')
-      .eq('id', id)
-      .maybeSingle()
+      .select('*, students_pii(*)')
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+    if (error) throw error
+    return data
+  }, { actionName: 'getStudents', defaultValue: [] })
+}
 
-    return data ? Student.fromDatabase(data) : null
-  }
+// Mutations
+export async function deleteStudent(id: string) {
+  return withServerActionVoid(async ({ tenantId, serviceClient }) => {
+    const { error } = await serviceClient
+      .from('students')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+    if (error) throw error
+  }, { actionName: 'deleteStudent' })
 }
 ```
 
-#### 5. **Multi-tenant Security (RLS)**
+The wrapper (`src/lib/server-action-helpers.ts`):
+- Calls `verifyStaff()` (or `verifyOwner()` / `verifyRole([...])` via `authLevel` option) to authenticate
+- Creates `createServiceRoleClient()` which **bypasses RLS** — permission scoping is enforced by always filtering on `tenantId` from the verified session
+- Returns `ServerActionResult<T>`: `{ success: true, data, error: null }` or `{ success: false, data: defaultValue, error: string }`
 
-All database access is automatically scoped by tenant:
+```typescript
+// Auth levels
+withServerAction(handler, { authLevel: 'staff' })   // default — any staff
+withServerAction(handler, { authLevel: 'owner' })   // owner only
+withServerAction(handler, { authLevel: ['owner', 'instructor'] })  // specific roles
+```
 
-- RLS policies enforce tenant isolation at database level
-- Helper functions: `get_current_tenant_id()`, `get_current_user_role()`
-- Every table has `tenant_id` column
-- PII data stored in separate `*_pii` tables with encryption
-- **Never bypass RLS** - all queries automatically filtered
+#### 2. **Multi-tenant Security**
+
+Server Actions use `createServiceRoleClient()` (bypasses RLS) but enforce tenant isolation at the application level:
+- `verifyStaff()` / `verifyOwner()` returns `{ tenantId, userId, role }` from the verified JWT
+- Every query in a Server Action **must** filter by `.eq('tenant_id', tenantId)`
+- PII data stored in separate `*_pii` tables, accessed via SECURITY DEFINER functions
+- Client-side Supabase calls (for real-time etc.) use the regular client where RLS is active
 
 ```sql
--- Example RLS policy
-CREATE POLICY "Students are viewable by tenant members"
+-- RLS still enforced for client-side queries
+CREATE POLICY "Students viewable by tenant members"
 ON students FOR SELECT
 USING (tenant_id = get_current_tenant_id());
 ```
 
-#### 6. **Server/Client Separation**
-
-Critical distinction between server and client DataSource providers:
-
-```typescript
-// Server-side (Server Components, API routes, Server Actions)
-import { createServerDataSource } from '@/lib/data-source-provider'
-const dataSource = await createServerDataSource() // Async, uses cookies()
-
-// Client-side (Client Components)
-import { createClientDataSource } from '@/lib/data-source-provider'
-const dataSource = createClientDataSource() // Sync, uses browser storage
-```
-
-**Rules:**
-- Server Components: Use server factory with await
-- Client Components: Use client factory, React Query for caching
-- API routes: Use server factory
-- Server Actions: Use server factory
-- Tests: Inject MockDataSource via config parameter
-
-#### 7. **Component Organization**
+#### 3. **Component Organization**
 
 ```
 components/
@@ -328,22 +196,18 @@ components/
 └── auth/            # Auth forms, loading states
 ```
 
-**Component Rules:**
 - Use `'use client'` only when necessary (forms, animations, interactivity)
 - Prefer Server Components for data fetching
-- Extract reusable patterns to `components/ui`
-- Feature components should use Use Cases, not direct DB calls
+- Feature components call Server Actions directly — no intermediate use-case layer
 
-#### 8. **Custom Hooks Location**
+#### 4. **Custom Hooks Location**
 
-All custom hooks and context providers belong in `src/hooks/`:
+All custom hooks and context providers belong in `src/hooks/`. Never create `src/contexts/` or `src/providers/` directories.
 
 ```typescript
-// src/hooks/use-student-detail.tsx (Context + Hook)
+// src/hooks/use-student-detail.tsx (Context + Hook together)
 export function StudentDetailProvider({ value, children }) {
-  return <StudentDetailContext.Provider value={value}>
-    {children}
-  </StudentDetailContext.Provider>
+  return <StudentDetailContext.Provider value={value}>{children}</StudentDetailContext.Provider>
 }
 
 export function useStudentDetail() {
@@ -353,380 +217,12 @@ export function useStudentDetail() {
 }
 ```
 
-**Never create:**
-- `src/contexts/` directory (use hooks/ instead)
-- `src/providers/` directory (use hooks/ instead)
+#### 5. **Async Widgets with Error Boundaries**
 
-### Database Design Principles
-
-- **UUID v7** for all IDs (time-ordered, indexable)
-- **Soft deletes**: `deleted_at` timestamp on all tables
-- **Audit trail**: `created_at`, `updated_at` standard fields
-- **Reference codes**: Avoid ENUMs, use `ref_code` and `tenant_code` tables
-- **Time integrity**: UTC timestamps (`timestamptz`), display with tenant timezone
-- **Data types**:
-  - Money: `BIGINT` (won units)
-  - Scores: `NUMERIC(5,2)`
-  - Emails: `citext` (case-insensitive)
-  - Phones: `text` with E.164 validation
-- **Partitioning**: Monthly partitions for high-volume tables (attendance, messages)
-- **Indexes**: Covering indexes with tenant_id, partial indexes for soft deletes
-
-### Security Model
-
-- **Authentication**: Supabase Auth JWT → `auth.users.id` maps to `users.id`
-- **Authorization**: Role-based access control via RLS policies
-- **Roles**: `owner`, `instructor`, `assistant`, `parent`, `student`
-- **PII Protection**: Separate `*_pii` tables, accessed via SECURITY DEFINER functions
-- **Tenant Isolation**: All queries automatically scoped by `tenant_id` via RLS
-
-## Development Guidelines
-
-### TypeScript Rules
-
-- **Strict mode enabled** - no implicit any
-- Avoid `any` - use `unknown` and type guards if needed
-- Document `any` usage with `// TODO(any): reason` if unavoidable
-- Prefer type inference over explicit types when clear
-- Use Zod for runtime validation and type inference
-
-### Code Style
-
-- **Server Components by default** - only use `'use client'` when needed
-- **File naming**:
-  - Components: `PascalCase.tsx`
-  - Hooks: `use*.ts` or `use*.tsx`
-  - Utils: `camelCase.ts`
-  - Use Cases: `*UseCase.ts`
-  - Repositories: `*.repository.ts`
-  - Factories: `*UseCaseFactory.ts` or `*UseCaseFactory.client.ts`
-- **No color hardcoding** - use Tailwind tokens (e.g., `bg-background`)
-- **Extract reusable patterns** to `components/ui`
-
-### Where to Put Code
-
-**Business Logic** → `application/use-cases/`
-- Never in components, API routes, or repositories
-- Use Case classes handle orchestration
-- Entities contain domain rules
-
-**Data Access** → `infrastructure/database/`
-- Implement domain repository interfaces
-- Only database operations, no business logic
-- Extend BaseRepository for common operations
-
-**UI Components** → `components/`
-- Presentational only, no business logic
-- Call Use Cases via factories
-- Use hooks for state and side effects
-
-**Utilities** → `lib/`
-- Pure functions only
-- No business logic
-- No database access
-
-**Types** → `types/` or `domain/`
-- Database types in `types/database.types.ts` (generated)
-- Domain types with entities in `domain/entities/`
-- Shared types in `types/*.types.ts`
-
-### State Management
-
-- **SSR/ISR**: Use Server Components for lists, reports, dashboards
-- **CSR with React Query**: Use for interactive forms, real-time updates
-- **Server Actions**: Preferred for mutations with proper revalidation
-- **Context**: Use sparingly, only for UI state propagation (see hooks/)
-
-### Error Handling
-
-- User-facing errors: Short, actionable messages (e.g., "권한이 없습니다")
-- Server logging: Structured JSON with context (`console.error({ tag, err, ctx })`)
-- Custom error types in `lib/error-types.ts`:
-  - `ValidationError` - Invalid input
-  - `AuthorizationError` - Permission denied
-  - `NotFoundError` - Resource not found
-  - `DatabaseError` - Database operation failed
-  - `DomainError` - Business rule violation
-
-### Testing Strategy
-
-- **Unit tests**: `src/lib/*.test.ts` with Vitest
-- **E2E tests**: `tests/e2e/*.spec.ts` with Playwright
-- **Test data**: Use `supabase/migrations/03_sample_data.sql` fixtures
-- Test Use Cases in isolation by mocking repositories
-
-### Git Workflow
-
-- **Branch naming**: `feature/*`, `fix/*`, `chore/*`
-- **Commits**: **반드시 한국어로 작성** (Conventional Commits 형식)
-  - `feat: 학생 등록 폼 추가`
-  - `fix: RLS 정책 누락 수정`
-  - `chore: 리포지토리 구조 개선`
-  - `feat(알림): 카카오 알림톡 연동 추가`
-  - `fix(리포트): 월간 리포트 성적 누락 수정`
-- **PRs**: Include summary, migration file links if schema changed, screenshots
-
-### Database Migrations
-
-- **Location**: `supabase/migrations/`
-- **Naming**: `YYYYMMDDNNNNNN_descriptive_name.sql` (timestamp + sequence)
-- **Application**: Apply via Supabase dashboard SQL Editor or `supabase db push`
-- **Include**: Schema + RLS policies in each migration
-- **Strategy**: Two-phase column additions for zero-downtime:
-  1. Add nullable column
-  2. Populate data
-  3. Add constraint
-  4. Remove old column
-
-## Common Patterns
-
-### Adding a New Feature
-
-1. **Define Domain Layer**:
-   - Create entity in `domain/entities/`
-   - Create value objects in `domain/value-objects/`
-   - Define repository interface in `domain/repositories/`
-
-2. **Implement Infrastructure**:
-   - Create repository in `infrastructure/database/`
-   - Implement interface with Supabase queries
-
-3. **Create Use Cases**:
-   - Create use cases in `application/use-cases/[domain]/`
-   - One use case per action (Create, Update, Delete, Get)
-
-4. **Add Factories**:
-   - Server factory in `application/factories/`
-   - Client factory in `application/factories/*.client.ts`
-
-5. **Build UI**:
-   - Create components in `components/features/[domain]/`
-   - Use factories to get use cases
-   - Never import use cases or repositories directly
-
-6. **Register Feature Flag**:
-   - Add the feature key to `src/lib/features.config.ts` with an appropriate status (`inactive` while building, `beta` for soft launch, `active` for full release)
-   - Use `isFeatureAvailable(feature)` in nav/routing guards to control access
-
-7. **Add Database Migration**:
-   - Create migration in `supabase/migrations/`
-   - Include schema and RLS policies
-   - Test locally with `supabase db reset`
-
-### Feature Flags
-
-All features are registered in `src/lib/features.config.ts` with one of five statuses:
-
-| Status | Meaning |
-|--------|---------|
-| `active` | Fully released, all users can access |
-| `beta` | Soft launch — accessible but marked with beta badge |
-| `inactive` | Not yet released — shows "Coming Soon" page |
-| `maintenance` | Temporarily down — shows maintenance page |
-| `deprecated` | Being phased out — shows deprecation warning |
-
-```typescript
-import { isFeatureAvailable, isFeatureBeta } from '@/lib/features.config'
-
-// Guard a route or nav item
-if (!isFeatureAvailable('batchCenter')) redirect('/coming-soon')
-
-// Show beta badge
-{isFeatureBeta('batchCenter') && <Badge>Beta</Badge>}
-```
-
-**Rule**: Every new top-level feature/route must have a corresponding feature flag. Start with `inactive` and promote when ready.
-
-### Accessing Data in Components
-
-```typescript
-// ❌ BAD: Direct database access in component
-const { data } = await supabase.from('students').select()
-
-// ❌ BAD: Direct use case instantiation
-const useCase = new GetStudentsUseCase(repository)
-
-// ✅ GOOD: Use factory in Server Component
-const useCase = await createGetStudentsUseCase()
-const students = await useCase.execute()
-
-// ✅ GOOD: Use factory in Client Component with React Query
-const useCase = createGetStudentsUseCase()
-const { data: students } = useQuery({
-  queryKey: ['students'],
-  queryFn: () => useCase.execute()
-})
-```
-
-### Handling Forms
-
-```typescript
-// Define Zod schema
-const studentSchema = z.object({
-  name: z.string().min(1),
-  grade: z.string(),
-})
-
-// Use React Hook Form
-const form = useForm<z.infer<typeof studentSchema>>({
-  resolver: zodResolver(studentSchema),
-})
-
-// Submit with Server Action or Use Case
-async function onSubmit(data: z.infer<typeof studentSchema>) {
-  const useCase = createCreateStudentUseCase()
-  await useCase.execute(data)
-}
-```
-
-### Confirmation Dialogs
-
-**Always use `ConfirmationDialog` component instead of native `confirm()`** for user confirmations.
-
-```typescript
-import { useState } from 'react'
-import { ConfirmationDialog } from '@ui/confirmation-dialog'
-
-function MyComponent() {
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
-
-  async function handleConfirmDelete() {
-    setIsDeleting(true)
-    try {
-      await deleteItem(id)
-      toast({ title: '삭제 완료' })
-    } catch (error) {
-      toast({ title: '삭제 실패', variant: 'destructive' })
-    } finally {
-      setIsDeleting(false)
-      setDeleteDialogOpen(false)
-    }
-  }
-
-  return (
-    <>
-      <Button onClick={() => setDeleteDialogOpen(true)}>삭제</Button>
-
-      <ConfirmationDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        title="정말로 삭제하시겠습니까?"
-        description="이 작업은 되돌릴 수 없습니다."
-        confirmText="삭제"
-        variant="destructive"
-        isLoading={isDeleting}
-        onConfirm={handleConfirmDelete}
-      />
-    </>
-  )
-}
-```
-
-**Benefits:**
-- ✅ Consistent UI/UX across the app
-- ✅ Loading states with spinner
-- ✅ Clear warning messages
-- ✅ Better accessibility
-
-**See also:** `docs/SKELETON_GUIDE.md` - Confirmation Dialog section
-
-### Handling Empty States
-
-```typescript
-// ❌ BAD: Hardcoded empty state
-{data.length === 0 && (
-  <div className="text-center p-8">
-    <p>No data</p>
-  </div>
-)}
-
-// ✅ GOOD: Use EmptyState component
-import { EmptyState } from '@ui/empty-state'
-import { Users } from 'lucide-react'
-
-{data.length === 0 ? (
-  <EmptyState
-    icon={Users}
-    title="등록된 학생이 없습니다"
-    description="새로운 학생을 등록하여 시작하세요"
-    action={<Button onClick={() => router.push('/students/new')}>학생 등록</Button>}
-  />
-) : (
-  <Table data={data} />
-)}
-
-// ✅ GOOD: Differentiate between no data and no search results
-{filteredData.length === 0 ? (
-  searchTerm ? (
-    <NoSearchResultsEmptyState
-      searchTerm={searchTerm}
-      onClearSearch={() => setSearchTerm('')}
-      icon={Search}
-    />
-  ) : (
-    <EmptyState
-      icon={Users}
-      title="등록된 데이터가 없습니다"
-      description="새로운 항목을 추가하세요"
-      action={<Button onClick={handleCreate}>추가</Button>}
-    />
-  )
-) : (
-  <List data={filteredData} />
-)}
-```
-
-**Benefits:**
-- ✅ Consistent empty state UI/UX
-- ✅ Clear action guidance for users
-- ✅ Different states for no data vs. no search results
-- ✅ Better user engagement
-
-**See also:** `docs/SKELETON_GUIDE.md` - EmptyState section
-
-## Async Widgets & Error Handling Strategy
-
-### Overview
-
-The project implements a **granular error handling and loading state management** strategy using React Suspense and Error Boundaries. This allows each widget to load independently and fail gracefully without affecting the entire page.
-
-**Key Benefits:**
-- 🔥 **Isolated Failures** - One widget failure doesn't crash the entire page
-- ⚡ **Progressive Loading** - Fast data loads immediately, heavy data streams in
-- 🎯 **Better UX** - Users see partial content instead of blank pages
-- 🛡️ **Resilient** - Error boundaries catch and display errors gracefully
-
-### Demo Page
-
-Visit `/dashboard/demo` to see the pattern in action with real examples.
-
-### Core Components
-
-1. **ErrorFallback** (`src/components/ui/error-fallback.tsx`)
-   - Multiple variants: `default`, `compact`, `inline`, `full-page`
-   - Specialized fallbacks: `WidgetErrorFallback`, `ListItemErrorFallback`, `SectionErrorFallback`
-
-2. **WidgetSkeleton** (`src/components/ui/widget-skeleton.tsx`)
-   - Loading states for different widget types: `stats`, `list`, `chart`, `calendar`, `table`
-   - Utility skeletons: `CompactWidgetSkeleton`, `KPIGridSkeleton`, `InlineSkeleton`
-
-3. **WidgetErrorBoundary** (`src/components/features/dashboard/widget-error-boundary.tsx`)
-   - Wrapper using `react-error-boundary` library
-   - Handles error logging and reset functionality
-
-### Usage Pattern
+Dashboard widgets use React Suspense + Error Boundaries for isolated loading/failure:
 
 ```tsx
-// 1. Create async Server Component
-async function MyWidgetContent() {
-  const supabase = await createClient()
-  const { data, error } = await supabase.from('table').select('*')
-  if (error) throw new Error('Failed to load data')
-  return <Card>{data}</Card>
-}
-
-// 2. Wrap with Error Boundary and Suspense
+// Wrap async Server Component with error boundary
 export function MyWidgetAsync() {
   return (
     <ErrorBoundary
@@ -735,90 +231,230 @@ export function MyWidgetAsync() {
       )}
     >
       <Suspense fallback={<WidgetSkeleton variant="list" />}>
-        <MyWidgetContent />
+        <MyWidgetContent />  {/* async Server Component */}
       </Suspense>
     </ErrorBoundary>
   )
 }
+```
 
-// 3. Use in page
-export default function Page() {
-  return (
-    <div className="grid grid-cols-2 gap-6">
-      <MyWidgetAsync />
-      <AnotherWidgetAsync />
-    </div>
-  )
+Core components: `ErrorFallback` (`src/components/ui/error-fallback.tsx`), `WidgetSkeleton` (`src/components/ui/widget-skeleton.tsx`), `WidgetErrorBoundary` (`src/components/features/dashboard/widget-error-boundary.tsx`).
+
+Use for slow/optional queries; use direct Server Component data fetching for fast/critical data.
+
+### Database Design Principles
+
+- **UUID v7** for all IDs (time-ordered, indexable)
+- **Soft deletes**: `deleted_at` timestamp on all tables
+- **Audit trail**: `created_at`, `updated_at` on all tables
+- **Reference codes**: Avoid ENUMs, use `ref_code` and `tenant_code` tables
+- **Time integrity**: UTC timestamps (`timestamptz`), display with tenant timezone
+- **Data types**: Money as `BIGINT` (won), scores as `NUMERIC(5,2)`, emails as `citext`, phones as `text` (E.164)
+- **Partitioning**: Monthly partitions for high-volume tables (attendance, messages)
+- **Indexes**: Covering indexes with tenant_id, partial indexes for soft deletes
+
+### Security Model
+
+- **Authentication**: Supabase Auth JWT → `auth.users.id` maps to `users.id`
+- **Authorization**: `verifyStaff()` / `verifyOwner()` in every Server Action
+- **Roles**: `owner`, `instructor`, `assistant`, `parent`, `student`
+- **Tenant Isolation**: Server Actions always filter by `tenantId` from verified session
+- **PII Protection**: Separate `*_pii` tables, accessed via SECURITY DEFINER functions
+
+## Development Guidelines
+
+### TypeScript Rules
+
+- **Strict mode enabled** — no implicit any
+- Avoid `any` — use `unknown` and type guards if needed
+- Document `any` usage with `// TODO(any): reason` if unavoidable
+- Use Zod for runtime validation and type inference
+
+### Code Style
+
+- **Server Components by default** — only use `'use client'` when needed
+- **File naming**:
+  - Components: `PascalCase.tsx`
+  - Hooks: `use*.ts` or `use*.tsx`
+  - Utils: `camelCase.ts`
+  - Server Actions: `camelCase.ts` (in `app/actions/`)
+- **No color hardcoding** — use Tailwind tokens (e.g., `bg-background`)
+
+### Where to Put Code
+
+**Server Actions** → `app/actions/[domain]/`
+- All data fetching and mutations
+- Always use `withServerAction` or `withServerActionVoid` wrapper
+- Always filter by `tenantId`
+- Large action files are split by concern (e.g., `students/queries.ts`, `students/mutations.ts`, `students/bulk.ts`)
+
+**Domain Types** → `core/types/`
+- TypeScript types for domain concepts (not Supabase-generated)
+- File pattern: `*.types.ts` or plain `*.ts`
+
+**Infrastructure** → `infra/`
+- External service implementations (messaging providers)
+
+**UI Components** → `components/`
+- Presentational only, no direct database access
+- Call Server Actions, use React Query for caching where needed
+
+**Utilities** → `lib/`
+- Pure functions, no database access
+
+### State Management
+
+- **Server Components**: Use for lists, reports, dashboards
+- **React Query**: Use in Client Components for interactive, cached, or real-time data
+- **Server Actions**: Preferred for all mutations with `revalidatePath`/`revalidateTag`
+- **Context**: Use sparingly, only for UI state (see `hooks/`)
+
+### Error Handling
+
+- User-facing errors: Short, actionable messages in Korean (e.g., "권한이 없습니다")
+- Server logging: `console.error('[actionName] Error:', error)`
+- Custom error types in `lib/error-types.ts`:
+  - `ValidationError`, `AuthorizationError`, `NotFoundError`, `DatabaseError`, `DomainError`
+- Server Actions always return `ServerActionResult` — never throw to the client
+
+### Testing Strategy
+
+- **Unit tests**: Co-located as `*.test.ts` with Vitest (see `src/app/actions/` for examples)
+- **E2E tests**: `tests/e2e/*.spec.ts` with Playwright
+- **Test data**: Use `supabase/migrations/` sample data fixtures
+
+### Git Workflow
+
+- **Branch naming**: `feature/*`, `fix/*`, `chore/*`
+- **Commits**: **반드시 한국어로 작성** (Conventional Commits 형식)
+  - `feat: 학생 등록 폼 추가`
+  - `fix: RLS 정책 누락 수정`
+  - `feat(알림): 카카오 알림톡 연동 추가`
+  - `fix(리포트): 월간 리포트 성적 누락 수정`
+- **PRs**: Include summary, migration file links if schema changed, screenshots
+
+### Database Migrations
+
+- **Location**: `supabase/migrations/`
+- **Naming**: `YYYYMMDDNNNNNN_descriptive_name.sql`
+- **Include**: Schema + RLS policies in each migration
+- **Zero-downtime**: Add nullable column → populate data → add constraint → remove old column
+
+## Common Patterns
+
+### Adding a New Feature
+
+1. **Define types** in `core/types/[domain].types.ts`
+2. **Create Server Actions** in `app/actions/[domain].ts` using `withServerAction`
+3. **Build UI components** in `components/features/[domain]/`
+4. **Register feature flag** in `src/lib/features.config.ts` (start with `inactive`)
+5. **Add route** in `app/(dashboard)/[domain]/`
+6. **Add database migration** in `supabase/migrations/` with schema + RLS policies
+
+### Feature Flags
+
+All features are registered in `src/lib/features.config.ts` with one of five statuses:
+
+| Status | Meaning |
+|--------|---------|
+| `active` | Fully released, all users can access |
+| `beta` | Accessible but marked with beta badge |
+| `inactive` | Not yet released — shows "Coming Soon" page |
+| `maintenance` | Temporarily down — shows maintenance page |
+| `deprecated` | Being phased out — shows deprecation warning |
+
+```typescript
+import { isFeatureAvailable, isFeatureBeta } from '@/lib/features.config'
+
+if (!isFeatureAvailable('batchCenter')) redirect('/coming-soon')
+{isFeatureBeta('batchCenter') && <Badge>Beta</Badge>}
+```
+
+Every new top-level feature/route must have a corresponding feature flag.
+
+### Accessing Data in Components
+
+```typescript
+// Server Component — call action directly
+export default async function StudentsPage() {
+  const result = await getStudents()
+  const students = result.success ? result.data : []
+  return <StudentList students={students} />
+}
+
+// Client Component — use React Query
+export function StudentListClient() {
+  const { data: result } = useQuery({
+    queryKey: ['students'],
+    queryFn: () => getStudents(),
+  })
+  const students = result?.success ? result.data : []
+  return <StudentList students={students} />
 }
 ```
 
-### Hybrid Approach (Recommended)
+### Handling Forms
 
-Combine fast RPC calls with independent async widgets:
+```typescript
+const studentSchema = z.object({ name: z.string().min(1), grade: z.string() })
 
-```tsx
-export default async function DashboardPage() {
-  // Fast data - single RPC call
-  const { data: kpiData } = await supabase.rpc('get_kpi_data')
+const form = useForm<z.infer<typeof studentSchema>>({
+  resolver: zodResolver(studentSchema),
+})
 
-  return (
-    <div>
-      {/* Fast widgets - render immediately */}
-      <KPICards data={kpiData} />
-
-      {/* Heavy widgets - stream independently */}
-      <div className="grid grid-cols-2 gap-6">
-        <RecentActivityFeedAsync />
-        <ComplexAnalyticsWidgetAsync />
-      </div>
-    </div>
-  )
+async function onSubmit(data: z.infer<typeof studentSchema>) {
+  const result = await createStudent(data)
+  if (!result.success) toast({ title: result.error, variant: 'destructive' })
 }
 ```
 
-### When to Use
+### Confirmation Dialogs
 
-✅ **Use async widgets for:**
-- Slow queries (complex joins, large datasets)
-- Independent data that can fail gracefully
-- Real-time/frequently updated data
-- Optional features (user can work without them)
+Always use `ConfirmationDialog` instead of native `confirm()`:
 
-❌ **Don't use async widgets for:**
-- Fast data (KPIs, simple queries)
-- Critical data (required for page function)
-- Data with dependencies between widgets
+```typescript
+import { ConfirmationDialog } from '@ui/confirmation-dialog'
 
-### Examples
+<ConfirmationDialog
+  open={deleteDialogOpen}
+  onOpenChange={setDeleteDialogOpen}
+  title="정말로 삭제하시겠습니까?"
+  description="이 작업은 되돌릴 수 없습니다."
+  confirmText="삭제"
+  variant="destructive"
+  isLoading={isDeleting}
+  onConfirm={handleConfirmDelete}
+/>
+```
 
-**Live examples:**
-- `src/components/features/dashboard/recent-activity-feed-async.tsx`
-- `src/components/features/dashboard/recent-students-card-async.tsx`
-- `src/components/features/dashboard/async-widget-example.tsx`
+### Handling Empty States
 
-**Documentation:**
-- `docs/error-and-loading-strategy.md` - Detailed guide with patterns
-- `docs/ASYNC_WIDGETS_GUIDE.md` - Quick start guide
+```typescript
+import { EmptyState, NoSearchResultsEmptyState } from '@ui/empty-state'
+
+{filteredData.length === 0 ? (
+  searchTerm ? (
+    <NoSearchResultsEmptyState searchTerm={searchTerm} onClearSearch={() => setSearchTerm('')} />
+  ) : (
+    <EmptyState
+      icon={Users}
+      title="등록된 학생이 없습니다"
+      description="새로운 학생을 등록하여 시작하세요"
+      action={<Button onClick={handleCreate}>학생 등록</Button>}
+    />
+  )
+) : (
+  <StudentList data={filteredData} />
+)}
+```
 
 ## Important Files
 
-### Folder Structure & Migration
-- `docs/FOLDER_STRUCTURE.md` - **📁 폴더 구조 표준안 (필독!)**
-- `docs/migration/MIGRATION_ROADMAP.md` - **🗺️ 마이그레이션 로드맵 및 진행 상황**
-
-### Migration Documentation
-- `docs/migration/INDEX.md` - **Migration documentation index and navigation**
-- `docs/migration/OVERVIEW.md` - Migration overview and current status
-- `docs/migration/CHECKLIST.md` - Phase-by-phase checklist
-- `docs/migration/QUICK_REFERENCE.md` - Server Actions usage guide
-- `docs/migration/phases/` - Detailed documentation for each phase
-
 ### Architecture & Development
-- `docs/DATASOURCE_ABSTRACTION.md` - DataSource abstraction and testing guide
 - `docs/DEPLOYMENT_GUIDE.md` - Complete deployment guide for Local/Staging/Production
-- `docs/error-and-loading-strategy.md` - Error handling strategy
+- `docs/error-and-loading-strategy.md` - Error handling and async widget strategy
 - `docs/ASYNC_WIDGETS_GUIDE.md` - Async widgets quick start
-- `docs/SKELETON_GUIDE.md` - **Skeleton component usage guide**
+- `docs/SKELETON_GUIDE.md` - Skeleton and empty state component guide
 - `internal/tech/Architecture.md` - System architecture and deployment
 - `internal/tech/ERD.md` - Database schema design principles
 - `internal/tech/CodeGuideline.md` - Detailed coding standards (Korean)
@@ -829,3 +465,4 @@ export default async function DashboardPage() {
 - `vitest.config.ts` - Test configuration
 - `playwright.config.ts` - E2E test configuration
 - `src/lib/env.ts` - Type-safe environment variables validation
+- `src/lib/features.config.ts` - Feature flags

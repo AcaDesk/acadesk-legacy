@@ -28,8 +28,10 @@ import { renderWidgetContent } from "./widget-factory"
 import { WidgetErrorBoundary } from "@/components/features/dashboard/widget-error-boundary"
 import { cn } from "@/lib/utils"
 import { saveDashboardPreferences } from "@/app/actions/dashboard-preferences"
-import { getKPIStatsByPeriod, type KPIPeriod } from "@/app/actions/dashboard-kpi"
+import { getKPIStatsByPeriod } from "@/app/actions/dashboard-kpi"
 import type { DrilldownWidgetId } from "@/app/actions/dashboard-drilldown"
+import { useDashboardStore } from "@/lib/stores/dashboard.store"
+import { queryKeys } from "@/lib/query-keys"
 
 const AutoWidthGridLayout = WidthProvider(ReactGridLayout)
 const WidgetDrilldownDialog = dynamic(
@@ -128,32 +130,32 @@ export function DashboardClient({ data: initialData, savedPreferences }: Dashboa
   const [widgets, setWidgets] = useState<DashboardWidget[]>(
     () => resolveInitialWidgets(savedPreferences?.widgets)
   )
-  const [isEditMode, setIsEditMode] = useState(false)
   const [tempWidgets, setTempWidgets] = useState<DashboardWidget[]>([])
   const [isSaving, setIsSaving] = useState(false)
 
   // Undo 히스토리 (#6)
   const [widgetHistory, setWidgetHistory] = useState<DashboardWidget[][]>([])
 
-  // 자동 새로고침 (#5)
-  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(() => {
-    if (typeof window === 'undefined') return true
-    return localStorage.getItem('dashboard-auto-refresh') !== 'false'
-  })
-
-  // 위젯 컨트롤 (#1 최대화, #4 새로고침)
-  const [maximizedWidgetId, setMaximizedWidgetId] = useState<string | null>(null)
+  // 위젯 새로고침 표시
   const [refreshingWidgetId, setRefreshingWidgetId] = useState<string | null>(null)
 
-  // KPI 기간 선택 (#3)
-  const [kpiPeriod, setKpiPeriod] = useState<KPIPeriod>('today')
-
-  // 드릴다운 (#8)
-  const [drilldownWidgetId, setDrilldownWidgetId] = useState<DrilldownWidgetId | null>(null)
+  // 전역 대시보드 상태 (Zustand — 페이지 이동 후에도 유지)
+  const {
+    isEditMode,
+    setEditMode,
+    maximizedWidgetId,
+    setMaximizedWidgetId,
+    kpiPeriod,
+    setKpiPeriod,
+    autoRefreshEnabled,
+    toggleAutoRefresh,
+    drilldownWidgetId,
+    setDrilldownWidgetId,
+  } = useDashboardStore()
 
   // KPI 기간별 통계
   const { data: kpiStatsData } = useQuery({
-    queryKey: ['kpi-stats', kpiPeriod],
+    queryKey: queryKeys.dashboard.kpi(kpiPeriod),
     queryFn: () => getKPIStatsByPeriod(kpiPeriod),
     staleTime: 60_000,
     enabled: kpiPeriod !== 'today',
@@ -256,12 +258,8 @@ export function DashboardClient({ data: initialData, savedPreferences }: Dashboa
   }, [router])
 
   const handleToggleAutoRefresh = useCallback(() => {
-    setAutoRefreshEnabled(prev => {
-      const next = !prev
-      localStorage.setItem('dashboard-auto-refresh', String(next))
-      return next
-    })
-  }, [])
+    toggleAutoRefresh()
+  }, [toggleAutoRefresh])
 
   const handleEnterEditMode = useCallback(() => {
     const widgetsWithNames = widgets.map(widget => ({
@@ -270,14 +268,14 @@ export function DashboardClient({ data: initialData, savedPreferences }: Dashboa
     }))
     setTempWidgets(widgetsWithNames)
     setWidgetHistory([])
-    setIsEditMode(true)
-  }, [widgets])
+    setEditMode(true)
+  }, [widgets, setEditMode])
 
   const handleCancelEdit = useCallback(() => {
     setTempWidgets([])
     setWidgetHistory([])
-    setIsEditMode(false)
-  }, [])
+    setEditMode(false)
+  }, [setEditMode])
 
   const handleSaveChanges = useCallback(async () => {
     if (!hasChanges) return
@@ -290,13 +288,13 @@ export function DashboardClient({ data: initialData, savedPreferences }: Dashboa
       setWidgets(tempWidgets)
       setTempWidgets([])
       setWidgetHistory([])
-      setIsEditMode(false)
+      setEditMode(false)
     } catch (error) {
       console.error('Failed to save preferences:', error)
     } finally {
       setIsSaving(false)
     }
-  }, [hasChanges, tempWidgets])
+  }, [hasChanges, tempWidgets, setEditMode])
 
   const handleSetWidgetVisibility = useCallback((widgetId: string, visible?: boolean) => {
     pushHistory(tempWidgets)
@@ -326,8 +324,8 @@ export function DashboardClient({ data: initialData, savedPreferences }: Dashboa
   }, [tempWidgets, pushHistory])
 
   const handleMaximizeWidget = useCallback((id: string) => {
-    setMaximizedWidgetId(prev => (prev === id ? null : id))
-  }, [])
+    setMaximizedWidgetId(maximizedWidgetId === id ? null : id)
+  }, [maximizedWidgetId, setMaximizedWidgetId])
 
   const handleRefreshWidget = useCallback((id: string) => {
     setRefreshingWidgetId(id)
@@ -541,7 +539,7 @@ export function DashboardClient({ data: initialData, savedPreferences }: Dashboa
       <div className="space-y-3">
         {/* KPI 기간 선택기 (#3) — 보기 모드에서만 표시 */}
         {!isEditMode && (
-          <KPIPeriodSelector period={kpiPeriod} onChange={setKpiPeriod} />
+          <KPIPeriodSelector period={kpiPeriod} onChange={(p) => setKpiPeriod(p)} />
         )}
 
         {/* 편집 모드 안내 */}
