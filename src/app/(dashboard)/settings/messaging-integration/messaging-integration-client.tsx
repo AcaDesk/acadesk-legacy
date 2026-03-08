@@ -139,6 +139,7 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
   const initialFormData = useRef<FormData>(initialFormDataValue)
   const [isEditingCredentials, setIsEditingCredentials] = useState(!config)
 
+  const [activeTab, setActiveTab] = useState('api')
   const [testPhone, setTestPhone] = useState('')
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
@@ -177,31 +178,12 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
   async function handleSave() {
     setSaving(true)
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let payload: any = { provider: formData.provider }
-
-      if (formData.provider === 'aligo') {
-        payload = {
-          ...payload,
-          aligo_user_id: formData.aligo_user_id,
-          aligo_api_key: formData.aligo_api_key,
-          aligo_sender_phone: formData.aligo_sender_phone,
-        }
-      } else if (formData.provider === 'solapi') {
-        payload = {
-          ...payload,
-          solapi_api_key: formData.solapi_api_key,
-          solapi_api_secret: formData.solapi_api_secret,
-          solapi_sender_phone: formData.solapi_sender_phone,
-        }
-      } else if (formData.provider === 'nhncloud') {
-        payload = {
-          ...payload,
-          nhncloud_app_key: formData.nhncloud_app_key,
-          nhncloud_secret_key: formData.nhncloud_secret_key,
-          nhncloud_sender_phone: formData.nhncloud_sender_phone,
-        }
-      }
+      const payload =
+        formData.provider === 'aligo'
+          ? { provider: 'aligo' as const, aligo_user_id: formData.aligo_user_id, aligo_api_key: formData.aligo_api_key, aligo_sender_phone: formData.aligo_sender_phone }
+          : formData.provider === 'solapi'
+            ? { provider: 'solapi' as const, solapi_api_key: formData.solapi_api_key, solapi_api_secret: formData.solapi_api_secret, solapi_sender_phone: formData.solapi_sender_phone }
+            : { provider: 'nhncloud' as const, nhncloud_app_key: formData.nhncloud_app_key, nhncloud_secret_key: formData.nhncloud_secret_key, nhncloud_sender_phone: formData.nhncloud_sender_phone }
 
       const result = await saveMessagingConfig(payload)
 
@@ -287,10 +269,6 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
     } finally {
       setToggling(false)
     }
-  }
-
-  function handleDeleteClick() {
-    setDeleteDialogOpen(true)
   }
 
   async function handleConfirmDelete() {
@@ -385,7 +363,7 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
       )}
 
       {/* Tabs */}
-      <Tabs defaultValue="api" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
           <TabsTrigger value="api" className="gap-2">
             <Settings className="h-4 w-4" />
@@ -674,7 +652,7 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
               )}
               {!isEditingCredentials && hasConfig && (
                 <div className="flex items-center gap-2 mt-6">
-                  <Button variant="outline" onClick={handleDeleteClick} disabled={deleting}>
+                  <Button variant="outline" onClick={() => setDeleteDialogOpen(true)} disabled={deleting}>
                     <Trash2 className="h-4 w-4 mr-2" />
                     설정 삭제
                   </Button>
@@ -824,10 +802,7 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
                   />
 
                   <div className="text-center">
-                    <Button variant="outline" onClick={() => {
-                      const apiTab = document.querySelector('[data-state="inactive"][value="api"]') as HTMLElement
-                      apiTab?.click()
-                    }}>
+                    <Button variant="outline" onClick={() => setActiveTab('api')}>
                       API 설정으로 이동
                     </Button>
                   </div>

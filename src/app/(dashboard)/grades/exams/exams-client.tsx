@@ -39,8 +39,12 @@ import {
 } from '@tabler/icons-react'
 import { useToast } from '@/hooks/use-toast'
 import { usePagination } from '@/hooks/use-pagination'
-import { deleteExam, bulkDeleteExams, archiveExam, unarchiveExam } from '@/app/actions/grades/exams'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
+import {
+  useDeleteExamMutation,
+  useBulkDeleteExamsMutation,
+  useArchiveExamMutation,
+} from '@/hooks/mutations/use-exam-mutations'
 import { EmptyState, NoSearchResultsEmptyState } from '@ui/empty-state'
 import { PAGE_LAYOUT, TEXT_STYLES } from '@/lib/constants'
 import { PAGE_ANIMATIONS } from '@/lib/animation-config'
@@ -145,8 +149,27 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [examToDelete, setExamToDelete] = useState<{ id: string; name: string } | null>(null)
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
   const [pageSize, setPageSize] = useState(10)
+
+  const deleteMutation = useDeleteExamMutation({
+    onMutate: (id) => {
+      setExams((prev) => prev.filter((e) => e.id !== id))
+      setSelectedIds((prev) => { const next = new Set(prev); next.delete(id); return next })
+    },
+    onRollback: () => setExams(initialExams),
+  })
+  const bulkDeleteMutation = useBulkDeleteExamsMutation({
+    onMutate: (ids) => setExams((prev) => prev.filter((e) => !ids.includes(e.id))),
+    onRollback: () => setExams(initialExams),
+  })
+  const archiveMutation = useArchiveExamMutation({
+    onMutate: (id, archive) => {
+      setExams((prev) =>
+        prev.map((e) => e.id === id ? { ...e, archived_at: archive ? new Date().toISOString() : null } : e)
+      )
+    },
+    onRollback: () => setExams(initialExams),
+  })
 
   // Sync with server data on revalidation
   useEffect(() => {
@@ -280,112 +303,25 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
     setDeleteDialogOpen(true)
   }
 
-  async function handleConfirmDelete() {
+  function handleConfirmDelete() {
     if (!examToDelete) return
-
-    setIsDeleting(true)
-    const previousExams = exams
-    setExams(prev => prev.filter(e => e.id !== examToDelete.id))
-    setSelectedIds(prev => {
-      const next = new Set(prev)
-      next.delete(examToDelete.id)
-      return next
-    })
-
-    try {
-      const result = await deleteExam(examToDelete.id)
-
-      if (!result.success) {
-        throw new Error(result.error || '시험 삭제에 실패했습니다')
-      }
-
-      toast({
-        title: '삭제 완료',
-        description: `${examToDelete.name} 시험이 삭제되었습니다.`,
-      })
-
-      router.refresh()
-    } catch (error) {
-      console.error('Error deleting exam:', error)
-      setExams(previousExams)
-      toast({
-        title: '삭제 오류',
-        description: error instanceof Error ? error.message : '시험을 삭제하는 중 오류가 발생했습니다.',
-        variant: 'destructive',
-      })
-    } finally {
-      setIsDeleting(false)
-      setDeleteDialogOpen(false)
-      setExamToDelete(null)
-    }
+    deleteMutation.mutate(
+      { id: examToDelete.id, name: examToDelete.name },
+      { onSettled: () => { setDeleteDialogOpen(false); setExamToDelete(null) } }
+    )
   }
 
-  const handleBulkDelete = useCallback(async () => {
+  const handleBulkDelete = useCallback(() => {
     const ids = Array.from(selectedIds)
     if (ids.length === 0) return
+    bulkDeleteMutation.mutate(ids, {
+      onSuccess: () => setSelectedIds(new Set()),
+      onSettled: () => setBulkDeleteDialogOpen(false),
+    })
+  }, [selectedIds, bulkDeleteMutation])
 
-    setIsDeleting(true)
-    const previousExams = exams
-    setExams(prev => prev.filter(e => !selectedIds.has(e.id)))
-
-    try {
-      const result = await bulkDeleteExams(ids)
-      if (!result.success) {
-        throw new Error(result.error || '일괄 삭제 실패')
-      }
-
-      setSelectedIds(new Set())
-      toast({
-        title: '일괄 삭제 완료',
-        description: `${result.data?.deletedCount ?? ids.length}개의 시험이 삭제되었습니다.`,
-      })
-      router.refresh()
-    } catch (error) {
-      console.error('[bulkDelete] Error:', error)
-      setExams(previousExams)
-      toast({
-        title: '일괄 삭제 실패',
-        description: '시험 삭제 중 오류가 발생했습니다.',
-        variant: 'destructive',
-      })
-    } finally {
-      setIsDeleting(false)
-      setBulkDeleteDialogOpen(false)
-    }
-  }, [selectedIds, exams, router, toast])
-
-  async function handleArchiveToggle(exam: Exam) {
-    const previousExams = exams
-    const isArchived = !!exam.archived_at
-
-    setExams((prev) =>
-      prev.map((e) =>
-        e.id === exam.id
-          ? { ...e, archived_at: isArchived ? null : new Date().toISOString() }
-          : e
-      )
-    )
-
-    try {
-      const result = isArchived ? await unarchiveExam(exam.id) : await archiveExam(exam.id)
-      if (!result.success) {
-        throw new Error(result.error || '상태 변경 실패')
-      }
-      toast({
-        title: isArchived ? '시험 복구 완료' : '시험 아카이브 완료',
-        description: isArchived
-          ? `"${exam.name}" 시험이 다시 기본 목록에 표시됩니다.`
-          : `"${exam.name}" 시험이 기본 목록에서 숨김 처리되었습니다.`,
-      })
-      router.refresh()
-    } catch (error) {
-      setExams(previousExams)
-      toast({
-        title: '처리 오류',
-        description: error instanceof Error ? error.message : '상태 변경 중 오류가 발생했습니다.',
-        variant: 'destructive',
-      })
-    }
+  function handleArchiveToggle(exam: Exam) {
+    archiveMutation.mutate({ id: exam.id, isArchived: !!exam.archived_at, name: exam.name })
   }
 
   function getCategoryLabel(code: string | null) {
@@ -862,7 +798,7 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
         description={examToDelete ? `"${examToDelete.name}" 시험과 연결된 모든 성적 데이터가 함께 삭제됩니다. 이 작업은 되돌릴 수 없습니다.` : ''}
         confirmText="삭제"
         variant="destructive"
-        isLoading={isDeleting}
+        isLoading={deleteMutation.isPending}
         onConfirm={handleConfirmDelete}
       />
 
@@ -874,7 +810,7 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
         description="삭제된 시험과 연결된 모든 성적 데이터가 함께 삭제됩니다. 이 작업은 되돌릴 수 없습니다."
         confirmText="삭제"
         variant="destructive"
-        isLoading={isDeleting}
+        isLoading={bulkDeleteMutation.isPending}
         onConfirm={handleBulkDelete}
       />
     </div>

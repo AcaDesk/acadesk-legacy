@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Plus, Pencil, Trash2, Info, Sparkles, Lock } from 'lucide-react'
 import { Button } from '@ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
@@ -61,7 +61,8 @@ export function ReportTemplatesClient({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState<ReportTemplate | null>(null)
   const [deletingTemplate, setDeletingTemplate] = useState<ReportTemplate | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // Form state
   const [formData, setFormData] = useState<{
@@ -113,7 +114,7 @@ export function ReportTemplatesClient({
       return
     }
 
-    setIsSubmitting(true)
+    setIsSaving(true)
 
     try {
       if (editingTemplate) {
@@ -170,7 +171,7 @@ export function ReportTemplatesClient({
         variant: 'destructive',
       })
     } finally {
-      setIsSubmitting(false)
+      setIsSaving(false)
     }
   }
 
@@ -178,7 +179,7 @@ export function ReportTemplatesClient({
   async function handleConfirmDelete() {
     if (!deletingTemplate) return
 
-    setIsSubmitting(true)
+    setIsDeleting(true)
 
     try {
       const result = await deleteReportTemplate(deletingTemplate.id)
@@ -204,7 +205,7 @@ export function ReportTemplatesClient({
         variant: 'destructive',
       })
     } finally {
-      setIsSubmitting(false)
+      setIsDeleting(false)
     }
   }
 
@@ -216,10 +217,15 @@ export function ReportTemplatesClient({
     }))
   }
 
-  // Group templates by category
-  function getTemplatesByCategory(templates: ReportTemplate[], category: ReportTemplateCategory) {
-    return templates.filter((t) => t.category === category)
-  }
+  // Group templates by category (memoized to avoid repeated filtering on every render)
+  const groupedByCategory = useMemo(() => {
+    const grouped = Object.fromEntries(
+      CATEGORIES.map((cat) => [cat, { tenant: [] as ReportTemplate[], system: [] as ReportTemplate[] }])
+    ) as Record<ReportTemplateCategory, { tenant: ReportTemplate[]; system: ReportTemplate[] }>
+    for (const t of tenantTemplates) grouped[t.category].tenant.push(t)
+    for (const t of systemTemplates) grouped[t.category].system.push(t)
+    return grouped
+  }, [tenantTemplates, systemTemplates])
 
   return (
     <div className="space-y-6">
@@ -301,8 +307,8 @@ export function ReportTemplatesClient({
 
       {/* Templates by Category */}
       {CATEGORIES.map((category) => {
-        const tenantCategoryTemplates = getTemplatesByCategory(tenantTemplates, category)
-        const systemCategoryTemplates = getTemplatesByCategory(systemTemplates, category)
+        const tenantCategoryTemplates = groupedByCategory[category].tenant
+        const systemCategoryTemplates = groupedByCategory[category].system
 
         return (
           <Card key={category}>
@@ -501,12 +507,12 @@ export function ReportTemplatesClient({
             <Button
               variant="outline"
               onClick={() => setIsDialogOpen(false)}
-              disabled={isSubmitting}
+              disabled={isSaving}
             >
               취소
             </Button>
-            <Button onClick={handleSubmit} disabled={isSubmitting}>
-              {isSubmitting ? '저장 중...' : editingTemplate ? '수정' : '추가'}
+            <Button onClick={handleSubmit} disabled={isSaving}>
+              {isSaving ? '저장 중...' : editingTemplate ? '수정' : '추가'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -520,7 +526,7 @@ export function ReportTemplatesClient({
         description={`"${deletingTemplate?.title}" 템플릿을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`}
         confirmText="삭제"
         variant="destructive"
-        isLoading={isSubmitting}
+        isLoading={isDeleting}
         onConfirm={handleConfirmDelete}
       />
     </div>

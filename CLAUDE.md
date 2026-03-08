@@ -50,7 +50,7 @@ supabase db push      # Apply migrations to remote database
 - **Database**: Supabase (PostgreSQL 15) with Row Level Security (RLS)
 - **Auth**: Supabase Auth with JWT-based authentication
 - **Styling**: Tailwind CSS v4 with CSS variables, shadcn/ui components
-- **State**: React Query (@tanstack/react-query) for server state
+- **State**: React Query (@tanstack/react-query) for server state + **Zustand** for global UI/page state
 - **Forms**: React Hook Form with Zod validation
 - **Testing**: Vitest + Testing Library (unit), Playwright (e2e)
 - **Package Manager**: pnpm
@@ -308,6 +308,77 @@ Use for slow/optional queries; use direct Server Component data fetching for fas
 - **React Query**: Use in Client Components for interactive, cached, or real-time data
 - **Server Actions**: Preferred for all mutations with `revalidatePath`/`revalidateTag`
 - **Context**: Use sparingly, only for UI state (see `hooks/`)
+- **Zustand**: Global UI state that persists across page navigations (sidebar, dashboard settings, dialog state)
+
+#### React Query 규칙
+
+모든 query key는 `src/lib/query-keys.ts`의 `queryKeys` 팩토리에서 중앙 관리합니다:
+
+```typescript
+import { queryKeys } from '@/lib/query-keys'
+
+// ✅ GOOD
+useQuery({ queryKey: queryKeys.grades.retests() })
+queryClient.invalidateQueries({ queryKey: queryKeys.grades.retests() })
+
+// ❌ BAD — 하드코딩된 문자열 배열
+useQuery({ queryKey: ['grades', 'retests'] })
+```
+
+**데이터 소스별 캐시 전략:**
+- **React Query가 소스인 페이지** (retests 등): `invalidateQueries`만 → `router.refresh()` 불필요
+- **SSR props가 소스인 페이지** (exams 등): `router.refresh()` + `invalidateQueries` 이중 필요
+
+**mutation 훅 위치**: `src/hooks/mutations/use-*-mutations.ts`
+**query 훅 위치**: `src/hooks/queries/use-*-query.ts`
+
+#### Zustand 스토어 (`src/lib/stores/`)
+
+| 파일 | 용도 | persist 키 |
+|------|------|------------|
+| `ui.store.ts` | 사이드바 접힘, 모바일 메뉴 | `acadesk-ui` (sidebarCollapsed만) |
+| `dashboard.store.ts` | 편집 모드, 최대화, KPI 기간, 자동 새로고침 | `acadesk-dashboard` (autoRefreshEnabled, kpiPeriod) |
+| `consultation.store.ts` | 다이얼로그 discriminated union | persist 없음 |
+
+**다이얼로그 통합 패턴** — 여러 dialog를 discriminated union으로 통합:
+```typescript
+// ❌ BAD — 여러 dialogOpen + target 쌍
+const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+const [noteToDelete, setNoteToDelete] = useState<string | null>(null)
+
+// ✅ GOOD — activeDialog 하나로 통합 (consultation.store.ts 참고)
+const { activeDialog, setActiveDialog, closeDialog } = useConsultationStore()
+setActiveDialog({ type: 'deleteNote', noteId })
+<Dialog open={activeDialog?.type === 'deleteNote'} onOpenChange={(open) => !open && closeDialog()} />
+```
+
+#### mutation 표준 패턴
+
+```typescript
+// src/hooks/mutations/use-*.ts
+export function useDeleteXMutation() {
+  const { toast } = useToast()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const result = await deleteX(id)
+      if (!result.success) throw new Error(result.error || '삭제 실패')  // ServerActionResult 언래핑
+    },
+    onSuccess: () => toast({ title: '삭제 완료' }),
+    onError: (error: Error) => toast({ variant: 'destructive', title: '삭제 오류', description: error.message }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.domain.list() }),
+  })
+}
+
+// 컴포넌트에서 사용
+const deleteMutation = useDeleteXMutation()
+// isPending 사용 — actionLoading: string | null 패턴 금지
+<Button disabled={deleteMutation.isPending}>...</Button>
+<ConfirmationDialog isLoading={deleteMutation.isPending} />
+```
+
+**DevTools**: 개발환경에서 좌하단 TanStack Query DevTools 아이콘으로 캐시 상태 확인 가능
 
 ### Error Handling
 

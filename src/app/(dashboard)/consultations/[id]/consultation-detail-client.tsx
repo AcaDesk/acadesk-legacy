@@ -45,14 +45,15 @@ import Link from 'next/link'
 import { PageWrapper } from '@/components/layout/page-wrapper'
 import { PAGE_LAYOUT, TEXT_STYLES } from '@/lib/constants'
 import { useToast } from '@/hooks/use-toast'
+import { useConsultationStore } from '@/lib/stores/consultation.store'
 import {
-  deleteConsultation,
-  createConsultationNote,
-  updateConsultationNote,
-  deleteConsultationNote,
-  addConsultationParticipant,
-  removeConsultationParticipant,
-} from '@/app/actions/consultations'
+  useDeleteConsultationMutation,
+  useSaveNoteMutation,
+  useAddNoteMutation,
+  useDeleteNoteMutation,
+  useAddParticipantMutation,
+  useRemoveParticipantMutation,
+} from '@/hooks/mutations/use-consultation-mutations'
 
 type ConsultationNote = {
   id: string
@@ -227,243 +228,130 @@ export function ConsultationDetailClient({
 }) {
   const router = useRouter()
   const { toast } = useToast()
+  const { activeDialog, setActiveDialog, closeDialog } = useConsultationStore()
 
   const [consultation, setConsultation] = useState(initialConsultation)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [isDeletingConsultation, setIsDeletingConsultation] = useState(false)
 
   // 인라인 노트 편집
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
-  const [isSavingNote, setIsSavingNote] = useState(false)
-  const [isAddingNote, setIsAddingNote] = useState(false)
 
-  // 노트 삭제
-  const [deleteNoteDialogOpen, setDeleteNoteDialogOpen] = useState(false)
-  const [noteToDelete, setNoteToDelete] = useState<string | null>(null)
-  const [isDeletingNote, setIsDeletingNote] = useState(false)
-
-  // 참석자
-  const [participantDialogOpen, setParticipantDialogOpen] = useState(false)
+  // 참석자 추가 폼
   const [participantType, setParticipantType] = useState<
     'instructor' | 'guardian' | 'student' | 'other'
   >('guardian')
   const [participantName, setParticipantName] = useState('')
   const [participantRole, setParticipantRole] = useState('')
-  const [removeParticipantDialogOpen, setRemoveParticipantDialogOpen] = useState(false)
-  const [participantToRemove, setParticipantToRemove] = useState<string | null>(null)
-  const [isRemovingParticipant, setIsRemovingParticipant] = useState(false)
 
-  const consultDate = new Date(consultation.consultation_date)
-  const nextDate = consultation.next_consultation_date
-    ? new Date(consultation.next_consultation_date)
-    : null
-
-  async function handleDelete() {
-    setIsDeletingConsultation(true)
-    try {
-      const result = await deleteConsultation(consultation.id)
-
-      if (!result.success) {
-        throw new Error(result.error || '상담 삭제 실패')
-      }
-
-      toast({ title: '삭제 완료', description: '상담 기록이 삭제되었습니다.' })
-      router.push('/consultations')
-    } catch (error) {
-      console.error('Delete error:', error)
-      toast({
-        title: '삭제 오류',
-        description: error instanceof Error ? error.message : '상담을 삭제하는 중 오류가 발생했습니다.',
-        variant: 'destructive',
-      })
-    } finally {
-      setIsDeletingConsultation(false)
-      setDeleteDialogOpen(false)
-    }
-  }
-
-  // 노트 인라인 저장 (수정)
-  async function handleSaveNoteEdit(noteId: string, content: string, category: string) {
-    if (!content.trim()) {
-      toast({ title: '입력 오류', description: '노트 내용을 입력해주세요.', variant: 'destructive' })
-      return
-    }
-    setIsSavingNote(true)
-    try {
-      const result = await updateConsultationNote({
-        id: noteId,
-        content,
-        category: category || null,
-      })
-      if (!result.success || !result.data) {
-        throw new Error(result.error || '노트 수정 실패')
-      }
+  const deleteMutation = useDeleteConsultationMutation()
+  const saveNoteMutation = useSaveNoteMutation({
+    onSuccess: (noteId, content, category) => {
       setConsultation((prev) => ({
         ...prev,
         consultation_notes: prev.consultation_notes?.map((n) =>
           n.id === noteId ? { ...n, content, category: category || null } : n
         ),
       }))
-      toast({ title: '수정 완료', description: '노트가 수정되었습니다.' })
       setEditingNoteId(null)
-    } catch (error) {
-      toast({
-        title: '저장 오류',
-        description: error instanceof Error ? error.message : '노트를 저장하는 중 오류가 발생했습니다.',
-        variant: 'destructive',
-      })
-    } finally {
-      setIsSavingNote(false)
-    }
+    },
+  })
+  const addNoteMutation = useAddNoteMutation({
+    onSuccess: (note) => {
+      setConsultation((prev) => ({
+        ...prev,
+        consultation_notes: [...(prev.consultation_notes || []), note],
+      }))
+    },
+  })
+  const deleteNoteMutation = useDeleteNoteMutation({
+    onSuccess: (noteId) => {
+      setConsultation((prev) => ({
+        ...prev,
+        consultation_notes: prev.consultation_notes?.filter((n) => n.id !== noteId),
+      }))
+    },
+  })
+  const addParticipantMutation = useAddParticipantMutation({
+    onSuccess: (participant) => {
+      setConsultation((prev) => ({
+        ...prev,
+        consultation_participants: [...(prev.consultation_participants || []), participant],
+      }))
+      closeDialog()
+      setParticipantName('')
+      setParticipantRole('')
+      setParticipantType('guardian')
+    },
+  })
+  const removeParticipantMutation = useRemoveParticipantMutation({
+    onSuccess: (participantId) => {
+      setConsultation((prev) => ({
+        ...prev,
+        consultation_participants: prev.consultation_participants?.filter(
+          (p) => p.id !== participantId
+        ),
+      }))
+    },
+  })
+
+  const consultDate = new Date(consultation.consultation_date)
+  const nextDate = consultation.next_consultation_date
+    ? new Date(consultation.next_consultation_date)
+    : null
+
+  function handleDelete() {
+    deleteMutation.mutate(consultation.id, { onSettled: closeDialog })
   }
 
-  // 새 노트 추가
-  async function handleAddNote(content: string, category: string) {
+  function handleSaveNoteEdit(noteId: string, content: string, category: string) {
     if (!content.trim()) {
       toast({ title: '입력 오류', description: '노트 내용을 입력해주세요.', variant: 'destructive' })
       return
     }
-    setIsAddingNote(true)
-    try {
-      const result = await createConsultationNote({
-        consultationId: consultation.id,
-        content,
-        category: category || undefined,
-        noteOrder: (consultation.consultation_notes?.length || 0) + 1,
-      })
-      if (!result.success || !result.data) {
-        throw new Error(result.error || '노트 생성 실패')
-      }
-      setConsultation((prev) => ({
-        ...prev,
-        consultation_notes: [
-          ...(prev.consultation_notes || []),
-          {
-            id: result.data.id,
-            note_order: result.data.note_order,
-            category: result.data.category,
-            content: result.data.content,
-            created_at: result.data.created_at,
-          },
-        ],
-      }))
-      toast({ title: '저장 완료', description: '노트가 추가되었습니다.' })
-    } catch (error) {
-      toast({
-        title: '저장 오류',
-        description: error instanceof Error ? error.message : '노트를 저장하는 중 오류가 발생했습니다.',
-        variant: 'destructive',
-      })
-    } finally {
-      setIsAddingNote(false)
+    saveNoteMutation.mutate({ noteId, content, category })
+  }
+
+  function handleAddNote(content: string, category: string) {
+    if (!content.trim()) {
+      toast({ title: '입력 오류', description: '노트 내용을 입력해주세요.', variant: 'destructive' })
+      return
     }
+    addNoteMutation.mutate({
+      consultationId: consultation.id,
+      content,
+      category,
+      noteOrder: (consultation.consultation_notes?.length || 0) + 1,
+    })
   }
 
   function handleDeleteNote(noteId: string) {
-    setNoteToDelete(noteId)
-    setDeleteNoteDialogOpen(true)
+    setActiveDialog({ type: 'deleteNote', noteId })
   }
 
-  async function handleConfirmDeleteNote() {
-    if (!noteToDelete) return
-    setIsDeletingNote(true)
-    try {
-      const result = await deleteConsultationNote(noteToDelete)
-      if (!result.success) {
-        throw new Error(result.error || '노트 삭제 실패')
-      }
-      setConsultation((prev) => ({
-        ...prev,
-        consultation_notes: prev.consultation_notes?.filter((n) => n.id !== noteToDelete),
-      }))
-      toast({ title: '삭제 완료', description: '노트가 삭제되었습니다.' })
-    } catch (error) {
-      toast({
-        title: '삭제 오류',
-        description: error instanceof Error ? error.message : '노트를 삭제하는 중 오류가 발생했습니다.',
-        variant: 'destructive',
-      })
-    } finally {
-      setIsDeletingNote(false)
-      setDeleteNoteDialogOpen(false)
-      setNoteToDelete(null)
-    }
+  function handleConfirmDeleteNote() {
+    if (activeDialog?.type !== 'deleteNote') return
+    deleteNoteMutation.mutate(activeDialog.noteId, { onSettled: closeDialog })
   }
 
-  async function handleAddParticipant() {
+  function handleAddParticipant() {
     if (!participantName.trim()) {
       toast({ title: '입력 오류', description: '참석자 이름을 입력해주세요.', variant: 'destructive' })
       return
     }
-    try {
-      const result = await addConsultationParticipant({
-        consultationId: consultation.id,
-        participantType,
-        name: participantName.trim(),
-        role: participantRole || undefined,
-      })
-      if (!result.success || !result.data) {
-        throw new Error(result.error || '참석자 추가 실패')
-      }
-      setConsultation((prev) => ({
-        ...prev,
-        consultation_participants: [
-          ...(prev.consultation_participants || []),
-          {
-            id: result.data.id,
-            participant_type: result.data.participant_type,
-            user_id: result.data.user_id,
-            guardian_id: result.data.guardian_id,
-            name: result.data.name,
-            role: result.data.role,
-          },
-        ],
-      }))
-      toast({ title: '추가 완료', description: '참석자가 추가되었습니다.' })
-      setParticipantDialogOpen(false)
-      setParticipantName('')
-      setParticipantRole('')
-      setParticipantType('guardian')
-    } catch (error) {
-      toast({
-        title: '추가 오류',
-        description: error instanceof Error ? error.message : '참석자를 추가하는 중 오류가 발생했습니다.',
-        variant: 'destructive',
-      })
-    }
+    addParticipantMutation.mutate({
+      consultationId: consultation.id,
+      participantType,
+      name: participantName.trim(),
+      role: participantRole || undefined,
+    })
   }
 
   function handleRemoveParticipant(participantId: string) {
-    setParticipantToRemove(participantId)
-    setRemoveParticipantDialogOpen(true)
+    setActiveDialog({ type: 'removeParticipant', participantId })
   }
 
-  async function handleConfirmRemoveParticipant() {
-    if (!participantToRemove) return
-    setIsRemovingParticipant(true)
-    try {
-      const result = await removeConsultationParticipant(participantToRemove)
-      if (!result.success) {
-        throw new Error(result.error || '참석자 제거 실패')
-      }
-      setConsultation((prev) => ({
-        ...prev,
-        consultation_participants: prev.consultation_participants?.filter(
-          (p) => p.id !== participantToRemove
-        ),
-      }))
-      toast({ title: '제거 완료', description: '참석자가 제거되었습니다.' })
-    } catch (error) {
-      toast({
-        title: '제거 오류',
-        description: error instanceof Error ? error.message : '참석자를 제거하는 중 오류가 발생했습니다.',
-        variant: 'destructive',
-      })
-    } finally {
-      setIsRemovingParticipant(false)
-      setRemoveParticipantDialogOpen(false)
-      setParticipantToRemove(null)
-    }
+  function handleConfirmRemoveParticipant() {
+    if (activeDialog?.type !== 'removeParticipant') return
+    removeParticipantMutation.mutate(activeDialog.participantId, { onSettled: closeDialog })
   }
 
   return (
@@ -521,7 +409,7 @@ export function ConsultationDetailClient({
               <Button
                 variant="outline"
                 className="gap-2 text-red-600 hover:text-red-700"
-                onClick={() => setDeleteDialogOpen(true)}
+                onClick={() => setActiveDialog({ type: 'deleteConsultation' })}
               >
                 <Trash2 className="h-4 w-4" />
                 삭제
@@ -716,7 +604,7 @@ export function ConsultationDetailClient({
                             initialCategory={note.category || ''}
                             onSave={(content, category) => handleSaveNoteEdit(note.id, content, category)}
                             onCancel={() => setEditingNoteId(null)}
-                            isSaving={isSavingNote}
+                            isSaving={saveNoteMutation.isPending}
                           />
                         ) : (
                           <div className="group rounded-lg border bg-muted/30 p-3">
@@ -756,7 +644,7 @@ export function ConsultationDetailClient({
                   ))}
 
                   {/* 새 노트 추가 */}
-                  <NewNoteInline onAdd={handleAddNote} isAdding={isAddingNote} />
+                  <NewNoteInline onAdd={handleAddNote} isAdding={addNoteMutation.isPending} />
                 </div>
               </div>
             </CardContent>
@@ -777,7 +665,7 @@ export function ConsultationDetailClient({
                   참석자
                 </CardTitle>
                 <Button
-                  onClick={() => setParticipantDialogOpen(true)}
+                  onClick={() => setActiveDialog({ type: 'addParticipant' })}
                   size="sm"
                   className="gap-2"
                 >
@@ -833,18 +721,21 @@ export function ConsultationDetailClient({
 
       {/* 상담 삭제 확인 다이얼로그 */}
       <ConfirmationDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        open={activeDialog?.type === 'deleteConsultation'}
+        onOpenChange={(open) => !open && closeDialog()}
         title="상담 기록 삭제"
         description="이 상담 기록을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."
         confirmText="삭제"
         variant="destructive"
-        isLoading={isDeletingConsultation}
+        isLoading={deleteMutation.isPending}
         onConfirm={handleDelete}
       />
 
       {/* 참석자 추가 다이얼로그 */}
-      <Dialog open={participantDialogOpen} onOpenChange={setParticipantDialogOpen}>
+      <Dialog
+        open={activeDialog?.type === 'addParticipant'}
+        onOpenChange={(open) => !open && closeDialog()}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>참석자 추가</DialogTitle>
@@ -891,7 +782,7 @@ export function ConsultationDetailClient({
             <Button
               variant="outline"
               onClick={() => {
-                setParticipantDialogOpen(false)
+                closeDialog()
                 setParticipantName('')
                 setParticipantRole('')
                 setParticipantType('guardian')
@@ -899,32 +790,32 @@ export function ConsultationDetailClient({
             >
               취소
             </Button>
-            <Button onClick={handleAddParticipant}>추가</Button>
+            <Button onClick={handleAddParticipant} disabled={addParticipantMutation.isPending}>추가</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* 노트 삭제 확인 다이얼로그 */}
       <ConfirmationDialog
-        open={deleteNoteDialogOpen}
-        onOpenChange={setDeleteNoteDialogOpen}
+        open={activeDialog?.type === 'deleteNote'}
+        onOpenChange={(open) => !open && closeDialog()}
         title="정말로 삭제하시겠습니까?"
         description="이 노트가 삭제됩니다. 이 작업은 되돌릴 수 없습니다."
         confirmText="삭제"
         variant="destructive"
-        isLoading={isDeletingNote}
+        isLoading={deleteNoteMutation.isPending}
         onConfirm={handleConfirmDeleteNote}
       />
 
       {/* 참석자 제거 확인 다이얼로그 */}
       <ConfirmationDialog
-        open={removeParticipantDialogOpen}
-        onOpenChange={setRemoveParticipantDialogOpen}
+        open={activeDialog?.type === 'removeParticipant'}
+        onOpenChange={(open) => !open && closeDialog()}
         title="정말로 제거하시겠습니까?"
         description="이 참석자가 제거됩니다. 이 작업은 되돌릴 수 없습니다."
         confirmText="제거"
         variant="destructive"
-        isLoading={isRemovingParticipant}
+        isLoading={removeParticipantMutation.isPending}
         onConfirm={handleConfirmRemoveParticipant}
       />
     </PageWrapper>
