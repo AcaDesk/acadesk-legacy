@@ -8,7 +8,7 @@ import { Input } from '@ui/input'
 import { Label } from '@ui/label'
 import { Badge } from '@ui/badge'
 import { useToast } from '@/hooks/use-toast'
-import { MonitorPlay, KeyRound, Save, Loader2, CheckCircle2, XCircle } from 'lucide-react'
+import { MonitorPlay, KeyRound, Save, CheckCircle2, XCircle } from 'lucide-react'
 
 export function KioskSettingsClient() {
   const router = useRouter()
@@ -18,7 +18,6 @@ export function KioskSettingsClient() {
   const [currentExitPin, setCurrentExitPin] = useState<string | null>(null)
   const [exitPin, setExitPin] = useState('')
   const [exitPinConfirm, setExitPinConfirm] = useState('')
-  const [isSavingPin, setIsSavingPin] = useState(false)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -36,15 +35,11 @@ export function KioskSettingsClient() {
       toast({ title: '오류', description: 'PIN이 일치하지 않습니다.', variant: 'destructive' })
       return
     }
-    setIsSavingPin(true)
     localStorage.setItem('kiosk_exit_pin', exitPin)
     setCurrentExitPin(exitPin)
     setExitPin('')
     setExitPinConfirm('')
-    setTimeout(() => {
-      setIsSavingPin(false)
-      toast({ title: '저장 완료', description: '관리자 종료 PIN이 변경되었습니다.' })
-    }, 300)
+    toast({ title: '저장 완료', description: '관리자 종료 PIN이 변경되었습니다.' })
   }
 
   function handleResetKiosk() {
@@ -175,9 +170,9 @@ export function KioskSettingsClient() {
             <Button
               className="gap-2"
               onClick={handleSaveExitPin}
-              disabled={isSavingPin || exitPin.length !== 4 || exitPinConfirm.length !== 4}
+              disabled={exitPin.length !== 4 || exitPinConfirm.length !== 4}
             >
-              {isSavingPin ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              <Save className="h-4 w-4" />
               PIN 저장
             </Button>
           </div>

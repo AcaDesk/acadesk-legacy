@@ -94,8 +94,7 @@ interface SubjectsClientProps {
 
 export function SubjectsClient({ initialSubjects }: SubjectsClientProps) {
   const [subjects, setSubjects] = useState<SubjectStatistics[]>(initialSubjects)
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -141,7 +140,7 @@ export function SubjectsClient({ initialSubjects }: SubjectsClientProps) {
         setSubjects((prev) => [...prev, { ...result.data, class_count: 0 }])
       }
 
-      setIsAddModalOpen(false)
+      setIsModalOpen(false)
       form.reset()
 
       toast({
@@ -193,7 +192,7 @@ export function SubjectsClient({ initialSubjects }: SubjectsClientProps) {
         )
       )
 
-      setIsEditModalOpen(false)
+      setIsModalOpen(false)
       setEditingSubject(null)
       form.reset()
 
@@ -251,7 +250,7 @@ export function SubjectsClient({ initialSubjects }: SubjectsClientProps) {
     }
   }
 
-  // Open edit modal
+  // Open modal for editing
   const openEditModal = (subject: Subject) => {
     setEditingSubject(subject)
     form.reset({
@@ -261,7 +260,7 @@ export function SubjectsClient({ initialSubjects }: SubjectsClientProps) {
       color: subject.color,
       active: subject.active,
     })
-    setIsEditModalOpen(true)
+    setIsModalOpen(true)
   }
 
   // Filtered and searched subjects
@@ -296,7 +295,7 @@ export function SubjectsClient({ initialSubjects }: SubjectsClientProps) {
           <h2 className="text-xl font-semibold">과목 관리</h2>
           <p className="text-sm text-muted-foreground">학원의 과목을 등록하고 관리합니다</p>
         </div>
-        <Button onClick={() => setIsAddModalOpen(true)}>
+        <Button onClick={() => setIsModalOpen(true)}>
           <Plus className="w-4 h-4 mr-2" />
           과목 추가
         </Button>
@@ -313,7 +312,7 @@ export function SubjectsClient({ initialSubjects }: SubjectsClientProps) {
             <div className="text-center py-12">
               <BookOpen className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
               <p className="text-muted-foreground mb-4">등록된 과목이 없습니다</p>
-              <Button onClick={() => setIsAddModalOpen(true)}>
+              <Button onClick={() => setIsModalOpen(true)}>
                 <Plus className="w-4 h-4 mr-2" />
                 첫 과목 추가하기
               </Button>
@@ -484,17 +483,31 @@ export function SubjectsClient({ initialSubjects }: SubjectsClientProps) {
         </CardContent>
       </Card>
 
-      {/* Add Subject Modal */}
-      <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
+      {/* Add / Edit Subject Modal */}
+      <Dialog
+        open={isModalOpen}
+        onOpenChange={(open) => {
+          setIsModalOpen(open)
+          if (!open) {
+            setEditingSubject(null)
+            form.reset()
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>과목 추가</DialogTitle>
+            <DialogTitle>{editingSubject ? '과목 수정' : '과목 추가'}</DialogTitle>
             <DialogDescription>
-              새로운 과목을 등록합니다. 과목 정보는 수업과 성적 관리에 사용됩니다.
+              {editingSubject
+                ? '과목 정보를 수정합니다.'
+                : '새로운 과목을 등록합니다. 과목 정보는 수업과 성적 관리에 사용됩니다.'}
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleAddSubject)} className="space-y-4">
+            <form
+              onSubmit={form.handleSubmit(editingSubject ? handleEditSubject : handleAddSubject)}
+              className="space-y-4"
+            >
               <FormField
                 control={form.control}
                 name="name"
@@ -598,139 +611,16 @@ export function SubjectsClient({ initialSubjects }: SubjectsClientProps) {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setIsAddModalOpen(false)}
+                  onClick={() => { setIsModalOpen(false); setEditingSubject(null); form.reset() }}
                   disabled={isSubmitting}
                 >
                   취소
                 </Button>
                 <Button type="submit" disabled={isSubmitting}>
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {isSubmitting ? '추가 중...' : '추가'}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Subject Modal */}
-      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>과목 수정</DialogTitle>
-            <DialogDescription>과목 정보를 수정합니다.</DialogDescription>
-          </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleEditSubject)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>과목명 *</FormLabel>
-                    <FormControl>
-                      <Input placeholder="예: 수학, 영어" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="code"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>과목 코드</FormLabel>
-                    <FormControl>
-                      <Input placeholder="예: MATH, ENG" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="color"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>대표 색상 *</FormLabel>
-                    <div className="flex items-center gap-2">
-                      <FormControl>
-                        <Input type="color" className="w-20 h-10" {...field} />
-                      </FormControl>
-                      <Input
-                        value={field.value}
-                        onChange={field.onChange}
-                        placeholder="#3b82f6"
-                        className="flex-1"
-                      />
-                    </div>
-                    <div className="flex gap-2 mt-2">
-                      {DEFAULT_SUBJECT_COLORS.map((color) => (
-                        <button
-                          key={color}
-                          type="button"
-                          className="w-8 h-8 rounded-md border-2 border-transparent hover:border-primary"
-                          style={{ backgroundColor: color }}
-                          onClick={() => form.setValue('color', color)}
-                        />
-                      ))}
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>설명</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="과목에 대한 설명을 입력하세요"
-                        rows={3}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="active"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">활성화</FormLabel>
-                      <FormDescription>
-                        비활성화하면 수업 등록 시 선택할 수 없습니다
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsEditModalOpen(false)}
-                  disabled={isSubmitting}
-                >
-                  취소
-                </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {isSubmitting ? '저장 중...' : '저장'}
+                  {isSubmitting
+                    ? (editingSubject ? '저장 중...' : '추가 중...')
+                    : (editingSubject ? '저장' : '추가')}
                 </Button>
               </DialogFooter>
             </form>

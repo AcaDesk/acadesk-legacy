@@ -322,7 +322,7 @@ export function RetestsClient() {
         }
         confirmText="면제"
         variant="default"
-        isLoading={actionLoading === 'waive'}
+        isLoading={waiveMutation.isPending}
         onConfirm={handleWaiveRetest}
       />
 
@@ -338,7 +338,7 @@ export function RetestsClient() {
         }
         confirmText="연기"
         variant="default"
-        isLoading={actionLoading === 'postpone'}
+        isLoading={postponeMutation.isPending}
         onConfirm={handlePostponeRetest}
       />
 
@@ -392,15 +392,15 @@ export function RetestsClient() {
             <Button
               variant="outline"
               onClick={() => setCreateRetestDialogOpen(false)}
-              disabled={actionLoading === 'create'}
+              disabled={createRetestMutation.isPending}
             >
               취소
             </Button>
             <Button
               onClick={handleCreateRetest}
-              disabled={actionLoading === 'create' || !retestDate}
+              disabled={createRetestMutation.isPending || !retestDate}
             >
-              {actionLoading === 'create' ? (
+              {createRetestMutation.isPending ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   생성 중...
