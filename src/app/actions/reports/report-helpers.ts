@@ -21,7 +21,7 @@ export interface StudentDataWithUser {
 
 export interface AttendanceRecordType {
   attendance_date: string
-  status: 'present' | 'late' | 'absent' | 'none'
+  status: 'present' | 'late' | 'left_early' | 'absent' | 'excused' | 'none'
   notes?: string | null
 }
 
@@ -72,7 +72,7 @@ export interface StudentReportMetrics {
   }>
   attendanceChartData: Array<{
     date: Date
-    status: 'present' | 'late' | 'absent' | 'none'
+    status: 'present' | 'late' | 'left_early' | 'absent' | 'excused' | 'none'
     note?: string
   }>
   currentScore: {
@@ -232,7 +232,9 @@ interface ScoreContext {
 const STATUS_PRIORITY: Record<string, number> = {
   present: 2,
   late: 1,
+  left_early: 1,
   absent: 0,
+  excused: 0,
   none: -1,
 }
 
@@ -359,18 +361,25 @@ function buildAttendanceMetrics(records: AttendanceRow[]) {
   const total = deduped.length
   const present = deduped.filter((record) => record.status === 'present').length
   const late = deduped.filter((record) => record.status === 'late').length
-  const absent = deduped.filter((record) => record.status === 'absent').length
-  const rate = total > 0 ? Math.round(((present + late) / total) * 100) : 0
+  const leftEarly = deduped.filter((record) => record.status === 'left_early').length
+  const excused = deduped.filter((record) => record.status === 'excused').length
+  const absent = deduped.filter((record) => record.status === 'absent').length + excused
+  const adjustedLate = late + leftEarly
+  const rate = total > 0 ? Math.round(((present + adjustedLate) / total) * 100) : 0
 
-  return { total, present, late, absent, rate }
+  return { total, present, late: adjustedLate, absent, rate }
 }
 
 function buildAttendanceChart(
   records: AttendanceRow[]
-): Array<{ date: Date; status: 'present' | 'late' | 'absent' | 'none'; note?: string }> {
+): Array<{ date: Date; status: 'present' | 'late' | 'left_early' | 'absent' | 'excused' | 'none'; note?: string }> {
   return dedupeAttendanceRecords(records).map((record) => {
-    const status: 'present' | 'late' | 'absent' | 'none' =
-      record.status === 'present' || record.status === 'late' || record.status === 'absent'
+    const status: 'present' | 'late' | 'left_early' | 'absent' | 'excused' | 'none' =
+      record.status === 'present' ||
+      record.status === 'late' ||
+      record.status === 'left_early' ||
+      record.status === 'absent' ||
+      record.status === 'excused'
         ? record.status
         : 'none'
 
