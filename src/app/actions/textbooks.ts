@@ -154,12 +154,47 @@ export async function getTextbooks(options?: {
       throw error
     }
 
+    const textbooks = data || []
+    const textbookIds = textbooks.map(t => t.id as string)
+
+    // 대출 수 / 단원 수 조회 (현재 페이지 교재 한정)
+    const lendingCountByTextbookId: Record<string, number> = {}
+    const unitCountByTextbookId: Record<string, number> = {}
+
+    if (textbookIds.length > 0) {
+      const [{ data: lendings }, { data: units }] = await Promise.all([
+        supabase
+          .from('book_lendings')
+          .select('textbook_id')
+          .eq('tenant_id', tenantId)
+          .in('textbook_id', textbookIds)
+          .is('returned_at', null),
+        supabase
+          .from('textbook_units')
+          .select('textbook_id')
+          .eq('tenant_id', tenantId)
+          .in('textbook_id', textbookIds)
+          .is('deleted_at', null),
+      ])
+
+      for (const row of lendings || []) {
+        const id = row.textbook_id as string
+        lendingCountByTextbookId[id] = (lendingCountByTextbookId[id] || 0) + 1
+      }
+      for (const row of units || []) {
+        const id = row.textbook_id as string
+        unitCountByTextbookId[id] = (unitCountByTextbookId[id] || 0) + 1
+      }
+    }
+
     return {
       success: true,
-      data: data || [],
-      totalCount: count ?? (data || []).length,
+      data: textbooks,
+      lendingCountByTextbookId,
+      unitCountByTextbookId,
+      totalCount: count ?? textbooks.length,
       page: options?.page ?? 1,
-      pageSize: options?.pageSize ?? (data || []).length,
+      pageSize: options?.pageSize ?? textbooks.length,
       error: null,
     }
   } catch (error) {
@@ -167,6 +202,8 @@ export async function getTextbooks(options?: {
     return {
       success: false,
       data: null,
+      lendingCountByTextbookId: {},
+      unitCountByTextbookId: {},
       totalCount: 0,
       page: options?.page ?? 1,
       pageSize: options?.pageSize ?? 0,

@@ -29,6 +29,13 @@ export const queryKeys = {
   },
 
   students: {
-    list: () => ['students'] as const,
+    all: () => ['students'] as const,
+    list: (filters: Record<string, unknown>) => ['students', 'list', filters] as const,
+    filterOptions: () => ['students', 'filterOptions'] as const,
+  },
+
+  textbooks: {
+    all: () => ['textbooks'] as const,
+    list: (filters: Record<string, unknown>) => ['textbooks', 'list', filters] as const,
   },
 } as const
