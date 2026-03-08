@@ -515,6 +515,8 @@ export function AttendanceCheckPage({
           studentId: student.studentId,
           status: UI_TO_DB_STATUS[status],
           checkInAt: (status === 'present' || status === 'late') ? time : null,
+          checkOutAt: null,
+          source: 'manual',
           sessionId: student.sessionId || null,
           classId: student.classId || null,
           isSelfStudy: student.isSelfStudy,
