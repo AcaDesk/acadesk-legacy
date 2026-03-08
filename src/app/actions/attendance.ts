@@ -180,7 +180,7 @@ export async function getAttendanceRoster() {
             students: s,
           }))
 
-        normalizedEnrollments = [...normalizedEnrollments, ...unassignedStudents]
+        normalizedEnrollments = [...normalizedEnrollments, ...(unassignedStudents as unknown as typeof normalizedEnrollments)]
 
         return { success: true as const, data: { students: normalizedEnrollments } }
       },
