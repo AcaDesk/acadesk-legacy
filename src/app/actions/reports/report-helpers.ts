@@ -108,6 +108,18 @@ const SUBJECT_KEYWORDS: Record<string, string> = {
   단어: 'subject_vocabulary',
 }
 
+const EXAM_CATEGORY_LABELS: Record<string, string> = {
+  midterm: '중간고사',
+  final: '기말고사',
+  mock: '모의고사',
+  quiz: '쪽지시험',
+  performance: '수행평가',
+  placement: '레벨테스트',
+  assignment: '과제평가',
+  monthly: '월간평가',
+  other: '기타',
+}
+
 function extractSubjectKeyFromName(examName: string): string | null {
   const lowerName = examName.toLowerCase()
 
@@ -174,7 +186,6 @@ interface ExamRow {
   created_at: string
   category_code: string | null
   subject_id: string | null
-  ref_exam_categories?: { label: string } | Array<{ label: string }> | null
   subjects?: { name: string; color: string | null } | Array<{ name: string; color: string | null }> | null
 }
 
@@ -197,7 +208,7 @@ interface ScoreRow {
   feedback: string | null
   is_retest: boolean | null
   score: number | null
-  total_score: number | null
+  total_points: number | null
 }
 
 interface ScoreRecord extends ScoreRow {
@@ -244,8 +255,12 @@ function firstRelation<T>(value: T | T[] | null | undefined): T | null {
   return value ?? null
 }
 
+function getCategoryLabel(categoryCode: string | null): string | null {
+  if (!categoryCode) return null
+  return EXAM_CATEGORY_LABELS[categoryCode] || categoryCode
+}
+
 function normalizeExam(row: ExamRow): ExamMeta {
-  const category = firstRelation(row.ref_exam_categories)
   const subject = firstRelation(row.subjects)
 
   return {
@@ -255,7 +270,7 @@ function normalizeExam(row: ExamRow): ExamMeta {
     created_at: row.created_at,
     category_code: row.category_code,
     subject_id: row.subject_id,
-    categoryLabel: category?.label || null,
+    categoryLabel: getCategoryLabel(row.category_code),
     subjectName: subject?.name || null,
     subjectColor: subject?.color || null,
   }
@@ -299,6 +314,24 @@ function average(values: number[]): number | null {
 function roundOneDecimal(value: number | null): number | null {
   if (value === null) return null
   return Math.round(value * 10) / 10
+}
+
+function getScorePercentage(score: Pick<ScoreRow, 'percentage' | 'score' | 'total_points'>): number | null {
+  if (score.percentage !== null && score.percentage !== undefined) {
+    return score.percentage
+  }
+
+  if (
+    score.score === null ||
+    score.score === undefined ||
+    score.total_points === null ||
+    score.total_points === undefined ||
+    score.total_points <= 0
+  ) {
+    return null
+  }
+
+  return roundOneDecimal((score.score / score.total_points) * 100)
 }
 
 function dedupeAttendanceRecords(records: AttendanceRow[]): AttendanceRow[] {
@@ -378,7 +411,8 @@ function buildScoresSummary(
   const categories = new Map<string, CategoryBucket>()
 
   for (const score of currentScores) {
-    if (score.percentage === null) continue
+    const percentage = getScorePercentage(score)
+    if (percentage === null) continue
 
     const groupKey = createGroupKey(
       score.exam.subject_id,
@@ -404,10 +438,10 @@ function buildScoresSummary(
     bucket.tests.push({
       name: score.exam.name,
       date: getEffectiveExamDate(score.exam),
-      percentage: score.percentage,
+      percentage,
       feedback: score.feedback || null,
     })
-    bucket.percentages.push(score.percentage)
+    bucket.percentages.push(percentage)
     bucket.totalCount++
     if (score.is_retest) {
       bucket.retestCount++
@@ -416,14 +450,15 @@ function buildScoresSummary(
 
   const previousByCategory = new Map<string, number[]>()
   for (const score of previousScores) {
-    if (score.percentage === null) continue
+    const percentage = getScorePercentage(score)
+    if (percentage === null) continue
 
     const groupKey = createGroupKey(
       score.exam.subject_id,
       score.exam.category_code,
       score.exam.name
     )
-    pushToMapList(previousByCategory, groupKey, score.percentage)
+    pushToMapList(previousByCategory, groupKey, percentage)
   }
 
   const classByCategory = new Map<
@@ -432,7 +467,8 @@ function buildScoresSummary(
   >()
 
   for (const score of classCurrentScores) {
-    if (score.percentage === null) continue
+    const percentage = getScorePercentage(score)
+    if (percentage === null) continue
 
     const groupKey = createGroupKey(
       score.exam.subject_id,
@@ -442,7 +478,7 @@ function buildScoresSummary(
 
     const existing = classByCategory.get(groupKey)
     if (existing) {
-      existing.percentages.push(score.percentage)
+      existing.percentages.push(percentage)
       existing.totalCount++
       if (score.is_retest) {
         existing.retestCount++
@@ -451,7 +487,7 @@ function buildScoresSummary(
     }
 
     classByCategory.set(groupKey, {
-      percentages: [score.percentage],
+      percentages: [percentage],
       retestCount: score.is_retest ? 1 : 0,
       totalCount: 1,
     })
@@ -486,11 +522,15 @@ function buildScoresSummary(
 
 function buildGradesChartData(currentScores: ScoreRecord[]) {
   return currentScores
-    .filter((score) => score.percentage !== null)
-    .sort((a, b) => getEffectiveExamDate(a.exam).localeCompare(getEffectiveExamDate(b.exam)))
     .map((score) => ({
+      score,
+      percentage: getScorePercentage(score),
+    }))
+    .filter((entry) => entry.percentage !== null)
+    .sort((a, b) => getEffectiveExamDate(a.score.exam).localeCompare(getEffectiveExamDate(b.score.exam)))
+    .map(({ score, percentage }) => ({
       examName: score.exam.name,
-      score: Math.round((score.percentage || 0) * 10) / 10,
+      score: Math.round((percentage || 0) * 10) / 10,
       classAverage: undefined,
       date: score.exam.exam_date || undefined,
     }))
@@ -500,9 +540,11 @@ function buildCurrentScoreSummary(
   currentStudentScores: ScoreRecord[],
   currentClassScores: ScoreRecord[]
 ) {
-  const myScores = currentStudentScores.filter((score) => score.percentage !== null)
+  const myPercentages = currentStudentScores
+    .map((score) => getScorePercentage(score))
+    .filter((value): value is number => value !== null)
 
-  if (myScores.length === 0) {
+  if (myPercentages.length === 0) {
     return {
       myScore: 0,
       classAverage: 0,
@@ -510,8 +552,13 @@ function buildCurrentScoreSummary(
     }
   }
 
-  const myAverage = average(myScores.map((score) => score.percentage as number)) || 0
-  const classScores = currentClassScores.filter((score) => score.percentage !== null)
+  const myAverage = average(myPercentages) || 0
+  const classScores = currentClassScores
+    .map((score) => ({
+      studentId: score.student_id,
+      percentage: getScorePercentage(score),
+    }))
+    .filter((value): value is { studentId: string; percentage: number } => value.percentage !== null)
 
   if (classScores.length === 0) {
     const rounded = Math.round(myAverage * 10) / 10
@@ -522,11 +569,11 @@ function buildCurrentScoreSummary(
     }
   }
 
-  const classAverage = average(classScores.map((score) => score.percentage as number)) || myAverage
+  const classAverage = average(classScores.map((score) => score.percentage)) || myAverage
   const averagesByStudent = new Map<string, number[]>()
 
   for (const score of classScores) {
-    pushToMapList(averagesByStudent, score.student_id, score.percentage as number)
+    pushToMapList(averagesByStudent, score.studentId, score.percentage)
   }
 
   const highestScore = Math.max(
@@ -547,16 +594,19 @@ function buildScoreTrendData(
 ) {
   return trendPeriods
     .map((trendPeriod) => {
-      const myScores = (studentScoresByPeriod.get(trendPeriod.key) || []).filter(
-        (score) => score.percentage !== null
-      )
-      const classScores = (classScoresByPeriod.get(trendPeriod.key) || []).filter(
-        (score) => score.percentage !== null
-      )
+      const myScores = (studentScoresByPeriod.get(trendPeriod.key) || [])
+        .map((score) => ({
+          isRetest: score.is_retest,
+          percentage: getScorePercentage(score),
+        }))
+        .filter((score): score is { isRetest: boolean | null; percentage: number } => score.percentage !== null)
+      const classScores = (classScoresByPeriod.get(trendPeriod.key) || [])
+        .map((score) => getScorePercentage(score))
+        .filter((score): score is number => score !== null)
 
-      const myAverage = average(myScores.map((score) => score.percentage as number)) || 0
-      const classAverage = average(classScores.map((score) => score.percentage as number)) || 0
-      const retestCount = myScores.filter((score) => score.is_retest).length
+      const myAverage = average(myScores.map((score) => score.percentage)) || 0
+      const classAverage = average(classScores) || 0
+      const retestCount = myScores.filter((score) => score.isRetest).length
       const retestRate =
         myScores.length > 0
           ? Math.round((retestCount / myScores.length) * 1000) / 10
@@ -613,7 +663,6 @@ async function fetchAttendanceRows(
     .in('student_id', studentIds)
     .gte('attendance_date', period.start)
     .lte('attendance_date', period.end)
-    .is('deleted_at', null)
 
   if (error) {
     console.error('[fetchAttendanceRows] Supabase error:', error.message)
@@ -637,21 +686,64 @@ async function fetchHomeworkRows(
     return new Map<string, HomeworkRow[]>()
   }
 
-  const { data, error } = await supabase
-    .from('student_todos')
-    .select('student_id, completed_at')
-    .eq('tenant_id', tenantId)
-    .in('student_id', studentIds)
-    .gte('due_date', period.start)
-    .lte('due_date', period.end)
-    .is('deleted_at', null)
+  const sources = [
+    {
+      name: 'student_todos',
+      run: () =>
+        supabase
+          .from('student_todos')
+          .select('student_id, completed_at')
+          .eq('tenant_id', tenantId)
+          .in('student_id', studentIds)
+          .gte('due_date', period.start)
+          .lte('due_date', period.end)
+          .is('deleted_at', null),
+    },
+    {
+      name: 'todos',
+      run: () =>
+        supabase
+          .from('todos')
+          .select('student_id, completed_at')
+          .eq('tenant_id', tenantId)
+          .in('student_id', studentIds)
+          .gte('due_date', period.start)
+          .lte('due_date', period.end)
+          .is('deleted_at', null),
+    },
+    {
+      name: 'student_tasks',
+      run: () =>
+        supabase
+          .from('student_tasks')
+          .select('student_id, completed_at')
+          .eq('tenant_id', tenantId)
+          .eq('kind', 'homework')
+          .in('student_id', studentIds)
+          .gte('due_date', period.start)
+          .lte('due_date', period.end)
+          .is('deleted_at', null),
+    },
+  ] as const
 
-  if (error) {
-    console.error('[fetchHomeworkRows] Supabase error:', error.message)
+  let data: HomeworkRow[] = []
+
+  for (const source of sources) {
+    const result = await source.run()
+
+    if (result.error) {
+      console.error(`[fetchHomeworkRows] ${source.name} error:`, result.error.message)
+      continue
+    }
+
+    if ((result.data || []).length > 0) {
+      data = result.data as HomeworkRow[]
+      break
+    }
   }
 
   const homeworkByStudent = new Map<string, HomeworkRow[]>()
-  for (const row of (data || []) as HomeworkRow[]) {
+  for (const row of data) {
     pushToMapList(homeworkByStudent, row.student_id, row)
   }
 
@@ -684,26 +776,29 @@ async function fetchRelevantExams(
   const minStart = starts[0]
   const maxEnd = ends[ends.length - 1]
 
-  const selectFields =
-    'id, name, exam_date, created_at, category_code, subject_id, ref_exam_categories(label), subjects(name, color)'
+  async function loadExamBatch(selectFields: string) {
+    return Promise.all([
+      supabase
+        .from('exams')
+        .select(selectFields)
+        .eq('tenant_id', tenantId)
+        .is('deleted_at', null)
+        .gte('exam_date', minStart)
+        .lte('exam_date', maxEnd),
+      supabase
+        .from('exams')
+        .select(selectFields)
+        .eq('tenant_id', tenantId)
+        .is('deleted_at', null)
+        .is('exam_date', null)
+        .gte('created_at', `${minStart}T00:00:00`)
+        .lte('created_at', `${maxEnd}T23:59:59.999`),
+    ])
+  }
 
-  const [datedExamsResult, legacyExamsResult] = await Promise.all([
-    supabase
-      .from('exams')
-      .select(selectFields)
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
-      .gte('exam_date', minStart)
-      .lte('exam_date', maxEnd),
-    supabase
-      .from('exams')
-      .select(selectFields)
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
-      .is('exam_date', null)
-      .gte('created_at', `${minStart}T00:00:00`)
-      .lte('created_at', `${maxEnd}T23:59:59.999`),
-  ])
+  let [datedExamsResult, legacyExamsResult] = await loadExamBatch(
+    'id, name, exam_date, created_at, category_code, subject_id, subjects(name, color)'
+  )
 
   if (datedExamsResult.error) {
     console.error('[fetchRelevantExams] datedExams error:', datedExamsResult.error.message)
@@ -712,11 +807,17 @@ async function fetchRelevantExams(
     console.error('[fetchRelevantExams] legacyExams error:', legacyExamsResult.error.message)
   }
 
-  const datedExams = datedExamsResult.data
-  const legacyExams = legacyExamsResult.data
+  if (datedExamsResult.error || legacyExamsResult.error) {
+    ;[datedExamsResult, legacyExamsResult] = await loadExamBatch(
+      'id, name, exam_date, created_at, category_code, subject_id'
+    )
+  }
+
+  const datedExams = (datedExamsResult.data || []) as unknown as ExamRow[]
+  const legacyExams = (legacyExamsResult.data || []) as unknown as ExamRow[]
 
   const examMap = new Map<string, ExamMeta>()
-  for (const row of [...((datedExams || []) as ExamRow[]), ...((legacyExams || []) as ExamRow[])]) {
+  for (const row of [...datedExams, ...legacyExams]) {
     const exam = normalizeExam(row)
     const effectiveDate = getEffectiveExamDate(exam)
 
@@ -785,7 +886,7 @@ async function fetchScoreContext(
   )
 
   const scoreSelect =
-    'student_id, exam_id, percentage, feedback, is_retest, score, total_score'
+    'student_id, exam_id, percentage, feedback, is_retest, score, total_points'
 
   const [studentScoreResult, classScoreResult] = await Promise.all([
     supabase
