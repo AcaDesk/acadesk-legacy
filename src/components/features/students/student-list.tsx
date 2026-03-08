@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
 import { Calendar } from '@ui/calendar'
@@ -15,10 +16,36 @@ import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { StudentTableImproved, Student } from './student-table-improved'
 import { getErrorMessage } from '@/lib/error-handlers'
-import { getStudents, getStudentFilterOptions, deleteStudent } from '@/app/actions/students'
+import { deleteStudent } from '@/app/actions/students'
+import { useStudentsQuery, useStudentFilterOptionsQuery } from '@/hooks/queries/use-students-query'
+import { queryKeys } from '@/lib/query-keys'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function formatStudents(data: any[]): Student[] {
+  return data.map(s => ({
+    id: s.id,
+    student_code: s.student_code,
+    grade: s.grade,
+    school: s.school,
+    enrollment_date: s.enrollment_date,
+    birth_date: s.birth_date ?? null,
+    gender: null,
+    student_phone: s.student_phone ?? null,
+    profile_image_url: s.profile_image_url ?? null,
+    users: {
+      name: s.name,
+      email: s.email,
+      phone: s.phone,
+    },
+    class_enrollments: s.classes.map((c: { name?: string }) => ({
+      classes: { name: c.name || '' }
+    })),
+    recentAttendance: s.recentAttendance ?? [],
+    guardians: s.guardians ?? [],
+  })) as Student[]
+}
 
 export function StudentList() {
-  const [students, setStudents] = useState<Student[]>([])
   const [selectedGrade, setSelectedGrade] = useState<string>('all')
   const [selectedClass, setSelectedClass] = useState<string>('all')
   const [selectedSchool, setSelectedSchool] = useState<string>('all')
@@ -30,176 +57,58 @@ export function StudentList() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
-  const [totalCount, setTotalCount] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [classes, setClasses] = useState<Array<{ id: string; name: string }>>([])
-  const [grades, setGrades] = useState<string[]>([])
-  const [schools, setSchools] = useState<string[]>([])
   const [badgeFilter, setBadgeFilter] = useState<'overdue' | 'unpaid' | 'partially_paid' | 'paid' | 'attendance_issue' | 'new_student' | 'birthday_today' | 'birthday_soon' | 'no_guardian' | null>(null)
 
   const { toast } = useToast()
-  const requestSeqRef = useRef(0)
-  const prevFilterKeyRef = useRef('')
+  const queryClient = useQueryClient()
 
+  // 검색어 디바운스
   useEffect(() => {
     const timeout = window.setTimeout(() => {
       setDebouncedSearch(searchInput.trim())
+      setCurrentPage(1)
     }, 300)
-
     return () => window.clearTimeout(timeout)
   }, [searchInput])
 
-  // Load filter options on mount
-  useEffect(() => {
-    async function loadFilterOptions() {
-      try {
-        const filterResult = await getStudentFilterOptions()
-
-        // 필터 옵션 설정
-        if (filterResult.success && filterResult.data) {
-          setGrades(filterResult.data.grades)
-          setSchools(filterResult.data.schools)
-          setClasses(filterResult.data.classes)
-        } else {
-          console.error('[StudentList] Failed to load filter options:', filterResult.error)
-        }
-      } catch (error) {
-        console.error('[StudentList] Failed to load filter options:', error)
-        toast({
-          title: '데이터 로드 실패',
-          description: getErrorMessage(error),
-          variant: 'destructive',
-        })
-      }
-    }
-
-    loadFilterOptions()
-  }, [toast])
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function formatStudents(data: any[]): Student[] {
-    return data.map(s => ({
-      id: s.id,
-      student_code: s.student_code,
-      grade: s.grade,
-      school: s.school,
-      enrollment_date: s.enrollment_date,
-      birth_date: s.birth_date ?? null,
-      gender: null,
-      student_phone: s.student_phone ?? null,
-      profile_image_url: s.profile_image_url ?? null,
-      users: {
-        name: s.name,
-        email: s.email,
-        phone: s.phone,
-      },
-      class_enrollments: s.classes.map((c: { name?: string }) => ({
-        classes: { name: c.name || '' }
-      })),
-      recentAttendance: s.recentAttendance ?? [],
-      guardians: s.guardians ?? [],
-    })) as Student[]
+  const filters = {
+    grade: selectedGrade !== 'all' ? selectedGrade : undefined,
+    classId: selectedClass !== 'all' ? selectedClass : undefined,
+    school: selectedSchool !== 'all' ? selectedSchool : undefined,
+    commuteMethod: selectedCommuteMethod !== 'all' ? selectedCommuteMethod : undefined,
+    marketingSource: selectedMarketingSource !== 'all' ? selectedMarketingSource : undefined,
+    enrollmentDateFrom: enrollmentDateFrom ? format(enrollmentDateFrom, 'yyyy-MM-dd') : undefined,
+    enrollmentDateTo: enrollmentDateTo ? format(enrollmentDateTo, 'yyyy-MM-dd') : undefined,
+    search: debouncedSearch || undefined,
+    page: currentPage,
+    pageSize,
   }
 
-  const loadStudents = useCallback(async () => {
-    const requestSeq = ++requestSeqRef.current
-    try {
-      setLoading(true)
+  const { data, isFetching, isError } = useStudentsQuery(filters)
+  const { data: filterOptions } = useStudentFilterOptionsQuery()
 
-      const result = await getStudents({
-        grade: selectedGrade !== 'all' ? selectedGrade : undefined,
-        classId: selectedClass !== 'all' ? selectedClass : undefined,
-        school: selectedSchool !== 'all' ? selectedSchool : undefined,
-        commuteMethod: selectedCommuteMethod !== 'all' ? selectedCommuteMethod : undefined,
-        marketingSource: selectedMarketingSource !== 'all' ? selectedMarketingSource : undefined,
-        enrollmentDateFrom: enrollmentDateFrom ? format(enrollmentDateFrom, 'yyyy-MM-dd') : undefined,
-        enrollmentDateTo: enrollmentDateTo ? format(enrollmentDateTo, 'yyyy-MM-dd') : undefined,
-        search: debouncedSearch || undefined,
-        page: currentPage,
-        pageSize,
-      })
+  const students = data ? formatStudents(data.data) : []
+  const totalCount = data?.totalCount ?? 0
+  const grades = filterOptions?.grades ?? []
+  const schools = filterOptions?.schools ?? []
+  const classes = filterOptions?.classes ?? []
 
-      // Race condition guard
-      if (requestSeq !== requestSeqRef.current) return
-
-      if (!result.success || !result.data) {
-        throw new Error(result.error || 'Failed to load students')
-      }
-
-      setStudents(formatStudents(result.data))
-      setTotalCount(result.totalCount ?? result.data.length)
-    } catch (error) {
-      if (requestSeq !== requestSeqRef.current) return
-      console.error('[StudentList] Failed to load students:', error)
-      toast({
-        title: '학생 목록 로드 실패',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    } finally {
-      if (requestSeq === requestSeqRef.current) {
-        setLoading(false)
-      }
-    }
-  }, [
-    selectedGrade,
-    selectedClass,
-    selectedSchool,
-    selectedCommuteMethod,
-    selectedMarketingSource,
-    enrollmentDateFrom,
-    enrollmentDateTo,
-    debouncedSearch,
-    currentPage,
-    pageSize,
-    toast,
-  ])
-
-  const filterKey = JSON.stringify({
-    selectedGrade,
-    selectedClass,
-    selectedSchool,
-    selectedCommuteMethod,
-    selectedMarketingSource,
-    enrollmentDateFrom: enrollmentDateFrom ? format(enrollmentDateFrom, 'yyyy-MM-dd') : null,
-    enrollmentDateTo: enrollmentDateTo ? format(enrollmentDateTo, 'yyyy-MM-dd') : null,
-    debouncedSearch,
-  })
-
-  useEffect(() => {
-    const filterChanged = prevFilterKeyRef.current !== filterKey
-    prevFilterKeyRef.current = filterKey
-
-    if (filterChanged && currentPage !== 1) {
-      setCurrentPage(1)
-      return
-    }
-
-    loadStudents()
-  }, [filterKey, currentPage, pageSize, loadStudents])
+  // 필터 변경 시 1페이지로 이동
+  function handleFilterChange(setter: (val: string) => void, val: string) {
+    setter(val)
+    setCurrentPage(1)
+  }
 
   async function handleDelete(studentId: string, studentName: string) {
     try {
       const result = await deleteStudent(studentId)
+      if (!result.success) throw new Error(result.error || 'Failed to delete student')
 
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to delete student')
-      }
-
-      toast({
-        title: '학생 삭제 완료',
-        description: `${studentName} 학생이 성공적으로 삭제되었습니다.`,
-      })
-
-      // Reload students
-      await loadStudents()
+      toast({ title: '학생 삭제 완료', description: `${studentName} 학생이 성공적으로 삭제되었습니다.` })
+      queryClient.invalidateQueries({ queryKey: queryKeys.students.all() })
     } catch (error) {
       console.error('[StudentList] Failed to delete student:', error)
-      toast({
-        title: '학생 삭제 실패',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
+      toast({ title: '학생 삭제 실패', description: getErrorMessage(error), variant: 'destructive' })
     }
   }
 
@@ -214,12 +123,16 @@ export function StudentList() {
     setCurrentPage(1)
   }
 
+  if (isError) {
+    toast({ title: '학생 목록 로드 실패', description: '잠시 후 다시 시도해주세요.', variant: 'destructive' })
+  }
+
   const noGuardianCount = students.filter(s => !s.guardians || s.guardians.length === 0).length
 
   return (
     <div className="space-y-4">
       {/* 보호자 미연결 알림 배너 */}
-      {!loading && noGuardianCount > 0 && (
+      {!isFetching && noGuardianCount > 0 && (
         <div className="flex items-center justify-between gap-2 px-4 py-3 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
           <div className="flex items-center gap-2 text-sm text-yellow-700 dark:text-yellow-400">
             <UserX className="h-4 w-4 flex-shrink-0" />
@@ -236,69 +149,45 @@ export function StudentList() {
         </div>
       )}
 
-      {/* Filters */}
+      {/* 필터 */}
       <div className="flex flex-wrap gap-3 items-end">
-        {/* Grade Filter */}
         <div className="flex flex-col gap-1.5 min-w-[150px]">
           <label className="text-sm font-medium">학년</label>
-          <Select value={selectedGrade} onValueChange={setSelectedGrade}>
-            <SelectTrigger>
-              <SelectValue placeholder="학년 선택" />
-            </SelectTrigger>
+          <Select value={selectedGrade} onValueChange={(v) => handleFilterChange(setSelectedGrade, v)}>
+            <SelectTrigger><SelectValue placeholder="학년 선택" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">전체</SelectItem>
-              {grades.map(grade => (
-                <SelectItem key={grade} value={grade}>
-                  {grade}
-                </SelectItem>
-              ))}
+              {grades.map(grade => <SelectItem key={grade} value={grade}>{grade}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
 
-        {/* Class Filter */}
         <div className="flex flex-col gap-1.5 min-w-[150px]">
           <label className="text-sm font-medium">수업</label>
-          <Select value={selectedClass} onValueChange={setSelectedClass}>
-            <SelectTrigger>
-              <SelectValue placeholder="수업 선택" />
-            </SelectTrigger>
+          <Select value={selectedClass} onValueChange={(v) => handleFilterChange(setSelectedClass, v)}>
+            <SelectTrigger><SelectValue placeholder="수업 선택" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">전체</SelectItem>
-              {classes.map(cls => (
-                <SelectItem key={cls.id} value={cls.id}>
-                  {cls.name}
-                </SelectItem>
-              ))}
+              {classes.map(cls => <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
 
-        {/* School Filter */}
         <div className="flex flex-col gap-1.5 min-w-[150px]">
           <label className="text-sm font-medium">학교</label>
-          <Select value={selectedSchool} onValueChange={setSelectedSchool}>
-            <SelectTrigger>
-              <SelectValue placeholder="학교 선택" />
-            </SelectTrigger>
+          <Select value={selectedSchool} onValueChange={(v) => handleFilterChange(setSelectedSchool, v)}>
+            <SelectTrigger><SelectValue placeholder="학교 선택" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">전체</SelectItem>
-              {schools.map(school => (
-                <SelectItem key={school} value={school}>
-                  {school}
-                </SelectItem>
-              ))}
+              {schools.map(school => <SelectItem key={school} value={school}>{school}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
 
-        {/* Commute Method Filter */}
         <div className="flex flex-col gap-1.5 min-w-[150px]">
           <label className="text-sm font-medium">통학 방법</label>
-          <Select value={selectedCommuteMethod} onValueChange={setSelectedCommuteMethod}>
-            <SelectTrigger>
-              <SelectValue placeholder="통학 방법" />
-            </SelectTrigger>
+          <Select value={selectedCommuteMethod} onValueChange={(v) => handleFilterChange(setSelectedCommuteMethod, v)}>
+            <SelectTrigger><SelectValue placeholder="통학 방법" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">전체</SelectItem>
               <SelectItem value="도보">도보</SelectItem>
@@ -310,13 +199,10 @@ export function StudentList() {
           </Select>
         </div>
 
-        {/* Marketing Source Filter */}
         <div className="flex flex-col gap-1.5 min-w-[150px]">
           <label className="text-sm font-medium">유입 경로</label>
-          <Select value={selectedMarketingSource} onValueChange={setSelectedMarketingSource}>
-            <SelectTrigger>
-              <SelectValue placeholder="유입 경로" />
-            </SelectTrigger>
+          <Select value={selectedMarketingSource} onValueChange={(v) => handleFilterChange(setSelectedMarketingSource, v)}>
+            <SelectTrigger><SelectValue placeholder="유입 경로" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">전체</SelectItem>
               <SelectItem value="지인추천">지인 추천</SelectItem>
@@ -328,7 +214,6 @@ export function StudentList() {
           </Select>
         </div>
 
-        {/* Enrollment Date Range */}
         <div className="flex flex-col gap-1.5 min-w-[150px]">
           <label className="text-sm font-medium">등록일 (시작)</label>
           <Popover>
@@ -339,7 +224,7 @@ export function StudentList() {
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0">
-              <Calendar mode="single" selected={enrollmentDateFrom} onSelect={setEnrollmentDateFrom} />
+              <Calendar mode="single" selected={enrollmentDateFrom} onSelect={(d) => { setEnrollmentDateFrom(d); setCurrentPage(1) }} />
             </PopoverContent>
           </Popover>
         </div>
@@ -354,12 +239,11 @@ export function StudentList() {
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0">
-              <Calendar mode="single" selected={enrollmentDateTo} onSelect={setEnrollmentDateTo} />
+              <Calendar mode="single" selected={enrollmentDateTo} onSelect={(d) => { setEnrollmentDateTo(d); setCurrentPage(1) }} />
             </PopoverContent>
           </Popover>
         </div>
 
-        {/* Clear Filters */}
         <div className="flex flex-col gap-1.5">
           <label className="text-sm font-medium opacity-0">Clear</label>
           <Button variant="outline" onClick={clearFilters}>
@@ -369,18 +253,15 @@ export function StudentList() {
         </div>
       </div>
 
-      {/* Student Table */}
+      {/* 학생 테이블 */}
       <StudentTableImproved
         data={students}
-        loading={loading}
+        loading={isFetching}
         onDelete={handleDelete}
         badgeFilter={badgeFilter}
         onBadgeFilterChange={setBadgeFilter}
         searchValue={searchInput}
-        onSearchChange={(value) => {
-          setSearchInput(value)
-          setCurrentPage(1)
-        }}
+        onSearchChange={setSearchInput}
         totalCount={totalCount}
         currentPage={currentPage}
         pageSize={pageSize}

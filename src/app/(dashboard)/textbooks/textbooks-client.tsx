@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import { Plus, Book, Search, Trash2 } from 'lucide-react'
 import { IconChevronLeft, IconChevronRight, IconChevronsLeft, IconChevronsRight } from '@tabler/icons-react'
 import { Button } from '@/components/ui/button'
@@ -33,104 +33,49 @@ import { SectionErrorBoundary } from '@/components/layout/page-error-boundary'
 import { PAGE_ANIMATIONS } from '@/lib/animation-config'
 import { useToast } from '@/hooks/use-toast'
 import { bulkDeleteTextbooks } from '@/app/actions/textbooks'
+import { useTextbooksQuery } from '@/hooks/queries/use-textbooks-query'
+import { queryKeys } from '@/lib/query-keys'
 
-type Textbook = {
-  id: string
-  title: string
-  author: string | null
-  publisher: string | null
-  isbn: string | null
-  barcode: string | null
-  management_code: string | null
-  total_copies: number | null
-  price: number | null
-  is_active: boolean
-}
+const DEFAULT_PAGE_SIZE = 15
 
-interface TextbooksClientProps {
-  textbooks: Textbook[]
-  lendingCountByTextbookId?: Record<string, number>
-  unitCountByTextbookId?: Record<string, number>
-  searchQuery: string
-  currentPage: number
-  pageSize: number
-  totalCount: number
-}
-
-export function TextbooksClient({
-  textbooks: initialTextbooks,
-  lendingCountByTextbookId = {},
-  unitCountByTextbookId = {},
-  searchQuery,
-  currentPage,
-  pageSize,
-  totalCount,
-}: TextbooksClientProps) {
-  const router = useRouter()
-  const searchParams = useSearchParams()
+export function TextbooksClient() {
   const { toast } = useToast()
-  const [textbooks, setTextbooks] = useState(initialTextbooks)
-  const [searchInput, setSearchInput] = useState(searchQuery)
+  const queryClient = useQueryClient()
+
+  const [searchInput, setSearchInput] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
 
-  useEffect(() => {
-    setTextbooks(initialTextbooks)
-  }, [initialTextbooks])
-
-  useEffect(() => {
-    setSearchInput(searchQuery)
-  }, [searchQuery])
-
-  useEffect(() => {
-    setSelectedIds(new Set())
-  }, [textbooks])
-
-  const updateQuery = useCallback((params: {
-    search?: string
-    page?: number
-    pageSize?: number
-  }) => {
-    const next = new URLSearchParams(searchParams.toString())
-
-    if (params.search && params.search.trim()) {
-      next.set('search', params.search.trim())
-    } else {
-      next.delete('search')
-    }
-
-    if (params.page && params.page > 1) {
-      next.set('page', String(params.page))
-    } else {
-      next.delete('page')
-    }
-
-    if (params.pageSize && params.pageSize !== 15) {
-      next.set('pageSize', String(params.pageSize))
-    } else {
-      next.delete('pageSize')
-    }
-
-    const query = next.toString()
-    router.replace(query ? `?${query}` : '/textbooks', { scroll: false })
-  }, [router, searchParams])
-
+  // 검색어 디바운스
   useEffect(() => {
     const timeout = window.setTimeout(() => {
-      if (searchInput === searchQuery) return
-      updateQuery({
-        search: searchInput || undefined,
-        page: 1,
-        pageSize,
-      })
+      setDebouncedSearch(searchInput.trim())
+      setCurrentPage(1)
     }, 300)
-
     return () => window.clearTimeout(timeout)
-  }, [searchInput, searchQuery, pageSize, updateQuery])
+  }, [searchInput])
 
-  // Selection handlers
+  const { data, isFetching } = useTextbooksQuery({
+    search: debouncedSearch || undefined,
+    page: currentPage,
+    pageSize,
+  })
+
+  const textbooks = data?.data ?? []
+  const lendingCountByTextbookId = data?.lendingCountByTextbookId ?? {}
+  const unitCountByTextbookId = data?.unitCountByTextbookId ?? {}
+  const totalCount = data?.totalCount ?? 0
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+
+  // 페이지 변경 시 선택 초기화
+  useEffect(() => {
+    setSelectedIds(new Set())
+  }, [currentPage])
+
   const isAllSelected = textbooks.length > 0 && textbooks.every(t => selectedIds.has(t.id))
   const isSomeSelected = textbooks.some(t => selectedIds.has(t.id))
 
@@ -165,31 +110,36 @@ export function TextbooksClient({
     setIsDeleting(true)
     try {
       const result = await bulkDeleteTextbooks(ids)
-      if (!result.success) {
-        throw new Error(result.error || '일괄 삭제 실패')
-      }
+      if (!result.success) throw new Error(result.error || '일괄 삭제 실패')
 
-      setTextbooks(prev => prev.filter(t => !selectedIds.has(t.id)))
       setSelectedIds(new Set())
       toast({
         title: '일괄 삭제 완료',
         description: `${result.data?.deletedCount ?? ids.length}개의 교재가 삭제되었습니다.`,
       })
-      router.refresh()
+      queryClient.invalidateQueries({ queryKey: queryKeys.textbooks.all() })
     } catch (error) {
       console.error('[bulkDelete] Error:', error)
-      toast({
-        title: '일괄 삭제 실패',
-        description: '교재 삭제 중 오류가 발생했습니다.',
-        variant: 'destructive',
-      })
+      toast({ title: '일괄 삭제 실패', description: '교재 삭제 중 오류가 발생했습니다.', variant: 'destructive' })
     } finally {
       setIsDeleting(false)
       setDeleteDialogOpen(false)
     }
-  }, [selectedIds, router, toast])
+  }, [selectedIds, queryClient, toast])
 
-  if (textbooks.length === 0 && !searchQuery) {
+  // 초기 로딩 (데이터 없고 로딩 중)
+  if (!data && isFetching) {
+    return (
+      <section aria-label="교재 목록" {...PAGE_ANIMATIONS.getSection(0)}>
+        <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
+          교재 목록을 불러오는 중...
+        </div>
+      </section>
+    )
+  }
+
+  // 데이터 없고 검색어도 없으면 빈 상태
+  if (textbooks.length === 0 && !debouncedSearch && !isFetching) {
     return (
       <section aria-label="교재 목록" {...PAGE_ANIMATIONS.getSection(0)}>
         <EmptyState
@@ -230,22 +180,12 @@ export function TextbooksClient({
       {/* Bulk Action Bar */}
       {selectedIds.size > 0 && (
         <section aria-label="일괄 작업" className="flex items-center gap-3 px-1">
-          <span className="text-sm text-muted-foreground">
-            {selectedIds.size}개 선택됨
-          </span>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => setDeleteDialogOpen(true)}
-          >
+          <span className="text-sm text-muted-foreground">{selectedIds.size}개 선택됨</span>
+          <Button variant="destructive" size="sm" onClick={() => setDeleteDialogOpen(true)}>
             <Trash2 className="h-4 w-4 mr-1" />
             일괄 삭제
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setSelectedIds(new Set())}
-          >
+          <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
             선택 해제
           </Button>
         </section>
@@ -254,14 +194,14 @@ export function TextbooksClient({
       {/* Textbook List */}
       <section aria-label="교재 목록" {...PAGE_ANIMATIONS.getSection(1)}>
         <SectionErrorBoundary sectionName="교재 목록">
-          {textbooks.length === 0 ? (
+          {textbooks.length === 0 && !isFetching ? (
             <EmptyState
               icon={<Search className="h-12 w-12" />}
               title="검색 결과가 없습니다"
-              description={`"${searchQuery}"에 해당하는 교재를 찾을 수 없습니다`}
+              description={`"${debouncedSearch}"에 해당하는 교재를 찾을 수 없습니다`}
             />
           ) : (
-            <Card>
+            <Card className={isFetching ? 'opacity-70' : ''}>
               <CardContent className="p-0">
                 <Table>
                   <TableHeader>
@@ -298,21 +238,14 @@ export function TextbooksClient({
                           />
                         </TableCell>
                         <TableCell className="font-medium">
-                          <Link
-                            href={`/textbooks/${textbook.id}`}
-                            className="hover:underline"
-                          >
+                          <Link href={`/textbooks/${textbook.id}`} className="hover:underline">
                             {textbook.title}
                           </Link>
                         </TableCell>
                         <TableCell className="text-sm">{textbook.author || '-'}</TableCell>
                         <TableCell className="text-sm">{textbook.publisher || '-'}</TableCell>
-                        <TableCell className="font-mono text-sm">
-                          {textbook.management_code || '-'}
-                        </TableCell>
-                        <TableCell className="font-mono text-sm">
-                          {textbook.barcode || '-'}
-                        </TableCell>
+                        <TableCell className="font-mono text-sm">{textbook.management_code || '-'}</TableCell>
+                        <TableCell className="font-mono text-sm">{textbook.barcode || '-'}</TableCell>
                         <TableCell className="text-sm">
                           {(() => {
                             const total = textbook.total_copies || 1
@@ -328,9 +261,7 @@ export function TextbooksClient({
                           })()}
                         </TableCell>
                         <TableCell className="text-sm">
-                          {textbook.price
-                            ? `${textbook.price.toLocaleString()}원`
-                            : '-'}
+                          {textbook.price ? `${textbook.price.toLocaleString()}원` : '-'}
                         </TableCell>
                         <TableCell className="text-sm">
                           {unitCountByTextbookId[textbook.id] || 0}개
@@ -350,11 +281,10 @@ export function TextbooksClient({
                       <span className="text-sm text-muted-foreground whitespace-nowrap">페이지당 행 수</span>
                       <Select
                         value={String(pageSize)}
-                        onValueChange={(value) => updateQuery({
-                          search: searchQuery || undefined,
-                          page: 1,
-                          pageSize: Number(value),
-                        })}
+                        onValueChange={(value) => {
+                          setPageSize(Number(value))
+                          setCurrentPage(1)
+                        }}
                       >
                         <SelectTrigger className="h-8 w-[70px]">
                           <SelectValue />
@@ -375,8 +305,8 @@ export function TextbooksClient({
                         variant="outline"
                         size="icon"
                         className="hidden lg:flex h-8 w-8"
-                        onClick={() => updateQuery({ search: searchQuery || undefined, page: 1, pageSize })}
-                        disabled={currentPage === 1}
+                        onClick={() => setCurrentPage(1)}
+                        disabled={currentPage === 1 || isFetching}
                       >
                         <IconChevronsLeft className="h-4 w-4" />
                       </Button>
@@ -384,12 +314,8 @@ export function TextbooksClient({
                         variant="outline"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => updateQuery({
-                          search: searchQuery || undefined,
-                          page: Math.max(1, currentPage - 1),
-                          pageSize,
-                        })}
-                        disabled={currentPage === 1}
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1 || isFetching}
                       >
                         <IconChevronLeft className="h-4 w-4" />
                       </Button>
@@ -397,12 +323,8 @@ export function TextbooksClient({
                         variant="outline"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => updateQuery({
-                          search: searchQuery || undefined,
-                          page: Math.min(totalPages, currentPage + 1),
-                          pageSize,
-                        })}
-                        disabled={currentPage === totalPages}
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages || isFetching}
                       >
                         <IconChevronRight className="h-4 w-4" />
                       </Button>
@@ -410,8 +332,8 @@ export function TextbooksClient({
                         variant="outline"
                         size="icon"
                         className="hidden lg:flex h-8 w-8"
-                        onClick={() => updateQuery({ search: searchQuery || undefined, page: totalPages, pageSize })}
-                        disabled={currentPage === totalPages}
+                        onClick={() => setCurrentPage(totalPages)}
+                        disabled={currentPage === totalPages || isFetching}
                       >
                         <IconChevronsRight className="h-4 w-4" />
                       </Button>
