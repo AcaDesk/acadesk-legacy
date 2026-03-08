@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import { useFormContext } from 'react-hook-form'
 import { Input } from '@ui/input'
 import { DatePicker } from '@ui/date-picker'
@@ -20,17 +19,6 @@ export function Step1_StudentInfo({ schools }: Step1Props) {
   const birthDate = watch('birthDate')
   const currentYear = new Date().getFullYear()
 
-  // register에서 ref를 추출하여 포커스 관리
-  const nameRegister = register('name')
-
-  // 포커스 관리: 컴포넌트가 마운트될 때 첫 번째 입력 필드에 포커스
-  useEffect(() => {
-    if (nameRegister.ref && 'current' in nameRegister.ref) {
-      const inputElement = nameRegister.ref.current as HTMLInputElement | null
-      inputElement?.focus()
-    }
-  }, [nameRegister.ref])
-
   return (
     <div className="space-y-4">
       <div className="grid gap-4 md:grid-cols-2">
@@ -39,7 +27,8 @@ export function Step1_StudentInfo({ schools }: Step1Props) {
           <Input
             id="name"
             placeholder="홍길동"
-            {...nameRegister}
+            autoFocus
+            {...register('name')}
           />
           {errors.name && (
             <p className="text-sm text-destructive">{errors.name.message}</p>

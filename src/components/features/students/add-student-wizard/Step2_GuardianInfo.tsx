@@ -25,7 +25,6 @@ type GuardianState = {
   isSearching: boolean
   selectedId: string | null
   showNewForm: boolean
-  showSearchResults: boolean
 }
 
 type GuardianAction =
@@ -35,7 +34,6 @@ type GuardianAction =
   | { type: 'SELECT_GUARDIAN'; payload: string }
   | { type: 'SHOW_NEW_FORM' }
   | { type: 'HIDE_NEW_FORM' }
-  | { type: 'SKIP' }
   | { type: 'RESET' }
 
 const initialState: GuardianState = {
@@ -43,8 +41,7 @@ const initialState: GuardianState = {
   results: [],
   isSearching: false,
   selectedId: null,
-  showNewForm: true, // 기본적으로 신규 폼을 보여줌
-  showSearchResults: false,
+  showNewForm: true,
 }
 
 function guardianReducer(state: GuardianState, action: GuardianAction): GuardianState {
@@ -53,7 +50,6 @@ function guardianReducer(state: GuardianState, action: GuardianAction): Guardian
       return {
         ...state,
         query: action.payload,
-        showSearchResults: action.payload.length >= 2,
       }
     case 'SET_RESULTS':
       return { ...state, results: action.payload, isSearching: false }
@@ -73,12 +69,6 @@ function guardianReducer(state: GuardianState, action: GuardianAction): Guardian
       }
     case 'HIDE_NEW_FORM':
       return { ...state, showNewForm: false }
-    case 'SKIP':
-      return {
-        ...state,
-        showNewForm: false,
-        selectedId: null,
-      }
     case 'RESET':
       return initialState
     default:
@@ -171,6 +161,7 @@ export function Step2_GuardianInfo() {
   }
 
 
+  const showSearchResults = state.query.length >= 2
   const selectedGuardian = state.results.find((g) => g.id === state.selectedId)
 
   return (
@@ -194,7 +185,7 @@ export function Step2_GuardianInfo() {
       </div>
 
       {/* 검색 결과 - 검색어가 2자 이상일 때만 표시 */}
-      {state.showSearchResults && (
+      {showSearchResults && (
         <div className="border rounded-lg p-4 space-y-2 bg-muted/30">
           {state.isSearching ? (
             <div className="flex items-center justify-center py-4">
@@ -280,7 +271,7 @@ export function Step2_GuardianInfo() {
               <UserPlus className="h-4 w-4" />
               신규 학부모 등록
             </p>
-            {state.showSearchResults && state.results.length > 0 && (
+            {showSearchResults && state.results.length > 0 && (
               <Button
                 type="button"
                 variant="ghost"
