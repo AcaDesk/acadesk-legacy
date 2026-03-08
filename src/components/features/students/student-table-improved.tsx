@@ -877,7 +877,7 @@ export function StudentTableImproved({
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row, idx) => (
                 <motion.tr
-                  key={row.id}
+                  key={row.original.id}
                   data-state={row.getIsSelected() && 'selected'}
                   className={cn(
                     'cursor-pointer transition-colors hover:bg-muted/50',
