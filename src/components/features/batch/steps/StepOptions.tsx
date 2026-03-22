@@ -9,6 +9,7 @@ import { Label } from '@ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
 import { DatePicker } from '@ui/date-picker'
 import type { BatchActionType, BatchOptions, BatchSchedule } from '@/core/types/batch.types'
+import { normalizeBatchOptions } from '@/lib/batch-options'
 
 interface StepOptionsProps {
   draftId: string
@@ -20,7 +21,9 @@ interface StepOptionsProps {
 export function StepOptions({ draftId, actionType, initialOptions, initialSchedule }: StepOptionsProps) {
   const { toast } = useToast()
   const [isPending, startTransition] = useTransition()
-  const [options, setOptions] = useState<BatchOptions>(initialOptions)
+  const [options, setOptions] = useState<BatchOptions>(() =>
+    normalizeBatchOptions(actionType, initialOptions)
+  )
   const [schedule, setSchedule] = useState<BatchSchedule>(initialSchedule ?? { mode: 'now' })
 
   if (!actionType) {
@@ -45,8 +48,9 @@ export function StepOptions({ draftId, actionType, initialOptions, initialSchedu
 
     return new Promise<boolean>((resolve) => {
       startTransition(async () => {
+        const normalizedOptions = normalizeBatchOptions(actionType, options)
         const result = await patchBatchDraft(draftId, {
-          options,
+          options: normalizedOptions,
           schedule,
           step: 'review',
         })
@@ -63,6 +67,7 @@ export function StepOptions({ draftId, actionType, initialOptions, initialSchedu
   const scheduledDate = schedule.mode === 'scheduled' && schedule.scheduledAt
     ? new Date(schedule.scheduledAt)
     : undefined
+  const normalizedOptions = normalizeBatchOptions(actionType, options)
 
   return (
     <div className="space-y-6">
@@ -71,7 +76,7 @@ export function StepOptions({ draftId, actionType, initialOptions, initialSchedu
         <div className="lg:col-span-2">
           <OptionsFormSwitch
             actionType={actionType}
-            value={options}
+            value={normalizedOptions}
             onChange={setOptions}
           />
         </div>

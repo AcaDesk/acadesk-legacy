@@ -6,10 +6,15 @@ import { SendOptionsForm } from '../option-forms/SendOptionsForm'
 import type {
   BatchActionType,
   BatchOptions,
-  ReportOptions,
   CommentOptions,
+  ReportOptions,
   SendOptions,
 } from '@/core/types/batch.types'
+import {
+  normalizeCommentOptions,
+  normalizeReportOptions,
+  normalizeSendOptions,
+} from '@/lib/batch-options'
 
 interface OptionsFormSwitchProps {
   actionType: BatchActionType
@@ -17,43 +22,26 @@ interface OptionsFormSwitchProps {
   onChange: (value: BatchOptions) => void
 }
 
-const DEFAULT_REPORT: ReportOptions = {
-  reportType: 'monthly',
-  year: new Date().getFullYear(),
-  month: new Date().getMonth() + 1,
-  includedSections: ['attendance', 'grades', 'homework', 'comment'],
-}
-
-const DEFAULT_COMMENT: CommentOptions = {
-  overwriteExisting: false,
-  targetReportMode: 'latest',
-}
-
-const DEFAULT_SEND: SendOptions = {
-  channel: 'sms',
-  targetReportMode: 'latest',
-}
-
 export function OptionsFormSwitch({ actionType, value, onChange }: OptionsFormSwitchProps) {
   switch (actionType) {
     case 'report':
       return (
         <ReportOptionsForm
-          value={{ ...DEFAULT_REPORT, ...(value as Partial<ReportOptions>) }}
+          value={normalizeReportOptions(value as Partial<ReportOptions>)}
           onChange={onChange}
         />
       )
     case 'comment':
       return (
         <CommentOptionsForm
-          value={{ ...DEFAULT_COMMENT, ...(value as Partial<CommentOptions>) }}
+          value={normalizeCommentOptions(value as Partial<CommentOptions>)}
           onChange={onChange}
         />
       )
     case 'send':
       return (
         <SendOptionsForm
-          value={{ ...DEFAULT_SEND, ...(value as Partial<SendOptions>) }}
+          value={normalizeSendOptions(value as Partial<SendOptions>)}
           onChange={onChange}
         />
       )
