@@ -183,7 +183,7 @@ export function KakaoChannelRegistration({
       })
 
       if (!result.success) {
-        throw new Error(result.error || '토큰 요청 실패')
+        throw new Error(result.error || '인증 메시지 발송에 실패했습니다')
       }
 
       toast({
@@ -196,7 +196,7 @@ export function KakaoChannelRegistration({
       setStep(2)
     } catch (error) {
       toast({
-        title: '토큰 요청 실패',
+        title: '인증 메시지 발송 실패',
         description: translateSolapiError(error),
         variant: 'destructive',
       })
