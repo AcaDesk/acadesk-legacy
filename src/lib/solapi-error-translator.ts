@@ -182,21 +182,32 @@ export function translateSolapiError(error: unknown): string {
   // 2. 에러 메시지 추출
   const errorMessage = extractErrorMessage(error)
 
-  // 3. 메시지 패턴 매칭 시도
   if (errorMessage) {
+    // 3. 메시지 자체가 에러 코드인 경우 (예: new Error("InvalidChannelSearchId"))
+    if (SOLAPI_ERROR_MAP[errorMessage]) {
+      return SOLAPI_ERROR_MAP[errorMessage]
+    }
+
+    // 4. 메시지 첫 토큰이 에러 코드인 경우 (예: "PlusFriendRegiestFailed: ...")
+    const firstToken = errorMessage.split(/[:\s]/)[0]
+    if (firstToken && SOLAPI_ERROR_MAP[firstToken]) {
+      return SOLAPI_ERROR_MAP[firstToken]
+    }
+
+    // 5. 메시지 패턴 매칭 시도
     for (const { pattern, message } of ERROR_PATTERNS) {
       if (pattern.test(errorMessage)) {
         return message
       }
     }
 
-    // 한국어 메시지는 그대로 반환
+    // 6. 한국어 메시지는 그대로 반환
     if (/[\uac00-\ud7af]/.test(errorMessage)) {
       return errorMessage
     }
   }
 
-  // 4. 기본 메시지 반환
+  // 7. 기본 메시지 반환
   return '알 수 없는 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'
 }
 

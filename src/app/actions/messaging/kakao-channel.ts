@@ -75,7 +75,9 @@ function parseAndValidateSearchId(searchId: string): { withAt: string; withoutAt
     )
   }
 
-  const withAt = normalizeSearchIdWithAt(compact)
+  // 대문자 → 소문자 정규화
+  const normalized = compact.toLowerCase()
+  const withAt = normalizeSearchIdWithAt(normalized)
   const withoutAt = withAt.replace(/^@/, '')
 
   if (withoutAt.startsWith('_')) {
@@ -84,10 +86,10 @@ function parseAndValidateSearchId(searchId: string): { withAt: string; withoutAt
     )
   }
 
-  // 카카오 채널 가이드: 15자 이내 한글/영문 소문자/숫자
-  if (!/^[가-힣a-z0-9]{1,15}$/.test(withoutAt)) {
+  // 카카오 채널 가이드: 영문 소문자/숫자/한글/특수문자(._-), 2~15자
+  if (!/^[가-힣a-z0-9._-]{2,15}$/.test(withoutAt)) {
     throw new Error(
-      '검색용 아이디 형식이 올바르지 않습니다. 15자 이내 한글/영문 소문자/숫자만 사용할 수 있습니다.'
+      '검색용 아이디 형식이 올바르지 않습니다. 2~15자 이내 한글/영문 소문자/숫자 또는 ._- 만 사용할 수 있습니다.'
     )
   }
 
@@ -273,12 +275,17 @@ export async function requestKakaoChannelToken(
       lastError = result.error || '채널 토큰 요청 실패'
     }
 
-    throw new Error(lastError || '채널 토큰 요청 실패')
-  } catch (error) {
-    console.error('[requestKakaoChannelToken] Error:', error)
     return {
       success: false,
-      error: getErrorMessage(error),
+      error: lastError || '채널 토큰 요청 실패',
+    }
+  } catch (error) {
+    console.error('[requestKakaoChannelToken] Error:', error)
+    // 한국어 validation 에러 메시지는 그대로 반환 (내부 메시지가 아닌 사용자용 메시지)
+    const message = error instanceof Error ? error.message : null
+    return {
+      success: false,
+      error: (message && /[\uac00-\ud7af]/.test(message)) ? message : getErrorMessage(error),
     }
   }
 }
