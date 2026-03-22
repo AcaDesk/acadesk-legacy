@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { normalizeBatchOptions } from '@/lib/batch-options'
 import type {
   BatchJob,
   BatchJobItem,
@@ -611,7 +612,7 @@ export async function executeSingleBatchItem(
 ): Promise<{ success: boolean; error?: string; data?: Record<string, unknown> }> {
   try {
     if (actionType === 'report') {
-      const opts = options as ReportOptions
+      const opts = normalizeBatchOptions('report', options) as ReportOptions
       const { generateMonthlyReport, generateWeeklyReport, saveReport } = await import('@/app/actions/reports/report-generation')
       const reportType = (opts.reportType as 'weekly' | 'monthly') ?? 'monthly'
       let genResult: Awaited<ReturnType<typeof generateWeeklyReport>>
@@ -636,7 +637,8 @@ export async function executeSingleBatchItem(
 
     if (actionType === 'comment') {
       const { tenantId } = await verifyStaff()
-      const reportResult = await findTargetReport(tenantId, targetId, options as CommentOptions)
+      const commentOptions = normalizeBatchOptions('comment', options) as CommentOptions
+      const reportResult = await findTargetReport(tenantId, targetId, commentOptions)
       if (!reportResult.success || !reportResult.data) {
         return { success: false, error: reportResult.error || '해당 학생의 리포트를 찾을 수 없습니다.' }
       }
@@ -644,7 +646,7 @@ export async function executeSingleBatchItem(
       const report = reportResult.data
       // 이미 코멘트가 있고 overwrite=false면 스킵
       const content = report.content as Record<string, unknown> | null
-      if (content?.comment && !(options as CommentOptions).overwriteExisting) {
+      if (content?.comment && !commentOptions.overwriteExisting) {
         return { success: true, data: { reportId: report.id, skipped: true } }
       }
       // 자동 코멘트 생성
@@ -667,7 +669,8 @@ export async function executeSingleBatchItem(
 
     if (actionType === 'send') {
       const { tenantId } = await verifyStaff()
-      const reportResult = await findTargetReport(tenantId, targetId, options as SendOptions)
+      const sendOptions = normalizeBatchOptions('send', options) as SendOptions
+      const reportResult = await findTargetReport(tenantId, targetId, sendOptions)
       if (!reportResult.success || !reportResult.data) {
         return { success: false, error: reportResult.error || '해당 학생의 리포트를 찾을 수 없습니다.' }
       }

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { normalizeBatchOptions } from '@/lib/batch-options'
 import type {
   BatchDraft,
   BatchTarget,
@@ -176,8 +177,11 @@ export async function reviewBatchDraft(draftId: string) {
     if (draftError) throw draftError
 
     const targetIds = (draft.target_ids ?? []) as string[]
-    const actionType = draft.action_type as string
-    const options = (draft.options ?? {}) as ReportOptions | CommentOptions | SendOptions
+    const actionType = draft.action_type as BatchActionType | null
+    const options = normalizeBatchOptions(
+      actionType,
+      (draft.options ?? {}) as BatchOptions
+    ) as ReportOptions | CommentOptions | SendOptions
     const schedule = (draft.schedule ?? { mode: 'now' }) as BatchSchedule
 
     const sampleIds = targetIds.slice(0, 5)
@@ -265,9 +269,17 @@ export async function reviewBatchDraft(draftId: string) {
 
     const hasBlockingRisk = risks.some((r) => r.blocking)
     if (!hasBlockingRisk) {
-      await supabase.from('batch_drafts').update({ status: 'ready', validation: risks }).eq('id', draftId).eq('tenant_id', tenantId)
+      await supabase
+        .from('batch_drafts')
+        .update({ status: 'ready', validation: risks, options })
+        .eq('id', draftId)
+        .eq('tenant_id', tenantId)
     } else {
-      await supabase.from('batch_drafts').update({ validation: risks }).eq('id', draftId).eq('tenant_id', tenantId)
+      await supabase
+        .from('batch_drafts')
+        .update({ validation: risks, options })
+        .eq('id', draftId)
+        .eq('tenant_id', tenantId)
     }
 
     const result: ReviewBatchDraftResult = { impactSummary, samples, risks }
@@ -291,14 +303,15 @@ export async function executeBatchDraft(draftId: string, idempotencyKey: string)
     }
 
     const targetIds = (draft.target_ids ?? []) as string[]
-    const actionType = draft.action_type as string
+    const actionType = draft.action_type as BatchActionType | null
     const schedule = ((draft.schedule ?? { mode: 'now' }) as BatchSchedule)
+    const options = normalizeBatchOptions(actionType, (draft.options ?? {}) as BatchOptions)
     const normalizedSchedule: BatchSchedule =
       schedule.mode === 'scheduled' && schedule.scheduledAt
         ? { mode: 'scheduled', scheduledAt: schedule.scheduledAt }
         : { mode: 'now' }
     const jobParams = {
-      ...((draft.options ?? {}) as Record<string, unknown>),
+      ...(options as Record<string, unknown>),
       _schedule: normalizedSchedule,
     }
 
