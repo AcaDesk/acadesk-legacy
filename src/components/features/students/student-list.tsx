@@ -157,9 +157,11 @@ export function StudentList() {
     setCurrentPage(1)
   }
 
-  if (isError) {
-    toast({ title: '학생 목록 로드 실패', description: '잠시 후 다시 시도해주세요.', variant: 'destructive' })
-  }
+  useEffect(() => {
+    if (isError) {
+      toast({ title: '학생 목록 로드 실패', description: '잠시 후 다시 시도해주세요.', variant: 'destructive' })
+    }
+  }, [isError, toast])
 
   const noGuardianCount = students.filter(s => !s.guardians || s.guardians.length === 0).length
 

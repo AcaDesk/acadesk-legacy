@@ -13,6 +13,7 @@ import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { ValidationError } from '@/lib/error-types'
 import { getSolapiProvider } from '@/lib/messaging/get-solapi-provider'
 import type { KakaoChannel, KakaoChannelCategory } from '@/infra/messaging/types/kakao.types'
 
@@ -66,11 +67,11 @@ function parseAndValidateSearchId(searchId: string): { withAt: string; withoutAt
     .replace(/[\s\u200B-\u200D\uFEFF]/g, '')
 
   if (!compact) {
-    throw new Error('채널 검색 ID를 입력해주세요.')
+    throw new ValidationError('채널 검색 ID를 입력해주세요.')
   }
 
   if (compact.includes('pf.kakao.com')) {
-    throw new Error(
+    throw new ValidationError(
       '채널 URL이 아닌 "검색용 아이디"를 입력해야 합니다. 예: @acadesk'
     )
   }
@@ -81,14 +82,14 @@ function parseAndValidateSearchId(searchId: string): { withAt: string; withoutAt
   const withoutAt = withAt.replace(/^@/, '')
 
   if (withoutAt.startsWith('_')) {
-    throw new Error(
+    throw new ValidationError(
       '입력값은 채널 URL 식별자(_...)로 보입니다. 관리자센터의 "검색용 아이디"(@...)를 입력해주세요.'
     )
   }
 
   // 카카오 채널 가이드: 영문 소문자/숫자/한글/특수문자(._-), 2~15자
   if (!/^[가-힣a-z0-9._-]{2,15}$/.test(withoutAt)) {
-    throw new Error(
+    throw new ValidationError(
       '검색용 아이디 형식이 올바르지 않습니다. 2~15자 이내 한글/영문 소문자/숫자 또는 ._- 만 사용할 수 있습니다.'
     )
   }
@@ -213,7 +214,7 @@ export async function getKakaoChannelCategories(): Promise<{
     const provider = await getSolapiProvider(tenantId)
 
     if (!provider) {
-      throw new Error('먼저 Solapi API 설정을 완료해주세요.')
+      throw new ValidationError('먼저 Solapi API 설정을 완료해주세요.')
     }
 
     const categories = await provider.getKakaoChannelCategories()
@@ -249,7 +250,7 @@ export async function requestKakaoChannelToken(
     const provider = await getSolapiProvider(tenantId)
 
     if (!provider) {
-      throw new Error('먼저 Solapi API 설정을 완료해주세요.')
+      throw new ValidationError('먼저 Solapi API 설정을 완료해주세요.')
     }
 
     const { candidates } = getSearchIdCandidates(validated.searchId)
@@ -307,7 +308,7 @@ export async function createKakaoChannel(
     const provider = await getSolapiProvider(tenantId)
 
     if (!provider) {
-      throw new Error('먼저 Solapi API 설정을 완료해주세요.')
+      throw new ValidationError('먼저 Solapi API 설정을 완료해주세요.')
     }
 
     // Create channel via Solapi API (searchId @포함/미포함 모두 시도)
@@ -346,7 +347,7 @@ export async function createKakaoChannel(
             console.info('[createKakaoChannel] Recovered already-registered channel:', existing.channelId)
             channel = existing
           } else {
-            throw new Error(
+            throw new ValidationError(
               '사용 중인 검색용 아이디입니다. 이미 다른 Solapi 계정에 연결된 채널인지 확인해주세요.'
             )
           }
@@ -363,7 +364,7 @@ export async function createKakaoChannel(
     }
 
     if (!channel) {
-      throw lastError || new Error('채널 연동 실패')
+      throw lastError || new ValidationError('채널 연동 실패')
     }
 
     // Save channel info to tenant_messaging_config
@@ -430,13 +431,13 @@ export async function removeKakaoChannel(): Promise<{
 
     if (configError) throw configError
     if (!config?.kakao_channel_id) {
-      throw new Error('연동된 카카오 채널이 없습니다.')
+      throw new ValidationError('연동된 카카오 채널이 없습니다.')
     }
 
     // Remove channel from Solapi (must succeed before clearing DB)
     const provider = await getSolapiProvider(tenantId)
     if (!provider) {
-      throw new Error(
+      throw new ValidationError(
         'Solapi API 설정이 없어 원격 채널을 삭제할 수 없습니다. ' +
           '설정 페이지에서 Solapi 연동을 먼저 확인해주세요.'
       )
@@ -446,7 +447,7 @@ export async function removeKakaoChannel(): Promise<{
       await provider.removeKakaoChannel(config.kakao_channel_id)
     } catch (solapiError) {
       console.error('[removeKakaoChannel] Solapi API error:', solapiError)
-      throw new Error(
+      throw new ValidationError(
         'Solapi에서 채널 삭제에 실패했습니다. 잠시 후 다시 시도하거나 Solapi 대시보드에서 직접 삭제해주세요.'
       )
     }
