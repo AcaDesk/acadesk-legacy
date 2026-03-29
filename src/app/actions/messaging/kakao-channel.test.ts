@@ -77,6 +77,11 @@ function createMockSupabaseClient(overrides?: {
   }
 }
 
+const mockCategories = [
+  { code: '004001', name: '교육/학원' },
+  { code: '001001', name: '음식점' },
+]
+
 function createSolapiError(errorCode: string, errorMessage: string) {
   return Object.assign(new Error(`${errorCode}: ${errorMessage}`), {
     name: 'ApiError',
@@ -104,13 +109,12 @@ describe('kakao-channel server actions', () => {
 
   describe('createKakaoChannel', () => {
     it('rejects invalid searchId format', async () => {
-      ;(getSolapiProvider as Mock).mockResolvedValue({ createKakaoChannel: vi.fn() })
+      ;(getSolapiProvider as Mock).mockResolvedValue({ createKakaoChannel: vi.fn(), getKakaoChannelCategories: vi.fn().mockResolvedValue(mockCategories) })
 
       const result = await createKakaoChannel({
         searchId: 'invalid*id',
         phoneNumber: '01012345678',
         token: '123456',
-        categoryCode: '001',
       })
 
       expect(result.success).toBe(false)
@@ -122,7 +126,6 @@ describe('kakao-channel server actions', () => {
         searchId: '@validchannel',
         phoneNumber: '123-456-789',
         token: '123456',
-        categoryCode: '001',
       })
 
       expect(result.success).toBe(false)
@@ -139,6 +142,7 @@ describe('kakao-channel server actions', () => {
       }
       const mockProvider = {
         createKakaoChannel: vi.fn().mockResolvedValue(mockChannel),
+        getKakaoChannelCategories: vi.fn().mockResolvedValue(mockCategories),
       }
       const supabase = createMockSupabaseClient()
 
@@ -149,7 +153,6 @@ describe('kakao-channel server actions', () => {
         searchId: '@validchannel',
         phoneNumber: '01012345678',
         token: '123456',
-        categoryCode: '001',
       })
 
       expect(result.success).toBe(true)
@@ -158,7 +161,7 @@ describe('kakao-channel server actions', () => {
         searchId: '@validchannel',
         phoneNumber: '01012345678',
         token: '123456',
-        categoryCode: '001',
+        categoryCode: '004001',
       })
       expect(supabase.messagingUpdateMock).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -173,6 +176,7 @@ describe('kakao-channel server actions', () => {
     it('returns translated Solapi error with original detail', async () => {
       const mockProvider = {
         createKakaoChannel: vi.fn().mockRejectedValue(createSolapiError('InvalidToken', 'token invalid')),
+        getKakaoChannelCategories: vi.fn().mockResolvedValue(mockCategories),
       }
 
       ;(getSolapiProvider as Mock).mockResolvedValue(mockProvider)
@@ -181,7 +185,6 @@ describe('kakao-channel server actions', () => {
         searchId: '@validchannel',
         phoneNumber: '01012345678',
         token: '123456',
-        categoryCode: '001',
       })
 
       expect(result.success).toBe(false)
@@ -202,6 +205,7 @@ describe('kakao-channel server actions', () => {
           createSolapiError('SearchIdInUse', 'already registered')
         ),
         getKakaoChannels: vi.fn().mockResolvedValue([existingChannel]),
+        getKakaoChannelCategories: vi.fn().mockResolvedValue(mockCategories),
       }
       const supabase = createMockSupabaseClient()
 
@@ -212,7 +216,6 @@ describe('kakao-channel server actions', () => {
         searchId: '@validchannel',
         phoneNumber: '01012345678',
         token: '123456',
-        categoryCode: '001',
       })
 
       expect(result.success).toBe(true)

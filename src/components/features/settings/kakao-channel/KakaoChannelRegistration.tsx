@@ -27,9 +27,6 @@ import {
 } from '@/app/actions/messaging/kakao-channel'
 import { translateSolapiError } from '@/lib/solapi-error-translator'
 
-// 학원/교육 카테고리 코드 (Solapi 고정값)
-const ACADEMY_CATEGORY_CODE = '002'
-
 interface KakaoChannelRegistrationProps {
   onRegistrationComplete?: () => void
   onOpenTemplateForm?: () => void
@@ -181,7 +178,6 @@ export function KakaoChannelRegistration({
         searchId,
         phoneNumber: phoneNumber.replace(/-/g, ''),
         token: token.trim(),
-        categoryCode: ACADEMY_CATEGORY_CODE,
       })
 
       if (!result.success) {

@@ -45,8 +45,22 @@ const createChannelSchema = z.object({
   searchId: z.string().trim().min(1, '채널 검색 ID는 필수입니다'),
   phoneNumber: z.string().regex(/^010\d{8}$/, '올바른 휴대폰 번호 형식이 아닙니다 (예: 01012345678)'),
   token: z.string().min(1, '인증 토큰은 필수입니다'),
-  categoryCode: z.string().min(1, '카테고리 선택은 필수입니다'),
 })
+
+/** 교육/학원 카테고리 코드를 Solapi API에서 자동 조회 */
+async function resolveEducationCategoryCode(provider: { getKakaoChannelCategories: () => Promise<Array<{ code: string; name: string }>> }): Promise<string> {
+  const categories = await provider.getKakaoChannelCategories()
+  const education = categories.find((c) =>
+    /교육|학원|학교|academy|education/i.test(c.name)
+  )
+  if (education) return education.code
+  // 매칭 실패 시 첫 번째 카테고리 사용 (Solapi가 반드시 1개 이상 반환)
+  if (categories.length > 0) {
+    console.warn('[resolveEducationCategoryCode] 교육 카테고리 매칭 실패, 첫 번째 카테고리 사용:', categories[0])
+    return categories[0].code
+  }
+  throw new ValidationError('카테고리 목록을 조회할 수 없습니다. 잠시 후 다시 시도해주세요.')
+}
 
 const fallbackSettingsSchema = z.object({
   smsFallbackEnabled: z.boolean(),
@@ -349,6 +363,9 @@ export async function createKakaoChannel(
       throw new ValidationError('먼저 Solapi API 설정을 완료해주세요.')
     }
 
+    // 교육/학원 카테고리 코드 자동 조회
+    const categoryCode = await resolveEducationCategoryCode(provider)
+
     // Create channel via Solapi API (searchId @포함/미포함 모두 시도)
     const { withAt: canonicalSearchId, candidates } = getSearchIdCandidates(validated.searchId)
     let channel: KakaoChannel | null = null
@@ -360,7 +377,7 @@ export async function createKakaoChannel(
           searchId: candidateSearchId,
           phoneNumber: validated.phoneNumber,
           token: validated.token,
-          categoryCode: validated.categoryCode,
+          categoryCode,
         })
         break
       } catch (error) {
