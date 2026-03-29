@@ -478,7 +478,7 @@ function StudentSearchMultiple({
       )}
 
       {/* Student List */}
-      <ScrollArea className={`border rounded-lg ${useFlexibleHeight ? 'flex-1 min-h-0' : 'max-h-96'}`}>
+      <ScrollArea className={`border rounded-lg ${useFlexibleHeight ? 'flex-1 min-h-0' : 'h-96'}`}>
         <div className={useFlexibleHeight ? 'h-[500px]' : ''}>
           {loading ? (
             <div className="text-center py-8 text-muted-foreground">

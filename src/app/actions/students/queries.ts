@@ -195,12 +195,25 @@ export async function getStudents(filters?: {
     if (filters?.search?.trim()) {
       const term = filters.search.trim().slice(0, 100)
       const safeTerm = term.replace(/[%_\\]/g, '\\$&')
-      query = query.or([
+
+      // users 테이블은 foreign table이므로 .or() 내에서 직접 cross-table OR 불가.
+      // 먼저 name/phone 일치하는 user_id를 조회한 뒤 메인 쿼리에서 포함.
+      const { data: matchingUsers } = await serviceClient
+        .from('users')
+        .select('id')
+        .or(`name.ilike.%${safeTerm}%,phone.ilike.%${safeTerm}%`)
+        .limit(500)
+
+      const matchingUserIds = (matchingUsers ?? []).map((u) => u.id)
+
+      const orParts = [
         `student_code.ilike.%${safeTerm}%`,
         `student_phone.ilike.%${safeTerm}%`,
-        `users.name.ilike.%${safeTerm}%`,
-        `users.phone.ilike.%${safeTerm}%`,
-      ].join(','))
+      ]
+      if (matchingUserIds.length > 0) {
+        orParts.push(`user_id.in.(${matchingUserIds.join(',')})`)
+      }
+      query = query.or(orParts.join(','))
     }
 
     if (shouldPaginate && page && pageSize) {
