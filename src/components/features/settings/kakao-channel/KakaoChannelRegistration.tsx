@@ -137,7 +137,12 @@ export function KakaoChannelRegistration({
       })
 
       if (!result.success) {
-        throw new Error(result.error || '인증 메시지 발송에 실패했습니다')
+        toast({
+          title: '인증 메시지 발송 실패',
+          description: result.error || '인증 메시지 발송에 실패했습니다.',
+          variant: 'destructive',
+        })
+        return
       }
 
       toast({
@@ -180,7 +185,12 @@ export function KakaoChannelRegistration({
       })
 
       if (!result.success) {
-        throw new Error(result.error || '채널 연동 실패')
+        toast({
+          title: '채널 연동 실패',
+          description: result.error || '채널 연동에 실패했습니다.',
+          variant: 'destructive',
+        })
+        return
       }
 
       toast({

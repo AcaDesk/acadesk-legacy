@@ -170,7 +170,7 @@ describe('kakao-channel server actions', () => {
       )
     })
 
-    it('returns Solapi error codes instead of a generic failure message', async () => {
+    it('returns translated Solapi error with original detail', async () => {
       const mockProvider = {
         createKakaoChannel: vi.fn().mockRejectedValue(createSolapiError('InvalidToken', 'token invalid')),
       }
@@ -185,7 +185,8 @@ describe('kakao-channel server actions', () => {
       })
 
       expect(result.success).toBe(false)
-      expect(result.error).toBe('InvalidToken')
+      expect(result.error).toContain('인증 코드가 올바르지 않습니다')
+      expect(result.error).toContain('token invalid')
     })
 
     it('recovers an already-registered remote channel and saves it locally', async () => {

@@ -15,6 +15,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { ValidationError } from '@/lib/error-types'
 import { getSolapiProvider } from '@/lib/messaging/get-solapi-provider'
+import { translateSolapiError } from '@/lib/solapi-error-translator'
 import type { KakaoChannel } from '@/infra/messaging/types/kakao.types'
 
 // ============================================================================
@@ -134,6 +135,17 @@ function extractSolapiErrorCode(error: unknown): string | null {
   return null
 }
 
+/**
+ * Solapi SDK 에러에서 errorMessage 프로퍼티 추출
+ */
+function extractSolapiErrorMessage(error: unknown): string | null {
+  if (!error || typeof error !== 'object') return null
+  if ('errorMessage' in error && typeof error.errorMessage === 'string') {
+    return error.errorMessage
+  }
+  return null
+}
+
 function getKakaoActionErrorMessage(error: unknown): string {
   if (error instanceof ValidationError) {
     return error.message
@@ -143,9 +155,19 @@ function getKakaoActionErrorMessage(error: unknown): string {
     return error.issues[0]?.message || '입력값이 올바르지 않습니다'
   }
 
+  // Solapi SDK 에러: errorCode + errorMessage 모두 활용
   const solapiErrorCode = extractSolapiErrorCode(error)
-  if (solapiErrorCode) {
-    return solapiErrorCode
+  const solapiErrorMessage = extractSolapiErrorMessage(error)
+
+  if (solapiErrorCode || solapiErrorMessage) {
+    // 번역된 메시지 가져오기
+    const translated = translateSolapiError(error)
+
+    // Solapi 원본 errorMessage가 있고, 번역 결과와 다르면 원본도 표시
+    if (solapiErrorMessage && !translated.includes(solapiErrorMessage)) {
+      return `${translated} (${solapiErrorMessage})`
+    }
+    return translated
   }
 
   if (error instanceof Error) {
@@ -159,7 +181,7 @@ function getKakaoActionErrorMessage(error: unknown): string {
       /^[A-Za-z][A-Za-z0-9]+$/.test(firstToken) &&
       !['ApiError', 'BadRequestError', 'DefaultError', 'Error', 'FromSolapiError', 'NetworkError', 'TypeError'].includes(firstToken)
     ) {
-      return firstToken
+      return translateSolapiError(error)
     }
   }
 
