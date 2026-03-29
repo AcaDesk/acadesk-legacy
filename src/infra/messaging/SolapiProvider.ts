@@ -360,22 +360,13 @@ export class SolapiProvider implements IMessageProvider {
    */
   async getKakaoChannelCategories(): Promise<KakaoChannelCategory[]> {
     try {
-      if (process.env.NODE_ENV === 'development') {
-        return [
-          { code: '001', name: '음식점' },
-          { code: '002', name: '교육/학원' },
-          { code: '003', name: '의료/건강' },
-          { code: '004', name: '금융/보험' },
-          { code: '005', name: '쇼핑/유통' },
-        ]
-      }
-
       const categories = await this.messageService.getKakaoChannelCategories()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return categories.map((cat: any) => ({
-        code: cat.code,
-        name: cat.name,
-      }))
+      return categories
+        .map((cat) => ({
+          code: cat.code,
+          name: cat.name,
+        }))
+        .sort((a, b) => a.code.localeCompare(b.code, 'ko-KR'))
     } catch (error) {
       console.error('[SolapiProvider.getKakaoChannelCategories] Error:', error)
       throw error
