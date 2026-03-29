@@ -63,12 +63,31 @@ export async function findOrCreateSession(
       return { success: true, data: existingSessions[0] }
     }
 
-    // 6. 세션이 없으면 생성 (기본 시간 설정)
+    // 6. 세션이 없으면 생성 — 수업 스케줄 시간 우선, 없으면 기본값(09:00~18:00)
+    const { data: classRow } = await supabase
+      .from('classes')
+      .select('schedule')
+      .eq('id', validatedData.class_id)
+      .single()
+
+    const classSchedule = classRow?.schedule as { startTime?: string; endTime?: string } | null
+
     const sessionDate = new Date(validatedData.session_date)
-    const startTime = new Date(sessionDate)
-    startTime.setHours(9, 0, 0, 0)
-    const endTime = new Date(sessionDate)
-    endTime.setHours(18, 0, 0, 0)
+
+    function applyHHmm(base: Date, hhmm: string): Date {
+      const [h, m] = hhmm.split(':').map(Number)
+      const d = new Date(base)
+      d.setHours(h, m, 0, 0)
+      return d
+    }
+
+    const scheduledStart = classSchedule?.startTime
+      ? applyHHmm(sessionDate, classSchedule.startTime)
+      : (() => { const d = new Date(sessionDate); d.setHours(9, 0, 0, 0); return d })()
+
+    const scheduledEnd = classSchedule?.endTime
+      ? applyHHmm(sessionDate, classSchedule.endTime)
+      : (() => { const d = new Date(sessionDate); d.setHours(18, 0, 0, 0); return d })()
 
     const { data: newSession, error: insertError } = await supabase
       .from('attendance_sessions')
@@ -76,8 +95,8 @@ export async function findOrCreateSession(
         tenant_id: tenantId,
         class_id: validatedData.class_id,
         session_date: validatedData.session_date,
-        scheduled_start_at: startTime.toISOString(),
-        scheduled_end_at: endTime.toISOString(),
+        scheduled_start_at: scheduledStart.toISOString(),
+        scheduled_end_at: scheduledEnd.toISOString(),
         status: 'in_progress',
       })
       .select()

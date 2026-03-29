@@ -58,28 +58,26 @@ interface ClassDetail {
   studentCount: number
 }
 
+const DAY_MAP: Record<string, string> = {
+  monday: '월', tuesday: '화', wednesday: '수', thursday: '목',
+  friday: '금', saturday: '토', sunday: '일',
+}
+
 // Schedule을 한글 문자열로 변환하는 헬퍼 함수
 function formatSchedule(schedule: Record<string, unknown> | null): string {
   if (!schedule || typeof schedule !== 'object') return '-'
 
   const days = schedule.days as string[] | undefined
-  const time = schedule.time as string | undefined
+  const startTime = (schedule.startTime ?? schedule.time) as string | undefined
+  const endTime = schedule.endTime as string | undefined
 
-  if (days && time) {
-    const dayMap: Record<string, string> = {
-      'monday': '월',
-      'tuesday': '화',
-      'wednesday': '수',
-      'thursday': '목',
-      'friday': '금',
-      'saturday': '토',
-      'sunday': '일',
-    }
-    const koreanDays = days.map(d => dayMap[d.toLowerCase()] || d).join('/')
-    return `${koreanDays} ${time}`
-  }
+  if (!days?.length) return '-'
 
-  return JSON.stringify(schedule)
+  const koreanDays = days.map(d => DAY_MAP[d.toLowerCase()] || d).join('/')
+
+  if (startTime && endTime) return `${koreanDays} ${startTime}~${endTime}`
+  if (startTime) return `${koreanDays} ${startTime}`
+  return koreanDays
 }
 
 interface StudentInClass {
