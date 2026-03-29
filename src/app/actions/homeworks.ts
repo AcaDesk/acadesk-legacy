@@ -336,6 +336,158 @@ export async function deleteHomework(homeworkId: string) {
 }
 
 /**
+ * 숙제 안내 부모님 발송
+ * - 해당 학생의 등록된 보호자에게 SMS/LMS로 숙제 내용 발송
+ */
+export async function sendHomeworkNotificationToGuardians(homeworkId: string) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    // 1. 숙제 정보 조회
+    const { data: homework, error: hwError } = await supabase
+      .from('student_tasks')
+      .select('id, title, description, subject, due_date, student_id')
+      .eq('id', homeworkId)
+      .eq('tenant_id', tenantId)
+      .eq('kind', 'homework')
+      .is('deleted_at', null)
+      .single()
+
+    if (hwError || !homework) throw new Error('숙제를 찾을 수 없습니다')
+
+    // 2. 학생 이름 조회
+    const { data: student } = await supabase
+      .from('students')
+      .select('student_code, user_id(name)')
+      .eq('id', homework.student_id)
+      .single()
+
+    const userIdField = student?.user_id as { name: string } | { name: string }[] | null
+    const studentName = Array.isArray(userIdField)
+      ? (userIdField[0]?.name ?? '학생')
+      : (userIdField?.name ?? '학생')
+
+    // 3. 학원명 조회
+    const { data: tenant } = await supabase
+      .from('tenants')
+      .select('name')
+      .eq('id', tenantId)
+      .single()
+
+    const academyName = tenant?.name ?? '학원'
+
+    // 4. 보호자 조회
+    const { data: guardians } = await supabase
+      .from('student_guardians')
+      .select(`
+        guardians (
+          id,
+          name,
+          phone,
+          users (phone)
+        )
+      `)
+      .eq('student_id', homework.student_id)
+      .is('deleted_at', null)
+
+    if (!guardians || guardians.length === 0) {
+      throw new Error(
+        '등록된 보호자가 없습니다.\n학생 관리 > 보호자 정보에서 보호자를 먼저 등록해주세요.'
+      )
+    }
+
+    // 5. 메시지 생성
+    const dueDateStr = new Date(homework.due_date).toLocaleDateString('ko-KR')
+    const hasDescription = !!(homework.description && homework.description.trim().length > 0)
+
+    let messageBody: string
+    let messageType: 'sms' | 'lms'
+
+    if (hasDescription) {
+      const lines = [
+        `[${academyName}] 숙제 안내`,
+        '',
+        `${studentName} 학생의 숙제가 출제되었습니다.`,
+        '',
+        ...(homework.subject ? [`과목: ${homework.subject}`] : []),
+        `제목: ${homework.title}`,
+        `내용: ${homework.description}`,
+        `마감일: ${dueDateStr}`,
+      ]
+      messageBody = lines.join('\n')
+      messageType = 'lms'
+    } else {
+      const subjectPart = homework.subject ? ` (${homework.subject})` : ''
+      messageBody = `[${academyName}] ${studentName} 숙제${subjectPart}: ${homework.title} (마감: ${dueDateStr})`
+      messageType = messageBody.length > 90 ? 'lms' : 'sms'
+    }
+
+    // 6. 보호자별 발송
+    const { sendMessage } = await import('@/lib/messaging/provider')
+
+    let successCount = 0
+    let failCount = 0
+    const details: Array<{ name: string; success: boolean; error: string | null }> = []
+
+    for (const sg of guardians) {
+      const guardian = sg.guardians as unknown as {
+        id: string
+        name: string
+        phone: string | null
+        users: { phone: string | null } | null
+      }
+
+      const phone = guardian.phone || guardian.users?.phone
+      if (!phone) {
+        details.push({ name: guardian.name, success: false, error: '전화번호 없음' })
+        failCount++
+        continue
+      }
+
+      const result = await sendMessage({ type: messageType, to: phone, message: messageBody })
+
+      if (result.success) {
+        successCount++
+        await supabase.from('notification_logs').insert({
+          tenant_id: tenantId,
+          student_id: homework.student_id,
+          notification_type: messageType,
+          status: 'sent',
+          message: `[숙제 안내] ${studentName} 학생 숙제를 ${guardian.name}(${phone})에게 발송`,
+          sent_at: new Date().toISOString(),
+        })
+      } else {
+        failCount++
+      }
+
+      details.push({ name: guardian.name, success: result.success, error: result.error ?? null })
+    }
+
+    if (successCount === 0) {
+      throw new Error(
+        failCount > 0
+          ? '모든 보호자에게 발송이 실패했습니다'
+          : '발송 가능한 보호자가 없습니다. 보호자 전화번호를 확인해주세요.'
+      )
+    }
+
+    return {
+      success: true as const,
+      data: { total: successCount + failCount, successCount, failCount, details },
+      error: null,
+    }
+  } catch (error) {
+    console.error('[sendHomeworkNotificationToGuardians] Error:', error)
+    return {
+      success: false as const,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
  * Get submission statistics
  */
 export async function getSubmissionStats() {
