@@ -29,6 +29,8 @@ import { PAGE_ANIMATIONS } from '@/lib/animation-config'
 import { LoadingState } from '@/components/ui/loading-state'
 import { SubjectSelector } from '@/components/features/common/subject-selector'
 import { GradeSelector } from '@/components/features/common/grade-selector'
+import { DayOfWeekPicker } from '@/components/features/classes/day-of-week-picker'
+import { TimePicker } from '@ui/time-picker'
 
 const classSchema = z.object({
   name: z.string().min(1, '수업명은 필수입니다'),
@@ -39,6 +41,9 @@ const classSchema = z.object({
   room: z.string().optional(),
   capacity: z.number().int().positive().optional(),
   active: z.boolean(),
+  scheduleDays: z.array(z.string()).optional(),
+  scheduleStartTime: z.string().optional(),
+  scheduleEndTime: z.string().optional(),
 })
 
 type ClassFormData = z.infer<typeof classSchema>
@@ -68,6 +73,9 @@ export default function EditClassPage() {
       room: '',
       capacity: undefined,
       active: true,
+      scheduleDays: [],
+      scheduleStartTime: '',
+      scheduleEndTime: '',
     },
   })
 
@@ -93,6 +101,7 @@ export default function EditClassPage() {
       }
 
       const classData = classResult.data
+      const schedule = classData.schedule as { days?: string[], startTime?: string, endTime?: string } | null
       form.reset({
         name: classData.name || '',
         description: classData.description || '',
@@ -102,6 +111,9 @@ export default function EditClassPage() {
         room: classData.room || '',
         capacity: classData.capacity ?? undefined,
         active: classData.active ?? true,
+        scheduleDays: schedule?.days ?? [],
+        scheduleStartTime: schedule?.startTime ?? '',
+        scheduleEndTime: schedule?.endTime ?? '',
       })
     } catch (error) {
       console.error('Error loading class:', error)
@@ -130,6 +142,9 @@ export default function EditClassPage() {
         room: data.room,
         capacity: data.capacity,
         active: data.active,
+        schedule: (data.scheduleDays ?? []).length
+          ? { days: data.scheduleDays, startTime: data.scheduleStartTime, endTime: data.scheduleEndTime }
+          : undefined,
       })
 
       if (!result.success) {
@@ -283,6 +298,39 @@ export default function EditClassPage() {
                       placeholder="예: 20"
                       {...form.register('capacity', { valueAsNumber: true })}
                     />
+                  </div>
+                </div>
+
+                {/* Schedule */}
+                <div className="space-y-3">
+                  <Label>수업 일정</Label>
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <p className="text-xs text-muted-foreground">요일</p>
+                      <DayOfWeekPicker
+                        value={form.watch('scheduleDays') || []}
+                        onChange={(days) => form.setValue('scheduleDays', days)}
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="space-y-1.5">
+                        <p className="text-xs text-muted-foreground">시작 시간</p>
+                        <TimePicker
+                          value={form.watch('scheduleStartTime') || ''}
+                          onChange={(t) => form.setValue('scheduleStartTime', t)}
+                          placeholder="시작 시간"
+                        />
+                      </div>
+                      <span className="mt-5 text-muted-foreground">~</span>
+                      <div className="space-y-1.5">
+                        <p className="text-xs text-muted-foreground">종료 시간</p>
+                        <TimePicker
+                          value={form.watch('scheduleEndTime') || ''}
+                          onChange={(t) => form.setValue('scheduleEndTime', t)}
+                          placeholder="종료 시간"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
 

@@ -24,6 +24,7 @@ import {
 } from '@/app/actions/attendance'
 import { UI_TO_DB_STATUS, type UIAttendanceStatus } from '@/core/types/attendance'
 import { getTodayKST, formatDate } from '@/lib/utils'
+import { formatDays, getDayKeyForDate } from '@/components/features/classes/day-of-week-picker'
 import { useNetworkStatus } from '@/hooks/use-network-status'
 import { PendingSyncBadge } from '@ui/pending-sync-badge'
 import {
@@ -54,9 +55,16 @@ const DB_TO_UI_STATUS: Record<string, UIAttendanceStatus> = {
   excused: 'excused',
 }
 
+interface ClassSchedule {
+  days?: string[]
+  startTime?: string
+  endTime?: string
+}
+
 interface ClassInfo {
   id: string
   name: string
+  schedule?: ClassSchedule | null
 }
 
 // 서버에서 전달받는 초기 데이터 타입
@@ -762,20 +770,38 @@ export function AttendanceCheckPage({
           >
             전체
           </Button>
-          {classes.map((cls) => (
-            <Button
-              key={cls.id}
-              variant={selectedClassId === cls.id ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedClassId(cls.id)}
-              className={cn(
-                'whitespace-nowrap h-7 md:h-9 text-xs md:text-sm px-2.5 md:px-3',
-                selectedClassId === cls.id && 'shadow-md'
-              )}
-            >
-              {cls.name}
-            </Button>
-          ))}
+          {classes.map((cls) => {
+            const isSelected = selectedClassId === cls.id
+            const todayKey = getDayKeyForDate(new Date())
+            const isToday = cls.schedule?.days?.includes(todayKey) ?? false
+            const scheduleLabel = cls.schedule?.days?.length
+              ? `${formatDays(cls.schedule.days)}${cls.schedule.startTime ? ` ${cls.schedule.startTime}` : ''}`
+              : null
+            return (
+              <Button
+                key={cls.id}
+                variant={isSelected ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedClassId(cls.id)}
+                className={cn(
+                  'whitespace-nowrap text-xs md:text-sm px-2.5 md:px-3 flex flex-col items-center justify-center',
+                  scheduleLabel ? 'h-10 md:h-12 py-1' : 'h-7 md:h-9',
+                  isSelected && 'shadow-md',
+                  !isSelected && isToday && 'ring-2 ring-primary/50 border-primary/50'
+                )}
+              >
+                <span>{cls.name}</span>
+                {scheduleLabel && (
+                  <span className={cn(
+                    'text-[10px] leading-tight',
+                    isSelected ? 'opacity-80' : 'text-muted-foreground'
+                  )}>
+                    {scheduleLabel}
+                  </span>
+                )}
+              </Button>
+            )
+          })}
         </div>
 
         {/* Filter & Search — 모바일: 한 줄로 압축 */}

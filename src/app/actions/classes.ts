@@ -332,7 +332,7 @@ export async function getActiveClasses() {
     // 3. Query active classes
     const { data, error } = await supabase
       .from('classes')
-      .select('id, name, subject, active, meta')
+      .select('id, name, subject, active, meta, schedule')
       .eq('tenant_id', tenantId)
       .eq('active', true)
       .is('deleted_at', null)
