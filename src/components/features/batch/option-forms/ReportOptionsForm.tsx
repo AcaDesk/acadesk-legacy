@@ -4,6 +4,7 @@ import { Label } from '@ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
 import { DatePicker } from '@ui/date-picker'
 import { Checkbox } from '@ui/checkbox'
+import { useReportStore } from '@/lib/stores/report.store'
 import type { ReportOptions } from '@/core/types/batch.types'
 
 interface ReportOptionsFormProps {
@@ -36,6 +37,7 @@ function formatDateStr(date: Date): string {
 }
 
 export function ReportOptionsForm({ value, onChange }: ReportOptionsFormProps) {
+  const { skipComment, setSkipComment } = useReportStore()
   const now = new Date()
   const currentYear = now.getFullYear()
   const currentMonth = now.getMonth() + 1
@@ -147,17 +149,22 @@ export function ReportOptionsForm({ value, onChange }: ReportOptionsFormProps) {
         <Label className="text-sm font-medium mb-2 block">포함 섹션</Label>
         <div className="space-y-2">
           {REPORT_SECTIONS.map((section) => {
-            const checked = value.includedSections?.includes(section.key) ?? true
+            const defaultChecked = section.key === 'comment' ? !skipComment : true
+            const checked = value.includedSections?.includes(section.key) ?? defaultChecked
             return (
               <div key={section.key} className="flex items-center gap-2">
                 <Checkbox
                   id={`section-${section.key}`}
                   checked={checked}
                   onCheckedChange={(c) => {
-                    const current = value.includedSections ?? REPORT_SECTIONS.map((s) => s.key)
+                    const defaultSections = REPORT_SECTIONS.map((s) => s.key).filter(
+                      (k) => k !== 'comment' || !skipComment
+                    )
+                    const current = value.includedSections ?? defaultSections
                     const next = c
                       ? [...current, section.key]
                       : current.filter((k) => k !== section.key)
+                    if (section.key === 'comment') setSkipComment(!c)
                     onChange({ ...value, includedSections: next })
                   }}
                 />

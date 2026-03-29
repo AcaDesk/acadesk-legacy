@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useToast } from '@/hooks/use-toast'
 import { generateMonthlyReport, generateWeeklyReport, saveReport } from '@/app/actions/reports/report-generation'
 import { sendReportToAllGuardians } from '@/app/actions/reports/send'
+import { useReportStore } from '@/lib/stores/report.store'
 import type { ReportData } from '@/core/types/report.types'
 import {
   type ReportStepKey,
@@ -53,6 +54,7 @@ export interface ReportStepperState {
 export function useReportStepper() {
   const router = useRouter()
   const { toast } = useToast()
+  const { skipComment } = useReportStore()
 
   // Core state
   const [currentStep, setCurrentStep] = useState<ReportStepKey>('setup')
@@ -350,7 +352,7 @@ export function useReportStepper() {
   }, [])
 
   const confirmComment = useCallback(() => {
-    if (!comment.summary.trim()) {
+    if (!skipComment && !comment.summary.trim()) {
       toast({
         title: '총평을 입력해주세요',
         description: '총평은 필수 항목입니다.',
@@ -360,7 +362,7 @@ export function useReportStepper() {
     }
     setCompletedSteps((prev) => new Set([...prev, 'comment']))
     setCurrentStep('confirm')
-  }, [comment.summary, toast])
+  }, [comment.summary, skipComment, toast])
 
   // ============================================================================
   // Step 4: Confirm — Preview Data
@@ -368,6 +370,7 @@ export function useReportStepper() {
 
   const getPreviewData = useCallback((): ReportData | null => {
     if (!reportData) return null
+    if (skipComment) return { ...reportData, comment: undefined }
     return {
       ...reportData,
       comment: {
@@ -377,7 +380,7 @@ export function useReportStepper() {
         nextGoals: comment.nextGoals,
       },
     }
-  }, [reportData, comment])
+  }, [reportData, comment, skipComment])
 
   // ============================================================================
   // Step 4: Confirm — Submit
@@ -388,17 +391,19 @@ export function useReportStepper() {
 
     setGenerating(true)
     try {
-      const mergedData: ReportData = {
-        ...reportData,
-        comment: {
-          summary: comment.summary,
-          strengths: comment.strengths,
-          improvements: comment.improvements,
-          nextGoals: comment.nextGoals,
-        },
-        instructorComment: comment.summary,
-        overallComment: comment.summary,
-      }
+      const mergedData: ReportData = skipComment
+        ? { ...reportData, comment: undefined, instructorComment: undefined, overallComment: undefined }
+        : {
+            ...reportData,
+            comment: {
+              summary: comment.summary,
+              strengths: comment.strengths,
+              improvements: comment.improvements,
+              nextGoals: comment.nextGoals,
+            },
+            instructorComment: comment.summary,
+            overallComment: comment.summary,
+          }
 
       const saveResult = await saveReport(mergedData, period.type)
 
@@ -452,7 +457,7 @@ export function useReportStepper() {
   // ============================================================================
 
   const isAllRequiredComplete =
-    !!student && isPeriodValid() && dataLoaded && !dataError && !!comment.summary.trim()
+    !!student && isPeriodValid() && dataLoaded && !dataError && (skipComment || !!comment.summary.trim())
 
   const periodLabel = (() => {
     if (period.type === 'monthly' && period.year && period.month) {
