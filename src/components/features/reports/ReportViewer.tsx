@@ -771,7 +771,7 @@ ${reportData.comment.nextGoals}`
       )}
 
       {/* Instructor Comment */}
-      <Card>
+      {(reportData.comment || reportData.instructorComment || reportData.overallComment) && <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -848,7 +848,7 @@ ${reportData.comment.nextGoals}`
             </p>
           )}
         </CardContent>
-      </Card>
+      </Card>}
     </div>
   )
 }
