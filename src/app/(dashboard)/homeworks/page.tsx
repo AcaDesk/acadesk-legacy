@@ -22,6 +22,11 @@ export default async function HomeworksPage() {
 
   if (!result.success || !result.data) {
     console.error('Error fetching homeworks:', result.error)
+    return (
+      <div className="p-6 lg:p-8">
+        <p className="text-destructive">숙제 목록을 불러오지 못했습니다: {result.error}</p>
+      </div>
+    )
   }
 
   // Fetch student info for each homework

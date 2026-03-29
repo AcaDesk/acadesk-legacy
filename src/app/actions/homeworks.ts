@@ -66,10 +66,14 @@ export async function getHomeworksWithSubmissions() {
     }
   } catch (error) {
     console.error('[getHomeworksWithSubmissions] Error:', error)
+    const rawMessage =
+      error && typeof error === 'object' && 'message' in error
+        ? String((error as { message: unknown }).message)
+        : getErrorMessage(error)
     return {
       success: false,
       data: null,
-      error: getErrorMessage(error),
+      error: rawMessage,
     }
   }
 }
