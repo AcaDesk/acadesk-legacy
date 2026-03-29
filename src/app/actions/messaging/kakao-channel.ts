@@ -15,7 +15,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { ValidationError } from '@/lib/error-types'
 import { getSolapiProvider } from '@/lib/messaging/get-solapi-provider'
-import type { KakaoChannel, KakaoChannelCategory } from '@/infra/messaging/types/kakao.types'
+import type { KakaoChannel } from '@/infra/messaging/types/kakao.types'
 
 // ============================================================================
 // Types
@@ -251,39 +251,6 @@ export async function getKakaoChannelConfig(): Promise<{
 // ============================================================================
 // Server Actions - Channel Registration
 // ============================================================================
-
-/**
- * Get Kakao channel categories
- */
-export async function getKakaoChannelCategories(): Promise<{
-  success: boolean
-  data: KakaoChannelCategory[] | null
-  error: string | null
-}> {
-  try {
-    const { tenantId } = await verifyStaff()
-    const provider = await getSolapiProvider(tenantId)
-
-    if (!provider) {
-      throw new ValidationError('먼저 Solapi API 설정을 완료해주세요.')
-    }
-
-    const categories = await provider.getKakaoChannelCategories()
-
-    return {
-      success: true,
-      data: categories,
-      error: null,
-    }
-  } catch (error) {
-    console.error('[getKakaoChannelCategories] Error:', error)
-    return {
-      success: false,
-      data: null,
-      error: getErrorMessage(error),
-    }
-  }
-}
 
 /**
  * Request Kakao channel authentication token
