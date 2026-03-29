@@ -1,6 +1,6 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
@@ -155,37 +155,42 @@ export async function updateStudentClassEnrollments(
 ) {
   try {
     // 1. Verify authentication and get tenant
-    const { tenantId, userId } = await verifyStaff()
+    const { tenantId } = await verifyStaff()
 
     // 2. Create service_role client
     const supabase = createServiceRoleClient()
 
-    // 3. First, get current enrollments
-    const { data: currentEnrollments, error: fetchError } = await supabase
+    // 3. Get all existing enrollments (active + withdrawn) for this student
+    const { data: allEnrollments, error: fetchError } = await supabase
       .from('class_enrollments')
-      .select('id, class_id')
+      .select('id, class_id, status')
       .eq('student_id', studentId)
       .eq('tenant_id', tenantId)
 
     if (fetchError) throw fetchError
 
-    const currentClassIds = (currentEnrollments || []).map(e => e.class_id)
+    const enrollmentMap = new Map((allEnrollments || []).map(e => [e.class_id, e]))
+    const activeClassIds = (allEnrollments || [])
+      .filter(e => e.status === 'active')
+      .map(e => e.class_id)
 
-    // 4. Determine what to add and what to remove
-    const toAdd = classIds.filter(id => !currentClassIds.includes(id))
-    const toRemove = currentEnrollments
-      ?.filter(e => !classIds.includes(e.class_id))
-      .map(e => e.id) || []
+    // 4. Determine what to insert, reactivate, or withdraw
+    const toInsert = classIds.filter(id => !enrollmentMap.has(id))
+    const toReactivate = classIds
+      .filter(id => enrollmentMap.has(id) && enrollmentMap.get(id)!.status !== 'active')
+      .map(id => enrollmentMap.get(id)!.id)
+    const toWithdraw = activeClassIds
+      .filter(id => !classIds.includes(id))
+      .map(id => enrollmentMap.get(id)!.id)
 
-    // 5. Add new enrollments
-    if (toAdd.length > 0) {
-      const newEnrollments = toAdd.map(classId => ({
+    // 5. Insert brand-new enrollments
+    if (toInsert.length > 0) {
+      const newEnrollments = toInsert.map(classId => ({
         tenant_id: tenantId,
         student_id: studentId,
         class_id: classId,
         status: 'active',
         enrolled_at: new Date().toISOString(),
-        enrolled_by: userId,
       }))
 
       const { error: insertError } = await supabase
@@ -195,23 +200,38 @@ export async function updateStudentClassEnrollments(
       if (insertError) throw insertError
     }
 
-    // 6. Soft delete removed enrollments
-    if (toRemove.length > 0) {
-      const { error: deleteError } = await supabase
+    // 6. Reactivate previously withdrawn enrollments
+    if (toReactivate.length > 0) {
+      const { error: reactivateError } = await supabase
+        .from('class_enrollments')
+        .update({
+          status: 'active',
+          withdrawn_at: null,
+          updated_at: new Date().toISOString(),
+        })
+        .in('id', toReactivate)
+
+      if (reactivateError) throw reactivateError
+    }
+
+    // 7. Withdraw removed enrollments
+    if (toWithdraw.length > 0) {
+      const { error: withdrawError } = await supabase
         .from('class_enrollments')
         .update({
           status: 'withdrawn',
           withdrawn_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
-        .in('id', toRemove)
+        .in('id', toWithdraw)
 
-      if (deleteError) throw deleteError
+      if (withdrawError) throw withdrawError
     }
 
-    // 7. Revalidate pages
+    // 8. Revalidate pages and attendance roster cache
     revalidatePath(`/students/${studentId}`)
     revalidatePath('/students')
+    revalidateTag(`attendance-roster:${tenantId}`)
 
     return {
       success: true,
