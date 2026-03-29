@@ -16,9 +16,9 @@ const SOLAPI_ERROR_MAP: Record<string, string> = {
   ChannelAlreadyRegistered: '이미 등록된 채널입니다.',
   ChannelNotVerified: '채널 인증이 완료되지 않았습니다.',
   PlusFriendRegiestFailed:
-    '카카오톡 채널을 찾을 수 없습니다. 채널 "검색용 ID"(@아이디)를 다시 확인해주세요.',
+    '카카오 채널 연동에 실패했습니다. 검색용 ID, 인증 코드, 채널 상태를 확인해주세요.',
   PlusFriendRegisterFailed:
-    '카카오톡 채널을 찾을 수 없습니다. 채널 "검색용 ID"(@아이디)를 다시 확인해주세요.',
+    '카카오 채널 연동에 실패했습니다. 검색용 ID, 인증 코드, 채널 상태를 확인해주세요.',
   SearchIdInUse:
     '이 검색용 ID는 이미 다른 계정에서 사용 중입니다. 기존 연동을 확인하거나 다른 채널을 등록해주세요.',
 
@@ -68,7 +68,7 @@ const ERROR_PATTERNS: Array<{ pattern: RegExp; message: string }> = [
   {
     pattern: /plusfriendregiestfailed|plusfriendregisterfailed|존재하지\s*않는\s*카카오톡\s*채널/i,
     message:
-      '입력한 채널 검색 ID에 해당하는 카카오톡 채널을 찾지 못했습니다. 채널명 말고 "검색용 ID(@...)"를 입력했는지 확인해주세요.',
+      '카카오 채널 연동에 실패했습니다. 검색용 ID, 인증 코드, 채널 상태를 확인해주세요.',
   },
   {
     pattern: /channel.*not.*found/i,
