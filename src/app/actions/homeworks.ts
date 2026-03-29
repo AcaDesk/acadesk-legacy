@@ -125,10 +125,14 @@ export async function createHomework(input: z.infer<typeof createHomeworkSchema>
     }
   } catch (error) {
     console.error('[createHomework] Error:', error)
+    const rawMessage =
+      error && typeof error === 'object' && 'message' in error
+        ? String((error as { message: unknown }).message)
+        : getErrorMessage(error)
     return {
       success: false,
       data: null,
-      error: getErrorMessage(error),
+      error: rawMessage,
     }
   }
 }
