@@ -370,7 +370,7 @@ export function useReportStepper() {
 
   const getPreviewData = useCallback((): ReportData | null => {
     if (!reportData) return null
-    if (skipComment) return { ...reportData, comment: undefined }
+    if (skipComment) return { ...reportData, comment: undefined, instructorComment: undefined, overallComment: undefined }
     return {
       ...reportData,
       comment: {
