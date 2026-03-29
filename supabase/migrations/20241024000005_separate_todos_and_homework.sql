@@ -246,6 +246,11 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.homework_submissions TO authentic
 GRANT SELECT ON public.student_todos TO authenticated;
 GRANT SELECT ON public.homeworks TO authenticated;
 
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.student_tasks TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.homework_submissions TO service_role;
+GRANT SELECT ON public.student_todos TO service_role;
+GRANT SELECT ON public.homeworks TO service_role;
+
 -- =====================================================================
 -- 5) (선택) RLS: service_role 위주라면 생략 가능.
 --     get_current_tenant_id()가 있을 때만 정책을 건다.
