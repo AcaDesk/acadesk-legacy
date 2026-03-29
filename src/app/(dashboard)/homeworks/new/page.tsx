@@ -85,7 +85,12 @@ export default function NewHomeworkPage() {
       })
 
       if (!result.success) {
-        throw new Error(result.error || '숙제 출제 실패')
+        toast({
+          title: '출제 오류',
+          description: result.error || '숙제 출제 실패',
+          variant: 'destructive',
+        })
+        return
       }
 
       toast({
