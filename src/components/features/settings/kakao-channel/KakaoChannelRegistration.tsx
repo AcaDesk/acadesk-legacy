@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
@@ -8,15 +8,6 @@ import { Input } from '@ui/input'
 import { PhoneInput } from '@ui/phone-input'
 import { Label } from '@ui/label'
 import { Alert, AlertDescription } from '@ui/alert'
-import { Popover, PopoverContent, PopoverTrigger } from '@ui/popover'
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@ui/command'
 import {
   MessageCircle,
   ArrowRight,
@@ -25,20 +16,19 @@ import {
   Send,
   AlertCircle,
   Loader2,
-  RefreshCw,
   FileText,
   ExternalLink,
-  ChevronsUpDown,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import {
   requestKakaoChannelToken,
   createKakaoChannel,
-  getKakaoChannelCategories,
 } from '@/app/actions/messaging/kakao-channel'
 import { translateSolapiError } from '@/lib/solapi-error-translator'
-import type { KakaoChannelCategory } from '@/infra/messaging/types/kakao.types'
+
+// 학원/교육 카테고리 코드 (Solapi 고정값)
+const ACADEMY_CATEGORY_CODE = '002'
 
 interface KakaoChannelRegistrationProps {
   onRegistrationComplete?: () => void
@@ -58,16 +48,11 @@ export function KakaoChannelRegistration({
 
   const [step, setStep] = useState<Step>(1)
   const [isLoading, setIsLoading] = useState(false)
-  const [categories, setCategories] = useState<KakaoChannelCategory[]>([])
-  const [loadingCategories, setLoadingCategories] = useState(false)
-  const [categoryLoadError, setCategoryLoadError] = useState<string | null>(null)
-  const [categoryOpen, setCategoryOpen] = useState(false)
 
   // Form data
   const [searchId, setSearchId] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
   const [token, setToken] = useState('')
-  const [categoryCode, setCategoryCode] = useState('')
 
   // Validation warnings
   const [searchIdWarning, setSearchIdWarning] = useState<string | null>(null)
@@ -118,37 +103,6 @@ export function KakaoChannelRegistration({
     const trimmed = value.trim()
     return trimmed.startsWith('@') ? trimmed : `@${trimmed}`
   }
-
-  // 카테고리 로딩 함수
-  const loadCategories = useCallback(async () => {
-    setLoadingCategories(true)
-    setCategoryLoadError(null)
-    try {
-      const result = await getKakaoChannelCategories()
-      if (result.success && result.data) {
-        setCategories(result.data)
-      } else {
-        setCategoryLoadError(result.error || '카테고리를 불러올 수 없습니다')
-      }
-    } catch (error) {
-      console.error('Failed to load categories:', error)
-      setCategoryLoadError('카테고리 로딩에 실패했습니다')
-    } finally {
-      setLoadingCategories(false)
-    }
-  }, [])
-
-  // Load categories on mount
-  useEffect(() => {
-    loadCategories()
-  }, [loadCategories])
-
-  // Retry category loading when entering Step 2 if categories are empty
-  useEffect(() => {
-    if (step === 2 && categories.length === 0 && !loadingCategories) {
-      loadCategories()
-    }
-  }, [step, categories.length, loadingCategories, loadCategories])
 
   // Step 1: Request token
   async function handleRequestToken() {
@@ -207,10 +161,10 @@ export function KakaoChannelRegistration({
 
   // Step 2: Create channel with token
   async function handleCreateChannel() {
-    if (!token.trim() || !categoryCode) {
+    if (!token.trim()) {
       toast({
         title: '입력 오류',
-        description: '인증 코드와 카테고리를 모두 입력해주세요.',
+        description: '인증 코드를 입력해주세요.',
         variant: 'destructive',
       })
       return
@@ -222,7 +176,7 @@ export function KakaoChannelRegistration({
         searchId,
         phoneNumber: phoneNumber.replace(/-/g, ''),
         token: token.trim(),
-        categoryCode,
+        categoryCode: ACADEMY_CATEGORY_CODE,
       })
 
       if (!result.success) {
@@ -438,87 +392,17 @@ export function KakaoChannelRegistration({
                 />
               </div>
 
-              <div>
-                <Label>채널 카테고리 *</Label>
-                <Popover open={categoryOpen} onOpenChange={setCategoryOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={categoryOpen}
-                      className="mt-2 w-full justify-between font-normal"
-                      disabled={loadingCategories}
-                    >
-                      {loadingCategories
-                        ? '로딩 중...'
-                        : categoryCode
-                          ? categories.find((c) => c.code === categoryCode)?.name ?? '카테고리 선택'
-                          : '카테고리 검색 및 선택'}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="카테고리 검색..." />
-                      <CommandList>
-                        <CommandEmpty>검색 결과가 없습니다</CommandEmpty>
-                        <CommandGroup>
-                          {categories.map((cat) => (
-                            <CommandItem
-                              key={cat.code}
-                              value={cat.name}
-                              onSelect={() => {
-                                setCategoryCode(cat.code)
-                                setCategoryOpen(false)
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  'mr-2 h-4 w-4',
-                                  categoryCode === cat.code ? 'opacity-100' : 'opacity-0'
-                                )}
-                              />
-                              {cat.name}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-                {categoryLoadError ? (
-                  <div className="flex items-center gap-2 mt-1">
-                    <p className="text-xs text-destructive">{categoryLoadError}</p>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2 text-xs"
-                      onClick={loadCategories}
-                      disabled={loadingCategories}
-                    >
-                      <RefreshCw className="h-3 w-3 mr-1" />
-                      다시 시도
-                    </Button>
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    채널의 업종 카테고리를 선택하세요
-                  </p>
-                )}
-              </div>
             </div>
 
             <div className="flex justify-between">
               <Button variant="outline" onClick={() => {
                 setToken('')
-                setCategoryCode('')
                 setStep(1)
               }}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 이전
               </Button>
-              <Button onClick={handleCreateChannel} disabled={isLoading || !token.trim() || !categoryCode}>
+              <Button onClick={handleCreateChannel} disabled={isLoading || !token.trim()}>
                 {isLoading ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
