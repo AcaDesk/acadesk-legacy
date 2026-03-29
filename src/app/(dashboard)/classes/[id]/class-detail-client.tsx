@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
@@ -23,7 +24,10 @@ import {
   Target,
   CheckCircle,
   BookOpen,
+  UserPlus,
+  UserMinus,
 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { usePagination } from '@/hooks/use-pagination'
 import {
@@ -35,6 +39,10 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@ui/pagination'
+import { useToast } from '@/hooks/use-toast'
+import { getErrorMessage } from '@/lib/error-handlers'
+import { withdrawStudentFromClass } from '@/app/actions/classes'
+import { EnrollStudentsDialog } from '@/components/features/classes/enroll-students-dialog'
 
 interface ClassDetail {
   id: string
@@ -90,6 +98,23 @@ interface ClassDetailClientProps {
 
 export function ClassDetailClient({ classData, students }: ClassDetailClientProps) {
   const router = useRouter()
+  const { toast } = useToast()
+  const [enrollDialogOpen, setEnrollDialogOpen] = useState(false)
+  const [withdrawingId, setWithdrawingId] = useState<string | null>(null)
+
+  async function handleWithdraw(studentId: string, studentName: string) {
+    setWithdrawingId(studentId)
+    try {
+      const result = await withdrawStudentFromClass(classData.id, studentId)
+      if (!result.success) throw new Error(result.error || '배정 해제 실패')
+      toast({ title: `${studentName} 배정 해제 완료` })
+      router.refresh()
+    } catch (error) {
+      toast({ title: '배정 해제 실패', description: getErrorMessage(error), variant: 'destructive' })
+    } finally {
+      setWithdrawingId(null)
+    }
+  }
 
   // usePagination for students table
   const {
@@ -135,6 +160,12 @@ export function ClassDetailClient({ classData, students }: ClassDetailClientProp
 
   return (
     <PageWrapper>
+      <EnrollStudentsDialog
+        classId={classData.id}
+        open={enrollDialogOpen}
+        onOpenChange={setEnrollDialogOpen}
+        onSuccess={() => router.refresh()}
+      />
       <div className="space-y-6">
         {/* Header */}
         <div className="space-y-4">
@@ -283,16 +314,28 @@ export function ClassDetailClient({ classData, students }: ClassDetailClientProp
           <TabsContent value="students">
             <Card>
               <CardHeader>
-                <CardTitle>수강생 목록</CardTitle>
-                <CardDescription>
-                  이 수업을 수강하는 모든 학생을 확인할 수 있습니다
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>수강생 목록</CardTitle>
+                    <CardDescription>
+                      이 수업을 수강하는 모든 학생을 확인할 수 있습니다
+                    </CardDescription>
+                  </div>
+                  <Button size="sm" onClick={() => setEnrollDialogOpen(true)}>
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    학생 배정
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 {students.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
                     <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>등록된 수강생이 없습니다.</p>
+                    <p className="mb-4">등록된 수강생이 없습니다.</p>
+                    <Button variant="outline" size="sm" onClick={() => setEnrollDialogOpen(true)}>
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      학생 배정하기
+                    </Button>
                   </div>
                 ) : (
                   <div className="border rounded-lg overflow-hidden">
@@ -311,9 +354,7 @@ export function ClassDetailClient({ classData, students }: ClassDetailClientProp
                           <TableRow key={student.id}>
                             <TableCell>
                               <div>
-                                <div className="font-medium">
-                                  {student.name}
-                                </div>
+                                <div className="font-medium">{student.name}</div>
                                 <div className="text-xs text-muted-foreground">
                                   {student.studentCode}
                                 </div>
@@ -335,13 +376,28 @@ export function ClassDetailClient({ classData, students }: ClassDetailClientProp
                               </span>
                             </TableCell>
                             <TableCell className="text-center">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => router.push(`/students/${student.id}`)}
-                              >
-                                상세보기
-                              </Button>
+                              <div className="flex items-center justify-center gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => router.push(`/students/${student.id}`)}
+                                >
+                                  상세보기
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  disabled={withdrawingId === student.id}
+                                  onClick={() => handleWithdraw(student.id, student.name)}
+                                >
+                                  {withdrawingId === student.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <UserMinus className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))}

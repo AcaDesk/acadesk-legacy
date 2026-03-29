@@ -6,7 +6,7 @@
 
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
@@ -644,6 +644,176 @@ export async function getClassStudents(classId: string) {
       data: null,
       error: getErrorMessage(error),
     }
+  }
+}
+
+/**
+ * Get students NOT enrolled in a class (for enrollment dialog)
+ *
+ * @param classId - Class ID
+ * @returns Students available to enroll or error
+ */
+export async function getUnenrolledStudents(classId: string) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    // 현재 active enrollment 학생 ID 목록
+    const { data: enrollments, error: enrollError } = await supabase
+      .from('class_enrollments')
+      .select('student_id')
+      .eq('tenant_id', tenantId)
+      .eq('class_id', classId)
+      .eq('status', 'active')
+
+    if (enrollError) throw enrollError
+
+    const enrolledIds = new Set((enrollments || []).map(e => e.student_id))
+
+    // 전체 학생 조회 후 클라이언트에서 제외
+    const { data, error } = await supabase
+      .from('students')
+      .select(`
+        id,
+        student_code,
+        grade,
+        school,
+        users!inner (
+          name
+        )
+      `)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+
+    interface StudentRow {
+      id: string
+      student_code: string
+      grade: string | null
+      school: string | null
+      users: { name: string } | null
+    }
+
+    const unenrolled = (data as unknown as StudentRow[] || [])
+      .filter((s) => !enrolledIds.has(s.id))
+      .map((s) => ({
+        id: s.id,
+        studentCode: s.student_code,
+        name: s.users?.name || '이름 없음',
+        grade: s.grade || '',
+        school: s.school || '',
+      }))
+
+    return { success: true as const, data: unenrolled, error: null }
+  } catch (error) {
+    console.error('[getUnenrolledStudents] Error:', error)
+    return { success: false as const, data: null, error: getErrorMessage(error) }
+  }
+}
+
+/**
+ * Enroll multiple students in a class
+ *
+ * @param classId - Class ID
+ * @param studentIds - Students to enroll
+ * @returns Success or error
+ */
+export async function enrollStudentsInClass(classId: string, studentIds: string[]) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    if (studentIds.length === 0) return { success: true as const, data: null, error: null }
+
+    // 기존 enrollment 조회 (withdrawn 포함 — 재등록 시 reactivate)
+    const { data: existing, error: fetchError } = await supabase
+      .from('class_enrollments')
+      .select('id, student_id, status')
+      .eq('tenant_id', tenantId)
+      .eq('class_id', classId)
+      .in('student_id', studentIds)
+
+    if (fetchError) throw fetchError
+
+    const existingMap = new Map((existing || []).map(e => [e.student_id, e]))
+
+    const toInsert = studentIds.filter(id => !existingMap.has(id))
+    const toReactivate = studentIds
+      .filter(id => existingMap.has(id) && existingMap.get(id)!.status !== 'active')
+      .map(id => existingMap.get(id)!.id)
+
+    if (toInsert.length > 0) {
+      const { error } = await supabase
+        .from('class_enrollments')
+        .insert(toInsert.map(studentId => ({
+          tenant_id: tenantId,
+          class_id: classId,
+          student_id: studentId,
+          status: 'active',
+          enrolled_at: new Date().toISOString(),
+        })))
+      if (error) throw error
+    }
+
+    if (toReactivate.length > 0) {
+      const { error } = await supabase
+        .from('class_enrollments')
+        .update({
+          status: 'active',
+          withdrawn_at: null,
+          updated_at: new Date().toISOString(),
+        })
+        .in('id', toReactivate)
+      if (error) throw error
+    }
+
+    revalidatePath(`/classes/${classId}`)
+    revalidatePath('/classes')
+    revalidateTag(`attendance-roster:${tenantId}`)
+
+    return { success: true as const, data: null, error: null }
+  } catch (error) {
+    console.error('[enrollStudentsInClass] Error:', error)
+    return { success: false as const, data: null, error: getErrorMessage(error) }
+  }
+}
+
+/**
+ * Withdraw a student from a class
+ *
+ * @param classId - Class ID
+ * @param studentId - Student to withdraw
+ * @returns Success or error
+ */
+export async function withdrawStudentFromClass(classId: string, studentId: string) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    const { error } = await supabase
+      .from('class_enrollments')
+      .update({
+        status: 'withdrawn',
+        withdrawn_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('tenant_id', tenantId)
+      .eq('class_id', classId)
+      .eq('student_id', studentId)
+      .eq('status', 'active')
+
+    if (error) throw error
+
+    revalidatePath(`/classes/${classId}`)
+    revalidatePath('/classes')
+    revalidateTag(`attendance-roster:${tenantId}`)
+
+    return { success: true as const, data: null, error: null }
+  } catch (error) {
+    console.error('[withdrawStudentFromClass] Error:', error)
+    return { success: false as const, data: null, error: getErrorMessage(error) }
   }
 }
 
