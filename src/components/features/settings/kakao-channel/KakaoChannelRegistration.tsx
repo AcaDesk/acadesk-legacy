@@ -83,14 +83,14 @@ export function KakaoChannelRegistration({
       return
     }
 
-    if (compact.startsWith('_')) {
+    const withoutAt = compact.replace(/^@/, '')
+    if (withoutAt.startsWith('_')) {
       setSearchIdWarning('_(언더바)로 시작하면 URL 식별자입니다. 검색용 아이디를 입력해주세요')
       return
     }
 
-    const withoutAt = compact.replace(/^@/, '')
-    if (withoutAt && !/^[가-힣a-z0-9]{1,15}$/.test(withoutAt)) {
-      setSearchIdWarning('15자 이내 한글/영문 소문자/숫자만 입력할 수 있습니다')
+    if (withoutAt && !/^[가-힣a-z0-9._-]{2,15}$/.test(withoutAt)) {
+      setSearchIdWarning('2~15자 이내 한글/영문 소문자/숫자 또는 ._- 만 입력할 수 있습니다')
       return
     }
     setSearchIdWarning(null)

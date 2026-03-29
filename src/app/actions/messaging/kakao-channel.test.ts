@@ -1,13 +1,9 @@
 /**
  * Kakao Channel Server Actions Tests
- *
- * Tests for kakao-channel.ts server actions
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest'
-import { z } from 'zod'
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 
-// Mock modules before importing the actual module
 vi.mock('@/lib/auth/verify-permission', () => ({
   verifyStaff: vi.fn(),
 }))
@@ -16,73 +12,83 @@ vi.mock('@/lib/supabase/service-role', () => ({
   createServiceRoleClient: vi.fn(),
 }))
 
-vi.mock('@/infra/messaging/SolapiProvider', () => ({
-  SolapiProvider: vi.fn(),
+vi.mock('@/lib/messaging/get-solapi-provider', () => ({
+  getSolapiProvider: vi.fn(),
 }))
 
-// Import after mocks are set up
-import {
-  createKakaoChannel,
-  removeKakaoChannel,
-} from './kakao-channel'
+import { createKakaoChannel, removeKakaoChannel } from './kakao-channel'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
-import { SolapiProvider } from '@/infra/messaging/SolapiProvider'
+import { getSolapiProvider } from '@/lib/messaging/get-solapi-provider'
 
-describe('kakao-channel server actions', () => {
-  const mockTenantId = 'test-tenant-id'
+function createSelectChain(data: Record<string, unknown> | null, error: Error | null = null) {
+  const chain: Record<string, Mock> = {} as Record<string, Mock>
+  chain.eq = vi.fn().mockReturnValue(chain)
+  chain.is = vi.fn().mockReturnValue(chain)
+  chain.maybeSingle = vi.fn().mockResolvedValue({ data, error })
+  return chain
+}
 
-  // Mock Supabase client helper
-  // getSolapiProvider 체인: .select().eq('tenant_id').eq('provider').is('deleted_at').maybeSingle()
-  // createKakaoChannel 체인: .select().eq('tenant_id').is('deleted_at').maybeSingle()
-  function createMockSupabaseClient(overrides?: {
-    selectData?: Record<string, unknown> | null
-    selectError?: Error | null
-    updateError?: Error | null
-  }) {
-    const mockMaybeSingle = vi.fn().mockResolvedValue({
-      data: overrides?.selectData ?? null,
-      error: overrides?.selectError ?? null,
-    })
+function createMockSupabaseClient(overrides?: {
+  configData?: Record<string, unknown> | null
+  configError?: Error | null
+  messagingUpdateError?: Error | null
+  templateUpdateError?: Error | null
+}) {
+  const messagingUpdateMock = vi.fn().mockReturnValue({
+    eq: vi.fn().mockReturnValue({
+      is: vi.fn().mockResolvedValue({
+        error: overrides?.messagingUpdateError ?? null,
+      }),
+    }),
+  })
 
-    // 체이닝이 어떤 순서로 와도 동작하도록 자기참조 체인 구성
-    const createChainableQuery = () => {
-      const chain: Record<string, Mock> = {} as Record<string, Mock>
-      chain.eq = vi.fn().mockReturnValue(chain)
-      chain.is = vi.fn().mockReturnValue(chain)
-      chain.maybeSingle = mockMaybeSingle
-      return chain
-    }
+  const templateUpdateMock = vi.fn().mockReturnValue({
+    eq: vi.fn().mockReturnValue({
+      is: vi.fn().mockResolvedValue({
+        error: overrides?.templateUpdateError ?? null,
+      }),
+    }),
+  })
 
-    return {
+  return {
+    client: {
       from: vi.fn((table: string) => {
         if (table === 'tenant_messaging_config') {
           return {
-            select: vi.fn().mockReturnValue(createChainableQuery()),
-            update: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnThis(),
-              is: vi.fn().mockResolvedValue({
-                error: overrides?.updateError ?? null,
-              }),
-            }),
+            select: vi.fn().mockReturnValue(
+              createSelectChain(overrides?.configData ?? null, overrides?.configError ?? null)
+            ),
+            update: messagingUpdateMock,
           }
         }
+
         if (table === 'kakao_alimtalk_templates') {
           return {
-            update: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                is: vi.fn().mockResolvedValue({ error: null }),
-              }),
-            }),
+            update: templateUpdateMock,
           }
         }
-        return {
-          select: vi.fn().mockReturnValue(createChainableQuery()),
-          update: vi.fn().mockReturnThis(),
-        }
+
+        return {}
       }),
-    }
+    },
+    messagingUpdateMock,
+    templateUpdateMock,
   }
+}
+
+function createSolapiError(errorCode: string, errorMessage: string) {
+  return Object.assign(new Error(`${errorCode}: ${errorMessage}`), {
+    name: 'ApiError',
+    errorCode,
+    errorMessage,
+    httpStatus: 400,
+    url: 'https://api.solapi.com/kakao/v2/channels',
+  })
+}
+
+describe('kakao-channel server actions', () => {
+  const mockTenantId = 'test-tenant-id'
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -93,23 +99,15 @@ describe('kakao-channel server actions', () => {
   })
 
   afterEach(() => {
-    vi.resetAllMocks()
+    vi.restoreAllMocks()
   })
 
-  describe('createKakaoChannel validation', () => {
-    it('should reject searchId with invalid characters (underscore)', async () => {
-      const mockSupabase = createMockSupabaseClient({
-        selectData: {
-          provider: 'solapi',
-          solapi_api_key: 'test-key',
-          solapi_api_secret: 'test-secret',
-          solapi_sender_phone: '01012345678',
-        },
-      })
-      ;(createServiceRoleClient as Mock).mockReturnValue(mockSupabase)
+  describe('createKakaoChannel', () => {
+    it('rejects invalid searchId format', async () => {
+      ;(getSolapiProvider as Mock).mockResolvedValue({ createKakaoChannel: vi.fn() })
 
       const result = await createKakaoChannel({
-        searchId: 'invalid_no_at', // Contains underscore → rejected by regex
+        searchId: 'invalid*id',
         phoneNumber: '01012345678',
         token: '123456',
         categoryCode: '001',
@@ -119,20 +117,10 @@ describe('kakao-channel server actions', () => {
       expect(result.error).toContain('검색용 아이디 형식')
     })
 
-    it('should reject invalid phoneNumber format', async () => {
-      const mockSupabase = createMockSupabaseClient({
-        selectData: {
-          provider: 'solapi',
-          solapi_api_key: 'test-key',
-          solapi_api_secret: 'test-secret',
-          solapi_sender_phone: '01012345678',
-        },
-      })
-      ;(createServiceRoleClient as Mock).mockReturnValue(mockSupabase)
-
+    it('rejects invalid phoneNumber format', async () => {
       const result = await createKakaoChannel({
-        searchId: '@valid_channel',
-        phoneNumber: '123-456-789', // Invalid format
+        searchId: '@validchannel',
+        phoneNumber: '123-456-789',
         token: '123456',
         categoryCode: '001',
       })
@@ -141,74 +129,21 @@ describe('kakao-channel server actions', () => {
       expect(result.error).toContain('휴대폰 번호 형식')
     })
 
-    it('should reject phoneNumber with wrong prefix', async () => {
-      const mockSupabase = createMockSupabaseClient({
-        selectData: {
-          provider: 'solapi',
-          solapi_api_key: 'test-key',
-          solapi_api_secret: 'test-secret',
-          solapi_sender_phone: '01012345678',
-        },
-      })
-      ;(createServiceRoleClient as Mock).mockReturnValue(mockSupabase)
-
-      const result = await createKakaoChannel({
-        searchId: '@valid_channel',
-        phoneNumber: '02012345678', // Wrong prefix (02 instead of 010)
-        token: '123456',
-        categoryCode: '001',
-      })
-
-      expect(result.success).toBe(false)
-      expect(result.error).toContain('휴대폰 번호 형식')
-    })
-
-    it('should accept valid input format', async () => {
+    it('creates a channel and saves config', async () => {
       const mockChannel = {
         channelId: 'test-channel-id',
         searchId: '@validchannel',
         name: 'Test Channel',
-        status: 'active',
+        status: 'active' as const,
         verifiedAt: new Date(),
       }
-
       const mockProvider = {
         createKakaoChannel: vi.fn().mockResolvedValue(mockChannel),
       }
-      ;(SolapiProvider as unknown as Mock).mockImplementation(() => mockProvider)
+      const supabase = createMockSupabaseClient()
 
-      // 자기참조 체인으로 .eq().eq().is().maybeSingle() 모두 지원
-      const createChain = (data: Record<string, unknown>) => {
-        const chain: Record<string, Mock> = {} as Record<string, Mock>
-        chain.eq = vi.fn().mockReturnValue(chain)
-        chain.is = vi.fn().mockReturnValue(chain)
-        chain.maybeSingle = vi.fn().mockResolvedValue({ data, error: null })
-        return chain
-      }
-
-      const solapiConfig = {
-        provider: 'solapi',
-        solapi_api_key: 'test-key',
-        solapi_api_secret: 'test-secret',
-        solapi_sender_phone: '01012345678',
-      }
-
-      const mockSupabase = {
-        from: vi.fn((table: string) => {
-          if (table === 'tenant_messaging_config') {
-            return {
-              select: vi.fn().mockReturnValue(createChain(solapiConfig)),
-              update: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  is: vi.fn().mockResolvedValue({ error: null }),
-                }),
-              }),
-            }
-          }
-          return {}
-        }),
-      }
-      ;(createServiceRoleClient as Mock).mockReturnValue(mockSupabase)
+      ;(getSolapiProvider as Mock).mockResolvedValue(mockProvider)
+      ;(createServiceRoleClient as Mock).mockReturnValue(supabase.client)
 
       const result = await createKakaoChannel({
         searchId: '@validchannel',
@@ -219,58 +154,86 @@ describe('kakao-channel server actions', () => {
 
       expect(result.success).toBe(true)
       expect(result.data).toEqual(mockChannel)
+      expect(mockProvider.createKakaoChannel).toHaveBeenCalledWith({
+        searchId: '@validchannel',
+        phoneNumber: '01012345678',
+        token: '123456',
+        categoryCode: '001',
+      })
+      expect(supabase.messagingUpdateMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kakao_channel_id: 'test-channel-id',
+          kakao_channel_search_id: '@validchannel',
+          kakao_channel_name: 'Test Channel',
+          kakao_channel_status: 'active',
+        })
+      )
+    })
+
+    it('returns Solapi error codes instead of a generic failure message', async () => {
+      const mockProvider = {
+        createKakaoChannel: vi.fn().mockRejectedValue(createSolapiError('InvalidToken', 'token invalid')),
+      }
+
+      ;(getSolapiProvider as Mock).mockResolvedValue(mockProvider)
+
+      const result = await createKakaoChannel({
+        searchId: '@validchannel',
+        phoneNumber: '01012345678',
+        token: '123456',
+        categoryCode: '001',
+      })
+
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('InvalidToken')
+    })
+
+    it('recovers an already-registered remote channel and saves it locally', async () => {
+      const existingChannel = {
+        channelId: 'existing-channel-id',
+        searchId: '@validchannel',
+        name: 'Existing Channel',
+        status: 'active' as const,
+        verifiedAt: new Date(),
+      }
+      const mockProvider = {
+        createKakaoChannel: vi.fn().mockRejectedValue(
+          createSolapiError('SearchIdInUse', 'already registered')
+        ),
+        getKakaoChannels: vi.fn().mockResolvedValue([existingChannel]),
+      }
+      const supabase = createMockSupabaseClient()
+
+      ;(getSolapiProvider as Mock).mockResolvedValue(mockProvider)
+      ;(createServiceRoleClient as Mock).mockReturnValue(supabase.client)
+
+      const result = await createKakaoChannel({
+        searchId: '@validchannel',
+        phoneNumber: '01012345678',
+        token: '123456',
+        categoryCode: '001',
+      })
+
+      expect(result.success).toBe(true)
+      expect(result.data).toEqual(existingChannel)
+      expect(mockProvider.getKakaoChannels).toHaveBeenCalledTimes(1)
+      expect(supabase.messagingUpdateMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kakao_channel_id: 'existing-channel-id',
+          kakao_channel_search_id: '@validchannel',
+        })
+      )
     })
   })
 
   describe('removeKakaoChannel', () => {
-    it('should fail when Solapi credentials are missing', async () => {
-      // Mock: channel exists but no Solapi credentials
-      const mockSupabase = {
-        from: vi.fn((table: string) => {
-          if (table === 'tenant_messaging_config') {
-            return {
-              select: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  is: vi.fn().mockReturnValue({
-                    maybeSingle: vi.fn().mockResolvedValue({
-                      data: { kakao_channel_id: 'existing-channel-id' },
-                      error: null,
-                    }),
-                  }),
-                }),
-              }),
-            }
-          }
-          return {}
-        }),
-      }
-      ;(createServiceRoleClient as Mock).mockReturnValue(mockSupabase)
-
-      // Second query for getSolapiProvider returns no credentials
-      const mockSupabaseForProvider = {
-        from: vi.fn().mockReturnValue({
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                is: vi.fn().mockReturnValue({
-                  maybeSingle: vi.fn().mockResolvedValue({
-                    data: null, // No credentials
-                    error: null,
-                  }),
-                }),
-              }),
-            }),
-          }),
-        }),
-      }
-
-      // Track call count to return different mocks
-      let callCount = 0
-      ;(createServiceRoleClient as Mock).mockImplementation(() => {
-        callCount++
-        if (callCount === 1) return mockSupabase
-        return mockSupabaseForProvider
+    it('fails when Solapi provider is unavailable', async () => {
+      const supabase = createMockSupabaseClient({
+        configData: { kakao_channel_id: 'existing-channel-id' },
       })
+
+      ;(createServiceRoleClient as Mock).mockReturnValue(supabase.client)
+      ;(getSolapiProvider as Mock).mockResolvedValue(null)
 
       const result = await removeKakaoChannel()
 
@@ -278,50 +241,16 @@ describe('kakao-channel server actions', () => {
       expect(result.error).toContain('Solapi API 설정이 없어')
     })
 
-    it('should fail when Solapi API returns error', async () => {
+    it('returns the validation error when remote deletion fails', async () => {
       const mockProvider = {
         removeKakaoChannel: vi.fn().mockRejectedValue(new Error('Solapi API Error')),
       }
-      ;(SolapiProvider as unknown as Mock).mockImplementation(() => mockProvider)
+      const supabase = createMockSupabaseClient({
+        configData: { kakao_channel_id: 'existing-channel-id' },
+      })
 
-      // Return channel info for first query
-      const mockSupabase = {
-        from: vi.fn((table: string) => ({
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              is: vi.fn().mockReturnValue({
-                maybeSingle: vi.fn().mockResolvedValue({
-                  data:
-                    table === 'tenant_messaging_config'
-                      ? {
-                          kakao_channel_id: 'existing-channel-id',
-                          provider: 'solapi',
-                          solapi_api_key: 'test-key',
-                          solapi_api_secret: 'test-secret',
-                          solapi_sender_phone: '01012345678',
-                        }
-                      : null,
-                  error: null,
-                }),
-              }),
-              eq: vi.fn().mockReturnValue({
-                is: vi.fn().mockReturnValue({
-                  maybeSingle: vi.fn().mockResolvedValue({
-                    data: {
-                      provider: 'solapi',
-                      solapi_api_key: 'test-key',
-                      solapi_api_secret: 'test-secret',
-                      solapi_sender_phone: '01012345678',
-                    },
-                    error: null,
-                  }),
-                }),
-              }),
-            }),
-          }),
-        })),
-      }
-      ;(createServiceRoleClient as Mock).mockReturnValue(mockSupabase)
+      ;(createServiceRoleClient as Mock).mockReturnValue(supabase.client)
+      ;(getSolapiProvider as Mock).mockResolvedValue(mockProvider)
 
       const result = await removeKakaoChannel()
 
@@ -329,148 +258,28 @@ describe('kakao-channel server actions', () => {
       expect(result.error).toContain('채널 삭제에 실패')
     })
 
-    it('should succeed when Solapi API succeeds', async () => {
+    it('removes the remote channel and clears local config', async () => {
       const mockProvider = {
         removeKakaoChannel: vi.fn().mockResolvedValue(undefined),
       }
-      ;(SolapiProvider as unknown as Mock).mockImplementation(() => mockProvider)
+      const supabase = createMockSupabaseClient({
+        configData: { kakao_channel_id: 'existing-channel-id' },
+      })
 
-      // Complex mock for multiple queries
-      const mockSupabase = {
-        from: vi.fn((table: string) => {
-          if (table === 'tenant_messaging_config') {
-            return {
-              select: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  is: vi.fn().mockReturnValue({
-                    maybeSingle: vi.fn().mockResolvedValue({
-                      data: {
-                        kakao_channel_id: 'existing-channel-id',
-                        provider: 'solapi',
-                        solapi_api_key: 'test-key',
-                        solapi_api_secret: 'test-secret',
-                        solapi_sender_phone: '01012345678',
-                      },
-                      error: null,
-                    }),
-                  }),
-                  eq: vi.fn().mockReturnValue({
-                    is: vi.fn().mockReturnValue({
-                      maybeSingle: vi.fn().mockResolvedValue({
-                        data: {
-                          provider: 'solapi',
-                          solapi_api_key: 'test-key',
-                          solapi_api_secret: 'test-secret',
-                          solapi_sender_phone: '01012345678',
-                        },
-                        error: null,
-                      }),
-                    }),
-                  }),
-                }),
-              }),
-              update: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  is: vi.fn().mockResolvedValue({ error: null }),
-                }),
-              }),
-            }
-          }
-          if (table === 'kakao_alimtalk_templates') {
-            return {
-              update: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  is: vi.fn().mockResolvedValue({ error: null }),
-                }),
-              }),
-            }
-          }
-          return {}
-        }),
-      }
-      ;(createServiceRoleClient as Mock).mockReturnValue(mockSupabase)
+      ;(createServiceRoleClient as Mock).mockReturnValue(supabase.client)
+      ;(getSolapiProvider as Mock).mockResolvedValue(mockProvider)
 
       const result = await removeKakaoChannel()
 
       expect(result.success).toBe(true)
       expect(mockProvider.removeKakaoChannel).toHaveBeenCalledWith('existing-channel-id')
-    })
-  })
-
-  describe('createChannelSchema validation (unit)', () => {
-    const createChannelSchema = z.object({
-      searchId: z
-        .string()
-        .min(1, '채널 검색 ID는 필수입니다')
-        .regex(/^@/, '검색 ID는 @로 시작해야 합니다'),
-      phoneNumber: z
-        .string()
-        .regex(/^010\d{8}$/, '올바른 휴대폰 번호 형식이 아닙니다 (예: 01012345678)'),
-      token: z.string().min(1, '인증 토큰은 필수입니다'),
-      categoryCode: z.string().min(1, '카테고리 선택은 필수입니다'),
-    })
-
-    it('should validate correct input', () => {
-      const validInput = {
-        searchId: '@test_channel',
-        phoneNumber: '01012345678',
-        token: '123456',
-        categoryCode: '001',
-      }
-
-      const result = createChannelSchema.safeParse(validInput)
-      expect(result.success).toBe(true)
-    })
-
-    it('should reject searchId without @ prefix', () => {
-      const invalidInput = {
-        searchId: 'test_channel',
-        phoneNumber: '01012345678',
-        token: '123456',
-        categoryCode: '001',
-      }
-
-      const result = createChannelSchema.safeParse(invalidInput)
-      expect(result.success).toBe(false)
-      if (!result.success) {
-        expect(result.error.issues[0].message).toContain('@로 시작해야')
-      }
-    })
-
-    it('should reject phoneNumber with hyphens', () => {
-      const invalidInput = {
-        searchId: '@test_channel',
-        phoneNumber: '010-1234-5678',
-        token: '123456',
-        categoryCode: '001',
-      }
-
-      const result = createChannelSchema.safeParse(invalidInput)
-      expect(result.success).toBe(false)
-    })
-
-    it('should reject phoneNumber with wrong length', () => {
-      const invalidInput = {
-        searchId: '@test_channel',
-        phoneNumber: '0101234567', // 10 digits instead of 11
-        token: '123456',
-        categoryCode: '001',
-      }
-
-      const result = createChannelSchema.safeParse(invalidInput)
-      expect(result.success).toBe(false)
-    })
-
-    it('should reject phoneNumber not starting with 010', () => {
-      const invalidInput = {
-        searchId: '@test_channel',
-        phoneNumber: '01112345678',
-        token: '123456',
-        categoryCode: '001',
-      }
-
-      const result = createChannelSchema.safeParse(invalidInput)
-      expect(result.success).toBe(false)
+      expect(supabase.messagingUpdateMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kakao_channel_id: null,
+          kakao_channel_search_id: null,
+        })
+      )
+      expect(supabase.templateUpdateMock).toHaveBeenCalledTimes(1)
     })
   })
 })

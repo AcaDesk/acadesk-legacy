@@ -115,6 +115,57 @@ function isSearchIdAlreadyInUseError(message: string): boolean {
   )
 }
 
+function extractSolapiErrorCode(error: unknown): string | null {
+  if (!error || typeof error !== 'object') {
+    return null
+  }
+
+  if ('errorCode' in error && typeof error.errorCode === 'string') {
+    return error.errorCode
+  }
+
+  if ('error' in error && typeof error.error === 'object' && error.error !== null) {
+    const nestedError = error.error as Record<string, unknown>
+    if ('code' in nestedError && typeof nestedError.code === 'string') {
+      return nestedError.code
+    }
+  }
+
+  return null
+}
+
+function getKakaoActionErrorMessage(error: unknown): string {
+  if (error instanceof ValidationError) {
+    return error.message
+  }
+
+  if (error instanceof z.ZodError) {
+    return error.issues[0]?.message || '입력값이 올바르지 않습니다'
+  }
+
+  const solapiErrorCode = extractSolapiErrorCode(error)
+  if (solapiErrorCode) {
+    return solapiErrorCode
+  }
+
+  if (error instanceof Error) {
+    if (/[\uac00-\ud7af]/.test(error.message)) {
+      return error.message
+    }
+
+    const firstToken = error.message.split(/[:\s]/)[0]
+    if (
+      firstToken &&
+      /^[A-Za-z][A-Za-z0-9]+$/.test(firstToken) &&
+      !['ApiError', 'BadRequestError', 'DefaultError', 'Error', 'FromSolapiError', 'NetworkError', 'TypeError'].includes(firstToken)
+    ) {
+      return firstToken
+    }
+  }
+
+  return getErrorMessage(error)
+}
+
 // ============================================================================
 // Server Actions - Channel Status
 // ============================================================================
@@ -282,11 +333,9 @@ export async function requestKakaoChannelToken(
     }
   } catch (error) {
     console.error('[requestKakaoChannelToken] Error:', error)
-    // 한국어 validation 에러 메시지는 그대로 반환 (내부 메시지가 아닌 사용자용 메시지)
-    const message = error instanceof Error ? error.message : null
     return {
       success: false,
-      error: (message && /[\uac00-\ud7af]/.test(message)) ? message : getErrorMessage(error),
+      error: getKakaoActionErrorMessage(error),
     }
   }
 }
@@ -328,7 +377,7 @@ export async function createKakaoChannel(
       } catch (error) {
         console.warn('[createKakaoChannel] Candidate failed:', {
           candidateSearchId,
-          error: getErrorMessage(error),
+          error: getKakaoActionErrorMessage(error),
         })
         lastError = error
       }
@@ -336,7 +385,7 @@ export async function createKakaoChannel(
 
     // "이미 등록된 채널" 에러 시 기존 채널을 조회하여 복구
     if (!channel && lastError) {
-      const errorMessage = getErrorMessage(lastError)
+      const errorMessage = getKakaoActionErrorMessage(lastError)
       if (isSearchIdAlreadyInUseError(errorMessage)) {
         try {
           const existingChannels = await provider.getKakaoChannels()
@@ -404,7 +453,7 @@ export async function createKakaoChannel(
     return {
       success: false,
       data: null,
-      error: getErrorMessage(error),
+      error: getKakaoActionErrorMessage(error),
     }
   }
 }
@@ -489,7 +538,7 @@ export async function removeKakaoChannel(): Promise<{
     console.error('[removeKakaoChannel] Error:', error)
     return {
       success: false,
-      error: getErrorMessage(error),
+      error: getKakaoActionErrorMessage(error),
     }
   }
 }
