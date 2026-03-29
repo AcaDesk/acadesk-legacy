@@ -97,7 +97,6 @@ const navigationGroups: NavGroup[] = [
           { name: "TODO 검증", href: "/todos/verify", icon: CheckSquare, featureFlag: "todoManagement" },
           { name: "TODO 통계", href: "/todos/stats", icon: PieChart, featureFlag: "todoManagement" },
           { name: "숙제 관리", href: "/homeworks", icon: BookCopy, featureFlag: "todoManagement" },
-          { name: "제출 현황", href: "/homeworks/submissions", icon: ClipboardList, featureFlag: "todoManagement" },
         ]
       },
       {
