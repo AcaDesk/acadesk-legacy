@@ -30,9 +30,10 @@ import {
   Star,
   Loader2,
   ClipboardCheck,
+  Send,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import { deleteHomework, submitHomework } from '@/app/actions/homeworks'
+import { deleteHomework, submitHomework, sendHomeworkNotificationToGuardians } from '@/app/actions/homeworks'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import { GradeDialog } from './grade-dialog'
 
@@ -96,6 +97,9 @@ export function HomeworksClient({ initialHomeworks }: HomeworksClientProps) {
   const [submittingId, setSubmittingId] = useState<string | null>(null)
   const [isBulkSubmitting, setIsBulkSubmitting] = useState(false)
   const [gradeTarget, setGradeTarget] = useState<HomeworkWithStudent | null>(null)
+  const [notifyDialogOpen, setNotifyDialogOpen] = useState(false)
+  const [itemToNotify, setItemToNotify] = useState<{ id: string; title: string; studentName: string } | null>(null)
+  const [isSendingNotification, setIsSendingNotification] = useState(false)
   const { toast } = useToast()
 
   const stats = useMemo(() => ({
@@ -187,6 +191,44 @@ export function HomeworksClient({ initialHomeworks }: HomeworksClientProps) {
       toast({ title: '일괄 처리 오류', variant: 'destructive' })
     } finally {
       setIsBulkSubmitting(false)
+    }
+  }
+
+  // 부모님께 발송
+  function handleSendNotificationClick(homework: HomeworkWithStudent) {
+    setItemToNotify({
+      id: homework.id,
+      title: homework.title,
+      studentName: homework.students?.user_id?.name ?? '학생',
+    })
+    setNotifyDialogOpen(true)
+  }
+
+  async function handleConfirmSendNotification() {
+    if (!itemToNotify) return
+    setIsSendingNotification(true)
+    try {
+      const result = await sendHomeworkNotificationToGuardians(itemToNotify.id)
+      if (result.success) {
+        const { successCount, failCount } = result.data
+        if (failCount > 0 && successCount > 0) {
+          toast({
+            title: `발송 완료 (일부 실패)`,
+            description: `${successCount}명 성공, ${failCount}명 실패`,
+            variant: 'destructive',
+          })
+        } else {
+          toast({ title: '발송 완료', description: `${successCount}명의 보호자에게 숙제 안내가 발송되었습니다.` })
+        }
+      } else {
+        toast({ title: '발송 실패', description: result.error ?? undefined, variant: 'destructive' })
+      }
+    } catch {
+      toast({ title: '발송 오류', variant: 'destructive' })
+    } finally {
+      setIsSendingNotification(false)
+      setNotifyDialogOpen(false)
+      setItemToNotify(null)
     }
   }
 
@@ -471,6 +513,15 @@ export function HomeworksClient({ initialHomeworks }: HomeworksClientProps) {
                             )}
                             <Button
                               size="sm"
+                              variant="outline"
+                              onClick={() => handleSendNotificationClick(homework)}
+                              disabled={isSendingNotification}
+                            >
+                              <Send className="h-3 w-3 mr-1" />
+                              부모님께 발송
+                            </Button>
+                            <Button
+                              size="sm"
                               variant="ghost"
                               onClick={() => handleDeleteClick(homework.id, homework.title)}
                             >
@@ -511,6 +562,22 @@ export function HomeworksClient({ initialHomeworks }: HomeworksClientProps) {
         variant="destructive"
         isLoading={isDeleting}
         onConfirm={handleConfirmDelete}
+      />
+
+      {/* 부모님께 발송 확인 다이얼로그 */}
+      <ConfirmationDialog
+        open={notifyDialogOpen}
+        onOpenChange={setNotifyDialogOpen}
+        title="부모님께 숙제 안내 발송"
+        description={
+          itemToNotify
+            ? `"${itemToNotify.title}" 숙제 안내를 ${itemToNotify.studentName} 학생의 보호자에게 발송하시겠습니까?`
+            : ''
+        }
+        confirmText="발송"
+        variant="default"
+        isLoading={isSendingNotification}
+        onConfirm={handleConfirmSendNotification}
       />
     </div>
   )
