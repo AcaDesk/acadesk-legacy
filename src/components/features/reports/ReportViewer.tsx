@@ -120,6 +120,8 @@ interface ReportViewerProps {
     homeworkRate?: number
     totalTodos?: number
     completedTodos?: number
+    hideAttendanceRate?: boolean
+    hideAttendanceCalendar?: boolean
   }
   onEditComment?: () => void
   showEditButton?: boolean
@@ -331,17 +333,19 @@ ${reportData.comment.nextGoals}`
         </Card>
 
         {/* 출석률 */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription className="text-xs">출석률</CardDescription>
-            <CardTitle className="text-3xl font-bold text-info">
-              {Math.round(attendanceRate)}%
-            </CardTitle>
-            <p className="text-xs text-muted-foreground mt-1">
-              {reportData.attendance.present}/{reportData.attendance.total}일
-            </p>
-          </CardHeader>
-        </Card>
+        {!reportData.hideAttendanceRate && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription className="text-xs">출석률</CardDescription>
+              <CardTitle className="text-3xl font-bold text-info">
+                {Math.round(attendanceRate)}%
+              </CardTitle>
+              <p className="text-xs text-muted-foreground mt-1">
+                {reportData.attendance.present}/{reportData.attendance.total}일
+              </p>
+            </CardHeader>
+          </Card>
+        )}
 
         {/* 과제 달성률 */}
         <Card>
@@ -459,7 +463,7 @@ ${reportData.comment.nextGoals}`
       })()}
 
       {/* Attendance Heatmap */}
-      {reportData.attendanceChartData && reportData.attendanceChartData.length > 0 && (
+      {!reportData.hideAttendanceCalendar && reportData.attendanceChartData && reportData.attendanceChartData.length > 0 && (
         <AttendanceHeatmap
           data={reportData.attendanceChartData}
           title="출석 현황"

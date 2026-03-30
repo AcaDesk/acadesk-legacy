@@ -43,4 +43,9 @@ export const queryKeys = {
     all: () => ['guardians'] as const,
     list: () => ['guardians', 'list'] as const,
   },
+
+  reports: {
+    preview: (studentId: string, period: unknown) => ['reports', 'preview', studentId, period] as const,
+    templates: (context: unknown) => ['reports', 'templates', context] as const,
+  },
 } as const

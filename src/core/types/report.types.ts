@@ -149,6 +149,10 @@ export interface ReportData {
   homeworkRate?: number
   totalTodos?: number
   completedTodos?: number
+
+  // Display options (saved with report so viewer reflects same settings)
+  hideAttendanceRate?: boolean
+  hideAttendanceCalendar?: boolean
 }
 
 export interface ReportSend {
