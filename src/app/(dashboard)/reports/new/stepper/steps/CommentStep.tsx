@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
 import { Textarea } from '@ui/textarea'
@@ -10,8 +11,9 @@ import { ChevronLeft, ChevronRight, Keyboard, MessageSquareOff } from 'lucide-re
 import { TemplateSection } from '@/components/features/reports/template-section'
 import { getReportTemplates } from '@/app/actions/reports/templates'
 import { cn } from '@/lib/utils'
+import { queryKeys } from '@/lib/query-keys'
 import { useReportStore } from '@/lib/stores/report.store'
-import type { CategoryTemplates, ReportContextData, ReportTemplateCategory } from '@/core/types/report-template.types'
+import type { ReportContextData, ReportTemplateCategory } from '@/core/types/report-template.types'
 import type { ReportData } from '@/core/types/report.types'
 import type { CommentDraft } from '../report-stepper-types'
 
@@ -66,9 +68,7 @@ const FIELDS: Array<{
 ]
 
 export function CommentStep({ comment, onChange, onConfirm, onBack, reportData }: CommentStepProps) {
-  const { skipComment, setSkipComment } = useReportStore()
-  const [templates, setTemplates] = useState<CategoryTemplates[]>([])
-  const [templatesLoaded, setTemplatesLoaded] = useState(false)
+  const { skipComment, setSkipComment, skipAttendanceRate, setSkipAttendanceRate, skipAttendanceCalendar, setSkipAttendanceCalendar } = useReportStore()
   const [touched, setTouched] = useState<Partial<Record<keyof CommentDraft, boolean>>>({})
 
   const filledCount = FIELDS.filter((f) => comment[f.key].trim()).length
@@ -93,16 +93,15 @@ export function CommentStep({ comment, onChange, onConfirm, onBack, reportData }
     }
   }, [reportData])
 
-  useEffect(() => {
-    if (templatesLoaded || !context || skipComment) return
-    let cancelled = false
-    getReportTemplates(context).then((result) => {
-      if (cancelled) return
-      if (result.success && result.data) setTemplates(result.data)
-      setTemplatesLoaded(true)
-    })
-    return () => { cancelled = true }
-  }, [context, templatesLoaded, skipComment])
+  const { data: templates = [] } = useQuery({
+    queryKey: queryKeys.reports.templates(context),
+    queryFn: async () => {
+      const result = await getReportTemplates(context!)
+      return result.data ?? []
+    },
+    enabled: !!context && !skipComment,
+    staleTime: 5 * 60 * 1000,
+  })
 
   // Ctrl+Enter 단축키
   useEffect(() => {
@@ -140,16 +139,38 @@ export function CommentStep({ comment, onChange, onConfirm, onBack, reportData }
               강사 코멘트를 작성하세요. 템플릿을 클릭하면 자동으로 입력됩니다.
             </CardDescription>
           </div>
-          {/* 코멘트 생략 토글 */}
-          <div className="flex items-center gap-2 shrink-0 pt-0.5">
-            <Switch
-              id="skip-comment"
-              checked={skipComment}
-              onCheckedChange={setSkipComment}
-            />
-            <Label htmlFor="skip-comment" className="text-sm font-normal cursor-pointer whitespace-nowrap">
-              코멘트 없이 발송
-            </Label>
+          {/* 발송 옵션 토글 */}
+          <div className="flex flex-col items-end gap-2 shrink-0 pt-0.5">
+            <div className="flex items-center gap-2">
+              <Switch
+                id="skip-comment"
+                checked={skipComment}
+                onCheckedChange={setSkipComment}
+              />
+              <Label htmlFor="skip-comment" className="text-sm font-normal cursor-pointer whitespace-nowrap">
+                코멘트 없이 발송
+              </Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                id="skip-attendance-rate"
+                checked={skipAttendanceRate}
+                onCheckedChange={setSkipAttendanceRate}
+              />
+              <Label htmlFor="skip-attendance-rate" className="text-sm font-normal cursor-pointer whitespace-nowrap">
+                출석률 숨기기
+              </Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                id="skip-attendance-calendar"
+                checked={skipAttendanceCalendar}
+                onCheckedChange={setSkipAttendanceCalendar}
+              />
+              <Label htmlFor="skip-attendance-calendar" className="text-sm font-normal cursor-pointer whitespace-nowrap">
+                출석 현황 숨기기
+              </Label>
+            </div>
           </div>
         </div>
 

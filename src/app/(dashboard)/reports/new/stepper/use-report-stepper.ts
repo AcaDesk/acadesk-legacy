@@ -1,11 +1,13 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
 import { useToast } from '@/hooks/use-toast'
 import { generateMonthlyReport, generateWeeklyReport, saveReport } from '@/app/actions/reports/report-generation'
 import { sendReportToAllGuardians } from '@/app/actions/reports/send'
 import { useReportStore } from '@/lib/stores/report.store'
+import { queryKeys } from '@/lib/query-keys'
 import type { ReportData } from '@/core/types/report.types'
 import {
   type ReportStepKey,
@@ -54,7 +56,7 @@ export interface ReportStepperState {
 export function useReportStepper() {
   const router = useRouter()
   const { toast } = useToast()
-  const { skipComment } = useReportStore()
+  const { skipComment, skipAttendanceRate, skipAttendanceCalendar } = useReportStore()
 
   // Core state
   const [currentStep, setCurrentStep] = useState<ReportStepKey>('setup')
@@ -69,12 +71,58 @@ export function useReportStepper() {
     month: now.getMonth() + 1,
   })
 
-  // Step 2: Data
-  const [dataLoading, setDataLoading] = useState(false)
-  const [dataLoaded, setDataLoaded] = useState(false)
-  const [dataError, setDataError] = useState<string | null>(null)
-  const [reportData, setReportData] = useState<ReportData | null>(null)
-  const [warnings, setWarnings] = useState<DataWarning[]>([])
+  // Step 2: Data (TanStack Query)
+  const {
+    data: reportData = null,
+    isFetching: dataLoading,
+    isSuccess: dataLoaded,
+    error: reportQueryError,
+    refetch: refetchReportData,
+  } = useQuery({
+    queryKey: queryKeys.reports.preview(student?.id ?? '', period),
+    queryFn: async (): Promise<ReportData> => {
+      if (!student) throw new Error('학생을 선택해주세요.')
+      let result: { success: boolean; data: ReportData | null; error: string | null }
+      if (period.type === 'weekly' && period.startDate && period.endDate) {
+        result = await generateWeeklyReport(student.id, period.startDate, period.endDate)
+      } else if (period.type === 'monthly' && period.year && period.month) {
+        result = await generateMonthlyReport(student.id, period.year, period.month)
+      } else {
+        throw new Error('기간 설정이 올바르지 않습니다.')
+      }
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '데이터 수집에 실패했습니다.')
+      }
+      return result.data
+    },
+    enabled: false,
+    staleTime: Infinity,
+    retry: false,
+  })
+
+  const dataError = reportQueryError instanceof Error ? reportQueryError.message : reportQueryError ? String(reportQueryError) : null
+
+  const warnings = useMemo<DataWarning[]>(() => {
+    if (!reportData) return []
+    const result: DataWarning[] = []
+    if (reportData.attendance.total === 0) {
+      result.push({ type: 'no_attendance', message: '해당 기간 출석 데이터가 없습니다.', severity: 'warning', quickFixUrl: '/attendance' })
+    }
+    if (!reportData.scores || reportData.scores.length === 0) {
+      result.push({ type: 'no_scores', message: '해당 기간 시험 데이터가 없습니다.', severity: 'warning', quickFixUrl: '/grades' })
+    }
+    if (reportData.homework.total === 0) {
+      result.push({ type: 'no_homework', message: '해당 기간 과제 데이터가 없습니다.', severity: 'warning', quickFixUrl: '/todos' })
+    }
+    return result
+  }, [reportData])
+
+  // 데이터 로드 성공 시 completedSteps에 'data' 추가
+  useEffect(() => {
+    if (dataLoaded && reportData) {
+      setCompletedSteps((prev) => new Set([...prev, 'data']))
+    }
+  }, [dataLoaded, reportData])
 
   // Step 3: Comment
   const [comment, setComment] = useState<CommentDraft>({
@@ -84,13 +132,20 @@ export function useReportStepper() {
     nextGoals: '',
   })
 
+  // instructorComment로 summary 자동 채우기
+  useEffect(() => {
+    if (reportData?.instructorComment) {
+      setComment((prev) => ({
+        ...prev,
+        summary: prev.summary || reportData.instructorComment || '',
+      }))
+    }
+  }, [reportData])
+
   // Step 4: Confirm
   const [sendAfterSave, setSendAfterSave] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [sending, setSending] = useState(false)
-
-  // Prevent double-fetch
-  const fetchKeyRef = useRef<string>('')
 
   // ============================================================================
   // Period Validation (declared early for use in navigation)
@@ -158,6 +213,7 @@ export function useReportStepper() {
     setStudentState(s)
     addRecentStudent(s)
     // Clear setup completion + all downstream steps
+    // TanStack Query 캐시는 queryKey(studentId) 변경으로 자동 초기화됨
     setCompletedSteps((prev) => {
       const next = new Set(prev)
       next.delete('setup')
@@ -166,12 +222,6 @@ export function useReportStepper() {
       next.delete('confirm')
       return next
     })
-    setDataLoading(false)
-    setDataLoaded(false)
-    setReportData(null)
-    setWarnings([])
-    setDataError(null)
-    fetchKeyRef.current = ''
     setComment({ summary: '', strengths: '', improvements: '', nextGoals: '' })
     // Stay on 'setup' step — period section will appear
   }, [])
@@ -186,12 +236,6 @@ export function useReportStepper() {
       next.delete('confirm')
       return next
     })
-    setDataLoading(false)
-    setDataLoaded(false)
-    setReportData(null)
-    setWarnings([])
-    setDataError(null)
-    fetchKeyRef.current = ''
     setComment({ summary: '', strengths: '', improvements: '', nextGoals: '' })
     setSendAfterSave(false)
     setCurrentStep('setup')
@@ -204,6 +248,7 @@ export function useReportStepper() {
   const setPeriod = useCallback((nextPeriod: PeriodConfig) => {
     setPeriodState(nextPeriod)
     // Period change invalidates setup confirmation + downstream
+    // TanStack Query 캐시는 queryKey(period) 변경으로 자동 초기화됨
     setCompletedSteps((prev) => {
       const next = new Set(prev)
       next.delete('setup')
@@ -212,12 +257,6 @@ export function useReportStepper() {
       next.delete('confirm')
       return next
     })
-    setDataLoading(false)
-    setDataLoaded(false)
-    setReportData(null)
-    setWarnings([])
-    setDataError(null)
-    fetchKeyRef.current = ''
     setComment({ summary: '', strengths: '', improvements: '', nextGoals: '' })
     setSendAfterSave(false)
   }, [])
@@ -247,12 +286,6 @@ export function useReportStepper() {
       next.delete('confirm')
       return next
     })
-    setDataLoading(false)
-    setDataLoaded(false)
-    setReportData(null)
-    setWarnings([])
-    setDataError(null)
-    fetchKeyRef.current = ''
     setComment({ summary: '', strengths: '', improvements: '', nextGoals: '' })
     setCurrentStep('data')
   }, [student, isPeriodValid, period.type, toast])
@@ -261,81 +294,9 @@ export function useReportStepper() {
   // Step 2: Data Fetch
   // ============================================================================
 
-  const fetchReportData = useCallback(async () => {
-    if (!student || !isPeriodValid()) return
-
-    // Deduplicate
-    const key = `${student.id}-${period.type}-${period.year}-${period.month}-${period.startDate}-${period.endDate}`
-    if (key === fetchKeyRef.current && dataLoaded && !dataError) return
-    fetchKeyRef.current = key
-
-    setDataLoading(true)
-    setDataError(null)
-    setWarnings([])
-
-    try {
-      let result: { success: boolean; data: ReportData | null; error: string | null }
-
-      if (period.type === 'weekly' && period.startDate && period.endDate) {
-        result = await generateWeeklyReport(student.id, period.startDate, period.endDate)
-      } else if (period.type === 'monthly' && period.year && period.month) {
-        result = await generateMonthlyReport(student.id, period.year, period.month)
-      } else {
-        throw new Error('기간 설정이 올바르지 않습니다.')
-      }
-
-      if (!result.success || !result.data) {
-        throw new Error(result.error || '데이터 수집에 실패했습니다.')
-      }
-
-      const data = result.data
-      setReportData(data)
-
-      // Analyze warnings
-      const newWarnings: DataWarning[] = []
-      if (data.attendance.total === 0) {
-        newWarnings.push({
-          type: 'no_attendance',
-          message: '해당 기간 출석 데이터가 없습니다.',
-          severity: 'warning',
-          quickFixUrl: '/attendance',
-        })
-      }
-      if (!data.scores || data.scores.length === 0) {
-        newWarnings.push({
-          type: 'no_scores',
-          message: '해당 기간 시험 데이터가 없습니다.',
-          severity: 'warning',
-          quickFixUrl: '/grades',
-        })
-      }
-      if (data.homework.total === 0) {
-        newWarnings.push({
-          type: 'no_homework',
-          message: '해당 기간 과제 데이터가 없습니다.',
-          severity: 'warning',
-          quickFixUrl: '/todos',
-        })
-      }
-      setWarnings(newWarnings)
-
-      // Auto-fill comment summary from instructorComment
-      if (data.instructorComment) {
-        setComment((prev) => ({
-          ...prev,
-          summary: prev.summary || data.instructorComment || '',
-        }))
-      }
-
-      setDataLoaded(true)
-      setCompletedSteps((prev) => new Set([...prev, 'data']))
-    } catch (error) {
-      console.error('[fetchReportData] Error:', error)
-      setDataError(error instanceof Error ? error.message : '데이터 수집 중 오류가 발생했습니다.')
-    } finally {
-      setDataLoading(false)
-    }
-  }, [student, isPeriodValid, period, dataLoaded, dataError])
+  const fetchReportData = useCallback(() => {
+    refetchReportData()
+  }, [refetchReportData])
 
   // ============================================================================
   // Step 3: Comment
@@ -370,17 +331,22 @@ export function useReportStepper() {
 
   const getPreviewData = useCallback((): ReportData | null => {
     if (!reportData) return null
-    if (skipComment) return { ...reportData, comment: undefined, instructorComment: undefined, overallComment: undefined }
     return {
       ...reportData,
-      comment: {
-        summary: comment.summary,
-        strengths: comment.strengths,
-        improvements: comment.improvements,
-        nextGoals: comment.nextGoals,
-      },
+      ...(skipComment
+        ? { comment: undefined, instructorComment: undefined, overallComment: undefined }
+        : {
+            comment: {
+              summary: comment.summary,
+              strengths: comment.strengths,
+              improvements: comment.improvements,
+              nextGoals: comment.nextGoals,
+            },
+          }),
+      hideAttendanceRate: skipAttendanceRate || undefined,
+      hideAttendanceCalendar: skipAttendanceCalendar || undefined,
     }
-  }, [reportData, comment, skipComment])
+  }, [reportData, comment, skipComment, skipAttendanceRate, skipAttendanceCalendar])
 
   // ============================================================================
   // Step 4: Confirm — Submit
@@ -391,19 +357,23 @@ export function useReportStepper() {
 
     setGenerating(true)
     try {
-      const mergedData: ReportData = skipComment
-        ? { ...reportData, comment: undefined, instructorComment: undefined, overallComment: undefined }
-        : {
-            ...reportData,
-            comment: {
-              summary: comment.summary,
-              strengths: comment.strengths,
-              improvements: comment.improvements,
-              nextGoals: comment.nextGoals,
-            },
-            instructorComment: comment.summary,
-            overallComment: comment.summary,
-          }
+      const mergedData: ReportData = {
+        ...reportData,
+        ...(skipComment
+          ? { comment: undefined, instructorComment: undefined, overallComment: undefined }
+          : {
+              comment: {
+                summary: comment.summary,
+                strengths: comment.strengths,
+                improvements: comment.improvements,
+                nextGoals: comment.nextGoals,
+              },
+              instructorComment: comment.summary,
+              overallComment: comment.summary,
+            }),
+        hideAttendanceRate: skipAttendanceRate || undefined,
+        hideAttendanceCalendar: skipAttendanceCalendar || undefined,
+      }
 
       const saveResult = await saveReport(mergedData, period.type)
 
