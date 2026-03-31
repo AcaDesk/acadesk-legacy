@@ -31,7 +31,7 @@ const AttendanceHeatmap = dynamic(
   () => import('@/components/features/charts/attendance-heatmap').then(m => m.AttendanceHeatmap),
   { ssr: false, loading: () => <div className="h-[200px] animate-pulse rounded-lg bg-muted" /> }
 )
-import { formatKoreanDateShort } from '@/lib/utils'
+import { cn, formatKoreanDateShort } from '@/lib/utils'
 
 interface ReportViewerProps {
   reportData: {
@@ -172,7 +172,7 @@ export function ReportViewer({ reportData, onEditComment, showEditButton = false
   function getTrendIcon(change: number | null) {
     if (change === null) return <Minus className="h-4 w-4" />
     if (change > 0) return <TrendingUp className="h-4 w-4 text-success" />
-    if (change < 0) return <TrendingDown className="h-4 w-4 text-red-600" />
+    if (change < 0) return <TrendingDown className="h-4 w-4 text-destructive" />
     return <Minus className="h-4 w-4" />
   }
 
@@ -648,8 +648,12 @@ ${reportData.comment.nextGoals}`
                             <td className="py-3 px-2 text-center">
                               {score.change !== null ? (
                                 <Badge
-                                  variant={score.change > 0 ? 'default' : score.change < 0 ? 'destructive' : 'secondary'}
-                                  className="text-base font-semibold"
+                                  variant="outline"
+                                  className={cn(
+                                    'text-base font-semibold',
+                                    score.change > 0 && 'border-success/40 bg-success/10 text-success',
+                                    score.change < 0 && 'border-destructive/40 bg-destructive/10 text-destructive',
+                                  )}
                                 >
                                   <div className="flex items-center gap-1">
                                     {getTrendIcon(score.change)}
@@ -678,8 +682,12 @@ ${reportData.comment.nextGoals}`
                           <td className="py-4 px-2 text-center">
                             {avgChange !== null ? (
                               <Badge
-                                variant={avgChange > 0 ? 'default' : avgChange < 0 ? 'destructive' : 'secondary'}
-                                className="text-base font-semibold"
+                                variant="outline"
+                                className={cn(
+                                  'text-base font-semibold',
+                                  avgChange > 0 && 'border-success/40 bg-success/10 text-success',
+                                  avgChange < 0 && 'border-destructive/40 bg-destructive/10 text-destructive',
+                                )}
                               >
                                 <div className="flex items-center gap-1">
                                   {getTrendIcon(avgChange)}
@@ -710,7 +718,13 @@ ${reportData.comment.nextGoals}`
                           <div className="flex items-center gap-2">
                             <h4 className="font-semibold">{score.category}</h4>
                             {score.change !== null && (
-                              <Badge variant={score.change > 0 ? 'default' : 'destructive'}>
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  score.change > 0 && 'border-success/40 bg-success/10 text-success',
+                                  score.change < 0 && 'border-destructive/40 bg-destructive/10 text-destructive',
+                                )}
+                              >
                                 <div className="flex items-center gap-1">
                                   {getTrendIcon(score.change)}
                                   {Math.abs(score.change)}%
