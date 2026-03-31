@@ -309,7 +309,7 @@ ${reportData.comment.nextGoals}`
       </Card>
 
       {/* KPI Cards: 평균점수, 출석률, 과제율 */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className={`grid gap-4 ${reportData.hideAttendanceRate ? 'grid-cols-2' : 'grid-cols-3'}`}>
         {/* 평균 점수 */}
         <Card>
           <CardHeader className="pb-2">
