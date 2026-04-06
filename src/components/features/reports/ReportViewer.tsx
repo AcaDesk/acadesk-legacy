@@ -27,6 +27,56 @@ import {
 import dynamic from 'next/dynamic'
 import type { ReportAttendanceStatus } from '@/core/types/report.types'
 
+const MAX_TICK_CHARS = 13
+
+function splitTickLabel(name: string): [string, string] {
+  if (name.length <= MAX_TICK_CHARS) return [name, '']
+  const mid = Math.floor(name.length / 2)
+  let bestIdx = -1
+  let bestDist = Infinity
+  for (let i = 0; i < name.length; i++) {
+    if (name[i] === ' ') {
+      const dist = Math.abs(i - mid)
+      if (dist < bestDist) {
+        bestDist = dist
+        bestIdx = i
+      }
+    }
+  }
+  if (bestIdx === -1) {
+    return [name.slice(0, MAX_TICK_CHARS), name.slice(MAX_TICK_CHARS)]
+  }
+  const trunc = (s: string) => (s.length > MAX_TICK_CHARS ? `${s.slice(0, MAX_TICK_CHARS)}…` : s)
+  return [trunc(name.slice(0, bestIdx)), trunc(name.slice(bestIdx + 1))]
+}
+
+function SubjectChartXAxisTick({
+  x,
+  y,
+  payload,
+}: {
+  x?: number
+  y?: number
+  payload?: { value: string }
+}) {
+  const [line1, line2] = splitTickLabel(payload?.value ?? '')
+
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text textAnchor="middle" fill="currentColor" fontSize={10}>
+        <tspan x={0} dy={12}>
+          {line1}
+        </tspan>
+        {line2 && (
+          <tspan x={0} dy={14}>
+            {line2}
+          </tspan>
+        )}
+      </text>
+    </g>
+  )
+}
+
 const AttendanceHeatmap = dynamic(
   () => import('@/components/features/charts/attendance-heatmap').then(m => m.AttendanceHeatmap),
   { ssr: false, loading: () => <div className="h-[200px] animate-pulse rounded-lg bg-muted" /> }
@@ -560,8 +610,13 @@ ${reportData.comment.nextGoals}`
             <CardTitle>과목별 성적 변화</CardTitle>
             <CardDescription>시험별 과목 점수 추이</CardDescription>
           </CardHeader>
-          <CardContent>
-            <ChartContainer config={subjectLineConfig} className="aspect-auto h-72 w-full">
+          <CardContent className="px-2 sm:px-6">
+            <div className="overflow-x-auto">
+            <ChartContainer
+              config={subjectLineConfig}
+              className="aspect-auto h-72"
+              style={{ minWidth: Math.max(subjectLineData.length * 72, 300) }}
+            >
               <LineChart
                 accessibilityLayer
                 data={subjectLineData}
@@ -573,14 +628,9 @@ ${reportData.comment.nextGoals}`
                   tickLine={false}
                   axisLine={false}
                   tickMargin={4}
-                  angle={-35}
-                  textAnchor="end"
-                  height={72}
+                  height={56}
                   interval={0}
-                  tick={{ fontSize: 11 }}
-                  tickFormatter={(value: string) =>
-                    value.length > 14 ? `${value.slice(0, 14)}…` : value
-                  }
+                  tick={(props) => <SubjectChartXAxisTick {...props} />}
                 />
                 <YAxis
                   fontSize={12}
@@ -607,6 +657,7 @@ ${reportData.comment.nextGoals}`
                 ))}
               </LineChart>
             </ChartContainer>
+            </div>
           </CardContent>
         </Card>
       )}
