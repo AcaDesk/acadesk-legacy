@@ -818,6 +818,126 @@ export async function bulkDeleteTextbooks(ids: string[]) {
   }
 }
 
+const updateTextbookWithUnitsSchema = z.object({
+  id: z.string().uuid(),
+  title: z.string().min(1, '교재명은 필수입니다').optional(),
+  publisher: z.string().optional().nullable(),
+  isbn: z.string().optional().nullable(),
+  managementCode: z.string().max(100).nullable().optional(),
+  totalCopies: z.number().int().positive().optional().nullable(),
+  price: z.number().int().nonnegative().optional().nullable(),
+  isActive: z.boolean().optional(),
+  units: z.array(
+    z.discriminatedUnion('op', [
+      z.object({
+        op: z.literal('delete'),
+        id: z.string().uuid(),
+      }),
+      z.object({
+        op: z.literal('update'),
+        id: z.string().uuid(),
+        unitOrder: z.number().int().positive().optional(),
+        unitCode: z.string().optional().nullable(),
+        unitTitle: z.string().min(1, '단원명은 필수입니다').optional(),
+        totalPages: z.number().int().positive().optional().nullable(),
+      }),
+      z.object({
+        op: z.literal('create'),
+        unitOrder: z.number().int().positive(),
+        unitCode: z.string().optional(),
+        unitTitle: z.string().min(1, '단원명은 필수입니다'),
+        totalPages: z.number().int().positive().optional(),
+      }),
+    ])
+  ).optional(),
+})
+
+/**
+ * Update a textbook and its units in a single server action call.
+ * Runs all unit operations in parallel after updating the textbook.
+ */
+export async function updateTextbookWithUnits(
+  input: z.infer<typeof updateTextbookWithUnitsSchema>
+) {
+  try {
+    const validated = updateTextbookWithUnitsSchema.parse(input)
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+    const now = new Date().toISOString()
+
+    // 1. Update textbook basic info
+    const updateData: Record<string, unknown> = { updated_at: now }
+    if (validated.title !== undefined) updateData.title = validated.title
+    if (validated.publisher !== undefined) updateData.publisher = validated.publisher
+    if (validated.isbn !== undefined) updateData.isbn = validated.isbn
+    if (validated.managementCode !== undefined) updateData.management_code = validated.managementCode
+    if (validated.totalCopies !== undefined) updateData.total_copies = validated.totalCopies
+    if (validated.price !== undefined) updateData.price = validated.price
+    if (validated.isActive !== undefined) updateData.is_active = validated.isActive
+
+    const { data, error } = await supabase
+      .from('textbooks')
+      .update(updateData)
+      .eq('id', validated.id)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .select()
+      .single()
+
+    if (error) throw error
+    if (!data) throw new Error('교재를 찾을 수 없습니다')
+
+    // 2. Run all unit operations in parallel
+    if (validated.units && validated.units.length > 0) {
+      await Promise.all(
+        validated.units.map((unit) => {
+          if (unit.op === 'delete') {
+            return supabase
+              .from('textbook_units')
+              .update({ deleted_at: now })
+              .eq('id', unit.id)
+              .eq('tenant_id', tenantId)
+              .is('deleted_at', null)
+          }
+          if (unit.op === 'update') {
+            const d: Record<string, unknown> = { updated_at: now }
+            if (unit.unitOrder !== undefined) d.unit_order = unit.unitOrder
+            if (unit.unitCode !== undefined) d.unit_code = unit.unitCode
+            if (unit.unitTitle !== undefined) d.unit_title = unit.unitTitle
+            if (unit.totalPages !== undefined) d.total_pages = unit.totalPages
+            return supabase
+              .from('textbook_units')
+              .update(d)
+              .eq('id', unit.id)
+              .eq('tenant_id', tenantId)
+              .is('deleted_at', null)
+          }
+          // op === 'create'
+          return supabase.from('textbook_units').insert({
+            tenant_id: tenantId,
+            textbook_id: validated.id,
+            unit_order: unit.unitOrder,
+            unit_code: unit.unitCode || null,
+            unit_title: unit.unitTitle,
+            total_pages: unit.totalPages ?? null,
+          })
+        })
+      )
+    }
+
+    // 3. Revalidate once at the end
+    revalidatePath('/textbooks')
+    revalidatePath(`/textbooks/${validated.id}`)
+    revalidatePath('/library/lendings')
+    revalidateTag('library-form-options')
+
+    return { success: true, data, error: null }
+  } catch (error) {
+    console.error('[updateTextbookWithUnits] Error:', error)
+    return { success: false, data: null, error: getErrorMessage(error) }
+  }
+}
+
 // ============================================================================
 // Textbook Units Management
 // ============================================================================
