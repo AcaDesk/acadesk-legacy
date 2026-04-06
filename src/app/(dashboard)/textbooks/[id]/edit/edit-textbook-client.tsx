@@ -16,12 +16,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { showSuccessToast, showErrorToast, showValidationToast } from '@/lib/toast-helpers'
-import {
-  updateTextbook,
-  createTextbookUnit,
-  updateTextbookUnit,
-  deleteTextbookUnit,
-} from '@/app/actions/textbooks'
+import { updateTextbookWithUnits } from '@/app/actions/textbooks'
 
 type TextbookUnit = {
   id?: string
@@ -106,9 +101,34 @@ export function EditTextbookClient({ textbookId, initialData }: EditTextbookClie
     setSaving(true)
 
     try {
-      // Update textbook basic info
       const parsedTotalCopies = Number.parseInt(totalCopies, 10)
-      const textbookResult = await updateTextbook({
+
+      const unitOps = units
+        .filter((unit) => unit.isDeleted ? !!unit.id : true)
+        .map((unit) => {
+          if (unit.isDeleted && unit.id) {
+            return { op: 'delete' as const, id: unit.id }
+          }
+          if (unit.id) {
+            return {
+              op: 'update' as const,
+              id: unit.id,
+              unitOrder: unit.unitOrder,
+              unitCode: unit.unitCode.trim() || undefined,
+              unitTitle: unit.unitTitle.trim(),
+              totalPages: unit.totalPages ? parseInt(unit.totalPages) : undefined,
+            }
+          }
+          return {
+            op: 'create' as const,
+            unitOrder: unit.unitOrder,
+            unitCode: unit.unitCode.trim() || undefined,
+            unitTitle: unit.unitTitle.trim(),
+            totalPages: unit.totalPages ? parseInt(unit.totalPages) : undefined,
+          }
+        })
+
+      const result = await updateTextbookWithUnits({
         id: textbookId,
         title: title.trim(),
         publisher: publisher.trim() || undefined,
@@ -120,49 +140,11 @@ export function EditTextbookClient({ textbookId, initialData }: EditTextbookClie
             : 1,
         price: price ? parseInt(price) : undefined,
         isActive,
+        units: unitOps,
       })
 
-      if (!textbookResult.success) {
-        throw new Error(textbookResult.error || '교재 수정 실패')
-      }
-
-      // Handle units
-      for (const unit of units) {
-        if (unit.isDeleted && unit.id) {
-          // Delete existing unit
-          const deleteResult = await deleteTextbookUnit(unit.id)
-          if (!deleteResult.success) {
-            console.error('단원 삭제 실패:', deleteResult.error)
-          }
-        } else if (!unit.isDeleted) {
-          if (unit.id) {
-            // Update existing unit
-            const updateResult = await updateTextbookUnit({
-              id: unit.id,
-              unitOrder: unit.unitOrder,
-              unitCode: unit.unitCode.trim() || undefined,
-              unitTitle: unit.unitTitle.trim(),
-              totalPages: unit.totalPages ? parseInt(unit.totalPages) : undefined,
-            })
-
-            if (!updateResult.success) {
-              console.error('단원 수정 실패:', updateResult.error)
-            }
-          } else {
-            // Create new unit
-            const createResult = await createTextbookUnit({
-              textbookId,
-              unitOrder: unit.unitOrder,
-              unitCode: unit.unitCode.trim() || undefined,
-              unitTitle: unit.unitTitle.trim(),
-              totalPages: unit.totalPages ? parseInt(unit.totalPages) : undefined,
-            })
-
-            if (!createResult.success) {
-              console.error('단원 등록 실패:', createResult.error)
-            }
-          }
-        }
+      if (!result.success) {
+        throw new Error(result.error || '교재 수정 실패')
       }
 
       showSuccessToast('교재 수정 완료', `${title} 교재가 수정되었습니다.`)
