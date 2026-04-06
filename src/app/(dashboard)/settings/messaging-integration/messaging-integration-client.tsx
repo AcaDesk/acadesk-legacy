@@ -32,6 +32,7 @@ import {
   ShieldCheck,
   Settings,
   Pencil,
+  Bell,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import {
@@ -44,8 +45,10 @@ import {
 import { KakaoChannelStatus, KakaoChannelRegistration, KakaoPrerequisitesChecklist, KakaoAlimtalkStepper } from '@/components/features/settings/kakao-channel'
 import type { KakaoTemplateSummary } from '@/components/features/settings/kakao-channel'
 import { KakaoTemplateList, KakaoTemplateForm } from '@/components/features/settings/kakao-templates'
+import { EventSubscriptionList } from '@/components/features/settings/event-subscriptions'
 import type { KakaoChannelConfig } from '@/app/actions/messaging/kakao-channel'
 import type { KakaoTemplate } from '@/app/actions/messaging/kakao-templates'
+import type { EventSubscription } from '@/app/actions/messaging/event-subscriptions'
 
 interface MessagingConfig {
   id: string
@@ -70,6 +73,7 @@ interface MessagingConfig {
 interface MessagingIntegrationClientProps {
   config: MessagingConfig | null
   kakaoChannelConfig: KakaoChannelConfig | null
+  eventSubscriptions?: EventSubscription[]
 }
 
 type FormData = {
@@ -109,7 +113,7 @@ const providerInfo = {
   },
 }
 
-export function MessagingIntegrationClient({ config, kakaoChannelConfig }: MessagingIntegrationClientProps) {
+export function MessagingIntegrationClient({ config, kakaoChannelConfig, eventSubscriptions = [] }: MessagingIntegrationClientProps) {
   const router = useRouter()
   const { toast } = useToast()
 
@@ -364,14 +368,21 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
+        <TabsList className="grid w-full grid-cols-3 lg:w-[600px]">
           <TabsTrigger value="api" className="gap-2">
             <Settings className="h-4 w-4" />
             API 설정
           </TabsTrigger>
+          <TabsTrigger value="events" className="gap-2" disabled={!hasKakaoChannel}>
+            <Bell className="h-4 w-4" />
+            이벤트 알림
+            {!hasKakaoChannel && (
+              <span className="text-xs text-muted-foreground ml-1">(채널 필요)</span>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="kakao" className="gap-2" disabled={!showKakaoTab}>
             <MessageSquare className="h-4 w-4" />
-            카카오 알림톡
+            채널/템플릿
             {!showKakaoTab && (
               <span className="text-xs text-muted-foreground ml-1">(솔라피 인증 필요)</span>
             )}
@@ -735,7 +746,29 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig }: Messa
           </Card>
         </TabsContent>
 
-        {/* 카카오 알림톡 Tab */}
+        {/* 이벤트 알림 Tab */}
+        <TabsContent value="events" className="space-y-6">
+          {hasKakaoChannel ? (
+            <EventSubscriptionList initialSubscriptions={eventSubscriptions} />
+          ) : (
+            <Card>
+              <CardContent className="py-8">
+                <div className="text-center space-y-2">
+                  <Bell className="h-12 w-12 mx-auto text-muted-foreground" />
+                  <h3 className="font-semibold text-lg">이벤트 알림을 사용하려면</h3>
+                  <p className="text-muted-foreground text-sm">
+                    먼저 카카오 채널을 연동해주세요.
+                  </p>
+                  <Button variant="outline" onClick={() => setActiveTab('kakao')}>
+                    채널/템플릿 탭으로 이동
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* 카카오 채널/템플릿 Tab */}
         <TabsContent value="kakao" className="space-y-6">
           {showKakaoTab ? (
             <>
