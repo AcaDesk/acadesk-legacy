@@ -463,6 +463,19 @@ export async function createConsultation(
       actionUrl: '/consultations',
     })
 
+    // 기존 학생 상담인 경우, 보호자에게 상담 일정 알림톡 발송 (fire-and-forget)
+    if (!validated.isLead && validated.studentId) {
+      const consultDateStr = new Date(validated.consultationDate).toLocaleDateString('ko-KR', {
+        year: 'numeric', month: 'long', day: 'numeric',
+      })
+      void import('@/lib/messaging/event-alimtalk').then(({ fireEventAlimtalk }) =>
+        fireEventAlimtalk(tenantId, 'consultation_scheduled', validated.studentId!, {
+          상담일시: consultDateStr,
+          담당자명: '', // fireEventAlimtalk이 학원명 등 기본 변수를 자동으로 채움
+        })
+      )
+    }
+
     return {
       success: true,
       data,

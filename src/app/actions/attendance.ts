@@ -434,6 +434,14 @@ export async function saveAttendance(params: {
 
     if (error) throw error
 
+    // 보호자에게 출석/결석 알림톡 발송 (fire-and-forget)
+    if (params.status === 'present' || params.status === 'absent') {
+      const eventType = params.status === 'present' ? 'attendance_confirmed' : 'absence_detected'
+      void import('@/lib/messaging/event-alimtalk').then(({ fireEventAlimtalk }) =>
+        fireEventAlimtalk(tenantId, eventType, params.studentId, { 날짜: params.date })
+      )
+    }
+
     // 결석·지각 시 다른 스태프에게 알림 발송 (fire-and-forget)
     if (params.status === 'absent' || params.status === 'late') {
       // 학생 이름 조회 (알림 메시지용)
