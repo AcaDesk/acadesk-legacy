@@ -126,7 +126,8 @@ function isSearchIdAlreadyInUseError(message: string): boolean {
     normalized.includes('searchidinuse') ||
     normalized.includes('already') ||
     normalized.includes('channelalreadyregistered') ||
-    message.includes('이미 등록')
+    message.includes('이미 등록') ||
+    message.includes('이미 다른 계정')
   )
 }
 
@@ -391,8 +392,10 @@ export async function createKakaoChannel(
 
     // "이미 등록된 채널" 에러 시 기존 채널을 조회하여 복구
     if (!channel && lastError) {
+      // 번역 전 원본 에러 코드 먼저 체크 (번역 결과에 의존하지 않도록)
+      const solapiErrorCode = extractSolapiErrorCode(lastError)
       const errorMessage = getKakaoActionErrorMessage(lastError)
-      if (isSearchIdAlreadyInUseError(errorMessage)) {
+      if (solapiErrorCode === 'SearchIdInUse' || isSearchIdAlreadyInUseError(solapiErrorCode ?? errorMessage)) {
         try {
           const existingChannels = await provider.getKakaoChannels()
           const existing = existingChannels.find((ch) =>
@@ -403,7 +406,7 @@ export async function createKakaoChannel(
             channel = existing
           } else {
             throw new ValidationError(
-              '사용 중인 검색용 아이디입니다. 이미 다른 Solapi 계정에 연결된 채널인지 확인해주세요.'
+              '이 검색용 아이디는 현재 Solapi에 등록되어 있지 않습니다. 아이디를 다시 확인하거나, Solapi 대시보드에서 채널 상태를 확인해주세요.'
             )
           }
         } catch (recoveryError) {
@@ -412,7 +415,7 @@ export async function createKakaoChannel(
             throw recoveryError
           }
           throw new Error(
-            '사용 중인 검색용 아이디입니다. 이미 다른 Solapi 계정에 연결된 채널인지 확인해주세요.'
+            '채널 조회에 실패했습니다. 잠시 후 다시 시도하거나 Solapi 대시보드에서 채널 상태를 확인해주세요.'
           )
         }
       }
