@@ -20,7 +20,7 @@ const SOLAPI_ERROR_MAP: Record<string, string> = {
   PlusFriendRegisterFailed:
     '카카오 채널 연동에 실패했습니다. 검색용 ID, 인증 코드, 채널 상태를 확인해주세요.',
   SearchIdInUse:
-    '이 검색용 ID는 이미 다른 계정에서 사용 중입니다. 기존 연동을 확인하거나 다른 채널을 등록해주세요.',
+    '이미 Solapi에 등록된 채널입니다. 기존 채널을 자동으로 복구합니다.',
 
   // 인증 관련 에러
   TokenExpired:
@@ -100,8 +100,7 @@ const ERROR_PATTERNS: Array<{ pattern: RegExp; message: string }> = [
   },
   {
     pattern: /search.*id.*in.*use|searchidinuse/i,
-    message:
-      '이 검색용 ID는 이미 다른 계정에서 사용 중입니다. 기존 연동을 확인하거나 다른 채널을 등록해주세요.',
+    message: '이미 Solapi에 등록된 채널입니다. 기존 채널을 자동으로 복구합니다.',
   },
 ]
 
