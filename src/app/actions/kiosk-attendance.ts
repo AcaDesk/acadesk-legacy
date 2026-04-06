@@ -240,6 +240,13 @@ export async function recordKioskAttendance(
 
     if (upsertError) throw upsertError
 
+    // 보호자에게 등원/하원 알림톡 발송 (fire-and-forget)
+    const eventType = action === 'check_in' ? 'check_in' : 'check_out'
+    const timeStr = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Seoul' })
+    void import('@/lib/messaging/event-alimtalk').then(({ fireEventAlimtalk }) =>
+      fireEventAlimtalk(tenantId, eventType, studentId, { 시간: timeStr })
+    )
+
     return { success: true }
   } catch (error) {
     console.error('recordKioskAttendance error:', error)

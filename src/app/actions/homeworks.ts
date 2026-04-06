@@ -122,6 +122,20 @@ export async function createHomework(input: z.infer<typeof createHomeworkSchema>
 
     revalidatePath('/homeworks')
 
+    // 보호자에게 숙제 등록 알림톡 발송 (fire-and-forget)
+    if (data && data.length > 0) {
+      const dueDateStr = new Date(validated.dueDate).toLocaleDateString('ko-KR')
+      void import('@/lib/messaging/event-alimtalk').then(({ fireEventAlimtalk }) => {
+        for (const task of data) {
+          void fireEventAlimtalk(tenantId, 'homework_assigned', task.student_id, {
+            과목명: validated.subject || '미지정',
+            숙제명: validated.title,
+            마감일: dueDateStr,
+          })
+        }
+      })
+    }
+
     return {
       success: true,
       data,
