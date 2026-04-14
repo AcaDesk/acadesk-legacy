@@ -468,10 +468,16 @@ export async function createConsultation(
       const consultDateStr = new Date(validated.consultationDate).toLocaleDateString('ko-KR', {
         year: 'numeric', month: 'long', day: 'numeric',
       })
+      const { data: conductor } = await supabase
+        .from('users')
+        .select('name')
+        .eq('id', userId)
+        .maybeSingle()
+
       void import('@/lib/messaging/event-alimtalk').then(({ fireEventAlimtalk }) =>
         fireEventAlimtalk(tenantId, 'consultation_scheduled', validated.studentId!, {
           상담일시: consultDateStr,
-          담당자명: '', // fireEventAlimtalk이 학원명 등 기본 변수를 자동으로 채움
+          담당자명: conductor?.name || '담당자',
         })
       )
     }

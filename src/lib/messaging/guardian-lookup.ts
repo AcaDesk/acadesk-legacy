@@ -17,11 +17,12 @@ export interface GuardianContact {
  * 학생의 보호자 연락처 목록 조회
  *
  * student_guardians → guardians (phone, users.phone) 순으로 전화번호 탐색
- * phone이 없는 보호자는 제외
+ * phone이 없는 보호자는 제외, 동일 전화번호 중복 발송 방지
  */
 export async function getGuardianPhones(
   supabase: SupabaseClient,
-  studentId: string
+  studentId: string,
+  tenantId: string
 ): Promise<GuardianContact[]> {
   const { data: guardianRows, error } = await supabase
     .from('student_guardians')
@@ -34,6 +35,7 @@ export async function getGuardianPhones(
       )
     `)
     .eq('student_id', studentId)
+    .eq('tenant_id', tenantId)
     .is('deleted_at', null)
 
   if (error || !guardianRows) {
@@ -41,6 +43,7 @@ export async function getGuardianPhones(
   }
 
   const contacts: GuardianContact[] = []
+  const seenPhones = new Set<string>()
 
   for (const row of guardianRows) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -48,8 +51,9 @@ export async function getGuardianPhones(
     if (!guardian) continue
 
     const phone = guardian.phone || guardian.users?.phone
-    if (!phone) continue
+    if (!phone || seenPhones.has(phone)) continue
 
+    seenPhones.add(phone)
     contacts.push({
       guardianId: guardian.id,
       name: guardian.name || '보호자',
@@ -65,8 +69,9 @@ export async function getGuardianPhones(
  */
 export async function getPrimaryGuardianPhone(
   supabase: SupabaseClient,
-  studentId: string
+  studentId: string,
+  tenantId: string
 ): Promise<GuardianContact | null> {
-  const contacts = await getGuardianPhones(supabase, studentId)
+  const contacts = await getGuardianPhones(supabase, studentId, tenantId)
   return contacts[0] ?? null
 }
