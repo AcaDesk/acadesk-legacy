@@ -122,15 +122,22 @@ export function KakaoChannelRegistration({
     }, 1000)
   }, [])
 
-  // Step이 바뀌거나 컴포넌트 언마운트 시 타이머 정리
+  // Step 2를 벗어나면 타이머 정리, 언마운트 시에도 정리
   useEffect(() => {
     if (step !== 2 && timerRef.current) {
       clearInterval(timerRef.current)
-    }
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current)
+      timerRef.current = null
     }
   }, [step])
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
+    }
+  }, [])
 
   // Search ID 입력 핸들러
   function handleSearchIdChange(value: string) {
