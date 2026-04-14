@@ -9,7 +9,7 @@
 
 'use server'
 
-import { revalidatePath, revalidateTag } from 'next/cache'
+import { revalidatePath, revalidateTag, unstable_cache } from 'next/cache'
 import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
@@ -1145,7 +1145,9 @@ export async function assignTextbookToStudent(
     }
 
     revalidatePath('/textbooks')
+    revalidatePath(`/textbooks/${validated.textbookId}`)
     revalidatePath(`/students/${validated.studentId}`)
+    revalidateTag('textbook-distributions')
 
     return {
       success: true,
@@ -1208,7 +1210,9 @@ export async function updateStudentTextbook(
     }
 
     revalidatePath('/textbooks')
+    revalidatePath(`/textbooks/${data.textbook_id}`)
     revalidatePath(`/students/${data.student_id}`)
+    revalidateTag('textbook-distributions')
 
     return {
       success: true,
@@ -1236,10 +1240,10 @@ export async function deleteStudentTextbook(id: string) {
     const { tenantId } = await verifyStaff()
     const supabase = createServiceRoleClient()
 
-    // Get student_id for revalidation
+    // Get student_id and textbook_id for revalidation
     const { data: assignment } = await supabase
       .from('student_textbooks')
-      .select('student_id')
+      .select('student_id, textbook_id')
       .eq('id', id)
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
@@ -1257,6 +1261,10 @@ export async function deleteStudentTextbook(id: string) {
     }
 
     revalidatePath('/textbooks')
+    if (assignment?.textbook_id) {
+      revalidatePath(`/textbooks/${assignment.textbook_id}`)
+      revalidateTag('textbook-distributions')
+    }
     if (assignment?.student_id) {
       revalidatePath(`/students/${assignment.student_id}`)
     }
@@ -1276,19 +1284,12 @@ export async function deleteStudentTextbook(id: string) {
   }
 }
 
-/**
- * Get students who have been assigned a specific textbook
- *
- * @param textbookId - Textbook ID
- * @param status - Filter by status (optional)
- * @returns List of student textbook assignments or error
- */
-export async function getTextbookDistributions(
-  textbookId: string,
-  status?: 'in_use' | 'completed' | 'returned'
-) {
-  try {
-    const { tenantId } = await verifyStaff()
+const fetchTextbookDistributions = unstable_cache(
+  async (
+    tenantId: string,
+    textbookId: string,
+    status?: 'in_use' | 'completed' | 'returned'
+  ) => {
     const supabase = createServiceRoleClient()
 
     let query = supabase
@@ -1302,19 +1303,33 @@ export async function getTextbookDistributions(
       query = query.eq('status', status)
     }
 
-    const { data, error } = await query.order('issue_date', {
-      ascending: false,
-    })
+    const { data, error } = await query.order('issue_date', { ascending: false })
 
-    if (error) {
-      throw error
-    }
+    if (error) throw error
+    return data || []
+  },
+  ['textbook-distributions'],
+  {
+    revalidate: 60,
+    tags: ['textbook-distributions'],
+  }
+)
 
-    return {
-      success: true,
-      data: data || [],
-      error: null,
-    }
+/**
+ * Get students who have been assigned a specific textbook
+ *
+ * @param textbookId - Textbook ID
+ * @param status - Filter by status (optional)
+ * @returns List of student textbook assignments or error
+ */
+export async function getTextbookDistributions(
+  textbookId: string,
+  status?: 'in_use' | 'completed' | 'returned'
+) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const data = await fetchTextbookDistributions(tenantId, textbookId, status)
+    return { success: true, data, error: null }
   } catch (error) {
     console.error('[getTextbookDistributions] Error:', error)
     return {
