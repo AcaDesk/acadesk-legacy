@@ -1,11 +1,10 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import { Button } from '@ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Alert, AlertDescription } from '@ui/alert'
-import { RefreshCw, Bell, Info } from 'lucide-react'
+import { RefreshCw, Bell, Info, Inbox } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import type { EventSubscription } from '@/app/actions/messaging/event-subscriptions'
 import { EventSubscriptionCard } from './EventSubscriptionCard'
@@ -15,16 +14,11 @@ interface EventSubscriptionListProps {
 }
 
 export function EventSubscriptionList({ initialSubscriptions }: EventSubscriptionListProps) {
-  const router = useRouter()
   const { toast } = useToast()
   const [subscriptions, setSubscriptions] = useState(initialSubscriptions)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
-  const handleRefresh = useCallback(() => {
-    router.refresh()
-  }, [router])
-
-  const handleRefreshAll = useCallback(async () => {
+  const handleRefresh = useCallback(async () => {
     setIsRefreshing(true)
     try {
       const { getEventSubscriptions } = await import('@/app/actions/messaging/event-subscriptions')
@@ -65,7 +59,7 @@ export function EventSubscriptionList({ initialSubscriptions }: EventSubscriptio
             <Button
               variant="outline"
               size="sm"
-              onClick={handleRefreshAll}
+              onClick={handleRefresh}
               disabled={isRefreshing}
             >
               <RefreshCw className={`h-4 w-4 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -108,13 +102,24 @@ export function EventSubscriptionList({ initialSubscriptions }: EventSubscriptio
 
       {/* Event Cards */}
       <div className="space-y-2">
-        {subscriptions.map((sub) => (
-          <EventSubscriptionCard
-            key={sub.eventType}
-            subscription={sub}
-            onRefresh={handleRefresh}
-          />
-        ))}
+        {subscriptions.length === 0 ? (
+          <Card>
+            <CardContent className="py-8">
+              <div className="text-center space-y-2">
+                <Inbox className="h-10 w-10 mx-auto text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">사용 가능한 이벤트 템플릿이 없습니다</p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          subscriptions.map((sub) => (
+            <EventSubscriptionCard
+              key={sub.eventType}
+              subscription={sub}
+              onRefresh={handleRefresh}
+            />
+          ))
+        )}
       </div>
     </div>
   )

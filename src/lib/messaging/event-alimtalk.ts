@@ -165,7 +165,7 @@ export async function fireEventAlimtalk(
     }
 
     // 보호자 조회
-    const guardians = await getGuardianPhones(supabase, studentId)
+    const guardians = await getGuardianPhones(supabase, studentId, tenantId)
     if (guardians.length === 0) return
 
     // 학생 이름 + 학원 정보 조회
@@ -179,11 +179,14 @@ export async function fireEventAlimtalk(
       .from('tenants')
       .select('name, phone')
       .eq('id', tenantId)
-      .single()
+      .maybeSingle()
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pii = (student as any)?.students_pii
-    const studentName = (Array.isArray(pii) ? pii[0]?.name : pii?.name) || student?.name || '학생'
+    const piiData = student?.students_pii as
+      | Array<{ name?: string }>
+      | { name?: string }
+      | null
+    const piiName = Array.isArray(piiData) ? piiData[0]?.name : piiData?.name
+    const studentName = piiName || student?.name || '학생'
     const academyName = tenant?.name || '학원'
     const academyPhone = tenant?.phone || ''
 

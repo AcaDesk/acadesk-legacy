@@ -272,8 +272,24 @@ export async function provisionTemplate(eventType: string): Promise<{
         .insert(subUpsertData)
         .select('id')
         .single()
-      if (insertError) throw insertError
-      subId = newSub.id
+
+      if (insertError) {
+        // 동시 요청으로 이미 생성된 경우 (unique constraint violation)
+        if (insertError.code === '23505') {
+          const { data: existing } = await supabase
+            .from('tenant_event_subscriptions')
+            .select('id')
+            .eq('tenant_id', tenantId)
+            .eq('event_type', eventType)
+            .single()
+          if (!existing) throw insertError
+          subId = existing.id
+        } else {
+          throw insertError
+        }
+      } else {
+        subId = newSub.id
+      }
     }
 
     // 4. 솔라피에 템플릿 등록
