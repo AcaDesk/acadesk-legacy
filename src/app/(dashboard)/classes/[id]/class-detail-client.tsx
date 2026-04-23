@@ -104,7 +104,10 @@ export function ClassDetailClient({ classData, students }: ClassDetailClientProp
     setWithdrawingId(studentId)
     try {
       const result = await withdrawStudentFromClass(classData.id, studentId)
-      if (!result.success) throw new Error(result.error || '배정 해제 실패')
+      if (!result.success) {
+        toast({ title: '배정 해제 실패', description: result.error ?? '배정 해제 중 오류가 발생했습니다', variant: 'destructive' })
+        return
+      }
       toast({ title: `${studentName} 배정 해제 완료` })
       router.refresh()
     } catch (error) {
