@@ -576,26 +576,24 @@ export async function getClassStudents(classId: string) {
 
     const studentIds = (enrollments as unknown as EnrollmentRow[]).map((e) => e.student_id).filter(Boolean)
 
-    // Get exam scores
-    const { data: scores } = await supabase
-      .from('exam_scores')
-      .select('student_id, percentage')
-      .eq('tenant_id', tenantId)
-      .in('student_id', studentIds)
-
-    // Get attendance records
-    const { data: attendance } = await supabase
-      .from('attendance')
-      .select('student_id, status')
-      .eq('tenant_id', tenantId)
-      .in('student_id', studentIds)
-
-    // Get homework completion
-    const { data: todos } = await supabase
-      .from('student_todos')
-      .select('student_id, completed_at')
-      .eq('tenant_id', tenantId)
-      .in('student_id', studentIds)
+    // Get exam scores, attendance, homework completion in parallel
+    const [{ data: scores }, { data: attendance }, { data: todos }] = await Promise.all([
+      supabase
+        .from('exam_scores')
+        .select('student_id, percentage')
+        .eq('tenant_id', tenantId)
+        .in('student_id', studentIds),
+      supabase
+        .from('attendance')
+        .select('student_id, status')
+        .eq('tenant_id', tenantId)
+        .in('student_id', studentIds),
+      supabase
+        .from('student_todos')
+        .select('student_id, completed_at')
+        .eq('tenant_id', tenantId)
+        .in('student_id', studentIds),
+    ])
 
     // 5. Calculate stats per student
     const studentsWithStats = (enrollments as unknown as EnrollmentRow[]).map((enrollment) => {
