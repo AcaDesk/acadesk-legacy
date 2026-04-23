@@ -9,7 +9,7 @@
 
 'use server'
 
-import { revalidatePath, revalidateTag, unstable_cache } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
@@ -1284,59 +1284,72 @@ export async function deleteStudentTextbook(id: string) {
   }
 }
 
-const fetchTextbookDistributions = unstable_cache(
-  async (
-    tenantId: string,
-    textbookId: string,
-    status?: 'in_use' | 'completed' | 'returned'
-  ) => {
-    const supabase = createServiceRoleClient()
-
-    let query = supabase
-      .from('student_textbooks')
-      .select('*, students!student_textbooks_student_fk(id, name, student_code, grade)')
-      .eq('tenant_id', tenantId)
-      .eq('textbook_id', textbookId)
-      .is('deleted_at', null)
-
-    if (status) {
-      query = query.eq('status', status)
-    }
-
-    const { data, error } = await query.order('issue_date', { ascending: false })
-
-    if (error) throw error
-    return data || []
-  },
-  ['textbook-distributions'],
-  {
-    revalidate: 60,
-    tags: ['textbook-distributions'],
-  }
-)
-
 /**
- * Get students who have been assigned a specific textbook
+ * Get textbook usage: student_textbooks(배부) + active book_lendings(대출중)
  *
  * @param textbookId - Textbook ID
- * @param status - Filter by status (optional)
- * @returns List of student textbook assignments or error
+ * @returns Unified list of distributions and active loans, or error
  */
-export async function getTextbookDistributions(
-  textbookId: string,
-  status?: 'in_use' | 'completed' | 'returned'
-) {
+export async function getTextbookDistributions(textbookId: string) {
   try {
     const { tenantId } = await verifyStaff()
-    const data = await fetchTextbookDistributions(tenantId, textbookId, status)
-    return { success: true, data, error: null }
+    const supabase = createServiceRoleClient()
+
+    const [assignmentsResult, lendingsResult] = await Promise.all([
+      supabase
+        .from('student_textbooks')
+        .select('id, issue_date, paid, status, notes, students!student_textbooks_student_fk(id, name, student_code, grade)')
+        .eq('tenant_id', tenantId)
+        .eq('textbook_id', textbookId)
+        .is('deleted_at', null)
+        .order('issue_date', { ascending: false }),
+      supabase
+        .from('book_lendings')
+        .select('id, borrowed_at, due_date, students(id, student_code, users(name), grade)')
+        .eq('tenant_id', tenantId)
+        .eq('textbook_id', textbookId)
+        .is('returned_at', null)
+        .order('borrowed_at', { ascending: false }),
+    ])
+
+    if (assignmentsResult.error) throw assignmentsResult.error
+    if (lendingsResult.error) throw lendingsResult.error
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const assignments = (assignmentsResult.data || []).map((row: any) => ({
+      id: row.id as string,
+      source: 'assignment' as const,
+      date: row.issue_date as string,
+      paid: row.paid as boolean,
+      status: row.status as 'in_use' | 'completed' | 'returned',
+      notes: row.notes as string | null,
+      due_date: null as string | null,
+      students: row.students as { id: string; name: string; student_code: string | null; grade: string | null } | null,
+    }))
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const lendings = (lendingsResult.data || []).map((row: any) => ({
+      id: row.id as string,
+      source: 'lending' as const,
+      date: row.borrowed_at as string,
+      paid: false,
+      status: 'in_use' as const,
+      notes: null as string | null,
+      due_date: row.due_date as string | null,
+      students: row.students
+        ? {
+            id: row.students.id as string,
+            name: (row.students.users?.name ?? '') as string,
+            student_code: row.students.student_code as string | null,
+            grade: row.students.grade as string | null,
+          }
+        : null,
+    }))
+
+    return { success: true, data: [...assignments, ...lendings], error: null }
   } catch (error) {
     console.error('[getTextbookDistributions] Error:', error)
-    return {
-      success: false,
-      data: null,
-      error: getErrorMessage(error),
-    }
+    return { success: false, data: null, error: getErrorMessage(error) }
   }
 }
 

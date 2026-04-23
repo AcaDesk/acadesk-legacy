@@ -2,7 +2,7 @@ import { Suspense } from 'react'
 import { WidgetSkeleton } from '@/components/ui/widget-skeleton'
 import { WidgetErrorBoundary } from '@/components/features/dashboard/widget-error-boundary'
 import { getTextbookDistributions } from '@/app/actions/textbooks'
-import { DistributionTableClient } from './distribution-table-client'
+import { DistributionTableClient, type TextbookUsageRecord } from './distribution-table-client'
 
 async function DistributionTabContent({ textbookId }: { textbookId: string }) {
   const result = await getTextbookDistributions(textbookId)
@@ -11,8 +11,7 @@ async function DistributionTabContent({ textbookId }: { textbookId: string }) {
     throw new Error(result.error || '배부 현황을 불러올 수 없습니다')
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return <DistributionTableClient distributions={(result.data ?? []) as any[]} textbookId={textbookId} />
+  return <DistributionTableClient distributions={(result.data ?? []) as TextbookUsageRecord[]} textbookId={textbookId} />
 }
 
 export function DistributionTab({ textbookId }: { textbookId: string }) {
