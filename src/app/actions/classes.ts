@@ -794,7 +794,7 @@ export async function withdrawStudentFromClass(classId: string, studentId: strin
       .from('class_enrollments')
       .update({
         status: 'withdrawn',
-        withdrawn_at: new Date().toISOString(),
+        end_date: new Date().toISOString().split('T')[0],
         updated_at: new Date().toISOString(),
       })
       .eq('tenant_id', tenantId)
