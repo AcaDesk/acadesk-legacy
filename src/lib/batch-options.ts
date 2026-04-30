@@ -137,6 +137,7 @@ export function normalizeSendOptions(
     subject: value?.subject,
     messageBody: value?.messageBody,
     messageTemplateId: value?.messageTemplateId,
+    kakaoTemplateId: value?.kakaoTemplateId,
   }
 }
 

@@ -24,6 +24,14 @@ import {
 // State Interface
 // ============================================================================
 
+export type ReportSendChannel = 'sms' | 'lms' | 'kakao'
+
+export const REPORT_SEND_CHANNEL_LABELS: Record<ReportSendChannel, string> = {
+  sms: '문자',
+  lms: 'LMS',
+  kakao: '알림톡',
+}
+
 export interface ReportStepperState {
   // Navigation
   currentStep: ReportStepKey
@@ -45,6 +53,8 @@ export interface ReportStepperState {
 
   // Step 4: Confirm
   sendAfterSave: boolean
+  sendChannel: ReportSendChannel
+  kakaoTemplateId: string
   generating: boolean
   sending: boolean
 }
@@ -144,6 +154,8 @@ export function useReportStepper() {
 
   // Step 4: Confirm
   const [sendAfterSave, setSendAfterSave] = useState(false)
+  const [sendChannel, setSendChannel] = useState<ReportSendChannel>('sms')
+  const [kakaoTemplateId, setKakaoTemplateId] = useState('')
   const [generating, setGenerating] = useState(false)
   const [sending, setSending] = useState(false)
 
@@ -223,6 +235,8 @@ export function useReportStepper() {
       return next
     })
     setComment({ summary: '', strengths: '', improvements: '', nextGoals: '' })
+    setSendChannel('sms')
+    setKakaoTemplateId('')
     // Stay on 'setup' step — period section will appear
   }, [])
 
@@ -238,6 +252,8 @@ export function useReportStepper() {
     })
     setComment({ summary: '', strengths: '', improvements: '', nextGoals: '' })
     setSendAfterSave(false)
+    setSendChannel('sms')
+    setKakaoTemplateId('')
     setCurrentStep('setup')
   }, [])
 
@@ -259,6 +275,8 @@ export function useReportStepper() {
     })
     setComment({ summary: '', strengths: '', improvements: '', nextGoals: '' })
     setSendAfterSave(false)
+    setSendChannel('sms')
+    setKakaoTemplateId('')
   }, [])
 
   // ============================================================================
@@ -354,6 +372,14 @@ export function useReportStepper() {
 
   const handleSubmit = useCallback(async () => {
     if (!reportData || !student) return
+    if (sendAfterSave && sendChannel === 'kakao' && !kakaoTemplateId) {
+      toast({
+        title: '알림톡 템플릿을 선택해주세요',
+        description: '리포트를 알림톡으로 전송하려면 승인된 템플릿이 필요합니다.',
+        variant: 'destructive',
+      })
+      return
+    }
 
     setGenerating(true)
     try {
@@ -385,13 +411,16 @@ export function useReportStepper() {
 
       if (sendAfterSave) {
         setSending(true)
-        const sendResult = await sendReportToAllGuardians(reportId)
+        const sendResult = await sendReportToAllGuardians(reportId, {
+          channel: sendChannel,
+          ...(sendChannel === 'kakao' && { kakaoTemplateId }),
+        })
         setSending(false)
 
         if (sendResult.success && sendResult.data) {
           toast({
             title: '리포트 저장 및 전송 완료',
-            description: `${sendResult.data.successCount}명의 보호자에게 전송되었습니다.`,
+            description: `${sendResult.data.successCount}명의 보호자에게 ${REPORT_SEND_CHANNEL_LABELS[sendChannel]}로 전송되었습니다.`,
           })
         } else {
           toast({
@@ -420,7 +449,20 @@ export function useReportStepper() {
       setGenerating(false)
       setSending(false)
     }
-  }, [reportData, student, comment, period.type, sendAfterSave, router, toast])
+  }, [
+    reportData,
+    student,
+    comment,
+    skipComment,
+    skipAttendanceRate,
+    skipAttendanceCalendar,
+    period.type,
+    sendAfterSave,
+    sendChannel,
+    kakaoTemplateId,
+    router,
+    toast,
+  ])
 
   // ============================================================================
   // Computed
@@ -456,6 +498,8 @@ export function useReportStepper() {
     warnings,
     comment,
     sendAfterSave,
+    sendChannel,
+    kakaoTemplateId,
     generating,
     sending,
 
@@ -476,6 +520,8 @@ export function useReportStepper() {
     confirmComment,
     getPreviewData,
     setSendAfterSave,
+    setSendChannel,
+    setKakaoTemplateId,
     handleSubmit,
 
     // Computed

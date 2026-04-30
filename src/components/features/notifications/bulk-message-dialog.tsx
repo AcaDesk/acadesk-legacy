@@ -35,13 +35,35 @@ import {
 import { Alert, AlertDescription } from '@ui/alert'
 import { useToast } from '@/hooks/use-toast'
 import { sendMessages, getMessageTemplates } from '@/app/actions/messaging/messages'
+import { useKakaoMessaging } from '@/hooks/use-kakao-messaging'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { renderKakaoTemplatePreview } from '@/lib/kakao/kakao-variables'
 import { Loader2, AlertCircle, Send, Info } from 'lucide-react'
 import { Badge } from '@ui/badge'
 
 const messageSchema = z.object({
-  message: z.string().min(1, '메시지 내용은 필수입니다'),
-  type: z.enum(['sms', 'lms']),
+  message: z.string(),
+  type: z.enum(['sms', 'lms', 'kakao']),
+  kakaoTemplateId: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (data.type === 'kakao') {
+    if (!data.kakaoTemplateId) {
+      ctx.addIssue({
+        code: 'custom',
+        message: '알림톡 템플릿을 선택해주세요',
+        path: ['kakaoTemplateId'],
+      })
+    }
+    return
+  }
+
+  if (!data.message.trim()) {
+    ctx.addIssue({
+      code: 'custom',
+      message: '메시지 내용은 필수입니다',
+      path: ['message'],
+    })
+  }
 })
 
 type MessageFormValues = z.infer<typeof messageSchema>
@@ -70,7 +92,7 @@ interface BulkMessageDialogProps {
   tenantId: string
 }
 
-type MessageType = 'sms' | 'lms'
+type MessageType = 'sms' | 'lms' | 'kakao'
 
 const MESSAGE_TYPE_INFO = {
   sms: {
@@ -89,6 +111,14 @@ const MESSAGE_TYPE_INFO = {
     estimatedCost: '약 24-30원/건',
     icon: '📄',
   },
+  kakao: {
+    label: '카카오 알림톡',
+    description: '승인된 알림톡 템플릿 기반 메시지',
+    maxLength: 1000,
+    maxLengthKor: 1000,
+    estimatedCost: '약 8-10원/건',
+    icon: '톡',
+  },
 }
 
 export function BulkMessageDialog({
@@ -104,6 +134,15 @@ export function BulkMessageDialog({
 
   const { toast } = useToast()
   const supabase = createClient()
+  const {
+    hasKakaoChannel,
+    isChannelChecked,
+    isCheckingChannel,
+    templates: kakaoTemplates,
+    isLoadingTemplates,
+    checkChannel,
+    loadTemplates: loadKakaoTemplates,
+  } = useKakaoMessaging({ approvedOnly: true })
 
   const {
     register,
@@ -117,20 +156,31 @@ export function BulkMessageDialog({
     defaultValues: {
       message: '',
       type: 'sms',
+      kakaoTemplateId: undefined,
     },
   })
 
   const message = watch('message')
   const messageType = watch('type')
+  const kakaoTemplateId = watch('kakaoTemplateId')
   const typeInfo = MESSAGE_TYPE_INFO[messageType]
 
   useEffect(() => {
     if (open) {
       loadStudents()
       loadTemplates()
+      if (!isChannelChecked) {
+        checkChannel()
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
+
+  useEffect(() => {
+    if (open && messageType === 'kakao' && hasKakaoChannel && kakaoTemplates.length === 0) {
+      loadKakaoTemplates()
+    }
+  }, [open, messageType, hasKakaoChannel, kakaoTemplates.length, loadKakaoTemplates])
 
   async function loadStudents() {
     setLoadingStudents(true)
@@ -218,6 +268,16 @@ export function BulkMessageDialog({
   }
 
   function getPreviewMessage(student: Student) {
+    if (messageType === 'kakao') {
+      return renderKakaoTemplatePreview(message, {
+        학생명: student.name,
+        학생번호: student.student_code,
+        학년: student.grade || '-',
+        학원명: '학원',
+        보호자명: '보호자',
+      })
+    }
+
     return message
       .replace(/\{학생명\}/g, student.name)
       .replace(/\{학생번호\}/g, student.student_code)
@@ -231,6 +291,15 @@ export function BulkMessageDialog({
       toast({
         title: '학생 선택 필요',
         description: '메시지를 보낼 학생을 선택해주세요.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (data.type === 'kakao' && !data.kakaoTemplateId) {
+      toast({
+        title: '템플릿 선택 필요',
+        description: '알림톡은 승인된 템플릿을 선택해야 발송할 수 있습니다.',
         variant: 'destructive',
       })
       return
@@ -263,6 +332,9 @@ export function BulkMessageDialog({
         studentIds: selectedStudents.map(s => s.id),
         message: data.message.trim(),
         type: messageType,
+        ...(data.type === 'kakao' && data.kakaoTemplateId && {
+          kakaoTemplateId: data.kakaoTemplateId,
+        }),
       })
 
       if (!result.success || !result.data) {
@@ -308,7 +380,17 @@ export function BulkMessageDialog({
           {/* Message Type */}
           <div className="space-y-2">
             <Label>메시지 타입 *</Label>
-            <Select value={messageType} onValueChange={(value: MessageType) => setValue('type', value)}>
+            <Select
+              value={messageType}
+              onValueChange={(value: MessageType) => {
+                setValue('type', value)
+                if (value !== 'kakao') {
+                  setValue('kakaoTemplateId', undefined)
+                } else if (hasKakaoChannel && kakaoTemplates.length === 0) {
+                  loadKakaoTemplates()
+                }
+              }}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -335,6 +417,20 @@ export function BulkMessageDialog({
                     </div>
                   </div>
                 </SelectItem>
+                <SelectItem value="kakao" disabled={!hasKakaoChannel}>
+                  <div className="flex items-center gap-2">
+                    <span>{MESSAGE_TYPE_INFO.kakao.icon}</span>
+                    <div>
+                      <p className="font-medium">
+                        {MESSAGE_TYPE_INFO.kakao.label}
+                        {!hasKakaoChannel && ' (채널 연동 필요)'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {MESSAGE_TYPE_INFO.kakao.estimatedCost}
+                      </p>
+                    </div>
+                  </div>
+                </SelectItem>
               </SelectContent>
             </Select>
 
@@ -343,14 +439,16 @@ export function BulkMessageDialog({
               <AlertDescription>
                 <p className="text-sm font-medium">{typeInfo.description}</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  최대 {typeInfo.maxLengthKor}자 | 예상 비용: {typeInfo.estimatedCost}
+                  {messageType === 'kakao'
+                    ? '설정에서 승인된 템플릿만 발송할 수 있습니다'
+                    : `최대 ${typeInfo.maxLengthKor}자 | 예상 비용: ${typeInfo.estimatedCost}`}
                 </p>
               </AlertDescription>
             </Alert>
           </div>
 
           {/* Template Selection */}
-          {templates.length > 0 && (
+          {messageType !== 'kakao' && templates.length > 0 && (
             <div className="space-y-2">
               <Label>템플릿 선택 (선택사항)</Label>
               <Select onValueChange={(templateId) => {
@@ -373,6 +471,56 @@ export function BulkMessageDialog({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          )}
+
+          {messageType === 'kakao' && (
+            <div className="space-y-2">
+              <Label>알림톡 템플릿 *</Label>
+              <Select
+                value={kakaoTemplateId}
+                onValueChange={(templateId) => {
+                  setValue('kakaoTemplateId', templateId)
+                  const template = kakaoTemplates.find((item) => item.id === templateId)
+                  if (template) {
+                    setValue('message', template.content)
+                  }
+                }}
+                disabled={!hasKakaoChannel || isCheckingChannel || isLoadingTemplates}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      isCheckingChannel || isLoadingTemplates
+                        ? '알림톡 템플릿 확인 중...'
+                        : hasKakaoChannel
+                          ? '승인된 템플릿을 선택하세요'
+                          : '카카오 채널 연동이 필요합니다'
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {kakaoTemplates.length === 0 ? (
+                    <SelectItem value="none" disabled>
+                      승인된 템플릿이 없습니다
+                    </SelectItem>
+                  ) : (
+                    kakaoTemplates.map((template) => (
+                      <SelectItem key={template.id} value={template.id}>
+                        <div>
+                          <p className="font-medium">{template.name}</p>
+                          <p className="text-xs text-muted-foreground line-clamp-1">
+                            {template.content.substring(0, 50)}...
+                          </p>
+                        </div>
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                알림톡은 검수 승인된 템플릿 본문 그대로 발송되며, 학생별 변수만 치환됩니다.
+              </p>
             </div>
           )}
 
@@ -475,8 +623,13 @@ export function BulkMessageDialog({
               rows={messageType === 'sms' ? 4 : 8}
               {...register('message')}
               className="resize-none font-mono text-sm"
-              placeholder={`${typeInfo.label} 메시지 내용을 입력하세요 (최대 ${typeInfo.maxLengthKor}자)`}
-              maxLength={typeInfo.maxLengthKor}
+              placeholder={
+                messageType === 'kakao'
+                  ? '알림톡 템플릿을 선택하면 승인된 본문이 표시됩니다'
+                  : `${typeInfo.label} 메시지 내용을 입력하세요 (최대 ${typeInfo.maxLengthKor}자)`
+              }
+              maxLength={messageType === 'kakao' ? undefined : typeInfo.maxLengthKor}
+              readOnly={messageType === 'kakao'}
             />
             {errors.message && (
               <p className="text-sm text-destructive">{errors.message.message}</p>
@@ -487,7 +640,8 @@ export function BulkMessageDialog({
                   ? 'text-orange-600 font-medium'
                   : 'text-muted-foreground'
               }`}>
-                {message.length} / {typeInfo.maxLengthKor}자
+                {message.length}
+                {messageType !== 'kakao' && ` / ${typeInfo.maxLengthKor}`}자
               </p>
               {messageType === 'sms' && message.length > typeInfo.maxLengthKor && (
                 <p className="text-xs text-red-600 font-medium">
@@ -502,14 +656,28 @@ export function BulkMessageDialog({
               <AlertDescription>
                 <p className="text-xs font-medium mb-1">사용 가능한 변수</p>
                 <div className="grid grid-cols-2 gap-1 text-xs text-muted-foreground">
-                  <span>• {'{학생명}'}: 학생 이름</span>
-                  <span>• {'{학생번호}'}: 학생 코드</span>
-                  <span>• {'{학년}'}: 학년</span>
-                  <span>• {'{학원명}'}: 학원 이름</span>
-                  <span>• {'{보호자명}'}: 보호자 이름</span>
+                  {messageType === 'kakao' ? (
+                    <>
+                      <span>• {'#{학생명}'}: 학생 이름</span>
+                      <span>• {'#{학생번호}'}: 학생 코드</span>
+                      <span>• {'#{학년}'}: 학년</span>
+                      <span>• {'#{학원명}'}: 학원 이름</span>
+                      <span>• {'#{보호자명}'}: 보호자 이름</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>• {'{학생명}'}: 학생 이름</span>
+                      <span>• {'{학생번호}'}: 학생 코드</span>
+                      <span>• {'{학년}'}: 학년</span>
+                      <span>• {'{학원명}'}: 학원 이름</span>
+                      <span>• {'{보호자명}'}: 보호자 이름</span>
+                    </>
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  예: &ldquo;안녕하세요 {'{보호자명}'}님, {'{학생명}'} 학생의 이번 주 출석률은 100%입니다.&rdquo;
+                  {messageType === 'kakao'
+                    ? <>예: &ldquo;안녕하세요 {'#{보호자명}'}님, {'#{학생명}'} 학생의 리포트가 도착했습니다.&rdquo;</>
+                    : <>예: &ldquo;안녕하세요 {'{보호자명}'}님, {'{학생명}'} 학생의 이번 주 출석률은 100%입니다.&rdquo;</>}
                 </p>
               </AlertDescription>
             </Alert>

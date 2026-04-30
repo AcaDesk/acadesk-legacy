@@ -11,7 +11,8 @@ import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
-import { sendMessage } from '@/lib/messaging/provider'
+import { sendAlimtalk, sendMessage } from '@/lib/messaging/provider'
+import { renderKakaoTemplatePreview } from '@/lib/kakao/kakao-variables'
 
 // ============================================================================
 // Helper Functions
@@ -58,6 +59,22 @@ function replaceMessageVariables(
   return message
 }
 
+function buildStudentMessageVariables(variables: {
+  studentName: string
+  studentCode: string
+  grade: string
+  academyName: string
+  guardianName: string
+}) {
+  return {
+    학생명: variables.studentName,
+    학생번호: variables.studentCode,
+    학년: variables.grade || '-',
+    학원명: variables.academyName,
+    보호자명: variables.guardianName,
+  }
+}
+
 // ============================================================================
 // Validation Schemas
 // ============================================================================
@@ -71,9 +88,64 @@ const messageTemplateSchema = z.object({
 
 const sendMessageSchema = z.object({
   studentIds: z.array(z.string().uuid()).min(1, '최소 한 명의 학생을 선택해야 합니다'),
-  message: z.string().min(1, '메시지 내용은 필수입니다'),
-  type: z.enum(['sms', 'lms', 'mms']), // SMS, LMS, MMS only (no email, no 알림톡)
+  message: z.string().optional().default(''),
+  type: z.enum(['sms', 'lms', 'mms', 'kakao']),
   subject: z.string().optional(), // For LMS
+  kakaoTemplateId: z.string().uuid().optional(),
+}).superRefine((data, ctx) => {
+  if (data.type === 'kakao') {
+    if (!data.kakaoTemplateId) {
+      ctx.addIssue({
+        code: 'custom',
+        message: '알림톡 발송에는 템플릿을 선택해야 합니다',
+        path: ['kakaoTemplateId'],
+      })
+    }
+    return
+  }
+
+  if (!data.message.trim()) {
+    ctx.addIssue({
+      code: 'custom',
+      message: '메시지 내용은 필수입니다',
+      path: ['message'],
+    })
+  }
+})
+
+const directRecipientSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().min(1, '수신자 이름은 필수입니다'),
+  phone: z.string().min(1, '수신자 전화번호는 필수입니다'),
+  studentName: z.string().optional(),
+})
+
+const sendDirectMessagesSchema = z.object({
+  recipients: z.array(directRecipientSchema).min(1, '최소 한 명의 수신자가 필요합니다'),
+  message: z.string().optional().default(''),
+  type: z.enum(['sms', 'lms', 'kakao']),
+  subject: z.string().optional(),
+  kakaoTemplateId: z.string().uuid().optional(),
+  context: z.record(z.string(), z.string()).optional(),
+}).superRefine((data, ctx) => {
+  if (data.type === 'kakao') {
+    if (!data.kakaoTemplateId) {
+      ctx.addIssue({
+        code: 'custom',
+        message: '알림톡 발송에는 템플릿을 선택해야 합니다',
+        path: ['kakaoTemplateId'],
+      })
+    }
+    return
+  }
+
+  if (!data.message.trim()) {
+    ctx.addIssue({
+      code: 'custom',
+      message: '메시지 내용은 필수입니다',
+      path: ['message'],
+    })
+  }
 })
 
 // ============================================================================
@@ -316,6 +388,24 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
     const { tenantId } = await verifyStaff()
     const validated = sendMessageSchema.parse(input)
     const supabase = createServiceRoleClient()
+    let messageTemplate = validated.message
+
+    if (validated.type === 'kakao' && validated.kakaoTemplateId && !messageTemplate.trim()) {
+      const { data: template, error: templateError } = await supabase
+        .from('kakao_alimtalk_templates')
+        .select('content')
+        .eq('id', validated.kakaoTemplateId)
+        .eq('tenant_id', tenantId)
+        .eq('status', 'approved')
+        .is('deleted_at', null)
+        .maybeSingle()
+
+      if (templateError || !template) {
+        throw new Error('승인된 알림톡 템플릿을 찾을 수 없습니다.')
+      }
+
+      messageTemplate = template.content
+    }
 
     // Get academy info for template variables
     const { data: academy } = await supabase
@@ -363,6 +453,8 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
       status: string
       error_message: string | null
       sent_at: string
+      kakao_template_id?: string
+      fallback_type?: string
     }
     const logs: MessageLog[] = []
 
@@ -424,13 +516,23 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
       }
 
       // Replace template variables
-      const personalizedMessage = replaceMessageVariables(validated.message, {
+      const variableMap = buildStudentMessageVariables({
         studentName,
         studentCode,
         grade,
         academyName,
         guardianName,
       })
+
+      const personalizedMessage = validated.type === 'kakao'
+        ? renderKakaoTemplatePreview(messageTemplate, variableMap)
+        : replaceMessageVariables(validated.message, {
+            studentName,
+            studentCode,
+            grade,
+            academyName,
+            guardianName,
+          })
 
       const personalizedSubject = validated.subject
         ? replaceMessageVariables(validated.subject, {
@@ -443,13 +545,18 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
         : undefined
 
       try {
-        // 실제 SMS/LMS 발송
-        const result = await sendMessage({
-          type: validated.type,
-          to: recipientPhone,
-          message: personalizedMessage,
-          subject: personalizedSubject,
-        })
+        const result = validated.type === 'kakao'
+          ? await sendAlimtalk({
+              to: recipientPhone,
+              templateId: validated.kakaoTemplateId!,
+              variables: variableMap,
+            })
+          : await sendMessage({
+              type: validated.type,
+              to: recipientPhone,
+              message: personalizedMessage,
+              subject: personalizedSubject,
+            })
 
         if (!result.success) {
           throw new Error(result.error || '발송 실패')
@@ -465,6 +572,10 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
           status: 'sent',
           error_message: null,
           sent_at: new Date().toISOString(),
+          ...(validated.type === 'kakao' && {
+            kakao_template_id: validated.kakaoTemplateId,
+            fallback_type: 'none',
+          }),
         })
 
         successCount++
@@ -480,6 +591,10 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
           status: 'failed',
           error_message: getErrorMessage(error),
           sent_at: new Date().toISOString(),
+          ...(validated.type === 'kakao' && {
+            kakao_template_id: validated.kakaoTemplateId,
+            fallback_type: 'none',
+          }),
         })
       }
     }
@@ -502,6 +617,149 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
     }
   } catch (error) {
     console.error('[sendMessages] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+export async function sendDirectMessages(input: z.infer<typeof sendDirectMessagesSchema>) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const validated = sendDirectMessagesSchema.parse(input)
+    const supabase = createServiceRoleClient()
+
+    const { data: academy } = await supabase
+      .from('tenants')
+      .select('name')
+      .eq('id', tenantId)
+      .single()
+
+    const academyName = academy?.name || validated.context?.학원명 || '학원'
+    let messageTemplate = validated.message
+
+    if (validated.type === 'kakao' && validated.kakaoTemplateId && !messageTemplate.trim()) {
+      const { data: template, error: templateError } = await supabase
+        .from('kakao_alimtalk_templates')
+        .select('content')
+        .eq('id', validated.kakaoTemplateId)
+        .eq('tenant_id', tenantId)
+        .eq('status', 'approved')
+        .is('deleted_at', null)
+        .maybeSingle()
+
+      if (templateError || !template) {
+        throw new Error('승인된 알림톡 템플릿을 찾을 수 없습니다.')
+      }
+
+      messageTemplate = template.content
+    }
+
+    let successCount = 0
+    let failCount = 0
+    const logs: Array<{
+      tenant_id: string
+      student_id: null
+      session_id: null
+      notification_type: 'sms' | 'lms' | 'kakao'
+      message: string
+      subject: string | null
+      status: 'sent' | 'failed'
+      error_message: string | null
+      sent_at: string
+      kakao_template_id?: string
+      fallback_type?: string
+    }> = []
+
+    for (const recipient of validated.recipients) {
+      const variables = {
+        학원명: academyName,
+        보호자명: recipient.name,
+        학생명: recipient.studentName || validated.context?.학생명 || validated.context?.학생이름 || '',
+        ...validated.context,
+      }
+
+      const message = validated.type === 'kakao'
+        ? renderKakaoTemplatePreview(messageTemplate, variables)
+        : replaceMessageVariables(validated.message, {
+            studentName: variables.학생명,
+            academyName,
+            guardianName: recipient.name,
+          })
+
+      try {
+        const result = validated.type === 'kakao'
+          ? await sendAlimtalk({
+              to: recipient.phone,
+              templateId: validated.kakaoTemplateId!,
+              variables,
+            })
+          : await sendMessage({
+              type: validated.type,
+              to: recipient.phone,
+              message,
+              subject: validated.subject,
+            })
+
+        if (!result.success) {
+          throw new Error(result.error || '발송 실패')
+        }
+
+        successCount++
+        logs.push({
+          tenant_id: tenantId,
+          student_id: null,
+          session_id: null,
+          notification_type: validated.type,
+          message,
+          subject: validated.subject || null,
+          status: 'sent',
+          error_message: null,
+          sent_at: new Date().toISOString(),
+          ...(validated.type === 'kakao' && {
+            kakao_template_id: validated.kakaoTemplateId,
+            fallback_type: 'none',
+          }),
+        })
+      } catch (error) {
+        failCount++
+        logs.push({
+          tenant_id: tenantId,
+          student_id: null,
+          session_id: null,
+          notification_type: validated.type,
+          message,
+          subject: validated.subject || null,
+          status: 'failed',
+          error_message: getErrorMessage(error),
+          sent_at: new Date().toISOString(),
+          ...(validated.type === 'kakao' && {
+            kakao_template_id: validated.kakaoTemplateId,
+            fallback_type: 'none',
+          }),
+        })
+      }
+    }
+
+    if (logs.length > 0) {
+      await supabase.from('notification_logs').insert(logs)
+    }
+
+    revalidatePath('/notifications')
+
+    return {
+      success: true,
+      data: {
+        successCount,
+        failCount,
+        total: successCount + failCount,
+      },
+      error: null,
+    }
+  } catch (error) {
+    console.error('[sendDirectMessages] Error:', error)
     return {
       success: false,
       data: null,

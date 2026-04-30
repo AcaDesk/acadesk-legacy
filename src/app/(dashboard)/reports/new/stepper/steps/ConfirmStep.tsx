@@ -1,20 +1,36 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent } from '@ui/card'
 import { Button } from '@ui/button'
 import { Alert, AlertDescription } from '@ui/alert'
-import { ChevronLeft, Loader2, Send, Save, X } from 'lucide-react'
+import { Label } from '@ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@ui/select'
+import { ChevronLeft, Info, Loader2, Send, Save, X } from 'lucide-react'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import { ReportViewer } from '@/components/features/reports/ReportViewer'
 import { cn } from '@/lib/utils'
 import type { ReportData } from '@/core/types/report.types'
+import { useKakaoMessaging } from '@/hooks/use-kakao-messaging'
+import { renderKakaoTemplatePreview } from '@/lib/kakao/kakao-variables'
+import { getVariableDescriptionString } from '@/lib/kakao/kakao-constants'
+import { type ReportSendChannel, REPORT_SEND_CHANNEL_LABELS } from '../use-report-stepper'
 
 interface ConfirmStepProps {
   previewData: ReportData | null
   sendAfterSave: boolean
   onSendAfterSaveChange: (v: boolean) => void
+  sendChannel: ReportSendChannel
+  onSendChannelChange: (channel: ReportSendChannel) => void
+  kakaoTemplateId: string
+  onKakaoTemplateIdChange: (templateId: string) => void
   generating: boolean
   sending: boolean
   isReady: boolean
@@ -26,6 +42,10 @@ export function ConfirmStep({
   previewData,
   sendAfterSave,
   onSendAfterSaveChange,
+  sendChannel,
+  onSendChannelChange,
+  kakaoTemplateId,
+  onKakaoTemplateIdChange,
   generating,
   sending,
   isReady,
@@ -37,6 +57,15 @@ export function ConfirmStep({
   const [cancelOpen, setCancelOpen] = useState(false)
 
   const isProcessing = generating || sending
+  const {
+    hasKakaoChannel,
+    isChannelChecked: kakaoChannelChecked,
+    isCheckingChannel: checkingKakaoChannel,
+    templates: kakaoTemplates,
+    isLoadingTemplates: loadingKakaoTemplates,
+    checkChannel: checkKakaoChannel,
+    loadTemplates: loadKakaoTemplates,
+  } = useKakaoMessaging({ approvedOnly: true })
 
   const sendOptions = [
     {
@@ -47,9 +76,66 @@ export function ConfirmStep({
     {
       value: true,
       label: '저장 후 즉시 전송',
-      description: '등록된 보호자에게 SMS/LMS로 즉시 발송합니다',
+      description: '등록된 보호자에게 선택한 채널로 즉시 발송합니다',
     },
   ]
+
+  const selectedKakaoTemplate = useMemo(
+    () => kakaoTemplates.find((template) => template.id === kakaoTemplateId),
+    [kakaoTemplates, kakaoTemplateId]
+  )
+
+  const channelLabel = REPORT_SEND_CHANNEL_LABELS[sendChannel]
+  const requiresKakaoTemplate = sendAfterSave && sendChannel === 'kakao' && !kakaoTemplateId
+  const isSubmitDisabled = !isReady || isProcessing || requiresKakaoTemplate
+  const kakaoPreview = selectedKakaoTemplate && previewData
+    ? renderKakaoTemplatePreview(selectedKakaoTemplate.content, {
+        학생명: previewData.studentName || previewData.student?.name || '학생',
+        보호자명: '보호자',
+        기간: `${previewData.period.start} ~ ${previewData.period.end}`,
+        출석률: `${previewData.attendance.rate}%`,
+        숙제완료율: `${previewData.homework.rate}%`,
+        학원명: previewData.academy.name,
+        학원연락처: previewData.academy.phone || '',
+        종합평가: previewData.comment?.summary || previewData.instructorComment || '',
+        리포트링크: '[리포트 링크]',
+      })
+    : ''
+
+  function handleSendAfterSaveChange(value: boolean) {
+    onSendAfterSaveChange(value)
+    if (!value) {
+      onSendChannelChange('sms')
+      onKakaoTemplateIdChange('')
+    }
+  }
+
+  useEffect(() => {
+    if (sendAfterSave && !kakaoChannelChecked) {
+      void checkKakaoChannel()
+    }
+  }, [sendAfterSave, kakaoChannelChecked, checkKakaoChannel])
+
+  useEffect(() => {
+    if (!sendAfterSave || sendChannel !== 'kakao') return
+
+    if (hasKakaoChannel && kakaoTemplates.length === 0) {
+      void loadKakaoTemplates()
+    }
+  }, [sendAfterSave, sendChannel, hasKakaoChannel, kakaoTemplates.length, loadKakaoTemplates])
+
+  useEffect(() => {
+    if (sendChannel !== 'kakao' && kakaoTemplateId) {
+      onKakaoTemplateIdChange('')
+    }
+  }, [sendChannel, kakaoTemplateId, onKakaoTemplateIdChange])
+
+  useEffect(() => {
+    if (sendChannel === 'kakao' && kakaoChannelChecked && !hasKakaoChannel) {
+      onSendChannelChange('sms')
+      onKakaoTemplateIdChange('')
+    }
+  }, [sendChannel, kakaoChannelChecked, hasKakaoChannel, onSendChannelChange, onKakaoTemplateIdChange])
 
   if (!previewData) {
     return (
@@ -89,7 +175,7 @@ export function ConfirmStep({
               <button
                 key={String(option.value)}
                 type="button"
-                onClick={() => onSendAfterSaveChange(option.value)}
+                onClick={() => handleSendAfterSaveChange(option.value)}
                 className={cn(
                   'flex items-start gap-3 p-3 rounded-lg border-2 text-left transition-colors',
                   sendAfterSave === option.value
@@ -115,6 +201,75 @@ export function ConfirmStep({
             ))}
           </div>
 
+          {sendAfterSave && (
+            <div className="rounded-lg border bg-muted/20 p-4 space-y-3">
+              <div className="space-y-2">
+                <Label>발송 채널</Label>
+                <Select
+                  value={sendChannel}
+                  onValueChange={(value) => onSendChannelChange(value as ReportSendChannel)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="발송 채널 선택" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sms">문자 (SMS/LMS 자동)</SelectItem>
+                    <SelectItem value="lms">LMS</SelectItem>
+                    <SelectItem value="kakao" disabled={!hasKakaoChannel || checkingKakaoChannel}>
+                      카카오 알림톡
+                      {!hasKakaoChannel && !checkingKakaoChannel ? ' (채널 연동 필요)' : ''}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                {checkingKakaoChannel && (
+                  <p className="text-xs text-muted-foreground">알림톡 채널 연동 상태를 확인 중입니다.</p>
+                )}
+              </div>
+
+              {sendChannel === 'kakao' && (
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label>알림톡 템플릿</Label>
+                    <Select value={kakaoTemplateId} onValueChange={onKakaoTemplateIdChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="승인된 템플릿 선택" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {loadingKakaoTemplates ? (
+                          <SelectItem value="loading" disabled>
+                            템플릿 확인 중...
+                          </SelectItem>
+                        ) : kakaoTemplates.length === 0 ? (
+                          <SelectItem value="empty" disabled>
+                            승인된 템플릿이 없습니다
+                          </SelectItem>
+                        ) : (
+                          kakaoTemplates.map((template) => (
+                            <SelectItem key={template.id} value={template.id}>
+                              {template.name}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertDescription className="space-y-2">
+                      <p>사용 가능한 리포트 변수: {getVariableDescriptionString()}, {'#{리포트링크}'}</p>
+                      {selectedKakaoTemplate && (
+                        <div className="rounded-md border bg-background p-3 text-xs whitespace-pre-wrap">
+                          {kakaoPreview}
+                        </div>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="flex items-center justify-between pt-2 border-t">
             <Button variant="outline" onClick={onBack} disabled={isProcessing} className="gap-1">
               <ChevronLeft className="h-4 w-4" />
@@ -132,7 +287,7 @@ export function ConfirmStep({
               </Button>
               <Button
                 onClick={() => setConfirmOpen(true)}
-                disabled={!isReady || isProcessing}
+                disabled={isSubmitDisabled}
                 size="lg"
                 className="gap-2"
               >
@@ -166,7 +321,7 @@ export function ConfirmStep({
         }
         description={
           sendAfterSave
-            ? '리포트가 저장되고 등록된 보호자에게 즉시 전송됩니다.'
+            ? `리포트가 저장되고 등록된 보호자에게 ${channelLabel}로 즉시 전송됩니다.`
             : '리포트가 저장됩니다. 나중에 리포트 상세 페이지에서 전송할 수 있습니다.'
         }
         confirmText={sendAfterSave ? '저장 및 전송' : '저장'}

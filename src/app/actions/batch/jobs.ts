@@ -675,7 +675,12 @@ export async function executeSingleBatchItem(
         return { success: false, error: reportResult.error || '해당 학생의 리포트를 찾을 수 없습니다.' }
       }
       const { sendReportToAllGuardians } = await import('@/app/actions/reports/send')
-      const sendResult = await sendReportToAllGuardians(reportResult.data.id)
+      const sendResult = await sendReportToAllGuardians(reportResult.data.id, {
+        channel: sendOptions.channel,
+        subject: sendOptions.subject,
+        messageBody: sendOptions.messageBody,
+        kakaoTemplateId: sendOptions.kakaoTemplateId,
+      })
       if (!sendResult.success) {
         return { success: false, error: sendResult.error || '전송 실패' }
       }

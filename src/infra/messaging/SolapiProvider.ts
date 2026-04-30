@@ -28,6 +28,7 @@ import type {
   KakaoTemplateStatus,
   KakaoButton,
 } from './types/kakao.types'
+import { normalizeKakaoVariables } from '@/lib/kakao/kakao-variables'
 
 interface SolapiConfig {
   apiKey: string
@@ -708,6 +709,8 @@ export class SolapiProvider implements IMessageProvider {
         }
       }
 
+      const variables = normalizeKakaoVariables(request.variables)
+
       // 알림톡 메시지 객체 구성
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const messageObject: any = {
@@ -717,13 +720,9 @@ export class SolapiProvider implements IMessageProvider {
         kakaoOptions: {
           pfId: request.channelId,
           templateId: request.templateId,
+          variables,
           disableSms: request.disableSms ?? false, // 기본: SMS fallback 활성화
         },
-      }
-
-      // 변수 치환
-      if (request.variables && Object.keys(request.variables).length > 0) {
-        messageObject.kakaoOptions.variables = request.variables
       }
 
       // 버튼 (템플릿 오버라이드)
@@ -807,7 +806,7 @@ export class SolapiProvider implements IMessageProvider {
           pfId: channelId,
           templateId,
           disableSms: options?.disableSms ?? false,
-          ...(recipient.variables && { variables: recipient.variables }),
+          variables: normalizeKakaoVariables(recipient.variables),
         },
       }))
 

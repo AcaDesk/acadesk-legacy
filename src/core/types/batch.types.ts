@@ -136,6 +136,7 @@ export interface SendOptions extends TargetReportLookupOptions {
   subject?: string
   messageBody?: string
   messageTemplateId?: string
+  kakaoTemplateId?: string
 }
 
 // =============================================================================

@@ -74,6 +74,7 @@ interface MessagingIntegrationClientProps {
   config: MessagingConfig | null
   kakaoChannelConfig: KakaoChannelConfig | null
   eventSubscriptions?: EventSubscription[]
+  initialKakaoTemplateSummary?: KakaoTemplateSummary | null
 }
 
 type FormData = {
@@ -113,14 +114,19 @@ const providerInfo = {
   },
 }
 
-export function MessagingIntegrationClient({ config, kakaoChannelConfig, eventSubscriptions = [] }: MessagingIntegrationClientProps) {
+export function MessagingIntegrationClient({
+  config,
+  kakaoChannelConfig,
+  eventSubscriptions = [],
+  initialKakaoTemplateSummary = null,
+}: MessagingIntegrationClientProps) {
   const router = useRouter()
   const { toast } = useToast()
 
   // Kakao state
   const [templateFormOpen, setTemplateFormOpen] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState<KakaoTemplate | null>(null)
-  const [templateSummary, setTemplateSummary] = useState<KakaoTemplateSummary | null>(null)
+  const [templateSummary, setTemplateSummary] = useState<KakaoTemplateSummary | null>(initialKakaoTemplateSummary)
 
   const hasKakaoChannel = !!kakaoChannelConfig?.channelId
   const isSolapiProvider = config?.provider === 'solapi'
@@ -341,11 +347,17 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig, eventSu
                     비활성화
                   </Badge>
                 )}
+                {config.provider === 'solapi' && (
+                  <Badge variant={hasKakaoChannel ? 'default' : 'outline'} className="gap-1">
+                    <MessageSquare className="h-3 w-3" />
+                    {hasKakaoChannel ? '알림톡 채널' : '알림톡 미연동'}
+                  </Badge>
+                )}
               </div>
             </div>
           </CardHeader>
           <CardContent className="pt-0">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-sm font-medium">메시징 서비스 사용</p>
                 <p className="text-xs text-muted-foreground">
@@ -355,6 +367,12 @@ export function MessagingIntegrationClient({ config, kakaoChannelConfig, eventSu
                       ? '테스트 인증이 완료되었습니다. 활성화하여 사용을 시작하세요'
                       : '먼저 테스트 메시지를 발송하여 설정을 인증해주세요'}
                 </p>
+                {config.provider === 'solapi' && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    알림톡: {hasKakaoChannel ? '채널 연동 완료' : '채널 연동 필요'}
+                    {templateSummary ? ` · 승인 템플릿 ${templateSummary.approved}개` : ''}
+                  </p>
+                )}
               </div>
               <Switch
                 checked={isActive}

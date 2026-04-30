@@ -185,7 +185,10 @@ export function ContactGuardianDialog({
         sessionId,
         phone: guardian.phone,
         templateId: selectedTemplateId,
-        variables: { studentName },
+        variables: {
+          학생명: studentName,
+          보호자명: guardian.name,
+        },
       })
       if (!result.success) throw new Error(result.error || '알림톡 발송에 실패했습니다.')
       toast({ title: '알림톡 발송 완료', description: `${guardian.name}님에게 카카오 알림톡을 보냈습니다.` })
