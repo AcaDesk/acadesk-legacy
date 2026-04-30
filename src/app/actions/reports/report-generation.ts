@@ -586,6 +586,8 @@ ${params.comment ? `💬 종합평가\n${params.comment}\n\n` : ''}문의: ${par
         status: 'sent',
         message: `[알림톡 발송] 템플릿ID: ${params.kakaoTemplateId}, 수신자: ${params.recipientName} ${params.recipientContact}`,
         sent_at: new Date().toISOString(),
+        kakao_template_id: params.kakaoTemplateId,
+        fallback_type: 'none',
       })
 
       if (logError) {

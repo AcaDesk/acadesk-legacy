@@ -4,7 +4,7 @@ create table if not exists public.notification_logs (
   tenant_id          uuid references public.tenants(id) on delete set null,
   student_id         uuid references public.students(id) on delete set null,
   session_id         uuid references public.attendance_sessions(id) on delete set null,
-  notification_type  text not null check (notification_type in ('sms','email')),
+  notification_type  text not null check (notification_type in ('sms','lms','mms','kakao','email')),
   status             text not null check (status in ('sent','failed')),
   message            text not null,
   error_message      text,

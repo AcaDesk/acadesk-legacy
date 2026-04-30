@@ -19,6 +19,24 @@ import {
   calculateLinkExpiry,
 } from '@/lib/short-url'
 import { classifyReportSendError, type ReportSendErrorInfo } from '@/lib/report-send-errors'
+import { renderKakaoTemplatePreview } from '@/lib/kakao/kakao-variables'
+
+interface ReportSendOptions {
+  channel?: 'sms' | 'lms' | 'kakao'
+  kakaoTemplateId?: string
+  messageBody?: string
+  subject?: string
+}
+
+function renderReportMessageTemplate(
+  template: string,
+  variables: Record<string, string>
+): string {
+  return Object.entries(variables).reduce(
+    (message, [key, value]) => message.replace(new RegExp(`\\{${key}\\}`, 'g'), value),
+    template
+  )
+}
 
 // ============================================================================
 // Short URL Functions
@@ -94,7 +112,7 @@ export async function createShortUrl(
  * @param reportId - 리포트 ID
  * @returns 발송 정보 배열
  */
-export async function prepareReportSending(reportId: string) {
+export async function prepareReportSending(reportId: string, options: ReportSendOptions = {}) {
   try {
     // 1. Verify authentication and get tenant
     const { tenantId } = await verifyStaff()
@@ -173,8 +191,15 @@ export async function prepareReportSending(reportId: string) {
       '학생'
 
     // report.content에서 period 정보 추출 (타입 안전하게)
-    const reportContent = report.content as { period?: { start: string; end: string } }
+    const reportContent = report.content as {
+      period?: { start: string; end: string }
+      attendance?: { rate?: number | string }
+      homework?: { rate?: number | string }
+      instructorComment?: string
+      comment?: { summary?: string }
+    }
     const periodStart = reportContent?.period?.start
+    const periodEnd = reportContent?.period?.end
 
     // 월 계산 (타임존 무관하게 문자열에서 직접 추출)
     let month: number | undefined
@@ -230,6 +255,28 @@ export async function prepareReportSending(reportId: string) {
       )
     }
 
+    let kakaoTemplate: { id: string; content: string } | null = null
+    if (options.channel === 'kakao') {
+      if (!options.kakaoTemplateId) {
+        throw new Error('알림톡 발송에는 승인된 템플릿을 선택해야 합니다.')
+      }
+
+      const { data: template, error: templateError } = await supabase
+        .from('kakao_alimtalk_templates')
+        .select('id, content')
+        .eq('id', options.kakaoTemplateId)
+        .eq('tenant_id', tenantId)
+        .eq('status', 'approved')
+        .is('deleted_at', null)
+        .maybeSingle()
+
+      if (templateError || !template) {
+        throw new Error('승인된 알림톡 템플릿을 찾을 수 없습니다.')
+      }
+
+      kakaoTemplate = template
+    }
+
     // 5-1. 배치 INSERT: report_sends
     const linkExpiresAt = calculateLinkExpiry(7)
     const reportSendInserts = validGuardians.map(guardian => ({
@@ -241,8 +288,9 @@ export async function prepareReportSending(reportId: string) {
       recipient_name: guardian.name,
       link_expires_at: linkExpiresAt,
       message_body: '',
-      message_type: 'SMS',
+      message_type: options.channel === 'kakao' ? 'KAKAO' : 'SMS',
       send_status: 'pending',
+      ...(kakaoTemplate && { kakao_template_id: kakaoTemplate.id }),
     }))
 
     const { data: insertedReportSends, error: insertError } = await supabase
@@ -286,8 +334,10 @@ export async function prepareReportSending(reportId: string) {
       recipientName: string
       recipientPhone: string
       message: string
-      messageType: 'SMS' | 'LMS'
+      messageType: 'SMS' | 'LMS' | 'KAKAO'
       shortUrl: string
+      kakaoTemplateId?: string
+      messageVariables?: Record<string, string>
     }> = []
 
     const updatePromises = insertedReportSends.map(rs => {
@@ -295,7 +345,7 @@ export async function prepareReportSending(reportId: string) {
       if (!shortUrlInfo) return null
 
       const shortUrl = generateSmsShortUrl(shortUrlInfo.shortCode)
-      const { message, type } = generateReportSmsMessage({
+      const defaultSms = generateReportSmsMessage({
         studentName,
         month,
         reportType: '성적',
@@ -303,6 +353,49 @@ export async function prepareReportSending(reportId: string) {
         academyName: academy.name,
         academyPhone: academy.phone || undefined,
       })
+      const textVariables = {
+        학생명: studentName,
+        보호자명: rs.recipient_name,
+        학원명: academy.name,
+        학원연락처: academy.phone || '',
+        리포트링크: shortUrl,
+        기간:
+          periodStart && periodEnd
+            ? `${periodStart} ~ ${periodEnd}`
+            : periodStart || '',
+      }
+
+      let message = options.messageBody?.trim()
+        ? renderReportMessageTemplate(options.messageBody.trim(), textVariables)
+        : defaultSms.message
+      let type: 'SMS' | 'LMS' | 'KAKAO' =
+        options.channel === 'lms' ? 'LMS' : defaultSms.type
+      let messageVariables: Record<string, string> | undefined
+
+      if (kakaoTemplate) {
+        messageVariables = {
+          학생명: studentName,
+          보호자명: rs.recipient_name,
+          기간:
+            periodStart && periodEnd
+              ? `${periodStart} ~ ${periodEnd}`
+              : periodStart || '',
+          출석률:
+            reportContent.attendance?.rate !== undefined
+              ? `${reportContent.attendance.rate}%`
+              : '',
+          숙제완료율:
+            reportContent.homework?.rate !== undefined
+              ? `${reportContent.homework.rate}%`
+              : '',
+          학원명: academy.name,
+          학원연락처: academy.phone || '',
+          종합평가: reportContent.comment?.summary || reportContent.instructorComment || '',
+          리포트링크: shortUrl,
+        }
+        message = renderKakaoTemplatePreview(kakaoTemplate.content, messageVariables)
+        type = 'KAKAO'
+      }
 
       reportSends.push({
         id: rs.id,
@@ -311,6 +404,10 @@ export async function prepareReportSending(reportId: string) {
         message,
         messageType: type,
         shortUrl,
+        ...(kakaoTemplate && {
+          kakaoTemplateId: kakaoTemplate.id,
+          messageVariables,
+        }),
       })
 
       return supabase
@@ -319,6 +416,10 @@ export async function prepareReportSending(reportId: string) {
           message_body: message,
           message_type: type,
           short_url_id: shortUrlInfo.id,
+          ...(kakaoTemplate && {
+            kakao_template_id: kakaoTemplate.id,
+            message_variables: messageVariables,
+          }),
         })
         .eq('id', rs.id)
     }).filter(Boolean)
@@ -477,13 +578,23 @@ export async function sendReportMessage(reportSendId: string) {
     const studentName = typedReports?.students?.users?.name || '학생'
 
     // 4. 통합 메시지 Provider 사용 (tenant 설정에 따라 알리고/솔라피 자동 선택)
-    const { sendMessage } = await import('@/lib/messaging/provider')
+    const { sendAlimtalk, sendMessage } = await import('@/lib/messaging/provider')
 
-    const sendResult = await sendMessage({
-      type: reportSend.message_type === 'SMS' ? 'sms' : 'lms',
-      to: reportSend.recipient_phone,
-      message: reportSend.message_body,
-    })
+    if (reportSend.message_type === 'KAKAO' && !reportSend.kakao_template_id) {
+      throw new Error('알림톡 템플릿 정보가 없는 발송 건입니다.')
+    }
+
+    const sendResult = reportSend.message_type === 'KAKAO'
+      ? await sendAlimtalk({
+          to: reportSend.recipient_phone,
+          templateId: reportSend.kakao_template_id,
+          variables: (reportSend.message_variables as Record<string, string> | null) ?? {},
+        })
+      : await sendMessage({
+          type: reportSend.message_type === 'SMS' ? 'sms' : 'lms',
+          to: reportSend.recipient_phone,
+          message: reportSend.message_body,
+        })
 
     if (!sendResult.success) {
       throw new Error(sendResult.error || '메시지 발송 실패')
@@ -520,6 +631,10 @@ export async function sendReportMessage(reportSendId: string) {
       status: 'sent',
       message: `[리포트 발송] ${studentName} 학생 리포트를 ${reportSend.recipient_name}(${reportSend.recipient_phone})에게 발송`,
       sent_at: new Date().toISOString(),
+      ...(reportSend.message_type === 'KAKAO' && {
+        kakao_template_id: reportSend.kakao_template_id,
+        fallback_type: 'none',
+      }),
     })
 
     // 8. Revalidate
@@ -563,7 +678,10 @@ export async function sendReportMessage(reportSendId: string) {
  * @param reportId - 리포트 ID
  * @returns 전송 결과
  */
-export async function sendReportToAllGuardians(reportId: string): Promise<
+export async function sendReportToAllGuardians(
+  reportId: string,
+  options: ReportSendOptions = {}
+): Promise<
   | {
       success: true
       data: {
@@ -583,7 +701,7 @@ export async function sendReportToAllGuardians(reportId: string): Promise<
 > {
   try {
     // 1. 발송 준비 (레코드 생성 + 단축 URL 생성)
-    const prepareResult = await prepareReportSending(reportId)
+    const prepareResult = await prepareReportSending(reportId, options)
 
     if (!prepareResult.success || !prepareResult.data) {
       throw new Error(prepareResult.error || '발송 준비 실패')

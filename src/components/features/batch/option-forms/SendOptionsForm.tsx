@@ -1,11 +1,13 @@
 'use client'
 
+import { useEffect } from 'react'
 import { Label } from '@ui/label'
 import { Input } from '@ui/input'
 import { Textarea } from '@ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
 import { DatePicker } from '@ui/date-picker'
 import type { SendOptions } from '@/core/types/batch.types'
+import { useKakaoMessaging } from '@/hooks/use-kakao-messaging'
 
 interface SendOptionsFormProps {
   value: SendOptions
@@ -32,6 +34,15 @@ function formatDateStr(date: Date): string {
 }
 
 export function SendOptionsForm({ value, onChange }: SendOptionsFormProps) {
+  const {
+    hasKakaoChannel,
+    isChannelChecked,
+    isCheckingChannel,
+    templates: kakaoTemplates,
+    isLoadingTemplates,
+    checkChannel,
+    loadTemplates,
+  } = useKakaoMessaging({ approvedOnly: true })
   const now = new Date()
   const currentYear = now.getFullYear()
   const currentMonth = now.getMonth() + 1
@@ -41,6 +52,22 @@ export function SendOptionsForm({ value, onChange }: SendOptionsFormProps) {
   monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1))
   const sunday = new Date(monday)
   sunday.setDate(monday.getDate() + 6)
+
+  useEffect(() => {
+    void checkChannel()
+  }, [checkChannel])
+
+  useEffect(() => {
+    if (value.channel === 'kakao' && hasKakaoChannel && kakaoTemplates.length === 0) {
+      void loadTemplates()
+    }
+  }, [value.channel, hasKakaoChannel, kakaoTemplates.length, loadTemplates])
+
+  useEffect(() => {
+    if (value.channel === 'kakao' && isChannelChecked && !isCheckingChannel && !hasKakaoChannel) {
+      onChange({ ...value, channel: 'sms', kakaoTemplateId: undefined })
+    }
+  }, [value, onChange, isChannelChecked, isCheckingChannel, hasKakaoChannel])
 
   return (
     <div className="space-y-5">
@@ -146,7 +173,14 @@ export function SendOptionsForm({ value, onChange }: SendOptionsFormProps) {
         <Label className="text-sm font-medium mb-1.5 block">전송 채널</Label>
         <Select
           value={value.channel || 'sms'}
-          onValueChange={(v) => onChange({ ...value, channel: v as SendOptions['channel'] })}
+          onValueChange={(v) => {
+            const channel = v as SendOptions['channel']
+            onChange({
+              ...value,
+              channel,
+              ...(channel !== 'kakao' && { kakaoTemplateId: undefined }),
+            })
+          }}
         >
           <SelectTrigger>
             <SelectValue />
@@ -154,12 +188,53 @@ export function SendOptionsForm({ value, onChange }: SendOptionsFormProps) {
           <SelectContent>
             <SelectItem value="sms">SMS (단문)</SelectItem>
             <SelectItem value="lms">LMS (장문)</SelectItem>
-            <SelectItem value="kakao">카카오 알림톡</SelectItem>
+            <SelectItem value="kakao" disabled={!hasKakaoChannel || isCheckingChannel}>
+              카카오 알림톡{!hasKakaoChannel && !isCheckingChannel ? ' (채널 연동 필요)' : ''}
+            </SelectItem>
           </SelectContent>
         </Select>
       </div>
 
-      {(value.channel === 'lms' || value.channel === 'kakao') && (
+      {value.channel === 'kakao' && (
+        <div>
+          <Label className="text-sm font-medium mb-1.5 block">알림톡 템플릿</Label>
+          <Select
+            value={value.kakaoTemplateId}
+            onValueChange={(templateId) => onChange({ ...value, kakaoTemplateId: templateId })}
+            disabled={!hasKakaoChannel || isLoadingTemplates}
+          >
+            <SelectTrigger>
+              <SelectValue
+                placeholder={
+                  isLoadingTemplates
+                    ? '템플릿 로딩 중...'
+                    : hasKakaoChannel
+                      ? '승인된 템플릿 선택'
+                      : '카카오 채널 연동 필요'
+                }
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {kakaoTemplates.length === 0 ? (
+                <SelectItem value="none" disabled>
+                  승인된 템플릿이 없습니다
+                </SelectItem>
+              ) : (
+                kakaoTemplates.map((template) => (
+                  <SelectItem key={template.id} value={template.id}>
+                    {template.name}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground mt-1">
+            리포트 링크와 학생별 정보는 템플릿 변수로 자동 치환됩니다.
+          </p>
+        </div>
+      )}
+
+      {value.channel === 'lms' && (
         <div>
           <Label className="text-sm font-medium mb-1.5 block">제목</Label>
           <Input
@@ -175,11 +250,18 @@ export function SendOptionsForm({ value, onChange }: SendOptionsFormProps) {
         <Textarea
           value={value.messageBody ?? ''}
           onChange={(e) => onChange({ ...value, messageBody: e.target.value })}
-          placeholder="메시지 본문을 입력하세요. {학생명}, {리포트링크} 등의 변수를 사용할 수 있습니다."
+          placeholder={
+            value.channel === 'kakao'
+              ? '알림톡은 승인된 템플릿 본문을 사용합니다. 필요한 경우 별도 안내용 메모만 입력하세요.'
+              : '메시지 본문을 입력하세요. {학생명}, {리포트링크} 등의 변수를 사용할 수 있습니다.'
+          }
           rows={5}
+          disabled={value.channel === 'kakao'}
         />
         <p className="text-xs text-muted-foreground mt-1">
-          사용 가능한 변수: {'{학생명}'}, {'{학원명}'}, {'{리포트링크}'}
+          {value.channel === 'kakao'
+            ? <>사용 가능한 알림톡 변수: {'#{학생명}'}, {'#{보호자명}'}, {'#{기간}'}, {'#{리포트링크}'}, {'#{학원명}'}</>
+            : <>사용 가능한 변수: {'{학생명}'}, {'{학원명}'}, {'{리포트링크}'}</>}
         </p>
       </div>
     </div>

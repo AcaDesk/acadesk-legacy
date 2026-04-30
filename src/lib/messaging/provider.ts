@@ -27,6 +27,11 @@
 
 import { sendAligoSMS } from './aligo-sms'
 import { type AcademyInfo } from './email-signature'
+import {
+  extractKakaoVariableNames,
+  formatKakaoVariableKey,
+  normalizeKakaoVariables,
+} from '@/lib/kakao/kakao-variables'
 
 export interface SendMessageOptions {
   type: 'sms' | 'lms' | 'mms'
@@ -246,12 +251,12 @@ export async function sendAlimtalk({
     }
 
     // 6. Validate template variables
-    const requiredVars = (template.content.match(/#{([^}]+)}/g) || [])
-      .map((m: string) => m.slice(2, -1))
+    const requiredVars = extractKakaoVariableNames(template.content)
+    const normalizedVariables = normalizeKakaoVariables(variables)
     if (requiredVars.length > 0) {
-      const missingVars = requiredVars.filter((v: string) => !variables?.[v])
+      const missingVars = requiredVars.filter((v: string) => !normalizedVariables[formatKakaoVariableKey(v)])
       if (missingVars.length > 0) {
-        throw new Error(`템플릿 변수가 누락되었습니다: ${missingVars.join(', ')}`)
+        throw new Error(`템플릿 변수가 누락되었습니다: ${missingVars.map(formatKakaoVariableKey).join(', ')}`)
       }
     }
 
@@ -275,7 +280,7 @@ export async function sendAlimtalk({
       to,
       channelId: config.kakao_channel_id,
       templateId: template.solapi_template_id,
-      variables,
+      variables: normalizedVariables,
       disableSms: shouldDisableSms,
     })
 

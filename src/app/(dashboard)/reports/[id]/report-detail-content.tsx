@@ -15,7 +15,22 @@ import {
   TableRow,
 } from '@ui/table'
 import { Separator } from '@ui/separator'
-import { ConfirmationDialog } from '@ui/confirmation-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@ui/select'
+import { Alert, AlertDescription } from '@ui/alert'
 import {
   Sheet,
   SheetContent,
@@ -25,13 +40,17 @@ import {
 } from '@ui/sheet'
 import { Textarea } from '@ui/textarea'
 import { Label } from '@ui/label'
-import { Send, CheckCircle, XCircle, Clock, MessageSquare, Eye } from 'lucide-react'
+import { Send, CheckCircle, XCircle, Clock, MessageSquare, Eye, Info, Loader2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import type { ReportWithStudent, ReportSend, ReportRead } from '@/core/types/report.types'
 import type { CategoryTemplates, ReportContextData } from '@/core/types/report-template.types'
 import { ReportViewer } from '@/components/features/reports/ReportViewer'
 import { TemplateSection } from '@/components/features/reports/template-section'
+import { useKakaoMessaging } from '@/hooks/use-kakao-messaging'
+import { renderKakaoTemplatePreview } from '@/lib/kakao/kakao-variables'
+import { getVariableDescriptionString } from '@/lib/kakao/kakao-constants'
+import { type ReportSendChannel, REPORT_SEND_CHANNEL_LABELS } from '@/app/(dashboard)/reports/new/stepper/use-report-stepper'
 
 interface ReportDetailContentProps {
   initialReport: ReportWithStudent
@@ -62,11 +81,28 @@ export function ReportDetailContent({
   const [categoryTemplates, setCategoryTemplates] = useState<CategoryTemplates[]>([])
   const [reportContext, setReportContext] = useState<ReportContextData | null>(null)
   const [showAllSends, setShowAllSends] = useState(false)
+  const [sendChannel, setSendChannel] = useState<ReportSendChannel>('sms')
+  const [sendKakaoTemplateId, setSendKakaoTemplateId] = useState('')
+
+  const {
+    hasKakaoChannel,
+    isChannelChecked: kakaoChannelChecked,
+    isCheckingChannel: checkingKakaoChannel,
+    templates: kakaoTemplates,
+    isLoadingTemplates: loadingKakaoTemplates,
+    checkChannel: checkKakaoChannel,
+    loadTemplates: loadKakaoTemplates,
+  } = useKakaoMessaging({ approvedOnly: true })
 
   const { toast } = useToast()
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
   const contentRef = useRef<HTMLDivElement>(null)
+
+  const selectedKakaoTemplate = useMemo(
+    () => kakaoTemplates.find((template) => template.id === sendKakaoTemplateId),
+    [kakaoTemplates, sendKakaoTemplateId]
+  )
 
   const loadReport = useCallback(async () => {
     try {
@@ -138,6 +174,14 @@ export function ReportDetailContent({
 
   async function handleConfirmSend() {
     if (!report) return
+    if (sendChannel === 'kakao' && !sendKakaoTemplateId) {
+      toast({
+        title: '알림톡 템플릿을 선택해주세요',
+        description: '리포트 알림톡은 승인된 템플릿으로만 발송할 수 있습니다.',
+        variant: 'destructive',
+      })
+      return
+    }
 
     const studentName = report.content.studentName || report.students?.users?.name || '학생'
 
@@ -145,17 +189,21 @@ export function ReportDetailContent({
     try {
       const { sendReportToAllGuardians } = await import('@/app/actions/reports/send')
 
-      const result = await sendReportToAllGuardians(reportId)
+      const result = await sendReportToAllGuardians(reportId, {
+        channel: sendChannel,
+        ...(sendChannel === 'kakao' && { kakaoTemplateId: sendKakaoTemplateId }),
+      })
 
       if (!result.success) {
         throw new Error(result.error || '리포트 전송에 실패했습니다')
       }
 
       const { successCount, failCount } = result.data!
+      const channelLabel = REPORT_SEND_CHANNEL_LABELS[sendChannel]
 
       toast({
         title: '전송 완료',
-        description: `${studentName} 학생의 보호자 ${successCount}명에게 리포트가 전송되었습니다.${failCount > 0 ? ` (${failCount}명 실패)` : ''}`,
+        description: `${studentName} 학생의 보호자 ${successCount}명에게 ${channelLabel}로 리포트가 전송되었습니다.${failCount > 0 ? ` (${failCount}명 실패)` : ''}`,
       })
 
       loadReport()
@@ -171,6 +219,30 @@ export function ReportDetailContent({
       setSendDialogOpen(false)
     }
   }
+
+  useEffect(() => {
+    if (sendDialogOpen && !kakaoChannelChecked) {
+      void checkKakaoChannel()
+    }
+  }, [sendDialogOpen, kakaoChannelChecked, checkKakaoChannel])
+
+  useEffect(() => {
+    if (sendChannel !== 'kakao') {
+      setSendKakaoTemplateId('')
+      return
+    }
+
+    if (hasKakaoChannel && kakaoTemplates.length === 0) {
+      void loadKakaoTemplates()
+    }
+  }, [sendChannel, hasKakaoChannel, kakaoTemplates.length, loadKakaoTemplates])
+
+  useEffect(() => {
+    if (sendChannel === 'kakao' && kakaoChannelChecked && !hasKakaoChannel) {
+      setSendChannel('sms')
+      setSendKakaoTemplateId('')
+    }
+  }, [sendChannel, kakaoChannelChecked, hasKakaoChannel])
 
   async function handleEditComment() {
     if (!report) return
@@ -262,7 +334,7 @@ export function ReportDetailContent({
     } finally {
       setSavingComment(false)
     }
-  }, [report, commentForm, savingComment, loadReport])
+  }, [report, commentForm, savingComment, loadReport, toast])
 
   // 최초 열람 기록을 report_send_id 기준으로 맵핑
   const readsBySendId = useMemo(() => {
@@ -324,6 +396,20 @@ export function ReportDetailContent({
   const studentName = report.students?.users?.name || reportData.studentName || reportData.student?.name || '학생'
   const studentCode = report.students?.student_code || reportData.studentCode || reportData.student?.student_code || ''
   const studentGrade = report.students?.grade || reportData.grade || reportData.student?.grade || ''
+  const reportPeriodLabel = formatPeriod(report.period_start, report.period_end)
+  const kakaoPreview = selectedKakaoTemplate
+    ? renderKakaoTemplatePreview(selectedKakaoTemplate.content, {
+        학생명: studentName,
+        보호자명: '보호자',
+        기간: reportPeriodLabel,
+        출석률: reportData.attendance?.rate !== undefined ? `${reportData.attendance.rate}%` : '',
+        숙제완료율: reportData.homework?.rate !== undefined ? `${reportData.homework.rate}%` : '',
+        학원명: reportData.academy?.name || '',
+        학원연락처: reportData.academy?.phone || '',
+        종합평가: reportData.comment?.summary || reportData.instructorComment || '',
+        리포트링크: '[리포트 링크]',
+      })
+    : ''
 
   return (
     <PageWrapper>
@@ -535,21 +621,106 @@ export function ReportDetailContent({
         </div>
       </div>
 
-      {/* Send Confirmation Dialog */}
-      <ConfirmationDialog
-        open={sendDialogOpen}
-        onOpenChange={setSendDialogOpen}
-        title="리포트를 전송하시겠습니까?"
-        description={
-          report
-            ? `"${report.content.studentName || report.students?.users?.name || '학생'}" 학생의 보호자에게 리포트를 전송합니다.`
-            : ''
-        }
-        confirmText="전송"
-        variant="default"
-        isLoading={sending}
-        onConfirm={handleConfirmSend}
-      />
+      {/* Send Dialog */}
+      <Dialog open={sendDialogOpen} onOpenChange={setSendDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>리포트 전송</DialogTitle>
+            <DialogDescription>
+              {studentName} 학생의 보호자에게 리포트를 전송합니다.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>발송 채널</Label>
+              <Select
+                value={sendChannel}
+                onValueChange={(value) => setSendChannel(value as ReportSendChannel)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="발송 채널 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sms">문자 (SMS/LMS 자동)</SelectItem>
+                  <SelectItem value="lms">LMS</SelectItem>
+                  <SelectItem value="kakao" disabled={!hasKakaoChannel || checkingKakaoChannel}>
+                    카카오 알림톡
+                    {!hasKakaoChannel && !checkingKakaoChannel ? ' (채널 연동 필요)' : ''}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              {checkingKakaoChannel && (
+                <p className="text-xs text-muted-foreground">알림톡 채널 연동 상태를 확인 중입니다.</p>
+              )}
+            </div>
+
+            {sendChannel === 'kakao' && (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label>알림톡 템플릿</Label>
+                  <Select value={sendKakaoTemplateId} onValueChange={setSendKakaoTemplateId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="승인된 템플릿 선택" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {loadingKakaoTemplates ? (
+                        <SelectItem value="loading" disabled>
+                          템플릿 확인 중...
+                        </SelectItem>
+                      ) : kakaoTemplates.length === 0 ? (
+                        <SelectItem value="empty" disabled>
+                          승인된 템플릿이 없습니다
+                        </SelectItem>
+                      ) : (
+                        kakaoTemplates.map((template) => (
+                          <SelectItem key={template.id} value={template.id}>
+                            {template.name}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertDescription className="space-y-2">
+                    <p>사용 가능한 리포트 변수: {getVariableDescriptionString()}, {'#{리포트링크}'}</p>
+                    {selectedKakaoTemplate && (
+                      <div className="rounded-md border bg-background p-3 text-xs whitespace-pre-wrap">
+                        {kakaoPreview}
+                      </div>
+                    )}
+                  </AlertDescription>
+                </Alert>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSendDialogOpen(false)} disabled={sending}>
+              취소
+            </Button>
+            <Button
+              onClick={handleConfirmSend}
+              disabled={sending || (sendChannel === 'kakao' && !sendKakaoTemplateId)}
+            >
+              {sending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  전송 중...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  전송
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Comment Edit Sheet */}
       <Sheet open={commentDialogOpen} onOpenChange={setCommentDialogOpen}>

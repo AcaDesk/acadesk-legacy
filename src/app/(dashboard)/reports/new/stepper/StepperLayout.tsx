@@ -87,6 +87,10 @@ export function StepperLayout({ initialStudents }: StepperLayoutProps) {
             previewData={stepper.getPreviewData()}
             sendAfterSave={stepper.sendAfterSave}
             onSendAfterSaveChange={stepper.setSendAfterSave}
+            sendChannel={stepper.sendChannel}
+            onSendChannelChange={stepper.setSendChannel}
+            kakaoTemplateId={stepper.kakaoTemplateId}
+            onKakaoTemplateIdChange={stepper.setKakaoTemplateId}
             generating={stepper.generating}
             sending={stepper.sending}
             isReady={stepper.isAllRequiredComplete}
