@@ -480,3 +480,148 @@ export async function retryProvision(eventType: string): Promise<{
 }> {
   return provisionTemplate(eventType)
 }
+
+// ============================================================================
+// Server Actions - 일괄 자동 등록/폴링
+// ============================================================================
+
+export interface BulkProvisionResult {
+  eventType: string
+  status: 'inspecting' | 'approved' | 'failed'
+  error?: string
+}
+
+/**
+ * 활성 공용 템플릿을 학원 솔라피 계정에 일괄 등록
+ *
+ * - 학원장이 "활성화" 한 번으로 5개+ 템플릿 자동 등록 + 심사 요청
+ * - 개별 실패는 catch — 한 템플릿 실패가 다른 템플릿 등록을 막지 않는다 (요구사항 #14)
+ * - 이미 등록되어 inspecting/approved 상태인 템플릿은 건너뛴다 (중복 등록 방지)
+ */
+export async function provisionAllSharedTemplates(): Promise<{
+  success: boolean
+  data: BulkProvisionResult[]
+  error: string | null
+}> {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    // 활성 공용 템플릿 전체 조회
+    const { data: sharedTemplates, error: sharedError } = await supabase
+      .from('shared_alimtalk_templates')
+      .select('event_type')
+      .eq('is_active', true)
+      .order('created_at', { ascending: true })
+
+    if (sharedError) throw sharedError
+    if (!sharedTemplates || sharedTemplates.length === 0) {
+      return { success: true, data: [], error: null }
+    }
+
+    // 기존 구독 상태를 한 번에 조회해서 중복 등록 방지 판단
+    const { data: existingSubs } = await supabase
+      .from('tenant_event_subscriptions')
+      .select('event_type, provisioning_status')
+      .eq('tenant_id', tenantId)
+
+    const existingMap = new Map(
+      (existingSubs || []).map((s) => [s.event_type, s.provisioning_status])
+    )
+
+    const results: BulkProvisionResult[] = []
+
+    // 순차 실행 — 외부 API rate limit 회피 + 결과 순서 보장
+    for (const tpl of sharedTemplates) {
+      const existing = existingMap.get(tpl.event_type)
+
+      if (existing === 'approved') {
+        results.push({ eventType: tpl.event_type, status: 'approved' })
+        continue
+      }
+
+      if (existing === 'inspecting' || existing === 'provisioning') {
+        results.push({ eventType: tpl.event_type, status: 'inspecting' })
+        continue
+      }
+
+      const result = await provisionTemplate(tpl.event_type)
+      if (result.success) {
+        // provisionTemplate은 성공 시 inspecting 또는 approved로 상태를 둔다
+        results.push({ eventType: tpl.event_type, status: 'inspecting' })
+      } else {
+        results.push({
+          eventType: tpl.event_type,
+          status: 'failed',
+          error: result.error ?? '알 수 없는 오류',
+        })
+      }
+    }
+
+    revalidatePath('/settings/messaging-integration')
+
+    return { success: true, data: results, error: null }
+  } catch (error) {
+    console.error('[provisionAllSharedTemplates] Error:', error)
+    return {
+      success: false,
+      data: [],
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * inspecting/provisioning 상태인 모든 구독의 검수 상태를 일괄 폴링
+ *
+ * 프론트 자동 새로고침(refetchInterval)에서 호출
+ */
+export async function refreshAllSubscriptionStatuses(): Promise<{
+  success: boolean
+  data: { refreshed: number; pending: number }
+  error: string | null
+}> {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    const { data: subs, error: subError } = await supabase
+      .from('tenant_event_subscriptions')
+      .select('event_type, provisioning_status')
+      .eq('tenant_id', tenantId)
+      .in('provisioning_status', ['inspecting', 'provisioning'])
+
+    if (subError) throw subError
+    if (!subs || subs.length === 0) {
+      return { success: true, data: { refreshed: 0, pending: 0 }, error: null }
+    }
+
+    let refreshed = 0
+    let stillPending = 0
+
+    for (const sub of subs) {
+      const result = await refreshSubscriptionStatus(sub.event_type)
+      if (result.success && result.data) {
+        refreshed++
+        if (result.data.status === 'inspecting' || result.data.status === 'provisioning') {
+          stillPending++
+        }
+      } else {
+        stillPending++
+      }
+    }
+
+    return {
+      success: true,
+      data: { refreshed, pending: stillPending },
+      error: null,
+    }
+  } catch (error) {
+    console.error('[refreshAllSubscriptionStatuses] Error:', error)
+    return {
+      success: false,
+      data: { refreshed: 0, pending: 0 },
+      error: getErrorMessage(error),
+    }
+  }
+}
