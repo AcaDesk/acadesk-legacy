@@ -61,6 +61,9 @@ const serverEnvSchema = z.object({
   // Resend (이메일)
   RESEND_API_KEY: z.string().optional(),
   SUPPORT_NOTIFY_EMAIL: z.string().email().optional(),
+
+  // 학원별 외부 API 시크릿 암호화 키 (base64 인코딩된 32바이트)
+  ENCRYPTION_KEY: z.string().optional(),
 })
 
 /**

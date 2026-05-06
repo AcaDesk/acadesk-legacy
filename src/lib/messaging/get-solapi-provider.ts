@@ -7,6 +7,7 @@
 
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { SolapiProvider } from '@/infra/messaging/SolapiProvider'
+import { decryptSecret } from '@/lib/crypto/secret-cipher'
 
 export async function getSolapiProvider(tenantId: string): Promise<SolapiProvider | null> {
   const supabase = createServiceRoleClient()
@@ -27,9 +28,17 @@ export async function getSolapiProvider(tenantId: string): Promise<SolapiProvide
     return null
   }
 
+  let apiSecret: string
+  try {
+    apiSecret = decryptSecret(config.solapi_api_secret)
+  } catch (err) {
+    console.error('[getSolapiProvider] Failed to decrypt api secret:', err)
+    return null
+  }
+
   return new SolapiProvider({
     apiKey: config.solapi_api_key,
-    apiSecret: config.solapi_api_secret,
+    apiSecret,
     senderPhone: config.solapi_sender_phone || '',
   })
 }

@@ -302,20 +302,26 @@ export function KakaoTemplateList({
                               <RefreshCw className="h-4 w-4 mr-2" />
                               상태 갱신
                             </DropdownMenuItem>
-                            {(template.status === 'pending' || template.status === 'rejected') && (
-                              <>
-                                <DropdownMenuItem onClick={() => onEditTemplate?.(template)}>
-                                  <Edit className="h-4 w-4 mr-2" />
-                                  수정
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => handleDeleteClick(template)}
-                                  className="text-destructive"
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  삭제
-                                </DropdownMenuItem>
-                              </>
+                            {(template.status === 'pending' || template.status === 'rejected') &&
+                              !template.sharedTemplateId && (
+                                <>
+                                  <DropdownMenuItem onClick={() => onEditTemplate?.(template)}>
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    수정
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => handleDeleteClick(template)}
+                                    className="text-destructive"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    삭제
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            {template.sharedTemplateId && (
+                              <DropdownMenuItem disabled>
+                                공용 템플릿 (편집 불가)
+                              </DropdownMenuItem>
                             )}
                           </DropdownMenuContent>
                         </DropdownMenu>

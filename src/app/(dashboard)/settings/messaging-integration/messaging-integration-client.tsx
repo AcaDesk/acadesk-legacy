@@ -40,9 +40,10 @@ import {
   sendTestMessage,
   toggleMessagingActive,
   deleteMessagingConfig,
+  verifySolapiCredentials,
   type MessagingProvider
 } from '@/app/actions/messaging/config'
-import { KakaoChannelStatus, KakaoChannelRegistration, KakaoPrerequisitesChecklist, KakaoAlimtalkStepper } from '@/components/features/settings/kakao-channel'
+import { KakaoChannelStatus, KakaoChannelRegistration, KakaoPrerequisitesChecklist, KakaoAlimtalkStepper, KakaoOnboardingFlow } from '@/components/features/settings/kakao-channel'
 import type { KakaoTemplateSummary } from '@/components/features/settings/kakao-channel'
 import { KakaoTemplateList, KakaoTemplateForm } from '@/components/features/settings/kakao-templates'
 import { EventSubscriptionList } from '@/components/features/settings/event-subscriptions'
@@ -154,6 +155,7 @@ export function MessagingIntegrationClient({
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
   const [toggling, setToggling] = useState(false)
+  const [verifying, setVerifying] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
@@ -252,6 +254,45 @@ export function MessagingIntegrationClient({
       })
     } finally {
       setTesting(false)
+    }
+  }
+
+  async function handleVerifyCredentials() {
+    if (formData.provider !== 'solapi') {
+      toast({
+        title: '연결 테스트 미지원',
+        description: '연결 테스트는 현재 Solapi에서만 지원됩니다.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setVerifying(true)
+    try {
+      const result = await verifySolapiCredentials({
+        apiKey: formData.solapi_api_key,
+        apiSecret: formData.solapi_api_secret,
+        senderPhone: formData.solapi_sender_phone,
+      })
+
+      if (!result.success) {
+        throw new Error(result.error || '연결 테스트 실패')
+      }
+
+      toast({
+        title: '연결 성공',
+        description: result.data
+          ? `Solapi 잔액: ${result.data.balance.toLocaleString()} ${result.data.currency}`
+          : 'Solapi 계정에 정상적으로 연결되었습니다.',
+      })
+    } catch (error) {
+      toast({
+        title: '연결 실패',
+        description: error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.',
+        variant: 'destructive',
+      })
+    } finally {
+      setVerifying(false)
     }
   }
 
@@ -661,11 +702,27 @@ export function MessagingIntegrationClient({
               )}
 
               {isEditingCredentials && (
-                <div className="flex items-center gap-2 mt-6">
+                <div className="flex flex-wrap items-center gap-2 mt-6">
                   <Button onClick={handleSave} disabled={saving || !hasFormChanges}>
                     <Save className="h-4 w-4 mr-2" />
                     {saving ? '저장 중...' : hasFormChanges ? '변경사항 저장' : '저장됨'}
                   </Button>
+                  {formData.provider === 'solapi' && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleVerifyCredentials}
+                      disabled={
+                        verifying ||
+                        !formData.solapi_api_key ||
+                        !formData.solapi_api_secret ||
+                        !formData.solapi_sender_phone
+                      }
+                    >
+                      <ShieldCheck className="h-4 w-4 mr-2" />
+                      {verifying ? '확인 중...' : '연결 테스트'}
+                    </Button>
+                  )}
                   {hasConfig && (
                     <Button
                       variant="ghost"
@@ -808,6 +865,9 @@ export function MessagingIntegrationClient({
                   onOpenTemplateForm={() => setTemplateFormOpen(true)}
                 />
               )}
+
+              {/* 공용 템플릿 자동 등록 + 검수 진행 + 테스트 발송 */}
+              <KakaoOnboardingFlow hasKakaoChannel={hasKakaoChannel} />
 
               {/* Kakao Templates */}
               <KakaoTemplateList

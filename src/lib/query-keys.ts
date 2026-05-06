@@ -48,4 +48,13 @@ export const queryKeys = {
     preview: (studentId: string, period: unknown) => ['reports', 'preview', studentId, period] as const,
     templates: (context: unknown) => ['reports', 'templates', context] as const,
   },
+
+  eventSubscriptions: {
+    all: () => ['eventSubscriptions'] as const,
+    list: () => ['eventSubscriptions', 'list'] as const,
+  },
+
+  messagingConfig: {
+    detail: () => ['messagingConfig', 'detail'] as const,
+  },
 } as const

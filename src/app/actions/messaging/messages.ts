@@ -1060,3 +1060,150 @@ export async function getMessageStatistics(filters?: {
     }
   }
 }
+
+// ============================================================================
+// 테스트 알림톡 발송
+// ============================================================================
+
+const sendTestAlimtalkSchema = z.object({
+  phoneNumber: z
+    .string()
+    .regex(/^01\d{8,9}$|^0[2-9]\d{7,8}$/, '올바른 전화번호 형식이 아닙니다 (예: 01012345678)'),
+  eventType: z.string().min(1, '이벤트 유형을 선택해주세요'),
+})
+
+const TEST_PLACEHOLDER_DEFAULTS: Record<string, string> = {
+  학생명: '홍길동',
+  학생번호: 'S0001',
+  학년: '중2',
+  보호자명: '학부모님',
+  시간: '09:00',
+  날짜: new Date().toISOString().slice(0, 10),
+  과목명: '수학',
+  숙제명: '교재 30~40쪽',
+  마감일: '내일',
+  기간: '이번 달',
+  리포트링크: 'https://example.com/report',
+  상담일시: '2026-05-10 15:00',
+  담당자명: '담당 선생님',
+  결제금액: '300,000원',
+  결제일: new Date().toISOString().slice(0, 10),
+  납부월: '5월',
+  납부금액: '300,000원',
+  납부기한: '2026-05-15',
+  학원연락처: '02-0000-0000',
+  제목: '테스트 공지',
+  내용: '테스트 발송입니다.',
+}
+
+/**
+ * 테스트 알림톡 발송
+ *
+ * - 학원장이 연동 완료 후 본인 번호로 직접 확인할 수 있도록 함
+ * - approved 상태인 템플릿만 사용 가능
+ * - 변수는 placeholder 기본값으로 자동 채움 (학원명은 tenant.name)
+ */
+export async function sendTestAlimtalk(
+  input: z.infer<typeof sendTestAlimtalkSchema>
+) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const validated = sendTestAlimtalkSchema.parse(input)
+    const supabase = createServiceRoleClient()
+
+    // 학원명 조회
+    const { data: tenant } = await supabase
+      .from('tenants')
+      .select('name')
+      .eq('id', tenantId)
+      .maybeSingle()
+
+    // event_type → 승인된 kakao 템플릿 조회
+    const { data: subscription, error: subError } = await supabase
+      .from('tenant_event_subscriptions')
+      .select('provisioning_status, kakao_template_id')
+      .eq('tenant_id', tenantId)
+      .eq('event_type', validated.eventType)
+      .maybeSingle()
+
+    if (subError) throw subError
+    if (!subscription || !subscription.kakao_template_id) {
+      return {
+        success: false,
+        data: null,
+        error: '해당 이벤트의 템플릿이 등록되어 있지 않습니다.',
+      }
+    }
+    if (subscription.provisioning_status !== 'approved') {
+      return {
+        success: false,
+        data: null,
+        error: '승인된 템플릿만 테스트 발송할 수 있습니다.',
+      }
+    }
+
+    const { data: template, error: tplError } = await supabase
+      .from('kakao_alimtalk_templates')
+      .select('id, content, status')
+      .eq('id', subscription.kakao_template_id)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (tplError) throw tplError
+    if (!template) {
+      return { success: false, data: null, error: '템플릿을 찾을 수 없습니다.' }
+    }
+
+    // 필수 변수를 placeholder 기본값으로 채움
+    const { extractKakaoVariableNames } = await import('@/lib/kakao/kakao-variables')
+    const requiredVars = extractKakaoVariableNames(template.content)
+    const variables: Record<string, string> = {}
+    for (const v of requiredVars) {
+      if (v === '학원명' && tenant?.name) {
+        variables[v] = tenant.name
+      } else {
+        variables[v] = TEST_PLACEHOLDER_DEFAULTS[v] ?? `[${v}]`
+      }
+    }
+
+    const result = await sendAlimtalk({
+      to: validated.phoneNumber,
+      templateId: template.id,
+      variables,
+    })
+
+    // notification_logs에 기록
+    await supabase.from('notification_logs').insert({
+      tenant_id: tenantId,
+      student_id: null,
+      session_id: null,
+      notification_type: 'kakao',
+      message: renderKakaoTemplatePreview(template.content, variables),
+      status: result.success ? 'sent' : 'failed',
+      error_message: result.success ? null : result.error || null,
+      sent_at: new Date().toISOString(),
+      kakao_template_id: template.id,
+      event_type: validated.eventType,
+    })
+
+    if (!result.success) {
+      return { success: false, data: null, error: result.error || '발송 실패' }
+    }
+
+    revalidatePath('/settings/messaging-integration')
+
+    return {
+      success: true,
+      data: { messageId: result.messageId ?? null },
+      error: null,
+    }
+  } catch (error) {
+    console.error('[sendTestAlimtalk] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}

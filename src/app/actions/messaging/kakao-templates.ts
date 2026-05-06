@@ -47,6 +47,8 @@ export interface KakaoTemplate {
   status: KakaoTemplateStatus
   rejectionReason: string | null
   securityFlag: boolean
+  /** 공용 템플릿에서 자동 프로비저닝된 경우 NOT NULL — 학원장이 직접 편집/삭제 불가 */
+  sharedTemplateId: string | null
   createdAt: string
   updatedAt: string
 }
@@ -101,6 +103,7 @@ function mapDbToTemplate(row: any): KakaoTemplate {
     status: row.status,
     rejectionReason: row.rejection_reason,
     securityFlag: row.security_flag,
+    sharedTemplateId: row.shared_template_id ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -349,6 +352,11 @@ export async function updateKakaoTemplate(
     if (fetchError) throw fetchError
     if (!existing) throw new Error('템플릿을 찾을 수 없습니다.')
 
+    // 공용 템플릿 사본은 학원장이 직접 수정할 수 없다 (요구사항 #5)
+    if (existing.shared_template_id) {
+      throw new Error('공용 템플릿은 직접 수정할 수 없습니다. 다시 등록(재동기화)을 사용해주세요.')
+    }
+
     // Get provider
     const provider = await getSolapiProvider(tenantId)
     if (!provider) {
@@ -432,7 +440,7 @@ export async function deleteKakaoTemplate(templateId: string): Promise<{
     // Get existing template
     const { data: existing, error: fetchError } = await supabase
       .from('kakao_alimtalk_templates')
-      .select('solapi_template_id, status')
+      .select('solapi_template_id, status, shared_template_id')
       .eq('id', templateId)
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
@@ -440,6 +448,11 @@ export async function deleteKakaoTemplate(templateId: string): Promise<{
 
     if (fetchError) throw fetchError
     if (!existing) throw new Error('템플릿을 찾을 수 없습니다.')
+
+    // 공용 템플릿 사본은 직접 삭제할 수 없다 (요구사항 #5)
+    if (existing.shared_template_id) {
+      throw new Error('공용 템플릿은 직접 삭제할 수 없습니다. 이벤트 구독을 비활성화하거나 재동기화를 사용해주세요.')
+    }
 
     // Only allow deletion of pending or rejected templates
     if (existing.status === 'approved' || existing.status === 'inspecting') {

@@ -113,10 +113,11 @@ export async function sendMessage({
     } else if (config.provider === 'solapi') {
       const { SolapiProvider } = await import('@/infra/messaging/SolapiProvider')
       const { MessageChannel } = await import('@/core/domain/messaging/IMessageProvider')
+      const { decryptSecret } = await import('@/lib/crypto/secret-cipher')
 
       const provider = new SolapiProvider({
         apiKey: config.solapi_api_key || '',
-        apiSecret: config.solapi_api_secret || '',
+        apiSecret: config.solapi_api_secret ? decryptSecret(config.solapi_api_secret) : '',
         senderPhone: config.solapi_sender_phone || '',
       })
 
@@ -269,10 +270,11 @@ export async function sendAlimtalk({
 
     // 7. Create Solapi provider and send
     const { SolapiProvider } = await import('@/infra/messaging/SolapiProvider')
+    const { decryptSecret } = await import('@/lib/crypto/secret-cipher')
 
     const provider = new SolapiProvider({
       apiKey: config.solapi_api_key || '',
-      apiSecret: config.solapi_api_secret || '',
+      apiSecret: config.solapi_api_secret ? decryptSecret(config.solapi_api_secret) : '',
       senderPhone: config.solapi_sender_phone || '',
     })
 

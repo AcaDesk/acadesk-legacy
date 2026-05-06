@@ -14,7 +14,59 @@ import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { createAligoProvider } from '@/infra/messaging/AligoProvider'
-import { createSolapiProvider } from '@/infra/messaging/SolapiProvider'
+import { createSolapiProvider, SolapiProvider } from '@/infra/messaging/SolapiProvider'
+import {
+  EncryptionError,
+  decryptSecret,
+  encryptSecret,
+  isEncrypted,
+  maskSecret,
+} from '@/lib/crypto/secret-cipher'
+import { translateSolapiError } from '@/lib/solapi-error-translator'
+
+const SECRET_FIELDS = [
+  'aligo_api_key',
+  'solapi_api_secret',
+  'nhncloud_secret_key',
+] as const
+
+function maskConfigSecrets(config: MessagingConfig | null): MessagingConfig | null {
+  if (!config) return config
+  const masked: MessagingConfig = { ...config }
+  const indexable = masked as unknown as Record<string, unknown>
+  for (const field of SECRET_FIELDS) {
+    const value = indexable[field]
+    if (typeof value === 'string' && value.length > 0) {
+      // 클라이언트는 평문/암호문을 알 필요가 없다. 마스킹 sentinel만 노출.
+      indexable[field] = maskSecret(value) ?? ''
+    }
+  }
+  return masked
+}
+
+/**
+ * 저장 전 secret 처리:
+ * - 입력이 비어있으면 null 그대로
+ * - 입력이 기존 secret의 마스킹값과 동일하면 (= 사용자가 안 바꿈) 기존 암호문 유지
+ * - 그 외엔 평문으로 간주하고 암호화
+ */
+function prepareSecretForSave(
+  input: string | null | undefined,
+  existing: string | null | undefined
+): string | null {
+  if (!input) return null
+
+  if (existing && input === maskSecret(existing)) {
+    return existing
+  }
+
+  if (isEncrypted(input)) {
+    // 클라이언트가 암호문을 보낼 일은 없지만, 방어적으로 그대로 저장
+    return input
+  }
+
+  return encryptSecret(input)
+}
 
 // ============================================================================
 // Types
@@ -96,7 +148,7 @@ export async function getMessagingConfig() {
 
     return {
       success: true,
-      data: data as MessagingConfig | null,
+      data: maskConfigSecrets(data as MessagingConfig | null),
       error: null,
     }
   } catch (error) {
@@ -120,13 +172,27 @@ export async function saveMessagingConfig(
     const validated = messagingConfigSchema.parse(input)
     const supabase = createServiceRoleClient()
 
-    // Check if config already exists
+    // Check if config already exists (기존 secret 비교용으로 전체 row 조회)
     const { data: existing } = await supabase
       .from('tenant_messaging_config')
-      .select('id')
+      .select('id, aligo_api_key, solapi_api_secret, nhncloud_secret_key')
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
       .maybeSingle()
+
+    // Secret 처리: 입력이 마스킹 sentinel이면 기존 값 유지, 아니면 새로 암호화
+    const aligoApiKey =
+      validated.provider === 'aligo'
+        ? prepareSecretForSave(validated.aligo_api_key, existing?.aligo_api_key)
+        : null
+    const solapiApiSecret =
+      validated.provider === 'solapi'
+        ? prepareSecretForSave(validated.solapi_api_secret, existing?.solapi_api_secret)
+        : null
+    const nhncloudSecretKey =
+      validated.provider === 'nhncloud'
+        ? prepareSecretForSave(validated.nhncloud_secret_key, existing?.nhncloud_secret_key)
+        : null
 
     let result
 
@@ -138,7 +204,7 @@ export async function saveMessagingConfig(
           provider: validated.provider,
           ...(validated.provider === 'aligo' && {
             aligo_user_id: validated.aligo_user_id,
-            aligo_api_key: validated.aligo_api_key,
+            aligo_api_key: aligoApiKey,
             aligo_sender_phone: validated.aligo_sender_phone,
             // Clear other providers' data
             solapi_api_key: null,
@@ -150,7 +216,7 @@ export async function saveMessagingConfig(
           }),
           ...(validated.provider === 'solapi' && {
             solapi_api_key: validated.solapi_api_key,
-            solapi_api_secret: validated.solapi_api_secret,
+            solapi_api_secret: solapiApiSecret,
             solapi_sender_phone: validated.solapi_sender_phone,
             // Clear other providers' data
             aligo_user_id: null,
@@ -162,7 +228,7 @@ export async function saveMessagingConfig(
           }),
           ...(validated.provider === 'nhncloud' && {
             nhncloud_app_key: validated.nhncloud_app_key,
-            nhncloud_secret_key: validated.nhncloud_secret_key,
+            nhncloud_secret_key: nhncloudSecretKey,
             nhncloud_sender_phone: validated.nhncloud_sender_phone,
             // Clear other providers' data
             aligo_user_id: null,
@@ -190,17 +256,17 @@ export async function saveMessagingConfig(
           provider: validated.provider,
           ...(validated.provider === 'aligo' && {
             aligo_user_id: validated.aligo_user_id,
-            aligo_api_key: validated.aligo_api_key,
+            aligo_api_key: aligoApiKey,
             aligo_sender_phone: validated.aligo_sender_phone,
           }),
           ...(validated.provider === 'solapi' && {
             solapi_api_key: validated.solapi_api_key,
-            solapi_api_secret: validated.solapi_api_secret,
+            solapi_api_secret: solapiApiSecret,
             solapi_sender_phone: validated.solapi_sender_phone,
           }),
           ...(validated.provider === 'nhncloud' && {
             nhncloud_app_key: validated.nhncloud_app_key,
-            nhncloud_secret_key: validated.nhncloud_secret_key,
+            nhncloud_secret_key: nhncloudSecretKey,
             nhncloud_sender_phone: validated.nhncloud_sender_phone,
           }),
           is_active: false,
@@ -217,7 +283,7 @@ export async function saveMessagingConfig(
 
     return {
       success: true,
-      data: result as MessagingConfig,
+      data: maskConfigSecrets(result as MessagingConfig),
       error: null,
     }
   } catch (error) {
@@ -225,7 +291,7 @@ export async function saveMessagingConfig(
     return {
       success: false,
       data: null,
-      error: getErrorMessage(error),
+      error: error instanceof EncryptionError ? error.message : getErrorMessage(error),
     }
   }
 }
@@ -310,12 +376,15 @@ export async function sendTestMessage(phoneNumber: string) {
 
 /**
  * Create messaging provider instance from config
+ *
+ * 저장된 secret은 암호문일 수 있으므로 사용 직전 복호화한다.
+ * 레거시 평문 데이터는 decryptSecret이 그대로 통과시킨다.
  */
 function createMessagingProvider(config: MessagingConfig) {
   switch (config.provider) {
     case 'aligo': {
       return createAligoProvider({
-        apiKey: config.aligo_api_key || '',
+        apiKey: config.aligo_api_key ? decryptSecret(config.aligo_api_key) : '',
         userId: config.aligo_user_id || '',
         senderPhone: config.aligo_sender_phone || '',
       })
@@ -323,7 +392,7 @@ function createMessagingProvider(config: MessagingConfig) {
     case 'solapi': {
       return createSolapiProvider({
         apiKey: config.solapi_api_key || '',
-        apiSecret: config.solapi_api_secret || '',
+        apiSecret: config.solapi_api_secret ? decryptSecret(config.solapi_api_secret) : '',
         senderPhone: config.solapi_sender_phone || '',
       })
     }
@@ -460,11 +529,10 @@ export async function getMessagingBalance() {
       }
     }
 
-    // Create Solapi provider and check balance
-    const { SolapiProvider } = await import('@/infra/messaging/SolapiProvider')
+    // Create Solapi provider and check balance (저장된 암호문은 복호화 후 사용)
     const provider = new SolapiProvider({
       apiKey: config.solapi_api_key || '',
-      apiSecret: config.solapi_api_secret || '',
+      apiSecret: config.solapi_api_secret ? decryptSecret(config.solapi_api_secret) : '',
       senderPhone: config.solapi_sender_phone || '',
     })
 
@@ -484,6 +552,95 @@ export async function getMessagingBalance() {
     return {
       success: false,
       data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * 저장 전 Solapi API Key/Secret 유효성 검증
+ *
+ * - DB에 쓰지 않는다 (form 단계 검증)
+ * - SolapiProvider.checkBalance를 가벼운 인증 검사로 활용
+ * - 응답에 secret을 echo back 하지 않는다
+ *
+ * 입력으로 받은 apiSecret이 마스킹 sentinel(`***xxxx`)이면 저장된 암호문을 복호화해서 검증한다.
+ * (사용자가 키를 변경하지 않고 연결 테스트만 다시 하는 시나리오)
+ */
+export async function verifySolapiCredentials(input: {
+  apiKey: string
+  apiSecret: string
+  senderPhone: string
+}) {
+  try {
+    const { tenantId } = await verifyStaff()
+
+    const trimmedApiKey = input.apiKey?.trim()
+    const trimmedSecret = input.apiSecret?.trim()
+    const trimmedPhone = input.senderPhone?.trim()
+
+    if (!trimmedApiKey || !trimmedSecret || !trimmedPhone) {
+      return {
+        success: false,
+        error: 'API Key, API Secret, 발신번호를 모두 입력해주세요.',
+      }
+    }
+
+    // 마스킹 sentinel이면 저장된 암호문을 복호화해서 사용
+    let apiSecretPlain = trimmedSecret
+    if (trimmedSecret.startsWith('***')) {
+      const supabase = createServiceRoleClient()
+      const { data: existing } = await supabase
+        .from('tenant_messaging_config')
+        .select('solapi_api_secret')
+        .eq('tenant_id', tenantId)
+        .is('deleted_at', null)
+        .maybeSingle()
+
+      if (!existing?.solapi_api_secret) {
+        return {
+          success: false,
+          error: '저장된 API Secret이 없습니다. 새 값을 입력해주세요.',
+        }
+      }
+
+      try {
+        apiSecretPlain = decryptSecret(existing.solapi_api_secret)
+      } catch {
+        return {
+          success: false,
+          error: '저장된 API Secret을 복호화할 수 없습니다. 새 값을 다시 입력해주세요.',
+        }
+      }
+    }
+
+    const provider = new SolapiProvider({
+      apiKey: trimmedApiKey,
+      apiSecret: apiSecretPlain,
+      senderPhone: trimmedPhone,
+    })
+
+    try {
+      const balance = await provider.checkBalance()
+      return {
+        success: true,
+        data: {
+          balance: balance.balance,
+          currency: balance.currency,
+        },
+        error: null,
+      }
+    } catch (solapiError) {
+      console.error('[verifySolapiCredentials] Solapi error:', solapiError)
+      return {
+        success: false,
+        error: translateSolapiError(solapiError),
+      }
+    }
+  } catch (error) {
+    console.error('[verifySolapiCredentials] Error:', error)
+    return {
+      success: false,
       error: getErrorMessage(error),
     }
   }
