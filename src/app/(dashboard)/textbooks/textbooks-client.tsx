@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useQueryClient } from '@tanstack/react-query'
-import { Plus, Book, Search, Trash2 } from 'lucide-react'
+import { Plus, Book, Search, Trash2, Loader2, X } from 'lucide-react'
 import { IconChevronLeft, IconChevronRight, IconChevronsLeft, IconChevronsRight } from '@tabler/icons-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -37,6 +37,7 @@ import { useTextbooksQuery } from '@/hooks/queries/use-textbooks-query'
 import { queryKeys } from '@/lib/query-keys'
 
 const DEFAULT_PAGE_SIZE = 15
+const SEARCH_DEBOUNCE_MS = 180
 
 export function TextbooksClient() {
   const { toast } = useToast()
@@ -55,7 +56,7 @@ export function TextbooksClient() {
     const timeout = window.setTimeout(() => {
       setDebouncedSearch(searchInput.trim())
       setCurrentPage(1)
-    }, 300)
+    }, SEARCH_DEBOUNCE_MS)
     return () => window.clearTimeout(timeout)
   }, [searchInput])
 
@@ -69,7 +70,10 @@ export function TextbooksClient() {
   useEffect(() => {
     const total = data?.totalCount ?? 0
     const pages = Math.max(1, Math.ceil(total / pageSize))
-    if (currentPage >= pages) return
+    const canPrefetchNext = data?.totalCountExact === false
+      ? data?.hasNextPage
+      : currentPage < pages
+    if (!canPrefetchNext) return
 
     const nextFilters = { search: debouncedSearch || undefined, page: currentPage + 1, pageSize }
     queryClient.prefetchQuery({
@@ -82,19 +86,28 @@ export function TextbooksClient() {
           lendingCountByTextbookId: result.lendingCountByTextbookId ?? {},
           unitCountByTextbookId: result.unitCountByTextbookId ?? {},
           totalCount: result.totalCount ?? 0,
+          totalCountExact: result.totalCountExact ?? true,
+          hasNextPage: result.hasNextPage ?? false,
           page: result.page ?? nextFilters.page,
           pageSize: result.pageSize ?? nextFilters.pageSize,
         }
       },
       staleTime: 60_000,
     })
-  }, [currentPage, data?.totalCount, pageSize, debouncedSearch]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentPage, data?.hasNextPage, data?.totalCount, data?.totalCountExact, pageSize, debouncedSearch, queryClient])
 
-  const textbooks = data?.data ?? []
+  const textbooks = useMemo(() => data?.data ?? [], [data?.data])
   const lendingCountByTextbookId = data?.lendingCountByTextbookId ?? {}
   const unitCountByTextbookId = data?.unitCountByTextbookId ?? {}
   const totalCount = data?.totalCount ?? 0
-  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+  const totalCountExact = data?.totalCountExact ?? true
+  const hasNextPage = data?.hasNextPage ?? false
+  const totalPages = totalCountExact
+    ? Math.max(1, Math.ceil(totalCount / pageSize))
+    : currentPage + (hasNextPage ? 1 : 0)
+  const canGoNext = totalCountExact ? currentPage < totalPages : hasNextPage
+  const isSearchPending = searchInput.trim() !== debouncedSearch
+  const searchBusy = isSearchPending || (isFetching && Boolean(debouncedSearch))
 
   // 페이지 변경 시 선택 초기화
   useEffect(() => {
@@ -194,10 +207,28 @@ export function TextbooksClient() {
             <Input
               type="search"
               placeholder="교재명, 저자, 출판사, 관리번호, 바코드 검색..."
-              className="pl-10"
+              className="pl-10 pr-16"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
             />
+            {searchBusy && (
+              <Loader2
+                className={`absolute top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground ${
+                  searchInput ? 'right-9' : 'right-3'
+                }`}
+              />
+            )}
+            {searchInput && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+                onClick={() => setSearchInput('')}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </div>
       </section>
@@ -299,7 +330,7 @@ export function TextbooksClient() {
                 {/* Pagination */}
                 <div className="flex items-center justify-between border-t px-4 py-3">
                   <div className="text-sm text-muted-foreground">
-                    전체 {totalCount}개
+                    전체 {totalCount}{!totalCountExact && hasNextPage ? '+' : ''}개
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
@@ -323,7 +354,9 @@ export function TextbooksClient() {
                       </Select>
                     </div>
                     <span className="text-sm text-muted-foreground whitespace-nowrap">
-                      페이지 {currentPage} / {totalPages}
+                      {totalCountExact
+                        ? `페이지 ${currentPage} / ${totalPages}`
+                        : `페이지 ${currentPage}${hasNextPage ? ' / 다음 있음' : ''}`}
                     </span>
                     <div className="flex items-center gap-1">
                       <Button
@@ -349,7 +382,7 @@ export function TextbooksClient() {
                         size="icon"
                         className="h-8 w-8"
                         onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                        disabled={currentPage === totalPages || isFetching}
+                        disabled={!canGoNext || isFetching}
                       >
                         <IconChevronRight className="h-4 w-4" />
                       </Button>
@@ -358,7 +391,7 @@ export function TextbooksClient() {
                         size="icon"
                         className="hidden lg:flex h-8 w-8"
                         onClick={() => setCurrentPage(totalPages)}
-                        disabled={currentPage === totalPages || isFetching}
+                        disabled={!totalCountExact || currentPage === totalPages || isFetching}
                       >
                         <IconChevronsRight className="h-4 w-4" />
                       </Button>
