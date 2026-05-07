@@ -39,6 +39,8 @@ export function useStudentsQuery(filters: StudentFilters) {
       return {
         data: result.data,
         totalCount: result.totalCount ?? result.data.length,
+        totalCountExact: result.totalCountExact ?? true,
+        hasNextPage: result.hasNextPage ?? false,
         page: result.page ?? filters.page,
         pageSize: result.pageSize ?? filters.pageSize,
       }

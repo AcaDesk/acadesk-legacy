@@ -27,6 +27,8 @@ export function useTextbooksQuery(filters: TextbookFilters) {
         lendingCountByTextbookId: result.lendingCountByTextbookId ?? {},
         unitCountByTextbookId: result.unitCountByTextbookId ?? {},
         totalCount: result.totalCount ?? 0,
+        totalCountExact: result.totalCountExact ?? true,
+        hasNextPage: result.hasNextPage ?? false,
         page: result.page ?? filters.page,
         pageSize: result.pageSize ?? filters.pageSize,
       }
