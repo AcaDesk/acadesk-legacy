@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
@@ -19,6 +19,8 @@ import { getErrorMessage } from '@/lib/error-handlers'
 import { getStudents, deleteStudent } from '@/app/actions/students'
 import { useStudentsQuery, useStudentFilterOptionsQuery } from '@/hooks/queries/use-students-query'
 import { queryKeys } from '@/lib/query-keys'
+
+const SEARCH_DEBOUNCE_MS = 180
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function formatStudents(data: any[]): Student[] {
@@ -67,11 +69,11 @@ export function StudentList() {
     const timeout = window.setTimeout(() => {
       setDebouncedSearch(searchInput.trim())
       setCurrentPage(1)
-    }, 300)
+    }, SEARCH_DEBOUNCE_MS)
     return () => window.clearTimeout(timeout)
   }, [searchInput])
 
-  const filters = {
+  const filters = useMemo(() => ({
     grade: selectedGrade !== 'all' ? selectedGrade : undefined,
     classId: selectedClass !== 'all' ? selectedClass : undefined,
     school: selectedSchool !== 'all' ? selectedSchool : undefined,
@@ -82,7 +84,18 @@ export function StudentList() {
     search: debouncedSearch || undefined,
     page: currentPage,
     pageSize,
-  }
+  }), [
+    selectedGrade,
+    selectedClass,
+    selectedSchool,
+    selectedCommuteMethod,
+    selectedMarketingSource,
+    enrollmentDateFrom,
+    enrollmentDateTo,
+    debouncedSearch,
+    currentPage,
+    pageSize,
+  ])
 
   const { data, isFetching, isError } = useStudentsQuery(filters)
 
@@ -90,7 +103,10 @@ export function StudentList() {
   useEffect(() => {
     const totalCount = data?.totalCount ?? 0
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
-    if (currentPage >= totalPages) return
+    const canPrefetchNext = data?.totalCountExact === false
+      ? data?.hasNextPage
+      : currentPage < totalPages
+    if (!canPrefetchNext) return
 
     const nextFilters = { ...filters, page: currentPage + 1 }
     queryClient.prefetchQuery({
@@ -112,17 +128,23 @@ export function StudentList() {
         return {
           data: result.data,
           totalCount: result.totalCount ?? result.data.length,
+          totalCountExact: result.totalCountExact ?? true,
+          hasNextPage: result.hasNextPage ?? false,
           page: result.page ?? nextFilters.page,
           pageSize: result.pageSize ?? nextFilters.pageSize,
         }
       },
       staleTime: 30_000,
     })
-  }, [currentPage, data?.totalCount, pageSize]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentPage, data?.hasNextPage, data?.totalCount, data?.totalCountExact, filters, pageSize, queryClient])
   const { data: filterOptions } = useStudentFilterOptionsQuery()
 
   const students = data ? formatStudents(data.data) : []
   const totalCount = data?.totalCount ?? 0
+  const totalCountExact = data?.totalCountExact ?? true
+  const hasNextPage = data?.hasNextPage ?? false
+  const isSearchPending = searchInput.trim() !== debouncedSearch
+  const searchBusy = isSearchPending || (isFetching && Boolean(debouncedSearch))
   const grades = filterOptions?.grades ?? []
   const schools = filterOptions?.schools ?? []
   const classes = filterOptions?.classes ?? []
@@ -299,6 +321,9 @@ export function StudentList() {
         searchValue={searchInput}
         onSearchChange={setSearchInput}
         totalCount={totalCount}
+        totalCountExact={totalCountExact}
+        hasNextPage={hasNextPage}
+        searchBusy={searchBusy}
         currentPage={currentPage}
         pageSize={pageSize}
         onPageChange={setCurrentPage}

@@ -16,6 +16,7 @@ import {
 } from '@tanstack/react-table'
 import {
   Search,
+  Loader2,
   MoreHorizontal,
   Edit,
   Trash2,
@@ -128,6 +129,9 @@ interface StudentTableProps {
   searchValue?: string
   onSearchChange?: (value: string) => void
   totalCount?: number
+  totalCountExact?: boolean
+  hasNextPage?: boolean
+  searchBusy?: boolean
   currentPage?: number
   pageSize?: number
   onPageChange?: (page: number) => void
@@ -144,6 +148,9 @@ export function StudentTableImproved({
   searchValue,
   onSearchChange,
   totalCount,
+  totalCountExact = true,
+  hasNextPage = false,
+  searchBusy = false,
   currentPage = 1,
   pageSize = 20,
   onPageChange,
@@ -628,7 +635,10 @@ export function StudentTableImproved({
   ]
 
   const totalRows = manualPagination ? (totalCount ?? filteredData.length) : filteredData.length
-  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize))
+  const isTotalCountExact = totalCountExact !== false
+  const totalPages = manualPagination && !isTotalCountExact
+    ? currentPage + (hasNextPage ? 1 : 0)
+    : Math.max(1, Math.ceil(totalRows / pageSize))
 
   const table = useReactTable({
     data: filteredData,
@@ -666,6 +676,11 @@ export function StudentTableImproved({
 
   const internalSearchValue = (table.getColumn('users')?.getFilterValue() as string) ?? ''
   const activeSearchValue = manualPagination ? (searchValue ?? '') : internalSearchValue
+  const canGoNextPage = manualPagination
+    ? isTotalCountExact
+      ? currentPage < totalPages
+      : hasNextPage
+    : table.getCanNextPage()
 
   // 데이터가 변경되면 페이지 조정 (삭제 후 빈 페이지 방지)
   React.useEffect(() => {
@@ -756,8 +771,16 @@ export function StudentTableImproved({
                   }
                   table.getColumn('users')?.setFilterValue(event.target.value)
                 }}
-                className="pl-10 transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                className="pl-10 pr-10 transition-all duration-200 focus:ring-2 focus:ring-primary/20"
               />
+            {searchBusy && (
+              <Loader2
+                className={cn(
+                  'absolute top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground',
+                  activeSearchValue ? 'right-9' : 'right-3'
+                )}
+              />
+            )}
             {activeSearchValue && (
               <Button
                 variant="ghost"
@@ -963,7 +986,9 @@ export function StudentTableImproved({
               {table.getFilteredSelectedRowModel().rows.length}개 행 선택됨 /{' '}
             </>
           )}
-          전체 {manualPagination ? totalRows : table.getFilteredRowModel().rows.length}개
+          전체 {manualPagination
+            ? `${totalRows}${!isTotalCountExact && hasNextPage ? '+' : ''}`
+            : table.getFilteredRowModel().rows.length}개
         </div>
         <div className="flex w-full items-center gap-8 lg:w-fit">
           <div className="hidden items-center gap-2 lg:flex">
@@ -993,7 +1018,9 @@ export function StudentTableImproved({
             </Select>
           </div>
           <div className="flex w-fit items-center justify-center text-sm font-medium">
-            {(manualPagination ? totalPages : table.getPageCount()) > 0
+            {manualPagination && !isTotalCountExact
+              ? `페이지 ${currentPage}${hasNextPage ? ' / 다음 있음' : ''}`
+              : (manualPagination ? totalPages : table.getPageCount()) > 0
               ? `페이지 ${manualPagination ? currentPage : table.getState().pagination.pageIndex + 1} / ${manualPagination ? totalPages : table.getPageCount()}`
               : '데이터 없음'}
           </div>
@@ -1038,7 +1065,7 @@ export function StudentTableImproved({
                 }
                 table.nextPage()
               }}
-              disabled={manualPagination ? currentPage >= totalPages : !table.getCanNextPage()}
+              disabled={manualPagination ? !canGoNextPage : !table.getCanNextPage()}
             >
               <span className="sr-only">다음 페이지</span>
               <IconChevronRight className="h-4 w-4" />
@@ -1053,7 +1080,7 @@ export function StudentTableImproved({
                 }
                 table.setPageIndex(table.getPageCount() - 1)
               }}
-              disabled={manualPagination ? currentPage >= totalPages : !table.getCanNextPage()}
+              disabled={manualPagination ? !isTotalCountExact || currentPage >= totalPages : !table.getCanNextPage()}
             >
               <span className="sr-only">마지막 페이지로</span>
               <IconChevronsRight className="h-4 w-4" />
