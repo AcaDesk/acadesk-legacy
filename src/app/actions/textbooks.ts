@@ -16,6 +16,20 @@ import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getTodayKST } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/error-handlers'
 
+interface TextbookListItem {
+  id: string
+  title: string
+  author: string | null
+  publisher: string | null
+  isbn: string | null
+  barcode: string | null
+  management_code: string | null
+  total_copies: number | null
+  price: number | null
+  is_active: boolean | null
+  created_at: string
+}
+
 // ============================================================================
 // Validation Schemas
 // ============================================================================
@@ -116,10 +130,94 @@ export async function getTextbooks(options?: {
     const { tenantId } = await verifyStaff()
     const supabase = createServiceRoleClient()
     const shouldPaginate = Boolean(options?.page && options?.pageSize)
+    const searchTerm = options?.search?.trim().slice(0, 100) || ''
+    const skipExactCount = Boolean(searchTerm && shouldPaginate)
+
+    if (skipExactCount && options?.page && options?.pageSize) {
+      const boundedPageSize = Math.min(Math.max(options.pageSize, 1), 100)
+      const offset = (Math.max(options.page, 1) - 1) * boundedPageSize
+      const { data: rows, error: searchError } = await supabase.rpc('search_textbooks_list', {
+        p_tenant_id: tenantId,
+        p_search: searchTerm,
+        p_active_only: options.activeOnly ?? false,
+        p_limit: boundedPageSize,
+        p_offset: offset,
+      })
+
+      if (searchError) {
+        console.error('[getTextbooks] Search RPC error:', searchError.message)
+        throw new Error('교재 검색에 실패했습니다')
+      }
+
+      interface TextbookSearchRpcRow {
+        textbook: TextbookListItem
+      }
+
+      const searchRows = (rows || []) as TextbookSearchRpcRow[]
+      const hasNextPage = searchRows.length > boundedPageSize
+      const textbooks = searchRows
+        .slice(0, boundedPageSize)
+        .map((row) => row.textbook as TextbookListItem)
+
+      const textbookIds = textbooks.map(t => t.id as string)
+      const lendingCountByTextbookId: Record<string, number> = {}
+      const unitCountByTextbookId: Record<string, number> = {}
+
+      if (textbookIds.length > 0) {
+        const [{ data: lendings }, { data: units }] = await Promise.all([
+          supabase
+            .from('book_lendings')
+            .select('textbook_id')
+            .eq('tenant_id', tenantId)
+            .in('textbook_id', textbookIds)
+            .is('returned_at', null),
+          supabase
+            .from('textbook_units')
+            .select('textbook_id')
+            .eq('tenant_id', tenantId)
+            .in('textbook_id', textbookIds)
+            .is('deleted_at', null),
+        ])
+
+        for (const row of lendings || []) {
+          const id = row.textbook_id as string
+          lendingCountByTextbookId[id] = (lendingCountByTextbookId[id] || 0) + 1
+        }
+        for (const row of units || []) {
+          const id = row.textbook_id as string
+          unitCountByTextbookId[id] = (unitCountByTextbookId[id] || 0) + 1
+        }
+      }
+
+      return {
+        success: true,
+        data: textbooks,
+        lendingCountByTextbookId,
+        unitCountByTextbookId,
+        totalCount: offset + textbooks.length,
+        totalCountExact: false,
+        hasNextPage,
+        page: options.page,
+        pageSize: boundedPageSize,
+        error: null,
+      }
+    }
 
     let query = supabase
       .from('textbooks')
-      .select('*', { count: shouldPaginate ? 'exact' : undefined })
+      .select(`
+        id,
+        title,
+        author,
+        publisher,
+        isbn,
+        barcode,
+        management_code,
+        total_copies,
+        price,
+        is_active,
+        created_at
+      `, { count: shouldPaginate ? 'exact' : undefined })
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
 
@@ -127,9 +225,8 @@ export async function getTextbooks(options?: {
       query = query.eq('is_active', true)
     }
 
-    if (options?.search?.trim()) {
-      const term = options.search.trim().slice(0, 100)
-      const safeTerm = term.replace(/[%_\\]/g, '\\$&')
+    if (searchTerm) {
+      const safeTerm = searchTerm.replace(/[%_\\]/g, '\\$&')
       query = query.or([
         `title.ilike.%${safeTerm}%`,
         `author.ilike.%${safeTerm}%`,
@@ -154,7 +251,10 @@ export async function getTextbooks(options?: {
       throw error
     }
 
-    const textbooks = data || []
+    const textbooks = (data || []) as TextbookListItem[]
+    const hasNextPage = shouldPaginate && options?.page && options?.pageSize && typeof count === 'number'
+        ? options.page * options.pageSize < count
+        : false
     const textbookIds = textbooks.map(t => t.id as string)
 
     // 대출 수 / 단원 수 조회 (현재 페이지 교재 한정)
@@ -192,7 +292,13 @@ export async function getTextbooks(options?: {
       data: textbooks,
       lendingCountByTextbookId,
       unitCountByTextbookId,
-      totalCount: count ?? textbooks.length,
+      totalCount: count ?? (
+        shouldPaginate && options?.page && options?.pageSize
+          ? ((options.page - 1) * options.pageSize) + textbooks.length
+          : textbooks.length
+      ),
+      totalCountExact: true,
+      hasNextPage,
       page: options?.page ?? 1,
       pageSize: options?.pageSize ?? textbooks.length,
       error: null,
@@ -205,6 +311,8 @@ export async function getTextbooks(options?: {
       lendingCountByTextbookId: {},
       unitCountByTextbookId: {},
       totalCount: 0,
+      totalCountExact: true,
+      hasNextPage: false,
       page: options?.page ?? 1,
       pageSize: options?.pageSize ?? 0,
       error: getErrorMessage(error),

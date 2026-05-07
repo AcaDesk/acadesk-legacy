@@ -5,6 +5,32 @@ import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
 import type { StudentDetailData } from '@/core/types/studentDetail.types'
 
+interface StudentListItem {
+  id: string
+  student_code: string
+  name: string
+  email?: string | null
+  phone?: string | null
+  grade: string | null
+  school: string | null
+  enrollment_date: string | null
+  birth_date: string | null
+  student_phone: string | null
+  profile_image_url: string | null
+  commute_method?: string | null
+  marketing_source?: string | null
+  classes: Array<{
+    id?: string | null
+    name?: string | null
+  }>
+  guardians: Array<{
+    id?: string | null
+    name?: string | null
+    phone?: string | null
+  }>
+  recentAttendance?: Array<{ status: string }>
+}
+
 /**
  * Get student detail with all related data
  *
@@ -90,6 +116,51 @@ export async function getStudents(filters?: {
     const page = filters?.page
     const pageSize = filters?.pageSize
     const shouldPaginate = Boolean(page && pageSize)
+    const searchTerm = filters?.search?.trim().slice(0, 100) || ''
+
+    if (searchTerm && shouldPaginate && page && pageSize) {
+      const boundedPageSize = Math.min(Math.max(pageSize, 1), 100)
+      const offset = (Math.max(page, 1) - 1) * boundedPageSize
+      const { data: rows, error: searchError } = await serviceClient.rpc('search_students_list', {
+        p_tenant_id: tenantId,
+        p_search: searchTerm,
+        p_grade: filters?.grade && filters.grade !== 'all' ? filters.grade : null,
+        p_class_id: filters?.classId && filters.classId !== 'all' ? filters.classId : null,
+        p_school: filters?.school && filters.school !== 'all' ? filters.school : null,
+        p_commute_method: filters?.commuteMethod && filters.commuteMethod !== 'all' ? filters.commuteMethod : null,
+        p_marketing_source: filters?.marketingSource && filters.marketingSource !== 'all' ? filters.marketingSource : null,
+        p_enrollment_date_from: filters?.enrollmentDateFrom || null,
+        p_enrollment_date_to: filters?.enrollmentDateTo || null,
+        p_limit: boundedPageSize,
+        p_offset: offset,
+      })
+
+      if (searchError) {
+        console.error('[getStudents] Search RPC error:', searchError.message)
+        throw new Error('학생 검색에 실패했습니다')
+      }
+
+      interface StudentSearchRpcRow {
+        student: StudentListItem
+      }
+
+      const searchRows = (rows || []) as StudentSearchRpcRow[]
+      const hasNextPage = searchRows.length > boundedPageSize
+      const students = searchRows
+        .slice(0, boundedPageSize)
+        .map((row) => row.student as StudentListItem)
+
+      return {
+        success: true,
+        data: students,
+        totalCount: offset + students.length,
+        totalCountExact: false,
+        hasNextPage,
+        page,
+        pageSize: boundedPageSize,
+        error: null,
+      }
+    }
 
     let classFilteredStudentIds: string[] | null = null
     if (filters?.classId && filters.classId !== 'all') {
@@ -99,7 +170,6 @@ export async function getStudents(filters?: {
         .eq('tenant_id', tenantId)
         .eq('class_id', filters.classId)
         .eq('status', 'active')
-        .is('deleted_at', null)
 
       if (classFilterError) {
         console.error('[getStudents] Class filter error:', classFilterError.message)
@@ -115,6 +185,8 @@ export async function getStudents(filters?: {
           success: true,
           data: [],
           totalCount: 0,
+          totalCountExact: true,
+          hasNextPage: false,
           page: page ?? 1,
           pageSize: pageSize ?? 0,
           error: null,
@@ -256,7 +328,7 @@ export async function getStudents(filters?: {
       }> | null
     }
 
-    const transformedStudents = (students as unknown as StudentQueryResult[])?.map((student) => ({
+    const transformedStudents: StudentListItem[] = (students as unknown as StudentQueryResult[])?.map((student) => ({
       id: student.id,
       student_code: student.student_code,
       name: student.users?.name || 'Unknown',
@@ -318,6 +390,10 @@ export async function getStudents(filters?: {
       success: true,
       data: studentsWithAttendance,
       totalCount: count ?? studentsWithAttendance.length,
+      totalCountExact: shouldPaginate,
+      hasNextPage: shouldPaginate && page && pageSize
+        ? page * pageSize < (count ?? studentsWithAttendance.length)
+        : false,
       page: page ?? 1,
       pageSize: pageSize ?? studentsWithAttendance.length,
       error: null,
@@ -328,6 +404,8 @@ export async function getStudents(filters?: {
       success: false,
       data: null,
       totalCount: 0,
+      totalCountExact: true,
+      hasNextPage: false,
       page: filters?.page ?? 1,
       pageSize: filters?.pageSize ?? 0,
       error: getErrorMessage(error),
