@@ -54,12 +54,9 @@ async function resolveEducationCategoryCode(provider: { getKakaoChannelCategorie
     /교육|학원|학교|academy|education/i.test(c.name)
   )
   if (education) return education.code
-  // 매칭 실패 시 첫 번째 카테고리 사용 (Solapi가 반드시 1개 이상 반환)
-  if (categories.length > 0) {
-    console.warn('[resolveEducationCategoryCode] 교육 카테고리 매칭 실패, 첫 번째 카테고리 사용:', categories[0])
-    return categories[0].code
-  }
-  throw new ValidationError('카테고리 목록을 조회할 수 없습니다. 잠시 후 다시 시도해주세요.')
+  throw new ValidationError(
+    'Solapi에서 교육/학원 카테고리를 찾지 못했습니다. 잠시 후 다시 시도하거나 Solapi 카테고리 설정을 확인해주세요.'
+  )
 }
 
 const fallbackSettingsSchema = z.object({
@@ -397,7 +394,13 @@ export async function createKakaoChannel(
       const errorMessage = getKakaoActionErrorMessage(lastError)
       if (solapiErrorCode === 'SearchIdInUse' || isSearchIdAlreadyInUseError(solapiErrorCode ?? errorMessage)) {
         try {
-          const existingChannels = await provider.getKakaoChannels()
+          const existingChannels = (
+            await Promise.all(
+              candidates.map((searchId) =>
+                provider.getKakaoChannels({ searchId, limit: 100 }).catch(() => [])
+              )
+            )
+          ).flat()
           const existing = existingChannels.find((ch) =>
             candidates.some((c) => ch.searchId === c || ch.searchId === `@${c}` || `@${ch.searchId}` === c)
           )
