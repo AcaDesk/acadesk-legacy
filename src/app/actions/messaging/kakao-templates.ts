@@ -14,6 +14,7 @@ import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { getSolapiProvider } from '@/lib/messaging/get-solapi-provider'
+import { translateSolapiError } from '@/lib/solapi-error-translator'
 import type {
   KakaoTemplateCategory,
   KakaoTemplateStatus,
@@ -47,10 +48,17 @@ export interface KakaoTemplate {
   status: KakaoTemplateStatus
   rejectionReason: string | null
   securityFlag: boolean
-  /** 공용 템플릿에서 자동 프로비저닝된 경우 NOT NULL — 학원장이 직접 편집/삭제 불가 */
+  /** 공용 템플릿에서 자동 프로비저닝된 경우 NOT NULL. 학원장이 직접 편집/삭제 불가 */
   sharedTemplateId: string | null
   createdAt: string
   updatedAt: string
+}
+
+interface KakaoTemplateActionResult {
+  success: boolean
+  data: KakaoTemplate | null
+  error: string | null
+  warning?: string | null
 }
 
 // ============================================================================
@@ -107,6 +115,10 @@ function mapDbToTemplate(row: any): KakaoTemplate {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
+}
+
+function buildInspectionWarning(error: unknown): string {
+  return `템플릿은 저장되었지만 검수 요청에 실패했습니다. 템플릿 목록에서 다시 검수 요청해주세요. (${translateSolapiError(error)})`
 }
 
 // ============================================================================
@@ -243,11 +255,7 @@ export async function getKakaoTemplate(templateId: string): Promise<{
  */
 export async function createKakaoTemplate(
   input: z.infer<typeof createTemplateSchema>
-): Promise<{
-  success: boolean
-  data: KakaoTemplate | null
-  error: string | null
-}> {
+): Promise<KakaoTemplateActionResult> {
   try {
     const { tenantId } = await verifyStaff()
     const validated = createTemplateSchema.parse(input)
@@ -281,8 +289,9 @@ export async function createKakaoTemplate(
       securityFlag: validated.securityFlag,
     })
 
-    // Save to local DB
-    const { data, error } = await supabase
+    // Save to local DB as the exact Solapi status first. Newly created templates are
+    // normally PENDING until the separate inspection request succeeds.
+    const { data: createdTemplate, error } = await supabase
       .from('kakao_alimtalk_templates')
       .insert({
         tenant_id: tenantId,
@@ -300,19 +309,52 @@ export async function createKakaoTemplate(
         ad_content: validated.adContent,
         security_flag: validated.securityFlag,
         status: solapiResult.status,
-        inspected_at: new Date().toISOString(),
+        ...(solapiResult.status !== 'pending' && {
+          inspected_at: new Date().toISOString(),
+        }),
       })
       .select()
       .single()
 
     if (error) throw error
 
+    let templateRow = createdTemplate
+    let warning: string | null = null
+
+    if (solapiResult.status === 'pending') {
+      try {
+        const inspectionResult = await provider.requestKakaoAlimtalkTemplateInspection(
+          solapiResult.solapiTemplateId
+        )
+        const { data: inspectedTemplate, error: inspectionUpdateError } = await supabase
+          .from('kakao_alimtalk_templates')
+          .update({
+            status: inspectionResult.status,
+            rejection_reason: null,
+            inspected_at: new Date().toISOString(),
+            ...(inspectionResult.status === 'approved' && {
+              approved_at: new Date().toISOString(),
+            }),
+          })
+          .eq('id', createdTemplate.id)
+          .select()
+          .single()
+
+        if (inspectionUpdateError) throw inspectionUpdateError
+        templateRow = inspectedTemplate
+      } catch (inspectionError) {
+        console.warn('[createKakaoTemplate] Inspection request failed:', inspectionError)
+        warning = buildInspectionWarning(inspectionError)
+      }
+    }
+
     revalidatePath('/settings/messaging-integration')
 
     return {
       success: true,
-      data: mapDbToTemplate(data),
+      data: mapDbToTemplate(templateRow),
       error: null,
+      warning,
     }
   } catch (error) {
     console.error('[createKakaoTemplate] Error:', error)
@@ -330,11 +372,7 @@ export async function createKakaoTemplate(
 export async function updateKakaoTemplate(
   templateId: string,
   input: z.infer<typeof updateTemplateSchema>
-): Promise<{
-  success: boolean
-  data: KakaoTemplate | null
-  error: string | null
-}> {
+): Promise<KakaoTemplateActionResult> {
   try {
     const { tenantId } = await verifyStaff()
     const validated = updateTemplateSchema.parse(input)
@@ -355,6 +393,14 @@ export async function updateKakaoTemplate(
     // 공용 템플릿 사본은 학원장이 직접 수정할 수 없다 (요구사항 #5)
     if (existing.shared_template_id) {
       throw new Error('공용 템플릿은 직접 수정할 수 없습니다. 다시 등록(재동기화)을 사용해주세요.')
+    }
+
+    if (existing.status === 'inspecting') {
+      throw new Error('검수 중인 템플릿은 수정할 수 없습니다. 검수를 취소한 뒤 수정해주세요.')
+    }
+
+    if (existing.status === 'approved') {
+      throw new Error('승인된 템플릿은 내용을 수정할 수 없습니다. 새 템플릿으로 등록해주세요.')
     }
 
     // Get provider
@@ -400,9 +446,112 @@ export async function updateKakaoTemplate(
     if (validated.adContent !== undefined) updateData.ad_content = validated.adContent
     if (validated.securityFlag !== undefined) updateData.security_flag = validated.securityFlag
 
-    const { data, error } = await supabase
+    const { data: updatedTemplate, error } = await supabase
       .from('kakao_alimtalk_templates')
       .update(updateData)
+      .eq('id', templateId)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    let templateRow = updatedTemplate
+    let warning: string | null = null
+
+    if (solapiResult.status === 'pending') {
+      try {
+        const inspectionResult = await provider.requestKakaoAlimtalkTemplateInspection(
+          existing.solapi_template_id
+        )
+        const { data: inspectedTemplate, error: inspectionUpdateError } = await supabase
+          .from('kakao_alimtalk_templates')
+          .update({
+            status: inspectionResult.status,
+            rejection_reason: null,
+            inspected_at: new Date().toISOString(),
+            ...(inspectionResult.status === 'approved' && {
+              approved_at: new Date().toISOString(),
+            }),
+          })
+          .eq('id', templateId)
+          .select()
+          .single()
+
+        if (inspectionUpdateError) throw inspectionUpdateError
+        templateRow = inspectedTemplate
+      } catch (inspectionError) {
+        console.warn('[updateKakaoTemplate] Inspection request failed:', inspectionError)
+        warning = buildInspectionWarning(inspectionError)
+      }
+    }
+
+    revalidatePath('/settings/messaging-integration')
+
+    return {
+      success: true,
+      data: mapDbToTemplate(templateRow),
+      error: null,
+      warning,
+    }
+  } catch (error) {
+    console.error('[updateKakaoTemplate] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * Request inspection for an already-created pending template.
+ */
+export async function requestKakaoTemplateInspection(
+  templateId: string,
+  comment?: string
+): Promise<{
+  success: boolean
+  data: KakaoTemplate | null
+  error: string | null
+}> {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    const { data: existing, error: fetchError } = await supabase
+      .from('kakao_alimtalk_templates')
+      .select('*')
+      .eq('id', templateId)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (fetchError) throw fetchError
+    if (!existing) throw new Error('템플릿을 찾을 수 없습니다.')
+    if (existing.status !== 'pending') {
+      throw new Error('대기 상태의 템플릿만 검수를 요청할 수 있습니다.')
+    }
+
+    const provider = await getSolapiProvider(tenantId)
+    if (!provider) {
+      throw new Error('Solapi API 설정을 확인해주세요.')
+    }
+
+    const inspectionResult = await provider.requestKakaoAlimtalkTemplateInspection(
+      existing.solapi_template_id,
+      comment
+    )
+
+    const { data, error } = await supabase
+      .from('kakao_alimtalk_templates')
+      .update({
+        status: inspectionResult.status,
+        rejection_reason: null,
+        inspected_at: new Date().toISOString(),
+        ...(inspectionResult.status === 'approved' && {
+          approved_at: new Date().toISOString(),
+        }),
+      })
       .eq('id', templateId)
       .select()
       .single()
@@ -417,11 +566,76 @@ export async function updateKakaoTemplate(
       error: null,
     }
   } catch (error) {
-    console.error('[updateKakaoTemplate] Error:', error)
+    console.error('[requestKakaoTemplateInspection] Error:', error)
     return {
       success: false,
       data: null,
-      error: getErrorMessage(error),
+      error: error instanceof Error ? error.message : getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * Cancel inspection for an inspecting template so it can be edited again.
+ */
+export async function cancelKakaoTemplateInspection(templateId: string): Promise<{
+  success: boolean
+  data: KakaoTemplate | null
+  error: string | null
+}> {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    const { data: existing, error: fetchError } = await supabase
+      .from('kakao_alimtalk_templates')
+      .select('*')
+      .eq('id', templateId)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (fetchError) throw fetchError
+    if (!existing) throw new Error('템플릿을 찾을 수 없습니다.')
+    if (existing.status !== 'inspecting') {
+      throw new Error('검수 중인 템플릿만 검수를 취소할 수 있습니다.')
+    }
+
+    const provider = await getSolapiProvider(tenantId)
+    if (!provider) {
+      throw new Error('Solapi API 설정을 확인해주세요.')
+    }
+
+    const cancelResult = await provider.cancelKakaoAlimtalkTemplateInspection(
+      existing.solapi_template_id
+    )
+
+    const { data, error } = await supabase
+      .from('kakao_alimtalk_templates')
+      .update({
+        status: cancelResult.status,
+        rejection_reason: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', templateId)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    revalidatePath('/settings/messaging-integration')
+
+    return {
+      success: true,
+      data: mapDbToTemplate(data),
+      error: null,
+    }
+  } catch (error) {
+    console.error('[cancelKakaoTemplateInspection] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: error instanceof Error ? error.message : getErrorMessage(error),
     }
   }
 }
