@@ -95,3 +95,112 @@ describe('SolapiProvider.sendAlimtalk', () => {
     )
   })
 })
+
+describe('SolapiProvider Kakao template management', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  it('uses the Solapi emphasizeSubTitle field when creating a TEXT-emphasis template', async () => {
+    const provider = new SolapiProvider({
+      apiKey: 'test-key',
+      apiSecret: 'test-secret',
+      senderPhone: '01012345678',
+    })
+    const createKakaoAlimtalkTemplate = vi.fn().mockResolvedValue({
+      templateId: 'template-1',
+      status: 'PENDING',
+    })
+
+    ;(provider as unknown as {
+      messageService: { createKakaoAlimtalkTemplate: typeof createKakaoAlimtalkTemplate }
+    }).messageService = { createKakaoAlimtalkTemplate }
+
+    await provider.createKakaoAlimtalkTemplate({
+      channelId: 'channel-1',
+      name: '학습 리포트',
+      content: '#{학생명} 리포트',
+      categoryCode: '006001',
+      emphasizeType: 'TEXT',
+      emphasizeTitle: '리포트',
+      emphasizeSubtitle: '도착',
+    })
+
+    expect(createKakaoAlimtalkTemplate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emphasizeTitle: '리포트',
+        emphasizeSubTitle: '도착',
+      })
+    )
+  })
+
+  it('uses the Solapi emphasizeSubTitle field when updating a TEXT-emphasis template', async () => {
+    const provider = new SolapiProvider({
+      apiKey: 'test-key',
+      apiSecret: 'test-secret',
+      senderPhone: '01012345678',
+    })
+    const updateKakaoAlimtalkTemplate = vi.fn().mockResolvedValue({
+      status: 'PENDING',
+    })
+
+    ;(provider as unknown as {
+      messageService: { updateKakaoAlimtalkTemplate: typeof updateKakaoAlimtalkTemplate }
+    }).messageService = { updateKakaoAlimtalkTemplate }
+
+    await provider.updateKakaoAlimtalkTemplate('template-1', {
+      emphasizeType: 'TEXT',
+      emphasizeTitle: '리포트',
+      emphasizeSubtitle: '수정',
+    })
+
+    expect(updateKakaoAlimtalkTemplate).toHaveBeenCalledWith(
+      'template-1',
+      expect.objectContaining({
+        emphasizeTitle: '리포트',
+        emphasizeSubTitle: '수정',
+      })
+    )
+  })
+
+  it('falls back to the official inspection REST API when the SDK method is unavailable', async () => {
+    const provider = new SolapiProvider({
+      apiKey: 'test-key',
+      apiSecret: 'test-secret',
+      senderPhone: '01012345678',
+    })
+
+    ;(provider as unknown as { messageService: object }).messageService = {}
+
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ status: 'INSPECTING' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await provider.requestKakaoAlimtalkTemplateInspection(
+      'template-1',
+      '빠른 검수 부탁드립니다.'
+    )
+
+    expect(result.status).toBe('inspecting')
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.solapi.com/kakao/v2/templates/template-1/inspection',
+      expect.objectContaining({
+        method: 'PUT',
+        headers: expect.objectContaining({
+          Authorization: expect.stringContaining('HMAC-SHA256 apiKey=test-key'),
+          'Content-Type': 'application/json',
+        }),
+        body: JSON.stringify({ comment: '빠른 검수 부탁드립니다.' }),
+      })
+    )
+  })
+})
