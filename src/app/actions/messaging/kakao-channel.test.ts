@@ -220,7 +220,14 @@ describe('kakao-channel server actions', () => {
 
       expect(result.success).toBe(true)
       expect(result.data).toEqual(existingChannel)
-      expect(mockProvider.getKakaoChannels).toHaveBeenCalledTimes(1)
+      expect(mockProvider.getKakaoChannels).toHaveBeenCalledWith({
+        searchId: '@validchannel',
+        limit: 100,
+      })
+      expect(mockProvider.getKakaoChannels).toHaveBeenCalledWith({
+        searchId: 'validchannel',
+        limit: 100,
+      })
       expect(supabase.messagingUpdateMock).toHaveBeenCalledWith(
         expect.objectContaining({
           kakao_channel_id: 'existing-channel-id',
