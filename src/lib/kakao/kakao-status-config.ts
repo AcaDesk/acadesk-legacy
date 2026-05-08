@@ -41,7 +41,7 @@ export type ChannelStatusConfig = {
 }
 
 export const kakaoChannelStatusConfig: Record<ChannelStatus, ChannelStatusConfig> = {
-  active: { label: '활성', variant: 'default', icon: Check },
+  active: { label: '연동됨', variant: 'default', icon: Check },
   pending: { label: '대기', variant: 'secondary', icon: Settings2 },
   suspended: { label: '중지', variant: 'destructive', icon: X },
 }
