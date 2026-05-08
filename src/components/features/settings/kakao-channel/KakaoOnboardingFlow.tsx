@@ -30,7 +30,7 @@ const STATUS_META: Record<
   { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; Icon: typeof Clock }
 > = {
   not_started: { label: '미등록', variant: 'outline', Icon: Clock },
-  provisioning: { label: '등록 중', variant: 'secondary', Icon: Loader2 },
+  provisioning: { label: '준비 중', variant: 'secondary', Icon: Loader2 },
   inspecting: { label: '검수 중', variant: 'secondary', Icon: Clock },
   approved: { label: '승인', variant: 'default', Icon: CheckCircle2 },
   rejected: { label: '반려', variant: 'destructive', Icon: XCircle },
@@ -93,16 +93,14 @@ export function KakaoOnboardingFlow({ hasKakaoChannel }: KakaoOnboardingFlowProp
 
   return (
     <div className="space-y-4">
-      {/* STEP 3: 공용 템플릿 자동 등록 */}
+      {/* 공용 템플릿 자동 등록 */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">3</span>
-            공용 템플릿 자동 등록
+            공용 이벤트 템플릿
           </CardTitle>
           <CardDescription>
-            아카데스크가 제공하는 공통 템플릿을 학원의 솔라피 계정으로 일괄 등록하고 카카오 검수를 요청합니다.
-            템플릿 문구는 SaaS가 관리하며 직접 수정할 수 없습니다.
+            출석, 과제, 리포트 같은 운영 이벤트에 쓰는 기본 템플릿입니다. 등록 후 카카오 검수를 통과해야 자동 발송됩니다.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -140,28 +138,27 @@ export function KakaoOnboardingFlow({ hasKakaoChannel }: KakaoOnboardingFlowProp
               disabled={!hasKakaoChannel || provisionAllMutation.isPending}
             >
               {provisionAllMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {anyRegistered ? '미등록/실패 템플릿 일괄 등록' : '템플릿 자동 등록 및 심사 요청'}
+              {anyRegistered ? '미등록/실패 템플릿 다시 등록' : '공용 템플릿 등록 및 검수 요청'}
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* STEP 4: 검수 진행 상태 */}
+      {/* 검수 진행 상태 */}
       {anyRegistered && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">4</span>
-              심사 진행 상태
+              검수 진행 상태
             </CardTitle>
             <CardDescription>
-              검수 결과는 자동으로 새로고침됩니다 (1분 간격). 통상 1~2 영업일 소요됩니다.
+              결과 반영까지 보통 1~2영업일이 걸립니다. 필요할 때 바로 새로고침할 수 있습니다.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-wrap gap-3 text-sm">
               <SummaryPill label="승인" value={approvedCount} tone="success" />
-              <SummaryPill label="검수 중" value={inspectingCount} tone="info" />
+              <SummaryPill label="진행 중" value={inspectingCount} tone="info" />
               <SummaryPill label="반려/실패" value={failedCount} tone="destructive" />
             </div>
 
@@ -175,7 +172,7 @@ export function KakaoOnboardingFlow({ hasKakaoChannel }: KakaoOnboardingFlowProp
                       <li key={s.eventType} className="flex flex-wrap items-start gap-2">
                         <span className="font-medium">{s.sharedTemplate.name}</span>
                         {s.rejectionReason && (
-                          <span className="text-xs text-muted-foreground">— {s.rejectionReason}</span>
+                          <span className="text-xs text-muted-foreground">- {s.rejectionReason}</span>
                         )}
                         <Button
                           size="sm"
@@ -208,12 +205,11 @@ export function KakaoOnboardingFlow({ hasKakaoChannel }: KakaoOnboardingFlowProp
         </Card>
       )}
 
-      {/* STEP 5: 연동 완료 + 테스트 발송 */}
+      {/* 연동 완료 + 테스트 발송 */}
       {anyRegistered && (
         <Card className={allDone ? 'border-success/30 bg-success/5' : undefined}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">5</span>
               {allDone ? '연동 완료' : '발송 준비'}
             </CardTitle>
             <CardDescription>
