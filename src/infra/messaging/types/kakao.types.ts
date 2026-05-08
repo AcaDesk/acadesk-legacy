@@ -21,8 +21,14 @@ export interface KakaoChannel {
   channelId: string
   /** 카카오톡 채널 검색 ID (@xxx) */
   searchId: string
-  /** 채널 이름 */
+  /** 채널 이름 (Solapi 채널 응답에는 별도 이름이 없을 수 있음) */
   name: string
+  /** 솔라피 계정 고유번호 */
+  accountId?: string
+  /** 카카오 비즈니스 채널 담당자 휴대전화 번호 */
+  phoneNumber?: string
+  /** 공유된 솔라피 계정 고유번호 목록 */
+  sharedAccountIds?: string[]
   /** 채널 상태 */
   status: KakaoChannelStatus
   /** 채널 카테고리 코드 */
@@ -31,6 +37,8 @@ export interface KakaoChannel {
   verifiedAt?: Date
   /** 생성 시간 */
   dateCreated?: Date
+  /** 수정 시간 */
+  dateUpdated?: Date
 }
 
 /**

@@ -5,6 +5,7 @@
  * @see https://developers.solapi.com/sdk-list/Node.js
  */
 
+import { createHmac, randomBytes } from 'node:crypto'
 import { SolapiMessageService } from 'solapi'
 import {
   type IMessageProvider,
@@ -34,6 +35,20 @@ interface SolapiConfig {
   apiKey: string
   apiSecret: string
   senderPhone: string
+}
+
+type SolapiHttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE'
+
+interface KakaoChannelFilters {
+  channelId?: string
+  searchId?: string
+  phoneNumber?: string
+  categoryCode?: string
+  startKey?: string
+  limit?: number
+  isMine?: boolean
+  startDate?: Date | string
+  endDate?: Date | string
 }
 
 export class SolapiProvider implements IMessageProvider {
@@ -399,11 +414,15 @@ export class SolapiProvider implements IMessageProvider {
 
       return {
         channelId: result.channelId,
-        searchId: data.searchId,
-        name: data.searchId, // createKakaoChannel response doesn't include name
+        searchId: result.searchId ?? data.searchId,
+        name: result.searchId ?? data.searchId, // Solapi response does not include a channel display name
+        accountId: result.accountId,
+        phoneNumber: result.phoneNumber,
         status: 'active',
         categoryCode: data.categoryCode,
-        verifiedAt: new Date(),
+        verifiedAt: result.dateCreated ? new Date(result.dateCreated) : new Date(),
+        dateCreated: result.dateCreated ? new Date(result.dateCreated) : undefined,
+        dateUpdated: result.dateUpdated ? new Date(result.dateUpdated) : undefined,
       }
     } catch (error) {
       console.error('[SolapiProvider.createKakaoChannel] Error:', error)
@@ -414,24 +433,39 @@ export class SolapiProvider implements IMessageProvider {
   /**
    * 등록된 카카오 채널 목록 조회
    */
-  async getKakaoChannels(): Promise<KakaoChannel[]> {
+  async getKakaoChannels(filters?: KakaoChannelFilters): Promise<KakaoChannel[]> {
     try {
       if (process.env.NODE_ENV === 'development') {
         return []
       }
 
-      const response = await this.messageService.getKakaoChannels()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (response.channelList || []).map((ch: any) => ({
-        channelId: ch.channelId,
-        searchId: ch.searchId,
-        name: ch.name,
-        status: (ch.status?.toLowerCase() || 'active') as 'pending' | 'active' | 'suspended',
-        categoryCode: ch.categoryCode,
-        verifiedAt: ch.dateCreated ? new Date(ch.dateCreated) : undefined,
-      }))
+      const response = await this.messageService.getKakaoChannels(filters)
+      return (response.channelList || []).map((ch) => this.mapKakaoChannel(ch, filters?.categoryCode))
     } catch (error) {
       console.error('[SolapiProvider.getKakaoChannels] Error:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 등록된 카카오 채널 단건 조회
+   */
+  async getKakaoChannel(channelId: string): Promise<KakaoChannel> {
+    try {
+      if (process.env.NODE_ENV === 'development') {
+        return {
+          channelId,
+          searchId: '@test',
+          name: '@test',
+          status: 'active',
+          verifiedAt: new Date(),
+        }
+      }
+
+      const channel = await this.messageService.getKakaoChannel(channelId)
+      return this.mapKakaoChannel(channel)
+    } catch (error) {
+      console.error('[SolapiProvider.getKakaoChannel] Error:', error)
       throw error
     }
   }
@@ -496,7 +530,7 @@ export class SolapiProvider implements IMessageProvider {
         console.log('[SolapiProvider TEST MODE] createKakaoAlimtalkTemplate:', data)
         return {
           solapiTemplateId: `TEST_TPL_${Date.now()}`,
-          status: 'inspecting',
+          status: 'pending',
         }
       }
 
@@ -655,7 +689,7 @@ export class SolapiProvider implements IMessageProvider {
       if (data.messageType) updateData.messageType = data.messageType
       if (data.emphasizeType) updateData.emphasizeType = data.emphasizeType
       if (data.emphasizeTitle) updateData.emphasizeTitle = data.emphasizeTitle
-      if (data.emphasizeSubtitle) updateData.emphasizeSubtitle = data.emphasizeSubtitle
+      if (data.emphasizeSubtitle) updateData.emphasizeSubTitle = data.emphasizeSubtitle
       if (data.buttons) updateData.buttons = data.buttons
       if (data.quickReplies) updateData.quickReplies = data.quickReplies
       if (data.extraContent) updateData.extra = data.extraContent
@@ -686,6 +720,75 @@ export class SolapiProvider implements IMessageProvider {
       await this.messageService.removeKakaoAlimtalkTemplate(templateId)
     } catch (error) {
       console.error('[SolapiProvider.deleteKakaoAlimtalkTemplate] Error:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 알림톡 템플릿 검수 요청
+   *
+   * solapi@5.5.2에는 SDK 래퍼가 아직 노출되어 있지 않아, 있으면 SDK를 쓰고
+   * 없으면 공식 REST API(PUT /kakao/v2/templates/:templateId/inspection)를 직접 호출합니다.
+   */
+  async requestKakaoAlimtalkTemplateInspection(
+    templateId: string,
+    comment?: string
+  ): Promise<{ status: KakaoTemplateStatus }> {
+    try {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[SolapiProvider TEST MODE] requestKakaoAlimtalkTemplateInspection:', {
+          templateId,
+          comment,
+        })
+        return { status: 'inspecting' }
+      }
+
+      const service = this.messageService as unknown as {
+        requestInspectionKakaoAlimtalkTemplate?: (
+          templateId: string,
+          data?: { comment?: string }
+        ) => Promise<{ status: string }>
+      }
+
+      const result = service.requestInspectionKakaoAlimtalkTemplate
+        ? await service.requestInspectionKakaoAlimtalkTemplate(
+            templateId,
+            comment ? { comment } : undefined
+          )
+        : await this.requestSolapi<{ status: string }>(
+            'PUT',
+            `kakao/v2/templates/${templateId}/inspection`,
+            comment ? { comment } : undefined
+          )
+
+      return {
+        status: this.mapTemplateStatus(result.status),
+      }
+    } catch (error) {
+      console.error('[SolapiProvider.requestKakaoAlimtalkTemplateInspection] Error:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 알림톡 템플릿 검수 취소
+   */
+  async cancelKakaoAlimtalkTemplateInspection(
+    templateId: string
+  ): Promise<{ status: KakaoTemplateStatus }> {
+    try {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[SolapiProvider TEST MODE] cancelKakaoAlimtalkTemplateInspection:', templateId)
+        return { status: 'pending' }
+      }
+
+      const result = await this.messageService.cancelInspectionKakaoAlimtalkTemplate(templateId)
+
+      return {
+        status: this.mapTemplateStatus(result.status),
+      }
+    } catch (error) {
+      console.error('[SolapiProvider.cancelKakaoAlimtalkTemplateInspection] Error:', error)
       throw error
     }
   }
@@ -837,6 +940,83 @@ export class SolapiProvider implements IMessageProvider {
   // ============================================================================
   // Helper Methods
   // ============================================================================
+
+  /**
+   * Solapi HMAC 인증 헤더 생성
+   */
+  private createAuthorizationHeader(): string {
+    const salt = randomBytes(16).toString('hex')
+    const date = new Date().toISOString()
+    const signature = createHmac('sha256', this.config.apiSecret)
+      .update(date + salt)
+      .digest('hex')
+
+    return `HMAC-SHA256 apiKey=${this.config.apiKey}, date=${date}, salt=${salt}, signature=${signature}`
+  }
+
+  /**
+   * SDK에 아직 없는 Solapi API를 호출하기 위한 최소 REST 클라이언트
+   */
+  private async requestSolapi<T>(
+    method: SolapiHttpMethod,
+    path: string,
+    body?: Record<string, unknown>
+  ): Promise<T> {
+    const response = await fetch(`https://api.solapi.com/${path}`, {
+      method,
+      headers: {
+        Authorization: this.createAuthorizationHeader(),
+        'Content-Type': 'application/json',
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    })
+
+    const text = await response.text()
+    const payload = text ? JSON.parse(text) as Record<string, unknown> : {}
+
+    if (!response.ok) {
+      const errorCode = typeof payload.errorCode === 'string' ? payload.errorCode : 'SolapiApiError'
+      const errorMessage = typeof payload.errorMessage === 'string'
+        ? payload.errorMessage
+        : response.statusText
+      const error = new Error(`${errorCode}: ${errorMessage}`)
+      Object.defineProperties(error, {
+        errorCode: { value: errorCode, enumerable: true },
+        errorMessage: { value: errorMessage, enumerable: true },
+        httpStatus: { value: response.status, enumerable: true },
+      })
+      throw error
+    }
+
+    return payload as T
+  }
+
+  private mapKakaoChannel(
+    channel: {
+      channelId: string
+      searchId: string
+      accountId?: string
+      phoneNumber?: string
+      sharedAccountIds?: string[]
+      dateCreated?: Date | string
+      dateUpdated?: Date | string
+    },
+    categoryCode?: string
+  ): KakaoChannel {
+    return {
+      channelId: channel.channelId,
+      searchId: channel.searchId,
+      name: channel.searchId,
+      accountId: channel.accountId,
+      phoneNumber: channel.phoneNumber,
+      sharedAccountIds: channel.sharedAccountIds,
+      status: 'active',
+      categoryCode,
+      verifiedAt: channel.dateCreated ? new Date(channel.dateCreated) : undefined,
+      dateCreated: channel.dateCreated ? new Date(channel.dateCreated) : undefined,
+      dateUpdated: channel.dateUpdated ? new Date(channel.dateUpdated) : undefined,
+    }
+  }
 
   /**
    * 솔라피 템플릿 상태를 내부 상태로 매핑
