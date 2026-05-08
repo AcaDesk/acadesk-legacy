@@ -1,7 +1,7 @@
 /**
  * Event Subscription Server Actions
  *
- * 학원별 이벤트 알림톡 ���독 관리
+ * 학원별 이벤트 알림톡 구독 관리
  * - 이벤트 구독 조회/토글
  * - 공용 템플릿 → 학원 솔라피 계정 자동 프로비저닝
  * - 카카오 검수 상태 폴링
@@ -161,7 +161,7 @@ export async function toggleEventSubscription(
 
     // 활성화 시 승인 상태 확인
     if (enabled && sub.provisioning_status !== 'approved') {
-      throw new ValidationError('카카오 검수가 완료된 템플릿만 활성화할 수 ��습니다.')
+      throw new ValidationError('카카오 검수가 완료된 템플릿만 활성화할 수 있습니다.')
     }
 
     const { error: updateError } = await supabase
@@ -184,7 +184,7 @@ export async function toggleEventSubscription(
 }
 
 // ============================================================================
-// Server Actions - 템플릿 프로���저닝
+// Server Actions - 템플릿 프로비저닝
 // ============================================================================
 
 /**
@@ -193,7 +193,8 @@ export async function toggleEventSubscription(
  * 1. 공용 템플릿 내용 가져오기
  * 2. 학원 솔라피 Provider로 createKakaoAlimtalkTemplate() 호출
  * 3. kakao_alimtalk_templates에 INSERT
- * 4. tenant_event_subscriptions UPSERT (provisioning_status = 'inspecting')
+ * 4. 템플릿 검수 요청 API 호출
+ * 5. tenant_event_subscriptions 상태 업데이트
  */
 export async function provisionTemplate(eventType: string): Promise<{
   success: boolean
@@ -218,7 +219,7 @@ export async function provisionTemplate(eventType: string): Promise<{
     // 2. 학원 솔라피 Provider + 채널 ID 조회
     const provider = await getSolapiProvider(tenantId)
     if (!provider) {
-      throw new ValidationError('먼저 Solapi API 설정을 완료해주���요.')
+      throw new ValidationError('먼저 Solapi API 설정을 완료해주세요.')
     }
 
     const { data: config, error: configError } = await supabase
@@ -346,12 +347,47 @@ export async function provisionTemplate(eventType: string): Promise<{
 
     if (kakaoError) throw kakaoError
 
-    // 6. 구독 레코드에 kakao_template_id 연결 + 상태 업데이트
+    // 6. 카카오 검수 요청
+    let finalStatus = solapiResult.status || 'pending'
+    if (finalStatus === 'pending') {
+      try {
+        const inspectionResult = await provider.requestKakaoAlimtalkTemplateInspection(
+          solapiResult.solapiTemplateId
+        )
+        finalStatus = inspectionResult.status
+
+        await supabase
+          .from('kakao_alimtalk_templates')
+          .update({
+            status: finalStatus,
+            inspected_at: new Date().toISOString(),
+            rejection_reason: null,
+            ...(finalStatus === 'approved' ? { approved_at: new Date().toISOString() } : {}),
+          })
+          .eq('id', kakaoTemplate.id)
+      } catch (inspectionError) {
+        await supabase
+          .from('tenant_event_subscriptions')
+          .update({
+            kakao_template_id: kakaoTemplate.id,
+            provisioning_status: 'failed',
+            rejection_reason: translateSolapiError(inspectionError),
+          })
+          .eq('id', subId)
+
+        console.error('[provisionTemplate] Inspection request error:', inspectionError)
+        throw new ValidationError(
+          `템플릿은 등록되었지만 검수 요청에 실패했습니다. ${translateSolapiError(inspectionError)}`
+        )
+      }
+    }
+
+    // 7. 구독 레코드에 kakao_template_id 연결 + 상태 업데이트
     const { error: linkError } = await supabase
       .from('tenant_event_subscriptions')
       .update({
         kakao_template_id: kakaoTemplate.id,
-        provisioning_status: solapiResult.status === 'approved' ? 'approved' : 'inspecting',
+        provisioning_status: finalStatus === 'approved' ? 'approved' : 'inspecting',
       })
       .eq('id', subId)
 
@@ -412,7 +448,7 @@ export async function refreshSubscriptionStatus(eventType: string): Promise<{
     // 솔라피에서 최신 상태 조회
     const provider = await getSolapiProvider(tenantId)
     if (!provider) {
-      throw new ValidationError('Solapi 설정을 찾을 수 없습니���.')
+      throw new ValidationError('Solapi 설정을 찾을 수 없습니다.')
     }
 
     const solapiTemplate = await provider.getKakaoAlimtalkTemplate(
@@ -421,7 +457,7 @@ export async function refreshSubscriptionStatus(eventType: string): Promise<{
 
     // 상태 매핑
     const statusMap: Record<string, ProvisioningStatus> = {
-      pending: 'inspecting',
+      pending: 'provisioning',
       inspecting: 'inspecting',
       approved: 'approved',
       rejected: 'rejected',
@@ -495,7 +531,7 @@ export interface BulkProvisionResult {
  * 활성 공용 템플릿을 학원 솔라피 계정에 일괄 등록
  *
  * - 학원장이 "활성화" 한 번으로 5개+ 템플릿 자동 등록 + 심사 요청
- * - 개별 실패는 catch — 한 템플릿 실패가 다른 템플릿 등록을 막지 않는다 (요구사항 #14)
+ * - 개별 실패는 catch. 한 템플릿 실패가 다른 템플릿 등록을 막지 않는다 (요구사항 #14)
  * - 이미 등록되어 inspecting/approved 상태인 템플릿은 건너뛴다 (중복 등록 방지)
  */
 export async function provisionAllSharedTemplates(): Promise<{
@@ -531,7 +567,7 @@ export async function provisionAllSharedTemplates(): Promise<{
 
     const results: BulkProvisionResult[] = []
 
-    // 순차 실행 — 외부 API rate limit 회피 + 결과 순서 보장
+    // 순차 실행. 외부 API rate limit 회피 + 결과 순서 보장
     for (const tpl of sharedTemplates) {
       const existing = existingMap.get(tpl.event_type)
 
