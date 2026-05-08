@@ -135,31 +135,30 @@ export async function getStudents(filters?: {
         p_offset: offset,
       })
 
-      if (searchError) {
-        console.error('[getStudents] Search RPC error:', searchError.message)
-        throw new Error('학생 검색에 실패했습니다')
+      if (!searchError) {
+        interface StudentSearchRpcRow {
+          student: StudentListItem
+        }
+
+        const searchRows = (rows || []) as StudentSearchRpcRow[]
+        const hasNextPage = searchRows.length > boundedPageSize
+        const students = searchRows
+          .slice(0, boundedPageSize)
+          .map((row) => row.student as StudentListItem)
+
+        return {
+          success: true,
+          data: students,
+          totalCount: offset + students.length,
+          totalCountExact: false,
+          hasNextPage,
+          page,
+          pageSize: boundedPageSize,
+          error: null,
+        }
       }
 
-      interface StudentSearchRpcRow {
-        student: StudentListItem
-      }
-
-      const searchRows = (rows || []) as StudentSearchRpcRow[]
-      const hasNextPage = searchRows.length > boundedPageSize
-      const students = searchRows
-        .slice(0, boundedPageSize)
-        .map((row) => row.student as StudentListItem)
-
-      return {
-        success: true,
-        data: students,
-        totalCount: offset + students.length,
-        totalCountExact: false,
-        hasNextPage,
-        page,
-        pageSize: boundedPageSize,
-        error: null,
-      }
+      console.warn('[getStudents] Search RPC error, falling back to standard query:', searchError.message)
     }
 
     let classFilteredStudentIds: string[] | null = null
