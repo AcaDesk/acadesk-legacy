@@ -20,13 +20,27 @@ import {
   DropdownMenuTrigger,
 } from '@ui/dropdown-menu'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
-import { Plus, MoreHorizontal, FileText, RefreshCw, Trash2, Edit, Loader2 } from 'lucide-react'
+import { Alert, AlertDescription } from '@ui/alert'
+import {
+  Plus,
+  MoreHorizontal,
+  FileText,
+  RefreshCw,
+  Trash2,
+  Edit,
+  Loader2,
+  Send,
+  XCircle,
+  Info,
+} from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import {
   getKakaoTemplates,
   deleteKakaoTemplate,
   syncKakaoTemplates,
   refreshTemplateStatus,
+  requestKakaoTemplateInspection,
+  cancelKakaoTemplateInspection,
   type KakaoTemplate,
 } from '@/app/actions/messaging/kakao-templates'
 import {
@@ -64,6 +78,7 @@ export function KakaoTemplateList({
   const [isLoading, setIsLoading] = useState(true)
   const [isSyncing, setIsSyncing] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [actionTemplateId, setActionTemplateId] = useState<string | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [templateToDelete, setTemplateToDelete] = useState<KakaoTemplate | null>(null)
 
@@ -118,6 +133,7 @@ export function KakaoTemplateList({
   }
 
   async function handleRefreshStatus(template: KakaoTemplate) {
+    setActionTemplateId(template.id)
     try {
       const result = await refreshTemplateStatus(template.id)
 
@@ -126,9 +142,11 @@ export function KakaoTemplateList({
       }
 
       if (result.data) {
-        setTemplates((prev) =>
-          prev.map((t) => (t.id === template.id ? result.data! : t))
-        )
+        setTemplates((prev) => {
+          const updated = prev.map((t) => (t.id === template.id ? result.data! : t))
+          onTemplatesLoaded?.(buildTemplateSummary(updated))
+          return updated
+        })
       }
 
       toast({
@@ -141,6 +159,72 @@ export function KakaoTemplateList({
         description: error instanceof Error ? error.message : '알 수 없는 오류',
         variant: 'destructive',
       })
+    } finally {
+      setActionTemplateId(null)
+    }
+  }
+
+  async function handleRequestInspection(template: KakaoTemplate) {
+    setActionTemplateId(template.id)
+    try {
+      const result = await requestKakaoTemplateInspection(template.id)
+
+      if (!result.success) {
+        throw new Error(result.error || '검수 요청 실패')
+      }
+
+      if (result.data) {
+        setTemplates((prev) => {
+          const updated = prev.map((t) => (t.id === template.id ? result.data! : t))
+          onTemplatesLoaded?.(buildTemplateSummary(updated))
+          return updated
+        })
+      }
+
+      toast({
+        title: '검수 요청 완료',
+        description: '카카오 검수가 시작되었습니다.',
+      })
+    } catch (error) {
+      toast({
+        title: '검수 요청 실패',
+        description: error instanceof Error ? error.message : '알 수 없는 오류',
+        variant: 'destructive',
+      })
+    } finally {
+      setActionTemplateId(null)
+    }
+  }
+
+  async function handleCancelInspection(template: KakaoTemplate) {
+    setActionTemplateId(template.id)
+    try {
+      const result = await cancelKakaoTemplateInspection(template.id)
+
+      if (!result.success) {
+        throw new Error(result.error || '검수 취소 실패')
+      }
+
+      if (result.data) {
+        setTemplates((prev) => {
+          const updated = prev.map((t) => (t.id === template.id ? result.data! : t))
+          onTemplatesLoaded?.(buildTemplateSummary(updated))
+          return updated
+        })
+      }
+
+      toast({
+        title: '검수 취소 완료',
+        description: '템플릿을 다시 수정할 수 있습니다.',
+      })
+    } catch (error) {
+      toast({
+        title: '검수 취소 실패',
+        description: error instanceof Error ? error.message : '알 수 없는 오류',
+        variant: 'destructive',
+      })
+    } finally {
+      setActionTemplateId(null)
     }
   }
 
@@ -209,7 +293,7 @@ export function KakaoTemplateList({
             <div>
               <CardTitle className="text-lg">알림톡 템플릿</CardTitle>
               <CardDescription>
-                등록된 알림톡 템플릿을 관리합니다 (승인된 템플릿만 발송 가능)
+                승인된 템플릿만 실제 발송에 사용할 수 있습니다
               </CardDescription>
             </div>
             <div className="flex gap-2">
@@ -223,7 +307,7 @@ export function KakaoTemplateList({
               </Button>
               <Button size="sm" onClick={onCreateTemplate}>
                 <Plus className="h-4 w-4 mr-2" />
-                템플릿 추가
+                새 템플릿
               </Button>
             </div>
           </div>
@@ -237,73 +321,104 @@ export function KakaoTemplateList({
             <EmptyState
               icon={FileText}
               title="등록된 템플릿이 없습니다"
-              description="알림톡을 발송하려면 먼저 템플릿을 등록해주세요."
+              description="템플릿을 저장하면 카카오 검수를 요청합니다. 승인된 뒤 발송할 수 있습니다."
               action={
                 <Button onClick={onCreateTemplate}>
                   <Plus className="h-4 w-4 mr-2" />
-                  템플릿 추가
+                  새 템플릿
                 </Button>
               }
             />
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>템플릿 이름</TableHead>
-                  <TableHead>유형</TableHead>
-                  <TableHead>상태</TableHead>
-                  <TableHead>등록일</TableHead>
-                  <TableHead className="w-[50px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {templates.map((template) => {
-                  const status = kakaoTemplateStatusConfig[template.status]
-                  const StatusIcon = status.icon
-                  return (
-                    <TableRow key={template.id}>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{template.name}</p>
-                          <p className="text-xs text-muted-foreground truncate max-w-[300px]">
-                            {template.content.substring(0, 50)}
-                            {template.content.length > 50 && '...'}
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {kakaoMessageTypeLabels[template.messageType]}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
-                          <Badge variant={status.variant} className="w-fit gap-1">
-                            <StatusIcon className="h-3 w-3" />
-                            {status.label}
+            <div className="flex flex-col gap-4">
+              {templates.some((template) => template.status === 'pending') && (
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertDescription>
+                    대기 상태 템플릿은 아직 검수가 시작되지 않았습니다. 검수 요청을 눌러 카카오 심사를 시작하세요.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>템플릿 이름</TableHead>
+                    <TableHead>유형</TableHead>
+                    <TableHead>상태</TableHead>
+                    <TableHead>등록일</TableHead>
+                    <TableHead className="w-[50px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {templates.map((template) => {
+                    const status = kakaoTemplateStatusConfig[template.status]
+                    const StatusIcon = status.icon
+                    const isBusy = actionTemplateId === template.id
+                    const canEdit = (template.status === 'pending' || template.status === 'rejected') &&
+                      !template.sharedTemplateId
+                    return (
+                      <TableRow key={template.id}>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">{template.name}</p>
+                            <p className="text-xs text-muted-foreground truncate max-w-[300px]">
+                              {template.content.substring(0, 50)}
+                              {template.content.length > 50 && '...'}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {kakaoMessageTypeLabels[template.messageType]}
                           </Badge>
-                          {template.status === 'rejected' && template.rejectionReason && (
-                            <p className="text-xs text-destructive">{template.rejectionReason}</p>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {new Date(template.createdAt).toLocaleDateString('ko-KR')}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleRefreshStatus(template)}>
-                              <RefreshCw className="h-4 w-4 mr-2" />
-                              상태 갱신
-                            </DropdownMenuItem>
-                            {(template.status === 'pending' || template.status === 'rejected') &&
-                              !template.sharedTemplateId && (
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            <Badge variant={status.variant} className="w-fit gap-1">
+                              <StatusIcon className="h-3 w-3" />
+                              {status.label}
+                            </Badge>
+                            {template.status === 'pending' && (
+                              <p className="text-xs text-muted-foreground">검수 요청 필요</p>
+                            )}
+                            {template.status === 'rejected' && template.rejectionReason && (
+                              <p className="text-xs text-destructive">{template.rejectionReason}</p>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {new Date(template.createdAt).toLocaleDateString('ko-KR')}
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" disabled={isBusy}>
+                                {isBusy ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <MoreHorizontal className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleRefreshStatus(template)}>
+                                <RefreshCw className="h-4 w-4 mr-2" />
+                                상태 갱신
+                              </DropdownMenuItem>
+                              {template.status === 'pending' && (
+                                <DropdownMenuItem onClick={() => handleRequestInspection(template)}>
+                                  <Send className="h-4 w-4 mr-2" />
+                                  검수 요청
+                                </DropdownMenuItem>
+                              )}
+                              {template.status === 'inspecting' && !template.sharedTemplateId && (
+                                <DropdownMenuItem onClick={() => handleCancelInspection(template)}>
+                                  <XCircle className="h-4 w-4 mr-2" />
+                                  검수 취소
+                                </DropdownMenuItem>
+                              )}
+                              {canEdit && (
                                 <>
                                   <DropdownMenuItem onClick={() => onEditTemplate?.(template)}>
                                     <Edit className="h-4 w-4 mr-2" />
@@ -318,19 +433,20 @@ export function KakaoTemplateList({
                                   </DropdownMenuItem>
                                 </>
                               )}
-                            {template.sharedTemplateId && (
-                              <DropdownMenuItem disabled>
-                                공용 템플릿 (편집 불가)
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
+                              {template.sharedTemplateId && (
+                                <DropdownMenuItem disabled>
+                                  공용 템플릿
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

@@ -37,7 +37,6 @@ import {
 import {
   kakaoTemplateFormSchema,
 } from '@/lib/kakao/kakao-validation'
-import { kakaoMessageTypeLabels } from '@/lib/kakao/kakao-status-config'
 import type { KakaoTemplateCategory } from '@/infra/messaging/types/kakao.types'
 
 interface KakaoTemplateFormProps {
@@ -177,9 +176,12 @@ export function KakaoTemplateForm({
 
       toast({
         title: isEditing ? '템플릿 수정 완료' : '템플릿 등록 완료',
-        description: isEditing
-          ? '템플릿이 수정되어 재검수 요청되었습니다.'
-          : '템플릿이 등록되어 검수 요청되었습니다. 승인 후 발송 가능합니다.',
+        description: result.warning || (
+          isEditing
+            ? '템플릿이 수정되었고 검수 요청이 시작되었습니다.'
+            : '템플릿이 등록되었고 검수 요청이 시작되었습니다. 승인 후 발송 가능합니다.'
+        ),
+        variant: result.warning ? 'destructive' : undefined,
       })
 
       onOpenChange(false)
@@ -210,8 +212,8 @@ export function KakaoTemplateForm({
               <DialogTitle>{isEditing ? '템플릿 수정' : '새 알림톡 템플릿'}</DialogTitle>
               <DialogDescription>
                 {isEditing
-                  ? '템플릿을 수정하면 다시 검수 요청됩니다.'
-                  : '알림톡 템플릿을 등록합니다. 카카오 검수 후 발송 가능합니다.'}
+                  ? '대기 또는 반려 상태의 템플릿만 수정할 수 있습니다.'
+                  : '저장 후 카카오 검수를 요청합니다. 승인된 템플릿만 발송할 수 있습니다.'}
               </DialogDescription>
             </div>
             <Button
@@ -230,6 +232,13 @@ export function KakaoTemplateForm({
         <div className={cn("grid gap-6 py-4", showGuide ? "grid-cols-[1fr_320px]" : "grid-cols-1")}>
         <ScrollArea className="max-h-[calc(90vh-180px)]">
         <div className="space-y-4 pr-4">
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription className="text-xs">
+              저장하면 먼저 템플릿을 만들고 바로 검수를 요청합니다. 요청이 실패하면 대기 상태로 저장되며 목록에서 다시 요청할 수 있습니다.
+            </AlertDescription>
+          </Alert>
+
           {/* Template Name */}
           <div>
             <Label htmlFor="name">템플릿 이름 *</Label>
@@ -262,26 +271,6 @@ export function KakaoTemplateForm({
                     </SelectItem>
                   ))
                 )}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Message Type */}
-          <div>
-            <Label>메시지 유형</Label>
-            <Select
-              value={formData.messageType}
-              onValueChange={(v) => handleChange('messageType', v as FormData['messageType'])}
-            >
-              <SelectTrigger className="mt-2">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(kakaoMessageTypeLabels).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
               </SelectContent>
             </Select>
           </div>
@@ -403,7 +392,7 @@ export function KakaoTemplateForm({
             ) : (
               <Save className="h-4 w-4 mr-2" />
             )}
-            {isEditing ? '수정 및 재검수 요청' : '등록 및 검수 요청'}
+            {isEditing ? '수정하고 검수 요청' : '저장하고 검수 요청'}
           </Button>
         </DialogFooter>
       </DialogContent>
