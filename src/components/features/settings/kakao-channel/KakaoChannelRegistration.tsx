@@ -149,7 +149,7 @@ export function KakaoChannelRegistration({
       return
     }
 
-    const withoutAt = compact.replace(/^@/, '')
+    const withoutAt = compact.replace(/^@/, '').toLowerCase()
     if (withoutAt.startsWith('_')) {
       setSearchIdWarning('_(언더바)로 시작하면 URL 식별자입니다. 검색용 아이디를 입력해주세요')
       return
@@ -180,7 +180,7 @@ export function KakaoChannelRegistration({
   }
 
   function normalizeSearchId(value: string): string {
-    const trimmed = value.trim()
+    const trimmed = value.trim().toLowerCase()
     return trimmed.startsWith('@') ? trimmed : `@${trimmed}`
   }
 
@@ -391,12 +391,11 @@ export function KakaoChannelRegistration({
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription className="text-xs">
-                <p className="font-medium mb-1">연동 전 확인 플로우</p>
+                <p className="font-medium mb-1">연동 전 확인</p>
                 <ul className="list-disc list-inside space-y-0.5">
-                  <li>카카오 비즈니스 채널 개설 및 활성 상태 확인</li>
-                  <li>채널 관리자 휴대폰 번호(010...) 확인</li>
-                  <li>채널 검색용 아이디 확인 (입력 시 @는 자동 처리)</li>
-                  <li>Solapi API 설정 저장 및 테스트 메시지 인증 완료</li>
+                  <li>카카오 비즈니스 채널의 검색용 아이디를 입력합니다.</li>
+                  <li>인증 코드는 채널 담당자 휴대폰 번호로 발송됩니다.</li>
+                  <li>카테고리는 교육/학원으로 자동 등록됩니다.</li>
                 </ul>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <a
@@ -409,21 +408,12 @@ export function KakaoChannelRegistration({
                     <ExternalLink className="h-3 w-3" />
                   </a>
                   <a
-                    href="https://docs.solapi.com"
+                    href="https://solapi.com/developers/sdk/kakaobusinesschannel-20260223-141805"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] hover:bg-background/60"
                   >
-                    Solapi 문서
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                  <a
-                    href="https://docs.solapi.com/references/kakao"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] hover:bg-background/60"
-                  >
-                    Solapi 카카오 가이드
+                    Solapi 채널 연동 문서
                     <ExternalLink className="h-3 w-3" />
                   </a>
                 </div>
@@ -447,7 +437,7 @@ export function KakaoChannelRegistration({
                   </p>
                 ) : (
                   <p className="text-xs text-muted-foreground mt-1">
-                    채널 검색용 아이디만 입력하세요. @는 자동으로 처리됩니다.
+                    검색용 아이디만 입력하세요. @는 자동으로 처리됩니다.
                   </p>
                 )}
               </div>
@@ -465,7 +455,7 @@ export function KakaoChannelRegistration({
                   <p className="text-xs text-destructive mt-1">{phoneError}</p>
                 ) : (
                   <p className="text-xs text-muted-foreground mt-1">
-                    채널 관리자로 등록된 휴대폰 번호를 입력하세요
+                    인증 메시지를 받을 채널 담당자 번호를 입력하세요
                   </p>
                 )}
               </div>
