@@ -76,7 +76,7 @@ export function OverviewTab() {
       type: 'exam' as const,
       date: score.exams?.exam_date || score.created_at,
       title: score.exams?.name || '시험',
-      description: `${score.percentage}점`,
+      description: score.percentage != null ? `${score.percentage}점` : '점수 미입력',
       icon: TrendingUp,
     })),
     ...recentTodos.slice(0, 3).map((todo) => ({
