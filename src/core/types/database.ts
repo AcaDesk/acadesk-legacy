@@ -146,7 +146,10 @@ export interface ClassEnrollment extends TenantScoped, Timestamps {
   class_id: UUID
   student_id: UUID
   enrolled_at: string
-  withdrawn_at?: string | null
+  end_date?: string | null
+  withdrawal_reason?: string | null
+  status: 'active' | 'withdrawn' | 'completed'
+  notes?: string | null
 }
 
 export interface ClassSession extends TenantScoped, Timestamps {
