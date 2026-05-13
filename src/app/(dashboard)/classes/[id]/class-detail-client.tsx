@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
@@ -94,23 +94,37 @@ interface ClassDetailClientProps {
   students: StudentInClass[]
 }
 
-export function ClassDetailClient({ classData, students }: ClassDetailClientProps) {
+export function ClassDetailClient({ classData, students: initialStudents }: ClassDetailClientProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [enrollDialogOpen, setEnrollDialogOpen] = useState(false)
   const [withdrawingId, setWithdrawingId] = useState<string | null>(null)
+  const [students, setStudents] = useState<StudentInClass[]>(initialStudents)
+  const [, startTransition] = useTransition()
+
+  // router.refresh() 후 서버에서 갱신된 students 목록을 로컬 state에 동기화.
+  useEffect(() => {
+    setStudents(initialStudents)
+  }, [initialStudents])
 
   async function handleWithdraw(studentId: string, studentName: string) {
     setWithdrawingId(studentId)
+    // 낙관적 UI: 서버 응답을 기다리지 않고 즉시 목록에서 제거
+    const previousStudents = students
+    setStudents((prev) => prev.filter((s) => s.id !== studentId))
     try {
       const result = await withdrawStudentFromClass(classData.id, studentId)
       if (!result.success) {
+        setStudents(previousStudents)
         toast({ title: '배정 해제 실패', description: result.error ?? '배정 해제 중 오류가 발생했습니다', variant: 'destructive' })
         return
       }
       toast({ title: `${studentName} 배정 해제 완료` })
-      router.refresh()
+      startTransition(() => {
+        router.refresh()
+      })
     } catch (error) {
+      setStudents(previousStudents)
       toast({ title: '배정 해제 실패', description: getErrorMessage(error), variant: 'destructive' })
     } finally {
       setWithdrawingId(null)
@@ -165,7 +179,11 @@ export function ClassDetailClient({ classData, students }: ClassDetailClientProp
         classId={classData.id}
         open={enrollDialogOpen}
         onOpenChange={setEnrollDialogOpen}
-        onSuccess={() => router.refresh()}
+        onSuccess={() => {
+          startTransition(() => {
+            router.refresh()
+          })
+        }}
       />
       <div className="space-y-6">
         {/* Header */}
