@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'motion/react'
 import { PageWrapper } from '@/components/layout/page-wrapper'
@@ -32,14 +32,33 @@ export function StudentDetailClient({
   const [consultations, setConsultations] = useState(initialData.consultations)
   const [activeTab, setActiveTab] = useState('overview')
   const [classDialogOpen, setClassDialogOpen] = useState(false)
+  const [, startTransition] = useTransition()
+
+  // router.refresh() 후 서버에서 내려오는 새 initialData를 로컬 state에 동기화.
+  // useState는 mount 시점 값만 잡기 때문에, 이게 없으면 데이터 변경이 화면에 반영되지 않음.
+  useEffect(() => {
+    setStudent(initialData.student)
+  }, [initialData.student])
+
+  useEffect(() => {
+    setConsultations(initialData.consultations)
+  }, [initialData.consultations])
 
   const handleConsultationAdded = (consultation: Consultation) => {
     setConsultations([consultation, ...consultations])
   }
 
   const handleDataRefresh = async () => {
-    router.refresh()
+    startTransition(() => {
+      router.refresh()
+    })
   }
+
+  const activeClassIds =
+    student.class_enrollments
+      ?.filter((ce) => ce.status === 'active')
+      .map((ce) => ce.class_id)
+      .filter(Boolean) ?? []
 
   return (
     <PageErrorBoundary pageName="학생 상세">
@@ -146,11 +165,7 @@ export function StudentDetailClient({
           open={classDialogOpen}
           onOpenChange={setClassDialogOpen}
           studentId={student.id}
-          currentClassIds={
-            student.class_enrollments
-              ?.map((ce) => ce.class_id)
-              .filter(Boolean) || []
-          }
+          currentClassIds={activeClassIds as string[]}
           onSuccess={() => {
             setClassDialogOpen(false)
             handleDataRefresh()
