@@ -16,10 +16,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { DatePicker } from '@ui/date-picker'
 import { showErrorToast, showSuccessToast } from '@/lib/toast-helpers'
 import { getStudents } from '@/app/actions/students/queries'
 import { assignTextbookToStudent } from '@/app/actions/textbooks'
-import { getTodayKST } from '@/lib/utils'
+import { formatDate, getTodayKST } from '@/lib/utils'
 
 type StudentOption = {
   id: string
@@ -190,11 +191,11 @@ export function AssignTextbookDialog({
           {/* 배부일 */}
           <div className="space-y-2">
             <Label htmlFor="issue-date">배부일</Label>
-            <Input
+            <DatePicker
               id="issue-date"
-              type="date"
-              value={issueDate}
-              onChange={(e) => setIssueDate(e.target.value)}
+              value={new Date(`${issueDate}T00:00:00+09:00`)}
+              onChange={(date) => setIssueDate(date ? formatDate(date) : getTodayKST())}
+              placeholder="배부일 선택"
             />
           </div>
 
