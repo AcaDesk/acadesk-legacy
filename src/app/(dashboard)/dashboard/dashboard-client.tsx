@@ -491,6 +491,7 @@ export function DashboardClient({ data: initialData, savedPreferences }: Dashboa
     handleSetWidgetVisibility,
     handleMaximizeWidget,
     handleRefreshWidget,
+    setDrilldownWidgetId,
   ])
 
   const renderGhostWidget = useCallback((widgetId: DashboardWidgetId) => {
