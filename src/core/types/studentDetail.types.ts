@@ -34,7 +34,13 @@ export interface StudentDetail {
     } | null
   }>
   class_enrollments: Array<{
+    id: string
     class_id: string
+    status: string
+    enrolled_at: string | null
+    end_date: string | null
+    withdrawal_reason: string | null
+    notes: string | null
     classes: {
       id: string
       name: string
