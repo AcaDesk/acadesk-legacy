@@ -98,9 +98,16 @@ export async function getClassesWithDetails() {
     const { data: enrollments } = classIds.length > 0
       ? await supabase
           .from('class_enrollments')
-          .select('class_id')
+          .select(`
+            class_id,
+            students!inner (
+              id
+            )
+          `)
+          .eq('tenant_id', tenantId)
           .in('class_id', classIds)
           .eq('status', 'active')
+          .is('students.deleted_at', null)
       : { data: [] }
 
     // class_id별 카운트 집계
@@ -293,9 +300,16 @@ export async function getClassById(classId: string) {
     // 4. Get student count
     const { count } = await supabase
       .from('class_enrollments')
-      .select('*', { count: 'exact', head: true })
+      .select(`
+        student_id,
+        students!inner (
+          id
+        )
+      `, { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
       .eq('class_id', classId)
       .eq('status', 'active')
+      .is('students.deleted_at', null)
 
     return {
       success: true,
@@ -546,6 +560,7 @@ export async function getClassStudents(classId: string) {
         students!inner (
           id,
           student_code,
+          deleted_at,
           users!inner (
             name
           )
@@ -554,6 +569,7 @@ export async function getClassStudents(classId: string) {
       .eq('tenant_id', tenantId)
       .eq('class_id', classId)
       .eq('status', 'active')
+      .is('students.deleted_at', null)
 
     if (enrollError) throw enrollError
 
@@ -725,20 +741,32 @@ export async function enrollStudentsInClass(classId: string, studentIds: string[
 
     if (studentIds.length === 0) return { success: true as const, data: null, error: null }
 
+    const { data: activeStudents, error: studentFetchError } = await supabase
+      .from('students')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .in('id', studentIds)
+      .is('deleted_at', null)
+
+    if (studentFetchError) throw studentFetchError
+
+    const activeStudentIds = (activeStudents || []).map((student) => student.id)
+    if (activeStudentIds.length === 0) return { success: true as const, data: null, error: null }
+
     // 기존 enrollment 조회 (withdrawn 포함 — 재등록 시 reactivate)
     const { data: existing, error: fetchError } = await supabase
       .from('class_enrollments')
       .select('id, student_id, status')
       .eq('tenant_id', tenantId)
       .eq('class_id', classId)
-      .in('student_id', studentIds)
+      .in('student_id', activeStudentIds)
 
     if (fetchError) throw fetchError
 
     const existingMap = new Map((existing || []).map(e => [e.student_id, e]))
 
-    const toInsert = studentIds.filter(id => !existingMap.has(id))
-    const toReactivate = studentIds
+    const toInsert = activeStudentIds.filter(id => !existingMap.has(id))
+    const toReactivate = activeStudentIds
       .filter(id => existingMap.has(id) && existingMap.get(id)!.status !== 'active')
       .map(id => existingMap.get(id)!.id)
 
@@ -760,7 +788,8 @@ export async function enrollStudentsInClass(classId: string, studentIds: string[
         .from('class_enrollments')
         .update({
           status: 'active',
-          withdrawn_at: null,
+          end_date: null,
+          withdrawal_reason: null,
           updated_at: new Date().toISOString(),
         })
         .in('id', toReactivate)

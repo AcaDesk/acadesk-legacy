@@ -2,7 +2,7 @@
 -- Class Enrollments Status Index
 -- ============================================================================
 -- 출석 페이지에서 class_id + status로 조회하는 쿼리 최적화
--- 기존 인덱스: (class_id, student_id) WHERE withdrawn_at IS NULL
+-- 기존 인덱스: (class_id, student_id) WHERE status = 'active'
 -- 실제 쿼리: WHERE class_id = ? AND status = 'active'
 
 -- 복합 인덱스: 출석 페이지 학생 목록 조회 최적화

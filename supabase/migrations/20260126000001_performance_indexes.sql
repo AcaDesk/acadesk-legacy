@@ -78,12 +78,12 @@ CREATE INDEX IF NOT EXISTS idx_students_tenant_active
 -- Index for class enrollment queries
 CREATE INDEX IF NOT EXISTS idx_class_enrollments_student
   ON class_enrollments(student_id, class_id)
-  WHERE withdrawn_at IS NULL;
+  WHERE status = 'active';
 
 -- Index for class enrollment by class (for class roster)
 CREATE INDEX IF NOT EXISTS idx_class_enrollments_class
   ON class_enrollments(class_id, student_id)
-  WHERE withdrawn_at IS NULL;
+  WHERE status = 'active';
 
 -- ============================================================================
 -- Verification Queries (run manually to verify index usage)

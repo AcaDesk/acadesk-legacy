@@ -155,7 +155,7 @@ export async function getAttendanceRoster() {
           .select(`
             class_id,
             student_id,
-            students (
+            students!inner (
               id,
               student_code,
               grade,
@@ -167,6 +167,7 @@ export async function getAttendanceRoster() {
           `)
           .eq('tenant_id', tenantId)
           .eq('status', 'active')
+          .is('students.deleted_at', null)
 
         if (enrollmentError) throw enrollmentError
 
