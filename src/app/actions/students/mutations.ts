@@ -1,6 +1,6 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
@@ -8,6 +8,7 @@ import { getErrorMessage } from '@/lib/error-handlers'
 import { getTodayKST } from '@/lib/utils'
 import { hashKioskPin } from '../kiosk'
 import { createStudentCompleteSchema, studentSchema } from './schemas'
+import { detachStudentActiveRelations } from './relations'
 
 /**
  * Create a student with optional guardian (pure service_role implementation)
@@ -398,7 +399,7 @@ export async function deleteStudent(studentId: string) {
     // 3. Verify student belongs to tenant
     const { data: existingStudent, error: fetchError } = await serviceClient
       .from('students')
-      .select('id, tenant_id')
+      .select('id, tenant_id, user_id')
       .eq('id', studentId)
       .is('deleted_at', null)
       .maybeSingle()
@@ -417,21 +418,58 @@ export async function deleteStudent(studentId: string) {
       }
     }
 
+    const now = new Date().toISOString()
+
+    const { classIds } = await detachStudentActiveRelations(serviceClient, {
+      tenantId,
+      studentIds: [studentId],
+      now,
+      reason: '학생 삭제로 인한 자동 해제',
+      unlinkGuardians: true,
+      closeOpenTodos: true,
+    })
+
     // 4. Soft delete with service_role
     const { error: deleteError } = await serviceClient
       .from('students')
       .update({
-        deleted_at: new Date().toISOString(),
+        deleted_at: now,
+        updated_at: now,
       })
       .eq('id', studentId)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
 
     if (deleteError) {
       throw deleteError
     }
 
+    if (existingStudent.user_id) {
+      const { error: userDeleteError } = await serviceClient
+        .from('users')
+        .update({
+          deleted_at: now,
+          updated_at: now,
+        })
+        .eq('id', existingStudent.user_id)
+        .eq('tenant_id', tenantId)
+        .eq('role_code', 'student')
+        .is('deleted_at', null)
+
+      if (userDeleteError) {
+        throw userDeleteError
+      }
+    }
+
     // 5. Revalidate pages
     revalidatePath('/students')
+    revalidatePath('/classes')
+    classIds.forEach((classId) => revalidatePath(`/classes/${classId}`))
     revalidatePath('/dashboard')
+    revalidatePath('/todos')
+    revalidatePath('/todos/planner')
+    revalidatePath('/todos/verify')
+    revalidateTag(`attendance-roster:${tenantId}`)
 
     return {
       success: true,
@@ -469,7 +507,7 @@ export async function withdrawStudent(
     // 3. Verify student belongs to tenant
     const { data: existingStudent, error: fetchError } = await serviceClient
       .from('students')
-      .select('id, tenant_id')
+      .select('id, tenant_id, meta')
       .eq('id', studentId)
       .is('deleted_at', null)
       .maybeSingle()
@@ -488,15 +526,36 @@ export async function withdrawStudent(
       }
     }
 
+    const now = new Date().toISOString()
+    const endDate = withdrawalDate.split('T')[0]
+
+    const { classIds } = await detachStudentActiveRelations(serviceClient, {
+      tenantId,
+      studentIds: [studentId],
+      now,
+      endDate,
+      reason: reason || '학생 퇴원으로 인한 자동 해제',
+      closeOpenTodos: true,
+    })
+
+    const currentMeta =
+      existingStudent.meta && typeof existingStudent.meta === 'object' && !Array.isArray(existingStudent.meta)
+        ? existingStudent.meta as Record<string, unknown>
+        : {}
+
     // 4. Update withdrawal status with service_role
     const { error: updateError } = await serviceClient
       .from('students')
       .update({
         withdrawal_date: withdrawalDate,
-        withdrawal_reason: reason || null,
-        updated_at: new Date().toISOString(),
+        meta: {
+          ...currentMeta,
+          withdrawal_reason: reason || null,
+        },
+        updated_at: now,
       })
       .eq('id', studentId)
+      .eq('tenant_id', tenantId)
 
     if (updateError) {
       throw updateError
@@ -505,7 +564,13 @@ export async function withdrawStudent(
     // 5. Revalidate pages
     revalidatePath('/students')
     revalidatePath(`/students/${studentId}`)
+    revalidatePath('/classes')
+    classIds.forEach((classId) => revalidatePath(`/classes/${classId}`))
     revalidatePath('/dashboard')
+    revalidatePath('/todos')
+    revalidatePath('/todos/planner')
+    revalidatePath('/todos/verify')
+    revalidateTag(`attendance-roster:${tenantId}`)
 
     return {
       success: true,

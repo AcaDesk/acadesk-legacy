@@ -4,6 +4,7 @@ import { revalidatePath, revalidateTag } from 'next/cache'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { detachStudentActiveRelations } from './relations'
 
 /**
  * Bulk update students (e.g., grade change)
@@ -63,26 +64,98 @@ export async function bulkUpdateStudents(
  */
 export async function bulkDeleteStudents(studentIds: string[]) {
   try {
+    const uniqueStudentIds = Array.from(new Set(studentIds.filter(Boolean)))
+
+    if (uniqueStudentIds.length === 0) {
+      return {
+        success: false,
+        error: '삭제할 학생을 선택해주세요',
+      }
+    }
+
     // 1. Verify authentication and get tenant
     const { tenantId } = await verifyStaff()
 
     // 2. Create service_role client
     const serviceClient = createServiceRoleClient()
 
+    const now = new Date().toISOString()
+
+    const { classIds } = await detachStudentActiveRelations(serviceClient, {
+      tenantId,
+      studentIds: uniqueStudentIds,
+      now,
+      reason: '학생 일괄 삭제로 인한 자동 해제',
+      unlinkGuardians: true,
+      closeOpenTodos: true,
+    })
+
+    const { data: studentsToDelete, error: fetchError } = await serviceClient
+      .from('students')
+      .select('id, user_id')
+      .in('id', uniqueStudentIds)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+
+    if (fetchError) {
+      throw fetchError
+    }
+
+    const existingStudentIds = (studentsToDelete || []).map((student) => student.id)
+
+    if (existingStudentIds.length === 0) {
+      return {
+        success: false,
+        error: '삭제할 학생을 찾을 수 없습니다',
+      }
+    }
+
     // 3. Soft delete each student
     const { error } = await serviceClient
       .from('students')
-      .update({ deleted_at: new Date().toISOString() })
-      .in('id', studentIds)
+      .update({
+        deleted_at: now,
+        updated_at: now,
+      })
+      .in('id', existingStudentIds)
       .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
 
     if (error) {
       console.error('[bulkDeleteStudents] Delete error:', error.message)
       throw new Error('학생 삭제에 실패했습니다')
     }
 
+    const studentUserIds = (studentsToDelete || [])
+      .map((student) => student.user_id)
+      .filter((userId): userId is string => Boolean(userId))
+
+    if (studentUserIds.length > 0) {
+      const { error: userDeleteError } = await serviceClient
+        .from('users')
+        .update({
+          deleted_at: now,
+          updated_at: now,
+        })
+        .in('id', studentUserIds)
+        .eq('tenant_id', tenantId)
+        .eq('role_code', 'student')
+        .is('deleted_at', null)
+
+      if (userDeleteError) {
+        throw userDeleteError
+      }
+    }
+
     // 4. Revalidate
     revalidatePath('/students')
+    revalidatePath('/classes')
+    classIds.forEach((classId) => revalidatePath(`/classes/${classId}`))
+    revalidatePath('/dashboard')
+    revalidatePath('/todos')
+    revalidatePath('/todos/planner')
+    revalidatePath('/todos/verify')
+    revalidateTag(`attendance-roster:${tenantId}`)
 
     return { success: true, error: null }
   } catch (error) {
@@ -206,7 +279,8 @@ export async function updateStudentClassEnrollments(
         .from('class_enrollments')
         .update({
           status: 'active',
-          withdrawn_at: null,
+          end_date: null,
+          withdrawal_reason: null,
           updated_at: new Date().toISOString(),
         })
         .in('id', toReactivate)
@@ -220,7 +294,7 @@ export async function updateStudentClassEnrollments(
         .from('class_enrollments')
         .update({
           status: 'withdrawn',
-          withdrawn_at: new Date().toISOString(),
+          end_date: new Date().toISOString().split('T')[0],
           updated_at: new Date().toISOString(),
         })
         .in('id', toWithdraw)
