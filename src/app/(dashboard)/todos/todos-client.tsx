@@ -26,7 +26,6 @@ import {
   ListTodo,
   Bell,
 } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
 import type { StudentTodoWithStudent } from '@/core/types/todo.types'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import {
@@ -64,7 +63,6 @@ export function TodosClient({ initialTodos }: TodosClientProps) {
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false)
   const [itemToRemind, setItemToRemind] = useState<{ id: string; name: string } | null>(null)
 
-  const { toast } = useToast()
   const verifyMutation = useVerifyTodoMutation()
   const deleteMutation = useDeleteTodoMutation()
   const reminderMutation = useSendTodoReminderMutation()

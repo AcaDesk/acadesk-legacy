@@ -78,7 +78,7 @@ export function useDeleteGuardianMutation() {
       }
       toast({ title: '삭제 오류', description: error.message, variant: 'destructive' })
     },
-    onSuccess: (_data, _id, _context) => {
+    onSuccess: () => {
       toast({ title: '삭제 완료', description: '보호자가 삭제되었습니다.' })
     },
     onSettled: () => {

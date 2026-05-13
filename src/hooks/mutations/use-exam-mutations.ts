@@ -76,7 +76,7 @@ export function useArchiveExamMutation(callbacks?: {
   const router = useRouter()
 
   return useMutation({
-    mutationFn: async ({ id, isArchived, name }: { id: string; isArchived: boolean; name: string }) => {
+    mutationFn: async ({ id, isArchived }: { id: string; isArchived: boolean; name: string }) => {
       const result = isArchived ? await unarchiveExam(id) : await archiveExam(id)
       if (!result.success) throw new Error(result.error || '상태 변경 실패')
       return { isArchived }
