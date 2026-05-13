@@ -37,7 +37,6 @@ import {
   IconChevronsLeft,
   IconChevronsRight,
 } from '@tabler/icons-react'
-import { useToast } from '@/hooks/use-toast'
 import { usePagination } from '@/hooks/use-pagination'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import {
@@ -137,7 +136,6 @@ function getExamTypeBadgeVariant(type: string | null): 'default' | 'secondary' |
 
 export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
   const router = useRouter()
-  const { toast } = useToast()
   const [exams, setExams] = useState(initialExams)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
