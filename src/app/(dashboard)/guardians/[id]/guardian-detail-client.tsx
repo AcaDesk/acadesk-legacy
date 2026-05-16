@@ -17,6 +17,11 @@ import {
   Plus,
   Unlink,
   Search,
+  MoreVertical,
+  Bell,
+  Receipt,
+  Car,
+  FileText,
 } from 'lucide-react'
 import { RoleGuard } from '@/components/auth/role-guard'
 import { PageWrapper } from "@/components/layout/page-wrapper"
@@ -30,7 +35,17 @@ import {
   linkGuardianToStudent,
   unlinkGuardianFromStudent,
   togglePrimaryGuardian,
+  updateStudentGuardianFlag,
 } from '@/app/actions/guardians'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuItem,
+} from '@ui/dropdown-menu'
 import { getErrorMessage } from '@/lib/error-handlers'
 import {
   Dialog,
@@ -50,26 +65,33 @@ import {
 
 interface GuardianDetail {
   id: string
+  name: string | null
+  phone: string | null
+  email: string | null
   relationship: string | null
   occupation: string | null
   address: string | null
-  users: {
-    name: string
-    email: string | null
-    phone: string | null
-  } | null
   student_guardians: Array<{
     is_primary: boolean
+    is_primary_contact: boolean
+    receives_notifications: boolean
+    receives_billing: boolean
+    can_pickup: boolean
+    can_view_reports: boolean
     students: {
       id: string
       student_code: string
       grade: string | null
-      users: {
-        name: string
-      } | null
+      name: string
     } | null
   }>
 }
+
+type StudentGuardianFlag =
+  | 'receives_notifications'
+  | 'receives_billing'
+  | 'can_pickup'
+  | 'can_view_reports'
 
 interface StudentOption {
   id: string
@@ -192,16 +214,33 @@ export function GuardianDetailClient({ guardian, availableStudents }: GuardianDe
     }
   }
 
-  const linkedStudentNames = guardian.student_guardians
-    .map((sg) => {
-      const s = sg.students
-      if (!s) return ''
-      const u = Array.isArray(s.users) ? s.users[0] : s.users
-      return u?.name || ''
+  async function handleToggleFlag(
+    studentId: string,
+    field: StudentGuardianFlag,
+    value: boolean,
+    labelOnEnable: string,
+    labelOnDisable: string
+  ) {
+    const result = await updateStudentGuardianFlag(guardian.id, studentId, field, value)
+    if (!result.success) {
+      toast({
+        title: '설정 변경 실패',
+        description: result.error || '잠시 후 다시 시도해주세요.',
+        variant: 'destructive',
+      })
+      return
+    }
+    toast({
+      title: value ? labelOnEnable : labelOnDisable,
     })
+    router.refresh()
+  }
+
+  const linkedStudentNames = guardian.student_guardians
+    .map((sg) => sg.students?.name || '')
     .filter(Boolean)
-  const headerLabel = getGuardianDisplayLabel(guardian.users?.name, linkedStudentNames)
-  const headerSecondary = getGuardianSecondaryLabel(guardian.users?.name, linkedStudentNames)
+  const headerLabel = getGuardianDisplayLabel(guardian.name, linkedStudentNames)
+  const headerSecondary = getGuardianSecondaryLabel(guardian.name, linkedStudentNames)
   const subtitleParts = [
     guardian.relationship ? `${getGuardianRelationshipLabel(guardian.relationship)} · 보호자` : '보호자',
     headerSecondary ? `본명: ${headerSecondary}` : null,
@@ -232,19 +271,19 @@ export function GuardianDetailClient({ guardian, availableStudents }: GuardianDe
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {guardian.users?.phone && (
+                  {guardian.phone && (
                     <div className="flex items-center gap-2">
                       <Phone className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">{formatPhoneNumber(guardian.users.phone)}</span>
+                      <span className="text-sm">{formatPhoneNumber(guardian.phone)}</span>
                     </div>
                   )}
-                  {guardian.users?.email && (
+                  {guardian.email && (
                     <div className="flex items-center gap-2">
                       <Mail className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">{guardian.users.email}</span>
+                      <span className="text-sm">{guardian.email}</span>
                     </div>
                   )}
-                  {!guardian.users?.phone && !guardian.users?.email && (
+                  {!guardian.phone && !guardian.email && (
                     <p className="text-sm text-muted-foreground">연락처 정보 없음</p>
                   )}
                 </div>
@@ -316,83 +355,143 @@ export function GuardianDetailClient({ guardian, availableStudents }: GuardianDe
             <CardContent>
               {guardian.student_guardians && guardian.student_guardians.length > 0 ? (
                 <div className="space-y-3">
-                  {guardian.student_guardians.map((sg, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between border-b pb-3 last:border-0"
-                    >
-                      <div className="flex items-center gap-4">
-                        <UsersIcon className="h-4 w-4 text-muted-foreground" />
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <div className="font-medium">
-                              {sg.students?.users?.name || '이름 없음'}
+                  {guardian.student_guardians.map((sg, idx) => {
+                    const studentId = sg.students?.id
+                    const studentName = sg.students?.name || '이름 없음'
+                    const permissionBadges: Array<{
+                      key: StudentGuardianFlag
+                      label: string
+                      icon: typeof Bell
+                      active: boolean
+                    }> = [
+                      { key: 'receives_notifications', label: '알림', icon: Bell, active: sg.receives_notifications },
+                      { key: 'can_view_reports', label: '리포트', icon: FileText, active: sg.can_view_reports },
+                      { key: 'can_pickup', label: '픽업', icon: Car, active: sg.can_pickup },
+                      { key: 'receives_billing', label: '결제', icon: Receipt, active: sg.receives_billing },
+                    ]
+                    const activeBadges = permissionBadges.filter((b) => b.active)
+
+                    return (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between border-b pb-3 last:border-0"
+                      >
+                        <div className="flex items-center gap-4 min-w-0">
+                          <UsersIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <div className="font-medium">{studentName}</div>
+                              {sg.is_primary && (
+                                <Badge variant="default" className="text-xs">
+                                  주 보호자
+                                </Badge>
+                              )}
                             </div>
-                            {sg.is_primary && (
-                              <Badge variant="default" className="text-xs">
-                                주 보호자
-                              </Badge>
+                            <div className="text-sm text-muted-foreground">
+                              {sg.students?.student_code || '학번 없음'}
+                              {sg.students?.grade && ` · ${sg.students.grade}`}
+                            </div>
+                            {activeBadges.length > 0 && (
+                              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                {activeBadges.map((b) => {
+                                  const Icon = b.icon
+                                  return (
+                                    <Badge
+                                      key={b.key}
+                                      variant="secondary"
+                                      className="text-xs font-normal gap-1"
+                                    >
+                                      <Icon className="h-3 w-3" />
+                                      {b.label}
+                                    </Badge>
+                                  )
+                                })}
+                              </div>
                             )}
                           </div>
-                          <div className="text-sm text-muted-foreground">
-                            {sg.students?.student_code || '학번 없음'}
-                            {sg.students?.grade && ` · ${sg.students.grade}`}
-                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => studentId && router.push(`/students/${studentId}`)}
+                          >
+                            학생 상세
+                          </Button>
+                          <RoleGuard allowedRoles={['owner', 'instructor']}>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  title="설정"
+                                >
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-56">
+                                <DropdownMenuLabel>학생별 설정</DropdownMenuLabel>
+                                <DropdownMenuCheckboxItem
+                                  checked={sg.is_primary}
+                                  disabled={isTogglingPrimary || !studentId}
+                                  onCheckedChange={() =>
+                                    studentId && handleTogglePrimary(studentId, sg.is_primary)
+                                  }
+                                >
+                                  <Star className="h-4 w-4 mr-2" />
+                                  주 보호자
+                                </DropdownMenuCheckboxItem>
+                                <DropdownMenuSeparator />
+                                {permissionBadges.map((b) => {
+                                  const Icon = b.icon
+                                  const enableLabels: Record<StudentGuardianFlag, [string, string]> = {
+                                    receives_notifications: ['알림 수신 활성화', '알림 수신 해제'],
+                                    can_view_reports: ['리포트 보기 활성화', '리포트 보기 해제'],
+                                    can_pickup: ['픽업 가능으로 설정', '픽업 불가로 설정'],
+                                    receives_billing: ['결제 알림 활성화', '결제 알림 해제'],
+                                  }
+                                  return (
+                                    <DropdownMenuCheckboxItem
+                                      key={b.key}
+                                      checked={b.active}
+                                      disabled={!studentId}
+                                      onCheckedChange={(checked) =>
+                                        studentId &&
+                                        handleToggleFlag(
+                                          studentId,
+                                          b.key,
+                                          Boolean(checked),
+                                          enableLabels[b.key][0],
+                                          enableLabels[b.key][1]
+                                        )
+                                      }
+                                    >
+                                      <Icon className="h-4 w-4 mr-2" />
+                                      {b.label === '알림' ? '알림 수신' : b.label === '리포트' ? '리포트 보기' : b.label === '픽업' ? '픽업 가능' : '결제 알림'}
+                                    </DropdownMenuCheckboxItem>
+                                  )
+                                })}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onClick={() => {
+                                    if (studentId) {
+                                      setStudentToUnlink({ id: studentId, name: studentName })
+                                      setUnlinkDialogOpen(true)
+                                    }
+                                  }}
+                                >
+                                  <Unlink className="h-4 w-4 mr-2" />
+                                  연결 해제
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </RoleGuard>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <RoleGuard allowedRoles={['owner', 'instructor']}>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            title={sg.is_primary ? '주 보호자 해제' : '주 보호자로 설정'}
-                            disabled={isTogglingPrimary}
-                            onClick={() =>
-                              sg.students?.id &&
-                              handleTogglePrimary(sg.students.id, sg.is_primary)
-                            }
-                          >
-                            <Star
-                              className={`h-4 w-4 ${
-                                sg.is_primary
-                                  ? 'fill-yellow-400 text-yellow-400'
-                                  : 'text-muted-foreground'
-                              }`}
-                            />
-                          </Button>
-                        </RoleGuard>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            sg.students?.id && router.push(`/students/${sg.students.id}`)
-                          }
-                        >
-                          학생 상세
-                        </Button>
-                        <RoleGuard allowedRoles={['owner', 'instructor']}>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
-                            title="연결 해제"
-                            onClick={() => {
-                              if (sg.students?.id) {
-                                setStudentToUnlink({
-                                  id: sg.students.id,
-                                  name: sg.students.users?.name || '학생',
-                                })
-                                setUnlinkDialogOpen(true)
-                              }
-                            }}
-                          >
-                            <Unlink className="h-4 w-4" />
-                          </Button>
-                        </RoleGuard>
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-8">
