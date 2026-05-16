@@ -60,7 +60,7 @@ export function getErrorMessage(error: unknown, context?: string): string {
       if (code === '23505') return '이미 존재하는 데이터입니다'
       if (code === '23503') return '관련 데이터를 확인해주세요'
       if (code === '23502') return '필수 입력값이 누락되었습니다'
-      if (code === '42501') return '권한이 없습니다'
+      if (code === '42501') return '서버 권한 설정에 문제가 있어 작업을 완료할 수 없습니다. 관리자에게 문의해주세요. (DB_PERMISSION)'
       if (code === '42P01') return '요청을 처리할 수 없습니다. 관리자에게 문의해주세요'
 
       // PostgREST Error Codes
