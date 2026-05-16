@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/c
 import { Alert, AlertDescription } from '@ui/alert'
 import { Switch } from '@ui/switch'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@ui/tabs'
+import { cn } from '@/lib/utils'
 import {
   Select,
   SelectContent,
@@ -453,31 +453,66 @@ export function MessagingIntegrationClient({
         </Card>
       )}
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 lg:w-[600px]">
-          <TabsTrigger value="api" className="gap-2">
-            <Settings className="h-4 w-4" />
-            API 설정
-          </TabsTrigger>
-          <TabsTrigger value="events" className="gap-2" disabled={!hasKakaoChannel}>
-            <Bell className="h-4 w-4" />
-            이벤트 알림
-            {!hasKakaoChannel && (
-              <span className="text-xs text-muted-foreground ml-1">(채널 필요)</span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="kakao" className="gap-2" disabled={!showKakaoTab}>
-            <MessageSquare className="h-4 w-4" />
-            채널/템플릿
-            {!showKakaoTab && (
-              <span className="text-xs text-muted-foreground ml-1">(솔라피 인증 필요)</span>
-            )}
-          </TabsTrigger>
-        </TabsList>
+      {/* Sidebar + Content layout */}
+      <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
+        {/* Sidebar Nav */}
+        <nav
+          aria-label="메시징 연동 섹션"
+          className="lg:sticky lg:top-4 lg:self-start"
+        >
+          <ul className="flex gap-1 overflow-x-auto lg:flex-col lg:gap-0.5 pb-2 lg:pb-0">
+            {[
+              { key: 'api', label: 'API 설정', icon: Settings, disabled: false, hint: null },
+              {
+                key: 'kakao',
+                label: '카카오 채널·템플릿',
+                icon: MessageSquare,
+                disabled: !showKakaoTab,
+                hint: showKakaoTab ? null : '솔라피 인증 후 사용 가능',
+              },
+              {
+                key: 'events',
+                label: '이벤트 알림',
+                icon: Bell,
+                disabled: !hasKakaoChannel,
+                hint: hasKakaoChannel ? null : '카카오 채널 연동 후 사용 가능',
+              },
+            ].map(({ key, label, icon: Icon, disabled, hint }) => {
+              const isActive = activeTab === key
+              return (
+                <li key={key}>
+                  <button
+                    type="button"
+                    onClick={() => !disabled && setActiveTab(key)}
+                    disabled={disabled}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={cn(
+                      'w-full text-left flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
+                      'whitespace-nowrap lg:whitespace-normal',
+                      isActive
+                        ? 'bg-primary/10 text-primary font-medium'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                      disabled && 'opacity-50 cursor-not-allowed hover:bg-transparent hover:text-muted-foreground',
+                    )}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    <span className="flex-1">{label}</span>
+                  </button>
+                  {hint && (
+                    <p className="hidden lg:block px-3 pb-2 text-[10px] text-muted-foreground/70">
+                      {hint}
+                    </p>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        </nav>
 
-        {/* API 설정 Tab */}
-        <TabsContent value="api" className="space-y-8 pt-2">
+        {/* Content Panel */}
+        <div className="min-w-0 space-y-8">
+        {/* API 설정 */}
+        {activeTab === 'api' && (<div className="space-y-8">
           {/* Info Alert */}
           <Alert className="border-info/20 bg-info/5">
             <Info className="h-4 w-4 text-info" />
@@ -847,10 +882,10 @@ export function MessagingIntegrationClient({
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+        </div>)}
 
-        {/* 이벤트 알림 Tab */}
-        <TabsContent value="events" className="space-y-8 pt-2">
+        {/* 이벤트 알림 */}
+        {activeTab === 'events' && (<div className="space-y-8">
           {hasKakaoChannel ? (
             <EventSubscriptionList
               initialSubscriptions={eventSubscriptions}
@@ -866,16 +901,16 @@ export function MessagingIntegrationClient({
                     먼저 카카오 채널을 연동해주세요.
                   </p>
                   <Button variant="outline" onClick={() => setActiveTab('kakao')}>
-                    채널/템플릿 탭으로 이동
+                    카카오 채널·템플릿으로 이동
                   </Button>
                 </div>
               </CardContent>
             </Card>
           )}
-        </TabsContent>
+        </div>)}
 
-        {/* 카카오 채널/템플릿 Tab */}
-        <TabsContent value="kakao" className="space-y-8 pt-2">
+        {/* 카카오 채널·템플릿 */}
+        {activeTab === 'kakao' && (<div className="space-y-8">
           {showKakaoTab ? (
             <>
               {/* Alimtalk Progress Stepper */}
@@ -952,8 +987,9 @@ export function MessagingIntegrationClient({
               </CardContent>
             </Card>
           )}
-        </TabsContent>
-      </Tabs>
+        </div>)}
+        </div>
+      </div>
 
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
