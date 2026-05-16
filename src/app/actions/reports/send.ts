@@ -181,8 +181,12 @@ export async function prepareReportSending(reportId: string, options: ReportSend
       .eq('student_id', report.student_id)
       .is('deleted_at', null)
 
-    if (guardianError || !guardians || guardians.length === 0) {
-      throw new Error('보호자 정보를 찾을 수 없습니다')
+    if (guardianError) {
+      console.error('[prepareReportSending] Guardian lookup error:', guardianError.message)
+      throw new Error('보호자 정보를 조회하는 중 오류가 발생했습니다')
+    }
+    if (!guardians || guardians.length === 0) {
+      throw new Error('학생에게 등록된 보호자가 없습니다')
     }
 
     // 5. 보호자 데이터 준비
@@ -246,19 +250,13 @@ export async function prepareReportSending(reportId: string, options: ReportSend
     }
 
     if (validGuardians.length === 0) {
-      throw new Error(
-        '전송 가능한 보호자가 없습니다.\n\n' +
-        '확인사항:\n' +
-        '1. 학생에게 등록된 보호자가 있는지 확인하세요\n' +
-        '2. 모든 보호자의 전화번호가 등록되어 있는지 확인하세요\n\n' +
-        '학생 관리 > 보호자 정보에서 전화번호를 추가할 수 있습니다.'
-      )
+      throw new Error('보호자 전화번호가 등록되어 있지 않습니다')
     }
 
     let kakaoTemplate: { id: string; content: string } | null = null
     if (options.channel === 'kakao') {
       if (!options.kakaoTemplateId) {
-        throw new Error('알림톡 발송에는 승인된 템플릿을 선택해야 합니다.')
+        throw new Error('알림톡 템플릿이 선택되지 않았습니다')
       }
 
       const { data: template, error: templateError } = await supabase
@@ -271,7 +269,7 @@ export async function prepareReportSending(reportId: string, options: ReportSend
         .maybeSingle()
 
       if (templateError || !template) {
-        throw new Error('승인된 알림톡 템플릿을 찾을 수 없습니다.')
+        throw new Error('선택한 알림톡 템플릿이 승인되지 않았거나 삭제되었습니다')
       }
 
       kakaoTemplate = template
