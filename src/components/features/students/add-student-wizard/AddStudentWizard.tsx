@@ -308,8 +308,12 @@ export function AddStudentWizard({ open, onOpenChange, onSuccess, initialValues 
         successTitle = '✅ 입회 처리 완료'
         successDescription = `${data.name} 학생이 등록되었고, 상담 기록이 "입회 완료"로 업데이트되었습니다.`
       } else if (autoMatched) {
+        const siblingsLabel =
+          autoMatched.siblingStudents.length > 0
+            ? `${autoMatched.siblingStudents.join('·')} 보호자`
+            : `기존 학부모`
         successTitle = '기존 학부모와 자동 연결됨'
-        successDescription = `같은 연락처의 기존 학부모(${autoMatched.name})로 자동 연결되어 형제로 묶였습니다.`
+        successDescription = `${siblingsLabel}에 ${data.name} 학생이 형제로 추가되었습니다.`
       } else if (resolvedMode === GUARDIAN_MODES.NEW && data.guardian) {
         successTitle = '학생 및 학부모 추가 완료'
         successDescription = `${data.name} 학생과 ${data.guardian.name} 학부모가 추가되었습니다.`
