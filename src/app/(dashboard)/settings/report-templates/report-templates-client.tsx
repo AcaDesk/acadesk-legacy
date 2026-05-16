@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { Plus, Pencil, Trash2, Info, Sparkles, Lock } from 'lucide-react'
 import { Button } from '@ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
@@ -74,26 +74,38 @@ export function ReportTemplatesClient({
     title: '',
     content: '',
   })
+  // 다이얼로그 진입 시 스냅샷 — 외부 클릭/ESC 로 닫힐 때 변경사항 보호용.
+  const initialFormDataRef = useRef(formData)
+
+  // 저장 안 된 변경사항이 있는지 검사 (dialog 외부 클릭 차단 + UI 뱃지에 사용).
+  const isDirty = useMemo(() => {
+    const init = initialFormDataRef.current
+    return (
+      formData.category !== init.category ||
+      formData.title !== init.title ||
+      formData.content !== init.content
+    )
+  }, [formData])
 
   // Open dialog for creating new template
   function handleOpenCreate() {
     setEditingTemplate(null)
-    setFormData({
-      category: 'summary',
-      title: '',
-      content: '',
-    })
+    const fresh = { category: 'summary' as ReportTemplateCategory, title: '', content: '' }
+    setFormData(fresh)
+    initialFormDataRef.current = fresh
     setIsDialogOpen(true)
   }
 
   // Open dialog for editing template
   function handleOpenEdit(template: ReportTemplate) {
     setEditingTemplate(template)
-    setFormData({
+    const snapshot = {
       category: template.category,
       title: template.title,
       content: template.content,
-    })
+    }
+    setFormData(snapshot)
+    initialFormDataRef.current = snapshot
     setIsDialogOpen(true)
   }
 
@@ -408,10 +420,24 @@ export function ReportTemplatesClient({
 
       {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent
+          className="max-w-lg"
+          onPointerDownOutside={(e) => {
+            // 변경사항이 있으면 실수 클릭으로 닫히지 않도록 차단 — "취소" 버튼으로만 닫기.
+            if (isDirty && !isSaving) e.preventDefault()
+          }}
+          onEscapeKeyDown={(e) => {
+            if (isDirty && !isSaving) e.preventDefault()
+          }}
+        >
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
               {editingTemplate ? '템플릿 수정' : '새 템플릿 추가'}
+              {isDirty && (
+                <Badge variant="outline" className="text-xs font-normal">
+                  저장 안 된 변경사항
+                </Badge>
+              )}
             </DialogTitle>
             <DialogDescription>
               리포트 코멘트 작성 시 사용할 템플릿을 {editingTemplate ? '수정' : '추가'}합니다.
