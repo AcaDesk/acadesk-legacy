@@ -33,49 +33,49 @@ export default async function GuardianDetailPage({ params }: GuardianDetailPageP
 
   const { id } = await params
 
-  // Fetch data on server in parallel
   const [result, studentsResult] = await Promise.all([
     getGuardianDetail(id),
     getStudentsForSelect(),
   ])
 
-  // Handle not found
   if (!result.success || !result.data) {
     notFound()
   }
 
-  // Type-safe transformation
   // TODO(any): Supabase nested query types need proper typing
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rawUsers = result.data.users as any
-  const usersData = Array.isArray(rawUsers) ? rawUsers[0] : rawUsers
+  const raw = result.data as any
 
   const guardian = {
-    id: result.data.id,
-    relationship: result.data.relationship,
-    occupation: result.data.occupation,
-    address: result.data.address,
-    users: usersData
-      ? {
-          name: usersData.name as string,
-          email: usersData.email as string | null,
-          phone: usersData.phone as string | null,
-        }
-      : null,
+    id: raw.id as string,
+    name: (raw.name as string) || null,
+    phone: (raw.phone as string | null) || null,
+    email: (raw.email as string | null) || null,
+    relationship: (raw.relationship as string | null) || null,
+    occupation: (raw.occupation as string | null) || null,
+    address: (raw.address as string | null) || null,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    student_guardians: ((result.data.student_guardians || []) as any[]).map((sg) => ({
-      is_primary: sg.is_primary || false,
-      students: sg.students
-        ? {
-            id: sg.students.id,
-            student_code: sg.students.student_code,
-            grade: sg.students.grade,
-            users: sg.students.users
-              ? { name: Array.isArray(sg.students.users) ? sg.students.users[0]?.name : sg.students.users.name }
-              : null,
-          }
-        : null,
-    })),
+    student_guardians: ((raw.student_guardians || []) as any[])
+      .filter((sg) => sg.deleted_at === null)
+      .map((sg) => {
+        const student = Array.isArray(sg.students) ? sg.students[0] : sg.students
+        return {
+          is_primary: Boolean(sg.is_primary),
+          is_primary_contact: Boolean(sg.is_primary_contact),
+          receives_notifications: Boolean(sg.receives_notifications),
+          receives_billing: Boolean(sg.receives_billing),
+          can_pickup: Boolean(sg.can_pickup),
+          can_view_reports: Boolean(sg.can_view_reports),
+          students: student
+            ? {
+                id: student.id as string,
+                name: (student.name as string) || '',
+                student_code: (student.student_code as string) || '',
+                grade: (student.grade as string | null) || null,
+              }
+            : null,
+        }
+      }),
   }
 
   return (

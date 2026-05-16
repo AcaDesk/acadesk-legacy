@@ -15,6 +15,7 @@ import { PageWrapper } from "@/components/layout/page-wrapper"
 import { ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { GUARDIAN_RELATIONSHIPS } from '@/lib/constants'
+import { getGuardianDisplayLabel } from '@/lib/guardian-display'
 import { PhoneInput } from '@ui/phone-input'
 import { guardianFormSchema, type GuardianFormValues } from '@/components/features/guardians/guardian-form'
 import { updateGuardianWithStudents } from '@/app/actions/guardians'
@@ -35,6 +36,7 @@ interface GuardianData {
   userEmail: string | null
   userPhone: string | null
   connectedStudentIds: string[]
+  linkedStudentNames: string[]
 }
 
 interface EditGuardianClientProps {
@@ -114,6 +116,8 @@ export function EditGuardianClient({ guardian, students }: EditGuardianClientPro
     )
   }
 
+  const displayLabel = getGuardianDisplayLabel(guardian.userName, guardian.linkedStudentNames)
+
   return (
     <PageWrapper>
       <div className="space-y-6">
@@ -125,7 +129,7 @@ export function EditGuardianClient({ guardian, students }: EditGuardianClientPro
             </Link>
             <ChevronRight className="h-4 w-4" />
             <Link href={`/guardians/${guardian.id}`} className="hover:text-foreground transition-colors">
-              {guardian.userName || '이름 없음'}
+              {displayLabel}
             </Link>
             <ChevronRight className="h-4 w-4" />
             <span className="text-foreground font-medium">수정</span>
@@ -133,7 +137,7 @@ export function EditGuardianClient({ guardian, students }: EditGuardianClientPro
 
           <div>
             <h1 className="text-3xl font-bold tracking-tight">보호자 정보 수정</h1>
-            <p className="text-muted-foreground">{guardian.userName || '이름 없음'}</p>
+            <p className="text-muted-foreground">{displayLabel}</p>
           </div>
         </div>
 

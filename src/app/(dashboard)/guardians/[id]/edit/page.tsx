@@ -46,27 +46,30 @@ export default async function EditGuardianPage({ params }: EditGuardianPageProps
   // TODO(any): Supabase nested query types need proper typing
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const raw = guardianResult.data as any
-  const rawUsers = raw.users
-  const usersData = Array.isArray(rawUsers) ? rawUsers[0] : rawUsers
 
-  // 연결된 학생 ID 추출
-  const connectedStudentIds = (raw.student_guardians || [])
+  // 연결된 학생 ID + 이름 추출 (deleted_at IS NULL만)
+  const linkedStudents = (raw.student_guardians || [])
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .filter((sg: any) => sg.deleted_at === null)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .map((sg: any) => {
       const student = Array.isArray(sg.students) ? sg.students[0] : sg.students
-      return student?.id
+      return student ? { id: student.id as string, name: (student.name as string) || '' } : null
     })
-    .filter((id: string | undefined): id is string => Boolean(id))
+    .filter((s: { id: string; name: string } | null): s is { id: string; name: string } =>
+      s !== null
+    )
 
   const guardian = {
     id: raw.id as string,
     relationship: raw.relationship as string | null,
     occupation: raw.occupation as string | null,
     address: raw.address as string | null,
-    userName: (usersData?.name as string) || null,
-    userEmail: (usersData?.email as string | null) || null,
-    userPhone: (usersData?.phone as string | null) || null,
-    connectedStudentIds,
+    userName: (raw.name as string) || null,
+    userEmail: (raw.email as string | null) || null,
+    userPhone: (raw.phone as string | null) || null,
+    connectedStudentIds: linkedStudents.map((s: { id: string }) => s.id),
+    linkedStudentNames: linkedStudents.map((s: { name: string }) => s.name).filter(Boolean),
   }
 
   return (
