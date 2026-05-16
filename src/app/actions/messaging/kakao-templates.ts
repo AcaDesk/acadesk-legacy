@@ -14,7 +14,16 @@ import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { getSolapiProvider } from '@/lib/messaging/get-solapi-provider'
-import { translateSolapiError } from '@/lib/solapi-error-translator'
+import { translateSolapiError, isSolapiError } from '@/lib/solapi-error-translator'
+
+/**
+ * Solapi 호출 단계에서 던진 에러인지에 따라 메시지를 분기.
+ * Solapi 에러: 사용자가 직접 Solapi 콘솔에서 조치할 수 있는 안내 포함.
+ * 그 외(DB/내부): 일반화된 한국어 메시지.
+ */
+function translateActionError(error: unknown): string {
+  return isSolapiError(error) ? translateSolapiError(error) : getErrorMessage(error)
+}
 import type {
   KakaoTemplateCategory,
   KakaoTemplateStatus,
@@ -153,7 +162,7 @@ export async function getKakaoTemplateCategories(): Promise<{
     return {
       success: false,
       data: null,
-      error: getErrorMessage(error),
+      error: translateActionError(error),
     }
   }
 }
@@ -207,7 +216,7 @@ export async function getKakaoTemplates(filters?: {
     return {
       success: false,
       data: null,
-      error: getErrorMessage(error),
+      error: translateActionError(error),
     }
   }
 }
@@ -244,7 +253,7 @@ export async function getKakaoTemplate(templateId: string): Promise<{
     return {
       success: false,
       data: null,
-      error: getErrorMessage(error),
+      error: translateActionError(error),
     }
   }
 }
@@ -361,7 +370,7 @@ export async function createKakaoTemplate(
     return {
       success: false,
       data: null,
-      error: getErrorMessage(error),
+      error: translateActionError(error),
     }
   }
 }
@@ -498,7 +507,7 @@ export async function updateKakaoTemplate(
     return {
       success: false,
       data: null,
-      error: getErrorMessage(error),
+      error: translateActionError(error),
     }
   }
 }
@@ -570,7 +579,11 @@ export async function requestKakaoTemplateInspection(
     return {
       success: false,
       data: null,
-      error: error instanceof Error ? error.message : getErrorMessage(error),
+      error: isSolapiError(error)
+        ? translateSolapiError(error)
+        : error instanceof Error
+          ? error.message
+          : getErrorMessage(error),
     }
   }
 }
@@ -635,7 +648,11 @@ export async function cancelKakaoTemplateInspection(templateId: string): Promise
     return {
       success: false,
       data: null,
-      error: error instanceof Error ? error.message : getErrorMessage(error),
+      error: isSolapiError(error)
+        ? translateSolapiError(error)
+        : error instanceof Error
+          ? error.message
+          : getErrorMessage(error),
     }
   }
 }
@@ -701,7 +718,7 @@ export async function deleteKakaoTemplate(templateId: string): Promise<{
     console.error('[deleteKakaoTemplate] Error:', error)
     return {
       success: false,
-      error: getErrorMessage(error),
+      error: translateActionError(error),
     }
   }
 }
@@ -819,7 +836,7 @@ export async function syncKakaoTemplates(): Promise<{
     return {
       success: false,
       syncedCount: 0,
-      error: getErrorMessage(error),
+      error: translateActionError(error),
     }
   }
 }
@@ -888,7 +905,7 @@ export async function refreshTemplateStatus(templateId: string): Promise<{
     return {
       success: false,
       data: null,
-      error: getErrorMessage(error),
+      error: translateActionError(error),
     }
   }
 }
