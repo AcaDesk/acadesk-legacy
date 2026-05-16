@@ -316,26 +316,23 @@ export async function getGuardiansWithDetails() {
     const { tenantId } = await verifyStaff()
     const supabase = createServiceRoleClient()
 
-    // 단일 쿼리로 보호자 + 사용자 + 학생 연결 정보 조회 (N+1 제거)
+    // guardians 단일 출처로 조회 (users 우회 제거)
     const { data: guardians, error: guardiansError } = await supabase
       .from('guardians')
       .select(`
         id,
+        name,
+        phone,
+        email,
         relationship,
-        users (
-          name,
-          email,
-          phone
-        ),
         student_guardians (
           relation,
           is_primary,
+          deleted_at,
           students (
             id,
-            student_code,
-            users (
-              name
-            )
+            name,
+            student_code
           )
         )
       `)
@@ -347,38 +344,41 @@ export async function getGuardiansWithDetails() {
 
     interface GuardianRow {
       id: string
+      name: string | null
+      phone: string | null
+      email: string | null
       relationship: string | null
-      users: { name: string | null; email: string | null; phone: string | null } | { name: string | null; email: string | null; phone: string | null }[] | null
       student_guardians: Array<{
         relation: string | null
         is_primary: boolean | null
-        students: { id: string; student_code: string | null; users: { name: string | null } | { name: string | null }[] | null } | { id: string; student_code: string | null; users: { name: string | null } | { name: string | null }[] | null }[] | null
+        deleted_at: string | null
+        students: { id: string; name: string | null; student_code: string | null }
+          | { id: string; name: string | null; student_code: string | null }[]
+          | null
       }> | null
     }
     const guardiansWithDetails = ((guardians || []) as GuardianRow[]).map((guardian) => {
-      const usersData = Array.isArray(guardian.users) ? guardian.users[0] : guardian.users
-
-      const students = (guardian.student_guardians || []).map((link) => {
-        const student = Array.isArray(link.students) ? link.students[0] : link.students
-        const studentUsers = student?.users
-        const studentUserName = Array.isArray(studentUsers) ? studentUsers[0]?.name : studentUsers?.name
-        return {
-          id: student?.id || '',
-          studentCode: student?.student_code || '',
-          name: studentUserName || '',
-          relation: link.relation || '',
-          isPrimary: link.is_primary || false,
-        }
-      })
+      const students = (guardian.student_guardians || [])
+        .filter((link) => link.deleted_at === null)
+        .map((link) => {
+          const student = Array.isArray(link.students) ? link.students[0] : link.students
+          return {
+            id: student?.id || '',
+            studentCode: student?.student_code || '',
+            name: student?.name || '',
+            relation: link.relation || '',
+            isPrimary: link.is_primary || false,
+          }
+        })
 
       return {
         guardian: {
           id: guardian.id,
           relationship: guardian.relationship,
         },
-        userName: usersData?.name || null,
-        userEmail: usersData?.email || null,
-        userPhone: usersData?.phone || null,
+        userName: guardian.name,
+        userEmail: guardian.email,
+        userPhone: guardian.phone,
         students,
       }
     })
