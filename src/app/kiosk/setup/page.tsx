@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/c
 import { Button } from '@ui/button'
 import { createBrowserClient } from '@/lib/supabase/client'
 import { Avatar, AvatarFallback } from '@ui/avatar'
+import { kioskStorage } from '@/lib/kiosk-storage'
 
 interface TenantInfo {
   tenantId: string
@@ -33,8 +34,7 @@ export default function KioskSetupPage() {
   const [savedTenantId, setSavedTenantId] = useState<string | null>(null)
 
   useEffect(() => {
-    const stored = localStorage.getItem('kiosk_tenant_id')
-    setSavedTenantId(stored)
+    setSavedTenantId(kioskStorage.getTenantId())
     loadSessionInfo()
   }, [])
 
@@ -73,7 +73,7 @@ export default function KioskSetupPage() {
   function handleSetup() {
     if (!tenantInfo) return
     setIsSaving(true)
-    localStorage.setItem('kiosk_tenant_id', tenantInfo.tenantId)
+    kioskStorage.setTenantId(tenantInfo.tenantId)
     setSavedTenantId(tenantInfo.tenantId)
     setTimeout(() => {
       router.push('/kiosk/attendance')

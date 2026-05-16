@@ -11,6 +11,7 @@ import {
   type KioskStudentInfo,
   type KioskStudentStatus,
 } from '@/app/actions/kiosk-attendance'
+import { kioskStorage } from '@/lib/kiosk-storage'
 
 type Step = 'setup_required' | 'input' | 'select' | 'confirm' | 'success' | 'admin_auth'
 
@@ -121,7 +122,7 @@ export default function KioskAttendancePage() {
   }, [])
 
   useEffect(() => {
-    const stored = localStorage.getItem('kiosk_tenant_id')
+    const stored = kioskStorage.getTenantId()
     if (!stored) setStep('setup_required')
     else { setTenantId(stored); setStep('input') }
   }, [])
@@ -200,7 +201,7 @@ export default function KioskAttendancePage() {
   }
 
   function handleAdminPinSubmit(submittedPin: string) {
-    const exitPin = localStorage.getItem('kiosk_exit_pin') ?? '9999'
+    const exitPin = kioskStorage.getExitPin()
     if (submittedPin === exitPin) {
       router.push('/dashboard')
     } else {
