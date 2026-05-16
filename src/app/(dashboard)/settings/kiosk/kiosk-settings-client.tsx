@@ -9,6 +9,7 @@ import { Label } from '@ui/label'
 import { Badge } from '@ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { MonitorPlay, KeyRound, Save, CheckCircle2, XCircle } from 'lucide-react'
+import { kioskStorage } from '@/lib/kiosk-storage'
 
 export function KioskSettingsClient() {
   const router = useRouter()
@@ -18,32 +19,42 @@ export function KioskSettingsClient() {
   const [currentExitPin, setCurrentExitPin] = useState<string | null>(null)
   const [exitPin, setExitPin] = useState('')
   const [exitPinConfirm, setExitPinConfirm] = useState('')
+  const [pinError, setPinError] = useState<string | null>(null)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    setSavedTenantId(localStorage.getItem('kiosk_tenant_id'))
-    setCurrentExitPin(localStorage.getItem('kiosk_exit_pin'))
+    setSavedTenantId(kioskStorage.getTenantId())
+    setCurrentExitPin(kioskStorage.getExitPinRaw())
     setMounted(true)
   }, [])
 
-  function handleSaveExitPin() {
+  function validatePin(): string | null {
     if (exitPin.length !== 4 || !/^\d{4}$/.test(exitPin)) {
-      toast({ title: '오류', description: '4자리 숫자로 입력해주세요.', variant: 'destructive' })
-      return
+      return '4자리 숫자로 입력해주세요'
     }
     if (exitPin !== exitPinConfirm) {
-      toast({ title: '오류', description: 'PIN이 일치하지 않습니다.', variant: 'destructive' })
+      return 'PIN이 일치하지 않습니다'
+    }
+    return null
+  }
+
+  function handleSaveExitPin(e?: React.FormEvent) {
+    e?.preventDefault()
+    const error = validatePin()
+    if (error) {
+      setPinError(error)
       return
     }
-    localStorage.setItem('kiosk_exit_pin', exitPin)
+    kioskStorage.setExitPin(exitPin)
     setCurrentExitPin(exitPin)
     setExitPin('')
     setExitPinConfirm('')
+    setPinError(null)
     toast({ title: '저장 완료', description: '관리자 종료 PIN이 변경되었습니다.' })
   }
 
   function handleResetKiosk() {
-    localStorage.removeItem('kiosk_tenant_id')
+    kioskStorage.clearTenantId()
     setSavedTenantId(null)
     toast({ title: '초기화 완료', description: '키오스크 기기 설정이 초기화되었습니다.' })
   }
@@ -139,7 +150,7 @@ export function KioskSettingsClient() {
             </span>
           </div>
 
-          <div className="space-y-3">
+          <form className="space-y-3" onSubmit={handleSaveExitPin}>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="exitPin">새 PIN (4자리)</Label>
@@ -150,7 +161,11 @@ export function KioskSettingsClient() {
                   maxLength={4}
                   placeholder="새 PIN 입력"
                   value={exitPin}
-                  onChange={(e) => setExitPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  onChange={(e) => {
+                    setExitPin(e.target.value.replace(/\D/g, '').slice(0, 4))
+                    if (pinError) setPinError(null)
+                  }}
+                  aria-invalid={!!pinError}
                 />
               </div>
               <div className="space-y-1.5">
@@ -162,20 +177,28 @@ export function KioskSettingsClient() {
                   maxLength={4}
                   placeholder="PIN 재입력"
                   value={exitPinConfirm}
-                  onChange={(e) => setExitPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleSaveExitPin() }}
+                  onChange={(e) => {
+                    setExitPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 4))
+                    if (pinError) setPinError(null)
+                  }}
+                  aria-invalid={!!pinError}
                 />
               </div>
             </div>
+            {pinError && (
+              <p className="text-sm text-destructive" role="alert">
+                {pinError}
+              </p>
+            )}
             <Button
+              type="submit"
               className="gap-2"
-              onClick={handleSaveExitPin}
               disabled={exitPin.length !== 4 || exitPinConfirm.length !== 4}
             >
               <Save className="h-4 w-4" />
               PIN 저장
             </Button>
-          </div>
+          </form>
         </CardContent>
       </Card>
     </div>

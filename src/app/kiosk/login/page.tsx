@@ -11,6 +11,7 @@ import { Label } from '@ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { getStudentsByTenant, authenticateKioskByNameAndPhone } from '@/app/actions/kiosk'
 import { createKioskSession } from '@/lib/kiosk-session'
+import { kioskStorage } from '@/lib/kiosk-storage'
 
 interface Student {
   id: string
@@ -36,7 +37,7 @@ export default function KioskLoginPage() {
   // 테넌트 ID 확인 및 학생 목록 로드
   useEffect(() => {
     const loadStudents = async () => {
-      const tenantId = localStorage.getItem('kiosk_tenant_id')
+      const tenantId = kioskStorage.getTenantId()
 
       if (!tenantId) {
         toast({
