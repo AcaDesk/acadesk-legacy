@@ -24,6 +24,7 @@ import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/pag
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import { formatPhoneNumber } from '@/lib/utils'
 import { getGuardianRelationshipLabel } from '@/lib/constants'
+import { getGuardianDisplayLabel, getGuardianSecondaryLabel } from '@/lib/guardian-display'
 import { useToast } from '@/hooks/use-toast'
 import {
   linkGuardianToStudent,
@@ -191,11 +192,26 @@ export function GuardianDetailClient({ guardian, availableStudents }: GuardianDe
     }
   }
 
+  const linkedStudentNames = guardian.student_guardians
+    .map((sg) => {
+      const s = sg.students
+      if (!s) return ''
+      const u = Array.isArray(s.users) ? s.users[0] : s.users
+      return u?.name || ''
+    })
+    .filter(Boolean)
+  const headerLabel = getGuardianDisplayLabel(guardian.users?.name, linkedStudentNames)
+  const headerSecondary = getGuardianSecondaryLabel(guardian.users?.name, linkedStudentNames)
+  const subtitleParts = [
+    guardian.relationship ? `${getGuardianRelationshipLabel(guardian.relationship)} · 보호자` : '보호자',
+    headerSecondary ? `본명: ${headerSecondary}` : null,
+  ].filter(Boolean) as string[]
+
   return (
     <PageErrorBoundary pageName="보호자 상세">
       <PageWrapper
-        title={guardian.users?.name || '이름 없음'}
-        subtitle={`${guardian.relationship ? `${getGuardianRelationshipLabel(guardian.relationship)} · ` : ''}보호자`}
+        title={headerLabel}
+        subtitle={subtitleParts.join(' · ')}
         actions={
           <RoleGuard allowedRoles={['owner', 'instructor']}>
             <Button onClick={() => router.push(`/guardians/${guardian.id}/edit`)}>
