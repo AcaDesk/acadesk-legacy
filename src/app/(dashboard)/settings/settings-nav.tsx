@@ -70,7 +70,7 @@ export function SettingsNav() {
               <motion.div
                 layoutId="settings-nav-active"
                 className="absolute inset-0 rounded-md bg-accent"
-                transition={{ type: 'spring', bounce: 0.15, duration: 0.4 }}
+                transition={{ type: 'tween', ease: 'easeOut', duration: 0.18 }}
               />
             )}
             <Icon className="relative h-4 w-4 shrink-0" />
