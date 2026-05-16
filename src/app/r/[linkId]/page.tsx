@@ -7,7 +7,7 @@
  * - 열람 로그 기록
  */
 
-import { createClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { notFound } from 'next/navigation'
 import { Card, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { AlertCircle } from 'lucide-react'
@@ -22,10 +22,11 @@ interface PageProps {
 export default async function ReportSharePage({ params }: PageProps) {
   const { linkId } = await params
 
-  const supabase = await createClient()
+  // 익명 공개 라우트 — service_role 사용 (RLS bypass).
+  // share_link_id 자체가 UUID 토큰 역할이라 추가 인증 없이도 안전.
+  const supabase = createServiceRoleClient()
 
   // 1. share_link_id로 report_send 조회
-  // Note: students, tenants JOIN은 RLS 문제로 제거
   const { data: reportSend, error: sendError } = await supabase
     .from('report_sends')
     .select(`
