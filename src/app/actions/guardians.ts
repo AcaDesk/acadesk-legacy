@@ -62,7 +62,26 @@ export async function createGuardian(data: z.infer<typeof createGuardianSchema>)
     // 3. Service Role 클라이언트로 DB 작업
     const supabase = createServiceRoleClient()
 
-    // 3-1. users 테이블에 보호자 생성
+    // 3-1. 동일 (tenant, 정규화 전화번호, 이름) 보호자가 이미 있는지 확인
+    const normalizedPhone = validatedData.phone.replace(/\D/g, '')
+    if (normalizedPhone.length >= 9) {
+      const { data: existing } = await supabase
+        .from('guardians')
+        .select('id, name')
+        .eq('tenant_id', tenantId)
+        .eq('normalized_phone', normalizedPhone)
+        .ilike('name', validatedData.name)
+        .is('deleted_at', null)
+        .maybeSingle()
+
+      if (existing) {
+        throw new Error(
+          `이미 등록된 보호자입니다 (${existing.name}). 기존 보호자에 학생을 연결해주세요.`
+        )
+      }
+    }
+
+    // 3-2. users 테이블에 보호자 생성
     const { data: newUser, error: userCreateError } = await supabase
       .from('users')
       .insert({
@@ -70,7 +89,7 @@ export async function createGuardian(data: z.infer<typeof createGuardianSchema>)
         email: validatedData.email || null,
         name: validatedData.name,
         phone: validatedData.phone,
-        role_code: 'guardian',
+        role_code: 'parent',
       })
       .select()
       .single()
@@ -79,13 +98,18 @@ export async function createGuardian(data: z.infer<typeof createGuardianSchema>)
       throw new Error(`사용자 레코드 생성 실패: ${userCreateError?.message}`)
     }
 
-    // 3-2. guardians 테이블에 보호자 정보 저장
+    // 3-3. guardians 테이블에 보호자 정보 저장 (단일 출처: guardians.{name,phone,email})
     const { data: newGuardian, error: guardianError } = await supabase
       .from('guardians')
       .insert({
         tenant_id: tenantId,
         user_id: newUser.id,
+        name: validatedData.name,
+        phone: validatedData.phone,
+        email: validatedData.email || null,
         relationship: validatedData.relationship,
+        occupation: validatedData.occupation || null,
+        address: validatedData.address || null,
       })
       .select()
       .single()
@@ -93,6 +117,9 @@ export async function createGuardian(data: z.infer<typeof createGuardianSchema>)
     if (guardianError || !newGuardian) {
       // 롤백: 생성된 user 삭제
       await supabase.from('users').delete().eq('id', newUser.id)
+      if (guardianError?.code === '23505') {
+        throw new Error('같은 전화번호와 이름의 보호자가 이미 존재합니다')
+      }
       throw new Error(`보호자 정보 생성 실패: ${guardianError?.message}`)
     }
 
@@ -165,25 +192,13 @@ export async function updateGuardian(data: z.infer<typeof updateGuardianSchema>)
       throw new Error('보호자 정보를 찾을 수 없습니다')
     }
 
-    // 3-2. users 테이블 업데이트
-    const { error: userUpdateError } = await supabase
-      .from('users')
-      .update({
-        name: validatedData.name,
-        email: validatedData.email || null,
-        phone: validatedData.phone,
-      })
-      .eq('id', guardian.user_id)
-      .eq('tenant_id', tenantId)
-
-    if (userUpdateError) {
-      throw new Error(`사용자 정보 수정 실패: ${userUpdateError.message}`)
-    }
-
-    // 3-3. guardians 테이블 업데이트
+    // 3-2. guardians 테이블 업데이트 (단일 출처)
     const { data: updatedGuardian, error: updateError } = await supabase
       .from('guardians')
       .update({
+        name: validatedData.name,
+        phone: validatedData.phone,
+        email: validatedData.email || null,
         relationship: validatedData.relationship,
         occupation: validatedData.occupation || null,
         address: validatedData.address || null,
@@ -194,7 +209,28 @@ export async function updateGuardian(data: z.infer<typeof updateGuardianSchema>)
       .single()
 
     if (updateError) {
+      if (updateError.code === '23505') {
+        throw new Error('같은 전화번호와 이름의 보호자가 이미 존재합니다')
+      }
       throw new Error(`보호자 정보 수정 실패: ${updateError.message}`)
+    }
+
+    // 3-3. users 테이블 동기화 (로그인/알림 호환성을 위해 유지)
+    if (guardian.user_id) {
+      const { error: userUpdateError } = await supabase
+        .from('users')
+        .update({
+          name: validatedData.name,
+          email: validatedData.email || null,
+          phone: validatedData.phone,
+        })
+        .eq('id', guardian.user_id)
+        .eq('tenant_id', tenantId)
+
+      if (userUpdateError) {
+        console.error('[updateGuardian] users sync failed:', userUpdateError.message)
+        // guardians 업데이트는 이미 성공했으므로 throw하지 않음
+      }
     }
 
     // 4. 캐시 무효화
@@ -554,6 +590,68 @@ export async function unlinkGuardianFromStudent(
 }
 
 /**
+ * 정규화 전화번호로 정확 매칭되는 보호자 검색
+ * 등록 폼에서 사용자가 전화번호 입력 시 사전 안내용
+ *
+ * @param phone - 입력된 전화번호 (정규화 전)
+ * @returns 같은 전화번호의 보호자 + 연결된 학생 이름 리스트
+ */
+export async function findGuardiansByPhone(phone: string) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const normalized = phone.replace(/\D/g, '')
+
+    if (normalized.length < 9) {
+      return { success: true, data: [] as Array<{
+        id: string
+        name: string
+        phone: string | null
+        relationship: string | null
+        students: string[]
+      }> }
+    }
+
+    const supabase = createServiceRoleClient()
+
+    const { data, error } = await supabase
+      .from('guardians')
+      .select(`
+        id, name, phone, relationship,
+        student_guardians (
+          deleted_at,
+          students (
+            name
+          )
+        )
+      `)
+      .eq('tenant_id', tenantId)
+      .eq('normalized_phone', normalized)
+      .is('deleted_at', null)
+
+    if (error) throw error
+
+    const result = (data || []).map((g) => ({
+      id: g.id,
+      name: g.name,
+      phone: g.phone,
+      relationship: g.relationship,
+      students: (g.student_guardians || [])
+        .filter((sg: { deleted_at: string | null }) => sg.deleted_at === null)
+        .map((sg: { students: { name: string } | { name: string }[] | null }) => {
+          const s = Array.isArray(sg.students) ? sg.students[0] : sg.students
+          return s?.name || ''
+        })
+        .filter(Boolean),
+    }))
+
+    return { success: true, data: result }
+  } catch (error) {
+    console.error('[findGuardiansByPhone] Error:', error)
+    return { success: false, error: getErrorMessage(error), data: [] }
+  }
+}
+
+/**
  * 보호자 검색 (이름, 전화번호, 이메일, 학생 이름)
  * @param query - 검색어
  * @param limit - 결과 제한 수 (기본 10)
@@ -565,33 +663,34 @@ export async function searchGuardians(query: string, limit: number = 10) {
     const supabase = createServiceRoleClient()
 
     const safeQuery = query.trim().slice(0, 100).replace(/[%_\\]/g, '\\$&')
+    const digitsOnly = query.replace(/\D/g, '')
     const guardianIdSet = new Set<string>()
 
-    // 1. users 테이블에서 보호자 이름/전화번호/이메일로 검색
-    const { data: guardianUsers, error: guardianUsersError } = await supabase
-      .from('users')
-      .select('id')
-      .eq('tenant_id', tenantId)
-      .eq('role_code', 'guardian')
-      .is('deleted_at', null)
-      .or(`name.ilike.%${safeQuery}%,phone.ilike.%${safeQuery}%,email.ilike.%${safeQuery}%`)
-      .limit(limit)
-
-    if (guardianUsersError) {
-      console.error('[searchGuardians] Guardian users search error:', guardianUsersError)
-    } else if (guardianUsers && guardianUsers.length > 0) {
-      // 보호자의 user_id를 guardian_id로 변환
-      const { data: guardiansFromUsers } = await supabase
-        .from('guardians')
-        .select('id')
-        .eq('tenant_id', tenantId)
-        .is('deleted_at', null)
-        .in('user_id', guardianUsers.map(u => u.id))
-
-      guardiansFromUsers?.forEach(g => guardianIdSet.add(g.id))
+    // 1. guardians 테이블에서 이름/전화번호/이메일/정규화전화번호로 검색 (단일 출처)
+    const orFilters = [
+      `name.ilike.%${safeQuery}%`,
+      `phone.ilike.%${safeQuery}%`,
+      `email.ilike.%${safeQuery}%`,
+    ]
+    if (digitsOnly.length >= 4) {
+      orFilters.push(`normalized_phone.ilike.%${digitsOnly}%`)
     }
 
-    // 2. students 테이블에서 학생 이름으로 검색 후 해당 학생의 보호자 찾기
+    const { data: directHits, error: directError } = await supabase
+      .from('guardians')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .or(orFilters.join(','))
+      .limit(limit)
+
+    if (directError) {
+      console.error('[searchGuardians] Direct search error:', directError)
+    } else {
+      directHits?.forEach((g) => guardianIdSet.add(g.id))
+    }
+
+    // 2. 학생 이름으로 검색 후 해당 학생의 보호자 찾기 (관계망 검색)
     const { data: studentUsers, error: studentUsersError } = await supabase
       .from('users')
       .select('id')
@@ -604,7 +703,6 @@ export async function searchGuardians(query: string, limit: number = 10) {
     if (studentUsersError) {
       console.error('[searchGuardians] Student users search error:', studentUsersError)
     } else if (studentUsers && studentUsers.length > 0) {
-      // 학생의 user_id로 student_id 찾기
       const { data: students } = await supabase
         .from('students')
         .select('id')
@@ -613,34 +711,32 @@ export async function searchGuardians(query: string, limit: number = 10) {
         .in('user_id', studentUsers.map(u => u.id))
 
       if (students && students.length > 0) {
-        // 학생의 보호자 찾기
         const { data: studentGuardianLinks } = await supabase
           .from('student_guardians')
           .select('guardian_id')
           .eq('tenant_id', tenantId)
+          .is('deleted_at', null)
           .in('student_id', students.map(s => s.id))
 
         studentGuardianLinks?.forEach(sg => guardianIdSet.add(sg.guardian_id))
       }
     }
 
-    // 3. 검색된 모든 guardian_id로 상세 정보 조회
     if (guardianIdSet.size === 0) {
       return { success: true, data: [] }
     }
 
+    // 3. 보호자 상세 정보 조회 (guardians 단일 출처, 연결 학생 포함)
     const { data: guardians, error: guardiansError } = await supabase
       .from('guardians')
       .select(`
-        *,
-        users!user_id(*),
+        id, name, phone, email, relationship, occupation, address,
         student_guardians (
           student_id,
+          deleted_at,
           students (
             id,
-            users (
-              name
-            )
+            name
           )
         )
       `)
@@ -651,7 +747,15 @@ export async function searchGuardians(query: string, limit: number = 10) {
 
     if (guardiansError) throw guardiansError
 
-    return { success: true, data: guardians || [] }
+    // active student_guardians만 남기고 정리
+    const cleaned = (guardians || []).map(g => ({
+      ...g,
+      student_guardians: (g.student_guardians || []).filter(
+        (sg: { deleted_at: string | null }) => sg.deleted_at === null
+      ),
+    }))
+
+    return { success: true, data: cleaned }
   } catch (error) {
     console.error('[searchGuardians] Error:', error)
     return { success: false, error: getErrorMessage(error), data: [] }

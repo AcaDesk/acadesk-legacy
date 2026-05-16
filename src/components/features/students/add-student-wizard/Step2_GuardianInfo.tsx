@@ -1,6 +1,6 @@
-import { useReducer, useEffect, useRef, useCallback } from 'react'
+import { useReducer, useEffect, useRef, useCallback, useState } from 'react'
 import { useFormContext } from 'react-hook-form'
-import { Search, UserPlus, Check, Loader2, X } from 'lucide-react'
+import { Search, UserPlus, Check, Loader2, X, Users } from 'lucide-react'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { GUARDIAN_MODES } from '@/lib/constants'
 import { Input } from '@ui/input'
@@ -13,7 +13,18 @@ import { Alert, AlertDescription } from '@ui/alert'
 import { cn, formatPhoneNumber } from '@/lib/utils'
 import { GUARDIAN_RELATIONSHIPS } from '@/lib/constants'
 import type { StudentWizardFormValues, Guardian } from './types'
-import { searchGuardians as searchGuardiansAction } from '@/app/actions/guardians'
+import {
+  searchGuardians as searchGuardiansAction,
+  findGuardiansByPhone,
+} from '@/app/actions/guardians'
+
+type PhoneMatch = {
+  id: string
+  name: string
+  phone: string | null
+  relationship: string | null
+  students: string[]
+}
 
 // ============================================================================
 // Guardian State Management with useReducer
@@ -84,9 +95,48 @@ export function Step2_GuardianInfo() {
   const { register, setValue, watch, formState: { errors } } = useFormContext<StudentWizardFormValues>()
   const [state, dispatch] = useReducer(guardianReducer, initialState)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const [phoneMatches, setPhoneMatches] = useState<PhoneMatch[]>([])
+  const [phoneMatchDismissed, setPhoneMatchDismissed] = useState(false)
 
   const { user: currentUser } = useCurrentUser()
   const guardianPhone = watch('guardian.phone')
+
+  // 신규 폼에서 전화번호 입력 시 같은 번호의 기존 보호자를 사전 안내
+  useEffect(() => {
+    if (!state.showNewForm) {
+      setPhoneMatches([])
+      return
+    }
+    const normalized = (guardianPhone || '').replace(/\D/g, '')
+    if (normalized.length < 9) {
+      setPhoneMatches([])
+      setPhoneMatchDismissed(false)
+      return
+    }
+
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      const res = await findGuardiansByPhone(guardianPhone || '')
+      if (cancelled) return
+      if (res.success && res.data && res.data.length > 0) {
+        setPhoneMatches(res.data as PhoneMatch[])
+      } else {
+        setPhoneMatches([])
+      }
+    }, 400)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [guardianPhone, state.showNewForm])
+
+  function handleUseMatchedGuardian(match: PhoneMatch) {
+    dispatch({ type: 'SELECT_GUARDIAN', payload: match.id })
+    setValue('guardianMode', GUARDIAN_MODES.EXISTING)
+    setValue('existingGuardianId', match.id)
+    setPhoneMatches([])
+  }
 
   // 포커스 관리: 컴포넌트가 마운트될 때 검색 필드에 포커스
   useEffect(() => {
@@ -104,26 +154,21 @@ export function Step2_GuardianInfo() {
         throw new Error(result.error || '보호자 검색 실패')
       }
 
-      // Convert to Guardian type (phone must be string, not null)
+      // guardians 단일 출처 — 이름/연락처는 guardians 테이블에서 직접
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const guardians = result.data.map((g: any) => {
-        // 보호자 이름이 없으면 첫 번째 학생 이름으로 대체
-        let displayName = g.users?.name || ''
-
-        if (!displayName && g.student_guardians && g.student_guardians.length > 0) {
-          const firstStudent = g.student_guardians[0]
-          const studentName = firstStudent?.students?.users?.name
-          if (studentName) {
-            displayName = `${studentName} 보호자`
-          }
-        }
+        const linkedStudents: string[] = (g.student_guardians || [])
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .map((sg: any) => sg.students?.name)
+          .filter(Boolean)
 
         return {
           id: g.id,
-          name: displayName || '이름 없음',
-          phone: g.users?.phone || '',
-          email: g.users?.email || null,
+          name: g.name || '이름 없음',
+          phone: g.phone || '',
+          email: g.email || null,
           relationship: g.relationship || '',
+          linkedStudents,
         }
       })
 
@@ -221,6 +266,13 @@ export function Step2_GuardianInfo() {
                         {guardian.email && (
                           <p className="text-xs text-muted-foreground">{guardian.email}</p>
                         )}
+                        {guardian.linkedStudents && guardian.linkedStudents.length > 0 && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            <span className="font-medium">연결된 자녀:</span>{' '}
+                            {guardian.linkedStudents.join(', ')}
+                            <span className="text-primary"> · 형제로 자동 연결됩니다</span>
+                          </p>
+                        )}
                       </div>
                       {state.selectedId === guardian.id && (
                         <Check className="h-5 w-5 text-primary" />
@@ -282,6 +334,59 @@ export function Step2_GuardianInfo() {
               </Button>
             )}
           </div>
+
+          {/* 같은 전화번호 보호자 자동 매칭 안내 */}
+          {phoneMatches.length > 0 && !phoneMatchDismissed && (
+            <div className="rounded-md border border-primary/40 bg-primary/5 p-3 space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                  <Users className="h-4 w-4" />
+                  이 번호로 등록된 학부모가 있습니다
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-muted-foreground"
+                  onClick={() => setPhoneMatchDismissed(true)}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                기존 학부모에 연결하면 자녀가 자동으로 형제로 묶입니다.
+              </p>
+              <div className="space-y-1.5">
+                {phoneMatches.map((match) => (
+                  <div
+                    key={match.id}
+                    className="flex items-center justify-between gap-2 rounded bg-background border p-2"
+                  >
+                    <div className="text-sm">
+                      <span className="font-medium">{match.name}</span>
+                      {match.relationship && (
+                        <Badge variant="outline" className="ml-2 text-xs">
+                          {match.relationship}
+                        </Badge>
+                      )}
+                      {match.students.length > 0 && (
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          자녀: {match.students.join(', ')}
+                        </div>
+                      )}
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => handleUseMatchedGuardian(match)}
+                    >
+                      이 학부모 사용
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
