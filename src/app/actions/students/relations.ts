@@ -101,7 +101,7 @@ export async function detachStudentActiveRelations(
 
   if (options.closeOpenTodos) {
     const { error: todoUpdateError } = await client
-      .from('student_todos')
+      .from('student_tasks')
       .update({
         deleted_at: now,
         updated_at: now,
@@ -109,7 +109,7 @@ export async function detachStudentActiveRelations(
       .eq('tenant_id', options.tenantId)
       .in('student_id', studentIds)
       .is('deleted_at', null)
-      .neq('status', 'verified')
+      .is('verified_at', null)
 
     if (todoUpdateError) {
       throw todoUpdateError
