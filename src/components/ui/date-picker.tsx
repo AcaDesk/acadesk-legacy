@@ -212,10 +212,11 @@ export const DatePicker = React.forwardRef<HTMLButtonElement, DatePickerProps>(
             selected={value}
             onSelect={handleSelect}
             disabled={disabled}
+            defaultMonth={value ?? new Date()}
             initialFocus
             captionLayout={captionLayout}
-            fromYear={fromYear}
-            toYear={toYear}
+            startMonth={new Date(fromYear, 0, 1)}
+            endMonth={new Date(toYear, 11, 31)}
           />
           <div className="flex items-center justify-between gap-2 border-t p-2">
             <Button
