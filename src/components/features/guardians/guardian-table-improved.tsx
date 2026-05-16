@@ -46,6 +46,7 @@ import {
 } from '@ui/select'
 import { cn, formatPhoneNumber } from '@/lib/utils'
 import { getGuardianRelationshipLabel } from '@/lib/constants'
+import { getGuardianDisplayLabel, getGuardianSecondaryLabel } from '@/lib/guardian-display'
 
 export interface Guardian {
   id: string
@@ -118,29 +119,20 @@ export function GuardianTableImproved({
     },
     {
       accessorKey: 'name',
-      header: '이름',
+      header: '학부모',
       cell: ({ row }) => {
         const guardian = row.original
+        const studentNames = (guardian.guardian_students || [])
+          .map((gs) => gs.students?.users?.name || '')
+          .filter(Boolean)
+        const displayLabel = getGuardianDisplayLabel(guardian.users?.name, studentNames)
+        const secondary = getGuardianSecondaryLabel(guardian.users?.name, studentNames)
         return (
           <div>
-            <div className="font-medium">
-              {guardian.users?.name || '이름 없음'}
-            </div>
-            {guardian.guardian_students && guardian.guardian_students.length > 0 && (
-              <div className="text-xs text-muted-foreground mt-1">
-                {guardian.guardian_students.map((gs, idx) => {
-                  const studentName = gs.students?.users?.name
-                  const relation = gs.relationship
-                  if (studentName && relation) {
-                    return (
-                      <span key={idx}>
-                        {idx > 0 && ', '}
-                        {studentName} {getGuardianRelationshipLabel(relation)}
-                      </span>
-                    )
-                  }
-                  return null
-                })}
+            <div className="font-medium">{displayLabel}</div>
+            {secondary && (
+              <div className="text-xs text-muted-foreground mt-0.5">
+                본명: {secondary}
               </div>
             )}
           </div>
@@ -155,31 +147,11 @@ export function GuardianTableImproved({
           ...(guardian.guardian_students || []).flatMap(gs => {
             const studentName = gs.students?.users?.name || ''
             const relation = getGuardianRelationshipLabel(gs.relationship)
-            return [`${studentName} ${relation}`, `${studentName}${relation}`]
+            return [`${studentName} ${relation}`, `${studentName}${relation}`, `${studentName} 보호자`]
           }),
         ].join(' ').toLowerCase()
 
         return searchableText.includes(value.toLowerCase())
-      },
-    },
-    {
-      accessorKey: 'relationship',
-      header: '관계',
-      cell: ({ row }) => {
-        const guardian = row.original
-        if (!guardian.guardian_students || guardian.guardian_students.length === 0) {
-          return <span className="text-muted-foreground text-sm">-</span>
-        }
-        return (
-          <div className="flex flex-wrap gap-1">
-            {guardian.guardian_students.map((gs, idx) => (
-              <Badge key={idx} variant="outline" className="text-xs">
-                {getGuardianRelationshipLabel(gs.relationship)}
-                {gs.is_primary && <span className="ml-1">★</span>}
-              </Badge>
-            ))}
-          </div>
-        )
       },
     },
     {
@@ -250,7 +222,12 @@ export function GuardianTableImproved({
               variant="ghost"
               size="sm"
               className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
-              onClick={() => onDelete(guardian.id, guardian.users?.name || '보호자')}
+              onClick={() => {
+                const studentNames = (guardian.guardian_students || [])
+                  .map((gs) => gs.students?.users?.name || '')
+                  .filter(Boolean)
+                onDelete(guardian.id, getGuardianDisplayLabel(guardian.users?.name, studentNames))
+              }}
             >
               <Trash2 className="h-4 w-4" />
             </Button>
