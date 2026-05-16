@@ -3,7 +3,8 @@ import { ReportTemplatesClient } from './report-templates-client'
 import { getTenantReportTemplates, getSystemReportTemplates } from '@/app/actions/reports/templates'
 import type { Metadata } from 'next'
 
-export const dynamic = 'force-dynamic'
+// 명시적 force-dynamic 불필요 — requireAuth() 의 cookies() 호출이 자동으로
+// 페이지를 dynamic 로 만든다. Next.js 가 캐시 가능한 부분 (메타데이터 등) 은 자동 처리.
 
 export const metadata: Metadata = {
   title: '리포트 템플릿 관리',

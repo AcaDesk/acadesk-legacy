@@ -1,9 +1,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
-import { Settings, HelpCircle } from 'lucide-react'
+import { Settings, HelpCircle, AlertTriangle, Trash2, UserX } from 'lucide-react'
 import Link from 'next/link'
-import { Separator } from '@ui/separator'
 
 interface SettingsClientProps {
   systemInfo: {
@@ -92,19 +91,29 @@ export function SettingsClient({ systemInfo }: SettingsClientProps) {
       </Card>
 
       {/* Danger Zone */}
-      <Separator />
-      <Card className="border-destructive/20 bg-destructive/5">
+      <Card className="border-destructive/30 bg-destructive/5">
         <CardHeader>
-          <CardTitle className="text-destructive">위험 구역</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-destructive">
+            <AlertTriangle className="h-5 w-5" />
+            위험 구역
+          </CardTitle>
           <CardDescription>
             주의: 이 작업들은 되돌릴 수 없습니다
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <Button variant="outline" className="w-full justify-start text-destructive border-destructive/20 hover:bg-destructive/10">
+          <Button
+            variant="outline"
+            className="w-full justify-start text-destructive border-destructive/20 hover:bg-destructive/10"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
             모든 데이터 초기화
           </Button>
-          <Button variant="outline" className="w-full justify-start text-destructive border-destructive/20 hover:bg-destructive/10">
+          <Button
+            variant="outline"
+            className="w-full justify-start text-destructive border-destructive/20 hover:bg-destructive/10"
+          >
+            <UserX className="h-4 w-4 mr-2" />
             계정 삭제
           </Button>
         </CardContent>
