@@ -86,6 +86,7 @@ export interface Guardian {
   phone: string
   email?: string | null
   relationship?: string | null
+  linkedStudents?: string[]
 }
 
 export interface StepInfo {

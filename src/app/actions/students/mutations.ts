@@ -42,6 +42,7 @@ export async function createStudentComplete(
 
     let guardianId: string | null = null
     let studentId: string | null = null
+    let autoMatchedGuardian: { id: string; name: string } | null = null
 
     // 4. Handle guardian creation/linking based on mode
     if (validated.guardianMode === 'new' && validated.guardian && 'name' in validated.guardian) {
@@ -51,66 +52,93 @@ export async function createStudentComplete(
       // 4-1. Create user record for guardian
       const guardianEmail = guardianData.email || null
       const guardianPhone = guardianData.phone || null
+      const normalizedPhone = guardianPhone ? guardianPhone.replace(/\D/g, '') : ''
 
-      // 이메일이 있는 경우, 중복 체크
-      if (guardianEmail) {
-        const { data: existingUser } = await serviceClient
-          .from('users')
+      // 4-0. 동일 (tenant, 정규화 전화번호, 이름) 보호자 자동 매칭
+      // 같은 부모가 자녀 등록 시 검색 누락으로 중복 생성되는 문제 방지
+      if (normalizedPhone.length >= 9 && guardianData.name) {
+        const { data: matched } = await serviceClient
+          .from('guardians')
           .select('id, name')
-          .eq('email', guardianEmail)
           .eq('tenant_id', tenantId)
+          .eq('normalized_phone', normalizedPhone)
+          .ilike('name', guardianData.name)
           .is('deleted_at', null)
           .maybeSingle()
 
-        if (existingUser) {
-          throw new Error(`이메일 '${guardianEmail}'은(는) 이미 등록되어 있습니다. 학부모 검색에서 '${existingUser.name}'을(를) 선택하거나 다른 이메일을 사용해주세요.`)
+        if (matched) {
+          // 기존 보호자 발견 → 학생 등록 후 형제로 자동 연결
+          guardianId = matched.id
+          autoMatchedGuardian = { id: matched.id, name: matched.name }
         }
       }
 
-      const { data: userData, error: userError } = await serviceClient
-        .from('users')
-        .insert({
-          tenant_id: tenantId,
-          email: guardianEmail,
-          phone: guardianPhone,
-          name: guardianData.name,
-          role_code: 'parent',
-          approval_status: 'approved',
-          onboarding_completed: true,
-          onboarding_completed_at: new Date().toISOString(),
-        })
-        .select('id')
-        .single()
+      // 신규 보호자 생성 (자동 매칭 실패 시)
+      if (!guardianId) {
+        // 이메일이 있는 경우, 중복 체크
+        if (guardianEmail) {
+          const { data: existingUser } = await serviceClient
+            .from('users')
+            .select('id, name')
+            .eq('email', guardianEmail)
+            .eq('tenant_id', tenantId)
+            .is('deleted_at', null)
+            .maybeSingle()
 
-      if (userError || !userData) {
-        // 중복 에러인 경우 더 자세한 메시지 제공
-        if (userError?.code === '23505' && userError?.message?.includes('uq_users_email_active')) {
-          throw new Error(`이메일이 이미 사용 중입니다. 학부모 검색에서 기존 보호자를 선택하거나 다른 이메일을 사용해주세요.`)
+          if (existingUser) {
+            throw new Error(`이메일 '${guardianEmail}'은(는) 이미 등록되어 있습니다. 학부모 검색에서 '${existingUser.name}'을(를) 선택하거나 다른 이메일을 사용해주세요.`)
+          }
         }
-        console.error('[createStudentComplete] Guardian user creation error:', userError?.message)
-        throw new Error('보호자 사용자 생성에 실패했습니다')
+
+        const { data: userData, error: userError } = await serviceClient
+          .from('users')
+          .insert({
+            tenant_id: tenantId,
+            email: guardianEmail,
+            phone: guardianPhone,
+            name: guardianData.name,
+            role_code: 'parent',
+            approval_status: 'approved',
+            onboarding_completed: true,
+            onboarding_completed_at: new Date().toISOString(),
+          })
+          .select('id')
+          .single()
+
+        if (userError || !userData) {
+          if (userError?.code === '23505' && userError?.message?.includes('uq_users_email_active')) {
+            throw new Error(`이메일이 이미 사용 중입니다. 학부모 검색에서 기존 보호자를 선택하거나 다른 이메일을 사용해주세요.`)
+          }
+          console.error('[createStudentComplete] Guardian user creation error:', userError?.message)
+          throw new Error('보호자 사용자 생성에 실패했습니다')
+        }
+
+        // 4-2. Create guardian record (guardians 단일 출처)
+        const { data: guardianRecord, error: guardianError } = await serviceClient
+          .from('guardians')
+          .insert({
+            user_id: userData.id,
+            tenant_id: tenantId,
+            name: guardianData.name,
+            phone: guardianPhone,
+            email: guardianEmail,
+            relationship: guardianData.relationship || null,
+            occupation: guardianData.occupation || null,
+            address: guardianData.address || null,
+          })
+          .select('id')
+          .single()
+
+        if (guardianError || !guardianRecord) {
+          if (guardianError?.code === '23505') {
+            throw new Error('같은 전화번호와 이름의 보호자가 이미 있습니다. 학부모 검색에서 선택해주세요.')
+          }
+          console.error('[createStudentComplete] Guardian record creation error:', guardianError?.message)
+          throw new Error('보호자 정보 생성에 실패했습니다')
+        }
+
+        guardianId = guardianRecord.id
       }
-
-      // 4-2. Create guardian record
-      const { data: guardianRecord, error: guardianError } = await serviceClient
-        .from('guardians')
-        .insert({
-          user_id: userData.id,
-          tenant_id: tenantId,
-          name: guardianData.name,
-          relationship: guardianData.relationship || null,
-          occupation: guardianData.occupation || null,
-          address: guardianData.address || null,
-        })
-        .select('id')
-        .single()
-
-      if (guardianError || !guardianRecord) {
-        console.error('[createStudentComplete] Guardian record creation error:', guardianError?.message)
-        throw new Error('보호자 정보 생성에 실패했습니다')
-      }
-
-      guardianId = guardianRecord.id
     } else if (validated.guardianMode === 'existing' && validated.guardian && 'id' in validated.guardian) {
       // Mode: Use existing guardian
       guardianId = validated.guardian.id
@@ -244,6 +272,7 @@ export async function createStudentComplete(
       data: {
         studentId: studentId!,
         guardianId: guardianId,
+        autoMatchedGuardian,
       },
       error: null,
     }
