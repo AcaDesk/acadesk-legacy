@@ -633,7 +633,7 @@ export async function completeExamGrading(examId: string) {
     // Verify exam belongs to tenant
     const { data: exam, error: fetchError } = await serviceClient
       .from('exams')
-      .select('id, tenant_id')
+      .select('id, tenant_id, name')
       .eq('id', examId)
       .maybeSingle()
 
@@ -655,6 +655,25 @@ export async function completeExamGrading(examId: string) {
     revalidatePath('/grades/entry')
     revalidatePath('/grades/exams')
     revalidatePath('/grades')
+
+    // 성적 채점 완료 → 응시 학생의 보호자에게 알림톡 발송 (fire-and-forget).
+    // 학원이 'exam_grade_ready' 이벤트 구독을 켜둔 경우에만 실제 발송.
+    void import('@/lib/messaging/event-alimtalk').then(async ({ fireEventAlimtalk }) => {
+      const { data: scores } = await serviceClient
+        .from('exam_scores')
+        .select('student_id')
+        .eq('exam_id', examId)
+        .eq('tenant_id', tenantId)
+      if (!scores?.length) return
+      const examName = exam.name || '시험'
+      for (const s of scores) {
+        if (!s.student_id) continue
+        void fireEventAlimtalk(tenantId, 'exam_grade_ready', s.student_id, {
+          시험명: examName,
+          성적링크: '',
+        })
+      }
+    })
 
     return { success: true, error: null }
   } catch (error) {

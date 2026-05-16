@@ -287,6 +287,20 @@ export async function createStudentComplete(
     revalidatePath('/students')
     revalidatePath('/dashboard')
 
+    // 입학 환영 알림톡 (fire-and-forget) — 보호자가 연결된 경우에만 발송.
+    if (studentId && guardianId) {
+      const startDateStr = new Date().toLocaleDateString('ko-KR', {
+        year: 'numeric', month: 'long', day: 'numeric',
+      })
+      const sid = studentId
+      void import('@/lib/messaging/event-alimtalk').then(({ fireEventAlimtalk }) =>
+        fireEventAlimtalk(tenantId, 'enrollment_welcome', sid, {
+          시작일: startDateStr,
+          담당자명: '',
+        }),
+      )
+    }
+
     return {
       success: true,
       data: {
@@ -620,6 +634,16 @@ export async function withdrawStudent(
     revalidatePath('/todos/planner')
     revalidatePath('/todos/verify')
     revalidateTag(`attendance-roster:${tenantId}`)
+
+    // 보호자에게 퇴원 안내 알림톡 (fire-and-forget).
+    const withdrawalDateStr = new Date(withdrawalDate).toLocaleDateString('ko-KR', {
+      year: 'numeric', month: 'long', day: 'numeric',
+    })
+    void import('@/lib/messaging/event-alimtalk').then(({ fireEventAlimtalk }) =>
+      fireEventAlimtalk(tenantId, 'enrollment_terminated', studentId, {
+        퇴원일: withdrawalDateStr,
+      }),
+    )
 
     return {
       success: true,
