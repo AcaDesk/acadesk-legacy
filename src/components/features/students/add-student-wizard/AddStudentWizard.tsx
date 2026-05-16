@@ -300,12 +300,16 @@ export function AddStudentWizard({ open, onOpenChange, onSuccess, initialValues 
       }
 
       // Show success message based on context and guardian mode
+      const autoMatched = result.data?.autoMatchedGuardian
       let successTitle = '학생 추가 완료'
       let successDescription = `${data.name} 학생이 추가되었습니다.`
 
       if (consultationId) {
         successTitle = '✅ 입회 처리 완료'
         successDescription = `${data.name} 학생이 등록되었고, 상담 기록이 "입회 완료"로 업데이트되었습니다.`
+      } else if (autoMatched) {
+        successTitle = '기존 학부모와 자동 연결됨'
+        successDescription = `같은 연락처의 기존 학부모(${autoMatched.name})로 자동 연결되어 형제로 묶였습니다.`
       } else if (resolvedMode === GUARDIAN_MODES.NEW && data.guardian) {
         successTitle = '학생 및 학부모 추가 완료'
         successDescription = `${data.name} 학생과 ${data.guardian.name} 학부모가 추가되었습니다.`
