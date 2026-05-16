@@ -35,6 +35,7 @@ import { useToast } from '@/hooks/use-toast'
 import { createMessageTemplate, updateMessageTemplate, deleteMessageTemplate } from '@/app/actions/messaging/messages'
 import { useRouter } from 'next/navigation'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
+import { EmptyState, NoSearchResultsEmptyState } from '@ui/empty-state'
 
 interface MessageTemplate {
   id: string
@@ -67,8 +68,6 @@ function extractVariables(content: string): string[] {
   return [...new Set(matches.map(m => m.slice(1, -1)))]
 }
 
-type DialogMode = 'create' | 'edit' | null
-
 interface TemplateFormData {
   id?: string
   name: string
@@ -76,20 +75,31 @@ interface TemplateFormData {
   content: string
 }
 
+type ActiveDialog =
+  | { type: 'closed' }
+  | { type: 'form'; mode: 'create' | 'edit' }
+  | { type: 'delete'; id: string; name: string }
+
 export function MessageTemplatesClient({ templates }: MessageTemplatesClientProps) {
   const { toast } = useToast()
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState('')
-  const [dialogMode, setDialogMode] = useState<DialogMode>(null)
+  const [activeDialog, setActiveDialog] = useState<ActiveDialog>({ type: 'closed' })
   const [formData, setFormData] = useState<TemplateFormData>({
     name: '',
     category: 'general',
     content: '',
   })
   const [loading, setLoading] = useState(false)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [templateToDelete, setTemplateToDelete] = useState<{ id: string; name: string } | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  const dialogMode = activeDialog.type === 'form' ? activeDialog.mode : null
+  const isFormDialogOpen = activeDialog.type === 'form'
+  const isDeleteDialogOpen = activeDialog.type === 'delete'
+
+  function closeDialog() {
+    setActiveDialog({ type: 'closed' })
+  }
 
   const filteredTemplates = templates.filter(template =>
     template.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -102,20 +112,20 @@ export function MessageTemplatesClient({ templates }: MessageTemplatesClientProp
       category: template.category,
       content: template.content,
     })
-    setDialogMode('edit')
+    setActiveDialog({ type: 'form', mode: 'edit' })
   }
 
   function handleDeleteClick(id: string, name: string) {
-    setTemplateToDelete({ id, name })
-    setDeleteDialogOpen(true)
+    setActiveDialog({ type: 'delete', id, name })
   }
 
   async function handleConfirmDelete() {
-    if (!templateToDelete) return
+    if (activeDialog.type !== 'delete') return
+    const { id, name } = activeDialog
 
     setIsDeleting(true)
     try {
-      const result = await deleteMessageTemplate(templateToDelete.id)
+      const result = await deleteMessageTemplate(id)
 
       if (!result.success) {
         throw new Error(result.error || '삭제 실패')
@@ -123,7 +133,7 @@ export function MessageTemplatesClient({ templates }: MessageTemplatesClientProp
 
       toast({
         title: '삭제 완료',
-        description: `${templateToDelete.name} 템플릿이 삭제되었습니다.`,
+        description: `${name} 템플릿이 삭제되었습니다.`,
       })
 
       router.refresh()
@@ -135,8 +145,7 @@ export function MessageTemplatesClient({ templates }: MessageTemplatesClientProp
       })
     } finally {
       setIsDeleting(false)
-      setDeleteDialogOpen(false)
-      setTemplateToDelete(null)
+      closeDialog()
     }
   }
 
@@ -146,7 +155,7 @@ export function MessageTemplatesClient({ templates }: MessageTemplatesClientProp
       category: 'general',
       content: '',
     })
-    setDialogMode('create')
+    setActiveDialog({ type: 'form', mode: 'create' })
   }
 
   async function handleSubmit() {
@@ -194,7 +203,7 @@ export function MessageTemplatesClient({ templates }: MessageTemplatesClientProp
         })
       }
 
-      setDialogMode(null)
+      closeDialog()
       setFormData({ name: '', category: 'general', content: '' })
       router.refresh()
     } catch (error) {
@@ -266,11 +275,25 @@ export function MessageTemplatesClient({ templates }: MessageTemplatesClientProp
         </CardHeader>
         <CardContent>
           {filteredTemplates.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>등록된 템플릿이 없습니다.</p>
-              {searchTerm && <p className="text-sm mt-2">검색 결과가 없습니다.</p>}
-            </div>
+            searchTerm ? (
+              <NoSearchResultsEmptyState
+                icon={Search}
+                searchTerm={searchTerm}
+                onClearSearch={() => setSearchTerm('')}
+              />
+            ) : (
+              <EmptyState
+                icon={FileText}
+                title="등록된 템플릿이 없습니다"
+                description="자주 사용하는 알림 문구를 템플릿으로 등록해 두면 한 번에 발송할 수 있습니다"
+                action={
+                  <Button onClick={handleCreate}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    첫 템플릿 생성
+                  </Button>
+                }
+              />
+            )
           ) : (
             <div className="border rounded-lg overflow-hidden">
               <Table>
@@ -377,7 +400,7 @@ export function MessageTemplatesClient({ templates }: MessageTemplatesClientProp
       </div>
 
       {/* Create/Edit Dialog */}
-      <Dialog open={dialogMode !== null} onOpenChange={(open) => !open && setDialogMode(null)}>
+      <Dialog open={isFormDialogOpen} onOpenChange={(open) => !open && closeDialog()}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
@@ -456,7 +479,7 @@ export function MessageTemplatesClient({ templates }: MessageTemplatesClientProp
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogMode(null)} disabled={loading}>
+            <Button variant="outline" onClick={closeDialog} disabled={loading}>
               취소
             </Button>
             <Button onClick={handleSubmit} disabled={loading}>
@@ -468,10 +491,14 @@ export function MessageTemplatesClient({ templates }: MessageTemplatesClientProp
 
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        open={isDeleteDialogOpen}
+        onOpenChange={(open) => !open && closeDialog()}
         title="템플릿을 삭제하시겠습니까?"
-        description={templateToDelete ? `"${templateToDelete.name}" 템플릿이 삭제됩니다. 이 작업은 되돌릴 수 없습니다.` : ''}
+        description={
+          activeDialog.type === 'delete'
+            ? `"${activeDialog.name}" 템플릿이 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`
+            : ''
+        }
         confirmText="삭제"
         variant="destructive"
         isLoading={isDeleting}
