@@ -408,23 +408,25 @@ export async function getGuardianDetail(guardianId: string) {
       .from('guardians')
       .select(`
         id,
+        name,
+        phone,
+        email,
         relationship,
         occupation,
         address,
-        users (
-          name,
-          email,
-          phone
-        ),
         student_guardians (
           is_primary,
+          is_primary_contact,
+          receives_notifications,
+          receives_billing,
+          can_pickup,
+          can_view_reports,
+          deleted_at,
           students (
             id,
+            name,
             student_code,
-            grade,
-            users (
-              name
-            )
+            grade
           )
         )
       `)
@@ -1463,6 +1465,57 @@ export async function getAutoMatchSuggestions(studentIds: string[]) {
  * @param isPrimary - 주 보호자 여부
  * @returns 성공 여부
  */
+/**
+ * student_guardians의 권한/옵션 flag 단건 업데이트
+ *
+ * 학생-보호자 카드에서 알림/리포트/픽업/결제 알림을 빠르게 토글하기 위한 액션.
+ * is_primary / is_primary_contact는 학생당 1명만 허용되는 제약이 있으므로 별도 처리.
+ */
+export async function updateStudentGuardianFlag(
+  guardianId: string,
+  studentId: string,
+  field:
+    | 'receives_notifications'
+    | 'receives_billing'
+    | 'can_pickup'
+    | 'can_view_reports'
+    | 'is_primary'
+    | 'is_primary_contact',
+  value: boolean
+) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    // is_primary 계열은 학생당 1명만 허용 — 다른 보호자 false로 reset
+    if ((field === 'is_primary' || field === 'is_primary_contact') && value) {
+      const { error: resetError } = await supabase
+        .from('student_guardians')
+        .update({ [field]: false })
+        .eq('student_id', studentId)
+        .eq('tenant_id', tenantId)
+      if (resetError) throw new Error(resetError.message)
+    }
+
+    const { error } = await supabase
+      .from('student_guardians')
+      .update({ [field]: value, updated_at: new Date().toISOString() })
+      .eq('guardian_id', guardianId)
+      .eq('student_id', studentId)
+      .eq('tenant_id', tenantId)
+
+    if (error) throw new Error(error.message)
+
+    revalidatePath(`/guardians/${guardianId}`)
+    revalidatePath(`/students/${studentId}`)
+
+    return { success: true }
+  } catch (error) {
+    console.error('[updateStudentGuardianFlag] Error:', error)
+    return { success: false, error: getErrorMessage(error) }
+  }
+}
+
 export async function togglePrimaryGuardian(
   guardianId: string,
   studentId: string,
