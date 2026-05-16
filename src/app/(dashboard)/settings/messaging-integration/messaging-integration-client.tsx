@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useMemo } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { Button } from '@ui/button'
@@ -12,7 +13,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/c
 import { Alert, AlertDescription } from '@ui/alert'
 import { Switch } from '@ui/switch'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
-import { cn } from '@/lib/utils'
 import {
   Select,
   SelectContent,
@@ -31,7 +31,6 @@ import {
   Trash2,
   Info,
   ShieldCheck,
-  Settings,
   Pencil,
   Bell,
 } from 'lucide-react'
@@ -104,12 +103,16 @@ interface MessagingConfig {
   updated_at: string
 }
 
+export type MessagingSection = 'api' | 'kakao' | 'events'
+
 interface MessagingIntegrationClientProps {
   config: MessagingConfig | null
   kakaoChannelConfig: KakaoChannelConfig | null
   eventSubscriptions?: EventSubscription[]
   eventSubscriptionsLoadError?: string | null
   initialKakaoTemplateSummary?: KakaoTemplateSummary | null
+  /** URL 기반 활성 섹션. 글로벌 SettingsNav 가 라우팅을 담당한다. */
+  defaultSection?: MessagingSection
 }
 
 type FormData = {
@@ -161,6 +164,7 @@ export function MessagingIntegrationClient({
   eventSubscriptions = [],
   eventSubscriptionsLoadError = null,
   initialKakaoTemplateSummary = null,
+  defaultSection = 'api',
 }: MessagingIntegrationClientProps) {
   const router = useRouter()
   const { toast } = useToast()
@@ -191,7 +195,8 @@ export function MessagingIntegrationClient({
   const initialFormData = useRef<FormData>(initialFormDataValue)
   const [isEditingCredentials, setIsEditingCredentials] = useState(!config)
 
-  const [activeTab, setActiveTab] = useState('api')
+  // 섹션은 URL 로 결정 — defaultSection 으로 직접 매핑.
+  const activeTab = defaultSection
   const [testPhone, setTestPhone] = useState('')
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
@@ -453,64 +458,8 @@ export function MessagingIntegrationClient({
         </Card>
       )}
 
-      {/* Sidebar + Content layout */}
-      <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
-        {/* Sidebar Nav */}
-        <nav
-          aria-label="메시징 연동 섹션"
-          className="lg:sticky lg:top-4 lg:self-start"
-        >
-          <ul className="flex gap-1 overflow-x-auto lg:flex-col lg:gap-0.5 pb-2 lg:pb-0">
-            {[
-              { key: 'api', label: 'API 설정', icon: Settings, disabled: false, hint: null },
-              {
-                key: 'kakao',
-                label: '카카오 채널·템플릿',
-                icon: MessageSquare,
-                disabled: !showKakaoTab,
-                hint: showKakaoTab ? null : '솔라피 인증 후 사용 가능',
-              },
-              {
-                key: 'events',
-                label: '이벤트 알림',
-                icon: Bell,
-                disabled: !hasKakaoChannel,
-                hint: hasKakaoChannel ? null : '카카오 채널 연동 후 사용 가능',
-              },
-            ].map(({ key, label, icon: Icon, disabled, hint }) => {
-              const isActive = activeTab === key
-              return (
-                <li key={key}>
-                  <button
-                    type="button"
-                    onClick={() => !disabled && setActiveTab(key)}
-                    disabled={disabled}
-                    aria-current={isActive ? 'page' : undefined}
-                    className={cn(
-                      'w-full text-left flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
-                      'whitespace-nowrap lg:whitespace-normal',
-                      isActive
-                        ? 'bg-primary/10 text-primary font-medium'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                      disabled && 'opacity-50 cursor-not-allowed hover:bg-transparent hover:text-muted-foreground',
-                    )}
-                  >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    <span className="flex-1">{label}</span>
-                  </button>
-                  {hint && (
-                    <p className="hidden lg:block px-3 pb-2 text-[10px] text-muted-foreground/70">
-                      {hint}
-                    </p>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-        </nav>
-
-        {/* Content Panel */}
-        <div className="min-w-0 space-y-8">
+      {/* Section content — 섹션 전환은 글로벌 SettingsNav 가 담당 */}
+      <div className="space-y-8">
         {/* API 설정 */}
         {activeTab === 'api' && (<div className="space-y-8">
           {/* Info Alert */}
@@ -900,8 +849,10 @@ export function MessagingIntegrationClient({
                   <p className="text-muted-foreground text-sm">
                     먼저 카카오 채널을 연동해주세요.
                   </p>
-                  <Button variant="outline" onClick={() => setActiveTab('kakao')}>
-                    카카오 채널·템플릿으로 이동
+                  <Button variant="outline" asChild>
+                    <Link href="/settings/messaging-integration/kakao">
+                      카카오 채널·템플릿으로 이동
+                    </Link>
                   </Button>
                 </div>
               </CardContent>
@@ -910,44 +861,49 @@ export function MessagingIntegrationClient({
         </div>)}
 
         {/* 카카오 채널·템플릿 */}
-        {activeTab === 'kakao' && (<div className="space-y-8">
+        {activeTab === 'kakao' && (<div className="space-y-6">
           {showKakaoTab ? (
             <>
-              {/* Alimtalk Progress Stepper */}
+              {/* Alimtalk Progress Stepper (전체 폭) */}
               <KakaoAlimtalkStepper
                 hasKakaoChannel={hasKakaoChannel}
                 templateSummary={templateSummary}
               />
 
-              {/* Kakao Channel Status or Registration */}
-              {hasKakaoChannel && kakaoChannelConfig ? (
-                <KakaoChannelStatus
-                  config={kakaoChannelConfig}
-                  onChannelRemoved={() => router.refresh()}
-                />
-              ) : (
-                <KakaoChannelRegistration
-                  onRegistrationComplete={() => router.refresh()}
-                  onOpenTemplateForm={() => setTemplateFormOpen(true)}
-                />
-              )}
+              {/* 좌: 채널·온보딩 / 우: 템플릿 목록 — xl 이상에서 2단 */}
+              <div className="grid gap-6 xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+                <div className="space-y-6 min-w-0">
+                  {hasKakaoChannel && kakaoChannelConfig ? (
+                    <KakaoChannelStatus
+                      config={kakaoChannelConfig}
+                      onChannelRemoved={() => router.refresh()}
+                    />
+                  ) : (
+                    <KakaoChannelRegistration
+                      onRegistrationComplete={() => router.refresh()}
+                      onOpenTemplateForm={() => setTemplateFormOpen(true)}
+                    />
+                  )}
 
-              {/* 공용 템플릿 자동 등록 + 검수 진행 + 테스트 발송 */}
-              <KakaoOnboardingFlow hasKakaoChannel={hasKakaoChannel} />
+                  {/* 공용 템플릿 자동 등록 + 검수 진행 + 테스트 발송 */}
+                  <KakaoOnboardingFlow hasKakaoChannel={hasKakaoChannel} />
+                </div>
 
-              {/* Kakao Templates */}
-              <KakaoTemplateList
-                hasChannel={hasKakaoChannel}
-                onCreateTemplate={() => {
-                  setEditingTemplate(null)
-                  setTemplateFormOpen(true)
-                }}
-                onEditTemplate={(template) => {
-                  setEditingTemplate(template)
-                  setTemplateFormOpen(true)
-                }}
-                onTemplatesLoaded={setTemplateSummary}
-              />
+                <div className="min-w-0">
+                  <KakaoTemplateList
+                    hasChannel={hasKakaoChannel}
+                    onCreateTemplate={() => {
+                      setEditingTemplate(null)
+                      setTemplateFormOpen(true)
+                    }}
+                    onEditTemplate={(template) => {
+                      setEditingTemplate(template)
+                      setTemplateFormOpen(true)
+                    }}
+                    onTemplatesLoaded={setTemplateSummary}
+                  />
+                </div>
+              </div>
 
               {/* Template Form Dialog */}
               <KakaoTemplateForm
@@ -979,8 +935,10 @@ export function MessagingIntegrationClient({
                   />
 
                   <div className="text-center">
-                    <Button variant="outline" onClick={() => setActiveTab('api')}>
-                      API 설정으로 이동
+                    <Button variant="outline" asChild>
+                      <Link href="/settings/messaging-integration">
+                        API 설정으로 이동
+                      </Link>
                     </Button>
                   </div>
                 </div>
@@ -988,7 +946,6 @@ export function MessagingIntegrationClient({
             </Card>
           )}
         </div>)}
-        </div>
       </div>
 
       {/* Delete Confirmation Dialog */}
