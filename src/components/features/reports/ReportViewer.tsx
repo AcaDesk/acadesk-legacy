@@ -651,8 +651,9 @@ ${reportData.comment.nextGoals}`
                     type="monotone"
                     stroke={`var(--color-${score.category})`}
                     strokeWidth={2}
-                    dot={false}
-                    connectNulls={false}
+                    dot={{ r: 3 }}
+                    activeDot={{ r: 5 }}
+                    connectNulls
                   />
                 ))}
               </LineChart>
