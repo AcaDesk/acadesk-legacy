@@ -57,12 +57,14 @@ COMMENT ON COLUMN public.shared_alimtalk_templates.version IS '템플릿 버전 
 -- RLS: 인증된 사용자는 조회만 가능, 수정은 service_role만
 ALTER TABLE public.shared_alimtalk_templates ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS shared_templates_select_policy ON public.shared_alimtalk_templates;
 CREATE POLICY shared_templates_select_policy
   ON public.shared_alimtalk_templates
   FOR SELECT
   USING (true);
 
 GRANT SELECT ON public.shared_alimtalk_templates TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.shared_alimtalk_templates TO service_role;
 
 -- updated_at 트리거
 CREATE OR REPLACE FUNCTION update_shared_templates_updated_at()
@@ -73,6 +75,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS shared_templates_updated_at_trigger ON public.shared_alimtalk_templates;
 CREATE TRIGGER shared_templates_updated_at_trigger
   BEFORE UPDATE ON public.shared_alimtalk_templates
   FOR EACH ROW
@@ -133,6 +136,7 @@ CREATE INDEX IF NOT EXISTS idx_event_subs_enabled
 -- RLS: 학원별 격리
 ALTER TABLE public.tenant_event_subscriptions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS event_subs_select_policy ON public.tenant_event_subscriptions;
 CREATE POLICY event_subs_select_policy
   ON public.tenant_event_subscriptions
   FOR SELECT
@@ -143,6 +147,7 @@ CREATE POLICY event_subs_select_policy
     )
   );
 
+DROP POLICY IF EXISTS event_subs_insert_policy ON public.tenant_event_subscriptions;
 CREATE POLICY event_subs_insert_policy
   ON public.tenant_event_subscriptions
   FOR INSERT
@@ -153,6 +158,7 @@ CREATE POLICY event_subs_insert_policy
     )
   );
 
+DROP POLICY IF EXISTS event_subs_update_policy ON public.tenant_event_subscriptions;
 CREATE POLICY event_subs_update_policy
   ON public.tenant_event_subscriptions
   FOR UPDATE
@@ -170,6 +176,7 @@ CREATE POLICY event_subs_update_policy
   );
 
 GRANT SELECT, INSERT, UPDATE ON public.tenant_event_subscriptions TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.tenant_event_subscriptions TO service_role;
 
 -- updated_at 트리거
 CREATE OR REPLACE FUNCTION update_event_subs_updated_at()
@@ -180,6 +187,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS event_subs_updated_at_trigger ON public.tenant_event_subscriptions;
 CREATE TRIGGER event_subs_updated_at_trigger
   BEFORE UPDATE ON public.tenant_event_subscriptions
   FOR EACH ROW
@@ -386,4 +394,5 @@ INSERT INTO public.shared_alimtalk_templates (event_type, name, description, con
  '006001',
  'BA',
  '["학원명", "보호자명", "학생명", "납부월", "납부금액", "납부기한", "학원연락처"]'::jsonb,
- false);
+ false)
+ON CONFLICT (event_type) DO NOTHING;
