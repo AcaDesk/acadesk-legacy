@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { isValidShortCode } from '@/lib/short-url'
 
 export async function GET(
@@ -23,10 +23,10 @@ export async function GET(
       )
     }
 
-    // 2. Supabase 클라이언트 생성
-    const supabase = await createClient()
+    // 2. Supabase 클라이언트 생성 (익명 공개 라우트 → service_role, RLS bypass)
+    const supabase = createServiceRoleClient()
 
-    // 3. 단축 URL 조회 (RLS 없이 public access)
+    // 3. 단축 URL 조회 (short_code 자체가 토큰 역할)
     const { data: shortUrl, error } = await supabase
       .from('short_urls')
       .select('target_url, is_active, expires_at, id')
