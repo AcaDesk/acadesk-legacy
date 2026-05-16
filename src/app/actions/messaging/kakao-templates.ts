@@ -8,7 +8,7 @@
 
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, unstable_cache } from 'next/cache'
 import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
@@ -135,36 +135,60 @@ function buildInspectionWarning(error: unknown): string {
 // ============================================================================
 
 /**
- * Get Kakao Alimtalk template categories
+ * Internal: Solapi 카카오 템플릿 카테고리 fetch (tenantId 별 24시간 캐시).
+ *
+ * Solapi 카테고리는 시스템 전역 데이터로 거의 변동 없음 (분기별 미만).
+ * 따라서 tenantId 키링으로 long-term 캐싱하여 모달 진입 시 외부 API 왕복(100~500ms)을 제거한다.
+ *
+ * 캐시 무효화가 필요한 경우:
+ *   revalidateTag('kakao-template-categories')
+ *
+ * verifyStaff() 는 cookies 의존성으로 dynamic 이므로 캐시 함수 바깥에서 호출.
+ */
+const fetchKakaoCategoriesCached = unstable_cache(
+  async (
+    tenantId: string,
+  ): Promise<{
+    success: boolean
+    data: KakaoTemplateCategory[] | null
+    error: string | null
+  }> => {
+    try {
+      const provider = await getSolapiProvider(tenantId)
+      if (!provider) {
+        return {
+          success: false,
+          data: null,
+          error: '먼저 Solapi API 설정을 완료해주세요.',
+        }
+      }
+      const categories = await provider.getKakaoAlimtalkTemplateCategories()
+      return { success: true, data: categories, error: null }
+    } catch (error) {
+      console.error('[getKakaoTemplateCategories] Error:', error)
+      return {
+        success: false,
+        data: null,
+        error: isSolapiError(error)
+          ? translateSolapiError(error)
+          : getErrorMessage(error),
+      }
+    }
+  },
+  ['kakao-template-categories'],
+  { revalidate: 86400, tags: ['kakao-template-categories'] },
+)
+
+/**
+ * Get Kakao Alimtalk template categories (24h cached)
  */
 export async function getKakaoTemplateCategories(): Promise<{
   success: boolean
   data: KakaoTemplateCategory[] | null
   error: string | null
 }> {
-  try {
-    const { tenantId } = await verifyStaff()
-    const provider = await getSolapiProvider(tenantId)
-
-    if (!provider) {
-      throw new Error('먼저 Solapi API 설정을 완료해주세요.')
-    }
-
-    const categories = await provider.getKakaoAlimtalkTemplateCategories()
-
-    return {
-      success: true,
-      data: categories,
-      error: null,
-    }
-  } catch (error) {
-    console.error('[getKakaoTemplateCategories] Error:', error)
-    return {
-      success: false,
-      data: null,
-      error: translateActionError(error),
-    }
-  }
+  const { tenantId } = await verifyStaff()
+  return fetchKakaoCategoriesCached(tenantId)
 }
 
 // ============================================================================
