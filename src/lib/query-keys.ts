@@ -57,4 +57,9 @@ export const queryKeys = {
   messagingConfig: {
     detail: () => ['messagingConfig', 'detail'] as const,
   },
+
+  subjects: {
+    all: () => ['subjects'] as const,
+    listWithStats: () => ['subjects', 'list', 'with-stats'] as const,
+  },
 } as const

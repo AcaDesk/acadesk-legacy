@@ -45,7 +45,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ui/select'
-import { useToast } from '@/hooks/use-toast'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -60,14 +59,15 @@ import {
   Filter,
 } from 'lucide-react'
 import type { SubjectStatistics } from '@/app/actions/subjects'
-import {
-  createSubject,
-  updateSubject,
-  deleteSubject,
-} from '@/app/actions/subjects'
 import { DEFAULT_SUBJECT_COLORS } from '@/core/types/subject'
-import { getErrorMessage } from '@/lib/error-handlers'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
+import { EmptyState, NoSearchResultsEmptyState } from '@ui/empty-state'
+import { useSubjectsWithStatsQuery } from '@/hooks/queries/use-subjects-query'
+import {
+  useCreateSubjectMutation,
+  useUpdateSubjectMutation,
+  useDeleteSubjectMutation,
+} from '@/hooks/mutations/use-subjects-mutations'
 
 interface Subject {
   id: string
@@ -92,20 +92,21 @@ interface SubjectsClientProps {
   initialSubjects: SubjectStatistics[]
 }
 
-export function SubjectsClient({ initialSubjects }: SubjectsClientProps) {
-  const [subjects, setSubjects] = useState<SubjectStatistics[]>(initialSubjects)
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [editingSubject, setEditingSubject] = useState<Subject | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [subjectToDelete, setSubjectToDelete] = useState<Subject | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
+type DialogState =
+  | { type: 'closed' }
+  | { type: 'create' }
+  | { type: 'edit'; subject: Subject }
+  | { type: 'delete'; subject: Subject }
 
-  // Search and filter states
+export function SubjectsClient({ initialSubjects }: SubjectsClientProps) {
+  const { data: subjects = [] } = useSubjectsWithStatsQuery(initialSubjects)
+  const createMutation = useCreateSubjectMutation()
+  const updateMutation = useUpdateSubjectMutation()
+  const deleteMutation = useDeleteSubjectMutation()
+
+  const [dialog, setDialog] = useState<DialogState>({ type: 'closed' })
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
-
-  const { toast } = useToast()
 
   const form = useForm<SubjectFormValues>({
     resolver: zodResolver(subjectFormSchema),
@@ -118,141 +119,25 @@ export function SubjectsClient({ initialSubjects }: SubjectsClientProps) {
     },
   })
 
-  // Handle add subject
-  const handleAddSubject = async (data: SubjectFormValues) => {
-    setIsSubmitting(true)
-    try {
-      const result = await createSubject({
-        name: data.name,
-        description: data.description || null,
-        code: data.code || null,
-        color: data.color,
-        active: data.active,
-        sort_order: subjects.length,
-      })
+  const isFormDialogOpen = dialog.type === 'create' || dialog.type === 'edit'
+  const isDeleteDialogOpen = dialog.type === 'delete'
+  const editingSubject = dialog.type === 'edit' ? dialog.subject : null
+  const subjectToDelete = dialog.type === 'delete' ? dialog.subject : null
 
-      if (!result.success) {
-        throw new Error(result.error || '과목 추가 실패')
-      }
+  const isSubmitting = createMutation.isPending || updateMutation.isPending
 
-      // Update local state
-      if (result.data) {
-        setSubjects((prev) => [...prev, { ...result.data, class_count: 0 }])
-      }
-
-      setIsModalOpen(false)
-      form.reset()
-
-      toast({
-        title: '과목 추가 완료',
-        description: `"${data.name}" 과목이 추가되었습니다.`,
-      })
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: '과목 추가 실패',
-        description: getErrorMessage(error),
-      })
-    } finally {
-      setIsSubmitting(false)
-    }
+  function openCreateDialog() {
+    form.reset({
+      name: '',
+      description: '',
+      code: '',
+      color: DEFAULT_SUBJECT_COLORS[0],
+      active: true,
+    })
+    setDialog({ type: 'create' })
   }
 
-  // Handle edit subject
-  const handleEditSubject = async (data: SubjectFormValues) => {
-    if (!editingSubject) return
-
-    setIsSubmitting(true)
-    try {
-      const result = await updateSubject(editingSubject.id, {
-        name: data.name,
-        description: data.description || null,
-        code: data.code || null,
-        color: data.color,
-        active: data.active,
-      })
-
-      if (!result.success) {
-        throw new Error(result.error || '과목 수정 실패')
-      }
-
-      // Update local state
-      setSubjects((prev) =>
-        prev.map((s) =>
-          s.id === editingSubject.id
-            ? {
-                ...s,
-                name: data.name,
-                description: data.description || null,
-                code: data.code || null,
-                color: data.color,
-                active: data.active,
-              }
-            : s
-        )
-      )
-
-      setIsModalOpen(false)
-      setEditingSubject(null)
-      form.reset()
-
-      toast({
-        title: '과목 수정 완료',
-        description: `"${data.name}" 과목이 수정되었습니다.`,
-      })
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: '과목 수정 실패',
-        description: getErrorMessage(error),
-      })
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  // Handle delete subject click
-  const handleDeleteClick = (subject: Subject) => {
-    setSubjectToDelete(subject)
-    setDeleteDialogOpen(true)
-  }
-
-  // Handle confirm delete
-  const handleConfirmDelete = async () => {
-    if (!subjectToDelete) return
-
-    setIsDeleting(true)
-
-    try {
-      const result = await deleteSubject(subjectToDelete.id)
-
-      if (!result.success) {
-        throw new Error(result.error || '과목 삭제 실패')
-      }
-
-      // Update local state
-      setSubjects((prev) => prev.filter((s) => s.id !== subjectToDelete.id))
-
-      toast({
-        title: '과목 삭제 완료',
-        description: `"${subjectToDelete.name}" 과목이 삭제되었습니다.`,
-      })
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: '과목 삭제 실패',
-        description: getErrorMessage(error),
-      })
-    } finally {
-      setIsDeleting(false)
-      setDeleteDialogOpen(false)
-      setSubjectToDelete(null)
-    }
-  }
-
-  // Open modal for editing
-  const openEditModal = (subject: Subject) => {
-    setEditingSubject(subject)
+  function openEditDialog(subject: Subject) {
     form.reset({
       name: subject.name,
       description: subject.description || '',
@@ -260,21 +145,67 @@ export function SubjectsClient({ initialSubjects }: SubjectsClientProps) {
       color: subject.color,
       active: subject.active,
     })
-    setIsModalOpen(true)
+    setDialog({ type: 'edit', subject })
   }
 
-  // Filtered and searched subjects
+  function closeDialog() {
+    setDialog({ type: 'closed' })
+    form.reset()
+  }
+
+  async function handleFormSubmit(data: SubjectFormValues) {
+    if (dialog.type === 'edit') {
+      await updateMutation.mutateAsync(
+        {
+          id: dialog.subject.id,
+          input: {
+            name: data.name,
+            description: data.description || null,
+            code: data.code || null,
+            color: data.color,
+            active: data.active,
+          },
+        },
+        {
+          onSuccess: () => closeDialog(),
+        },
+      )
+    } else {
+      await createMutation.mutateAsync(
+        {
+          name: data.name,
+          description: data.description || null,
+          code: data.code || null,
+          color: data.color,
+          active: data.active,
+          sort_order: subjects.length,
+        },
+        {
+          onSuccess: () => closeDialog(),
+        },
+      )
+    }
+  }
+
+  async function handleConfirmDelete() {
+    if (!subjectToDelete) return
+    await deleteMutation.mutateAsync(
+      { id: subjectToDelete.id, name: subjectToDelete.name },
+      {
+        onSuccess: () => closeDialog(),
+      },
+    )
+  }
+
   const filteredSubjects = useMemo(() => {
     let result = subjects
 
-    // Apply status filter
     if (statusFilter !== 'all') {
       result = result.filter((subject) =>
         statusFilter === 'active' ? subject.active : !subject.active
       )
     }
 
-    // Apply search filter
     if (searchTerm) {
       const lowerSearch = searchTerm.toLowerCase()
       result = result.filter(
@@ -295,7 +226,7 @@ export function SubjectsClient({ initialSubjects }: SubjectsClientProps) {
           <h2 className="text-xl font-semibold">과목 관리</h2>
           <p className="text-sm text-muted-foreground">학원의 과목을 등록하고 관리합니다</p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)}>
+        <Button onClick={openCreateDialog}>
           <Plus className="w-4 h-4 mr-2" />
           과목 추가
         </Button>
@@ -309,14 +240,17 @@ export function SubjectsClient({ initialSubjects }: SubjectsClientProps) {
         </CardHeader>
         <CardContent>
           {subjects.length === 0 ? (
-            <div className="text-center py-12">
-              <BookOpen className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground mb-4">등록된 과목이 없습니다</p>
-              <Button onClick={() => setIsModalOpen(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                첫 과목 추가하기
-              </Button>
-            </div>
+            <EmptyState
+              icon={BookOpen}
+              title="등록된 과목이 없습니다"
+              description="학원에서 다룰 과목을 먼저 등록해 두면 수업·성적·리포트에서 일관되게 활용할 수 있습니다"
+              action={
+                <Button onClick={openCreateDialog}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  첫 과목 추가하기
+                </Button>
+              }
+            />
           ) : (
             <div className="space-y-4">
               {/* Search and Filter Bar */}
@@ -358,22 +292,14 @@ export function SubjectsClient({ initialSubjects }: SubjectsClientProps) {
 
               {/* Table */}
               {filteredSubjects.length === 0 ? (
-                <div className="text-center py-12">
-                  <Search className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground mb-2">검색 결과가 없습니다</p>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    다른 검색어를 입력하거나 필터를 변경해보세요
-                  </p>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setSearchTerm('')
-                      setStatusFilter('all')
-                    }}
-                  >
-                    필터 초기화
-                  </Button>
-                </div>
+                <NoSearchResultsEmptyState
+                  icon={Search}
+                  searchTerm={searchTerm || undefined}
+                  onClearSearch={() => {
+                    setSearchTerm('')
+                    setStatusFilter('all')
+                  }}
+                />
               ) : (
                 <div className="rounded-md border">
                   <Table>
@@ -457,14 +383,14 @@ export function SubjectsClient({ initialSubjects }: SubjectsClientProps) {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem
-                                  onClick={() => openEditModal(subject as Subject)}
+                                  onClick={() => openEditDialog(subject as Subject)}
                                 >
                                   <Edit className="w-4 h-4 mr-2" />
                                   수정
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   className="text-destructive focus:text-destructive"
-                                  onClick={() => handleDeleteClick(subject as Subject)}
+                                  onClick={() => setDialog({ type: 'delete', subject: subject as Subject })}
                                 >
                                   <Trash2 className="w-4 h-4 mr-2" />
                                   삭제
@@ -485,13 +411,9 @@ export function SubjectsClient({ initialSubjects }: SubjectsClientProps) {
 
       {/* Add / Edit Subject Modal */}
       <Dialog
-        open={isModalOpen}
+        open={isFormDialogOpen}
         onOpenChange={(open) => {
-          setIsModalOpen(open)
-          if (!open) {
-            setEditingSubject(null)
-            form.reset()
-          }
+          if (!open) closeDialog()
         }}
       >
         <DialogContent>
@@ -504,10 +426,7 @@ export function SubjectsClient({ initialSubjects }: SubjectsClientProps) {
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
-            <form
-              onSubmit={form.handleSubmit(editingSubject ? handleEditSubject : handleAddSubject)}
-              className="space-y-4"
-            >
+            <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
               <FormField
                 control={form.control}
                 name="name"
@@ -611,7 +530,7 @@ export function SubjectsClient({ initialSubjects }: SubjectsClientProps) {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => { setIsModalOpen(false); setEditingSubject(null); form.reset() }}
+                  onClick={closeDialog}
                   disabled={isSubmitting}
                 >
                   취소
@@ -630,8 +549,10 @@ export function SubjectsClient({ initialSubjects }: SubjectsClientProps) {
 
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        open={isDeleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) closeDialog()
+        }}
         title="정말로 삭제하시겠습니까?"
         description={
           subjectToDelete
@@ -640,7 +561,7 @@ export function SubjectsClient({ initialSubjects }: SubjectsClientProps) {
         }
         confirmText="삭제"
         variant="destructive"
-        isLoading={isDeleting}
+        isLoading={deleteMutation.isPending}
         onConfirm={handleConfirmDelete}
       />
     </div>
