@@ -12,6 +12,7 @@ import { Badge } from '@ui/badge'
 import { Alert, AlertDescription } from '@ui/alert'
 import { cn, formatPhoneNumber } from '@/lib/utils'
 import { GUARDIAN_RELATIONSHIPS } from '@/lib/constants'
+import { getGuardianDisplayLabel, getGuardianSecondaryLabel } from '@/lib/guardian-display'
 import type { StudentWizardFormValues, Guardian } from './types'
 import {
   searchGuardians as searchGuardiansAction,
@@ -255,22 +256,27 @@ export function Step2_GuardianInfo() {
                     <div className="flex items-start justify-between">
                       <div>
                         <div className="flex items-center gap-2">
-                          <p className="font-medium">{guardian.name}</p>
+                          <p className="font-medium">
+                            {getGuardianDisplayLabel(guardian.name, guardian.linkedStudents || [])}
+                          </p>
                           {guardian.relationship && (
                             <Badge variant="outline" className="text-xs">
                               {guardian.relationship}
                             </Badge>
                           )}
                         </div>
+                        {getGuardianSecondaryLabel(guardian.name, guardian.linkedStudents || []) && (
+                          <p className="text-xs text-muted-foreground">
+                            본명: {getGuardianSecondaryLabel(guardian.name, guardian.linkedStudents || [])}
+                          </p>
+                        )}
                         <p className="text-sm text-muted-foreground">{formatPhoneNumber(guardian.phone)}</p>
                         {guardian.email && (
                           <p className="text-xs text-muted-foreground">{guardian.email}</p>
                         )}
                         {guardian.linkedStudents && guardian.linkedStudents.length > 0 && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            <span className="font-medium">연결된 자녀:</span>{' '}
-                            {guardian.linkedStudents.join(', ')}
-                            <span className="text-primary"> · 형제로 자동 연결됩니다</span>
+                          <p className="text-xs text-primary mt-1">
+                            형제로 자동 연결됩니다
                           </p>
                         )}
                       </div>
@@ -301,7 +307,10 @@ export function Step2_GuardianInfo() {
           <Check className="h-4 w-4" />
           <AlertDescription className="flex items-center justify-between">
             <span>
-              <strong>{selectedGuardian.name}</strong> 학부모를 선택했습니다.
+              <strong>
+                {getGuardianDisplayLabel(selectedGuardian.name, selectedGuardian.linkedStudents || [])}
+              </strong>{' '}
+              학부모를 선택했습니다.
             </span>
             <Button
               type="button"
@@ -363,15 +372,17 @@ export function Step2_GuardianInfo() {
                     className="flex items-center justify-between gap-2 rounded bg-background border p-2"
                   >
                     <div className="text-sm">
-                      <span className="font-medium">{match.name}</span>
+                      <span className="font-medium">
+                        {getGuardianDisplayLabel(match.name, match.students)}
+                      </span>
                       {match.relationship && (
                         <Badge variant="outline" className="ml-2 text-xs">
                           {match.relationship}
                         </Badge>
                       )}
-                      {match.students.length > 0 && (
+                      {getGuardianSecondaryLabel(match.name, match.students) && (
                         <div className="text-xs text-muted-foreground mt-0.5">
-                          자녀: {match.students.join(', ')}
+                          본명: {getGuardianSecondaryLabel(match.name, match.students)}
                         </div>
                       )}
                     </div>
