@@ -14,15 +14,36 @@ export const metadata: Metadata = {
 export default async function MessagingIntegrationPage() {
   await requireAuth()
 
-  const [messagingResult, kakaoResult, eventSubsResult, kakaoTemplatesResult] = await Promise.all([
+  // 1단계: 채널 연동 여부 확인에 필요한 두 가지만 병렬 fetch.
+  //   카카오 채널 미연동 학원은 events/templates 액션 자체를 건너뛰어
+  //   불필요한 DB 쿼리/네트워크 비용 제거.
+  const [messagingResult, kakaoResult] = await Promise.all([
     getMessagingConfig(),
     getKakaoChannelConfig(),
-    getEventSubscriptions(),
-    getKakaoTemplates(),
   ])
 
   const config = messagingResult.success && messagingResult.data ? messagingResult.data : null
   const kakaoConfig = kakaoResult.success ? kakaoResult.data : null
+  const hasKakaoChannel = !!kakaoConfig?.channelId
+
+  // 2단계: 카카오 채널 연동된 학원만 추가 fetch.
+  let eventSubsResult: Awaited<ReturnType<typeof getEventSubscriptions>> = {
+    success: true,
+    data: [],
+    error: null,
+  }
+  let kakaoTemplatesResult: Awaited<ReturnType<typeof getKakaoTemplates>> = {
+    success: true,
+    data: [],
+    error: null,
+  }
+  if (hasKakaoChannel) {
+    ;[eventSubsResult, kakaoTemplatesResult] = await Promise.all([
+      getEventSubscriptions(),
+      getKakaoTemplates(),
+    ])
+  }
+
   const eventSubscriptions = eventSubsResult.success ? eventSubsResult.data : []
   const eventSubscriptionsLoadError = eventSubsResult.success ? null : (eventSubsResult.error ?? null)
   const kakaoTemplates = kakaoTemplatesResult.success && kakaoTemplatesResult.data
