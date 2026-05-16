@@ -22,6 +22,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/c
 import { Loader2, Save, Pencil, X } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { updateAcademyInfo } from '@/app/actions/academy'
+import type { AcademyInfo } from '@/core/types/academy.types'
 
 // ============================================================================
 // Types & Schemas
@@ -39,8 +40,7 @@ const academyFormSchema = z.object({
 type AcademyFormValues = z.infer<typeof academyFormSchema>
 
 interface AcademyInfoFormProps {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  initialData: any
+  initialData: AcademyInfo
 }
 
 // ============================================================================
@@ -109,7 +109,7 @@ export function AcademyInfoForm({ initialData }: AcademyInfoFormProps) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         {/* Basic Information */}
         <Card>
           <CardHeader className="pb-4">
