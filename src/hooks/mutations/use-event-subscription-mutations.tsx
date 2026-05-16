@@ -41,7 +41,26 @@ export function useProvisionAllTemplatesMutation() {
       }
     },
     onError: (error: Error) => {
-      toast({ variant: 'destructive', title: '등록 오류', description: error.message })
+      toast({
+        variant: 'destructive',
+        title: '공용 템플릿 등록 실패',
+        description: (
+          <div className="space-y-2">
+            <p>{error.message}</p>
+            <div className="text-xs opacity-80">
+              <p className="font-medium">확인해보세요</p>
+              <ul className="list-disc list-inside space-y-0.5 mt-1">
+                <li>메시징 연동 탭에서 Solapi API 키가 인증되었는지</li>
+                <li>카카오 채널 연동 상태가 &ldquo;연동됨&rdquo;인지</li>
+                <li>Solapi 콘솔에서 API Key 역할에 &ldquo;메시지/카카오 알림톡&rdquo;이 활성화되어 있는지</li>
+                <li>
+                  반복되면 <a href="mailto:support@acadesk.com" className="underline">support@acadesk.com</a> 으로 문의
+                </li>
+              </ul>
+            </div>
+          </div>
+        ),
+      })
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.eventSubscriptions.all() })
@@ -111,7 +130,19 @@ export function useRetryProvisionMutation() {
       toast({ title: '재등록 요청 완료', description: '템플릿을 다시 등록했습니다.' })
     },
     onError: (error: Error) => {
-      toast({ variant: 'destructive', title: '재등록 실패', description: error.message })
+      toast({
+        variant: 'destructive',
+        title: '재등록 실패',
+        description: (
+          <div className="space-y-2">
+            <p>{error.message}</p>
+            <p className="text-xs opacity-80">
+              메시징 연동 → Solapi 인증 상태와 카카오 채널 연동 상태를 먼저 확인해주세요.
+              반복되면 <a href="mailto:support@acadesk.com" className="underline">support@acadesk.com</a> 으로 문의 부탁드립니다.
+            </p>
+          </div>
+        ),
+      })
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.eventSubscriptions.all() })
