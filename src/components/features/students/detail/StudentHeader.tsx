@@ -38,6 +38,7 @@ import { useToast } from '@/hooks/use-toast'
 import { RoleGuard } from '@/components/auth/role-guard'
 import type { StudentDetail } from '@/core/types/studentDetail.types'
 import { updateStudent, deleteStudent } from '@/app/actions/students'
+import { SendAlimtalkMenu } from '@/components/features/messaging/SendAlimtalkMenu'
 // import { SendReportDialog } from './SendReportDialog' // DISABLED: Report feature migration pending
 
 interface StudentHeaderProps {
@@ -265,6 +266,8 @@ export function StudentHeader({
           )}
 
           <RoleGuard allowedRoles={['owner', 'instructor']}>
+            <SendAlimtalkMenu studentId={student.id} />
+
             <Button
               variant="outline"
               className="gap-2"
