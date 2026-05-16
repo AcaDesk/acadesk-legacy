@@ -142,6 +142,10 @@ export interface DatePickerProps {
  * />
  * ```
  */
+const CURRENT_YEAR = new Date().getFullYear()
+const DEFAULT_FROM_YEAR = CURRENT_YEAR - 100
+const DEFAULT_TO_YEAR = CURRENT_YEAR + 10
+
 export const DatePicker = React.forwardRef<HTMLButtonElement, DatePickerProps>(
   (
     {
@@ -150,9 +154,9 @@ export const DatePicker = React.forwardRef<HTMLButtonElement, DatePickerProps>(
       placeholder = '날짜 선택',
       dateFormat = 'yyyy년 MM월 dd일',
       disabled,
-      captionLayout = 'label',
-      fromYear,
-      toYear,
+      captionLayout = 'dropdown',
+      fromYear = DEFAULT_FROM_YEAR,
+      toYear = DEFAULT_TO_YEAR,
       className,
       align = 'start',
       id,
@@ -160,8 +164,32 @@ export const DatePicker = React.forwardRef<HTMLButtonElement, DatePickerProps>(
     },
     ref
   ) => {
+    const [open, setOpen] = React.useState(false)
+
+    const handleSelect = React.useCallback(
+      (date: Date | undefined) => {
+        onChange?.(date)
+        if (date) setOpen(false)
+      },
+      [onChange]
+    )
+
+    const handleToday = React.useCallback(() => {
+      const today = new Date()
+      if (disabled?.(today)) return
+      onChange?.(today)
+      setOpen(false)
+    }, [disabled, onChange])
+
+    const handleClear = React.useCallback(() => {
+      onChange?.(undefined)
+      setOpen(false)
+    }, [onChange])
+
+    const todayDisabled = disabled?.(new Date()) ?? false
+
     return (
-      <Popover>
+      <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
             ref={ref}
@@ -182,13 +210,35 @@ export const DatePicker = React.forwardRef<HTMLButtonElement, DatePickerProps>(
           <Calendar
             mode="single"
             selected={value}
-            onSelect={onChange}
+            onSelect={handleSelect}
             disabled={disabled}
             initialFocus
             captionLayout={captionLayout}
             fromYear={fromYear}
             toYear={toYear}
           />
+          <div className="flex items-center justify-between gap-2 border-t p-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleToday}
+              disabled={todayDisabled}
+            >
+              오늘
+            </Button>
+            {value && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleClear}
+                className="text-muted-foreground"
+              >
+                선택 해제
+              </Button>
+            )}
+          </div>
         </PopoverContent>
       </Popover>
     )
