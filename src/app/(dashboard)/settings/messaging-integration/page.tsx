@@ -24,22 +24,29 @@ export default async function MessagingIntegrationPage() {
   const config = messagingResult.success && messagingResult.data ? messagingResult.data : null
   const kakaoConfig = kakaoResult.success ? kakaoResult.data : null
   const eventSubscriptions = eventSubsResult.success ? eventSubsResult.data : []
+  const eventSubscriptionsLoadError = eventSubsResult.success ? null : (eventSubsResult.error ?? null)
   const kakaoTemplates = kakaoTemplatesResult.success && kakaoTemplatesResult.data
     ? kakaoTemplatesResult.data
     : []
-  const kakaoTemplateSummary = {
-    total: kakaoTemplates.length,
-    approved: kakaoTemplates.filter((template) => template.status === 'approved').length,
-    inspecting: kakaoTemplates.filter((template) => template.status === 'inspecting').length,
-    rejected: kakaoTemplates.filter((template) => template.status === 'rejected').length,
-    pending: kakaoTemplates.filter((template) => template.status === 'pending').length,
-  }
+  // 5번의 filter loop → 단일 reduce 로 통합 (status 별 카운트).
+  const kakaoTemplateSummary = kakaoTemplates.reduce(
+    (acc, template) => {
+      acc.total++
+      if (template.status === 'approved') acc.approved++
+      else if (template.status === 'inspecting') acc.inspecting++
+      else if (template.status === 'rejected') acc.rejected++
+      else if (template.status === 'pending') acc.pending++
+      return acc
+    },
+    { total: 0, approved: 0, inspecting: 0, rejected: 0, pending: 0 },
+  )
 
   return (
     <MessagingIntegrationClient
       config={config}
       kakaoChannelConfig={kakaoConfig}
       eventSubscriptions={eventSubscriptions}
+      eventSubscriptionsLoadError={eventSubscriptionsLoadError}
       initialKakaoTemplateSummary={kakaoTemplateSummary}
     />
   )

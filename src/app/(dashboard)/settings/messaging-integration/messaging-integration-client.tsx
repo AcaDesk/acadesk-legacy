@@ -75,6 +75,7 @@ interface MessagingIntegrationClientProps {
   config: MessagingConfig | null
   kakaoChannelConfig: KakaoChannelConfig | null
   eventSubscriptions?: EventSubscription[]
+  eventSubscriptionsLoadError?: string | null
   initialKakaoTemplateSummary?: KakaoTemplateSummary | null
 }
 
@@ -115,10 +116,17 @@ const providerInfo = {
   },
 }
 
+const PROVIDER_FIELDS: Record<MessagingProvider, ReadonlyArray<keyof FormData>> = {
+  aligo: ['aligo_user_id', 'aligo_api_key', 'aligo_sender_phone'],
+  solapi: ['solapi_api_key', 'solapi_api_secret', 'solapi_sender_phone'],
+  nhncloud: ['nhncloud_app_key', 'nhncloud_secret_key', 'nhncloud_sender_phone'],
+}
+
 export function MessagingIntegrationClient({
   config,
   kakaoChannelConfig,
   eventSubscriptions = [],
+  eventSubscriptionsLoadError = null,
   initialKakaoTemplateSummary = null,
 }: MessagingIntegrationClientProps) {
   const router = useRouter()
@@ -169,22 +177,9 @@ export function MessagingIntegrationClient({
     if (!isEditingCredentials) return false
     const init = initialFormData.current
     if (formData.provider !== init.provider) return true
-    if (formData.provider === 'aligo') {
-      return formData.aligo_user_id !== init.aligo_user_id ||
-        formData.aligo_api_key !== init.aligo_api_key ||
-        formData.aligo_sender_phone !== init.aligo_sender_phone
-    }
-    if (formData.provider === 'solapi') {
-      return formData.solapi_api_key !== init.solapi_api_key ||
-        formData.solapi_api_secret !== init.solapi_api_secret ||
-        formData.solapi_sender_phone !== init.solapi_sender_phone
-    }
-    if (formData.provider === 'nhncloud') {
-      return formData.nhncloud_app_key !== init.nhncloud_app_key ||
-        formData.nhncloud_secret_key !== init.nhncloud_secret_key ||
-        formData.nhncloud_sender_phone !== init.nhncloud_sender_phone
-    }
-    return false
+    return PROVIDER_FIELDS[formData.provider].some(
+      (key) => formData[key] !== init[key]
+    )
   }, [formData, isEditingCredentials])
 
   async function handleSave() {
@@ -449,7 +444,7 @@ export function MessagingIntegrationClient({
         </TabsList>
 
         {/* API 설정 Tab */}
-        <TabsContent value="api" className="space-y-6">
+        <TabsContent value="api" className="space-y-8 pt-2">
           {/* Info Alert */}
           <Alert className="border-info/20 bg-info/5">
             <Info className="h-4 w-4 text-info" />
@@ -822,9 +817,12 @@ export function MessagingIntegrationClient({
         </TabsContent>
 
         {/* 이벤트 알림 Tab */}
-        <TabsContent value="events" className="space-y-6">
+        <TabsContent value="events" className="space-y-8 pt-2">
           {hasKakaoChannel ? (
-            <EventSubscriptionList initialSubscriptions={eventSubscriptions} />
+            <EventSubscriptionList
+              initialSubscriptions={eventSubscriptions}
+              initialLoadError={eventSubscriptionsLoadError}
+            />
           ) : (
             <Card>
               <CardContent className="py-8">
@@ -844,7 +842,7 @@ export function MessagingIntegrationClient({
         </TabsContent>
 
         {/* 카카오 채널/템플릿 Tab */}
-        <TabsContent value="kakao" className="space-y-6">
+        <TabsContent value="kakao" className="space-y-8 pt-2">
           {showKakaoTab ? (
             <>
               {/* Alimtalk Progress Stepper */}
