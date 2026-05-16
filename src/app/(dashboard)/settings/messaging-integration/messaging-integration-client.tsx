@@ -2,6 +2,7 @@
 
 import { useState, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
 import { PhoneInput } from '@ui/phone-input'
@@ -43,10 +44,42 @@ import {
   verifySolapiCredentials,
   type MessagingProvider
 } from '@/app/actions/messaging/config'
-import { KakaoChannelStatus, KakaoChannelRegistration, KakaoPrerequisitesChecklist, KakaoAlimtalkStepper, KakaoOnboardingFlow } from '@/components/features/settings/kakao-channel'
+// 카카오 관련 컴포넌트들은 8개 합쳐 ~3,000줄. API 설정 탭이 기본이라 첫 진입 시엔 보이지 않음.
+// next/dynamic 으로 lazy load → 초기 번들 50%+ 절감.
+// ssr: false — 컨테이너 자체가 'use client' 라 SSR 출력은 placeholder 만 필요.
+const KakaoChannelStatus = dynamic(
+  async () => (await import('@/components/features/settings/kakao-channel')).KakaoChannelStatus,
+  { ssr: false },
+)
+const KakaoChannelRegistration = dynamic(
+  async () => (await import('@/components/features/settings/kakao-channel')).KakaoChannelRegistration,
+  { ssr: false },
+)
+const KakaoPrerequisitesChecklist = dynamic(
+  async () => (await import('@/components/features/settings/kakao-channel')).KakaoPrerequisitesChecklist,
+  { ssr: false },
+)
+const KakaoAlimtalkStepper = dynamic(
+  async () => (await import('@/components/features/settings/kakao-channel')).KakaoAlimtalkStepper,
+  { ssr: false },
+)
+const KakaoOnboardingFlow = dynamic(
+  async () => (await import('@/components/features/settings/kakao-channel')).KakaoOnboardingFlow,
+  { ssr: false },
+)
+const KakaoTemplateList = dynamic(
+  async () => (await import('@/components/features/settings/kakao-templates')).KakaoTemplateList,
+  { ssr: false },
+)
+const KakaoTemplateForm = dynamic(
+  async () => (await import('@/components/features/settings/kakao-templates')).KakaoTemplateForm,
+  { ssr: false },
+)
+const EventSubscriptionList = dynamic(
+  async () => (await import('@/components/features/settings/event-subscriptions')).EventSubscriptionList,
+  { ssr: false },
+)
 import type { KakaoTemplateSummary } from '@/components/features/settings/kakao-channel'
-import { KakaoTemplateList, KakaoTemplateForm } from '@/components/features/settings/kakao-templates'
-import { EventSubscriptionList } from '@/components/features/settings/event-subscriptions'
 import type { KakaoChannelConfig } from '@/app/actions/messaging/kakao-channel'
 import type { KakaoTemplate } from '@/app/actions/messaging/kakao-templates'
 import type { EventSubscription } from '@/app/actions/messaging/event-subscriptions'
