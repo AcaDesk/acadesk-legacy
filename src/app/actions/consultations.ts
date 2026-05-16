@@ -508,8 +508,21 @@ export async function updateConsultation(
 ) {
   try {
     const validated = updateConsultationSchema.parse(input)
-    const { tenantId } = await verifyStaff()
+    const { tenantId, userId } = await verifyStaff()
     const supabase = createServiceRoleClient()
+
+    // 첫 summary 작성 여부 판단을 위해 기존 값 확인 (consultation_summary 알림 1회만 발송).
+    let prevSummary: string | null = null
+    if (validated.summary !== undefined) {
+      const { data: prev } = await supabase
+        .from('consultations')
+        .select('summary')
+        .eq('id', validated.id)
+        .eq('tenant_id', tenantId)
+        .is('deleted_at', null)
+        .maybeSingle()
+      prevSummary = prev?.summary ?? null
+    }
 
     const updateData: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
@@ -555,6 +568,29 @@ export async function updateConsultation(
 
     if (!data) {
       throw new Error('상담 기록을 찾을 수 없습니다')
+    }
+
+    // summary 가 빈 → 채워진 전환 시점에 'consultation_summary' 알림 1회 발송 (fire-and-forget).
+    const summaryFirstTimeFilled =
+      !prevSummary && !!validated.summary && validated.summary.trim().length > 0
+    if (summaryFirstTimeFilled && data.student_id) {
+      const consultDateStr = new Date(data.consultation_date || data.created_at).toLocaleDateString(
+        'ko-KR',
+        { year: 'numeric', month: 'long', day: 'numeric' },
+      )
+      const { data: conductor } = await supabase
+        .from('users')
+        .select('name')
+        .eq('id', data.conducted_by || userId)
+        .maybeSingle()
+
+      void import('@/lib/messaging/event-alimtalk').then(({ fireEventAlimtalk }) =>
+        fireEventAlimtalk(tenantId, 'consultation_summary', data.student_id, {
+          상담일: consultDateStr,
+          담당자명: conductor?.name || '담당자',
+          상담링크: '',
+        }),
+      )
     }
 
     revalidatePath('/consultations')

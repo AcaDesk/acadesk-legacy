@@ -304,6 +304,21 @@ export async function createRetestExam(
     revalidatePath('/grades/retests')
     revalidatePath('/grades/exams')
 
+    // 재시험 안내 알림톡 (fire-and-forget) — 대상 학생들의 보호자에게 발송.
+    const retestDateStr = new Date(examDate).toLocaleDateString('ko-KR', {
+      year: 'numeric', month: 'long', day: 'numeric',
+    })
+    const examName = originalExam.name || '시험'
+    void import('@/lib/messaging/event-alimtalk').then(({ fireEventAlimtalk }) => {
+      for (const sid of studentIds) {
+        void fireEventAlimtalk(tenantId, 'retest_required', sid, {
+          시험명: examName,
+          재시험일시: retestDateStr,
+          시험범위: '',
+        })
+      }
+    })
+
     return {
       success: true,
       data: { retestExamId: retestExam.id },
