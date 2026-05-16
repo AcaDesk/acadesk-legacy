@@ -42,7 +42,7 @@ export async function createStudentComplete(
 
     let guardianId: string | null = null
     let studentId: string | null = null
-    let autoMatchedGuardian: { id: string; name: string } | null = null
+    let autoMatchedGuardian: { id: string; name: string; siblingStudents: string[] } | null = null
 
     // 4. Handle guardian creation/linking based on mode
     if (validated.guardianMode === 'new' && validated.guardian && 'name' in validated.guardian) {
@@ -69,7 +69,27 @@ export async function createStudentComplete(
         if (matched) {
           // 기존 보호자 발견 → 학생 등록 후 형제로 자동 연결
           guardianId = matched.id
-          autoMatchedGuardian = { id: matched.id, name: matched.name }
+
+          // 토스트 안내용 — 기존 자녀 이름들
+          const { data: sgRows } = await serviceClient
+            .from('student_guardians')
+            .select('students(name)')
+            .eq('guardian_id', matched.id)
+            .eq('tenant_id', tenantId)
+            .is('deleted_at', null)
+
+          const siblingStudents = (sgRows || [])
+            .map((sg: { students: { name: string } | { name: string }[] | null }) => {
+              const s = Array.isArray(sg.students) ? sg.students[0] : sg.students
+              return s?.name || ''
+            })
+            .filter(Boolean)
+
+          autoMatchedGuardian = {
+            id: matched.id,
+            name: matched.name,
+            siblingStudents,
+          }
         }
       }
 
