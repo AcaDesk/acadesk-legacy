@@ -39,6 +39,12 @@ const SOLAPI_ERROR_MAP: Record<string, string> = {
   InvalidApiKey: 'API Key가 올바르지 않습니다.',
   InvalidApiSecret: 'API Secret이 올바르지 않습니다.',
   Unauthorized: 'API 인증에 실패했습니다. API 키를 확인해주세요.',
+  Forbidden:
+    'Solapi API 키에 이 작업의 권한이 없습니다. Solapi 콘솔(console.solapi.com) → API Key 설정에서 "메시지" 및 "카카오 알림톡" 역할이 활성화되어 있는지 확인해주세요.',
+  NoneAccessGroupKakao:
+    '연동된 카카오 채널에 접근할 수 없습니다. Solapi 콘솔의 카카오 채널이 현재 API 키와 같은 계정에 등록되어 있는지 확인해주세요.',
+  NoneAccessTemplate:
+    'API 키에 알림톡 템플릿 관리 권한이 없습니다. Solapi 콘솔에서 API Key 역할에 "카카오 알림톡" 항목을 활성화해주세요.',
 
   // 요청 제한 에러
   RateLimitExceeded: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.',
@@ -89,6 +95,11 @@ const ERROR_PATTERNS: Array<{ pattern: RegExp; message: string }> = [
   {
     pattern: /unauthorized|authentication.*failed/i,
     message: 'API 인증에 실패했습니다. API 키를 확인해주세요.',
+  },
+  {
+    pattern: /forbidden|permission.*denied|access.*denied|권한이?\s*없|접근\s*권한/i,
+    message:
+      'Solapi API 키에 이 작업의 권한이 없습니다. Solapi 콘솔(console.solapi.com) → API Key 설정에서 "메시지" 및 "카카오 알림톡" 역할이 활성화되어 있는지, 카카오 채널이 같은 계정에 등록되어 있는지 확인해주세요.',
   },
   {
     pattern: /rate.*limit|too.*many/i,
@@ -163,6 +174,25 @@ function extractErrorMessage(error: unknown): string | null {
   }
 
   return null
+}
+
+/**
+ * Solapi SDK/HTTP 에러로 보이는지 휴리스틱 판단 (errorCode 필드 보유 여부)
+ */
+export function isSolapiError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const e = error as Record<string, unknown>
+  if (typeof e.errorCode === 'string') return true
+  if (typeof e.errorMessage === 'string') return true
+  if (
+    'error' in e &&
+    e.error &&
+    typeof e.error === 'object' &&
+    'errorCode' in (e.error as Record<string, unknown>)
+  ) {
+    return true
+  }
+  return false
 }
 
 /**
