@@ -1,14 +1,14 @@
 import { requireAuth } from '@/lib/auth/helpers'
-import { MessagingIntegrationClient } from './messaging-integration-client'
-import { loadMessagingIntegrationData } from './_load-data'
+import { MessagingIntegrationClient } from '../messaging-integration-client'
+import { loadMessagingIntegrationData } from '../_load-data'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'API 설정 · 알림 서비스 연동',
-  description: 'SMS/알림톡 발송을 위한 API 키를 관리합니다.',
+  title: '이벤트 알림 · 알림 서비스 연동',
+  description: '이벤트별 알림톡 자동 발송을 설정합니다.',
 }
 
-export default async function MessagingApiPage() {
+export default async function MessagingEventsPage() {
   await requireAuth()
   const data = await loadMessagingIntegrationData()
 
@@ -19,7 +19,7 @@ export default async function MessagingApiPage() {
       eventSubscriptions={data.eventSubscriptions}
       eventSubscriptionsLoadError={data.eventSubscriptionsLoadError}
       initialKakaoTemplateSummary={data.kakaoTemplateSummary}
-      defaultSection="api"
+      defaultSection="events"
     />
   )
 }
