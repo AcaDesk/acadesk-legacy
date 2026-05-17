@@ -58,10 +58,6 @@ const KakaoPrerequisitesChecklist = dynamic(
   async () => (await import('@/components/features/settings/kakao-channel')).KakaoPrerequisitesChecklist,
   { ssr: false },
 )
-const KakaoAlimtalkStepper = dynamic(
-  async () => (await import('@/components/features/settings/kakao-channel')).KakaoAlimtalkStepper,
-  { ssr: false },
-)
 const KakaoOnboardingFlow = dynamic(
   async () => (await import('@/components/features/settings/kakao-channel')).KakaoOnboardingFlow,
   { ssr: false },
@@ -873,14 +869,8 @@ export function MessagingIntegrationClient({
         {activeTab === 'kakao' && (<div className="space-y-6">
           {showKakaoTab ? (
             <>
-              {/* Alimtalk Progress Stepper (전체 폭) */}
-              <KakaoAlimtalkStepper
-                hasKakaoChannel={hasKakaoChannel}
-                templateSummary={templateSummary}
-              />
-
-              {/* 좌: 채널·온보딩 / 우: 템플릿 목록 — xl 이상에서 2단 */}
-              <div className="grid gap-6 xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+              {/* 좌: 채널·온보딩 / 우: 템플릿 목록 — 2xl 이상에서 2단 (그 미만은 1단 stack) */}
+              <div className="grid gap-6 2xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
                 <div className="space-y-6 min-w-0">
                   {hasKakaoChannel && kakaoChannelConfig ? (
                     <KakaoChannelStatus
