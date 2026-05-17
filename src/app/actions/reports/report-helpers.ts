@@ -695,53 +695,54 @@ async function fetchHomeworkRows(
     return new Map<string, HomeworkRow[]>()
   }
 
+  // 3개 소스 fallback chain — 병렬 실행 후 우선순위 순서로 첫 번째 비어있지 않은 결과 선택.
+  // 기존 순차 await 패턴은 worst-case에서 3 round trip 발생. 병렬 실행 시 1 round trip.
+  // 빈 결과 소스의 쿼리 비용은 발생하지만 모두 indexed (tenant_id, student_id IN, due_date range).
+  const [studentTodosResult, todosResult, studentTasksResult] = await Promise.allSettled([
+    supabase
+      .from('student_todos')
+      .select('student_id, completed_at')
+      .eq('tenant_id', tenantId)
+      .in('student_id', studentIds)
+      .gte('due_date', period.start)
+      .lte('due_date', period.end)
+      .is('deleted_at', null),
+    supabase
+      .from('todos')
+      .select('student_id, completed_at')
+      .eq('tenant_id', tenantId)
+      .in('student_id', studentIds)
+      .gte('due_date', period.start)
+      .lte('due_date', period.end)
+      .is('deleted_at', null),
+    supabase
+      .from('student_tasks')
+      .select('student_id, completed_at')
+      .eq('tenant_id', tenantId)
+      .eq('kind', 'homework')
+      .in('student_id', studentIds)
+      .gte('due_date', period.start)
+      .lte('due_date', period.end)
+      .is('deleted_at', null),
+  ])
+
   const sources = [
-    {
-      name: 'student_todos',
-      run: () =>
-        supabase
-          .from('student_todos')
-          .select('student_id, completed_at')
-          .eq('tenant_id', tenantId)
-          .in('student_id', studentIds)
-          .gte('due_date', period.start)
-          .lte('due_date', period.end)
-          .is('deleted_at', null),
-    },
-    {
-      name: 'todos',
-      run: () =>
-        supabase
-          .from('todos')
-          .select('student_id, completed_at')
-          .eq('tenant_id', tenantId)
-          .in('student_id', studentIds)
-          .gte('due_date', period.start)
-          .lte('due_date', period.end)
-          .is('deleted_at', null),
-    },
-    {
-      name: 'student_tasks',
-      run: () =>
-        supabase
-          .from('student_tasks')
-          .select('student_id, completed_at')
-          .eq('tenant_id', tenantId)
-          .eq('kind', 'homework')
-          .in('student_id', studentIds)
-          .gte('due_date', period.start)
-          .lte('due_date', period.end)
-          .is('deleted_at', null),
-    },
+    { name: 'student_todos', settled: studentTodosResult },
+    { name: 'todos', settled: todosResult },
+    { name: 'student_tasks', settled: studentTasksResult },
   ] as const
 
   let data: HomeworkRow[] = []
 
-  for (const source of sources) {
-    const result = await source.run()
+  for (const { name, settled } of sources) {
+    if (settled.status === 'rejected') {
+      console.error(`[fetchHomeworkRows] ${name} rejected:`, settled.reason)
+      continue
+    }
 
+    const result = settled.value
     if (result.error) {
-      console.error(`[fetchHomeworkRows] ${source.name} error:`, result.error.message)
+      console.error(`[fetchHomeworkRows] ${name} error:`, result.error.message)
       continue
     }
 
