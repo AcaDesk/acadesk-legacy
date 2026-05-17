@@ -20,6 +20,9 @@ import { Input } from '@ui/input'
 import { Label } from '@ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
 import { Alert, AlertDescription } from '@ui/alert'
+import { Progress } from '@ui/progress'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ui/tooltip'
+import { Separator } from '@ui/separator'
 import { cn } from '@/lib/utils'
 
 import { useEventSubscriptionsQuery } from '@/hooks/queries/use-event-subscriptions-query'
@@ -98,13 +101,10 @@ export function KakaoOnboardingFlow({ hasKakaoChannel }: KakaoOnboardingFlowProp
     setTestModalOpen(false)
   }
 
-  const segments = [
-    { count: stats.approved, className: 'bg-success', label: '승인' },
-    { count: stats.inspecting, className: 'bg-blue-400 dark:bg-blue-500', label: '검수 중' },
-    { count: stats.failed, className: 'bg-destructive', label: '반려/실패' },
-  ].filter((s) => s.count > 0)
+  const approvedPercent = stats.total > 0 ? Math.round((stats.approved / stats.total) * 100) : 0
 
   return (
+    <TooltipProvider delayDuration={150}>
     <div className="space-y-4">
       {/* 공용 템플릿 등록 진척 */}
       <Card>
@@ -138,47 +138,47 @@ export function KakaoOnboardingFlow({ hasKakaoChannel }: KakaoOnboardingFlowProp
 
           {stats.total > 0 && (
             <>
-              {/* 진척 바 */}
-              <div
-                className="h-2 flex rounded-full overflow-hidden bg-muted"
-                role="meter"
-                aria-valuemin={0}
-                aria-valuemax={stats.total}
-                aria-valuenow={stats.approved}
-                aria-label={`승인 ${stats.approved} / ${stats.total}`}
-              >
-                {segments.map((s, i) => (
-                  <div
-                    key={i}
-                    className={cn('h-full transition-all', s.className)}
-                    style={{ width: `${(s.count / stats.total) * 100}%` }}
-                    title={`${s.label} ${s.count}건`}
-                  />
-                ))}
+              {/* 승인 진척률 — shadcn Progress 단일 바 */}
+              <div className="space-y-1.5">
+                <div className="flex items-baseline justify-between text-xs">
+                  <span className="font-medium text-foreground">승인 진척</span>
+                  <span className="text-muted-foreground tabular-nums">
+                    <span className="text-foreground font-semibold">{stats.approved}</span>
+                    <span> / {stats.total}</span>
+                    <span className="ml-1.5 text-muted-foreground">({approvedPercent}%)</span>
+                  </span>
+                </div>
+                <Progress value={approvedPercent} className="h-2" />
               </div>
 
-              {/* 통계 4종 */}
-              <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs">
+              <Separator />
+
+              {/* 통계 4종 (Tooltip 설명 포함) */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <StatItem
-                  icon={<CheckCircle2 className="h-3.5 w-3.5 text-success" />}
+                  icon={<CheckCircle2 className="h-4 w-4 text-success" />}
                   label="승인"
                   value={stats.approved}
+                  hint="카카오 검수를 통과해 자동 발송 가능한 템플릿"
                 />
                 <StatItem
-                  icon={<Clock className="h-3.5 w-3.5 text-blue-500" />}
+                  icon={<Clock className="h-4 w-4 text-blue-500" />}
                   label="검수 중"
                   value={stats.inspecting}
+                  hint="카카오에서 심사 진행 중 (보통 1~2영업일 소요)"
                 />
                 <StatItem
-                  icon={<AlertTriangle className="h-3.5 w-3.5 text-destructive" />}
+                  icon={<AlertTriangle className="h-4 w-4 text-destructive" />}
                   label="반려/실패"
                   value={stats.failed}
                   tone={stats.failed > 0 ? 'destructive' : undefined}
+                  hint="검수 반려되었거나 등록 실패한 템플릿. 사유를 확인하고 재등록하세요."
                 />
                 <StatItem
-                  icon={<Circle className="h-3.5 w-3.5 text-muted-foreground" />}
+                  icon={<Circle className="h-4 w-4 text-muted-foreground" />}
                   label="미등록"
                   value={stats.notStarted}
+                  hint="아직 학원 솔라피 계정에 등록되지 않은 공용 템플릿"
                 />
               </div>
 
@@ -285,7 +285,8 @@ export function KakaoOnboardingFlow({ hasKakaoChannel }: KakaoOnboardingFlowProp
         </Card>
       )}
 
-      <Dialog open={testModalOpen} onOpenChange={setTestModalOpen}>
+    </div>
+    <Dialog open={testModalOpen} onOpenChange={setTestModalOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>테스트 알림톡 발송</DialogTitle>
