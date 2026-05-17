@@ -10,6 +10,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@ui/collapsible'
+import { Separator } from '@ui/separator'
 import { KakaoTalkPreview } from '@/components/features/messaging/KakaoTalkPreview'
 import {
   ChevronDown,
@@ -245,8 +246,9 @@ export function EventSubscriptionCard({ subscription, onRefresh }: EventSubscrip
         <div className="flex-1" />
 
         {/* Template Preview (Collapsible) */}
-        <Collapsible open={isExpanded} onOpenChange={setIsExpanded} className="pt-1 border-t border-border/60">
-          <CollapsibleTrigger className="flex items-center gap-1 pt-2 text-xs text-muted-foreground hover:text-foreground transition-colors">
+        <Separator />
+        <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+          <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
             {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
             카카오톡 발송 미리보기
           </CollapsibleTrigger>
