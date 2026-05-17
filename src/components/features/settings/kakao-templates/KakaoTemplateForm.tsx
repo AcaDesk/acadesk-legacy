@@ -23,10 +23,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ui/select'
-import { BookOpen, Info, Loader2, Save } from 'lucide-react'
+import { BookOpen, Info, Loader2, Save, Eye } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ScrollArea } from '@ui/scroll-area'
 import { KakaoTemplateAuditGuide } from './KakaoTemplateAuditGuide'
+import { KakaoTalkPreview } from '@/components/features/messaging/KakaoTalkPreview'
 import { useToast } from '@/hooks/use-toast'
 import {
   createKakaoTemplate,
@@ -82,7 +83,7 @@ export function KakaoTemplateForm({
   const [categories, setCategories] = useState<KakaoTemplateCategory[]>([])
   const [loadingCategories, setLoadingCategories] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [showGuide, setShowGuide] = useState(false)
+  const [rightPane, setRightPane] = useState<'preview' | 'guide'>('preview')
 
   // Load categories
   useEffect(() => {
@@ -202,12 +203,9 @@ export function KakaoTemplateForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn(
-        "max-h-[90vh] overflow-hidden",
-        showGuide ? "max-w-[min(90vw,64rem)]" : "max-w-2xl"
-      )}>
+      <DialogContent className="max-h-[90vh] overflow-hidden max-w-[min(95vw,72rem)]">
         <DialogHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <div>
               <DialogTitle>{isEditing ? '템플릿 수정' : '새 알림톡 템플릿'}</DialogTitle>
               <DialogDescription>
@@ -216,20 +214,39 @@ export function KakaoTemplateForm({
                   : '저장 후 카카오 검수를 요청합니다. 승인된 템플릿만 발송할 수 있습니다.'}
               </DialogDescription>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              type="button"
-              onClick={() => setShowGuide((prev) => !prev)}
-              className="shrink-0"
-            >
-              <BookOpen className="h-4 w-4 mr-1.5" />
-              {showGuide ? '가이드 닫기' : '심사 가이드'}
-            </Button>
+            {/* 우측 패널 토글 (미리보기 / 심사 가이드) */}
+            <div className="flex shrink-0 rounded-md border bg-muted p-0.5">
+              <button
+                type="button"
+                onClick={() => setRightPane('preview')}
+                className={cn(
+                  'flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors',
+                  rightPane === 'preview'
+                    ? 'bg-background shadow-sm text-foreground'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <Eye className="h-3.5 w-3.5" />
+                미리보기
+              </button>
+              <button
+                type="button"
+                onClick={() => setRightPane('guide')}
+                className={cn(
+                  'flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors',
+                  rightPane === 'guide'
+                    ? 'bg-background shadow-sm text-foreground'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+                심사 가이드
+              </button>
+            </div>
           </div>
         </DialogHeader>
 
-        <div className={cn("grid gap-6 py-4", showGuide ? "grid-cols-[1fr_320px]" : "grid-cols-1")}>
+        <div className="grid gap-6 py-4 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px]">
         <ScrollArea className="max-h-[calc(90vh-180px)]">
         <div className="space-y-4 pr-4">
           <Alert>
@@ -373,13 +390,23 @@ export function KakaoTemplateForm({
           </div>
         </div>
         </ScrollArea>
-        {showGuide && (
-          <div className="border-l pl-4">
-            <ScrollArea className="max-h-[calc(90vh-180px)]">
+        <div className="lg:border-l lg:pl-4">
+          <ScrollArea className="max-h-[calc(90vh-180px)]">
+            {rightPane === 'preview' ? (
+              <div className="pr-2">
+                <p className="text-xs text-muted-foreground mb-2">
+                  실제 발송 시 보호자가 받는 알림톡 화면입니다. 변수는 샘플 값으로 표시됩니다.
+                </p>
+                <KakaoTalkPreview
+                  content={formData.content || '템플릿 내용을 입력하면 미리보기가 표시됩니다.'}
+                  variables={variables}
+                />
+              </div>
+            ) : (
               <KakaoTemplateAuditGuide />
-            </ScrollArea>
-          </div>
-        )}
+            )}
+          </ScrollArea>
+        </div>
         </div>
 
         <DialogFooter>
