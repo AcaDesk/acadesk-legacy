@@ -6,6 +6,7 @@
 
 'use server'
 
+import { unstable_cache } from 'next/cache'
 import { verifyStaffPermission } from '@/lib/auth/service-role-helpers'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getTodayKST } from '@/lib/utils'
@@ -20,7 +21,9 @@ export interface KPIStatsResult {
 }
 
 /**
- * 기간별 KPI 통계 조회
+ * 기간별 KPI 통계 조회 (캐시: 5분 TTL, key=(tenantId, period, today))
+ *
+ * today를 키에 포함시켜 자정 경계에서 자동으로 새 캐시 entry로 분기됩니다.
  */
 export async function getKPIStatsByPeriod(period: KPIPeriod): Promise<KPIStatsResult> {
   try {
@@ -30,8 +33,26 @@ export async function getKPIStatsByPeriod(period: KPIPeriod): Promise<KPIStatsRe
     }
 
     const { tenant_id: tenantId } = permissionResult.data
-    const supabase = createServiceRoleClient()
     const today = getTodayKST()
+
+    return unstable_cache(
+      () => computeKPIStats(tenantId, period, today),
+      ['kpi-stats', tenantId, period, today],
+      { revalidate: 300, tags: [`kpi:${tenantId}`] }
+    )()
+  } catch (error) {
+    console.error('[getKPIStatsByPeriod] Error:', error)
+    return { success: false, error: '데이터 조회 중 오류가 발생했습니다.' }
+  }
+}
+
+async function computeKPIStats(
+  tenantId: string,
+  period: KPIPeriod,
+  today: string
+): Promise<KPIStatsResult> {
+  try {
+    const supabase = createServiceRoleClient()
 
     // 기간별 시작 날짜 계산
     let startDate: string
@@ -137,7 +158,7 @@ export async function getKPIStatsByPeriod(period: KPIPeriod): Promise<KPIStatsRe
       },
     }
   } catch (error) {
-    console.error('[getKPIStatsByPeriod] Error:', error)
+    console.error('[computeKPIStats] Error:', error)
     return { success: false, error: '데이터 조회 중 오류가 발생했습니다.' }
   }
 }

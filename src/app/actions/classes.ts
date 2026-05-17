@@ -6,7 +6,7 @@
 
 'use server'
 
-import { revalidatePath, revalidateTag } from 'next/cache'
+import { revalidatePath, revalidateTag, unstable_cache } from 'next/cache'
 import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
@@ -74,69 +74,75 @@ export async function getClassesWithDetails() {
     // 1. Verify authentication and get tenant
     const { tenantId } = await verifyStaff()
 
-    // 2. Create service_role client for query
-    const supabase = createServiceRoleClient()
+    // 2. 캐시된 데이터 반환 (5분 TTL, mutation 시 revalidateTag로 무효화)
+    return unstable_cache(
+      async () => {
+        const supabase = createServiceRoleClient()
 
-    // 3. Query classes with instructor information
-    const { data: classesData, error } = await supabase
-      .from('classes')
-      .select(`
-        *,
-        users!classes_instructor_id_fkey (
-          name
-        )
-      `)
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false })
-
-    if (error) throw error
-
-    // 4. 배치 조회: 모든 클래스의 학생 수를 한 번에
-    const classIds = (classesData || []).map(c => c.id)
-
-    const { data: enrollments } = classIds.length > 0
-      ? await supabase
-          .from('class_enrollments')
+        // 3. Query classes with instructor information
+        const { data: classesData, error } = await supabase
+          .from('classes')
           .select(`
-            class_id,
-            students!inner (
-              id
+            *,
+            users!classes_instructor_id_fkey (
+              name
             )
           `)
           .eq('tenant_id', tenantId)
-          .in('class_id', classIds)
-          .eq('status', 'active')
-          .is('students.deleted_at', null)
-      : { data: [] }
+          .is('deleted_at', null)
+          .order('created_at', { ascending: false })
 
-    // class_id별 카운트 집계
-    const countMap = new Map<string, number>()
-    for (const e of enrollments || []) {
-      countMap.set(e.class_id, (countMap.get(e.class_id) || 0) + 1)
-    }
+        if (error) throw error
 
-    // 클래스에 카운트 매핑
-    const classesWithDetails = (classesData || []).map(classItem => ({
-      id: classItem.id,
-      name: classItem.name,
-      description: classItem.description,
-      subject: classItem.subject,
-      gradeLevel: classItem.grade_level,
-      instructorName: (classItem.users as { name: string } | null)?.name || null,
-      studentCount: countMap.get(classItem.id) || 0,
-      schedule: classItem.schedule,
-      room: classItem.room,
-      status: classItem.status,
-      active: classItem.active,
-      createdAt: classItem.created_at,
-    } as ClassWithDetails))
+        // 4. 배치 조회: 모든 클래스의 학생 수를 한 번에
+        const classIds = (classesData || []).map(c => c.id)
 
-    return {
-      success: true,
-      data: classesWithDetails,
-      error: null,
-    }
+        const { data: enrollments } = classIds.length > 0
+          ? await supabase
+              .from('class_enrollments')
+              .select(`
+                class_id,
+                students!inner (
+                  id
+                )
+              `)
+              .eq('tenant_id', tenantId)
+              .in('class_id', classIds)
+              .eq('status', 'active')
+              .is('students.deleted_at', null)
+          : { data: [] }
+
+        // class_id별 카운트 집계
+        const countMap = new Map<string, number>()
+        for (const e of enrollments || []) {
+          countMap.set(e.class_id, (countMap.get(e.class_id) || 0) + 1)
+        }
+
+        // 클래스에 카운트 매핑
+        const classesWithDetails = (classesData || []).map(classItem => ({
+          id: classItem.id,
+          name: classItem.name,
+          description: classItem.description,
+          subject: classItem.subject,
+          gradeLevel: classItem.grade_level,
+          instructorName: (classItem.users as { name: string } | null)?.name || null,
+          studentCount: countMap.get(classItem.id) || 0,
+          schedule: classItem.schedule,
+          room: classItem.room,
+          status: classItem.status,
+          active: classItem.active,
+          createdAt: classItem.created_at,
+        } as ClassWithDetails))
+
+        return {
+          success: true as const,
+          data: classesWithDetails,
+          error: null,
+        }
+      },
+      ['classes-with-details', tenantId],
+      { revalidate: 300, tags: [`classes:${tenantId}`] }
+    )()
   } catch (error) {
     console.error('[getClassesWithDetails] Error:', error)
     return {
@@ -187,6 +193,7 @@ export async function createClass(input: z.infer<typeof createClassSchema>) {
 
     // 5. Revalidate pages
     revalidatePath('/classes')
+    revalidateTag(`classes:${tenantId}`)
 
     return {
       success: true,
@@ -249,6 +256,7 @@ export async function updateClass(input: z.infer<typeof updateClassSchema>) {
     // 6. Revalidate pages
     revalidatePath('/classes')
     revalidatePath(`/classes/${validated.id}`)
+    revalidateTag(`classes:${tenantId}`)
 
     return {
       success: true,
@@ -340,25 +348,30 @@ export async function getActiveClasses() {
     // 1. Verify authentication and get tenant
     const { tenantId } = await verifyStaff()
 
-    // 2. Create service_role client
-    const supabase = createServiceRoleClient()
+    // 2. 캐시된 데이터 반환 (5분 TTL, classes 태그로 무효화)
+    return unstable_cache(
+      async () => {
+        const supabase = createServiceRoleClient()
 
-    // 3. Query active classes
-    const { data, error } = await supabase
-      .from('classes')
-      .select('id, name, subject, active, meta, schedule')
-      .eq('tenant_id', tenantId)
-      .eq('active', true)
-      .is('deleted_at', null)
-      .order('name', { ascending: true })
+        const { data, error } = await supabase
+          .from('classes')
+          .select('id, name, subject, active, meta, schedule')
+          .eq('tenant_id', tenantId)
+          .eq('active', true)
+          .is('deleted_at', null)
+          .order('name', { ascending: true })
 
-    if (error) throw error
+        if (error) throw error
 
-    return {
-      success: true,
-      data: data || [],
-      error: null,
-    }
+        return {
+          success: true as const,
+          data: data || [],
+          error: null,
+        }
+      },
+      ['active-classes', tenantId],
+      { revalidate: 300, tags: [`classes:${tenantId}`] }
+    )()
   } catch (error) {
     console.error('[getActiveClasses] Error:', error)
     return {
@@ -441,6 +454,7 @@ export async function updateClassStatus(classId: string, active: boolean) {
     // 4. Revalidate pages
     revalidatePath('/classes')
     revalidatePath(`/classes/${classId}`)
+    revalidateTag(`classes:${tenantId}`)
 
     return {
       success: true,
@@ -799,6 +813,7 @@ export async function enrollStudentsInClass(classId: string, studentIds: string[
     revalidatePath(`/classes/${classId}`)
     revalidatePath('/classes')
     revalidateTag(`attendance-roster:${tenantId}`)
+    revalidateTag(`classes:${tenantId}`)
 
     return { success: true as const, data: null, error: null }
   } catch (error) {
@@ -836,6 +851,7 @@ export async function withdrawStudentFromClass(classId: string, studentId: strin
     revalidatePath(`/classes/${classId}`)
     revalidatePath('/classes')
     revalidateTag(`attendance-roster:${tenantId}`)
+    revalidateTag(`classes:${tenantId}`)
 
     return { success: true as const, data: null, error: null }
   } catch (error) {
@@ -872,6 +888,7 @@ export async function deleteClass(classId: string) {
 
     // 4. Revalidate pages
     revalidatePath('/classes')
+    revalidateTag(`classes:${tenantId}`)
 
     return {
       success: true,
