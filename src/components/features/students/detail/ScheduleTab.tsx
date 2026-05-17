@@ -5,11 +5,12 @@ import { motion } from 'motion/react'
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
 import { Badge } from '@ui/badge'
 import { Skeleton } from '@ui/skeleton'
-import { Calendar, Clock, User } from 'lucide-react'
+import { Calendar, User } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { format as formatDate, addDays, startOfWeek } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { useStudentDetail } from '@/hooks/use-student-detail'
+import { cn } from '@/lib/utils'
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -165,111 +166,156 @@ export function ScheduleTab() {
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        {[...Array(7)].map((_, i) => (
-          <Card key={i}>
-            <CardHeader className="pb-3">
-              <Skeleton className="h-5 w-20" />
-            </CardHeader>
-            <CardContent>
-              <Skeleton className="h-16 w-full" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <Card>
+        <CardHeader className="pb-3">
+          <Skeleton className="h-5 w-32" />
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+            {[...Array(7)].map((_, i) => (
+              <Skeleton key={i} className="h-32 w-full" />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     )
   }
 
   const hasAnySessions = weeklySchedule.some((day) => day.sessions.length > 0)
+  const today = new Date()
+  const weekStart = startOfWeek(today, { weekStartsOn: 1 })
+  const weekEnd = addDays(weekStart, 6)
+  const totalSessions = weeklySchedule.reduce(
+    (sum, d) => sum + d.sessions.length,
+    0
+  )
 
   return (
     <motion.div
-      className="space-y-4"
       variants={containerVariants}
       initial="hidden"
       animate="visible"
     >
-      {!hasAnySessions ? (
+      <motion.div variants={itemVariants}>
         <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>이번 주 예정된 수업이 없습니다</p>
+          <CardHeader className="pb-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <CardTitle className="text-base">이번 주 시간표</CardTitle>
+              <span className="text-xs text-muted-foreground">
+                {formatDate(weekStart, 'M.d', { locale: ko })} ~{' '}
+                {formatDate(weekEnd, 'M.d', { locale: ko })}
+                {hasAnySessions && (
+                  <span className="ml-2">· 총 {totalSessions}개 수업</span>
+                )}
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {!hasAnySessions ? (
+              <div className="py-10 text-center text-muted-foreground">
+                <Calendar className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                <p className="text-sm">이번 주 예정된 수업이 없습니다</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+                {weeklySchedule.map((daySchedule, idx) => {
+                  const dayIndex =
+                    daySchedule.day_of_week === 7 ? 0 : daySchedule.day_of_week
+                  const dayName = weekDays[dayIndex - 1] || weekDays[6]
+                  const currentDate = addDays(weekStart, idx)
+                  const isToday =
+                    formatDate(currentDate, 'yyyy-MM-dd') ===
+                    formatDate(today, 'yyyy-MM-dd')
+                  const isWeekend =
+                    daySchedule.day_of_week === 6 ||
+                    daySchedule.day_of_week === 7
+                  const hasNoSessions = daySchedule.sessions.length === 0
+
+                  return (
+                    <div
+                      key={daySchedule.day_of_week}
+                      className={cn(
+                        'flex flex-col rounded-lg border p-2',
+                        isToday
+                          ? 'border-primary bg-primary/5'
+                          : hasNoSessions
+                            ? 'border-dashed bg-muted/20'
+                            : 'bg-background'
+                      )}
+                    >
+                      <div className="flex items-baseline justify-between gap-1 pb-2 border-b mb-2">
+                        <div className="flex items-baseline gap-1.5">
+                          <span
+                            className={cn(
+                              'text-sm font-semibold',
+                              isWeekend && !isToday && 'text-muted-foreground'
+                            )}
+                          >
+                            {dayName}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {formatDate(currentDate, 'M/d')}
+                          </span>
+                        </div>
+                        {isToday && (
+                          <Badge
+                            variant="default"
+                            className="text-[10px] h-4 px-1.5"
+                          >
+                            오늘
+                          </Badge>
+                        )}
+                      </div>
+                      {hasNoSessions ? (
+                        <p className="text-[11px] text-muted-foreground/70 text-center py-3">
+                          —
+                        </p>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {daySchedule.sessions.map((session) => (
+                            <div
+                              key={session.id}
+                              className="rounded-md border bg-card px-2 py-1.5 text-xs leading-tight"
+                            >
+                              <p className="font-mono font-semibold text-foreground">
+                                {formatDate(
+                                  new Date(session.scheduled_start_at),
+                                  'HH:mm'
+                                )}
+                              </p>
+                              <p
+                                className="font-medium truncate mt-0.5"
+                                title={session.class_name}
+                              >
+                                {session.class_name}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                                ~
+                                {formatDate(
+                                  new Date(session.scheduled_end_at),
+                                  'HH:mm'
+                                )}
+                              </p>
+                              {session.instructor_name && (
+                                <p className="flex items-center gap-1 text-[10px] text-muted-foreground mt-1 truncate">
+                                  <User className="h-2.5 w-2.5 shrink-0" />
+                                  <span className="truncate">
+                                    {session.instructor_name}
+                                  </span>
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
-      ) : (
-        weeklySchedule.map((daySchedule, idx) => {
-          const dayIndex = daySchedule.day_of_week === 7 ? 0 : daySchedule.day_of_week
-          const dayName = weekDays[dayIndex - 1] || weekDays[6]
-          const today = new Date()
-          const weekStart = startOfWeek(today, { weekStartsOn: 1 })
-          const currentDate = addDays(weekStart, idx)
-          const isToday = formatDate(currentDate, 'yyyy-MM-dd') === formatDate(today, 'yyyy-MM-dd')
-
-          return (
-            <motion.div key={daySchedule.day_of_week} variants={itemVariants}>
-            <Card className={isToday ? 'border-primary' : ''}>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    {dayName}요일
-                    {isToday && (
-                      <Badge variant="default" className="text-xs">
-                        오늘
-                      </Badge>
-                    )}
-                  </CardTitle>
-                  <span className="text-sm text-muted-foreground">
-                    {formatDate(currentDate, 'M월 d일', { locale: ko })}
-                  </span>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {daySchedule.sessions.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4">수업 없음</p>
-                ) : (
-                  <div className="space-y-2">
-                    {daySchedule.sessions.map((session) => (
-                      <div
-                        key={session.id}
-                        className="flex items-start gap-3 p-3 rounded-lg border bg-muted/30"
-                      >
-                        <div className="h-10 w-10 rounded-lg bg-background border flex items-center justify-center shrink-0">
-                          <Clock className="h-5 w-5 text-muted-foreground" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm">{session.class_name}</p>
-                          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {formatDate(new Date(session.scheduled_start_at), 'HH:mm', {
-                                locale: ko,
-                              })}{' '}
-                              -{' '}
-                              {formatDate(new Date(session.scheduled_end_at), 'HH:mm', {
-                                locale: ko,
-                              })}
-                            </span>
-                            {session.instructor_name && (
-                              <>
-                                <span>•</span>
-                                <span className="flex items-center gap-1">
-                                  <User className="h-3 w-3" />
-                                  {session.instructor_name}
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-            </motion.div>
-          )
-        })
-      )}
+      </motion.div>
     </motion.div>
   )
 }
