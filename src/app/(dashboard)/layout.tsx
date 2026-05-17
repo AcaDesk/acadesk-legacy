@@ -1,3 +1,4 @@
+import { unstable_cache } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
@@ -6,6 +7,42 @@ import { LogoutButton } from '@/components/auth/LogoutButton'
 
 // Edge 런타임 방지 - service_role은 Node.js에서만 작동
 export const runtime = 'nodejs'
+
+/**
+ * 사용자 프로필 조회 (캐시: 5분 TTL, user:${userId} 태그)
+ *
+ * Dashboard 하위 페이지마다 호출되는 layout이 매번 users 테이블을 조회하던 패턴을 캐싱.
+ * 프로필/승인 상태가 변경되면 해당 mutation에서 revalidateTag(`user:${userId}`)로 무효화 필요.
+ */
+const getCachedUserProfile = (userId: string) =>
+  unstable_cache(
+    async () => {
+      const admin = createServiceRoleClient()
+      const { data, error } = await admin
+        .from('users')
+        .select('tenant_id, role_code, name, email, phone, approval_status, onboarding_completed')
+        .eq('id', userId)
+        .maybeSingle()
+      return { data, error }
+    },
+    ['user-profile', userId],
+    { revalidate: 300, tags: [`user:${userId}`] }
+  )()
+
+const getCachedTenantName = (tenantId: string) =>
+  unstable_cache(
+    async () => {
+      const admin = createServiceRoleClient()
+      const { data, error } = await admin
+        .from('tenants')
+        .select('name')
+        .eq('id', tenantId)
+        .maybeSingle()
+      return { data, error }
+    },
+    ['tenant-name', tenantId],
+    { revalidate: 3600, tags: [`academy:${tenantId}`] }
+  )()
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -48,13 +85,8 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
     redirect(`/auth/verify-email${q}`)
   }
 
-  // 3. 모든 DB 조회는 service_role로만 (RLS 우회)
-  const admin = createServiceRoleClient()
-  const { data: userData, error: userError } = await admin
-    .from('users')
-    .select('tenant_id, role_code, name, email, phone, approval_status, onboarding_completed')
-    .eq('id', user.id)
-    .maybeSingle()
+  // 3. 모든 DB 조회는 service_role로만 (RLS 우회) — 5분 캐시
+  const { data: userData, error: userError } = await getCachedUserProfile(user.id)
 
   // 4. DB 조회 에러 → pending 페이지로 (에러 안내)
   if (userError) {
@@ -113,11 +145,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
   }
 
   let tenantName: string | undefined
-  const { data: tenantData, error: tenantError } = await admin
-    .from('tenants')
-    .select('name')
-    .eq('id', userData.tenant_id)
-    .maybeSingle()
+  const { data: tenantData, error: tenantError } = await getCachedTenantName(userData.tenant_id)
 
   if (tenantError) {
     console.warn('[DashboardLayout] Failed to fetch tenant name:', {
