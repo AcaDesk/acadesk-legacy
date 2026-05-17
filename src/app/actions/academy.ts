@@ -6,7 +6,7 @@
 
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag, unstable_cache } from 'next/cache'
 import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
@@ -42,40 +42,45 @@ export async function getAcademyInfo() {
     // 1. Verify authentication and get tenant
     const { tenantId } = await verifyStaff()
 
-    // 2. Create service_role client
-    const serviceClient = createServiceRoleClient()
+    // 2. 캐시된 데이터 반환 (1시간 TTL, mutation 시 revalidateTag로 무효화)
+    return unstable_cache(
+      async () => {
+        const serviceClient = createServiceRoleClient()
 
-    // 3. Fetch tenant info
-    const { data: academy, error } = await serviceClient
-      .from('tenants')
-      .select('*')
-      .eq('id', tenantId)
-      .single()
+        const { data: academy, error } = await serviceClient
+          .from('tenants')
+          .select('*')
+          .eq('id', tenantId)
+          .single()
 
-    if (error || !academy) {
-      return {
-        success: false,
-        data: null,
-        error: '학원 정보를 찾을 수 없습니다',
-      }
-    }
+        if (error || !academy) {
+          return {
+            success: false as const,
+            data: null,
+            error: '학원 정보를 찾을 수 없습니다',
+          }
+        }
 
-    // 4. Flatten settings into top-level object for backward compatibility
-    const settings = academy.settings || {}
-    const flattened = {
-      ...academy,
-      address: settings.address || null,
-      business_number: settings.business_number || null,
-      phone: settings.phone || null,
-      email: settings.email || null,
-      website: settings.website || null,
-    }
+        // Flatten settings into top-level object for backward compatibility
+        const settings = academy.settings || {}
+        const flattened = {
+          ...academy,
+          address: settings.address || null,
+          business_number: settings.business_number || null,
+          phone: settings.phone || null,
+          email: settings.email || null,
+          website: settings.website || null,
+        }
 
-    return {
-      success: true,
-      data: flattened,
-      error: null,
-    }
+        return {
+          success: true as const,
+          data: flattened,
+          error: null,
+        }
+      },
+      ['academy-info', tenantId],
+      { revalidate: 3600, tags: [`academy:${tenantId}`] }
+    )()
   } catch (error) {
     console.error('[getAcademyInfo] Error:', error)
     return {
@@ -142,10 +147,11 @@ export async function updateAcademyInfo(
       throw updateError
     }
 
-    // 9. Revalidate pages
+    // 9. Revalidate pages and cache tag
     revalidatePath('/settings')
     revalidatePath('/settings/academy')
     revalidatePath('/profile')
+    revalidateTag(`academy:${tenantId}`)
 
     return {
       success: true,
@@ -200,8 +206,9 @@ export async function updateOperatingHours(operatingHours: Record<string, unknow
       throw updateError
     }
 
-    // 6. Revalidate pages
+    // 6. Revalidate pages and cache tag
     revalidatePath('/settings/academy')
+    revalidateTag(`academy:${tenantId}`)
 
     return {
       success: true,
