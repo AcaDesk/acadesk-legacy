@@ -6,15 +6,16 @@ import { Badge } from '@ui/badge'
 import { Switch } from '@ui/switch'
 import { Card, CardContent } from '@ui/card'
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@ui/collapsible'
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@ui/dialog'
 import { Separator } from '@ui/separator'
 import { KakaoTalkPreview } from '@/components/features/messaging/KakaoTalkPreview'
 import {
-  ChevronDown,
-  ChevronUp,
+  Eye,
   RefreshCw,
   RotateCcw,
   Upload,
@@ -77,7 +78,7 @@ interface EventSubscriptionCardProps {
 
 export function EventSubscriptionCard({ subscription, onRefresh }: EventSubscriptionCardProps) {
   const { toast } = useToast()
-  const [isExpanded, setIsExpanded] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
   const [isToggling, setIsToggling] = useState(false)
   const [isProvisioning, setIsProvisioning] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -245,22 +246,31 @@ export function EventSubscriptionCard({ subscription, onRefresh }: EventSubscrip
         {/* Spacer to push preview toggle to bottom of card */}
         <div className="flex-1" />
 
-        {/* Template Preview (Collapsible) */}
+        {/* Template Preview (Dialog) */}
         <Separator />
-        <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-          <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
-            {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-            카카오톡 발송 미리보기
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <KakaoTalkPreview
-              className="mt-2"
-              content={subscription.sharedTemplate.content}
-              variables={subscription.sharedTemplate.variables}
-            />
-          </CollapsibleContent>
-        </Collapsible>
+        <button
+          type="button"
+          onClick={() => setPreviewOpen(true)}
+          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus-visible:text-foreground"
+        >
+          <Eye className="h-3.5 w-3.5" />
+          카카오톡 발송 미리보기
+        </button>
       </CardContent>
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{display.name}</DialogTitle>
+            <DialogDescription>
+              {display.description} — 실제 발송 시 보호자가 받는 알림톡 화면입니다.
+            </DialogDescription>
+          </DialogHeader>
+          <KakaoTalkPreview
+            content={subscription.sharedTemplate.content}
+            variables={subscription.sharedTemplate.variables}
+          />
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }
