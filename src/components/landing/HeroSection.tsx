@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { motion } from "framer-motion"
+import { motion } from "motion/react"
 import { ArrowRight, Sparkles, Clock } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@ui/button"

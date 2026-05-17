@@ -2,7 +2,7 @@
 
 import { Suspense, useState, useEffect } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
-import { motion } from "framer-motion"
+import { motion } from "motion/react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@ui/card"
 import { Button } from "@ui/button"
 import { Input } from "@ui/input"
