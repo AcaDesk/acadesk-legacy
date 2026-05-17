@@ -22,11 +22,26 @@ import {
   IconChevronsLeft,
   IconChevronsRight,
 } from '@tabler/icons-react'
-import { Eye, Edit, Trash2, Search, X, Users } from 'lucide-react'
+import {
+  Eye,
+  Edit,
+  Trash2,
+  Search,
+  X,
+  Users,
+  MoreHorizontal,
+} from 'lucide-react'
 
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
 import { Checkbox } from '@ui/checkbox'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@ui/dropdown-menu'
 import { EmptyState, NoSearchResultsEmptyState } from '@ui/empty-state'
 import {
   Table,
@@ -197,41 +212,54 @@ export function GuardianTableImproved({
     },
     {
       id: 'actions',
-      header: () => <div className="text-right">작업</div>,
       cell: ({ row }) => {
         const guardian = row.original
         return (
-          <div className="flex items-center justify-end gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0"
-              onClick={() => router.push(`/guardians/${guardian.id}`)}
-            >
-              <Eye className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0"
-              onClick={() => router.push(`/guardians/${guardian.id}/edit`)}
-            >
-              <Edit className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
-              onClick={() => {
-                const studentNames = (guardian.guardian_students || [])
-                  .map((gs) => gs.students?.users?.name || '')
-                  .filter(Boolean)
-                onDelete(guardian.id, getGuardianDisplayLabel(guardian.users?.name, studentNames))
-              }}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <span className="sr-only">메뉴 열기</span>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation()
+                  router.push(`/guardians/${guardian.id}`)
+                }}
+              >
+                <Eye className="mr-2 h-4 w-4" />
+                상세 보기
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation()
+                  router.push(`/guardians/${guardian.id}/edit`)
+                }}
+              >
+                <Edit className="mr-2 h-4 w-4" />
+                편집
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-red-600 focus:text-red-600"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  const studentNames = (guardian.guardian_students || [])
+                    .map((gs) => gs.students?.users?.name || '')
+                    .filter(Boolean)
+                  onDelete(
+                    guardian.id,
+                    getGuardianDisplayLabel(guardian.users?.name, studentNames),
+                  )
+                }}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                삭제
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )
       },
     },
