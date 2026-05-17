@@ -15,22 +15,23 @@ type BreadcrumbConfig = Record<string, string | DynamicSegmentResolver | null>
 
 /**
  * 학생 ID로 학생 이름을 조회하는 함수
+ * 학생 이름은 users 테이블에 저장됨 (students.user_id → users.id)
  */
 async function getStudentName(studentId: string): Promise<string> {
   try {
     const supabase = createClient()
     const { data, error } = await supabase
       .from('students')
-      .select('name')
+      .select('users(name)')
       .eq('id', studentId)
-      .single()
+      .single<{ users: { name: string } | null }>()
 
-    if (error || !data) {
+    if (error || !data?.users?.name) {
       console.error('[Breadcrumb] Failed to fetch student name:', error)
       return studentId
     }
 
-    return data.name
+    return data.users.name
   } catch (err) {
     console.error('[Breadcrumb] Error fetching student name:', err)
     return studentId
@@ -39,22 +40,23 @@ async function getStudentName(studentId: string): Promise<string> {
 
 /**
  * 보호자 ID로 보호자 이름을 조회하는 함수
+ * 보호자 이름은 users 테이블에 저장됨 (guardians.user_id → users.id)
  */
 async function getGuardianName(guardianId: string): Promise<string> {
   try {
     const supabase = createClient()
     const { data, error } = await supabase
       .from('guardians')
-      .select('name')
+      .select('users(name)')
       .eq('id', guardianId)
-      .single()
+      .single<{ users: { name: string } | null }>()
 
-    if (error || !data) {
+    if (error || !data?.users?.name) {
       console.error('[Breadcrumb] Failed to fetch guardian name:', error)
       return guardianId
     }
 
-    return data.name
+    return data.users.name
   } catch (err) {
     console.error('[Breadcrumb] Error fetching guardian name:', err)
     return guardianId
