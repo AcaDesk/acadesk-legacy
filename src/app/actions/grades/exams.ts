@@ -106,7 +106,6 @@ export async function getExams(filters?: {
 
     // 2. Create service_role client
     const serviceClient = createServiceRoleClient()
-    await autoArchiveOldCompletedExams({ tenantId, serviceClient })
 
     // 3. Build query
     let query = serviceClient
@@ -164,8 +163,11 @@ export async function getExams(filters?: {
       query = query.lte('exam_date', finalDateTo)
     }
 
-    // 5. Execute query
-    const { data: exams, error } = await query
+    // 5. Execute query — auto-archive 와 병렬 (archive는 대부분 0건 UPDATE라 read 와 race 영향 미미)
+    const [{ data: exams, error }] = await Promise.all([
+      query,
+      autoArchiveOldCompletedExams({ tenantId, serviceClient }),
+    ])
 
     if (error) {
       console.error('[getExams] Query error:', error.message)
