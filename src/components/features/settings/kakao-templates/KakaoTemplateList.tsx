@@ -5,33 +5,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/c
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
 import { EmptyState } from '@ui/empty-state'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@ui/table'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@ui/dropdown-menu'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import { Alert, AlertDescription } from '@ui/alert'
 import { Skeleton } from '@ui/skeleton'
+import { Separator } from '@ui/separator'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@ui/dialog'
 import {
   Plus,
-  MoreHorizontal,
   FileText,
   RefreshCw,
   Trash2,
@@ -40,7 +27,6 @@ import {
   Send,
   XCircle,
   Info,
-  Eye,
 } from 'lucide-react'
 import { KakaoTalkPreview } from '@/components/features/messaging/KakaoTalkPreview'
 import { useToast } from '@/hooks/use-toast'
@@ -332,18 +318,13 @@ export function KakaoTemplateList({
           {isLoading ? (
             <div className="space-y-2">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-3 rounded-md border px-4 py-3"
-                >
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-4 w-1/3" />
-                    <Skeleton className="h-3 w-2/3" />
+                <div key={i} className="rounded-md border p-3 space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <Skeleton className="h-5 w-12" />
+                    <Skeleton className="h-5 w-10" />
                   </div>
-                  <Skeleton className="h-5 w-14" />
-                  <Skeleton className="h-5 w-16" />
-                  <Skeleton className="h-5 w-20" />
-                  <Skeleton className="h-8 w-8 rounded-md" />
+                  <Skeleton className="h-4 w-2/3" />
+                  <Skeleton className="h-3 w-full" />
                 </div>
               ))}
             </div>
@@ -370,123 +351,58 @@ export function KakaoTemplateList({
                 </Alert>
               )}
 
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>템플릿 이름</TableHead>
-                    <TableHead>유형</TableHead>
-                    <TableHead>상태</TableHead>
-                    <TableHead>등록일</TableHead>
-                    <TableHead className="w-[50px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {templates.map((template) => {
-                    const status = kakaoTemplateStatusConfig[template.status]
-                    const StatusIcon = status.icon
-                    const isBusy = actionTemplateId === template.id
-                    const canEdit = (template.status === 'pending' || template.status === 'rejected') &&
-                      !template.sharedTemplateId
-                    return (
-                      <TableRow key={template.id}>
-                        <TableCell>
-                          <button
-                            type="button"
-                            onClick={() => setPreviewTemplate(template)}
-                            className="text-left w-full group focus:outline-none"
-                            title="카카오톡 미리보기"
-                          >
-                            <p className="font-medium group-hover:underline group-focus-visible:underline">
-                              {template.name}
-                            </p>
-                            <p className="text-xs text-muted-foreground truncate max-w-[300px]">
-                              {template.content.substring(0, 50)}
-                              {template.content.length > 50 && '...'}
-                            </p>
-                          </button>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {kakaoMessageTypeLabels[template.messageType]}
+              {/* 카드 리스트 — 좁은 화면에서도 안 찌그러짐 */}
+              <div className="space-y-2">
+                {templates.map((template) => {
+                  const status = kakaoTemplateStatusConfig[template.status]
+                  const StatusIcon = status.icon
+                  const isBusy = actionTemplateId === template.id
+                  return (
+                    <button
+                      key={template.id}
+                      type="button"
+                      onClick={() => setPreviewTemplate(template)}
+                      disabled={isBusy}
+                      className="block w-full text-left rounded-md border p-3 transition-colors hover:bg-accent/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60 disabled:cursor-progress"
+                    >
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Badge variant={status.variant} className="gap-1 text-[10px] h-5">
+                          <StatusIcon className="h-3 w-3" />
+                          {status.label}
+                        </Badge>
+                        <Badge variant="outline" className="text-[10px] h-5">
+                          {kakaoMessageTypeLabels[template.messageType]}
+                        </Badge>
+                        {template.sharedTemplateId && (
+                          <Badge variant="secondary" className="text-[10px] h-5">
+                            공용
                           </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col gap-1">
-                            <Badge variant={status.variant} className="w-fit gap-1">
-                              <StatusIcon className="h-3 w-3" />
-                              {status.label}
-                            </Badge>
-                            {template.status === 'pending' && (
-                              <p className="text-xs text-muted-foreground">검수 요청 필요</p>
-                            )}
-                            {template.status === 'rejected' && template.rejectionReason && (
-                              <p className="text-xs text-destructive">{template.rejectionReason}</p>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
+                        )}
+                        {isBusy && (
+                          <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                        )}
+                        <span className="ml-auto text-[10px] text-muted-foreground whitespace-nowrap">
                           {new Date(template.createdAt).toLocaleDateString('ko-KR')}
-                        </TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" disabled={isBusy}>
-                                {isBusy ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <MoreHorizontal className="h-4 w-4" />
-                                )}
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => setPreviewTemplate(template)}>
-                                <Eye className="h-4 w-4 mr-2" />
-                                카카오톡 미리보기
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleRefreshStatus(template)}>
-                                <RefreshCw className="h-4 w-4 mr-2" />
-                                상태 갱신
-                              </DropdownMenuItem>
-                              {template.status === 'pending' && (
-                                <DropdownMenuItem onClick={() => handleRequestInspection(template)}>
-                                  <Send className="h-4 w-4 mr-2" />
-                                  검수 요청
-                                </DropdownMenuItem>
-                              )}
-                              {template.status === 'inspecting' && !template.sharedTemplateId && (
-                                <DropdownMenuItem onClick={() => handleCancelInspection(template)}>
-                                  <XCircle className="h-4 w-4 mr-2" />
-                                  검수 취소
-                                </DropdownMenuItem>
-                              )}
-                              {canEdit && (
-                                <>
-                                  <DropdownMenuItem onClick={() => onEditTemplate?.(template)}>
-                                    <Edit className="h-4 w-4 mr-2" />
-                                    수정
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() => handleDeleteClick(template)}
-                                    className="text-destructive"
-                                  >
-                                    <Trash2 className="h-4 w-4 mr-2" />
-                                    삭제
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-                              {template.sharedTemplateId && (
-                                <DropdownMenuItem disabled>
-                                  공용 템플릿
-                                </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
+                        </span>
+                      </div>
+                      <p className="font-medium text-sm mt-1.5 truncate">{template.name}</p>
+                      <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                        {template.content}
+                      </p>
+                      {template.status === 'rejected' && template.rejectionReason && (
+                        <p className="text-xs text-destructive mt-1.5 line-clamp-2">
+                          {template.rejectionReason}
+                        </p>
+                      )}
+                      {template.status === 'pending' && (
+                        <p className="text-[10px] text-muted-foreground mt-1.5">
+                          검수 요청 필요 — 카드 열어 요청하세요
+                        </p>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
           )}
         </CardContent>
@@ -503,24 +419,122 @@ export function KakaoTemplateList({
         onConfirm={handleConfirmDelete}
       />
 
-      {/* 카카오톡 미리보기 Dialog */}
+      {/* 템플릿 상세 Dialog (미리보기 + 액션) */}
       <Dialog
         open={!!previewTemplate}
         onOpenChange={(open) => !open && setPreviewTemplate(null)}
       >
         <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>카카오톡 발송 미리보기</DialogTitle>
-            <DialogDescription>
-              {previewTemplate?.name} — 실제 발송 시 보호자가 받는 알림톡 화면입니다.
-            </DialogDescription>
-          </DialogHeader>
-          {previewTemplate && (
-            <KakaoTalkPreview
-              content={previewTemplate.content}
-              variables={extractTemplateVariables(previewTemplate.content)}
-            />
-          )}
+          {previewTemplate && (() => {
+            const detailStatus = kakaoTemplateStatusConfig[previewTemplate.status]
+            const DetailStatusIcon = detailStatus.icon
+            const detailCanEdit =
+              (previewTemplate.status === 'pending' ||
+                previewTemplate.status === 'rejected') &&
+              !previewTemplate.sharedTemplateId
+            const isBusy = actionTemplateId === previewTemplate.id
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle>{previewTemplate.name}</DialogTitle>
+                  <DialogDescription>
+                    실제 발송 시 보호자가 받는 알림톡 화면입니다.
+                  </DialogDescription>
+                  <div className="flex flex-wrap items-center gap-1.5 pt-2">
+                    <Badge variant={detailStatus.variant} className="gap-1">
+                      <DetailStatusIcon className="h-3 w-3" />
+                      {detailStatus.label}
+                    </Badge>
+                    <Badge variant="outline">
+                      {kakaoMessageTypeLabels[previewTemplate.messageType]}
+                    </Badge>
+                    {previewTemplate.sharedTemplateId && (
+                      <Badge variant="secondary">공용</Badge>
+                    )}
+                    <span className="text-xs text-muted-foreground ml-auto">
+                      등록 {new Date(previewTemplate.createdAt).toLocaleDateString('ko-KR')}
+                    </span>
+                  </div>
+                </DialogHeader>
+
+                {previewTemplate.status === 'rejected' && previewTemplate.rejectionReason && (
+                  <Alert variant="destructive">
+                    <XCircle className="h-4 w-4" />
+                    <AlertDescription className="text-xs">
+                      {previewTemplate.rejectionReason}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                <KakaoTalkPreview
+                  content={previewTemplate.content}
+                  variables={extractTemplateVariables(previewTemplate.content)}
+                />
+
+                <Separator />
+
+                <DialogFooter className="flex-wrap gap-2 sm:justify-start">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleRefreshStatus(previewTemplate)}
+                    disabled={isBusy}
+                  >
+                    <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                    상태 갱신
+                  </Button>
+                  {previewTemplate.status === 'pending' && (
+                    <Button
+                      size="sm"
+                      onClick={() => handleRequestInspection(previewTemplate)}
+                      disabled={isBusy}
+                    >
+                      <Send className="h-3.5 w-3.5 mr-1" />
+                      검수 요청
+                    </Button>
+                  )}
+                  {previewTemplate.status === 'inspecting' && !previewTemplate.sharedTemplateId && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleCancelInspection(previewTemplate)}
+                      disabled={isBusy}
+                    >
+                      <XCircle className="h-3.5 w-3.5 mr-1" />
+                      검수 취소
+                    </Button>
+                  )}
+                  {detailCanEdit && (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const t = previewTemplate
+                          setPreviewTemplate(null)
+                          onEditTemplate?.(t)
+                        }}
+                      >
+                        <Edit className="h-3.5 w-3.5 mr-1" />
+                        수정
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          handleDeleteClick(previewTemplate)
+                        }}
+                        className="text-destructive hover:text-destructive ml-auto"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 mr-1" />
+                        삭제
+                      </Button>
+                    </>
+                  )}
+                </DialogFooter>
+              </>
+            )
+          })()}
         </DialogContent>
       </Dialog>
     </>
