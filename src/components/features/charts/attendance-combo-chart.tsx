@@ -36,6 +36,8 @@ interface AttendanceComboChartProps {
   data: AttendanceData[]
   title?: string
   description?: string
+  bare?: boolean
+  height?: number
 }
 
 const chartConfig = {
@@ -61,72 +63,78 @@ export function AttendanceComboChart({
   data,
   title = '출석 현황',
   description = '출석/지각/결석 횟수 및 출석율',
+  bare = false,
+  height = 350,
 }: AttendanceComboChartProps) {
+  const chart = (
+    <ChartContainer config={chartConfig} className="aspect-auto w-full">
+      <ResponsiveContainer width="100%" height={height}>
+        <ComposedChart
+          data={data}
+          margin={{
+            top: 5,
+            right: 10,
+            left: 10,
+            bottom: 0,
+          }}
+        >
+          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+          <XAxis
+            dataKey="period"
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            className="text-xs"
+          />
+          <YAxis
+            yAxisId="left"
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            className="text-xs"
+          />
+          <YAxis
+            yAxisId="right"
+            orientation="right"
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            domain={[0, 100]}
+            className="text-xs"
+            tickFormatter={(value) => `${value}%`}
+          />
+          <ChartTooltip content={<ChartTooltipContent />} />
+          <Legend
+            verticalAlign="top"
+            height={36}
+            iconType="circle"
+            formatter={(value) => <span className="text-sm">{value}</span>}
+          />
+          <Bar yAxisId="left" dataKey="present" fill="var(--color-present)" radius={4} />
+          <Bar yAxisId="left" dataKey="late" fill="var(--color-late)" radius={4} />
+          <Bar yAxisId="left" dataKey="absent" fill="var(--color-absent)" radius={4} />
+          <Line
+            yAxisId="right"
+            type="monotone"
+            dataKey="rate"
+            stroke="var(--color-rate)"
+            strokeWidth={2}
+            dot={{ r: 4 }}
+          />
+        </ComposedChart>
+      </ResponsiveContainer>
+    </ChartContainer>
+  )
+
+  if (bare) return chart
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent>
-        <ChartContainer config={chartConfig}>
-          <ResponsiveContainer width="100%" height={350}>
-            <ComposedChart
-              data={data}
-              margin={{
-                top: 5,
-                right: 10,
-                left: 10,
-                bottom: 0,
-              }}
-            >
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis
-                dataKey="period"
-                tickLine={false}
-                axisLine={false}
-                tickMargin={8}
-                className="text-xs"
-              />
-              <YAxis
-                yAxisId="left"
-                tickLine={false}
-                axisLine={false}
-                tickMargin={8}
-                className="text-xs"
-              />
-              <YAxis
-                yAxisId="right"
-                orientation="right"
-                tickLine={false}
-                axisLine={false}
-                tickMargin={8}
-                domain={[0, 100]}
-                className="text-xs"
-                tickFormatter={(value) => `${value}%`}
-              />
-              <ChartTooltip content={<ChartTooltipContent />} />
-              <Legend
-                verticalAlign="top"
-                height={36}
-                iconType="circle"
-                formatter={(value) => <span className="text-sm">{value}</span>}
-              />
-              <Bar yAxisId="left" dataKey="present" fill="var(--color-present)" radius={4} />
-              <Bar yAxisId="left" dataKey="late" fill="var(--color-late)" radius={4} />
-              <Bar yAxisId="left" dataKey="absent" fill="var(--color-absent)" radius={4} />
-              <Line
-                yAxisId="right"
-                type="monotone"
-                dataKey="rate"
-                stroke="var(--color-rate)"
-                strokeWidth={2}
-                dot={{ r: 4 }}
-              />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </ChartContainer>
-      </CardContent>
+      <CardContent>{chart}</CardContent>
     </Card>
   )
 }
