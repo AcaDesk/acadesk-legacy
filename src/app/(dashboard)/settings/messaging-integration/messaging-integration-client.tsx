@@ -461,8 +461,8 @@ export function MessagingIntegrationClient({
       {/* Section content — 섹션 전환은 글로벌 SettingsNav 가 담당 */}
       <div className="space-y-8">
         {/* API 설정 */}
-        {activeTab === 'api' && (<div className="space-y-8">
-          {/* Info Alert */}
+        {activeTab === 'api' && (<div className="space-y-6">
+          {/* Info Alert (전체 폭) */}
           <Alert className="border-info/20 bg-info/5">
             <Info className="h-4 w-4 text-info" />
             <AlertDescription className="text-sm text-foreground">
@@ -476,6 +476,9 @@ export function MessagingIntegrationClient({
             </AlertDescription>
           </Alert>
 
+          {/* xl: 좌(액션 폼) / 우(도움말·테스트) 2단 */}
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          <div className="space-y-6 min-w-0">
           {/* Provider Selection */}
           <Card>
             <CardHeader>
@@ -759,6 +762,10 @@ export function MessagingIntegrationClient({
             </CardContent>
           </Card>
 
+          </div>
+
+          {/* 우측 컬럼: 테스트·도움말 */}
+          <div className="space-y-6 min-w-0">
           {/* Test Message */}
           {hasConfig && !isVerified && (
             <Card className="border-orange-200 bg-orange-50/50 dark:border-orange-900 dark:bg-orange-950/20">
@@ -831,6 +838,8 @@ export function MessagingIntegrationClient({
               </div>
             </CardContent>
           </Card>
+          </div>
+          </div>
         </div>)}
 
         {/* 이벤트 알림 */}
