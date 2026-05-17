@@ -20,9 +20,6 @@ import {
   Calendar,
   Clock,
   GraduationCap,
-  TrendingUp,
-  Target,
-  CheckCircle,
   BookOpen,
   UserPlus,
   UserMinus,
@@ -187,147 +184,121 @@ export function ClassDetailClient({ classData, students: initialStudents }: Clas
       />
       <div className="space-y-6">
         {/* Header */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">{classData.name}</h1>
-              <p className="text-muted-foreground">{classData.description || '수업 설명 없음'}</p>
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-bold tracking-tight">{classData.name}</h1>
+            <p className="text-muted-foreground">{classData.description || '수업 설명 없음'}</p>
+          </div>
+          <Button onClick={() => router.push(`/classes/${classData.id}/edit`)} className="shrink-0">
+            <Edit className="h-4 w-4 mr-2" />
+            수정
+          </Button>
+        </div>
+
+        {/* 통합 수업 요약 카드 */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle className="text-base">수업 요약</CardTitle>
+              <span className="text-xs text-muted-foreground">
+                정원 {classData.capacity ?? '무제한'}
+                {classData.capacity ? ` · ${Math.round((students.length / classData.capacity) * 100)}% 사용` : ''}
+              </span>
             </div>
-            <Button onClick={() => router.push(`/classes/${classData.id}/edit`)}>
-              <Edit className="h-4 w-4 mr-2" />
-              수정
-            </Button>
-          </div>
-
-          {/* Class KPI Badges */}
-          <div className="flex gap-3 flex-wrap">
-            <Badge variant="outline" className="px-4 py-2 text-sm">
-              <Users className="h-4 w-4 mr-2" />
-              수강생: <span className="font-bold ml-1">{students.length}명</span>
-            </Badge>
-            <Badge variant="outline" className="px-4 py-2 text-sm">
-              <TrendingUp className="h-4 w-4 mr-2" />
-              평균 성적: <span className={`font-bold ml-1 ${kpis.avgScore >= 90 ? 'text-success' : kpis.avgScore >= 70 ? 'text-yellow-600' : 'text-red-600'}`}>
-                {kpis.avgScore}점
-              </span>
-            </Badge>
-            <Badge variant="outline" className="px-4 py-2 text-sm">
-              <Target className="h-4 w-4 mr-2" />
-              평균 출석률: <span className={`font-bold ml-1 ${kpis.avgAttendance >= 90 ? 'text-success' : kpis.avgAttendance >= 70 ? 'text-yellow-600' : 'text-red-600'}`}>
-                {kpis.avgAttendance}%
-              </span>
-            </Badge>
-            <Badge variant="outline" className="px-4 py-2 text-sm">
-              <CheckCircle className="h-4 w-4 mr-2" />
-              평균 과제율: <span className={`font-bold ml-1 ${kpis.avgHomework >= 90 ? 'text-success' : kpis.avgHomework >= 70 ? 'text-yellow-600' : 'text-red-600'}`}>
-                {kpis.avgHomework}%
-              </span>
-            </Badge>
-          </div>
-        </div>
-
-        {/* Basic Info Cards */}
-        <div className="grid gap-6 md:grid-cols-3">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">과목 / 학년</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+              <div>
+                <p className="text-xs text-muted-foreground">수강생</p>
+                <p className="text-3xl font-bold tracking-tight leading-none mt-1">
+                  {students.length}
+                  <span className="text-base font-normal text-muted-foreground ml-0.5">
+                    명
+                  </span>
+                </p>
+              </div>
+              <div className="flex items-center gap-5 sm:gap-7">
                 <div className="flex items-center gap-2">
-                  <BookOpen className="h-4 w-4 text-muted-foreground" />
-                  <span>{classData.subject || '-'}</span>
+                  <span className="h-2.5 w-2.5 rounded-full bg-[hsl(var(--chart-1))]" />
+                  <div className="leading-tight">
+                    <p className="text-[11px] text-muted-foreground">평균 성적</p>
+                    <p
+                      className={`text-base font-semibold ${kpis.avgScore >= 90 ? 'text-success' : kpis.avgScore >= 70 ? 'text-yellow-600' : 'text-red-600'}`}
+                    >
+                      {kpis.avgScore}
+                      <span className="text-xs font-normal text-muted-foreground ml-0.5">
+                        점
+                      </span>
+                    </p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <GraduationCap className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">{classData.grade_level || '-'}</span>
+                  <span className="h-2.5 w-2.5 rounded-full bg-[hsl(var(--chart-2))]" />
+                  <div className="leading-tight">
+                    <p className="text-[11px] text-muted-foreground">평균 출석률</p>
+                    <p
+                      className={`text-base font-semibold ${kpis.avgAttendance >= 90 ? 'text-success' : kpis.avgAttendance >= 70 ? 'text-yellow-600' : 'text-red-600'}`}
+                    >
+                      {kpis.avgAttendance}
+                      <span className="text-xs font-normal text-muted-foreground ml-0.5">
+                        %
+                      </span>
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[hsl(var(--chart-3))]" />
+                  <div className="leading-tight">
+                    <p className="text-[11px] text-muted-foreground">평균 과제율</p>
+                    <p
+                      className={`text-base font-semibold ${kpis.avgHomework >= 90 ? 'text-success' : kpis.avgHomework >= 70 ? 'text-yellow-600' : 'text-red-600'}`}
+                    >
+                      {kpis.avgHomework}
+                      <span className="text-xs font-normal text-muted-foreground ml-0.5">
+                        %
+                      </span>
+                    </p>
+                  </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">수업 정보</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">{formatSchedule(classData.schedule)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">강의실: {classData.room || '-'}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">정원</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">
-                  {students.length} / {classData.capacity || '무제한'}
+            {/* 수업 메타 정보 인라인 */}
+            <div className="mt-4 pt-4 border-t flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <BookOpen className="h-3.5 w-3.5" />
+                <span className="text-foreground">{classData.subject || '-'}</span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <GraduationCap className="h-3.5 w-3.5" />
+                <span className="text-foreground">{classData.grade_level || '-'}</span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Clock className="h-3.5 w-3.5" />
+                <span className="text-foreground">{formatSchedule(classData.schedule)}</span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Calendar className="h-3.5 w-3.5" />
+                <span className="text-foreground">
+                  강의실 {classData.room || '-'}
                 </span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              </span>
+              {classData.instructorName && (
+                <span className="flex items-center gap-1.5">
+                  <Users className="h-3.5 w-3.5" />
+                  <span className="text-foreground">{classData.instructorName}</span>
+                </span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Tabs */}
-        <Tabs defaultValue="overview" className="space-y-4">
+        <Tabs defaultValue="students" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="overview">개요</TabsTrigger>
             <TabsTrigger value="students">수강생 목록</TabsTrigger>
             <TabsTrigger value="performance">성적 분석</TabsTrigger>
           </TabsList>
-
-          {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-6">
-            {/* Quick Stats */}
-            <div className="grid gap-4 md:grid-cols-3">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardDescription>평균 성적</CardDescription>
-                  <CardTitle className="text-3xl text-info">{kpis.avgScore}점</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-xs text-muted-foreground">
-                    전체 학생 평균 성적
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardDescription>평균 출석률</CardDescription>
-                  <CardTitle className="text-3xl text-success">{kpis.avgAttendance}%</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-xs text-muted-foreground">
-                    전체 학생 평균 출석률
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardDescription>평균 과제 완료율</CardDescription>
-                  <CardTitle className="text-3xl text-purple-600">{kpis.avgHomework}%</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-xs text-muted-foreground">
-                    전체 학생 평균 과제 완료율
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
 
           {/* Students Tab */}
           <TabsContent value="students">
