@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/client'
+import { getBreadcrumbName } from '@/app/actions/breadcrumb-names'
 
 /**
  * 동적 세그먼트의 실제 데이터를 가져오는 함수 타입
@@ -14,188 +14,46 @@ type DynamicSegmentResolver = (segment: string) => Promise<string>
 type BreadcrumbConfig = Record<string, string | DynamicSegmentResolver | null>
 
 /**
- * 학생 ID로 학생 이름을 조회하는 함수
- * 학생 이름은 users 테이블에 저장됨 (students.user_id → users.id)
+ * 브래드크럼용 동적 세그먼트 리졸버 팩토리
+ *
+ * 모든 조회는 Server Action(`getBreadcrumbName`) 경유로 수행됩니다.
+ * 대상 테이블들은 RLS 활성화 + 정책 없음 패턴이라 클라이언트에서 직접 조회하면
+ * 항상 빈 결과를 반환합니다 (CLAUDE.md 의 service_role 패턴 참고).
  */
-async function getStudentName(studentId: string): Promise<string> {
-  try {
-    const supabase = createClient()
-    const { data, error } = await supabase
-      .from('students')
-      .select('users(name)')
-      .eq('id', studentId)
-      .single<{ users: { name: string } | null }>()
-
-    if (error || !data?.users?.name) {
-      console.error('[Breadcrumb] Failed to fetch student name:', error)
-      return studentId
+function makeResolver(
+  entity:
+    | 'student'
+    | 'guardian'
+    | 'class'
+    | 'exam'
+    | 'textbook'
+    | 'consultation'
+    | 'reportStudent',
+): DynamicSegmentResolver {
+  return async (id: string) => {
+    try {
+      const result = await getBreadcrumbName(entity, id)
+      if (!result.success || !result.data) {
+        if (!result.success) {
+          console.error(`[Breadcrumb] ${entity} 이름 조회 실패:`, result.error)
+        }
+        return id
+      }
+      return result.data
+    } catch (err) {
+      console.error(`[Breadcrumb] ${entity} 이름 조회 중 예외:`, err)
+      return id
     }
-
-    return data.users.name
-  } catch (err) {
-    console.error('[Breadcrumb] Error fetching student name:', err)
-    return studentId
   }
 }
 
-/**
- * 보호자 ID로 보호자 이름을 조회하는 함수
- * 보호자 이름은 users 테이블에 저장됨 (guardians.user_id → users.id)
- */
-async function getGuardianName(guardianId: string): Promise<string> {
-  try {
-    const supabase = createClient()
-    const { data, error } = await supabase
-      .from('guardians')
-      .select('users(name)')
-      .eq('id', guardianId)
-      .single<{ users: { name: string } | null }>()
-
-    if (error || !data?.users?.name) {
-      console.error('[Breadcrumb] Failed to fetch guardian name:', error)
-      return guardianId
-    }
-
-    return data.users.name
-  } catch (err) {
-    console.error('[Breadcrumb] Error fetching guardian name:', err)
-    return guardianId
-  }
-}
-
-/**
- * 반 ID로 반 이름을 조회하는 함수
- */
-async function getClassName(classId: string): Promise<string> {
-  try {
-    const supabase = createClient()
-    const { data, error } = await supabase
-      .from('classes')
-      .select('name')
-      .eq('id', classId)
-      .single()
-
-    if (error || !data) {
-      console.error('[Breadcrumb] Failed to fetch class name:', error)
-      return classId
-    }
-
-    return data.name
-  } catch (err) {
-    console.error('[Breadcrumb] Error fetching class name:', err)
-    return classId
-  }
-}
-
-/**
- * 시험 ID로 시험 이름을 조회하는 함수
- */
-async function getExamName(examId: string): Promise<string> {
-  try {
-    const supabase = createClient()
-    const { data, error } = await supabase
-      .from('exams')
-      .select('name')
-      .eq('id', examId)
-      .single()
-
-    if (error || !data) {
-      console.error('[Breadcrumb] Failed to fetch exam name:', error)
-      return examId
-    }
-
-    return data.name
-  } catch (err) {
-    console.error('[Breadcrumb] Error fetching exam name:', err)
-    return examId
-  }
-}
-
-/**
- * 보고서 ID로 학생 이름을 조회하는 함수
- */
-async function getReportStudentName(reportId: string): Promise<string> {
-  try {
-    const supabase = createClient()
-    const { data, error } = await supabase
-      .from('reports')
-      .select(`
-        students (
-          users (name)
-        )
-      `)
-      .eq('id', reportId)
-      .single()
-
-    if (error || !data) {
-      console.error('[Breadcrumb] Failed to fetch student name from report:', error)
-      return reportId
-    }
-
-    // Type assertion for Supabase nested relationship
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const reportData = data as any
-    const studentName = reportData?.students?.users?.name
-
-    if (!studentName) {
-      console.error('[Breadcrumb] Student name not found in report data')
-      return reportId
-    }
-
-    return studentName
-  } catch (err) {
-    console.error('[Breadcrumb] Error fetching student name from report:', err)
-    return reportId
-  }
-}
-
-/**
- * 교재 ID로 교재명을 조회하는 함수
- */
-async function getTextbookTitle(textbookId: string): Promise<string> {
-  try {
-    const supabase = createClient()
-    const { data, error } = await supabase
-      .from('textbooks')
-      .select('title')
-      .eq('id', textbookId)
-      .single()
-
-    if (error || !data) {
-      console.error('[Breadcrumb] Failed to fetch textbook title:', error)
-      return textbookId
-    }
-
-    return data.title
-  } catch (err) {
-    console.error('[Breadcrumb] Error fetching textbook title:', err)
-    return textbookId
-  }
-}
-
-/**
- * 상담 ID로 상담 제목을 조회하는 함수
- */
-async function getConsultationTitle(consultationId: string): Promise<string> {
-  try {
-    const supabase = createClient()
-    const { data, error } = await supabase
-      .from('consultations')
-      .select('title')
-      .eq('id', consultationId)
-      .single()
-
-    if (error || !data) {
-      console.error('[Breadcrumb] Failed to fetch consultation title:', error)
-      return consultationId
-    }
-
-    return data.title
-  } catch (err) {
-    console.error('[Breadcrumb] Error fetching consultation title:', err)
-    return consultationId
-  }
-}
+const getStudentName = makeResolver('student')
+const getGuardianName = makeResolver('guardian')
+const getClassName = makeResolver('class')
+const getExamName = makeResolver('exam')
+const getTextbookTitle = makeResolver('textbook')
+const getConsultationTitle = makeResolver('consultation')
+const getReportStudentName = makeResolver('reportStudent')
 
 /**
  * 브래드크럼 경로 매핑 설정
