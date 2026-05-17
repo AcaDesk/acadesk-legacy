@@ -1,16 +1,26 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Loader2, RefreshCw, Send, CheckCircle2, AlertTriangle, Clock, XCircle } from 'lucide-react'
+import Link from 'next/link'
+import {
+  Loader2,
+  RefreshCw,
+  Send,
+  CheckCircle2,
+  AlertTriangle,
+  Clock,
+  Circle,
+  ArrowRight,
+} from 'lucide-react'
 
 import { Button } from '@ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
-import { Badge } from '@ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@ui/dialog'
 import { Input } from '@ui/input'
 import { Label } from '@ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
 import { Alert, AlertDescription } from '@ui/alert'
+import { cn } from '@/lib/utils'
 
 import { useEventSubscriptionsQuery } from '@/hooks/queries/use-event-subscriptions-query'
 import {
@@ -19,22 +29,9 @@ import {
   useRetryProvisionMutation,
   useSendTestAlimtalkMutation,
 } from '@/hooks/mutations/use-event-subscription-mutations'
-import type { ProvisioningStatus } from '@/app/actions/messaging/event-subscriptions'
 
 interface KakaoOnboardingFlowProps {
   hasKakaoChannel: boolean
-}
-
-const STATUS_META: Record<
-  ProvisioningStatus,
-  { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; Icon: typeof Clock }
-> = {
-  not_started: { label: '미등록', variant: 'outline', Icon: Clock },
-  provisioning: { label: '준비 중', variant: 'secondary', Icon: Loader2 },
-  inspecting: { label: '검수 중', variant: 'secondary', Icon: Clock },
-  approved: { label: '승인', variant: 'default', Icon: CheckCircle2 },
-  rejected: { label: '반려', variant: 'destructive', Icon: XCircle },
-  failed: { label: '실패', variant: 'destructive', Icon: AlertTriangle },
 }
 
 export function KakaoOnboardingFlow({ hasKakaoChannel }: KakaoOnboardingFlowProps) {
@@ -48,32 +45,42 @@ export function KakaoOnboardingFlow({ hasKakaoChannel }: KakaoOnboardingFlowProp
   const [testPhone, setTestPhone] = useState('')
   const [testEventType, setTestEventType] = useState('')
 
-  const { totalCount, approvedCount, inspectingCount, failedCount, anyRegistered } = useMemo(() => {
+  const stats = useMemo(() => {
     let approved = 0
     let inspecting = 0
     let failed = 0
-    let registered = 0
+    let notStarted = 0
     for (const sub of subscriptions) {
       if (sub.provisioningStatus === 'approved') approved++
-      if (sub.provisioningStatus === 'inspecting' || sub.provisioningStatus === 'provisioning') inspecting++
-      if (sub.provisioningStatus === 'rejected' || sub.provisioningStatus === 'failed') failed++
-      if (sub.provisioningStatus !== 'not_started') registered++
+      else if (sub.provisioningStatus === 'inspecting' || sub.provisioningStatus === 'provisioning')
+        inspecting++
+      else if (sub.provisioningStatus === 'rejected' || sub.provisioningStatus === 'failed')
+        failed++
+      else notStarted++
     }
     return {
-      totalCount: subscriptions.length,
-      approvedCount: approved,
-      inspectingCount: inspecting,
-      failedCount: failed,
-      anyRegistered: registered > 0,
+      total: subscriptions.length,
+      approved,
+      inspecting,
+      failed,
+      notStarted,
+      anyRegistered: approved + inspecting + failed > 0,
+      allDone: subscriptions.length > 0 && approved === subscriptions.length,
     }
   }, [subscriptions])
 
-  const approvedTemplates = useMemo(
-    () => subscriptions.filter((s) => s.provisioningStatus === 'approved'),
-    [subscriptions]
+  const failingSubs = useMemo(
+    () =>
+      subscriptions.filter(
+        (s) => s.provisioningStatus === 'rejected' || s.provisioningStatus === 'failed',
+      ),
+    [subscriptions],
   )
 
-  const allDone = totalCount > 0 && approvedCount === totalCount
+  const approvedTemplates = useMemo(
+    () => subscriptions.filter((s) => s.provisioningStatus === 'approved'),
+    [subscriptions],
+  )
 
   const handleOpenTestModal = () => {
     if (approvedTemplates.length > 0 && !testEventType) {
@@ -91,17 +98,30 @@ export function KakaoOnboardingFlow({ hasKakaoChannel }: KakaoOnboardingFlowProp
     setTestModalOpen(false)
   }
 
+  const segments = [
+    { count: stats.approved, className: 'bg-success', label: '승인' },
+    { count: stats.inspecting, className: 'bg-blue-400 dark:bg-blue-500', label: '검수 중' },
+    { count: stats.failed, className: 'bg-destructive', label: '반려/실패' },
+  ].filter((s) => s.count > 0)
+
   return (
     <div className="space-y-4">
-      {/* 공용 템플릿 자동 등록 */}
+      {/* 공용 템플릿 등록 진척 */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            공용 이벤트 템플릿
-          </CardTitle>
-          <CardDescription>
-            출석, 과제, 리포트 같은 운영 이벤트에 쓰는 기본 템플릿입니다. 등록 후 카카오 검수를 통과해야 자동 발송됩니다.
-          </CardDescription>
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <CardTitle className="text-base">공용 이벤트 템플릿</CardTitle>
+              <CardDescription className="mt-1">
+                운영 이벤트(출석·과제·리포트 등) 자동 알림용. 등록 후 카카오 검수가 필요합니다.
+              </CardDescription>
+            </div>
+            {stats.total > 0 && (
+              <span className="text-xs text-muted-foreground whitespace-nowrap pt-1">
+                전체 <span className="text-foreground font-semibold">{stats.total}</span>개
+              </span>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {!hasKakaoChannel && (
@@ -112,71 +132,79 @@ export function KakaoOnboardingFlow({ hasKakaoChannel }: KakaoOnboardingFlowProp
             </Alert>
           )}
 
-          {totalCount === 0 && !isLoading && (
+          {stats.total === 0 && !isLoading && hasKakaoChannel && (
             <p className="text-sm text-muted-foreground">등록 가능한 공용 템플릿이 없습니다.</p>
           )}
 
-          {totalCount > 0 && (
-            <ul className="space-y-2 text-sm">
-              {subscriptions.map((sub) => (
-                <li key={sub.eventType} className="flex items-start justify-between gap-3 rounded-md border p-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium">{sub.sharedTemplate.name}</p>
-                    {sub.sharedTemplate.description && (
-                      <p className="text-xs text-muted-foreground">{sub.sharedTemplate.description}</p>
-                    )}
-                  </div>
-                  <StatusBadge status={sub.provisioningStatus} />
-                </li>
-              ))}
-            </ul>
-          )}
+          {stats.total > 0 && (
+            <>
+              {/* 진척 바 */}
+              <div
+                className="h-2 flex rounded-full overflow-hidden bg-muted"
+                role="meter"
+                aria-valuemin={0}
+                aria-valuemax={stats.total}
+                aria-valuenow={stats.approved}
+                aria-label={`승인 ${stats.approved} / ${stats.total}`}
+              >
+                {segments.map((s, i) => (
+                  <div
+                    key={i}
+                    className={cn('h-full transition-all', s.className)}
+                    style={{ width: `${(s.count / stats.total) * 100}%` }}
+                    title={`${s.label} ${s.count}건`}
+                  />
+                ))}
+              </div>
 
-          <div className="flex flex-wrap gap-2">
-            <Button
-              onClick={() => provisionAllMutation.mutate()}
-              disabled={!hasKakaoChannel || provisionAllMutation.isPending}
-            >
-              {provisionAllMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {anyRegistered ? '미등록/실패 템플릿 다시 등록' : '공용 템플릿 등록 및 검수 요청'}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+              {/* 통계 4종 */}
+              <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs">
+                <StatItem
+                  icon={<CheckCircle2 className="h-3.5 w-3.5 text-success" />}
+                  label="승인"
+                  value={stats.approved}
+                />
+                <StatItem
+                  icon={<Clock className="h-3.5 w-3.5 text-blue-500" />}
+                  label="검수 중"
+                  value={stats.inspecting}
+                />
+                <StatItem
+                  icon={<AlertTriangle className="h-3.5 w-3.5 text-destructive" />}
+                  label="반려/실패"
+                  value={stats.failed}
+                  tone={stats.failed > 0 ? 'destructive' : undefined}
+                />
+                <StatItem
+                  icon={<Circle className="h-3.5 w-3.5 text-muted-foreground" />}
+                  label="미등록"
+                  value={stats.notStarted}
+                />
+              </div>
 
-      {/* 검수 진행 상태 */}
-      {anyRegistered && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              검수 진행 상태
-            </CardTitle>
-            <CardDescription>
-              결과 반영까지 보통 1~2영업일이 걸립니다. 필요할 때 바로 새로고침할 수 있습니다.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-wrap gap-3 text-sm">
-              <SummaryPill label="승인" value={approvedCount} tone="success" />
-              <SummaryPill label="진행 중" value={inspectingCount} tone="info" />
-              <SummaryPill label="반려/실패" value={failedCount} tone="destructive" />
-            </div>
-
-            {failedCount > 0 && (
-              <div className="space-y-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
-                <p className="font-medium text-destructive">반려/실패 항목</p>
-                <ul className="space-y-1">
-                  {subscriptions
-                    .filter((s) => s.provisioningStatus === 'rejected' || s.provisioningStatus === 'failed')
-                    .map((s) => (
-                      <li key={s.eventType} className="flex flex-wrap items-start gap-2">
+              {/* 반려/실패만 강조 */}
+              {failingSubs.length > 0 && (
+                <div className="space-y-1.5 rounded-md border border-destructive/30 bg-destructive/5 p-3">
+                  <p className="text-xs font-medium text-destructive flex items-center gap-1">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    주의 필요 ({failingSubs.length})
+                  </p>
+                  <ul className="space-y-1.5">
+                    {failingSubs.map((s) => (
+                      <li
+                        key={s.eventType}
+                        className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs"
+                      >
                         <span className="font-medium">{s.sharedTemplate.name}</span>
                         {s.rejectionReason && (
-                          <span className="text-xs text-muted-foreground">- {s.rejectionReason}</span>
+                          <span className="text-muted-foreground truncate max-w-[40ch]">
+                            — {s.rejectionReason}
+                          </span>
                         )}
                         <Button
                           size="sm"
                           variant="ghost"
+                          className="h-6 px-2 text-xs ml-auto"
                           onClick={() => retryMutation.mutate(s.eventType)}
                           disabled={retryMutation.isPending}
                         >
@@ -184,48 +212,74 @@ export function KakaoOnboardingFlow({ hasKakaoChannel }: KakaoOnboardingFlowProp
                         </Button>
                       </li>
                     ))}
-                </ul>
-              </div>
-            )}
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => refreshAllMutation.mutate()}
-              disabled={refreshAllMutation.isPending}
-            >
-              {refreshAllMutation.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="mr-2 h-4 w-4" />
+                  </ul>
+                </div>
               )}
-              지금 새로고침
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+            </>
+          )}
 
-      {/* 연동 완료 + 테스트 발송 */}
-      {anyRegistered && (
-        <Card className={allDone ? 'border-success/30 bg-success/5' : undefined}>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              {allDone ? '연동 완료' : '발송 준비'}
-            </CardTitle>
-            <CardDescription>
-              {allDone
-                ? '모든 공용 템플릿이 승인되었습니다. 이제 학원 운영 이벤트가 발생하면 자동으로 알림톡이 발송됩니다.'
-                : '승인된 템플릿이 1개 이상이면 테스트 발송이 가능합니다.'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+          {/* 액션 버튼 */}
+          <div className="flex flex-wrap gap-2 pt-1">
             <Button
-              variant={allDone ? 'default' : 'outline'}
+              onClick={() => provisionAllMutation.mutate()}
+              disabled={!hasKakaoChannel || provisionAllMutation.isPending || stats.total === 0}
+              size="sm"
+            >
+              {provisionAllMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {!stats.anyRegistered
+                ? '공용 템플릿 일괄 등록'
+                : stats.notStarted + stats.failed > 0
+                  ? `미등록·실패 ${stats.notStarted + stats.failed}건 재등록`
+                  : '모두 등록됨'}
+            </Button>
+            {stats.anyRegistered && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => refreshAllMutation.mutate()}
+                disabled={refreshAllMutation.isPending}
+              >
+                {refreshAllMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                )}
+                지금 새로고침
+              </Button>
+            )}
+            {stats.total > 0 && (
+              <Button variant="ghost" size="sm" asChild className="ml-auto">
+                <Link href="/settings/messaging-integration/events">
+                  개별 관리 <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                </Link>
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 테스트 발송 */}
+      {stats.anyRegistered && (
+        <Card className={stats.allDone ? 'border-success/30 bg-success/5' : undefined}>
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
+            <div className="min-w-0">
+              <p className="text-sm font-medium">
+                {stats.allDone ? '연동 완료' : '테스트 발송 가능'}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {stats.allDone
+                  ? '모든 공용 템플릿이 승인되어 자동 발송이 시작됩니다.'
+                  : `승인된 템플릿 ${stats.approved}건으로 테스트 메시지를 보낼 수 있습니다.`}
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant={stats.allDone ? 'default' : 'outline'}
               onClick={handleOpenTestModal}
               disabled={approvedTemplates.length === 0}
             >
               <Send className="mr-2 h-4 w-4" />
-              테스트 알림톡 발송
+              테스트 발송
             </Button>
           </CardContent>
         </Card>
@@ -236,7 +290,8 @@ export function KakaoOnboardingFlow({ hasKakaoChannel }: KakaoOnboardingFlowProp
           <DialogHeader>
             <DialogTitle>테스트 알림톡 발송</DialogTitle>
             <DialogDescription>
-              승인된 템플릿으로 본인 번호에 테스트 메시지를 발송합니다. 변수는 샘플 값으로 자동 채워집니다.
+              승인된 템플릿으로 본인 번호에 테스트 메시지를 발송합니다. 변수는 샘플 값으로 자동
+              채워집니다.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -283,29 +338,29 @@ export function KakaoOnboardingFlow({ hasKakaoChannel }: KakaoOnboardingFlowProp
   )
 }
 
-function StatusBadge({ status }: { status: ProvisioningStatus }) {
-  const meta = STATUS_META[status]
-  const Icon = meta.Icon
-  const isSpinning = status === 'provisioning'
+function StatItem({
+  icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: React.ReactNode
+  label: string
+  value: number
+  tone?: 'destructive'
+}) {
   return (
-    <Badge variant={meta.variant} className="gap-1 whitespace-nowrap">
-      <Icon className={`h-3 w-3 ${isSpinning ? 'animate-spin' : ''}`} />
-      {meta.label}
-    </Badge>
-  )
-}
-
-function SummaryPill({ label, value, tone }: { label: string; value: number; tone: 'success' | 'info' | 'destructive' }) {
-  const toneClass =
-    tone === 'success'
-      ? 'border-success/30 bg-success/10 text-success'
-      : tone === 'destructive'
-      ? 'border-destructive/30 bg-destructive/10 text-destructive'
-      : 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200'
-  return (
-    <div className={`flex items-center gap-2 rounded-md border px-3 py-1.5 ${toneClass}`}>
-      <span className="text-xs font-medium">{label}</span>
-      <span className="text-sm font-semibold">{value}</span>
+    <div className="flex items-center gap-1.5">
+      {icon}
+      <span className="text-muted-foreground">{label}</span>
+      <span
+        className={cn(
+          'font-semibold tabular-nums',
+          tone === 'destructive' ? 'text-destructive' : 'text-foreground',
+        )}
+      >
+        {value}
+      </span>
     </div>
   )
 }
