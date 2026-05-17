@@ -108,45 +108,45 @@ export function EventSubscriptionList({
         </AlertDescription>
       </Alert>
 
-      {/* Event Cards */}
-      <div className="space-y-2">
-        {subscriptions.length === 0 ? (
-          <Card>
-            <CardContent className="py-10">
-              <div className="text-center space-y-3 max-w-md mx-auto">
-                <Inbox className="h-10 w-10 mx-auto text-muted-foreground" />
-                {loadError ? (
-                  <>
-                    <p className="text-sm font-medium">이벤트 템플릿 목록을 불러오지 못했습니다</p>
-                    <p className="text-xs text-muted-foreground whitespace-pre-line">{loadError}</p>
-                    <Button size="sm" variant="outline" onClick={handleRefresh} disabled={isRefreshing}>
-                      <RefreshCw className={`h-3.5 w-3.5 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
-                      다시 시도
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-sm font-medium">공용 이벤트 템플릿이 아직 준비되지 않았습니다</p>
-                    <p className="text-xs text-muted-foreground">
-                      아카데스크 운영팀이 공용 알림톡 템플릿을 준비 중입니다.<br />
-                      준비가 완료되면 이 화면에서 바로 등록·검수 요청을 진행하실 수 있습니다.<br />
-                      문의: <a href="mailto:support@acadesk.com" className="underline">support@acadesk.com</a>
-                    </p>
-                  </>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          subscriptions.map((sub) => (
+      {/* Event Cards — xl 2열, 2xl 3열 그리드 */}
+      {subscriptions.length === 0 ? (
+        <Card>
+          <CardContent className="py-10">
+            <div className="text-center space-y-3 max-w-md mx-auto">
+              <Inbox className="h-10 w-10 mx-auto text-muted-foreground" />
+              {loadError ? (
+                <>
+                  <p className="text-sm font-medium">이벤트 템플릿 목록을 불러오지 못했습니다</p>
+                  <p className="text-xs text-muted-foreground whitespace-pre-line">{loadError}</p>
+                  <Button size="sm" variant="outline" onClick={handleRefresh} disabled={isRefreshing}>
+                    <RefreshCw className={`h-3.5 w-3.5 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    다시 시도
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-medium">공용 이벤트 템플릿이 아직 준비되지 않았습니다</p>
+                  <p className="text-xs text-muted-foreground">
+                    아카데스크 운영팀이 공용 알림톡 템플릿을 준비 중입니다.<br />
+                    준비가 완료되면 이 화면에서 바로 등록·검수 요청을 진행하실 수 있습니다.<br />
+                    문의: <a href="mailto:support@acadesk.com" className="underline">support@acadesk.com</a>
+                  </p>
+                </>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+          {subscriptions.map((sub) => (
             <EventSubscriptionCard
               key={sub.eventType}
               subscription={sub}
               onRefresh={handleRefresh}
             />
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
