@@ -11,7 +11,6 @@ import {
   Phone,
   Mail,
   School,
-  Users,
   FileText,
   Edit,
   Tag,
@@ -52,17 +51,6 @@ interface ExtendedStudent {
   uses_shuttle_bus?: boolean | null
   shuttle_bus_location?: string | null
   [key: string]: unknown
-}
-
-interface StudentGuardianInfo {
-  guardians?: {
-    name?: string
-    phone?: string | null
-    email?: string | null
-    relationship?: string | null
-  } | null
-  relation?: string | null
-  is_primary_contact?: boolean
 }
 
 export function InfoTab() {
@@ -378,63 +366,6 @@ export function InfoTab() {
           </CardContent>
         </Card>
       </motion.div>
-
-      {/* Guardian Information */}
-      {student.student_guardians && student.student_guardians.length > 0 ? (
-        <motion.div variants={itemVariants}>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">보호자 정보</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-2">
-              {student.student_guardians.map((sg: StudentGuardianInfo, index: number) => (
-                <div key={index} className="p-4 rounded-lg border space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                    <p className="font-medium">{sg.guardians?.name || '이름 없음'}</p>
-                    {sg.is_primary_contact && (
-                      <Badge variant="default" className="text-xs">주</Badge>
-                    )}
-                    {(sg.relation || sg.guardians?.relationship) && (
-                      <Badge variant="outline" className="text-xs">
-                        {sg.relation || sg.guardians?.relationship}
-                      </Badge>
-                    )}
-                  </div>
-
-                  <div className="space-y-2 text-sm">
-                    {sg.guardians?.phone && (
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Phone className="h-3 w-3 shrink-0" />
-                        <span className="break-all">{formatPhoneNumber(sg.guardians.phone)}</span>
-                      </div>
-                    )}
-                    {sg.guardians?.email && (
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Mail className="h-3 w-3 shrink-0" />
-                        <span className="break-all">{sg.guardians.email}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-        </motion.div>
-      ) : (
-        <motion.div variants={itemVariants}>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">보호자 정보</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground text-center py-8">등록된 보호자가 없습니다</p>
-          </CardContent>
-        </Card>
-        </motion.div>
-      )}
 
       {/* Change History */}
       <motion.div variants={itemVariants}>
