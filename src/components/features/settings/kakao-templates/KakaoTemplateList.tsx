@@ -22,6 +22,13 @@ import {
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import { Alert, AlertDescription } from '@ui/alert'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@ui/dialog'
+import {
   Plus,
   MoreHorizontal,
   FileText,
@@ -32,7 +39,9 @@ import {
   Send,
   XCircle,
   Info,
+  Eye,
 } from 'lucide-react'
+import { KakaoTalkPreview } from '@/components/features/messaging/KakaoTalkPreview'
 import { useToast } from '@/hooks/use-toast'
 import {
   getKakaoTemplates,
@@ -54,6 +63,11 @@ interface KakaoTemplateListProps {
   onCreateTemplate?: () => void
   onEditTemplate?: (template: KakaoTemplate) => void
   onTemplatesLoaded?: (summary: KakaoTemplateSummary) => void
+}
+
+function extractTemplateVariables(content: string): string[] {
+  const matches = content.match(/#{([^}]+)}/g) || []
+  return Array.from(new Set(matches.map((m) => m.slice(2, -1))))
 }
 
 function buildTemplateSummary(templates: KakaoTemplate[]): KakaoTemplateSummary {
@@ -81,6 +95,7 @@ export function KakaoTemplateList({
   const [actionTemplateId, setActionTemplateId] = useState<string | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [templateToDelete, setTemplateToDelete] = useState<KakaoTemplate | null>(null)
+  const [previewTemplate, setPreviewTemplate] = useState<KakaoTemplate | null>(null)
 
   const loadTemplates = useCallback(async () => {
     setIsLoading(true)
@@ -360,13 +375,20 @@ export function KakaoTemplateList({
                     return (
                       <TableRow key={template.id}>
                         <TableCell>
-                          <div>
-                            <p className="font-medium">{template.name}</p>
+                          <button
+                            type="button"
+                            onClick={() => setPreviewTemplate(template)}
+                            className="text-left w-full group focus:outline-none"
+                            title="카카오톡 미리보기"
+                          >
+                            <p className="font-medium group-hover:underline group-focus-visible:underline">
+                              {template.name}
+                            </p>
                             <p className="text-xs text-muted-foreground truncate max-w-[300px]">
                               {template.content.substring(0, 50)}
                               {template.content.length > 50 && '...'}
                             </p>
-                          </div>
+                          </button>
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline">
@@ -402,6 +424,10 @@ export function KakaoTemplateList({
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => setPreviewTemplate(template)}>
+                                <Eye className="h-4 w-4 mr-2" />
+                                카카오톡 미리보기
+                              </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleRefreshStatus(template)}>
                                 <RefreshCw className="h-4 w-4 mr-2" />
                                 상태 갱신
@@ -461,6 +487,27 @@ export function KakaoTemplateList({
         isLoading={deletingId === templateToDelete?.id}
         onConfirm={handleConfirmDelete}
       />
+
+      {/* 카카오톡 미리보기 Dialog */}
+      <Dialog
+        open={!!previewTemplate}
+        onOpenChange={(open) => !open && setPreviewTemplate(null)}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>카카오톡 발송 미리보기</DialogTitle>
+            <DialogDescription>
+              {previewTemplate?.name} — 실제 발송 시 보호자가 받는 알림톡 화면입니다.
+            </DialogDescription>
+          </DialogHeader>
+          {previewTemplate && (
+            <KakaoTalkPreview
+              content={previewTemplate.content}
+              variables={extractTemplateVariables(previewTemplate.content)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
