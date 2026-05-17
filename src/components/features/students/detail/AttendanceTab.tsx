@@ -7,7 +7,7 @@ import { Badge } from '@ui/badge'
 import { Button } from '@ui/button'
 import { format as formatDate } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { Calendar, CheckCircle, XCircle, Clock, Plus, Edit3 } from 'lucide-react'
+import { Calendar, Plus, Edit3 } from 'lucide-react'
 import { getAttendanceStatusInfo } from '@/lib/constants'
 import dynamic from 'next/dynamic'
 
@@ -88,90 +88,80 @@ export function AttendanceTab() {
       initial="hidden"
       animate="visible"
     >
-      {/* Attendance Summary Cards */}
-      <motion.div className="grid gap-4 md:grid-cols-4" variants={itemVariants}>
+      {/* 통합 출석 현황 카드 */}
+      <motion.div variants={itemVariants}>
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
-                <CheckCircle className="h-5 w-5 text-foreground" />
-              </div>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle className="text-base">출석 현황</CardTitle>
+              <span className="text-xs text-muted-foreground">
+                총 {totalRecords}회 기준
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
               <div>
                 <p className="text-xs text-muted-foreground">출석률</p>
-                <p className="text-2xl font-bold">{attendanceRate}%</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
-                <CheckCircle className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">출석</p>
-                <p className="text-2xl font-bold">
-                  {presentCount}
-                  <span className="text-sm font-normal text-muted-foreground ml-1">
-                    회
+                <p className="text-3xl font-bold tracking-tight leading-none mt-1">
+                  {attendanceRate}
+                  <span className="text-base font-normal text-muted-foreground ml-0.5">
+                    %
                   </span>
                 </p>
               </div>
+              <div className="flex items-center gap-5 sm:gap-7">
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[hsl(var(--chart-1))]" />
+                  <div className="leading-tight">
+                    <p className="text-[11px] text-muted-foreground">출석</p>
+                    <p className="text-base font-semibold">
+                      {presentCount}
+                      <span className="text-xs font-normal text-muted-foreground ml-0.5">
+                        회
+                      </span>
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[hsl(var(--chart-3))]" />
+                  <div className="leading-tight">
+                    <p className="text-[11px] text-muted-foreground">지각</p>
+                    <p className="text-base font-semibold">
+                      {lateCount}
+                      <span className="text-xs font-normal text-muted-foreground ml-0.5">
+                        회
+                      </span>
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[hsl(var(--chart-4))]" />
+                  <div className="leading-tight">
+                    <p className="text-[11px] text-muted-foreground">결석</p>
+                    <p className="text-base font-semibold">
+                      {absentCount}
+                      <span className="text-xs font-normal text-muted-foreground ml-0.5">
+                        회
+                      </span>
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
-                <Clock className="h-5 w-5 text-muted-foreground" />
+            {attendanceRecords.length > 0 && attendanceStatsData.length > 0 && (
+              <div className="border-t pt-3">
+                <AttendanceComboChart
+                  data={attendanceStatsData}
+                  bare
+                  height={220}
+                />
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">지각</p>
-                <p className="text-2xl font-bold">
-                  {lateCount}
-                  <span className="text-sm font-normal text-muted-foreground ml-1">
-                    회
-                  </span>
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
-                <XCircle className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">결석</p>
-                <p className="text-2xl font-bold">
-                  {absentCount}
-                  <span className="text-sm font-normal text-muted-foreground ml-1">
-                    회
-                  </span>
-                </p>
-              </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       </motion.div>
-
-      {/* Charts */}
-      {attendanceRecords.length > 0 && attendanceStatsData.length > 0 && (
-        <motion.div variants={itemVariants}>
-        <AttendanceComboChart
-          data={attendanceStatsData}
-          title="월별 출석 통계"
-          description="출석/지각/결석 횟수 및 출석율"
-        />
-        </motion.div>
-      )}
 
       {/* Attendance Records List */}
       <motion.div variants={itemVariants}>
