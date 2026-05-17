@@ -170,33 +170,45 @@ export function EventSubscriptionCard({ subscription, onRefresh }: EventSubscrip
   }
 
   return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="flex items-center gap-3">
-          {/* Icon */}
-          <span className="text-xl shrink-0">{display.icon}</span>
-
-          {/* Info */}
+    <Card className="flex flex-col h-full">
+      <CardContent className="p-4 flex flex-col gap-3 flex-1">
+        {/* Header: icon + name + status, switch is top-right */}
+        <div className="flex items-start gap-3">
+          <span className="text-2xl shrink-0 leading-none mt-0.5">{display.icon}</span>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="font-medium text-sm">{display.name}</span>
               <Badge variant={statusConfig.variant} className="text-[10px] px-1.5 py-0 h-5 gap-1">
                 <StatusIcon className="h-3 w-3" />
                 {statusConfig.label}
               </Badge>
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">{display.description}</p>
+            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{display.description}</p>
           </div>
+          <Switch
+            checked={subscription.isEnabled}
+            onCheckedChange={handleToggle}
+            disabled={!canToggle || isToggling}
+          />
+        </div>
 
-          {/* Actions */}
-          <div className="flex items-center gap-2 shrink-0">
+        {/* Rejection reason */}
+        {subscription.rejectionReason && (status === 'rejected' || status === 'failed') && (
+          <div className="p-2 bg-destructive/10 rounded text-xs text-destructive">
+            {subscription.rejectionReason}
+          </div>
+        )}
+
+        {/* Actions row */}
+        {(canProvision || canRefreshStatus || canRetry) && (
+          <div className="flex flex-wrap items-center gap-2">
             {canProvision && (
               <Button
                 size="sm"
                 variant="outline"
                 onClick={handleProvision}
                 disabled={isProvisioning}
-                className="text-xs"
+                className="text-xs h-7"
               >
                 <Upload className="h-3.5 w-3.5 mr-1" />
                 {isProvisioning ? '등록중...' : '템플릿 등록'}
@@ -208,7 +220,7 @@ export function EventSubscriptionCard({ subscription, onRefresh }: EventSubscrip
                 variant="outline"
                 onClick={handleRefreshStatus}
                 disabled={isRefreshing}
-                className="text-xs"
+                className="text-xs h-7"
               >
                 <RefreshCw className={`h-3.5 w-3.5 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
                 상태 확인
@@ -220,30 +232,21 @@ export function EventSubscriptionCard({ subscription, onRefresh }: EventSubscrip
                 variant="outline"
                 onClick={handleRetry}
                 disabled={isProvisioning}
-                className="text-xs"
+                className="text-xs h-7"
               >
                 <RotateCcw className="h-3.5 w-3.5 mr-1" />
                 {isProvisioning ? '등록중...' : '재등록'}
               </Button>
             )}
-            <Switch
-              checked={subscription.isEnabled}
-              onCheckedChange={handleToggle}
-              disabled={!canToggle || isToggling}
-            />
-          </div>
-        </div>
-
-        {/* Rejection reason */}
-        {subscription.rejectionReason && (status === 'rejected' || status === 'failed') && (
-          <div className="mt-2 ml-9 p-2 bg-destructive/10 rounded text-xs text-destructive">
-            {subscription.rejectionReason}
           </div>
         )}
 
+        {/* Spacer to push preview toggle to bottom of card */}
+        <div className="flex-1" />
+
         {/* Template Preview (Collapsible) */}
-        <Collapsible open={isExpanded} onOpenChange={setIsExpanded} className="mt-2 ml-9">
-          <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+        <Collapsible open={isExpanded} onOpenChange={setIsExpanded} className="pt-1 border-t border-border/60">
+          <CollapsibleTrigger className="flex items-center gap-1 pt-2 text-xs text-muted-foreground hover:text-foreground transition-colors">
             {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
             카카오톡 발송 미리보기
           </CollapsibleTrigger>
