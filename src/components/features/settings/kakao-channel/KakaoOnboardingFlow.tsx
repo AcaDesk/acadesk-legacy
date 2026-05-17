@@ -335,7 +335,7 @@ export function KakaoOnboardingFlow({ hasKakaoChannel }: KakaoOnboardingFlowProp
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </TooltipProvider>
   )
 }
 
@@ -344,24 +344,42 @@ function StatItem({
   label,
   value,
   tone,
+  hint,
 }: {
   icon: React.ReactNode
   label: string
   value: number
   tone?: 'destructive'
+  hint?: string
 }) {
-  return (
-    <div className="flex items-center gap-1.5">
-      {icon}
-      <span className="text-muted-foreground">{label}</span>
+  const body = (
+    <div
+      className={cn(
+        'flex flex-col items-start gap-0.5 rounded-md border bg-card px-3 py-2 transition-colors',
+        hint && 'cursor-help hover:bg-accent/40',
+      )}
+    >
+      <div className="flex items-center gap-1.5">
+        {icon}
+        <span className="text-xs text-muted-foreground">{label}</span>
+      </div>
       <span
         className={cn(
-          'font-semibold tabular-nums',
+          'text-lg font-semibold tabular-nums leading-none',
           tone === 'destructive' ? 'text-destructive' : 'text-foreground',
         )}
       >
         {value}
       </span>
     </div>
+  )
+  if (!hint) return body
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{body}</TooltipTrigger>
+      <TooltipContent side="bottom" className="max-w-[220px] text-xs">
+        {hint}
+      </TooltipContent>
+    </Tooltip>
   )
 }
