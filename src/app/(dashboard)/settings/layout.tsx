@@ -12,7 +12,7 @@ export default function SettingsLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="container max-w-6xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
+    <div className="container max-w-screen-2xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
       <div className="flex flex-col gap-4 md:flex-row">
         {/* Sidebar - hidden on mobile, shown as top nav on mobile */}
         <aside className="md:w-52 md:shrink-0">
