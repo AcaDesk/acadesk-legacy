@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from '@ui/select'
 import { BookOpen, Info, Loader2, Save, Eye } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Tabs, TabsList, TabsTrigger } from '@ui/tabs'
 import { ScrollArea } from '@ui/scroll-area'
 import { KakaoTemplateAuditGuide } from './KakaoTemplateAuditGuide'
 import { KakaoTalkPreview } from '@/components/features/messaging/KakaoTalkPreview'
@@ -215,34 +215,22 @@ export function KakaoTemplateForm({
               </DialogDescription>
             </div>
             {/* 우측 패널 토글 (미리보기 / 심사 가이드) */}
-            <div className="flex shrink-0 rounded-md border bg-muted p-0.5">
-              <button
-                type="button"
-                onClick={() => setRightPane('preview')}
-                className={cn(
-                  'flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors',
-                  rightPane === 'preview'
-                    ? 'bg-background shadow-sm text-foreground'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                <Eye className="h-3.5 w-3.5" />
-                미리보기
-              </button>
-              <button
-                type="button"
-                onClick={() => setRightPane('guide')}
-                className={cn(
-                  'flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors',
-                  rightPane === 'guide'
-                    ? 'bg-background shadow-sm text-foreground'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                <BookOpen className="h-3.5 w-3.5" />
-                심사 가이드
-              </button>
-            </div>
+            <Tabs
+              value={rightPane}
+              onValueChange={(v) => setRightPane(v as 'preview' | 'guide')}
+              className="shrink-0"
+            >
+              <TabsList className="h-8 p-0.5">
+                <TabsTrigger value="preview" className="text-xs h-7 gap-1.5 px-3">
+                  <Eye className="h-3.5 w-3.5" />
+                  미리보기
+                </TabsTrigger>
+                <TabsTrigger value="guide" className="text-xs h-7 gap-1.5 px-3">
+                  <BookOpen className="h-3.5 w-3.5" />
+                  심사 가이드
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
         </DialogHeader>
 
