@@ -15,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from '@ui/table'
-import { Bell, CheckCircle, XCircle, Search, AlertCircle, MessageSquare, Settings, Wallet, RefreshCw, Loader2 } from 'lucide-react'
+import { Bell, CheckCircle, XCircle, Search, AlertCircle, MessageSquare, Settings, Wallet, RefreshCw, Loader2, ArrowRight, FlaskConical } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { getMessagingBalance } from '@/app/actions/messaging/config'
@@ -39,12 +39,20 @@ const PAGE_SIZE = 50
 
 interface NotificationLog {
   id: string
-  student_id: string
+  student_id: string | null
   notification_type: string
   status: string
   message: string
+  subject: string | null
   sent_at: string
   error_message: string | null
+  is_test: boolean
+  recipient_name: string | null
+  recipient_phone: string | null
+  event_type: string | null
+  kakao_template_id: string | null
+  original_channel: string | null
+  fallback_type: string | null
   students: {
     student_code: string
     users: {
@@ -101,13 +109,17 @@ export function NotificationsContent({ initialLogs, initialBalance, tenantId }: 
         const studentCode = log.students?.student_code?.toLowerCase() || ''
         const message = log.message?.toLowerCase() || ''
         const phone = log.students?.users?.phone?.toLowerCase() || ''
+        const recipientName = log.recipient_name?.toLowerCase() || ''
+        const recipientPhone = log.recipient_phone?.toLowerCase() || ''
         const search = searchTerm.toLowerCase()
 
         return (
           studentName.includes(search) ||
           studentCode.includes(search) ||
           message.includes(search) ||
-          phone.includes(search)
+          phone.includes(search) ||
+          recipientName.includes(search) ||
+          recipientPhone.includes(search)
         )
       })
     }
@@ -127,8 +139,16 @@ export function NotificationsContent({ initialLogs, initialBalance, tenantId }: 
           notification_type,
           status,
           message,
+          subject,
           sent_at,
           error_message,
+          is_test,
+          recipient_name,
+          recipient_phone,
+          event_type,
+          kakao_template_id,
+          original_channel,
+          fallback_type,
           students (
             student_code,
             users (name, phone)
@@ -173,8 +193,16 @@ export function NotificationsContent({ initialLogs, initialBalance, tenantId }: 
           notification_type,
           status,
           message,
+          subject,
           sent_at,
           error_message,
+          is_test,
+          recipient_name,
+          recipient_phone,
+          event_type,
+          kakao_template_id,
+          original_channel,
+          fallback_type,
           students (
             student_code,
             users (name, phone)
@@ -262,6 +290,33 @@ export function NotificationsContent({ initialLogs, initialBalance, tenantId }: 
       default:
         return <Badge variant="secondary">{type.toUpperCase()}</Badge>
     }
+  }
+
+  function buildSummary(log: NotificationLog): string {
+    const studentName = log.students?.users?.name
+    const recipientName = log.recipient_name
+    const recipientPhone = log.recipient_phone
+
+    if (log.is_test) {
+      return `테스트 발송 → ${recipientPhone || recipientName || '수신자 미지정'}`
+    }
+
+    const target = recipientName
+      ? recipientPhone
+        ? `${recipientName} (${recipientPhone})`
+        : recipientName
+      : recipientPhone || '수신자 미지정'
+
+    if (log.event_type) {
+      const subject = studentName ? `${studentName} 보호자` : target
+      return `[${log.event_type}] ${subject}에게 발송`
+    }
+
+    if (studentName) {
+      return `${studentName} → ${target}에게 발송`
+    }
+
+    return `${target}에게 발송`
   }
 
   const stats = {
@@ -481,56 +536,83 @@ export function NotificationsContent({ initialLogs, initialBalance, tenantId }: 
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>학생</TableHead>
+                        <TableHead>대상</TableHead>
                         <TableHead>유형</TableHead>
-                        <TableHead>메시지</TableHead>
+                        <TableHead>발송 요약</TableHead>
                         <TableHead>전송 일시</TableHead>
                         <TableHead>상태</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredLogs.map((log) => (
-                        <TableRow
-                          key={log.id}
-                          className="cursor-pointer hover:bg-muted/50"
-                          onClick={() => {
-                            setSelectedLog(log)
-                            setDetailModalOpen(true)
-                          }}
-                        >
-                          <TableCell>
-                            <div>
-                              <div className="font-medium">
-                                {log.students?.users?.name || '이름 없음'}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {log.students?.student_code}
-                              </div>
-                              {log.students?.users?.phone && (
-                                <div className="text-xs text-muted-foreground">
-                                  {log.students.users.phone}
+                      {filteredLogs.map((log) => {
+                        const studentName = log.students?.users?.name
+                        const displayName = log.is_test
+                          ? '테스트 발송'
+                          : studentName || log.recipient_name || '수신자 미지정'
+                        const displayPhone = log.recipient_phone || log.students?.users?.phone
+                        return (
+                          <TableRow
+                            key={log.id}
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => {
+                              setSelectedLog(log)
+                              setDetailModalOpen(true)
+                            }}
+                          >
+                            <TableCell>
+                              <div>
+                                <div className="font-medium flex items-center gap-1.5 flex-wrap">
+                                  <span>{displayName}</span>
+                                  {log.is_test && (
+                                    <Badge variant="outline" className="border-amber-500 text-amber-700 bg-amber-50 text-[10px] px-1.5 py-0 h-4">
+                                      <FlaskConical className="h-2.5 w-2.5 mr-0.5" />
+                                      테스트
+                                    </Badge>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>{getTypeBadge(log.notification_type)}</TableCell>
-                          <TableCell>
-                            <div className="max-w-md">
-                              <p className="text-sm">{log.message}</p>
-                              {log.error_message && (
-                                <div className="flex items-center gap-1 mt-1 text-xs text-red-600">
-                                  <AlertCircle className="h-3 w-3" />
-                                  {log.error_message}
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-sm">
-                            {new Date(log.sent_at).toLocaleString('ko-KR')}
-                          </TableCell>
-                          <TableCell>{getStatusBadge(log.status)}</TableCell>
-                        </TableRow>
-                      ))}
+                                {log.students?.student_code && (
+                                  <div className="text-xs text-muted-foreground">
+                                    {log.students.student_code}
+                                  </div>
+                                )}
+                                {displayPhone && (
+                                  <div className="text-xs text-muted-foreground">
+                                    {displayPhone}
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1 flex-wrap">
+                                {log.original_channel === 'kakao' && log.notification_type !== 'kakao' ? (
+                                  <>
+                                    <Badge variant="default" className="bg-yellow-500 text-black opacity-60 line-through">알림톡</Badge>
+                                    <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                                    {getTypeBadge(log.notification_type)}
+                                  </>
+                                ) : (
+                                  getTypeBadge(log.notification_type)
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="max-w-md">
+                                <p className="text-sm">{buildSummary(log)}</p>
+                                {log.error_message && (
+                                  <div className="flex items-center gap-1 mt-1 text-xs text-red-600">
+                                    <AlertCircle className="h-3 w-3" />
+                                    {log.error_message}
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              {new Date(log.sent_at).toLocaleString('ko-KR')}
+                            </TableCell>
+                            <TableCell>{getStatusBadge(log.status)}</TableCell>
+                          </TableRow>
+                        )
+                      })}
                     </TableBody>
                   </Table>
                 </div>

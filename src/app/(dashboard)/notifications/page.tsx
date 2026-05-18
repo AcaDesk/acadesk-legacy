@@ -7,12 +7,20 @@ import { NotificationsContent } from './notifications-content'
 
 interface NotificationLog {
   id: string
-  student_id: string
+  student_id: string | null
   notification_type: string
   status: string
   message: string
+  subject: string | null
   sent_at: string
   error_message: string | null
+  is_test: boolean
+  recipient_name: string | null
+  recipient_phone: string | null
+  event_type: string | null
+  kakao_template_id: string | null
+  original_channel: string | null
+  fallback_type: string | null
   students: {
     student_code: string
     users: {
@@ -47,8 +55,16 @@ export default async function NotificationsPage() {
       notification_type,
       status,
       message,
+      subject,
       sent_at,
       error_message,
+      is_test,
+      recipient_name,
+      recipient_phone,
+      event_type,
+      kakao_template_id,
+      original_channel,
+      fallback_type,
       students (
         student_code,
         users (name, phone)
