@@ -9,4 +9,18 @@
 --   - INSERT 이벤트는 replica_identity 와 무관하게 모든 컬럼이 WAL 에 기록되므로
 --     현재 default(=PRIMARY KEY) 그대로 OK.
 
-ALTER PUBLICATION supabase_realtime ADD TABLE public.in_app_notifications;
+-- ALTER PUBLICATION ... ADD TABLE 은 idempotent 하지 않으므로
+-- pg_publication_tables 로 멤버 여부 확인 후 조건부 실행.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'in_app_notifications'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.in_app_notifications;
+  END IF;
+END
+$$;
