@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, KeyboardEvent, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
@@ -14,15 +13,17 @@ import { Textarea } from '@ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
 import { Save, AlertCircle, Copy, TrendingUp, BarChart, ChevronDown, ChevronUp } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import { useCurrentUser } from '@/hooks/use-current-user'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { Separator } from '@ui/separator'
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { bulkUpsertExamScores } from '@/app/actions/grades/grades'
+import type {
+  ExamAssignedStudent,
+  ExamAssignedScore,
+} from '@/app/actions/grades/exams'
 import { PAGE_ANIMATIONS, getListItemAnimation } from '@/lib/animation-config'
-import { LoadingState, EmptyState } from '@/components/ui/loading-state'
 import { cn } from '@/lib/utils'
 
 interface Exam {
@@ -59,6 +60,36 @@ type StatusFilter =
 
 interface BulkGradeEntryClientProps {
   exam: Exam
+  initialStudents: ExamAssignedStudent[]
+  initialScores: ExamAssignedScore[]
+}
+
+function buildScoresMap(
+  scores: ExamAssignedScore[],
+  defaultTotal: string
+): Map<string, ScoreEntry> {
+  const map = new Map<string, ScoreEntry>()
+  for (const s of scores) {
+    map.set(s.student_id, {
+      student_id: s.student_id,
+      correct: s.score?.toString() ?? '',
+      total: s.total_points?.toString() ?? defaultTotal,
+      percentage: s.percentage ?? 0,
+      feedback: s.feedback ?? '',
+    })
+  }
+  return map
+}
+
+function mapAssignedToLocalStudents(students: ExamAssignedStudent[]): Student[] {
+  return students
+    .map((s) => ({
+      id: s.id,
+      student_code: s.student_code,
+      grade: s.grade,
+      users: { name: s.name },
+    }))
+    .sort((a, b) => a.student_code.localeCompare(b.student_code))
 }
 
 // Safe number parsing utility
@@ -86,17 +117,17 @@ const getScoreState = (score?: ScoreEntry): 'empty' | 'no-total' | 'over' | 'ok'
   return 'ok'
 }
 
-export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
+export function BulkGradeEntryClient({ exam, initialStudents, initialScores }: BulkGradeEntryClientProps) {
   // All Hooks must be called before any early returns
   const router = useRouter()
   const { toast } = useToast()
-  const { user: currentUser, isLoading: isUserLoading } = useCurrentUser()
-  const [students, setStudents] = useState<Student[]>([])
-  const [scores, setScores] = useState<Map<string, ScoreEntry>>(new Map())
+  const defaultTotal = exam.total_questions?.toString() ?? ''
+  // students 는 mount 시점의 SSR 데이터로 고정 — 페이지 내에서 학생 목록은 변하지 않음
+  const students = useState<Student[]>(() => mapAssignedToLocalStudents(initialStudents))[0]
+  const [scores, setScores] = useState<Map<string, ScoreEntry>>(() => buildScoresMap(initialScores, defaultTotal))
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [gradeFilter, setGradeFilter] = useState<string>('all')
   const [searchTerm, setSearchTerm] = useState('')
-  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [autoSave, setAutoSave] = useState(false)
   const [bulkFeedback, setBulkFeedback] = useState('')
@@ -107,76 +138,6 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
 
   const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map())
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
-
-  const loadData = useCallback(async () => {
-    if (!currentUser || !currentUser.tenantId) {
-      setLoading(false)
-      return
-    }
-
-    try {
-      setLoading(true)
-
-      const supabase = createClient()
-
-      // Get students assigned to this exam (from exam_scores table)
-      const { data: examScores, error: scoresError } = await supabase
-        .from('exam_scores')
-        .select(`
-          student_id,
-          score,
-          total_points,
-          percentage,
-          feedback,
-          students (
-            id,
-            student_code,
-            grade,
-            users!user_id(name)
-          )
-        `)
-        .eq('tenant_id', currentUser.tenantId)
-        .eq('exam_id', exam.id)
-
-      if (scoresError) throw scoresError
-
-      // Extract student data from exam_scores
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const studentsData: Student[] = (examScores || []).map((score: any) => ({
-        id: score.students.id,
-        student_code: score.students.student_code,
-        grade: score.students.grade,
-        users: score.students.users ? { name: score.students.users.name } : null,
-      })).sort((a, b) => a.student_code.localeCompare(b.student_code))
-
-      setStudents(studentsData)
-
-      // Create scores map
-      const scoresMap = new Map<string, ScoreEntry>()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      examScores?.forEach((existing: any) => {
-        const defaultTotal = exam.total_questions?.toString() || ''
-
-        scoresMap.set(existing.student_id, {
-          student_id: existing.student_id,
-          correct: existing.score?.toString() || '',
-          total: existing.total_points?.toString() || defaultTotal,
-          percentage: existing.percentage || 0,
-          feedback: existing.feedback || '',
-        })
-      })
-      setScores(scoresMap)
-    } catch (error) {
-      console.error('Error loading data:', error)
-      toast({
-        title: '로드 오류',
-        description: '데이터를 불러오는 중 오류가 발생했습니다.',
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
-    }
-  }, [exam.id, exam.total_questions, toast, currentUser])
 
   const handleSave = useCallback(async (navigateAfterSave = false, silent = false) => {
     setSaving(true)
@@ -235,13 +196,6 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
       setSaving(false)
     }
   }, [exam.id, scores, toast, router])
-
-  // useEffect must be called before any early returns
-  useEffect(() => {
-    if (!isUserLoading) {
-      loadData()
-    }
-  }, [loadData, isUserLoading])
 
   // Auto-save effect
   useEffect(() => {
@@ -378,28 +332,6 @@ export function BulkGradeEntryClient({ exam }: BulkGradeEntryClientProps) {
     return <Maintenance featureName="성적 일괄 입력" reason="성적 입력 시스템 업데이트가 진행 중입니다." />;
   }
 
-  if (isUserLoading || loading) {
-    return (
-      <PageWrapper>
-        <LoadingState variant="card" message="로딩 중..." />
-      </PageWrapper>
-    )
-  }
-
-  if (!currentUser || !currentUser.tenantId) {
-    return (
-      <PageWrapper>
-        <EmptyState
-          icon={<AlertCircle className="h-12 w-12" />}
-          title="사용자 정보를 불러올 수 없습니다"
-          description="로그인이 필요하거나 권한이 없습니다."
-          action={
-            <Button onClick={() => router.push('/login')}>로그인 페이지로 이동</Button>
-          }
-        />
-      </PageWrapper>
-    )
-  }
 
   // Get unique grades from students
   const availableGrades = Array.from(new Set(students.map(s => s.grade).filter(Boolean))).sort()

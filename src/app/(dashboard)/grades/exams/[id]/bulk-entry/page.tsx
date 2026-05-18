@@ -3,7 +3,7 @@ import { PageWrapper } from '@/components/layout/page-wrapper'
 import { BulkGradeEntryClient } from './bulk-entry-client'
 import { Skeleton } from '@ui/skeleton'
 import { requireAuth } from '@/lib/auth/helpers'
-import { getExamById } from '@/app/actions/grades/exams'
+import { getExamById, getExamAssignments } from '@/app/actions/grades/exams'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 
@@ -23,16 +23,27 @@ export default async function BulkGradeEntryPage({ params }: Props) {
   // Get exam ID from params
   const { id: examId } = await params
 
-  // Fetch exam data using Server Action
-  const examResult = await getExamById(examId)
+  // Fetch exam + assignments in parallel — bulk entry needs both
+  const [examResult, assignmentsResult] = await Promise.all([
+    getExamById(examId),
+    getExamAssignments(examId),
+  ])
 
   if (!examResult.success || !examResult.data) {
     notFound()
   }
 
+  const initialAssignments = assignmentsResult.success && assignmentsResult.data
+    ? assignmentsResult.data
+    : { students: [], scores: [] }
+
   return (
     <Suspense fallback={<BulkEntryPageSkeleton />}>
-      <BulkGradeEntryClient exam={examResult.data} />
+      <BulkGradeEntryClient
+        exam={examResult.data}
+        initialStudents={initialAssignments.students}
+        initialScores={initialAssignments.scores}
+      />
     </Suspense>
   )
 }

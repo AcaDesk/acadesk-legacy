@@ -41,10 +41,12 @@ import {
   getExamAssignments,
   assignStudentsToExam,
   restoreExamAssignment,
+  restoreExamAssignmentsBulk,
   type ExamAssignedStudent,
   type ExamAssignedScore,
 } from '@/app/actions/grades/exams'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
+import { Checkbox } from '@ui/checkbox'
 import { EmptyState } from '@ui/empty-state'
 import { LoadingState } from '@/components/ui/loading-state'
 
@@ -103,6 +105,9 @@ export function ExamDetailClient({ exam, initialStudents, initialScores }: ExamD
   const [searchTerm, setSearchTerm] = useState('')
   const [gradeFilter, setGradeFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false)
+  const [isBulkRemoving, setIsBulkRemoving] = useState(false)
   const undoTimeoutIdRef = useRef<NodeJS.Timeout | null>(null)
 
   // Get unique grades from students
@@ -251,6 +256,145 @@ export function ExamDetailClient({ exam, initialStudents, initialScores }: ExamD
       setLoading(false)
     }
   }, [exam.id, toast])
+
+  const allVisibleSelected = filteredStudents.length > 0 && filteredStudents.every(s => selectedIds.has(s.id))
+  const someVisibleSelected = !allVisibleSelected && filteredStudents.some(s => selectedIds.has(s.id))
+
+  function toggleSelectAllVisible(checked: boolean) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (checked) {
+        for (const s of filteredStudents) next.add(s.id)
+      } else {
+        for (const s of filteredStudents) next.delete(s.id)
+      }
+      return next
+    })
+  }
+
+  function toggleSelectOne(studentId: string, checked: boolean) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (checked) next.add(studentId)
+      else next.delete(studentId)
+      return next
+    })
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set())
+  }
+
+  // Stats for the bulk-remove confirmation dialog
+  const selectedStudents = useMemo(
+    () => students.filter(s => selectedIds.has(s.id)),
+    [students, selectedIds]
+  )
+  const selectedWithScoresCount = useMemo(
+    () =>
+      selectedStudents.filter((s) => {
+        const sc = scores.get(s.id)
+        return sc && sc.score !== null && sc.total_points !== null
+      }).length,
+    [selectedStudents, scores]
+  )
+
+  async function handleBulkUndo(
+    items: Array<{ id: string; name: string; scoreData?: ScoreData }>
+  ) {
+    if (undoTimeoutIdRef.current) {
+      clearTimeout(undoTimeoutIdRef.current)
+      undoTimeoutIdRef.current = null
+    }
+
+    try {
+      const result = await restoreExamAssignmentsBulk(
+        exam.id,
+        items.map((it) => ({
+          studentId: it.id,
+          score: it.scoreData?.score ?? null,
+          total_points: it.scoreData?.total_points ?? null,
+          percentage: it.scoreData?.percentage ?? null,
+        }))
+      )
+
+      if (!result.success) {
+        throw new Error(result.error || '학생을 복구하는 중 오류가 발생했습니다.')
+      }
+
+      toast({
+        title: '복구 완료',
+        description: `${items.length}명의 학생이 복구되었습니다.`,
+      })
+
+      loadStudents()
+    } catch (error) {
+      console.error('Error undoing bulk removal:', error)
+      toast({
+        title: '복구 오류',
+        description: error instanceof Error ? error.message : '학생을 복구하는 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  async function handleConfirmBulkRemove() {
+    if (selectedIds.size === 0) return
+
+    const ids = Array.from(selectedIds)
+    // Snapshot for undo
+    const snapshot = ids.map((id) => {
+      const student = students.find((s) => s.id === id)
+      return {
+        id,
+        name: student?.name || '학생',
+        scoreData: scores.get(id),
+      }
+    })
+
+    setIsBulkRemoving(true)
+
+    try {
+      const result = await assignStudentsToExam(exam.id, [], ids)
+      if (!result.success) {
+        throw new Error(result.error || '학생을 제외하는 중 오류가 발생했습니다.')
+      }
+
+      const { dismiss } = toast({
+        title: '일괄 제외 완료',
+        description: `${ids.length}명이 시험에서 제외되었습니다.`,
+        action: (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              dismiss()
+              handleBulkUndo(snapshot)
+            }}
+          >
+            되돌리기
+          </Button>
+        ),
+      })
+
+      undoTimeoutIdRef.current = setTimeout(() => {
+        undoTimeoutIdRef.current = null
+      }, 10000)
+
+      clearSelection()
+      loadStudents()
+    } catch (error) {
+      console.error('Error bulk-removing students:', error)
+      toast({
+        title: '일괄 제외 오류',
+        description: error instanceof Error ? error.message : '학생을 제외하는 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsBulkRemoving(false)
+      setBulkDialogOpen(false)
+    }
+  }
 
   function handleRemoveClick(studentId: string, studentName: string) {
     const score = scores.get(studentId)
@@ -623,6 +767,33 @@ export function ExamDetailClient({ exam, initialStudents, initialScores }: ExamD
                     </span>
                   )}
                 </div>
+
+                {/* Bulk Action Bar — shown only when rows are selected */}
+                {selectedStudents.length > 0 && (
+                  <div className="flex items-center justify-between gap-2 rounded-md border border-primary/40 bg-primary/5 px-3 py-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Badge variant="default">{selectedStudents.length}명 선택됨</Badge>
+                      {selectedWithScoresCount > 0 && (
+                        <span className="text-xs text-muted-foreground">
+                          (성적 입력 {selectedWithScoresCount}명 포함)
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="ghost" size="sm" onClick={clearSelection}>
+                        선택 해제
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setBulkDialogOpen(true)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        선택 제외
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -653,6 +824,19 @@ export function ExamDetailClient({ exam, initialStudents, initialScores }: ExamD
               <Table>
                 <TableHeader className="sticky top-0 bg-background z-10">
                   <TableRow>
+                    <TableHead className="w-[44px] text-center">
+                      <Checkbox
+                        aria-label="전체 선택"
+                        checked={
+                          allVisibleSelected
+                            ? true
+                            : someVisibleSelected
+                            ? 'indeterminate'
+                            : false
+                        }
+                        onCheckedChange={(checked) => toggleSelectAllVisible(checked === true)}
+                      />
+                    </TableHead>
                     <TableHead className="w-[180px]">학생</TableHead>
                     <TableHead className="w-[120px]">학번</TableHead>
                     <TableHead className="w-[80px] text-center">학년</TableHead>
@@ -667,9 +851,23 @@ export function ExamDetailClient({ exam, initialStudents, initialScores }: ExamD
                     const score = scores.get(student.id)
                     const hasScore = score && score.score !== null && score.total_points !== null
                     const scoreStatus = getScoreStatus(hasScore ? score.percentage : null)
+                    const isSelected = selectedIds.has(student.id)
 
                     return (
-                      <TableRow key={student.id} className="hover:bg-muted/50 text-sm">
+                      <TableRow
+                        key={student.id}
+                        className="hover:bg-muted/50 text-sm data-[state=selected]:bg-muted/50"
+                        data-state={isSelected ? 'selected' : undefined}
+                      >
+                        {/* 체크박스 */}
+                        <TableCell className="text-center">
+                          <Checkbox
+                            aria-label={`${student.name} 선택`}
+                            checked={isSelected}
+                            onCheckedChange={(checked) => toggleSelectOne(student.id, checked === true)}
+                          />
+                        </TableCell>
+
                         {/* 학생 이름 */}
                         <TableCell className="font-medium">{student.name}</TableCell>
 
@@ -798,6 +996,32 @@ export function ExamDetailClient({ exam, initialStudents, initialScores }: ExamD
           loadStudents()
           setShowAssignDialog(false)
         }}
+      />
+
+      {/* Bulk Remove Confirmation Dialog */}
+      <ConfirmationDialog
+        open={bulkDialogOpen}
+        onOpenChange={setBulkDialogOpen}
+        title={`${selectedStudents.length}명의 학생을 시험에서 제외하시겠습니까?`}
+        description={
+          <div className="space-y-2">
+            <p>선택한 {selectedStudents.length}명을 이 시험에서 제외합니다.</p>
+            {selectedWithScoresCount > 0 && (
+              <div className="p-3 rounded-md bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-800">
+                <p className="text-sm font-medium text-red-800 dark:text-red-100">
+                  성적이 입력된 {selectedWithScoresCount}명의 성적 기록도 함께 삭제됩니다
+                </p>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">
+              제외 후 10초 이내에 알림의 &ldquo;되돌리기&rdquo; 버튼으로 복구할 수 있어요
+            </p>
+          </div>
+        }
+        confirmText={`${selectedStudents.length}명 제외`}
+        variant="destructive"
+        isLoading={isBulkRemoving}
+        onConfirm={handleConfirmBulkRemove}
       />
 
       {/* Remove Student Confirmation Dialog */}
