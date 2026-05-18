@@ -24,7 +24,6 @@ interface NotificationLog {
   notification_type: string
   status: string
   message: string
-  subject: string | null
   sent_at: string
   error_message: string | null
   is_test: boolean
@@ -197,17 +196,6 @@ export function MessageDetailModal({ log, open, onOpenChange }: MessageDetailMod
               <span>{new Date(log.sent_at).toLocaleString('ko-KR')}</span>
             </div>
           </div>
-
-          {/* 제목 (LMS) */}
-          {log.subject && (
-            <>
-              <Separator />
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">제목</p>
-                <p className="text-sm">{log.subject}</p>
-              </div>
-            </>
-          )}
 
           <Separator />
 

@@ -43,7 +43,6 @@ interface NotificationLog {
   notification_type: string
   status: string
   message: string
-  subject: string | null
   sent_at: string
   error_message: string | null
   is_test: boolean
@@ -139,7 +138,6 @@ export function NotificationsContent({ initialLogs, initialBalance, tenantId }: 
           notification_type,
           status,
           message,
-          subject,
           sent_at,
           error_message,
           is_test,
@@ -193,7 +191,6 @@ export function NotificationsContent({ initialLogs, initialBalance, tenantId }: 
           notification_type,
           status,
           message,
-          subject,
           sent_at,
           error_message,
           is_test,

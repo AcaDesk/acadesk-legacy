@@ -11,7 +11,6 @@ interface NotificationLog {
   notification_type: string
   status: string
   message: string
-  subject: string | null
   sent_at: string
   error_message: string | null
   is_test: boolean
@@ -55,7 +54,6 @@ export default async function NotificationsPage() {
       notification_type,
       status,
       message,
-      subject,
       sent_at,
       error_message,
       is_test,
