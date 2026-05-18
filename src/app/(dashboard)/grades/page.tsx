@@ -3,7 +3,7 @@ import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { requireAuth } from '@/lib/auth/helpers'
-import { getExams, getExamCategories } from '@/app/actions/grades/exams'
+import { getExams, getExamCategories, getExamTemplates } from '@/app/actions/grades/exams'
 import { ExamsClient } from './exams/exams-client'
 import type { Metadata } from 'next'
 
@@ -28,17 +28,19 @@ export default async function ExamsPage() {
   await requireAuth()
 
   // Fetch data
-  const [examsResult, categoriesResult] = await Promise.all([
+  const [examsResult, categoriesResult, templatesResult] = await Promise.all([
     getExams({ includeArchived: true, period: 'all' }),
     getExamCategories(),
+    getExamTemplates(),
   ])
 
   const exams = examsResult.success && examsResult.data ? examsResult.data : []
   const categories = categoriesResult.success && categoriesResult.data ? categoriesResult.data : []
+  const templates = templatesResult.success && templatesResult.data ? templatesResult.data : []
 
   return (
     <PageWrapper>
-      <ExamsClient initialExams={exams} categories={categories} />
+      <ExamsClient initialExams={exams} categories={categories} templates={templates} />
     </PageWrapper>
   )
 }

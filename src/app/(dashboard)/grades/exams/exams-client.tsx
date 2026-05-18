@@ -48,6 +48,7 @@ import { EmptyState, NoSearchResultsEmptyState } from '@ui/empty-state'
 import { PAGE_LAYOUT, TEXT_STYLES } from '@/lib/constants'
 import { PAGE_ANIMATIONS } from '@/lib/animation-config'
 import { cn } from '@/lib/utils'
+import { ExamTemplatesWidget } from '@/components/features/exams/exam-templates-widget'
 
 interface Exam {
   id: string
@@ -86,9 +87,25 @@ interface ExamCategory {
   label: string
 }
 
+interface ExamTemplate {
+  id: string
+  name: string
+  category_code: string | null
+  exam_type: string | null
+  total_questions: number | null
+  passing_score: number | null
+  recurring_schedule: string | null
+  is_template_active: boolean | null
+  description: string | null
+  class_id: string | null
+  classes?: { name: string } | { name: string }[] | null
+  subjects?: { name: string; color: string | null } | { name: string; color: string | null }[] | null
+}
+
 interface ExamsClientProps {
   initialExams: Exam[]
   categories: ExamCategory[]
+  templates: ExamTemplate[]
 }
 
 type ExamListPeriod = 'this_month' | 'last_15_days' | 'last_3_months' | 'all'
@@ -134,7 +151,7 @@ function getExamTypeBadgeVariant(type: string | null): 'default' | 'secondary' |
   }
 }
 
-export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
+export function ExamsClient({ initialExams, categories, templates }: ExamsClientProps) {
   const router = useRouter()
   const [exams, setExams] = useState(initialExams)
   const [searchTerm, setSearchTerm] = useState('')
@@ -410,6 +427,9 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
           </CardContent>
         </Card>
       </section>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6">
+        <div className="space-y-6 min-w-0">
 
       {/* Search & Filters */}
       <section
@@ -787,6 +807,13 @@ export function ExamsClient({ initialExams, categories }: ExamsClientProps) {
           </Card>
         )}
       </section>
+
+        </div>
+
+        <aside className="lg:sticky lg:top-6 lg:self-start space-y-4">
+          <ExamTemplatesWidget templates={templates} />
+        </aside>
+      </div>
 
       {/* Single Delete Confirmation Dialog */}
       <ConfirmationDialog

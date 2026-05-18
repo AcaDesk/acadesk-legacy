@@ -179,10 +179,12 @@ export async function getExams(filters?: {
     const examIds = (exams || []).map(e => e.id)
 
     // 배치 조회: 모든 시험의 점수 카운트를 한 번에
+    // tenant_id 필터 명시 → idx_exam_scores_tenant_student_exam 활용
     const { data: scoreCounts } = examIds.length > 0
       ? await serviceClient
           .from('exam_scores')
           .select('exam_id')
+          .eq('tenant_id', tenantId)
           .in('exam_id', examIds)
           .is('deleted_at', null)
       : { data: [] }
@@ -873,6 +875,77 @@ export async function getExamTemplates() {
 }
 
 /**
+ * 템플릿을 기반으로 신규 시험을 즉시 생성합니다 (시험 목록 페이지의 사이드 패널에서 사용).
+ *
+ * - 템플릿의 name/category/exam_type/total_questions/passing_score/description/class_id/subject_id 를 복사
+ * - exam_date 는 호출자가 지정 (필수)
+ * - is_recurring=false, recurring_schedule=null 로 일회성 시험으로 생성
+ */
+export async function createExamFromTemplate(templateId: string, examDate: string) {
+  try {
+    const { tenantId } = await verifyStaff()
+    if (!templateId) {
+      return { success: false, data: null, error: '템플릿 ID가 필요합니다' }
+    }
+    if (!examDate) {
+      return { success: false, data: null, error: '시험일을 선택해주세요' }
+    }
+
+    const serviceClient = createServiceRoleClient()
+
+    const { data: template, error: fetchError } = await serviceClient
+      .from('exams')
+      .select(`
+        id, tenant_id, name, subject_id, category_code, exam_type,
+        total_questions, passing_score, description, class_id, is_recurring
+      `)
+      .eq('id', templateId)
+      .maybeSingle()
+
+    if (fetchError || !template) {
+      return { success: false, data: null, error: '템플릿을 찾을 수 없습니다' }
+    }
+    if (template.tenant_id !== tenantId) {
+      return { success: false, data: null, error: '권한이 없습니다' }
+    }
+    if (!template.is_recurring) {
+      return { success: false, data: null, error: '템플릿이 아닙니다' }
+    }
+
+    const { data: created, error: insertError } = await serviceClient
+      .from('exams')
+      .insert({
+        tenant_id: tenantId,
+        name: template.name,
+        subject_id: template.subject_id,
+        category_code: template.category_code,
+        exam_type: template.exam_type,
+        exam_date: examDate,
+        class_id: template.class_id,
+        total_questions: template.total_questions,
+        passing_score: template.passing_score,
+        description: template.description,
+        is_recurring: false,
+        recurring_schedule: null,
+      })
+      .select('id')
+      .single()
+
+    if (insertError || !created) {
+      throw insertError ?? new Error('시험 생성 실패')
+    }
+
+    revalidatePath('/grades')
+    revalidatePath('/grades/exams')
+
+    return { success: true, data: { examId: created.id }, error: null }
+  } catch (error) {
+    console.error('[createExamFromTemplate] Error:', error)
+    return { success: false, data: null, error: getErrorMessage(error) }
+  }
+}
+
+/**
  * Toggle exam template active state (is_template_active)
  */
 export async function setExamTemplateActive(examId: string, active: boolean) {
@@ -1041,6 +1114,7 @@ export interface ExamAssignedScore {
   score: number | null
   total_points: number | null
   percentage: number | null
+  feedback: string | null
 }
 
 /**
@@ -1062,6 +1136,7 @@ export async function getExamAssignments(examId: string) {
         score,
         total_points,
         percentage,
+        feedback,
         students!inner (
           id,
           student_code,
@@ -1080,6 +1155,7 @@ export async function getExamAssignments(examId: string) {
       score: number | null
       total_points: number | null
       percentage: number | null
+      feedback: string | null
       students: {
         id: string
         student_code: string
@@ -1104,6 +1180,7 @@ export async function getExamAssignments(examId: string) {
         score: record.score,
         total_points: record.total_points,
         percentage: record.percentage,
+        feedback: record.feedback,
       })
     }
 
@@ -1169,6 +1246,67 @@ export async function restoreExamAssignment(
     return { success: true, error: null }
   } catch (error) {
     console.error('[restoreExamAssignment] Error:', error)
+    return { success: false, error: getErrorMessage(error) }
+  }
+}
+
+/**
+ * Bulk-restore exam assignments, preserving each student's score data.
+ * Used by the "되돌리기" toast after a bulk unassign action.
+ */
+export async function restoreExamAssignmentsBulk(
+  examId: string,
+  items: Array<{
+    studentId: string
+    score: number | null
+    total_points: number | null
+    percentage: number | null
+  }>
+) {
+  try {
+    if (items.length === 0) {
+      return { success: true, error: null }
+    }
+
+    const { tenantId } = await verifyStaff()
+    const serviceClient = createServiceRoleClient()
+
+    const { data: exam, error: examError } = await serviceClient
+      .from('exams')
+      .select('id, tenant_id')
+      .eq('id', examId)
+      .maybeSingle()
+
+    if (examError || !exam) {
+      return { success: false, error: '시험을 찾을 수 없습니다' }
+    }
+
+    if (exam.tenant_id !== tenantId) {
+      return { success: false, error: '권한이 없습니다' }
+    }
+
+    const { error: insertError } = await serviceClient
+      .from('exam_scores')
+      .insert(
+        items.map((item) => ({
+          tenant_id: tenantId,
+          exam_id: examId,
+          student_id: item.studentId,
+          score: item.score,
+          total_points: item.total_points,
+          percentage: item.percentage,
+        }))
+      )
+
+    if (insertError) throw insertError
+
+    revalidatePath(`/grades/exams/${examId}`)
+    revalidatePath('/grades/exams')
+    revalidatePath('/grades')
+
+    return { success: true, error: null }
+  } catch (error) {
+    console.error('[restoreExamAssignmentsBulk] Error:', error)
     return { success: false, error: getErrorMessage(error) }
   }
 }
