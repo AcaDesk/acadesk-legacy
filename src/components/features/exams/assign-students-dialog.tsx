@@ -7,9 +7,12 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Tabs, TabsList, TabsTrigger } from '@ui/tabs'
 import { UserPlus, Users } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import { createClient } from '@/lib/supabase/client'
-import { useCurrentUser } from '@/hooks/use-current-user'
 import { StudentSearch, type Student as StudentSearchStudent } from '@/components/features/students/student-search'
+import {
+  getStudentsForExamAssignment,
+  assignStudentsToExam,
+  getEnrolledStudentIdsForClass,
+} from '@/app/actions/grades/exams'
 
 type SchoolLevel = 'all' | 'kindergarten' | 'elementary' | 'middle' | 'high'
 
@@ -69,8 +72,6 @@ export function AssignStudentsDialog({
   onSuccess,
 }: AssignStudentsDialogProps) {
   const { toast } = useToast()
-  const supabase = useMemo(() => createClient(), [])
-  const { user: currentUser } = useCurrentUser()
 
   const [students, setStudents] = useState<Student[]>([])
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -132,55 +133,28 @@ export function AssignStudentsDialog({
   }, [open])
 
   const loadStudents = useCallback(async () => {
-    if (!currentUser || !currentUser.tenantId) return
-
     try {
       setLoading(true)
 
-      // Fetch students and assigned scores in parallel
-      const [{ data: allStudents, error: studentsError }, { data: assignedScores, error: scoresError }] = await Promise.all([
-        supabase
-          .from('students')
-          .select('id, student_code, users!user_id(name), grade')
-          .eq('tenant_id', currentUser.tenantId)
-          .is('deleted_at', null)
-          .order('student_code'),
-        supabase
-          .from('exam_scores')
-          .select('student_id')
-          .eq('tenant_id', currentUser.tenantId)
-          .eq('exam_id', examId),
-      ])
+      const result = await getStudentsForExamAssignment(examId)
 
-      if (studentsError) throw studentsError
-      if (scoresError) throw scoresError
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '학생 목록을 불러오지 못했습니다.')
+      }
 
-      const assignedIds = new Set(assignedScores?.map(s => s.student_id) || [])
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const studentList: Student[] = (allStudents || []).map((s: any) => ({
-        id: s.id,
-        student_code: s.student_code,
-        name: s.users?.name || '이름 없음',
-        grade: s.grade,
-        isAssigned: assignedIds.has(s.id),
-      }))
-
-      setStudents(studentList)
-
-      // Pre-select assigned students
-      setSelectedIds(Array.from(assignedIds))
+      setStudents(result.data.students)
+      setSelectedIds(result.data.assignedIds)
     } catch (error) {
       console.error('Error loading students:', error)
       toast({
         title: '로드 오류',
-        description: '학생 목록을 불러오는 중 오류가 발생했습니다.',
+        description: error instanceof Error ? error.message : '학생 목록을 불러오는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
     } finally {
       setLoading(false)
     }
-  }, [currentUser, examId, supabase, toast])
+  }, [examId, toast])
 
   useEffect(() => {
     if (open) {
@@ -198,20 +172,14 @@ export function AssignStudentsDialog({
       return
     }
 
-    if (!currentUser || !currentUser.tenantId) return
-
     try {
-      // Get students enrolled in the class
-      const { data: enrollments, error } = await supabase
-        .from('class_enrollments')
-        .select('student_id')
-        .eq('tenant_id', currentUser.tenantId)
-        .eq('class_id', classId)
-        .eq('status', 'active')
+      const result = await getEnrolledStudentIdsForClass(classId)
 
-      if (error) throw error
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '수업 학생을 불러오지 못했습니다.')
+      }
 
-      const classStudentIds = enrollments?.map(e => e.student_id) || []
+      const classStudentIds = result.data
 
       // Add to selected and calculate how many were newly added
       const newSet = new Set([...selectedIds, ...classStudentIds])
@@ -228,22 +196,13 @@ export function AssignStudentsDialog({
       console.error('Error loading class students:', error)
       toast({
         title: '오류',
-        description: '수업 학생을 불러오는 중 오류가 발생했습니다.',
+        description: error instanceof Error ? error.message : '수업 학생을 불러오는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
     }
   }
 
   async function handleSave() {
-    if (!currentUser?.tenantId) {
-      toast({
-        title: '인증 오류',
-        description: '로그인 정보를 확인할 수 없습니다.',
-        variant: 'destructive',
-      })
-      return
-    }
-
     try {
       setSaving(true)
 
@@ -256,33 +215,10 @@ export function AssignStudentsDialog({
       // Students to remove (currently assigned but not selected)
       const toRemove = currentlyAssignedIds.filter(id => !selectedSet.has(id))
 
-      // Add new students
-      if (toAdd.length > 0) {
-        const { error: insertError } = await supabase
-          .from('exam_scores')
-          .insert(
-            toAdd.map(studentId => ({
-              tenant_id: currentUser.tenantId,
-              exam_id: examId,
-              student_id: studentId,
-              percentage: null,
-              feedback: null,
-            }))
-          )
+      const result = await assignStudentsToExam(examId, toAdd, toRemove)
 
-        if (insertError) throw insertError
-      }
-
-      // Remove students
-      if (toRemove.length > 0) {
-        const { error: deleteError } = await supabase
-          .from('exam_scores')
-          .delete()
-          .eq('tenant_id', currentUser.tenantId)
-          .eq('exam_id', examId)
-          .in('student_id', toRemove)
-
-        if (deleteError) throw deleteError
+      if (!result.success) {
+        throw new Error(result.error || '학생을 배정하는 중 오류가 발생했습니다.')
       }
 
       toast({
@@ -296,7 +232,7 @@ export function AssignStudentsDialog({
       console.error('Error assigning students:', error)
       toast({
         title: '배정 오류',
-        description: '학생을 배정하는 중 오류가 발생했습니다.',
+        description: error instanceof Error ? error.message : '학생을 배정하는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
       // Error case: keep dialog open so user can retry
