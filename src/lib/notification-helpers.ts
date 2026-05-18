@@ -15,8 +15,16 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 export type NotificationType =
   | 'attendance_alert'
   | 'consultation_scheduled'
+  | 'consultation_summary_added'
   | 'todo_verified'
   | 'new_message'
+  | 'kiosk_check_in'
+  | 'kiosk_check_out'
+  | 'homework_assigned'
+  | 'retest_created'
+  | 'exam_grading_completed'
+  | 'student_enrolled'
+  | 'student_withdrawn'
 
 interface CreateNotificationParams {
   /** service-role Supabase client (caller provides it) */

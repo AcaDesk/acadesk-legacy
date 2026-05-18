@@ -179,13 +179,23 @@ export function NotificationPopover() {
   const getNotificationStyle = (type: string) => {
     switch (type) {
       case 'todo_verified':
+      case 'student_enrolled':
+      case 'exam_grading_completed':
         return 'bg-green-100 text-green-600'
       case 'attendance_alert':
+      case 'retest_created':
         return 'bg-warning/10 text-warning'
       case 'new_message':
+      case 'kiosk_check_in':
+      case 'kiosk_check_out':
         return 'bg-info/10 text-info'
       case 'consultation_scheduled':
+      case 'consultation_summary_added':
         return 'bg-purple-100 text-purple-600'
+      case 'homework_assigned':
+        return 'bg-indigo-100 text-indigo-600'
+      case 'student_withdrawn':
+        return 'bg-gray-200 text-gray-700'
       default:
         return 'bg-gray-100 text-gray-600'
     }
