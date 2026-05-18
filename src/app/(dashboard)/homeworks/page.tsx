@@ -5,7 +5,6 @@ import { BookCopy } from 'lucide-react'
 import { PageErrorBoundary } from '@/components/layout/page-error-boundary'
 import { getHomeworksWithSubmissions } from '@/app/actions/homeworks'
 import { HomeworksClient } from './homeworks-client'
-import { createClient } from '@/lib/supabase/server'
 import { PAGE_ANIMATIONS } from '@/lib/animation-config'
 
 // Force dynamic rendering
@@ -29,22 +28,7 @@ export default async function HomeworksPage() {
     )
   }
 
-  // Fetch student info for each homework
-  const supabase = await createClient()
-  const homeworksWithStudents = await Promise.all(
-    (result.data || []).map(async (homework) => {
-      const { data: student } = await supabase
-        .from('students')
-        .select('student_code, user_id!inner(name)')
-        .eq('id', homework.student_id)
-        .single()
-
-      return {
-        ...homework,
-        students: student || null,
-      }
-    })
-  )
+  const homeworksWithStudents = result.data || []
 
   return (
     <PageErrorBoundary pageName="숙제 관리">

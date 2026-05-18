@@ -668,3 +668,224 @@ export async function uncompleteTodo(todoId: string) {
     }
   }
 }
+
+// ============================================================================
+// Todo Stats (used by /todos/stats page)
+// ============================================================================
+
+export type TodoStatsPeriod = 'week' | 'month' | 'all'
+
+export interface TodoOverallStats {
+  totalTodos: number
+  completedTodos: number
+  verifiedTodos: number
+  pendingVerification: number
+  averageCompletionTime: number
+  completionRate: number
+}
+
+export interface TodoStudentStats {
+  studentId: string
+  studentName: string
+  studentCode: string
+  totalTodos: number
+  completedTodos: number
+  verifiedTodos: number
+  completionRate: number
+}
+
+export interface TodoSubjectStats {
+  subject: string
+  totalTodos: number
+  completedTodos: number
+  completionRate: number
+}
+
+function periodToDateFilter(period: TodoStatsPeriod): string | null {
+  const today = new Date()
+  if (period === 'week') {
+    const d = new Date(today)
+    d.setDate(d.getDate() - 7)
+    return d.toISOString()
+  }
+  if (period === 'month') {
+    const d = new Date(today)
+    d.setMonth(d.getMonth() - 1)
+    return d.toISOString()
+  }
+  return null
+}
+
+/**
+ * /todos/stats 페이지가 필요로 하는 통계 3종을 한 번에 반환
+ *
+ * RLS 활성화 이후 page.tsx (cookie client) + todo-stats-content.tsx (browser client)
+ * 양쪽의 student_todos 쿼리가 모두 차단되던 버그를 해결합니다.
+ */
+export async function getTodoStats(period: TodoStatsPeriod = 'week'): Promise<{
+  success: boolean
+  data: {
+    overallStats: TodoOverallStats
+    studentStats: TodoStudentStats[]
+    subjectStats: TodoSubjectStats[]
+  }
+  error: string | null
+}> {
+  const fallback = {
+    overallStats: {
+      totalTodos: 0,
+      completedTodos: 0,
+      verifiedTodos: 0,
+      pendingVerification: 0,
+      averageCompletionTime: 0,
+      completionRate: 0,
+    },
+    studentStats: [],
+    subjectStats: [],
+  }
+
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+    const dateFilter = periodToDateFilter(period)
+
+    // Overall
+    let overallQuery = supabase
+      .from('student_todos')
+      .select('id, completed_at, verified_at, created_at')
+      .eq('tenant_id', tenantId)
+    if (dateFilter) overallQuery = overallQuery.gte('created_at', dateFilter)
+
+    // Student (joined)
+    let studentQuery = supabase
+      .from('student_todos')
+      .select(`
+        id,
+        completed_at,
+        verified_at,
+        student_id,
+        students!inner (
+          student_code,
+          user_id ( name )
+        )
+      `)
+      .eq('tenant_id', tenantId)
+    if (dateFilter) studentQuery = studentQuery.gte('created_at', dateFilter)
+
+    // Subject
+    let subjectQuery = supabase
+      .from('student_todos')
+      .select('id, subject, completed_at')
+      .eq('tenant_id', tenantId)
+      .not('subject', 'is', null)
+    if (dateFilter) subjectQuery = subjectQuery.gte('created_at', dateFilter)
+
+    const [
+      { data: overallData, error: overallError },
+      { data: studentData, error: studentError },
+      { data: subjectData, error: subjectError },
+    ] = await Promise.all([overallQuery, studentQuery, subjectQuery])
+
+    if (overallError) throw overallError
+    if (studentError) throw studentError
+    if (subjectError) throw subjectError
+
+    // Overall aggregation
+    const totalTodos = overallData?.length || 0
+    const completedTodos = overallData?.filter((t) => t.completed_at).length || 0
+    const verifiedTodos = overallData?.filter((t) => t.verified_at).length || 0
+    const pendingVerification =
+      overallData?.filter((t) => t.completed_at && !t.verified_at).length || 0
+
+    const completedWithTimes = overallData?.filter((t) => t.completed_at && t.created_at) || []
+    const totalCompletionTime = completedWithTimes.reduce((sum, todo) => {
+      const created = new Date(todo.created_at).getTime()
+      const completed = new Date(todo.completed_at!).getTime()
+      return sum + (completed - created)
+    }, 0)
+    const averageCompletionTime =
+      completedWithTimes.length > 0
+        ? totalCompletionTime / completedWithTimes.length / (1000 * 60 * 60)
+        : 0
+    const completionRate = totalTodos > 0 ? (completedTodos / totalTodos) * 100 : 0
+
+    const overallStats: TodoOverallStats = {
+      totalTodos,
+      completedTodos,
+      verifiedTodos,
+      pendingVerification,
+      averageCompletionTime,
+      completionRate,
+    }
+
+    // Student aggregation
+    interface StudentTodoRow {
+      student_id: string
+      students: {
+        student_code: string
+        user_id: { name: string } | null
+      } | null
+      completed_at: string | null
+      verified_at: string | null
+    }
+
+    const studentMap = new Map<string, TodoStudentStats>()
+    const studentRows = (studentData || []) as unknown as StudentTodoRow[]
+    for (const todo of studentRows) {
+      const sid = todo.student_id
+      const rel = todo.students
+      if (!studentMap.has(sid)) {
+        studentMap.set(sid, {
+          studentId: sid,
+          studentName: rel?.user_id?.name || '이름 없음',
+          studentCode: rel?.student_code || '',
+          totalTodos: 0,
+          completedTodos: 0,
+          verifiedTodos: 0,
+          completionRate: 0,
+        })
+      }
+      const stats = studentMap.get(sid)!
+      stats.totalTodos++
+      if (todo.completed_at) stats.completedTodos++
+      if (todo.verified_at) stats.verifiedTodos++
+    }
+    const studentStats: TodoStudentStats[] = Array.from(studentMap.values())
+      .map((s) => ({
+        ...s,
+        completionRate: s.totalTodos > 0 ? (s.completedTodos / s.totalTodos) * 100 : 0,
+      }))
+      .sort((a, b) => b.completionRate - a.completionRate)
+
+    // Subject aggregation
+    const subjectMap = new Map<string, TodoSubjectStats>()
+    for (const todo of subjectData || []) {
+      const subject = todo.subject!
+      if (!subjectMap.has(subject)) {
+        subjectMap.set(subject, { subject, totalTodos: 0, completedTodos: 0, completionRate: 0 })
+      }
+      const stats = subjectMap.get(subject)!
+      stats.totalTodos++
+      if (todo.completed_at) stats.completedTodos++
+    }
+    const subjectStats: TodoSubjectStats[] = Array.from(subjectMap.values())
+      .map((s) => ({
+        ...s,
+        completionRate: s.totalTodos > 0 ? (s.completedTodos / s.totalTodos) * 100 : 0,
+      }))
+      .sort((a, b) => b.totalTodos - a.totalTodos)
+
+    return {
+      success: true,
+      data: { overallStats, studentStats, subjectStats },
+      error: null,
+    }
+  } catch (error) {
+    console.error('[getTodoStats] Error:', error)
+    return {
+      success: false,
+      data: fallback,
+      error: getErrorMessage(error),
+    }
+  }
+}

@@ -10,7 +10,7 @@ import {
   GraduationCap,
   CalendarDays,
 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/server'
+import { getRecentStudents } from '@/app/actions/dashboard'
 import { WidgetErrorBoundary } from '@/components/features/dashboard/widget-error-boundary'
 import { WidgetSkeleton } from '@ui/widget-skeleton'
 import { getGuardianDisplayName } from '@/lib/constants'
@@ -61,38 +61,12 @@ function formatDate(dateString: string) {
 }
 
 async function RecentStudentsCardContent({ maxDisplay = 5 }: { maxDisplay?: number }) {
-  const supabase = await createClient()
-
-  const { data: rawStudents, error } = await supabase
-    .from('students')
-    .select(`
-      id,
-      enrollment_date,
-      users (
-        name
-      ),
-      ref_grade_levels (
-        grade_level_name
-      ),
-      student_guardians (
-        guardians (
-          relationship,
-          users (
-            name
-          )
-        )
-      )
-    `)
-    .order('enrollment_date', { ascending: false })
-    .limit(maxDisplay)
-
-  if (error) {
-    console.error('Failed to fetch recent students:', error)
-    throw new Error('최근 등록 학생 데이터를 불러오는데 실패했습니다')
+  const result = await getRecentStudents(maxDisplay)
+  if (!result.success) {
+    throw new Error(result.error || '최근 등록 학생 데이터를 불러오는데 실패했습니다')
   }
 
-  // Type cast to match our Student interface
-  const students = rawStudents as unknown as Student[]
+  const students = result.data as unknown as Student[]
 
   if (!students || students.length === 0) {
     return (

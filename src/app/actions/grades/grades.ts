@@ -311,6 +311,165 @@ export async function bulkUpsertExamScores(
  * @param examScoreId - 성적 ID
  * @returns 성공 여부
  */
+/**
+ * 성적 조회 페이지(`/grades/list`)에서 필요한 데이터를 한 번에 반환
+ * - students: 필터 드롭다운용 학생 목록
+ * - scores: 테넌트 전체 성적 (client-side 정렬/페이지네이션 사용)
+ *
+ * RLS 활성화 후 client supabase 직접 쿼리가 빈 결과를 내던 버그를 해결합니다.
+ */
+export interface GradesListStudent {
+  id: string
+  student_code: string
+  users: { name: string } | null
+}
+
+export interface GradesListScore {
+  id: string
+  score: number | null
+  total_points: number | null
+  percentage: number | null
+  feedback: string | null
+  status: 'pending' | 'completed' | 'retest_required' | 'retest_waived' | null
+  is_retest: boolean
+  retest_count: number
+  created_at: string
+  exams: {
+    name: string
+    exam_date: string
+    category_code: string | null
+  } | null
+  students: {
+    id: string
+    student_code: string
+    users: { name: string } | null
+  } | null
+}
+
+export async function getGradesListData(): Promise<{
+  success: boolean
+  data: { students: GradesListStudent[]; scores: GradesListScore[] }
+  error: string | null
+}> {
+  const fallback = { students: [], scores: [] }
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    const [
+      { data: studentsData, error: studentsError },
+      { data: scoresData, error: scoresError },
+    ] = await Promise.all([
+      supabase
+        .from('students')
+        .select('id, student_code, users!user_id(name)')
+        .eq('tenant_id', tenantId)
+        .is('deleted_at', null)
+        .order('student_code'),
+      supabase
+        .from('exam_scores')
+        .select(`
+          id,
+          score,
+          total_points,
+          percentage,
+          feedback,
+          status,
+          is_retest,
+          retest_count,
+          created_at,
+          exams!exam_id (
+            name,
+            exam_date,
+            category_code
+          ),
+          students!student_id (
+            id,
+            student_code,
+            users!user_id ( name )
+          )
+        `)
+        .eq('tenant_id', tenantId)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false }),
+    ])
+
+    if (studentsError) throw studentsError
+    if (scoresError) throw scoresError
+
+    return {
+      success: true,
+      data: {
+        students: (studentsData || []) as unknown as GradesListStudent[],
+        scores: (scoresData || []) as unknown as GradesListScore[],
+      },
+      error: null,
+    }
+  } catch (error) {
+    console.error('[getGradesListData] Error:', error)
+    return {
+      success: false,
+      data: fallback,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * 특정 학생의 성적 통계 (평균, 총 시험 횟수, 재시험 횟수)
+ */
+export async function getStudentScoreStats(studentId: string): Promise<{
+  success: boolean
+  data: { average: number; total: number; retests: number }
+  error: string | null
+}> {
+  const fallback = { average: 0, total: 0, retests: 0 }
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    const { data, error } = await supabase
+      .from('exam_scores')
+      .select('percentage, score, total_points, is_retest')
+      .eq('tenant_id', tenantId)
+      .eq('student_id', studentId)
+      .is('deleted_at', null)
+
+    if (error) throw error
+    if (!data || data.length === 0) {
+      return { success: true, data: fallback, error: null }
+    }
+
+    const nonRetestScores = data.filter((s) => !s.is_retest)
+    const processedScores = nonRetestScores.map((score) =>
+      score.percentage ||
+      (score.total_points && score.total_points > 0 && score.score !== null
+        ? Math.round((score.score / score.total_points) * 10000) / 100
+        : 0)
+    )
+
+    const average =
+      processedScores.length > 0
+        ? Math.round(
+            (processedScores.reduce((acc, p) => acc + p, 0) / processedScores.length) * 100
+          ) / 100
+        : 0
+
+    return {
+      success: true,
+      data: {
+        average,
+        total: nonRetestScores.length,
+        retests: data.filter((s) => s.is_retest).length,
+      },
+      error: null,
+    }
+  } catch (error) {
+    console.error('[getStudentScoreStats] Error:', error)
+    return { success: false, data: fallback, error: getErrorMessage(error) }
+  }
+}
+
 export async function deleteExamScore(examScoreId: string) {
   try {
     // 1. 권한 검증 (staff)

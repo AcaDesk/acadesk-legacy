@@ -4,6 +4,7 @@ import { WidgetSkeleton } from '@ui/widget-skeleton'
 import { WidgetErrorBoundary } from '@/components/features/dashboard/widget-error-boundary'
 import { Users, TrendingUp, Clock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { getQuickStudentStats } from '@/app/actions/dashboard'
 
 /**
  * 예제: 비동기 데이터를 가져오는 Server Component 위젯
@@ -23,16 +24,11 @@ async function StudentStatsWidget() {
   // 데이터 fetching을 시뮬레이션하기 위한 지연
   await new Promise((resolve) => setTimeout(resolve, 1000))
 
-  const supabase = await createClient()
-  const { count, error } = await supabase
-    .from('students')
-    .select('*', { count: 'exact', head: true })
-
-  if (error) {
-    throw new Error('학생 데이터를 불러오는데 실패했습니다')
+  const result = await getQuickStudentStats()
+  if (!result.success) {
+    throw new Error(result.error || '학생 데이터를 불러오는데 실패했습니다')
   }
-
-  const totalStudents = count ?? 0
+  const totalStudents = result.data.totalStudents
 
   return (
     <Card>

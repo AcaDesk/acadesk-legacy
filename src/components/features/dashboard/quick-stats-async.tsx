@@ -2,7 +2,7 @@ import { Suspense } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Badge } from '@ui/badge'
 import { Users, TrendingUp, TrendingDown, Sparkles } from 'lucide-react'
-import { createClient } from '@/lib/supabase/server'
+import { getQuickStudentStats } from '@/app/actions/dashboard'
 import { WidgetErrorBoundary } from '@/components/features/dashboard/widget-error-boundary'
 import { WidgetSkeleton } from '@ui/widget-skeleton'
 
@@ -20,43 +20,21 @@ interface QuickStatsData {
 }
 
 async function QuickStatsContent() {
-  const supabase = await createClient()
-
-  // Get date ranges
-  const now = new Date()
-  const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-  // Fetch total students
-  const { count: totalStudents, error: totalError } = await supabase
-    .from('students')
-    .select('*', { count: 'exact', head: true })
-    .is('deleted_at', null)
-
-  if (totalError) {
-    console.error('Failed to fetch total students:', totalError)
-    throw new Error('학생 통계를 불러오는데 실패했습니다')
+  const result = await getQuickStudentStats()
+  if (!result.success) {
+    throw new Error(result.error || '학생 통계를 불러오는데 실패했습니다')
   }
 
-  // Fetch new students (enrolled in the last week)
-  const { count: newStudents, error: newError } = await supabase
-    .from('students')
-    .select('*', { count: 'exact', head: true })
-    .gte('enrollment_date', oneWeekAgo.toISOString())
-    .is('deleted_at', null)
-
-  if (newError) {
-    console.error('Failed to fetch new students:', newError)
-  }
-
-  // For demo purposes, calculate excellent and needs attention students
-  // In a real scenario, this would be based on actual performance metrics
-  const excellentStudents = Math.floor((totalStudents || 0) * 0.15) // 15% are excellent
-  const needsAttention = Math.floor((totalStudents || 0) * 0.08) // 8% need attention
+  const { totalStudents, newStudents } = result.data
+  // 우수/주의 학생은 데모용 추정치 (실 지표 연동 전까지 유지)
+  const excellentStudents = Math.floor(totalStudents * 0.15)
+  const needsAttention = Math.floor(totalStudents * 0.08)
 
   const data: QuickStatsData = {
-    newStudents: newStudents || 0,
+    newStudents,
     excellentStudents,
     needsAttention,
-    totalStudents: totalStudents || 0,
+    totalStudents,
   }
 
   return (

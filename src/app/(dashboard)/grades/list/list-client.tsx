@@ -2,7 +2,12 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import {
+  getGradesListData,
+  getStudentScoreStats,
+  type GradesListStudent,
+  type GradesListScore,
+} from '@/app/actions/grades/grades'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
 import { Badge } from '@ui/badge'
@@ -24,7 +29,6 @@ import {
   IconChevronsRight,
 } from '@tabler/icons-react'
 import { useToast } from '@/hooks/use-toast'
-import { useCurrentUser } from '@/hooks/use-current-user'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/page-error-boundary'
 import dynamic from 'next/dynamic'
@@ -50,37 +54,8 @@ import {
   useReactTable,
 } from '@tanstack/react-table'
 
-interface ExamScore {
-  id: string
-  score: number | null
-  total_points: number | null
-  percentage: number | null
-  feedback: string | null
-  status: 'pending' | 'completed' | 'retest_required' | 'retest_waived' | null
-  is_retest: boolean
-  retest_count: number
-  created_at: string
-  exams: {
-    name: string
-    exam_date: string
-    category_code: string
-  } | null
-  students: {
-    id: string
-    student_code: string
-    users: {
-      name: string
-    } | null
-  } | null
-}
-
-interface Student {
-  id: string
-  student_code: string
-  users: {
-    name: string
-  } | null
-}
+type ExamScore = GradesListScore
+type Student = GradesListStudent
 
 export function GradesListClient() {
   // All Hooks must be called before any early returns
@@ -98,85 +73,32 @@ export function GradesListClient() {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
 
   const { toast } = useToast()
-  const { user: currentUser, loading: userLoading } = useCurrentUser()
   const router = useRouter()
-  const supabase = createClient()
 
-  const loadStudents = useCallback(async () => {
-    if (!currentUser || !currentUser.tenantId) return
-
-    try {
-      const { data: studentsData, error: studentsError } = await supabase
-        .from('students')
-        .select('id, student_code, users!user_id(name)')
-        .eq('tenant_id', currentUser.tenantId)
-        .is('deleted_at', null)
-        .order('student_code')
-
-      if (studentsError) throw studentsError
-      setStudents(studentsData as unknown as Student[])
-    } catch (error) {
-      console.error('Error loading students:', error)
-    }
-  }, [currentUser, supabase])
-
-  const loadScores = useCallback(async () => {
-    if (!currentUser || !currentUser.tenantId) return
-
+  const loadData = useCallback(async () => {
     try {
       setLoading(true)
-
-      const { data: scoresData, error: scoresError } = await supabase
-        .from('exam_scores')
-        .select(`
-          id,
-          score,
-          total_points,
-          percentage,
-          feedback,
-          status,
-          is_retest,
-          retest_count,
-          created_at,
-          exams!exam_id (
-            name,
-            exam_date,
-            category_code
-          ),
-          students!student_id (
-            id,
-            student_code,
-            users!user_id (
-              name
-            )
-          )
-        `)
-        .eq('tenant_id', currentUser.tenantId)
-        .is('deleted_at', null)
-        .order('created_at', { ascending: false })
-
-      if (scoresError) throw scoresError
-
-      setScores(scoresData as unknown as ExamScore[])
+      const result = await getGradesListData()
+      if (!result.success) {
+        throw new Error(result.error || '데이터를 불러오지 못했습니다.')
+      }
+      setStudents(result.data.students)
+      setScores(result.data.scores)
     } catch (error) {
-      console.error('Error loading scores:', error)
+      console.error('Error loading grades list:', error)
       toast({
         title: '데이터 로드 오류',
-        description: '성적 정보를 불러오는 중 오류가 발생했습니다.',
+        description: error instanceof Error ? error.message : '성적 정보를 불러오는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
     } finally {
       setLoading(false)
     }
-  }, [currentUser, supabase, toast])
+  }, [toast])
 
-  // useEffect must be called before any early returns
   useEffect(() => {
-    if (!userLoading && currentUser) {
-      loadStudents()
-      loadScores()
-    }
-  }, [currentUser, userLoading, loadStudents, loadScores])
+    loadData()
+  }, [loadData])
 
   function getScoreBadgeVariant(percentage: number) {
     if (percentage >= 90) return 'default'
@@ -201,43 +123,18 @@ export function GradesListClient() {
   }
 
   const loadStudentStats = useCallback(async () => {
-    if (!currentUser || !currentUser.tenantId) return
-
     try {
-      const { data, error } = await supabase
-        .from('exam_scores')
-        .select('percentage, score, total_points, is_retest')
-        .eq('tenant_id', currentUser.tenantId)
-        .eq('student_id', selectedStudent)
-
-      if (error) throw error
-      if (!data || data.length === 0) {
+      const result = await getStudentScoreStats(selectedStudent)
+      if (!result.success) {
         setStudentStats({ average: 0, total: 0, retests: 0 })
         return
       }
-
-      const nonRetestScores = data.filter(s => !s.is_retest)
-      const processedScores = nonRetestScores.map((score) =>
-        score.percentage ||
-        (score.total_points && score.total_points > 0 && score.score !== null
-          ? Math.round((score.score / score.total_points) * 10000) / 100
-          : 0)
-      )
-
-      const average = processedScores.length > 0
-        ? Math.round((processedScores.reduce((acc, p) => acc + p, 0) / processedScores.length) * 100) / 100
-        : 0
-
-      setStudentStats({
-        average,
-        total: nonRetestScores.length,
-        retests: data.filter(s => s.is_retest).length
-      })
+      setStudentStats(result.data)
     } catch (error) {
       console.error('Error loading student stats:', error)
       setStudentStats({ average: 0, total: 0, retests: 0 })
     }
-  }, [currentUser, selectedStudent, supabase])
+  }, [selectedStudent])
 
   // Load student statistics when a student is selected
   useEffect(() => {
@@ -427,7 +324,7 @@ export function GradesListClient() {
     return <Maintenance featureName="성적 조회" reason="성적 시스템 업데이트가 진행 중입니다." />;
   }
 
-  if (loading || userLoading) {
+  if (loading) {
     return (
       <PageWrapper>
         <div className="flex items-center justify-center h-64">

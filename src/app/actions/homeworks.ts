@@ -45,7 +45,10 @@ const gradeHomeworkSchema = z.object({
 // ============================================================================
 
 /**
- * Get all homeworks with submission status
+ * Get all homeworks with submission status + student info (single query)
+ *
+ * RLS 활성화 후 page.tsx 의 cookie-client 쿼리가 깨졌던 N+1 학생 fetch 를
+ * service_role JOIN 한 번으로 대체합니다.
  */
 export async function getHomeworksWithSubmissions() {
   try {
@@ -54,7 +57,13 @@ export async function getHomeworksWithSubmissions() {
 
     const { data, error } = await supabase
       .from('homeworks')
-      .select('*')
+      .select(`
+        *,
+        students:student_id (
+          student_code,
+          user_id ( name )
+        )
+      `)
       .eq('tenant_id', tenantId)
       .order('due_date', { ascending: false })
 

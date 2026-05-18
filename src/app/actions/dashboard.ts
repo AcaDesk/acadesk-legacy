@@ -563,3 +563,137 @@ async function fetchStats(supabase: ReturnType<typeof createServiceRoleClient>, 
     conversionRate,
   }
 }
+
+// ============================================================================
+// Widget Server Actions (dashboard async widgets)
+// ============================================================================
+
+export interface QuickStudentStats {
+  totalStudents: number
+  newStudents: number
+}
+
+/**
+ * 대시보드 빠른 통계 위젯용 학생 카운트
+ * Replaces the cookie-client query in `quick-stats-async.tsx` (broken by RLS migration).
+ */
+export async function getQuickStudentStats(): Promise<{
+  success: boolean
+  data: QuickStudentStats
+  error: string | null
+}> {
+  const fallback: QuickStudentStats = { totalStudents: 0, newStudents: 0 }
+  try {
+    const auth = await verifyStaffPermission()
+    if (!auth.success || !auth.data) {
+      return { success: false, data: fallback, error: auth.error || '권한이 없습니다' }
+    }
+
+    const serviceClient = createServiceRoleClient()
+    const tenantId = auth.data.tenant_id
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+
+    const [{ count: totalStudents }, { count: newStudents }] = await Promise.all([
+      serviceClient
+        .from('students')
+        .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
+        .is('deleted_at', null),
+      serviceClient
+        .from('students')
+        .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
+        .gte('enrollment_date', oneWeekAgo)
+        .is('deleted_at', null),
+    ])
+
+    return {
+      success: true,
+      data: {
+        totalStudents: totalStudents ?? 0,
+        newStudents: newStudents ?? 0,
+      },
+      error: null,
+    }
+  } catch (error) {
+    console.error('[getQuickStudentStats] Error:', error)
+    return {
+      success: false,
+      data: fallback,
+      error: error instanceof Error ? error.message : '통계 조회 실패',
+    }
+  }
+}
+
+export interface RecentStudent {
+  id: string
+  enrollment_date: string
+  users: { name: string } | null
+  ref_grade_levels: { grade_level_name: string } | null
+  student_guardians: Array<{
+    guardians: {
+      relationship: string | null
+      users: { name: string } | null
+    } | null
+  }>
+}
+
+/**
+ * 최근 등록 학생 목록 (대시보드 위젯)
+ * Replaces the cookie-client query in `recent-students-card-async.tsx`.
+ */
+export async function getRecentStudents(limit = 5): Promise<{
+  success: boolean
+  data: RecentStudent[]
+  error: string | null
+}> {
+  try {
+    const auth = await verifyStaffPermission()
+    if (!auth.success || !auth.data) {
+      return { success: false, data: [], error: auth.error || '권한이 없습니다' }
+    }
+
+    const serviceClient = createServiceRoleClient()
+    const tenantId = auth.data.tenant_id
+
+    const { data, error } = await serviceClient
+      .from('students')
+      .select(`
+        id,
+        enrollment_date,
+        users (
+          name
+        ),
+        ref_grade_levels (
+          grade_level_name
+        ),
+        student_guardians (
+          guardians (
+            relationship,
+            users (
+              name
+            )
+          )
+        )
+      `)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .order('enrollment_date', { ascending: false })
+      .limit(limit)
+
+    if (error) throw error
+
+    return {
+      success: true,
+      data: (data || []) as unknown as RecentStudent[],
+      error: null,
+    }
+  } catch (error) {
+    console.error('[getRecentStudents] Error:', error)
+    return {
+      success: false,
+      data: [],
+      error: error instanceof Error ? error.message : '최근 학생 조회 실패',
+    }
+  }
+}
