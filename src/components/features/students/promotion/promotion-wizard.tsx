@@ -1,12 +1,12 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useState, useCallback } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
+import { useState, useCallback, useEffect } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
 import { Alert, AlertDescription } from '@ui/alert'
 import { Badge } from '@ui/badge'
-import { Loader2, Search, ArrowRight, ArrowLeft, CheckCircle, Sparkles } from 'lucide-react'
+import { Loader2, ArrowRight, ArrowLeft, CheckCircle, RefreshCw, Inbox } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import { getPromotionCandidates, executePromotion } from '@/app/actions/students/promotion'
@@ -33,18 +33,22 @@ const PromotionReview = dynamic(
   { loading: () => <div className="h-72 animate-pulse rounded-lg bg-muted" /> }
 )
 
-type Step = 'scan' | 'configure' | 'review' | 'complete'
+type Step = 'loading' | 'empty' | 'configure' | 'review' | 'complete'
 
-const STEPS: { key: Step; label: string }[] = [
-  { key: 'scan', label: '스캔' },
+const VISIBLE_STEPS: { key: Extract<Step, 'configure' | 'review' | 'complete'>; label: string }[] = [
   { key: 'configure', label: '학교 배정' },
   { key: 'review', label: '검토' },
   { key: 'complete', label: '완료' },
 ]
 
-export function PromotionWizard() {
+interface PromotionWizardProps {
+  onClose?: () => void
+  onCompleted?: () => void
+}
+
+export function PromotionWizard({ onClose, onCompleted }: PromotionWizardProps) {
   const { toast } = useToast()
-  const [step, setStep] = useState<Step>('scan')
+  const [step, setStep] = useState<Step>('loading')
   const [plans, setPlans] = useState<PromotionPlan[]>([])
   const [schools, setSchools] = useState<string[]>([])
   const [isScanning, setIsScanning] = useState(false)
@@ -52,9 +56,10 @@ export function PromotionWizard() {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [result, setResult] = useState<{ successCount: number; failCount: number } | null>(null)
 
-  // 스캔
   const handleScan = useCallback(async () => {
     setIsScanning(true)
+    setStep('loading')
+    setResult(null)
     try {
       const [candidateResult, filterResult] = await Promise.all([
         getPromotionCandidates(),
@@ -63,18 +68,22 @@ export function PromotionWizard() {
 
       if (!candidateResult.success || !candidateResult.data) {
         toast({ title: '스캔 실패', description: candidateResult.error || '학생 조회 실패', variant: 'destructive' })
+        setStep('empty')
         return
       }
 
       const builtPlans = buildPromotionPlans(candidateResult.data)
       setPlans(builtPlans)
 
-      // 학교 목록 추출
       if (filterResult.success && filterResult.data) {
         setSchools(filterResult.data.schools || [])
       }
 
-      // 학교 전환 학생이 없으면 configure 스킵
+      if (builtPlans.length === 0) {
+        setStep('empty')
+        return
+      }
+
       const groups = groupByCategory(builtPlans)
       if (groups.school_transfer.length === 0) {
         setStep('review')
@@ -83,33 +92,35 @@ export function PromotionWizard() {
       }
     } catch {
       toast({ title: '오류 발생', description: '진급 스캔 중 오류가 발생했습니다.', variant: 'destructive' })
+      setStep('empty')
     } finally {
       setIsScanning(false)
     }
   }, [toast])
 
-  // 학교 배정 (학생 개별)
+  // 마운트 시 자동 스캔
+  useEffect(() => {
+    handleScan()
+  }, [handleScan])
+
   const handleSchoolAssign = useCallback((studentId: string, newSchool: string) => {
     setPlans((prev) =>
       prev.map((p) => (p.studentId === studentId ? { ...p, nextSchool: newSchool } : p))
     )
   }, [])
 
-  // 개별 토글
   const handleToggle = useCallback((studentId: string) => {
     setPlans((prev) =>
       prev.map((p) => (p.studentId === studentId ? { ...p, selected: !p.selected } : p))
     )
   }, [])
 
-  // 카테고리별 전체 토글
   const handleToggleAll = useCallback((category: PromotionCategory, selected: boolean) => {
     setPlans((prev) =>
       prev.map((p) => (p.category === category ? { ...p, selected } : p))
     )
   }, [])
 
-  // 실행
   const handleExecute = useCallback(async () => {
     setIsExecuting(true)
     try {
@@ -140,6 +151,7 @@ export function PromotionWizard() {
 
       setResult({ successCount: res.data.successCount, failCount: res.data.failCount })
       setStep('complete')
+      onCompleted?.()
 
       toast({
         title: '진급 처리 완료',
@@ -151,78 +163,74 @@ export function PromotionWizard() {
       setIsExecuting(false)
       setConfirmOpen(false)
     }
-  }, [plans, toast])
+  }, [plans, toast, onCompleted])
 
   const selectedCount = plans.filter((p) => p.selected && p.nextGrade !== null).length
   const hasUnassignedTransfers = plans.some(
     (p) => p.category === 'school_transfer' && p.selected && !p.nextSchool
   )
 
-  const currentStepIndex = STEPS.findIndex((s) => s.key === step)
+  const currentStepIndex = VISIBLE_STEPS.findIndex((s) => s.key === step)
+  const showStepIndicator = currentStepIndex >= 0
 
   return (
     <div className="space-y-6">
-      {/* Step Indicator */}
-      <div className="flex items-center gap-2">
-        {STEPS.map((s, idx) => (
-          <div key={s.key} className="flex items-center gap-2">
-            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-              idx === currentStepIndex
-                ? 'bg-primary text-primary-foreground'
-                : idx < currentStepIndex
-                  ? 'bg-primary/10 text-primary'
-                  : 'bg-muted text-muted-foreground'
-            }`}>
-              <span>{idx + 1}</span>
-              <span className="hidden sm:inline">{s.label}</span>
-            </div>
-            {idx < STEPS.length - 1 && (
-              <ArrowRight className="h-4 w-4 text-muted-foreground" />
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* Step: Scan */}
-      {step === 'scan' && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5" />
-              진급 스캔
-            </CardTitle>
-            <CardDescription>
-              등록된 학생의 현재 학년을 분석하여 진급 계획을 생성합니다.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={handleScan} disabled={isScanning} size="lg">
-              {isScanning ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  스캔 중...
-                </>
-              ) : (
-                <>
-                  <Search className="mr-2 h-4 w-4" />
-                  진급 스캔 시작
-                </>
+      {showStepIndicator && (
+        <div className="flex items-center gap-2">
+          {VISIBLE_STEPS.map((s, idx) => (
+            <div key={s.key} className="flex items-center gap-2">
+              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                idx === currentStepIndex
+                  ? 'bg-primary text-primary-foreground'
+                  : idx < currentStepIndex
+                    ? 'bg-primary/10 text-primary'
+                    : 'bg-muted text-muted-foreground'
+              }`}>
+                <span>{idx + 1}</span>
+                <span className="hidden sm:inline">{s.label}</span>
+              </div>
+              {idx < VISIBLE_STEPS.length - 1 && (
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
               )}
-            </Button>
-          </CardContent>
-        </Card>
+            </div>
+          ))}
+        </div>
       )}
 
-      {/* Step: Configure (School Assignment) */}
+      {step === 'loading' && (
+        <div className="flex flex-col items-center justify-center py-16 gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">학생을 분석하는 중입니다...</p>
+        </div>
+      )}
+
+      {step === 'empty' && (
+        <div className="flex flex-col items-center justify-center py-12 gap-4 text-center">
+          <Inbox className="h-12 w-12 text-muted-foreground" />
+          <div className="space-y-1">
+            <h3 className="text-lg font-semibold">진급 대상 학생이 없습니다</h3>
+            <p className="text-sm text-muted-foreground">
+              모든 학생이 이미 최고 학년이거나 진급할 대상이 없습니다.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={handleScan} disabled={isScanning}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              다시 스캔
+            </Button>
+            {onClose && (
+              <Button onClick={onClose}>닫기</Button>
+            )}
+          </div>
+        </div>
+      )}
+
       {step === 'configure' && (
         <>
           <PromotionScanResult plans={plans} />
           <Card>
             <CardHeader>
               <CardTitle>학교 배정</CardTitle>
-              <CardDescription>
-                초등학교 → 중학교, 중학교 → 고등학교로 전환되는 학생의 새 학교를 지정합니다.
-              </CardDescription>
             </CardHeader>
             <CardContent>
               <PromotionSchoolAssignment
@@ -233,8 +241,8 @@ export function PromotionWizard() {
             </CardContent>
           </Card>
           <div className="flex justify-between">
-            <Button variant="outline" onClick={() => setStep('scan')}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
+            <Button variant="outline" onClick={handleScan} disabled={isScanning}>
+              <RefreshCw className="mr-2 h-4 w-4" />
               다시 스캔
             </Button>
             <Button onClick={() => setStep('review')}>
@@ -245,7 +253,6 @@ export function PromotionWizard() {
         </>
       )}
 
-      {/* Step: Review */}
       {step === 'review' && (
         <>
           <PromotionScanResult plans={plans} />
@@ -255,13 +262,17 @@ export function PromotionWizard() {
             onToggleAll={handleToggleAll}
           />
           <div className="flex justify-between">
-            <Button variant="outline" onClick={() => {
-              const groups = groupByCategory(plans)
-              setStep(groups.school_transfer.length > 0 ? 'configure' : 'scan')
-            }}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              이전
-            </Button>
+            {groupByCategory(plans).school_transfer.length > 0 ? (
+              <Button variant="outline" onClick={() => setStep('configure')}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                이전
+              </Button>
+            ) : (
+              <Button variant="outline" onClick={handleScan} disabled={isScanning}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                다시 스캔
+              </Button>
+            )}
             <Button
               onClick={() => setConfirmOpen(true)}
               disabled={selectedCount === 0 || hasUnassignedTransfers}
@@ -282,7 +293,6 @@ export function PromotionWizard() {
         </>
       )}
 
-      {/* Step: Complete */}
       {step === 'complete' && result && (
         <Card>
           <CardHeader>
@@ -313,13 +323,15 @@ export function PromotionWizard() {
               </Alert>
             )}
 
-            <Button onClick={() => {
-              setStep('scan')
-              setPlans([])
-              setResult(null)
-            }}>
-              새로운 진급 처리
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleScan}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                새로운 진급 처리
+              </Button>
+              {onClose && (
+                <Button onClick={onClose}>닫기</Button>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}

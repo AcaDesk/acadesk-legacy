@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@ui/button'
 import { PageHeader } from '@ui/page-header'
 import { AddStudentWizard, type StudentInitialValues } from '@/components/features/students/add-student-wizard'
+import { PromotionDialog } from '@/components/features/students/promotion/promotion-dialog'
 import { RoleGuard } from '@/components/auth/role-guard'
 import { Badge } from '@ui/badge'
 import { isFeatureAvailable, isFeatureBeta } from '@/lib/features.config'
@@ -18,6 +19,7 @@ interface StudentsPageClientProps {
 export function StudentsPageClient({ children, initialValues }: StudentsPageClientProps) {
   const router = useRouter()
   const [addDialogOpen, setAddDialogOpen] = useState(false)
+  const [promotionDialogOpen, setPromotionDialogOpen] = useState(false)
   const [wizardInitialValues, setWizardInitialValues] = useState<StudentInitialValues | undefined>(initialValues)
 
   // Auto-open dialog if coming from consultation
@@ -45,7 +47,7 @@ export function StudentsPageClient({ children, initialValues }: StudentsPageClie
           <RoleGuard allowedRoles={['owner', 'instructor']}>
             <div className="flex gap-2">
               {isFeatureAvailable('studentPromotion') && (
-                <Button variant="outline" onClick={() => router.push('/students/promote')}>
+                <Button variant="outline" onClick={() => setPromotionDialogOpen(true)}>
                   <ArrowUpCircle className="mr-2 h-4 w-4" />
                   진급 관리
                   {isFeatureBeta('studentPromotion') && (
@@ -75,6 +77,14 @@ export function StudentsPageClient({ children, initialValues }: StudentsPageClie
         onSuccess={handleStudentAdded}
         initialValues={wizardInitialValues}
       />
+
+      {isFeatureAvailable('studentPromotion') && (
+        <PromotionDialog
+          open={promotionDialogOpen}
+          onOpenChange={setPromotionDialogOpen}
+          onCompleted={() => router.refresh()}
+        />
+      )}
     </>
   )
 }
