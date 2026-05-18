@@ -54,26 +54,13 @@ export function EventSubscriptionList({
       {/* Header */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Bell className="h-5 w-5" />
-                이벤트 알림
-              </CardTitle>
-              <CardDescription>
-                원하는 이벤트를 선택하면, 해당 상황 발생 시 보호자에게 카카오 알림톡이 자동 발송됩니다.
-              </CardDescription>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-            >
-              <RefreshCw className={`h-4 w-4 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
-              새로고침
-            </Button>
-          </div>
+          <CardTitle className="flex items-center gap-2">
+            <Bell className="h-5 w-5" />
+            이벤트 알림
+          </CardTitle>
+          <CardDescription>
+            원하는 이벤트를 선택하면, 해당 상황 발생 시 보호자에게 카카오 알림톡이 자동 발송됩니다.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex gap-4 text-sm">

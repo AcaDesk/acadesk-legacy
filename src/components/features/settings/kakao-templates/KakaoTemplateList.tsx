@@ -33,7 +33,6 @@ import { useToast } from '@/hooks/use-toast'
 import {
   getKakaoTemplates,
   deleteKakaoTemplate,
-  syncKakaoTemplates,
   refreshTemplateStatus,
   requestKakaoTemplateInspection,
   cancelKakaoTemplateInspection,
@@ -77,7 +76,6 @@ export function KakaoTemplateList({
 
   const [templates, setTemplates] = useState<KakaoTemplate[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [isSyncing, setIsSyncing] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [actionTemplateId, setActionTemplateId] = useState<string | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -107,32 +105,6 @@ export function KakaoTemplateList({
       setIsLoading(false)
     }
   }, [hasChannel, loadTemplates])
-
-  async function handleSync() {
-    setIsSyncing(true)
-    try {
-      const result = await syncKakaoTemplates()
-
-      if (!result.success) {
-        throw new Error(result.error || '동기화 실패')
-      }
-
-      toast({
-        title: '동기화 완료',
-        description: `${result.syncedCount}개의 템플릿이 동기화되었습니다.`,
-      })
-
-      loadTemplates()
-    } catch (error) {
-      toast({
-        title: '동기화 실패',
-        description: error instanceof Error ? error.message : '알 수 없는 오류',
-        variant: 'destructive',
-      })
-    } finally {
-      setIsSyncing(false)
-    }
-  }
 
   async function handleRefreshStatus(template: KakaoTemplate) {
     setActionTemplateId(template.id)
@@ -298,20 +270,10 @@ export function KakaoTemplateList({
                 승인된 템플릿만 실제 발송에 사용할 수 있습니다
               </CardDescription>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={handleSync} disabled={isSyncing}>
-                {isSyncing ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                )}
-                동기화
-              </Button>
-              <Button size="sm" onClick={onCreateTemplate}>
-                <Plus className="h-4 w-4 mr-2" />
-                새 템플릿
-              </Button>
-            </div>
+            <Button size="sm" onClick={onCreateTemplate}>
+              <Plus className="h-4 w-4 mr-2" />
+              새 템플릿
+            </Button>
           </div>
         </CardHeader>
         <CardContent>

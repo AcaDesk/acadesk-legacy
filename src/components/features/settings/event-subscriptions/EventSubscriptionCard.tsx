@@ -16,7 +16,6 @@ import { Separator } from '@ui/separator'
 import { KakaoTalkPreview } from '@/components/features/messaging/KakaoTalkPreview'
 import {
   Eye,
-  RefreshCw,
   RotateCcw,
   Upload,
   CheckCircle2,
@@ -30,7 +29,6 @@ import type { EventSubscription, ProvisioningStatus } from '@/app/actions/messag
 import {
   toggleEventSubscription,
   provisionTemplate,
-  refreshSubscriptionStatus,
   retryProvision,
 } from '@/app/actions/messaging/event-subscriptions'
 
@@ -81,7 +79,6 @@ export function EventSubscriptionCard({ subscription, onRefresh }: EventSubscrip
   const [previewOpen, setPreviewOpen] = useState(false)
   const [isToggling, setIsToggling] = useState(false)
   const [isProvisioning, setIsProvisioning] = useState(false)
-  const [isRefreshing, setIsRefreshing] = useState(false)
 
   const status = subscription.provisioningStatus
   const statusConfig = STATUS_CONFIG[status]
@@ -95,7 +92,6 @@ export function EventSubscriptionCard({ subscription, onRefresh }: EventSubscrip
   const canToggle = status === 'approved'
   const canProvision = status === 'not_started'
   const canRetry = status === 'rejected' || status === 'failed'
-  const canRefreshStatus = status === 'inspecting' || status === 'provisioning'
 
   async function handleToggle(enabled: boolean) {
     setIsToggling(true)
@@ -128,29 +124,6 @@ export function EventSubscriptionCard({ subscription, onRefresh }: EventSubscrip
       toast({ variant: 'destructive', title: '오류 발생' })
     } finally {
       setIsProvisioning(false)
-    }
-  }
-
-  async function handleRefreshStatus() {
-    setIsRefreshing(true)
-    try {
-      const result = await refreshSubscriptionStatus(subscription.eventType)
-      if (!result.success) {
-        toast({ variant: 'destructive', title: '상태 확인 실패', description: result.error || '' })
-        return
-      }
-      if (result.data?.status === 'approved') {
-        toast({ title: '템플릿 승인됨', description: '이제 이벤트를 활성화할 수 있습니다.' })
-      } else if (result.data?.status === 'rejected') {
-        toast({ variant: 'destructive', title: '템플릿 반려', description: result.data.rejectionReason || '' })
-      } else {
-        toast({ title: '아직 검수 중입니다' })
-      }
-      onRefresh()
-    } catch {
-      toast({ variant: 'destructive', title: '오류 발생' })
-    } finally {
-      setIsRefreshing(false)
     }
   }
 
@@ -201,8 +174,8 @@ export function EventSubscriptionCard({ subscription, onRefresh }: EventSubscrip
           </div>
         )}
 
-        {/* Actions row */}
-        {(canProvision || canRefreshStatus || canRetry) && (
+        {/* Actions row — 등록/재등록만. 상태 확인은 공용 카드의 일괄 새로고침으로 일원화 */}
+        {(canProvision || canRetry) && (
           <div className="flex flex-wrap items-center gap-2">
             {canProvision && (
               <Button
@@ -214,18 +187,6 @@ export function EventSubscriptionCard({ subscription, onRefresh }: EventSubscrip
               >
                 <Upload className="h-3.5 w-3.5 mr-1" />
                 {isProvisioning ? '등록중...' : '템플릿 등록'}
-              </Button>
-            )}
-            {canRefreshStatus && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleRefreshStatus}
-                disabled={isRefreshing}
-                className="text-xs h-7"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
-                상태 확인
               </Button>
             )}
             {canRetry && (

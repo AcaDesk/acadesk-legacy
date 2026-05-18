@@ -236,7 +236,8 @@ export function KakaoTemplateForm({
 
         <div className="grid gap-6 py-4 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px]">
         <ScrollArea className="max-h-[calc(90vh-180px)]">
-        <div className="space-y-4 pr-4">
+        {/* pl-1.5: Input focus ring (offset 2 + ring 2 = 4px) 이 ScrollArea overflow-hidden 에 잘리지 않게 6px 여유 */}
+        <div className="space-y-4 pl-1.5 pr-4">
           <Alert>
             <Info className="h-4 w-4" />
             <AlertDescription className="text-xs">

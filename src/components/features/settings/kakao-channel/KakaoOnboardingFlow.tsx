@@ -244,7 +244,7 @@ export function KakaoOnboardingFlow({ hasKakaoChannel }: KakaoOnboardingFlowProp
                 ) : (
                   <RefreshCw className="mr-2 h-4 w-4" />
                 )}
-                지금 새로고침
+                검수 상태 새로고침
               </Button>
             )}
             {stats.total > 0 && (
