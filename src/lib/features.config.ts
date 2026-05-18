@@ -26,7 +26,7 @@ export const FEATURES = {
   studentManagement: 'active' as FeatureStatus,
 
   /** 진급 관리 */
-  studentPromotion: 'beta' as FeatureStatus,
+  studentPromotion: 'active' as FeatureStatus,
 
   /** 출석 관리 */
   attendanceManagement: 'active' as FeatureStatus,
@@ -60,7 +60,7 @@ export const FEATURES = {
   notificationSystem: 'active' as FeatureStatus,
 
   /** 직원 관리 */
-  staffManagement: 'inactive' as FeatureStatus,
+  staffManagement: 'active' as FeatureStatus,
 
   // ========================================
   // 3차 배포: 고급 기능 (Advanced Features)

@@ -101,6 +101,8 @@ export const BREADCRUMB_CONFIG: BreadcrumbConfig = {
   '/grades/exams/[examId]/bulk-entry': '성적 일괄 입력',
   '/grades/exam-templates': '시험 템플릿',
   '/grades/exam-templates/new': '시험 템플릿 등록',
+  // 템플릿은 [id] 단독 페이지가 없어(edit 만 존재) UUID 노출 방지를 위해 세그먼트 건너뜀
+  '/grades/exam-templates/[id]': null,
   '/grades/exam-templates/[id]/edit': '시험 템플릿 수정',
   '/grades/retests': '재시험 관리',
 

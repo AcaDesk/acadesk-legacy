@@ -60,6 +60,7 @@ export function isPublicPath(pathname: string): boolean {
 const ROUTE_FEATURE_MAP: Record<string, FeatureKey> = {
   '/dashboard': 'dashboard',
   '/calendar': 'calendarIntegration',
+  '/students/promote': 'studentPromotion',
   '/students': 'studentManagement',
   '/guardians': 'guardianManagement',
   '/attendance': 'attendanceManagement',

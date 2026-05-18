@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { verifyStaff } from '@/lib/auth/verify-permission'
+import { verifyRole, verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
 
@@ -52,7 +52,8 @@ export async function executePromotion(
   batchId: string
 ) {
   try {
-    const { tenantId, userId } = await verifyStaff()
+    // 진급 일괄 처리는 학년·학교 정보를 대량 변경하는 작업이므로 owner/instructor 만 허용
+    const { tenantId, userId } = await verifyRole(['owner', 'instructor'])
     const supabase = createServiceRoleClient()
     const now = new Date().toISOString()
 
