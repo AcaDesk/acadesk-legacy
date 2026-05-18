@@ -34,7 +34,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@ui/popover'
 import { BookOpen, MoreVertical, Calendar as CalendarIcon } from 'lucide-react'
 import { format as formatDate } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { createClient } from '@/lib/supabase/client'
+import { updateEnrollmentStatus } from '@/app/actions/students/mutations'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 
@@ -83,7 +83,6 @@ export function ClassEnrollmentsList({
   onUpdate,
 }: ClassEnrollmentsListProps) {
   const { toast } = useToast()
-  const supabase = createClient()
   const [statusDialogOpen, setStatusDialogOpen] = useState(false)
   const [selectedEnrollment, setSelectedEnrollment] = useState<ClassEnrollment | null>(null)
   const [newStatus, setNewStatus] = useState('')
@@ -104,22 +103,16 @@ export function ClassEnrollmentsList({
     if (!selectedEnrollment) return
 
     try {
-      const updateData: Record<string, unknown> = {
-        status: newStatus,
+      const result = await updateEnrollmentStatus(selectedEnrollment.id, {
+        status: newStatus as Parameters<typeof updateEnrollmentStatus>[1]['status'],
         end_date: endDate ? formatDate(endDate, 'yyyy-MM-dd') : null,
         notes,
+        withdrawal_reason: newStatus === 'withdrawn' ? withdrawalReason : null,
+      })
+
+      if (!result.success) {
+        throw new Error(result.error || '수강 상태 변경에 실패했습니다.')
       }
-
-      if (newStatus === 'withdrawn') {
-        updateData.withdrawal_reason = withdrawalReason
-      }
-
-      const { error } = await supabase
-        .from('class_enrollments')
-        .update(updateData)
-        .eq('id', selectedEnrollment.id)
-
-      if (error) throw error
 
       toast({
         title: '상태 변경 완료',
@@ -132,7 +125,7 @@ export function ClassEnrollmentsList({
       console.error('Error updating enrollment status:', error)
       toast({
         title: '상태 변경 실패',
-        description: '수강 상태 변경 중 오류가 발생했습니다.',
+        description: error instanceof Error ? error.message : '수강 상태 변경 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
     }

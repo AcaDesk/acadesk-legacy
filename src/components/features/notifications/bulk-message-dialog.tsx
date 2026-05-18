@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { createClient } from '@/lib/supabase/client'
+import { getStudentsForBulkMessaging } from '@/app/actions/students/queries'
 import { Button } from '@ui/button'
 import { Label } from '@ui/label'
 import { Textarea } from '@ui/textarea'
@@ -89,7 +89,8 @@ interface BulkMessageDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onMessageSent?: () => void
-  tenantId: string
+  /** @deprecated tenantId는 더 이상 props로 받지 않습니다 (Server Action 내부에서 verifyStaff로 검증). */
+  tenantId?: string
 }
 
 type MessageType = 'sms' | 'lms' | 'kakao'
@@ -125,7 +126,6 @@ export function BulkMessageDialog({
   open,
   onOpenChange,
   onMessageSent,
-  tenantId,
 }: BulkMessageDialogProps) {
   const [loadingStudents, setLoadingStudents] = useState(false)
   const [students, setStudents] = useState<Student[]>([])
@@ -133,7 +133,6 @@ export function BulkMessageDialog({
   const [sending, setSending] = useState(false)
 
   const { toast } = useToast()
-  const supabase = createClient()
   const {
     hasKakaoChannel,
     isChannelChecked,
@@ -185,51 +184,17 @@ export function BulkMessageDialog({
   async function loadStudents() {
     setLoadingStudents(true)
     try {
-      const { data, error } = await supabase
-        .from('students')
-        .select(`
-          id,
-          student_code,
-          grade,
-          users!inner(
-            name
-          ),
-          student_guardians(
-            guardians(
-              users(
-                phone
-              )
-            )
-          )
-        `)
-        .eq('tenant_id', tenantId)
-        .is('deleted_at', null)
-        .order('student_code')
-
-      if (error) throw error
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const studentList = (data || []).map((s: any) => {
-        // Get primary guardian's phone (first guardian if available)
-        const guardians = s.student_guardians || []
-        const guardianPhone = guardians[0]?.guardians?.users?.phone || null
-
-        return {
-          id: s.id,
-          student_code: s.student_code,
-          name: s.users?.name || '-',
-          phone: guardianPhone,
-          grade: s.grade || null,
-          selected: true, // 기본적으로 모두 선택
-        }
-      })
-
-      setStudents(studentList)
+      const result = await getStudentsForBulkMessaging()
+      if (!result.success) {
+        throw new Error(result.error || '학생 목록을 불러오지 못했습니다.')
+      }
+      // 기본적으로 모두 선택된 상태로 시작
+      setStudents(result.data.map((s) => ({ ...s, selected: true })))
     } catch (error) {
       console.error('Error loading students:', error)
       toast({
         title: '학생 로드 오류',
-        description: '학생 목록을 불러오는 중 오류가 발생했습니다.',
+        description: error instanceof Error ? error.message : '학생 목록을 불러오는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
     } finally {

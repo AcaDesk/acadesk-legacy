@@ -22,6 +22,7 @@ import {
   bulkDeleteStudents,
   bulkEnrollClass,
 } from '@/app/actions/students'
+import { getActiveClasses } from '@/app/actions/classes'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import { BulkGuardianLinkDialog } from './bulk-guardian-link-dialog'
 
@@ -57,19 +58,11 @@ export function BulkActionsDialog({
 
   const loadClasses = useCallback(async () => {
     try {
-      // TODO: 클래스 조회 Server Action 추가 필요 (읽기 전용이므로 낮은 우선순위)
-      // 임시로 직접 조회
-      const { createClient } = await import('@/lib/supabase/client')
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from('classes')
-        .select('id, name, subject, active')
-        .eq('status', 'active')
-        .is('deleted_at', null)
-        .order('name')
-
-      if (error) throw error
-      setClasses(data || [])
+      const result = await getActiveClasses()
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '수업 목록을 불러오지 못했습니다.')
+      }
+      setClasses(result.data)
     } catch (error) {
       toast({
         title: '수업 목록 로드 실패',

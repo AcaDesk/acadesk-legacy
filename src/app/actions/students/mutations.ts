@@ -686,3 +686,67 @@ export async function withdrawStudent(
     }
   }
 }
+
+const enrollmentStatusSchema = z.object({
+  status: z.enum(['active', 'completed', 'on_hold', 'withdrawn', 'transferred', 'pending']),
+  end_date: z.string().nullable(),
+  notes: z.string().nullable(),
+  withdrawal_reason: z.string().nullable().optional(),
+})
+
+/**
+ * 수강 상태 변경 (학생 상세 페이지의 ClassEnrollmentsList 다이얼로그용)
+ *
+ * RLS 활성화 이후 client UPDATE 가 차단되던 버그를 해결합니다.
+ */
+export async function updateEnrollmentStatus(
+  enrollmentId: string,
+  input: z.infer<typeof enrollmentStatusSchema>
+) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const validated = enrollmentStatusSchema.parse(input)
+    const supabase = createServiceRoleClient()
+
+    // 테넌트 소속 확인
+    const { data: existing, error: fetchError } = await supabase
+      .from('class_enrollments')
+      .select('id, tenant_id, student_id')
+      .eq('id', enrollmentId)
+      .maybeSingle()
+
+    if (fetchError || !existing) {
+      return { success: false, error: '수강 정보를 찾을 수 없습니다' }
+    }
+    if (existing.tenant_id !== tenantId) {
+      return { success: false, error: '권한이 없습니다' }
+    }
+
+    const updateData: Record<string, unknown> = {
+      status: validated.status,
+      end_date: validated.end_date,
+      notes: validated.notes,
+      updated_at: new Date().toISOString(),
+    }
+    if (validated.status === 'withdrawn') {
+      updateData.withdrawal_reason = validated.withdrawal_reason ?? null
+    }
+
+    const { error: updateError } = await supabase
+      .from('class_enrollments')
+      .update(updateData)
+      .eq('id', enrollmentId)
+      .eq('tenant_id', tenantId)
+
+    if (updateError) throw updateError
+
+    revalidatePath(`/students/${existing.student_id}`)
+    revalidateTag(`classes:${tenantId}`)
+    revalidateTag(`students:${tenantId}`)
+
+    return { success: true, error: null }
+  } catch (error) {
+    console.error('[updateEnrollmentStatus] Error:', error)
+    return { success: false, error: getErrorMessage(error) }
+  }
+}

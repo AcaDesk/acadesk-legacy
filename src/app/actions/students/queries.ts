@@ -489,3 +489,79 @@ export async function getStudentFilterOptions() {
     }
   }
 }
+
+export interface StudentForMessaging {
+  id: string
+  student_code: string
+  name: string
+  phone: string | null
+  grade: string | null
+}
+
+/**
+ * 일괄 메시지 다이얼로그 전용: 학생 + 1순위 보호자 연락처
+ *
+ * 학생 자체에는 messaging 연락처가 없고, 보호자(`guardians.users.phone`)로 전송하므로
+ * 첫 번째 보호자의 전화번호를 함께 반환합니다.
+ */
+export async function getStudentsForBulkMessaging(): Promise<{
+  success: boolean
+  data: StudentForMessaging[]
+  error: string | null
+}> {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    const { data, error } = await supabase
+      .from('students')
+      .select(`
+        id,
+        student_code,
+        grade,
+        users!inner ( name ),
+        student_guardians (
+          guardians (
+            users ( phone )
+          )
+        )
+      `)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .order('student_code')
+
+    if (error) throw error
+
+    interface StudentRow {
+      id: string
+      student_code: string
+      grade: string | null
+      users: { name: string } | null
+      student_guardians: Array<{
+        guardians: {
+          users: { phone: string | null } | null
+        } | null
+      }> | null
+    }
+
+    const students: StudentForMessaging[] = ((data || []) as unknown as StudentRow[]).map((s) => {
+      const guardianPhone = s.student_guardians?.[0]?.guardians?.users?.phone ?? null
+      return {
+        id: s.id,
+        student_code: s.student_code,
+        name: s.users?.name || '-',
+        phone: guardianPhone,
+        grade: s.grade,
+      }
+    })
+
+    return { success: true, data: students, error: null }
+  } catch (error) {
+    console.error('[getStudentsForBulkMessaging] Error:', error)
+    return {
+      success: false,
+      data: [],
+      error: getErrorMessage(error),
+    }
+  }
+}
