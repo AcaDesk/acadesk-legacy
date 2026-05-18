@@ -7,7 +7,7 @@
 
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag, unstable_cache } from 'next/cache'
 import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
@@ -236,6 +236,7 @@ export async function createExamScore(
     // 4. 캐시 무효화
     revalidatePath('/grades')
     revalidatePath(`/grades/exams/${validatedData.exam_id}`)
+    revalidateTag(`grade-entry:${tenantId}`)
 
     return { success: true, data: examScore }
   } catch (error) {
@@ -295,6 +296,7 @@ export async function bulkUpsertExamScores(
     // 4. 캐시 무효화
     revalidatePath('/grades')
     revalidatePath(`/grades/exams/${validatedData.exam_id}`)
+    revalidateTag(`grade-entry:${tenantId}`)
 
     return { success: true, data: examScores }
   } catch (error) {
@@ -354,57 +356,66 @@ export async function getGradesListData(): Promise<{
   const fallback = { students: [], scores: [] }
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = createServiceRoleClient()
 
-    const [
-      { data: studentsData, error: studentsError },
-      { data: scoresData, error: scoresError },
-    ] = await Promise.all([
-      supabase
-        .from('students')
-        .select('id, student_code, users!user_id(name)')
-        .eq('tenant_id', tenantId)
-        .is('deleted_at', null)
-        .order('student_code'),
-      supabase
-        .from('exam_scores')
-        .select(`
-          id,
-          score,
-          total_points,
-          percentage,
-          feedback,
-          status,
-          is_retest,
-          retest_count,
-          created_at,
-          exams!exam_id (
-            name,
-            exam_date,
-            category_code
-          ),
-          students!student_id (
-            id,
-            student_code,
-            users!user_id ( name )
-          )
-        `)
-        .eq('tenant_id', tenantId)
-        .is('deleted_at', null)
-        .order('created_at', { ascending: false }),
-    ])
+    // 60초 TTL — 점수/시험 mutation 시 `grade-entry:${tenantId}` 태그로 즉시 무효화.
+    // grade-entry.ts 와 같은 태그를 공유해 단일 점수 변경으로 entry + list 양쪽이 동시 갱신됨.
+    return unstable_cache(
+      async () => {
+        const supabase = createServiceRoleClient()
 
-    if (studentsError) throw studentsError
-    if (scoresError) throw scoresError
+        const [
+          { data: studentsData, error: studentsError },
+          { data: scoresData, error: scoresError },
+        ] = await Promise.all([
+          supabase
+            .from('students')
+            .select('id, student_code, users!user_id(name)')
+            .eq('tenant_id', tenantId)
+            .is('deleted_at', null)
+            .order('student_code'),
+          supabase
+            .from('exam_scores')
+            .select(`
+              id,
+              score,
+              total_points,
+              percentage,
+              feedback,
+              status,
+              is_retest,
+              retest_count,
+              created_at,
+              exams!exam_id (
+                name,
+                exam_date,
+                category_code
+              ),
+              students!student_id (
+                id,
+                student_code,
+                users!user_id ( name )
+              )
+            `)
+            .eq('tenant_id', tenantId)
+            .is('deleted_at', null)
+            .order('created_at', { ascending: false }),
+        ])
 
-    return {
-      success: true,
-      data: {
-        students: (studentsData || []) as unknown as GradesListStudent[],
-        scores: (scoresData || []) as unknown as GradesListScore[],
+        if (studentsError) throw studentsError
+        if (scoresError) throw scoresError
+
+        return {
+          success: true as const,
+          data: {
+            students: (studentsData || []) as unknown as GradesListStudent[],
+            scores: (scoresData || []) as unknown as GradesListScore[],
+          },
+          error: null,
+        }
       },
-      error: null,
-    }
+      ['grades-list-data', tenantId],
+      { revalidate: 60, tags: [`grade-entry:${tenantId}`] }
+    )()
   } catch (error) {
     console.error('[getGradesListData] Error:', error)
     return {
@@ -491,6 +502,7 @@ export async function deleteExamScore(examScoreId: string) {
 
     // 3. 캐시 무효화
     revalidatePath('/grades')
+    revalidateTag(`grade-entry:${tenantId}`)
 
     return { success: true }
   } catch (error) {

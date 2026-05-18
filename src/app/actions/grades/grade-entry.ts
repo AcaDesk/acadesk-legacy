@@ -6,6 +6,7 @@
 
 'use server'
 
+import { unstable_cache } from 'next/cache'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
@@ -135,73 +136,53 @@ export async function getExamsForGradeEntry(params?: {
   period?: GradeEntryPeriod
 }) {
   const completed = params?.completed ?? false
+  const period = params?.period ?? 'this_month'
+  const month = params?.month ?? ''
 
   try {
     const { tenantId } = await verifyStaff()
+
+    // 60초 TTL — 시험/점수 mutation 시 revalidateTag(`grade-entry:${tenantId}`) 로 즉시 무효화.
+    // 캐시 miss 시에만 autoArchive 가 실행되어 archive UPDATE 빈도도 자연스럽게 감소.
+    return unstable_cache(
+      () => computeExamsForGradeEntry(tenantId, { completed, period, month: month || undefined }),
+      ['grade-entry-exams', tenantId, completed ? 'completed' : 'pending', period, month || 'no-month'],
+      { revalidate: 60, tags: [`grade-entry:${tenantId}`] }
+    )()
+  } catch (error) {
+    console.error('[getExamsForGradeEntry] Error:', error)
+    return {
+      success: false,
+      data: [],
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+async function computeExamsForGradeEntry(
+  tenantId: string,
+  params: { completed: boolean; period: GradeEntryPeriod; month?: string }
+) {
+  const { completed, period, month } = params
+
+  try {
     const supabase = createServiceRoleClient()
-    await autoArchiveOldCompletedExams({ tenantId, supabase })
 
-    // 1. Fetch exams with related data (1 query)
-    let query = supabase
-      .from('exams')
-      .select(`
-        id,
-        name,
-        exam_date,
-        total_questions,
-        category_code,
-        exam_type,
-        passing_score,
-        status,
-        subject_id,
-        class_id,
-        subjects (
-          id,
-          name,
-          code,
-          color
-        ),
-        classes (
-          id,
-          name
-        )
-      `)
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
-      .is('archived_at', null)
-      .order('exam_date', { ascending: false })
+    // archive 와 메인 쿼리 병렬 — archive 결과가 이번 read 에 반영 안 될 수 있지만
+    // 다음 cache miss 에서 정정됨. archive 빈도가 낮아 사용자 체감 zero.
+    const [, examsResult] = await Promise.all([
+      autoArchiveOldCompletedExams({ tenantId, supabase }),
+      fetchExamsQuery(supabase, tenantId, completed, period, month),
+    ])
 
-    // Apply status filter
-    if (completed) {
-      query = query.eq('status', 'completed')
-      // Apply month filter for completed exams
-      if (params?.month) {
-        const [year, month] = params.month.split('-').map(Number)
-        const startDate = `${year}-${String(month).padStart(2, '0')}-01`
-        const endDate = new Date(year, month, 0).toISOString().split('T')[0]
-        query = query.gte('exam_date', startDate).lte('exam_date', endDate)
-      }
-    } else {
-      query = query.or('status.is.null,status.neq.completed')
-    }
-
-    const period = params?.period ?? 'this_month'
-    const periodRange = getDateRangeByPeriod(period)
-    if (periodRange.from) {
-      query = query.gte('exam_date', periodRange.from)
-    }
-    if (periodRange.to) {
-      query = query.lte('exam_date', periodRange.to)
-    }
-
-    const { data: exams, error: examsError } = await query
+    const { data: exams, error: examsError } = examsResult
 
     if (examsError) {
       throw examsError
     }
 
     if (!exams || exams.length === 0) {
-      return { success: true, data: [], error: null }
+      return { success: true as const, data: [], error: null }
     }
 
     // 2. Get all exam IDs and class IDs
@@ -211,38 +192,40 @@ export async function getExamsForGradeEntry(params?: {
       examRows.map((exam) => exam.class_id).filter(Boolean)
     )] as string[]
 
-    // 3. Fetch ALL scores for all exams in a single query (1 query)
-    const { data: allScores, error: scoresError } = await supabase
-      .from('exam_scores')
-      .select('exam_id, percentage, status')
-      .in('exam_id', examIds)
-      .is('deleted_at', null)
+    // 3. Fetch ALL scores for all exams + enrollment counts in parallel
+    const [scoresResult, enrollmentsResult] = await Promise.all([
+      supabase
+        .from('exam_scores')
+        .select('exam_id, percentage, status')
+        .in('exam_id', examIds)
+        .is('deleted_at', null),
+      classIds.length > 0
+        ? supabase
+            .from('class_enrollments')
+            .select('class_id, student_id')
+            .in('class_id', classIds)
+            .eq('status', 'active')
+            .eq('tenant_id', tenantId)
+        : Promise.resolve({ data: [], error: null }),
+    ])
 
+    const { data: allScores, error: scoresError } = scoresResult
     if (scoresError) {
       console.error('[getExamsForGradeEntry] Error fetching scores:', scoresError)
     }
 
-    // 4. Fetch enrollment counts per class (1 query)
+    const { data: enrollments, error: enrollError } = enrollmentsResult
+    if (enrollError) {
+      console.error('[getExamsForGradeEntry] Error fetching enrollments:', enrollError)
+    }
+
     // 응시인원은 class_enrollments 기준으로 산정
     const enrollmentCountByClassId = new Map<string, number>()
-    if (classIds.length > 0) {
-      const { data: enrollments, error: enrollError } = await supabase
-        .from('class_enrollments')
-        .select('class_id, student_id')
-        .in('class_id', classIds)
-        .eq('status', 'active')
-        .eq('tenant_id', tenantId)
-
-      if (enrollError) {
-        console.error('[getExamsForGradeEntry] Error fetching enrollments:', enrollError)
-      }
-
-      for (const e of (enrollments || [])) {
-        enrollmentCountByClassId.set(
-          e.class_id,
-          (enrollmentCountByClassId.get(e.class_id) || 0) + 1
-        )
-      }
+    for (const e of (enrollments || [])) {
+      enrollmentCountByClassId.set(
+        e.class_id,
+        (enrollmentCountByClassId.get(e.class_id) || 0) + 1
+      )
     }
 
     // 5. Group scores by exam_id for O(1) lookup
@@ -305,16 +288,77 @@ export async function getExamsForGradeEntry(params?: {
     })
 
     return {
-      success: true,
+      success: true as const,
       data: examsWithStats,
       error: null,
     }
   } catch (error) {
-    console.error('[getExamsForGradeEntry] Error:', error)
+    console.error('[computeExamsForGradeEntry] Error:', error)
     return {
-      success: false,
+      success: false as const,
       data: [],
       error: getErrorMessage(error),
     }
   }
+}
+
+function fetchExamsQuery(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  tenantId: string,
+  completed: boolean,
+  period: GradeEntryPeriod,
+  month?: string
+) {
+  let query = supabase
+    .from('exams')
+    .select(`
+      id,
+      name,
+      exam_date,
+      total_questions,
+      category_code,
+      exam_type,
+      passing_score,
+      status,
+      subject_id,
+      class_id,
+      subjects (
+        id,
+        name,
+        code,
+        color
+      ),
+      classes (
+        id,
+        name
+      )
+    `)
+    .eq('tenant_id', tenantId)
+    .is('deleted_at', null)
+    .is('archived_at', null)
+    .order('exam_date', { ascending: false })
+
+  // Apply status filter
+  if (completed) {
+    query = query.eq('status', 'completed')
+    // Apply month filter for completed exams
+    if (month) {
+      const [year, m] = month.split('-').map(Number)
+      const startDate = `${year}-${String(m).padStart(2, '0')}-01`
+      const endDate = new Date(year, m, 0).toISOString().split('T')[0]
+      query = query.gte('exam_date', startDate).lte('exam_date', endDate)
+    }
+  } else {
+    query = query.or('status.is.null,status.neq.completed')
+  }
+
+  const periodRange = getDateRangeByPeriod(period)
+  if (periodRange.from) {
+    query = query.gte('exam_date', periodRange.from)
+  }
+  if (periodRange.to) {
+    query = query.lte('exam_date', periodRange.to)
+  }
+
+  return query
 }
