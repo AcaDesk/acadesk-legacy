@@ -6,7 +6,7 @@
 
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag, unstable_cache } from 'next/cache'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
@@ -20,24 +20,30 @@ import type { CalendarEvent } from '@/core/types/calendar'
 export async function getCalendarEvents() {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = createServiceRoleClient()
 
-    const { data, error } = await supabase
-      .from('calendar_events')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
-      .order('start_at', { ascending: true })
+    // 5분 TTL — mutation 시 revalidateTag(`calendar:${tenantId}`) 로 무효화
+    return unstable_cache(
+      async () => {
+        const supabase = createServiceRoleClient()
 
-    if (error) {
-      throw error
-    }
+        const { data, error } = await supabase
+          .from('calendar_events')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .is('deleted_at', null)
+          .order('start_at', { ascending: true })
 
-    return {
-      success: true,
-      data: (data || []) as CalendarEvent[],
-      error: null,
-    }
+        if (error) throw error
+
+        return {
+          success: true as const,
+          data: (data || []) as CalendarEvent[],
+          error: null,
+        }
+      },
+      ['calendar-events', tenantId],
+      { revalidate: 300, tags: [`calendar:${tenantId}`] }
+    )()
   } catch (error) {
     console.error('[getCalendarEvents] Error:', error)
     return {
@@ -83,6 +89,7 @@ export async function createCalendarEvent(eventData: {
     }
 
     revalidatePath('/calendar')
+    revalidateTag(`calendar:${tenantId}`)
 
     return {
       success: true,
@@ -137,6 +144,7 @@ export async function updateCalendarEvent(
     }
 
     revalidatePath('/calendar')
+    revalidateTag(`calendar:${tenantId}`)
 
     return {
       success: true,
@@ -175,6 +183,7 @@ export async function deleteCalendarEvent(eventId: string) {
     }
 
     revalidatePath('/calendar')
+    revalidateTag(`calendar:${tenantId}`)
 
     return {
       success: true,

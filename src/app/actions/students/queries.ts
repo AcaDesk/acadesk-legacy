@@ -1,5 +1,6 @@
 'use server'
 
+import { unstable_cache } from 'next/cache'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
@@ -424,66 +425,61 @@ export async function getStudents(filters?: {
  */
 export async function getStudentFilterOptions() {
   try {
-    // 1. Verify authentication and get tenant
     const { tenantId } = await verifyStaff()
 
-    // 2. Create service_role client
-    const serviceClient = createServiceRoleClient()
+    // 5분 TTL — filter dropdown 옵션은 자주 안 변하고 5분 stale 허용 가능.
+    // classes 변경은 `classes:${tenantId}` 태그도 함께 트리거되도록 묶음.
+    return unstable_cache(
+      async () => {
+        const serviceClient = createServiceRoleClient()
 
-    // 3. Fetch filter options in parallel
-    const [gradesResult, schoolsResult, classesResult] = await Promise.allSettled([
-      // Unique grades
-      serviceClient
-        .from('students')
-        .select('grade')
-        .eq('tenant_id', tenantId)
-        .is('deleted_at', null)
-        .not('grade', 'is', null)
-        .order('grade', { ascending: true }),
+        const [gradesResult, schoolsResult, classesResult] = await Promise.allSettled([
+          serviceClient
+            .from('students')
+            .select('grade')
+            .eq('tenant_id', tenantId)
+            .is('deleted_at', null)
+            .not('grade', 'is', null)
+            .order('grade', { ascending: true }),
+          serviceClient
+            .from('students')
+            .select('school')
+            .eq('tenant_id', tenantId)
+            .is('deleted_at', null)
+            .not('school', 'is', null)
+            .order('school', { ascending: true }),
+          serviceClient
+            .from('classes')
+            .select('id, name')
+            .eq('tenant_id', tenantId)
+            .eq('status', 'active')
+            .order('name', { ascending: true }),
+        ])
 
-      // Unique schools
-      serviceClient
-        .from('students')
-        .select('school')
-        .eq('tenant_id', tenantId)
-        .is('deleted_at', null)
-        .not('school', 'is', null)
-        .order('school', { ascending: true }),
+        interface GradeRow { grade: string | null }
+        interface SchoolRow { school: string | null }
 
-      // Active classes
-      serviceClient
-        .from('classes')
-        .select('id, name')
-        .eq('tenant_id', tenantId)
-        .eq('status', 'active')
-        .order('name', { ascending: true }),
-    ])
+        const grades = gradesResult.status === 'fulfilled' && gradesResult.value.data
+          ? Array.from(new Set((gradesResult.value.data as GradeRow[]).map((s) => s.grade).filter((g): g is string => g !== null)))
+          : []
 
-    // 4. Process results
-    interface GradeRow { grade: string | null }
-    interface SchoolRow { school: string | null }
+        const schools = schoolsResult.status === 'fulfilled' && schoolsResult.value.data
+          ? Array.from(new Set((schoolsResult.value.data as SchoolRow[]).map((s) => s.school).filter((s): s is string => s !== null)))
+          : []
 
-    const grades = gradesResult.status === 'fulfilled' && gradesResult.value.data
-      ? Array.from(new Set((gradesResult.value.data as GradeRow[]).map((s) => s.grade).filter((g): g is string => g !== null)))
-      : []
+        const classes = classesResult.status === 'fulfilled' && classesResult.value.data
+          ? classesResult.value.data
+          : []
 
-    const schools = schoolsResult.status === 'fulfilled' && schoolsResult.value.data
-      ? Array.from(new Set((schoolsResult.value.data as SchoolRow[]).map((s) => s.school).filter((s): s is string => s !== null)))
-      : []
-
-    const classes = classesResult.status === 'fulfilled' && classesResult.value.data
-      ? classesResult.value.data
-      : []
-
-    return {
-      success: true,
-      data: {
-        grades,
-        schools,
-        classes,
+        return {
+          success: true as const,
+          data: { grades, schools, classes },
+          error: null,
+        }
       },
-      error: null,
-    }
+      ['student-filter-options', tenantId],
+      { revalidate: 300, tags: [`classes:${tenantId}`, `students:${tenantId}`] }
+    )()
   } catch (error) {
     console.error('[getStudentFilterOptions] Error:', error)
     return {
