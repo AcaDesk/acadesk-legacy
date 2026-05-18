@@ -6,7 +6,7 @@
 
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
@@ -175,24 +175,26 @@ export async function getExams(filters?: {
       throw new Error('시험 조회에 실패했습니다')
     }
 
-    // 6. Get score counts for all exams in one query
+    // 6. 시험별 배정 학생 수를 단일 SQL 집계로 조회
+    //
+    // 기존 `select('exam_id').in('exam_id', ...)` 방식은 supabase-js 기본 1000행 제한에
+    // 걸려, 학원의 누적 점수 행이 많을 때 다수 시험의 카운트가 0으로 보이던 버그가 있었음
+    // (migration 20260518000005 참고).
     const examIds = (exams || []).map(e => e.id)
-
-    // 배치 조회: 모든 시험의 점수 카운트를 한 번에
-    // tenant_id 필터 명시 → idx_exam_scores_tenant_student_exam 활용
-    const { data: scoreCounts } = examIds.length > 0
-      ? await serviceClient
-          .from('exam_scores')
-          .select('exam_id')
-          .eq('tenant_id', tenantId)
-          .in('exam_id', examIds)
-          .is('deleted_at', null)
-      : { data: [] }
-
-    // exam_id별 카운트 집계
     const countMap = new Map<string, number>()
-    for (const sc of scoreCounts || []) {
-      countMap.set(sc.exam_id, (countMap.get(sc.exam_id) || 0) + 1)
+
+    if (examIds.length > 0) {
+      const { data: scoreCounts, error: countError } = await serviceClient.rpc(
+        'get_exam_score_counts',
+        { p_tenant_id: tenantId, p_exam_ids: examIds }
+      )
+      if (countError) {
+        console.error('[getExams] Score count RPC error:', countError.message)
+      } else {
+        for (const row of (scoreCounts || []) as Array<{ exam_id: string; cnt: number }>) {
+          countMap.set(row.exam_id, Number(row.cnt) || 0)
+        }
+      }
     }
 
     // 시험에 카운트 매핑
@@ -666,6 +668,7 @@ export async function completeExamGrading(examId: string) {
     revalidatePath('/grades/entry')
     revalidatePath('/grades/exams')
     revalidatePath('/grades')
+    revalidateTag(`grade-entry:${tenantId}`)
 
     // 성적 채점 완료 → 응시 학생의 보호자에게 알림톡 발송 (fire-and-forget).
     // 학원이 'exam_grade_ready' 이벤트 구독을 켜둔 경우에만 실제 발송.
@@ -741,6 +744,7 @@ export async function reopenExamGrading(examId: string) {
     revalidatePath('/grades/entry')
     revalidatePath('/grades/exams')
     revalidatePath('/grades')
+    revalidateTag(`grade-entry:${tenantId}`)
 
     return { success: true, error: null }
   } catch (error) {
