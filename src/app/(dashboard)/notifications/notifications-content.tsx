@@ -298,22 +298,26 @@ export function NotificationsContent({ initialLogs, initialBalance, tenantId }: 
       return `테스트 발송 → ${recipientPhone || recipientName || '수신자 미지정'}`
     }
 
-    const target = recipientName
+    // 수신자 표기: 이름과 전화번호 조합. 둘 다 없으면 학생명 기반 폴백.
+    const recipientLabel = recipientName
       ? recipientPhone
         ? `${recipientName} (${recipientPhone})`
         : recipientName
-      : recipientPhone || '수신자 미지정'
+      : recipientPhone || null
 
     if (log.event_type) {
-      const subject = studentName ? `${studentName} 보호자` : target
-      return `[${log.event_type}] ${subject}에게 발송`
+      if (studentName) return `[${log.event_type}] ${studentName} 보호자에게 발송`
+      if (recipientLabel) return `[${log.event_type}] ${recipientLabel}에게 발송`
+      return `[${log.event_type}] 발송`
     }
 
     if (studentName) {
-      return `${studentName} → ${target}에게 발송`
+      return recipientLabel
+        ? `${studentName} → ${recipientLabel}에게 발송`
+        : `${studentName} 보호자에게 발송`
     }
 
-    return `${target}에게 발송`
+    return recipientLabel ? `${recipientLabel}에게 발송` : '수신자 미지정'
   }
 
   const stats = {
