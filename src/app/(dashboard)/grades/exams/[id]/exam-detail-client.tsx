@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
@@ -36,9 +36,14 @@ import {
   BarChart3,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import { useCurrentUser } from '@/hooks/use-current-user'
 import { AssignStudentsDialog } from '@/components/features/exams/assign-students-dialog'
-import { createClient } from '@/lib/supabase/client'
+import {
+  getExamAssignments,
+  assignStudentsToExam,
+  restoreExamAssignment,
+  type ExamAssignedStudent,
+  type ExamAssignedScore,
+} from '@/app/actions/grades/exams'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import { EmptyState } from '@ui/empty-state'
 import { LoadingState } from '@/components/ui/loading-state'
@@ -62,35 +67,30 @@ interface Exam {
   }[] | null
 }
 
-interface Student {
-  id: string
-  student_code: string
-  name: string
-  grade: string | null
-}
-
-interface ScoreData {
-  student_id: string
-  score: number | null
-  total_points: number | null
-  percentage: number | null
-}
+type Student = ExamAssignedStudent
+type ScoreData = ExamAssignedScore
 
 type StatusFilter = 'all' | 'entered' | 'not-entered'
 
 interface ExamDetailClientProps {
   exam: Exam
+  initialStudents: Student[]
+  initialScores: ScoreData[]
 }
 
-export function ExamDetailClient({ exam }: ExamDetailClientProps) {
+function buildScoreMap(scores: ScoreData[]): Map<string, ScoreData> {
+  const map = new Map<string, ScoreData>()
+  for (const s of scores) map.set(s.student_id, s)
+  return map
+}
+
+export function ExamDetailClient({ exam, initialStudents, initialScores }: ExamDetailClientProps) {
   const router = useRouter()
   const { toast } = useToast()
-  const { user: currentUser } = useCurrentUser()
-  const supabase = createClient()
 
-  const [students, setStudents] = useState<Student[]>([])
-  const [scores, setScores] = useState<Map<string, ScoreData>>(new Map())
-  const [loading, setLoading] = useState(true)
+  const [students, setStudents] = useState<Student[]>(initialStudents)
+  const [scores, setScores] = useState<Map<string, ScoreData>>(() => buildScoreMap(initialScores))
+  const [loading, setLoading] = useState(false)
   const [showAssignDialog, setShowAssignDialog] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [studentToRemove, setStudentToRemove] = useState<{
@@ -232,74 +232,25 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
   }
 
   const loadStudents = useCallback(async () => {
-    if (!currentUser || !currentUser.tenantId) {
-      setLoading(false)
-      return
-    }
-
     try {
       setLoading(true)
-
-      const { data: scoreRecords, error } = await supabase
-        .from('exam_scores')
-        .select(`
-          student_id,
-          score,
-          total_points,
-          percentage,
-          students (
-            id,
-            student_code,
-            users!user_id (name),
-            grade
-          )
-        `)
-        .eq('tenant_id', currentUser.tenantId)
-        .eq('exam_id', exam.id)
-
-      if (error) throw error
-
-      const studentList: Student[] = []
-      const scoreMap = new Map<string, ScoreData>()
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ;(scoreRecords || []).forEach((record: any) => {
-        if (record.students) {
-          studentList.push({
-            id: record.students.id,
-            student_code: record.students.student_code,
-            name: record.students.users?.name || '이름 없음',
-            grade: record.students.grade,
-          })
-
-          scoreMap.set(record.student_id, {
-            student_id: record.student_id,
-            score: record.score,
-            total_points: record.total_points,
-            percentage: record.percentage,
-          })
-        }
-      })
-
-      setStudents(studentList)
-      setScores(scoreMap)
+      const result = await getExamAssignments(exam.id)
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '학생 목록을 불러오지 못했습니다.')
+      }
+      setStudents(result.data.students)
+      setScores(buildScoreMap(result.data.scores))
     } catch (error) {
       console.error('Error loading students:', error)
       toast({
         title: '로드 오류',
-        description: '학생 목록을 불러오는 중 오류가 발생했습니다.',
+        description: error instanceof Error ? error.message : '학생 목록을 불러오는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
     } finally {
       setLoading(false)
     }
-  }, [currentUser, exam.id, supabase, toast])
-
-  useEffect(() => {
-    if (currentUser && currentUser.tenantId) {
-      loadStudents()
-    }
-  }, [loadStudents, currentUser])
+  }, [exam.id, toast])
 
   function handleRemoveClick(studentId: string, studentName: string) {
     const score = scores.get(studentId)
@@ -319,8 +270,6 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
     name: string
     scoreData?: ScoreData
   }) {
-    if (!currentUser || !currentUser.tenantId) return
-
     // Clear any existing undo timeout
     if (undoTimeoutIdRef.current) {
       clearTimeout(undoTimeoutIdRef.current)
@@ -328,17 +277,15 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
     }
 
     try {
-      // Restore the student score record
-      const { error } = await supabase.from('exam_scores').insert({
-        tenant_id: currentUser.tenantId,
-        exam_id: exam.id,
-        student_id: removedData.id,
-        score: removedData.scoreData?.score || null,
-        total_points: removedData.scoreData?.total_points || null,
-        percentage: removedData.scoreData?.percentage || null,
+      const result = await restoreExamAssignment(exam.id, removedData.id, {
+        score: removedData.scoreData?.score ?? null,
+        total_points: removedData.scoreData?.total_points ?? null,
+        percentage: removedData.scoreData?.percentage ?? null,
       })
 
-      if (error) throw error
+      if (!result.success) {
+        throw new Error(result.error || '학생을 복구하는 중 오류가 발생했습니다.')
+      }
 
       toast({
         title: '복구 완료',
@@ -350,27 +297,24 @@ export function ExamDetailClient({ exam }: ExamDetailClientProps) {
       console.error('Error undoing removal:', error)
       toast({
         title: '복구 오류',
-        description: '학생을 복구하는 중 오류가 발생했습니다.',
+        description: error instanceof Error ? error.message : '학생을 복구하는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
     }
   }
 
   async function handleConfirmRemove() {
-    if (!currentUser || !currentUser.tenantId || !studentToRemove) return
+    if (!studentToRemove) return
 
     const removedData = { ...studentToRemove }
     setIsRemoving(true)
 
     try {
-      const { error } = await supabase
-        .from('exam_scores')
-        .delete()
-        .eq('tenant_id', currentUser.tenantId)
-        .eq('exam_id', exam.id)
-        .eq('student_id', studentToRemove.id)
+      const result = await assignStudentsToExam(exam.id, [], [studentToRemove.id])
 
-      if (error) throw error
+      if (!result.success) {
+        throw new Error(result.error || '학생을 제외하는 중 오류가 발생했습니다.')
+      }
 
       // Show toast with undo button
       const { dismiss } = toast({

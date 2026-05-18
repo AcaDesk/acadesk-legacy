@@ -3,7 +3,7 @@ import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { requireAuth } from '@/lib/auth/helpers'
-import { getExamById } from '@/app/actions/grades/exams'
+import { getExamById, getExamAssignments } from '@/app/actions/grades/exams'
 import { ExamDetailClient } from './exam-detail-client'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
@@ -35,16 +35,27 @@ export default async function ExamDetailPage({ params }: Props) {
   // Get exam ID from params
   const { id: examId } = await params
 
-  // Fetch exam data
-  const examResult = await getExamById(examId)
+  // Fetch exam data and assigned students in parallel — eliminates client loading spinner
+  const [examResult, assignmentsResult] = await Promise.all([
+    getExamById(examId),
+    getExamAssignments(examId),
+  ])
 
   if (!examResult.success || !examResult.data) {
     notFound()
   }
 
+  const initialAssignments = assignmentsResult.success && assignmentsResult.data
+    ? assignmentsResult.data
+    : { students: [], scores: [] }
+
   return (
     <PageWrapper>
-      <ExamDetailClient exam={examResult.data} />
+      <ExamDetailClient
+        exam={examResult.data}
+        initialStudents={initialAssignments.students}
+        initialScores={initialAssignments.scores}
+      />
     </PageWrapper>
   )
 }
