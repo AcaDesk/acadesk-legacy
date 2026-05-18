@@ -8,6 +8,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { Resend } from 'resend'
 import { verifyRole } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { randomBytes } from 'crypto'
@@ -39,6 +40,61 @@ const cancelInvitationSchema = z.object({
 
 function generateToken(): string {
   return randomBytes(32).toString('hex')
+}
+
+const roleLabels: Record<string, string> = {
+  instructor: '강사',
+  assistant: '조교',
+}
+
+/**
+ * 직원 초대 이메일 발송 (fire-and-forget — 실패해도 초대 자체는 성공)
+ */
+async function sendInvitationEmail(params: {
+  email: string
+  token: string
+  inviterName: string
+  tenantName: string
+  roleCode: string
+}) {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) {
+    console.warn('[sendInvitationEmail] RESEND_API_KEY 미설정 — 이메일 발송 skip')
+    return
+  }
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const acceptUrl = `${appUrl}/auth/invite/accept?token=${params.token}`
+  const roleLabel = roleLabels[params.roleCode] || params.roleCode
+
+  const text = [
+    `안녕하세요,`,
+    ``,
+    `${params.inviterName}님이 ${params.tenantName} 학원의 ${roleLabel}로 회원님을 초대했습니다.`,
+    ``,
+    `아래 링크를 클릭해 초대를 수락하세요 (7일 이내 만료):`,
+    acceptUrl,
+    ``,
+    `처음 사용하시는 경우 회원가입 후 자동으로 학원에 합류됩니다.`,
+    `이미 가입된 이메일이라면 로그인 후 합류 처리가 진행됩니다.`,
+    ``,
+    `초대를 받지 않으셨다면 이 메일을 무시하셔도 됩니다.`,
+    ``,
+    `—`,
+    `Acadesk`,
+  ].join('\n')
+
+  try {
+    const resend = new Resend(apiKey)
+    await resend.emails.send({
+      from: 'Acadesk <noreply@acadesk.kr>',
+      to: params.email,
+      subject: `[Acadesk] ${params.tenantName} 학원 ${roleLabel} 초대`,
+      text,
+    })
+  } catch (err) {
+    console.error('[sendInvitationEmail] 발송 실패:', err)
+  }
 }
 
 // ============================================================================
@@ -107,10 +163,21 @@ export async function inviteStaff(
       return { success: false, error: '초대 생성에 실패했습니다.' }
     }
 
-    // TODO: Send invitation email
-    // await sendInvitationEmail(validated.email, token)
+    // 6. Send invitation email (fire-and-forget — 실패해도 초대 자체는 성공)
+    const [{ data: inviter }, { data: tenant }] = await Promise.all([
+      supabase.from('users').select('name').eq('id', userId).maybeSingle(),
+      supabase.from('tenants').select('name').eq('id', tenantId).maybeSingle(),
+    ])
 
-    // 6. Invalidate cache
+    void sendInvitationEmail({
+      email: validated.email,
+      token,
+      inviterName: inviter?.name || '학원 관리자',
+      tenantName: tenant?.name || '학원',
+      roleCode: validated.roleCode,
+    })
+
+    // 7. Invalidate cache
     revalidatePath('/staff')
 
     return { success: true, invitationId: invitation.id }
