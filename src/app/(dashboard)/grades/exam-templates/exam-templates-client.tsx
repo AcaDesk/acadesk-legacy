@@ -3,6 +3,12 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import {
+  getExamTemplates,
+  setExamTemplateActive,
+  deleteExam,
+  createExam,
+} from '@/app/actions/grades/exams'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
 import { Badge } from '@ui/badge'
@@ -172,8 +178,6 @@ export function ExamTemplatesClient() {
   }, [templates, searchTerm, subjectFilter, scheduleFilter, classFilter, questionFilter])
 
   async function loadData() {
-    if (!currentUser || !currentUser.tenantId) return
-
     try {
       setLoading(true)
 
@@ -183,32 +187,11 @@ export function ExamTemplatesClient() {
           .select('code, label')
           .eq('active', true)
           .order('sort_order'),
-        supabase
-          .from('exams')
-          .select(`
-          id,
-          name,
-          subject_id,
-          category_code,
-          exam_type,
-          total_questions,
-          passing_score,
-          recurring_schedule,
-          is_recurring,
-          is_template_active,
-          description,
-          class_id,
-          classes (name),
-          subjects (name, color)
-        `)
-          .eq('tenant_id', currentUser.tenantId)
-          .eq('is_recurring', true)
-          .is('deleted_at', null)
-          .order('name'),
+        getExamTemplates(),
       ])
 
       if (categoriesResult.error) throw categoriesResult.error
-      if (templatesResult.error) throw templatesResult.error
+      if (!templatesResult.success) throw new Error(templatesResult.error || '템플릿 조회 실패')
 
       setCategories(categoriesResult.data || [])
       setTemplates((templatesResult.data || []) as unknown as ExamTemplate[])
@@ -216,7 +199,7 @@ export function ExamTemplatesClient() {
       console.error('Error loading data:', error)
       toast({
         title: '데이터 로드 오류',
-        description: '템플릿을 불러오는 중 오류가 발생했습니다.',
+        description: error instanceof Error ? error.message : '템플릿을 불러오는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
     } finally {
@@ -236,12 +219,9 @@ export function ExamTemplatesClient() {
     )
 
     try {
-      const { error } = await supabase
-        .from('exams')
-        .update({ is_template_active: nextActive, updated_at: new Date().toISOString() })
-        .eq('id', template.id)
+      const result = await setExamTemplateActive(template.id, nextActive)
 
-      if (error) throw error
+      if (!result.success) throw new Error(result.error || '상태 변경 실패')
 
       toast({
         title: nextActive ? '템플릿 활성화' : '템플릿 일시중지',
@@ -275,12 +255,9 @@ export function ExamTemplatesClient() {
     setTemplates((prev) => prev.filter((template) => template.id !== templateToDelete.id))
 
     try {
-      const { error } = await supabase
-        .from('exams')
-        .update({ deleted_at: new Date().toISOString() })
-        .eq('id', templateToDelete.id)
+      const result = await deleteExam(templateToDelete.id)
 
-      if (error) throw error
+      if (!result.success) throw new Error(result.error || '삭제 실패')
 
       toast({
         title: '삭제 완료',
@@ -332,8 +309,7 @@ export function ExamTemplatesClient() {
 
     setIsGeneratingTemplateId(templateToGenerate.id)
     try {
-      const newExam = {
-        tenant_id: currentUser.tenantId,
+      const result = await createExam({
         name: generateExamName.trim(),
         subject_id: templateToGenerate.subject_id,
         category_code: templateToGenerate.category_code,
@@ -344,11 +320,11 @@ export function ExamTemplatesClient() {
         description: templateToGenerate.description,
         exam_date: formatDateToYmd(generateExamDate),
         is_recurring: false,
+      })
+
+      if (!result.success) {
+        throw new Error(result.error || '시험을 생성하는 중 오류가 발생했습니다.')
       }
-
-      const { data, error } = await supabase.from('exams').insert(newExam).select('id').single()
-
-      if (error) throw error
 
       toast({
         title: '시험 생성 완료',
@@ -359,8 +335,8 @@ export function ExamTemplatesClient() {
       setTemplateToGenerate(null)
 
       // Redirect to the created exam detail page for student assignment
-      if (data?.id) {
-        router.push(`/grades/exams/${data.id}`)
+      if (result.data?.examId) {
+        router.push(`/grades/exams/${result.data.examId}`)
       } else {
         router.push('/grades')
       }

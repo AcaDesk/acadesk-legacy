@@ -18,6 +18,7 @@ import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { ClassSelector } from '@/components/features/common/class-selector'
 import { getSubjects } from '@/app/actions/subjects'
+import { createExam, getClassesForExam } from '@/app/actions/grades/exams'
 
 interface ExamCategory {
   code: string
@@ -39,20 +40,6 @@ interface Subject {
   active: boolean
 }
 
-interface ExamTemplateData {
-  tenant_id: string
-  name: string
-  subject_id: string | null
-  category_code: string | null
-  exam_type: string | null
-  total_questions: number | null
-  passing_score: number | null
-  recurring_schedule: string
-  is_recurring: boolean
-  class_id: string | null
-  description: string | null
-}
-
 export default function NewExamTemplatePage() {
   // All Hooks must be called before any early returns
   const [name, setName] = useState('')
@@ -72,7 +59,7 @@ export default function NewExamTemplatePage() {
   const { toast } = useToast()
   const router = useRouter()
   const supabase = createClient()
-  const { user: currentUser, loading: userLoading } = useCurrentUser()
+  const { loading: userLoading } = useCurrentUser()
 
   const loadCategories = useCallback(async () => {
     try {
@@ -90,20 +77,18 @@ export default function NewExamTemplatePage() {
   }, [supabase])
 
   const loadClasses = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('classes')
-        .select('id, name, subject, active')
-        .eq('active', true)
-        .is('deleted_at', null)
-        .order('name')
-
-      if (error) throw error
-      setClasses(data)
-    } catch (error) {
-      console.error('Error loading classes:', error)
+    const result = await getClassesForExam()
+    if (result.success && result.data) {
+      setClasses(
+        result.data.map((c) => ({
+          id: c.id,
+          name: c.name,
+          subject: c.subject ?? null,
+          active: true,
+        }))
+      )
     }
-  }, [supabase])
+  }, [])
 
   const loadSubjects = useCallback(async () => {
     const result = await getSubjects()
@@ -122,20 +107,10 @@ export default function NewExamTemplatePage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
-    if (!currentUser || !currentUser.tenantId) {
-      toast({
-        title: '인증 오류',
-        description: '로그인 정보를 확인할 수 없습니다.',
-        variant: 'destructive',
-      })
-      return
-    }
-
     setLoading(true)
 
     try {
-      const templateData: ExamTemplateData = {
-        tenant_id: currentUser.tenantId,
+      const result = await createExam({
         name,
         subject_id: subjectId && subjectId !== 'none' ? subjectId : null,
         category_code: categoryCode && categoryCode !== 'none' ? categoryCode : null,
@@ -146,11 +121,11 @@ export default function NewExamTemplatePage() {
         is_recurring: true,
         class_id: classId || null,
         description: description || null,
+      })
+
+      if (!result.success) {
+        throw new Error(result.error || '템플릿을 등록하는 중 오류가 발생했습니다.')
       }
-
-      const { error } = await supabase.from('exams').insert(templateData)
-
-      if (error) throw error
 
       toast({
         title: '템플릿 등록 완료',

@@ -326,6 +326,9 @@ export async function createExam(input: z.infer<typeof examSchema>) {
     revalidatePath('/grades/exams')
     revalidatePath('/grades')
     revalidatePath(`/grades/exams/${exam.id}`)
+    if (validated.is_recurring) {
+      revalidatePath('/grades/exam-templates')
+    }
 
     return {
       success: true,
@@ -417,6 +420,8 @@ export async function updateExam(
     revalidatePath('/grades/exams')
     revalidatePath(`/grades/exams/${examId}`)
     revalidatePath('/grades')
+    revalidatePath('/grades/exam-templates')
+    revalidatePath(`/grades/exam-templates/${examId}/edit`)
 
     return {
       success: true,
@@ -481,6 +486,7 @@ export async function deleteExam(examId: string) {
     // 5. Revalidate pages
     revalidatePath('/grades/exams')
     revalidatePath('/grades')
+    revalidatePath('/grades/exam-templates')
 
     return {
       success: true,
@@ -798,6 +804,242 @@ export async function unarchiveExam(examId: string) {
   } catch (error) {
     console.error('[unarchiveExam] Error:', error)
     return { success: false, error: getErrorMessage(error) }
+  }
+}
+
+/**
+ * Get exam templates (is_recurring=true) for the templates list page
+ */
+export async function getExamTemplates() {
+  try {
+    const { tenantId } = await verifyStaff()
+    const serviceClient = createServiceRoleClient()
+
+    const { data, error } = await serviceClient
+      .from('exams')
+      .select(`
+        id,
+        name,
+        subject_id,
+        category_code,
+        exam_type,
+        total_questions,
+        passing_score,
+        recurring_schedule,
+        is_recurring,
+        is_template_active,
+        description,
+        class_id,
+        classes (name),
+        subjects (name, color)
+      `)
+      .eq('tenant_id', tenantId)
+      .eq('is_recurring', true)
+      .is('deleted_at', null)
+      .order('name')
+
+    if (error) {
+      console.error('[getExamTemplates] Query error:', error.message)
+      throw new Error('템플릿 조회에 실패했습니다')
+    }
+
+    return {
+      success: true,
+      data: data || [],
+      error: null,
+    }
+  } catch (error) {
+    console.error('[getExamTemplates] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * Toggle exam template active state (is_template_active)
+ */
+export async function setExamTemplateActive(examId: string, active: boolean) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const serviceClient = createServiceRoleClient()
+
+    const { data: existing, error: fetchError } = await serviceClient
+      .from('exams')
+      .select('id, tenant_id')
+      .eq('id', examId)
+      .maybeSingle()
+
+    if (fetchError || !existing) {
+      return { success: false, error: '템플릿을 찾을 수 없습니다' }
+    }
+
+    if (existing.tenant_id !== tenantId) {
+      return { success: false, error: '권한이 없습니다' }
+    }
+
+    const { error } = await serviceClient
+      .from('exams')
+      .update({ is_template_active: active, updated_at: new Date().toISOString() })
+      .eq('id', examId)
+
+    if (error) throw error
+
+    revalidatePath('/grades/exam-templates')
+
+    return { success: true, error: null }
+  } catch (error) {
+    console.error('[setExamTemplateActive] Error:', error)
+    return { success: false, error: getErrorMessage(error) }
+  }
+}
+
+/**
+ * Get all students for an exam with their current assignment status
+ */
+export async function getStudentsForExamAssignment(examId: string) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const serviceClient = createServiceRoleClient()
+
+    const [
+      { data: allStudents, error: studentsError },
+      { data: assignedScores, error: scoresError },
+    ] = await Promise.all([
+      serviceClient
+        .from('students')
+        .select('id, student_code, grade, users!user_id(name)')
+        .eq('tenant_id', tenantId)
+        .is('deleted_at', null)
+        .order('student_code'),
+      serviceClient
+        .from('exam_scores')
+        .select('student_id')
+        .eq('tenant_id', tenantId)
+        .eq('exam_id', examId),
+    ])
+
+    if (studentsError) throw studentsError
+    if (scoresError) throw scoresError
+
+    interface StudentRow {
+      id: string
+      student_code: string
+      grade: string | null
+      users: { name: string } | null
+    }
+
+    const assignedIds = new Set((assignedScores || []).map((s) => s.student_id))
+    const students = ((allStudents || []) as unknown as StudentRow[]).map((s) => ({
+      id: s.id,
+      student_code: s.student_code,
+      name: s.users?.name || '이름 없음',
+      grade: s.grade,
+      isAssigned: assignedIds.has(s.id),
+    }))
+
+    return {
+      success: true,
+      data: { students, assignedIds: Array.from(assignedIds) },
+      error: null,
+    }
+  } catch (error) {
+    console.error('[getStudentsForExamAssignment] Error:', error)
+    return { success: false, data: null, error: getErrorMessage(error) }
+  }
+}
+
+/**
+ * Assign/unassign students to an exam by adjusting exam_scores rows
+ */
+export async function assignStudentsToExam(
+  examId: string,
+  addIds: string[],
+  removeIds: string[]
+) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const serviceClient = createServiceRoleClient()
+
+    const { data: exam, error: examError } = await serviceClient
+      .from('exams')
+      .select('id, tenant_id')
+      .eq('id', examId)
+      .maybeSingle()
+
+    if (examError || !exam) {
+      return { success: false, error: '시험을 찾을 수 없습니다' }
+    }
+
+    if (exam.tenant_id !== tenantId) {
+      return { success: false, error: '권한이 없습니다' }
+    }
+
+    if (addIds.length > 0) {
+      const { error: insertError } = await serviceClient
+        .from('exam_scores')
+        .insert(
+          addIds.map((studentId) => ({
+            tenant_id: tenantId,
+            exam_id: examId,
+            student_id: studentId,
+            percentage: null,
+            feedback: null,
+          }))
+        )
+
+      if (insertError) throw insertError
+    }
+
+    if (removeIds.length > 0) {
+      const { error: deleteError } = await serviceClient
+        .from('exam_scores')
+        .delete()
+        .eq('tenant_id', tenantId)
+        .eq('exam_id', examId)
+        .in('student_id', removeIds)
+
+      if (deleteError) throw deleteError
+    }
+
+    revalidatePath(`/grades/exams/${examId}`)
+    revalidatePath('/grades/exams')
+    revalidatePath('/grades')
+
+    return { success: true, error: null }
+  } catch (error) {
+    console.error('[assignStudentsToExam] Error:', error)
+    return { success: false, error: getErrorMessage(error) }
+  }
+}
+
+/**
+ * Get active enrollment student IDs for a class (used by exam assignment dialog)
+ */
+export async function getEnrolledStudentIdsForClass(classId: string) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const serviceClient = createServiceRoleClient()
+
+    const { data, error } = await serviceClient
+      .from('class_enrollments')
+      .select('student_id')
+      .eq('tenant_id', tenantId)
+      .eq('class_id', classId)
+      .eq('status', 'active')
+
+    if (error) throw error
+
+    return {
+      success: true,
+      data: (data || []).map((e) => e.student_id),
+      error: null,
+    }
+  } catch (error) {
+    console.error('[getEnrolledStudentIdsForClass] Error:', error)
+    return { success: false, data: null, error: getErrorMessage(error) }
   }
 }
 

@@ -18,6 +18,7 @@ import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { ClassSelector } from '@/components/features/common/class-selector'
 import { getSubjects } from '@/app/actions/subjects'
+import { getExamById, updateExam, getClassesForExam } from '@/app/actions/grades/exams'
 
 interface ExamCategory {
   code: string
@@ -37,20 +38,6 @@ interface Subject {
   code: string | null
   color: string
   active: boolean
-}
-
-interface ExamTemplateData {
-  tenant_id: string
-  name: string
-  subject_id: string | null
-  category_code: string | null
-  exam_type: string | null
-  total_questions: number | null
-  passing_score: number | null
-  recurring_schedule: string
-  is_recurring: boolean
-  class_id: string | null
-  description: string | null
 }
 
 export default function EditExamTemplatePage() {
@@ -79,25 +66,27 @@ export default function EditExamTemplatePage() {
   const { user: currentUser, loading: userLoading } = useCurrentUser()
 
   const loadTemplate = useCallback(async () => {
-    if (!currentUser || !currentUser.tenantId) return
-
     try {
       setLoadingTemplate(true)
-      const { data, error } = await supabase
-        .from('exams')
-        .select('*')
-        .eq('id', templateId)
-        .eq('tenant_id', currentUser.tenantId)
-        .eq('is_recurring', true)
-        .is('deleted_at', null)
-        .single()
 
-      if (error) throw error
+      const result = await getExamById(templateId)
 
-      if (!data) {
+      if (!result.success || !result.data) {
         toast({
           title: '템플릿을 찾을 수 없습니다',
-          description: '존재하지 않거나 삭제된 템플릿입니다.',
+          description: result.error || '존재하지 않거나 삭제된 템플릿입니다.',
+          variant: 'destructive',
+        })
+        router.push('/grades/exam-templates')
+        return
+      }
+
+      const data = result.data
+
+      if (!data.is_recurring) {
+        toast({
+          title: '템플릿이 아닙니다',
+          description: '반복 설정된 템플릿만 수정할 수 있습니다.',
           variant: 'destructive',
         })
         router.push('/grades/exam-templates')
@@ -118,14 +107,14 @@ export default function EditExamTemplatePage() {
       console.error('Error loading template:', error)
       toast({
         title: '로드 오류',
-        description: '템플릿을 불러오는 중 오류가 발생했습니다.',
+        description: error instanceof Error ? error.message : '템플릿을 불러오는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
       router.push('/grades/exam-templates')
     } finally {
       setLoadingTemplate(false)
     }
-  }, [templateId, currentUser, supabase, toast, router])
+  }, [templateId, toast, router])
 
   const loadCategories = useCallback(async () => {
     try {
@@ -143,20 +132,18 @@ export default function EditExamTemplatePage() {
   }, [supabase])
 
   const loadClasses = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('classes')
-        .select('id, name, subject, active')
-        .eq('active', true)
-        .is('deleted_at', null)
-        .order('name')
-
-      if (error) throw error
-      setClasses(data)
-    } catch (error) {
-      console.error('Error loading classes:', error)
+    const result = await getClassesForExam()
+    if (result.success && result.data) {
+      setClasses(
+        result.data.map((c) => ({
+          id: c.id,
+          name: c.name,
+          subject: c.subject ?? null,
+          active: true,
+        }))
+      )
     }
-  }, [supabase])
+  }, [])
 
   const loadSubjects = useCallback(async () => {
     const result = await getSubjects()
@@ -181,19 +168,10 @@ export default function EditExamTemplatePage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
-    if (!currentUser || !currentUser.tenantId) {
-      toast({
-        title: '인증 오류',
-        description: '로그인 정보를 확인할 수 없습니다.',
-        variant: 'destructive',
-      })
-      return
-    }
-
     setLoading(true)
 
     try {
-      const templateData: Partial<ExamTemplateData> = {
+      const result = await updateExam(templateId, {
         name,
         subject_id: subjectId && subjectId !== 'none' ? subjectId : null,
         category_code: categoryCode && categoryCode !== 'none' ? categoryCode : null,
@@ -203,15 +181,11 @@ export default function EditExamTemplatePage() {
         recurring_schedule: recurringSchedule,
         class_id: classId || null,
         description: description || null,
+      })
+
+      if (!result.success) {
+        throw new Error(result.error || '템플릿을 수정하는 중 오류가 발생했습니다.')
       }
-
-      const { error } = await supabase
-        .from('exams')
-        .update(templateData)
-        .eq('id', templateId)
-        .eq('tenant_id', currentUser.tenantId)
-
-      if (error) throw error
 
       toast({
         title: '템플릿 수정 완료',
