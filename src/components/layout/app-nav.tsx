@@ -33,7 +33,6 @@ import {
   PenSquare,
   Layers,
   History,
-  ArrowUpCircle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { isFeatureAvailable, type FeatureKey } from "@/lib/features.config"
@@ -77,7 +76,6 @@ const navigationGroups: NavGroup[] = [
     title: "학생 관리",
     items: [
       { name: "학생 목록", href: "/students", icon: Users, featureFlag: "studentManagement" },
-      { name: "진급 관리", href: "/students/promote", icon: ArrowUpCircle, featureFlag: "studentPromotion" },
       { name: "보호자 관리", href: "/guardians", icon: UserCircle, featureFlag: "guardianManagement" },
       { name: "출석 관리", href: "/attendance", icon: ClipboardCheck, featureFlag: "attendanceManagement" },
     ]
