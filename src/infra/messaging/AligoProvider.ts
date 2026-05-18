@@ -45,6 +45,14 @@ interface AligoListResponse {
   total_count?: number
 }
 
+interface AligoRemainResponse {
+  result_code: string
+  message: string
+  SMS_CNT?: string // 잔여 SMS 건수
+  LMS_CNT?: string // 잔여 LMS 건수
+  MMS_CNT?: string // 잔여 MMS 건수
+}
+
 export class AligoProvider implements IMessageProvider {
   readonly channel: MessageChannel = MessageChannel.SMS
   readonly name: string = 'Aligo'
@@ -153,18 +161,53 @@ export class AligoProvider implements IMessageProvider {
   }
 
   /**
-   * 잔액 조회
+   * 잔액 조회 — 알리고 `/remain/` API
+   *
+   * 알리고는 prepaid 모델로, 응답은 메시지 타입별 잔여 발송 건수.
+   * 인터페이스 통일을 위해 SMS 잔여 건수를 balance, currency='SMS_COUNT' 로 반환.
+   * (KRW 환산이 필요하면 호출 측에서 SMS 단가를 곱해 처리)
    */
   async checkBalance(): Promise<{ balance: number; currency: string }> {
     try {
       // 테스트 모드
       if (process.env.NODE_ENV === 'development') {
-        return { balance: 100000, currency: 'KRW' }
+        return { balance: 10000, currency: 'SMS_COUNT' }
       }
 
-      // 실제 API 호출 (알리고 잔액 조회 API)
-      // TODO: 알리고 잔액 조회 API 구현 필요
-      throw new Error('Balance check not implemented yet')
+      // 설정 검증
+      if (!this.config.apiKey || !this.config.userId) {
+        throw new Error('Aligo API 인증 정보(ALIGO_API_KEY, ALIGO_USER_ID)가 설정되지 않았습니다.')
+      }
+
+      const formData = new URLSearchParams({
+        key: this.config.apiKey,
+        user_id: this.config.userId,
+      })
+
+      const response = await fetch('https://apis.aligo.in/remain/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: formData.toString(),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Aligo API request failed: ${response.status} ${response.statusText}`)
+      }
+
+      const data: AligoRemainResponse = await response.json()
+
+      if (data.result_code !== '1') {
+        throw new Error(`Aligo 잔액 조회 실패: ${data.message}`)
+      }
+
+      const smsCount = Number.parseInt(data.SMS_CNT ?? '0', 10) || 0
+
+      return {
+        balance: smsCount,
+        currency: 'SMS_COUNT',
+      }
     } catch (error) {
       console.error('[AligoProvider.checkBalance] Error:', error)
       throw error
