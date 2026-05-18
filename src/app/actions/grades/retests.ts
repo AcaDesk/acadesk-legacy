@@ -11,6 +11,7 @@ import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { getTodayKST } from '@/lib/utils'
+import { createNotification } from '@/lib/notification-helpers'
 
 // ============================================================================
 // Types
@@ -206,7 +207,7 @@ export async function createRetestExam(
   retestDate?: string
 ) {
   try {
-    const { tenantId } = await verifyStaff()
+    const { tenantId, userId } = await verifyStaff()
     const supabase = createServiceRoleClient()
 
     // 1. Get original exam
@@ -317,6 +318,19 @@ export async function createRetestExam(
           시험범위: '',
         })
       }
+    })
+
+    // 스태프 in-app 알림 (fire-and-forget) — 재시험 생성 사실을 다른 스태프에게 통지.
+    void createNotification({
+      supabase,
+      tenantId,
+      actorUserId: userId,
+      type: 'retest_created',
+      title: '재시험 생성',
+      message: `"${examName}" 재시험에 ${studentIds.length}명이 배정되었습니다. (${retestDateStr})`,
+      referenceType: 'exam',
+      referenceId: retestExam.id,
+      actionUrl: '/grades/retests',
     })
 
     return {

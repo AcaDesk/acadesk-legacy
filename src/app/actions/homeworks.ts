@@ -13,6 +13,7 @@ import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { createNotification } from '@/lib/notification-helpers'
 
 // ============================================================================
 // Validation Schemas
@@ -133,6 +134,20 @@ export async function createHomework(input: z.infer<typeof createHomeworkSchema>
             마감일: dueDateStr,
           })
         }
+      })
+
+      // 스태프 in-app 알림 (fire-and-forget) — 학생 수와 마감일 요약 1건.
+      const dueDateStr2 = new Date(validated.dueDate).toLocaleDateString('ko-KR')
+      void createNotification({
+        supabase,
+        tenantId,
+        actorUserId: userId,
+        type: 'homework_assigned',
+        title: '숙제 배정',
+        message: `${data.length}명에게 "${validated.title}" 숙제가 배정되었습니다. (마감 ${dueDateStr2})`,
+        referenceType: 'homework',
+        referenceId: null,
+        actionUrl: '/homeworks',
       })
     }
 

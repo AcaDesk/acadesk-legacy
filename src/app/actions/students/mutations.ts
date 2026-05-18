@@ -9,6 +9,7 @@ import { getTodayKST } from '@/lib/utils'
 import { hashKioskPin } from '../kiosk'
 import { createStudentCompleteSchema, studentSchema } from './schemas'
 import { detachStudentActiveRelations } from './relations'
+import { createNotification } from '@/lib/notification-helpers'
 
 /**
  * Create a student with optional guardian (pure service_role implementation)
@@ -32,7 +33,7 @@ export async function createStudentComplete(
 ) {
   try {
     // 1. Verify authentication and get tenant
-    const { tenantId } = await verifyStaff()
+    const { tenantId, userId } = await verifyStaff()
 
     // 2. Validate input
     const validated = createStudentCompleteSchema.parse(input)
@@ -301,6 +302,21 @@ export async function createStudentComplete(
       )
     }
 
+    // 스태프 in-app 알림 (fire-and-forget) — 신규 등록을 다른 스태프에게 통지.
+    if (studentId) {
+      void createNotification({
+        supabase: serviceClient,
+        tenantId,
+        actorUserId: userId,
+        type: 'student_enrolled',
+        title: '신규 학생 등록',
+        message: `${validated.student.name} 학생이 ${validated.student.grade}로 등록되었습니다.`,
+        referenceType: 'student',
+        referenceId: studentId,
+        actionUrl: `/students/${studentId}`,
+      })
+    }
+
     return {
       success: true,
       data: {
@@ -562,7 +578,7 @@ export async function withdrawStudent(
 ) {
   try {
     // 1. Verify authentication and get tenant
-    const { tenantId } = await verifyStaff()
+    const { tenantId, userId } = await verifyStaff()
 
     // 2. Create service_role client
     const serviceClient = createServiceRoleClient()
@@ -570,7 +586,7 @@ export async function withdrawStudent(
     // 3. Verify student belongs to tenant
     const { data: existingStudent, error: fetchError } = await serviceClient
       .from('students')
-      .select('id, tenant_id, meta')
+      .select('id, tenant_id, meta, name')
       .eq('id', studentId)
       .is('deleted_at', null)
       .maybeSingle()
@@ -644,6 +660,19 @@ export async function withdrawStudent(
         퇴원일: withdrawalDateStr,
       }),
     )
+
+    // 스태프 in-app 알림 (fire-and-forget) — 퇴원을 다른 스태프에게 통지.
+    void createNotification({
+      supabase: serviceClient,
+      tenantId,
+      actorUserId: userId,
+      type: 'student_withdrawn',
+      title: '학생 퇴원',
+      message: `${existingStudent.name || '학생'}이(가) ${withdrawalDateStr}자로 퇴원 처리되었습니다.`,
+      referenceType: 'student',
+      referenceId: studentId,
+      actionUrl: `/students/${studentId}`,
+    })
 
     return {
       success: true,

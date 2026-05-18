@@ -591,6 +591,19 @@ export async function updateConsultation(
           상담링크: '',
         }),
       )
+
+      // 스태프 in-app 알림 (fire-and-forget) — 상담 요약 작성 완료를 다른 스태프에게 통지.
+      void createNotification({
+        supabase,
+        tenantId,
+        actorUserId: userId,
+        type: 'consultation_summary_added',
+        title: '상담 요약 작성',
+        message: `${conductor?.name || '담당자'}님이 ${consultDateStr} 상담 요약을 작성했습니다: ${data.title || '상담'}`,
+        referenceType: 'consultation',
+        referenceId: data.id ?? null,
+        actionUrl: `/consultations/${data.id}`,
+      })
     }
 
     revalidatePath('/consultations')

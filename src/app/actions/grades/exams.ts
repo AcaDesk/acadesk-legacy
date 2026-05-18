@@ -11,6 +11,7 @@ import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { createNotification } from '@/lib/notification-helpers'
 
 // ============================================================================
 // Validation Schemas
@@ -635,7 +636,7 @@ export async function getExamCategories() {
  */
 export async function completeExamGrading(examId: string) {
   try {
-    const { tenantId } = await verifyStaff()
+    const { tenantId, userId } = await verifyStaff()
     const serviceClient = createServiceRoleClient()
 
     // Verify exam belongs to tenant
@@ -681,6 +682,19 @@ export async function completeExamGrading(examId: string) {
           성적링크: '',
         })
       }
+    })
+
+    // 스태프 in-app 알림 (fire-and-forget) — 채점 완료 사실을 다른 스태프에게 통지.
+    void createNotification({
+      supabase: serviceClient,
+      tenantId,
+      actorUserId: userId,
+      type: 'exam_grading_completed',
+      title: '시험 채점 완료',
+      message: `"${exam.name || '시험'}" 채점이 완료되어 성적이 발표되었습니다.`,
+      referenceType: 'exam',
+      referenceId: examId,
+      actionUrl: '/grades/exams',
     })
 
     return { success: true, error: null }
@@ -1011,6 +1025,150 @@ export async function assignStudentsToExam(
     return { success: true, error: null }
   } catch (error) {
     console.error('[assignStudentsToExam] Error:', error)
+    return { success: false, error: getErrorMessage(error) }
+  }
+}
+
+export interface ExamAssignedStudent {
+  id: string
+  student_code: string
+  name: string
+  grade: string | null
+}
+
+export interface ExamAssignedScore {
+  student_id: string
+  score: number | null
+  total_points: number | null
+  percentage: number | null
+}
+
+/**
+ * Get students currently assigned to an exam (rows in exam_scores)
+ * along with their score data. Used by the exam detail page.
+ *
+ * Replaces the previous client-side query that broke after RLS was
+ * enabled on exam_scores/students/users (migration 20260516000010).
+ */
+export async function getExamAssignments(examId: string) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const serviceClient = createServiceRoleClient()
+
+    const { data: scoreRecords, error } = await serviceClient
+      .from('exam_scores')
+      .select(`
+        student_id,
+        score,
+        total_points,
+        percentage,
+        students!inner (
+          id,
+          student_code,
+          grade,
+          users!user_id (name)
+        )
+      `)
+      .eq('tenant_id', tenantId)
+      .eq('exam_id', examId)
+      .is('deleted_at', null)
+
+    if (error) throw error
+
+    interface ScoreRecordRow {
+      student_id: string
+      score: number | null
+      total_points: number | null
+      percentage: number | null
+      students: {
+        id: string
+        student_code: string
+        grade: string | null
+        users: { name: string } | null
+      } | null
+    }
+
+    const students: ExamAssignedStudent[] = []
+    const scores: ExamAssignedScore[] = []
+
+    for (const record of (scoreRecords || []) as unknown as ScoreRecordRow[]) {
+      if (!record.students) continue
+      students.push({
+        id: record.students.id,
+        student_code: record.students.student_code,
+        name: record.students.users?.name || '이름 없음',
+        grade: record.students.grade,
+      })
+      scores.push({
+        student_id: record.student_id,
+        score: record.score,
+        total_points: record.total_points,
+        percentage: record.percentage,
+      })
+    }
+
+    return {
+      success: true,
+      data: { students, scores },
+      error: null,
+    }
+  } catch (error) {
+    console.error('[getExamAssignments] Error:', error)
+    return { success: false, data: null, error: getErrorMessage(error) }
+  }
+}
+
+/**
+ * Restore a previously-removed exam assignment, preserving the score data.
+ * Used by the "undo" toast action after removing a student from the exam.
+ */
+export async function restoreExamAssignment(
+  examId: string,
+  studentId: string,
+  scoreData: {
+    score: number | null
+    total_points: number | null
+    percentage: number | null
+  }
+) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const serviceClient = createServiceRoleClient()
+
+    const { data: exam, error: examError } = await serviceClient
+      .from('exams')
+      .select('id, tenant_id')
+      .eq('id', examId)
+      .maybeSingle()
+
+    if (examError || !exam) {
+      return { success: false, error: '시험을 찾을 수 없습니다' }
+    }
+
+    if (exam.tenant_id !== tenantId) {
+      return { success: false, error: '권한이 없습니다' }
+    }
+
+    const { error: insertError } = await serviceClient
+      .from('exam_scores')
+      .insert({
+        tenant_id: tenantId,
+        exam_id: examId,
+        student_id: studentId,
+        score: scoreData.score,
+        total_points: scoreData.total_points,
+        percentage: scoreData.percentage,
+      })
+
+    if (insertError) throw insertError
+
+    revalidatePath(`/grades/exams/${examId}`)
+    revalidatePath('/grades/exams')
+    revalidatePath('/grades')
+
+    return { success: true, error: null }
+  } catch (error) {
+    console.error('[restoreExamAssignment] Error:', error)
     return { success: false, error: getErrorMessage(error) }
   }
 }

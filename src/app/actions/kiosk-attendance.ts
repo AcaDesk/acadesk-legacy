@@ -7,6 +7,7 @@
 
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { createNotification } from '@/lib/notification-helpers'
 
 export type KioskStudentStatus = 'out' | 'in' | 'done'
 
@@ -246,6 +247,27 @@ export async function recordKioskAttendance(
     void import('@/lib/messaging/event-alimtalk').then(({ fireEventAlimtalk }) =>
       fireEventAlimtalk(tenantId, eventType, studentId, { 시간: timeStr })
     )
+
+    // 스태프 in-app 알림 (fire-and-forget) — 키오스크는 actor가 없어 모든 스태프에게 전달.
+    const { data: kioskStudentRow } = await supabase
+      .from('students')
+      .select('name')
+      .eq('id', studentId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+    const kioskStudentName = kioskStudentRow?.name || '학생'
+    const actionLabel = action === 'check_in' ? '등원' : '하원'
+    void createNotification({
+      supabase,
+      tenantId,
+      actorUserId: '00000000-0000-0000-0000-000000000000',
+      type: action === 'check_in' ? 'kiosk_check_in' : 'kiosk_check_out',
+      title: `키오스크 ${actionLabel}`,
+      message: `${kioskStudentName} 학생이 ${timeStr}에 ${actionLabel}했습니다.`,
+      referenceType: 'student',
+      referenceId: studentId,
+      actionUrl: '/attendance',
+    })
 
     return { success: true }
   } catch (error) {
