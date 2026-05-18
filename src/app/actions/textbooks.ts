@@ -149,45 +149,28 @@ export async function getTextbooks(options?: {
         throw new Error('교재 검색에 실패했습니다')
       }
 
+      // RPC 결과 jsonb 안에 이미 lending_count, unit_count 포함됨 (LATERAL subquery).
+      // 별도 book_lendings / textbook_units fetch 없이 단일 round-trip 으로 처리.
       interface TextbookSearchRpcRow {
-        textbook: TextbookListItem
+        textbook: TextbookListItem & {
+          lending_count?: number
+          unit_count?: number
+        }
       }
 
       const searchRows = (rows || []) as TextbookSearchRpcRow[]
       const hasNextPage = searchRows.length > boundedPageSize
-      const textbooks = searchRows
-        .slice(0, boundedPageSize)
-        .map((row) => row.textbook as TextbookListItem)
+      const richRows = searchRows.slice(0, boundedPageSize).map((row) => row.textbook)
 
-      const textbookIds = textbooks.map(t => t.id as string)
       const lendingCountByTextbookId: Record<string, number> = {}
       const unitCountByTextbookId: Record<string, number> = {}
-
-      if (textbookIds.length > 0) {
-        const [{ data: lendings }, { data: units }] = await Promise.all([
-          supabase
-            .from('book_lendings')
-            .select('textbook_id')
-            .eq('tenant_id', tenantId)
-            .in('textbook_id', textbookIds)
-            .is('returned_at', null),
-          supabase
-            .from('textbook_units')
-            .select('textbook_id')
-            .eq('tenant_id', tenantId)
-            .in('textbook_id', textbookIds)
-            .is('deleted_at', null),
-        ])
-
-        for (const row of lendings || []) {
-          const id = row.textbook_id as string
-          lendingCountByTextbookId[id] = (lendingCountByTextbookId[id] || 0) + 1
-        }
-        for (const row of units || []) {
-          const id = row.textbook_id as string
-          unitCountByTextbookId[id] = (unitCountByTextbookId[id] || 0) + 1
-        }
+      for (const t of richRows) {
+        const id = t.id as string
+        lendingCountByTextbookId[id] = t.lending_count ?? 0
+        unitCountByTextbookId[id] = t.unit_count ?? 0
       }
+
+      const textbooks = richRows as TextbookListItem[]
 
       return {
         success: true,
