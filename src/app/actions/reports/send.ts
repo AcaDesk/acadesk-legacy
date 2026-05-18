@@ -573,7 +573,6 @@ export async function sendReportMessage(reportSendId: string) {
       students: { id: string; student_code: string; users: { name: string } | null } | null
     } | null
     const studentId = typedReports?.student_id
-    const studentName = typedReports?.students?.users?.name || '학생'
 
     // 4. 통합 메시지 Provider 사용 (tenant 설정에 따라 알리고/솔라피 자동 선택)
     const { sendAlimtalk, sendMessage } = await import('@/lib/messaging/provider')
@@ -622,16 +621,33 @@ export async function sendReportMessage(reportSendId: string) {
     const notificationType = reportSend.message_type === 'KAKAO' ? 'kakao' :
                             reportSend.message_type === 'LMS' ? 'lms' : 'sms'
 
+    // 알림톡인 경우 템플릿 본문을 변수와 치환하여 실제 발송 내용을 저장
+    let loggedMessage = reportSend.message_body || ''
+    if (reportSend.message_type === 'KAKAO' && reportSend.kakao_template_id) {
+      const { data: kakaoTemplate } = await supabase
+        .from('kakao_alimtalk_templates')
+        .select('content')
+        .eq('id', reportSend.kakao_template_id)
+        .is('deleted_at', null)
+        .maybeSingle()
+
+      if (kakaoTemplate?.content) {
+        const vars = (reportSend.message_variables as Record<string, string> | null) ?? {}
+        loggedMessage = renderKakaoTemplatePreview(kakaoTemplate.content, vars)
+      }
+    }
+
     await supabase.from('notification_logs').insert({
       tenant_id: tenantId,
       student_id: studentId,
       notification_type: notificationType,
       status: 'sent',
-      message: `[리포트 발송] ${studentName} 학생 리포트를 ${reportSend.recipient_name}(${reportSend.recipient_phone})에게 발송`,
+      message: loggedMessage,
       sent_at: new Date().toISOString(),
+      recipient_name: reportSend.recipient_name,
+      recipient_phone: reportSend.recipient_phone,
       ...(reportSend.message_type === 'KAKAO' && {
         kakao_template_id: reportSend.kakao_template_id,
-        fallback_type: 'none',
       }),
     })
 

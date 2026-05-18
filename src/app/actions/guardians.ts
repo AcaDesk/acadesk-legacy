@@ -865,10 +865,11 @@ export async function sendGuardianSMS(data: {
         tenant_id: tenantId,
         student_id: data.studentId,
         session_id: data.sessionId,
-        notification_type: 'sms',
+        notification_type: msgType,
         status: 'sent',
         message: data.message,
         sent_at: new Date().toISOString(),
+        recipient_phone: data.phone,
       })
 
       if (logError) {
@@ -933,14 +934,28 @@ export async function sendGuardianAlimtalk(data: {
     }
 
     if (data.sessionId) {
+      // 템플릿 본문을 변수와 치환하여 실제 발송 내용을 저장
+      const { renderKakaoTemplatePreview } = await import('@/lib/kakao/kakao-variables')
+      const { data: kakaoTemplate } = await supabase
+        .from('kakao_alimtalk_templates')
+        .select('content')
+        .eq('id', data.templateId)
+        .is('deleted_at', null)
+        .maybeSingle()
+      const renderedMessage = kakaoTemplate?.content
+        ? renderKakaoTemplatePreview(kakaoTemplate.content, data.variables)
+        : ''
+
       const { error: logError } = await supabase.from('notification_logs').insert({
         tenant_id: tenantId,
         student_id: data.studentId,
         session_id: data.sessionId,
         notification_type: 'kakao',
         status: 'sent',
-        message: `알림톡 발송 (templateId: ${data.templateId})`,
+        message: renderedMessage,
         sent_at: new Date().toISOString(),
+        kakao_template_id: data.templateId,
+        recipient_phone: data.phone,
       })
 
       if (logError) {

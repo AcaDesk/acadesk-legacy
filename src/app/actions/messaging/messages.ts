@@ -453,8 +453,11 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
       status: string
       error_message: string | null
       sent_at: string
+      recipient_name: string | null
+      recipient_phone: string | null
       kakao_template_id?: string
       fallback_type?: string
+      original_channel?: string
     }
     const logs: MessageLog[] = []
 
@@ -491,6 +494,8 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
           status: 'failed',
           error_message: '보호자 정보가 없습니다',
           sent_at: new Date().toISOString(),
+          recipient_name: null,
+          recipient_phone: null,
         })
         continue
       }
@@ -511,6 +516,8 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
           status: 'failed',
           error_message: '보호자 전화번호 정보가 없습니다',
           sent_at: new Date().toISOString(),
+          recipient_name: guardianName,
+          recipient_phone: null,
         })
         continue
       }
@@ -572,9 +579,10 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
           status: 'sent',
           error_message: null,
           sent_at: new Date().toISOString(),
+          recipient_name: guardianName,
+          recipient_phone: recipientPhone,
           ...(validated.type === 'kakao' && {
             kakao_template_id: validated.kakaoTemplateId,
-            fallback_type: 'none',
           }),
         })
 
@@ -591,9 +599,10 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
           status: 'failed',
           error_message: getErrorMessage(error),
           sent_at: new Date().toISOString(),
+          recipient_name: guardianName,
+          recipient_phone: recipientPhone,
           ...(validated.type === 'kakao' && {
             kakao_template_id: validated.kakaoTemplateId,
-            fallback_type: 'none',
           }),
         })
       }
@@ -669,6 +678,8 @@ export async function sendDirectMessages(input: z.infer<typeof sendDirectMessage
       status: 'sent' | 'failed'
       error_message: string | null
       sent_at: string
+      recipient_name: string | null
+      recipient_phone: string | null
       kakao_template_id?: string
       fallback_type?: string
     }> = []
@@ -718,9 +729,10 @@ export async function sendDirectMessages(input: z.infer<typeof sendDirectMessage
           status: 'sent',
           error_message: null,
           sent_at: new Date().toISOString(),
+          recipient_name: recipient.name,
+          recipient_phone: recipient.phone,
           ...(validated.type === 'kakao' && {
             kakao_template_id: validated.kakaoTemplateId,
-            fallback_type: 'none',
           }),
         })
       } catch (error) {
@@ -735,9 +747,10 @@ export async function sendDirectMessages(input: z.infer<typeof sendDirectMessage
           status: 'failed',
           error_message: getErrorMessage(error),
           sent_at: new Date().toISOString(),
+          recipient_name: recipient.name,
+          recipient_phone: recipient.phone,
           ...(validated.type === 'kakao' && {
             kakao_template_id: validated.kakaoTemplateId,
-            fallback_type: 'none',
           }),
         })
       }
@@ -923,6 +936,8 @@ export async function sendTodoReminder(todoId: string) {
         status: result.success ? 'sent' : 'failed',
         error_message: result.success ? null : (result.error || '발송 실패'),
         sent_at: new Date().toISOString(),
+        recipient_name: studentUser.name || null,
+        recipient_phone: studentUser.phone,
       })
     }
 
@@ -1185,6 +1200,9 @@ export async function sendTestAlimtalk(
       sent_at: new Date().toISOString(),
       kakao_template_id: template.id,
       event_type: validated.eventType,
+      is_test: true,
+      recipient_name: '테스트 수신자',
+      recipient_phone: validated.phoneNumber,
     })
 
     if (!result.success) {

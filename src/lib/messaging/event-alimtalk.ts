@@ -10,6 +10,7 @@
 
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { SolapiProvider } from '@/infra/messaging/SolapiProvider'
+import { renderKakaoTemplatePreview } from '@/lib/kakao/kakao-variables'
 import { getGuardianPhones } from './guardian-lookup'
 
 // ============================================================================
@@ -64,10 +65,10 @@ export async function sendEventAlimtalk(
       return { success: false, error: '이벤트가 비활성화되었거나 템플릿이 승인되지 않았습니다.' }
     }
 
-    // 2. kakao_alimtalk_templates에서 솔라피 template ID
+    // 2. kakao_alimtalk_templates에서 솔라피 template ID + 본문(로그용)
     const { data: tpl, error: tplError } = await supabase
       .from('kakao_alimtalk_templates')
-      .select('solapi_template_id')
+      .select('solapi_template_id, content')
       .eq('id', sub.kakao_template_id)
       .is('deleted_at', null)
       .single()
@@ -107,16 +108,24 @@ export async function sendEventAlimtalk(
       disableSms: config.kakao_sms_fallback_enabled === false,
     })
 
-    // 5. notification_logs 기록
+    // 5. notification_logs 기록 (실제 렌더된 본문 + 수신자 정보)
+    const renderedMessage = tpl.content
+      ? renderKakaoTemplatePreview(tpl.content, variables)
+      : ''
+    const guardianName = variables['보호자명'] || null
+
     await supabase.from('notification_logs').insert({
       tenant_id: tenantId,
       student_id: studentId || null,
       notification_type: 'kakao',
       status: result.success ? 'sent' : 'failed',
-      message: `[${eventType}] 알림톡 발송`,
+      message: renderedMessage,
+      error_message: result.success ? null : (result.error || null),
       sent_at: new Date().toISOString(),
       kakao_template_id: sub.kakao_template_id,
       event_type: eventType,
+      recipient_name: guardianName,
+      recipient_phone: recipientPhone,
     })
 
     if (!result.success) {

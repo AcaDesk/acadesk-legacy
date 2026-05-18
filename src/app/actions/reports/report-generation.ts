@@ -577,6 +577,18 @@ ${params.comment ? `💬 종합평가\n${params.comment}\n\n` : ''}문의: ${par
         throw new Error(alimtalkResult.error || '알림톡 발송에 실패했습니다.')
       }
 
+      // 알림톡 템플릿 본문을 변수와 함께 렌더링하여 실제 발송 내용을 저장
+      const { renderKakaoTemplatePreview } = await import('@/lib/kakao/kakao-variables')
+      const { data: kakaoTemplate } = await supabase
+        .from('kakao_alimtalk_templates')
+        .select('content')
+        .eq('id', params.kakaoTemplateId)
+        .is('deleted_at', null)
+        .maybeSingle()
+      const renderedMessage = kakaoTemplate?.content
+        ? renderKakaoTemplatePreview(kakaoTemplate.content, variables)
+        : ''
+
       // notification_logs에 기록
       const { error: logError } = await supabase.from('notification_logs').insert({
         tenant_id: tenantId,
@@ -584,10 +596,11 @@ ${params.comment ? `💬 종합평가\n${params.comment}\n\n` : ''}문의: ${par
         session_id: null,
         notification_type: 'kakao',
         status: 'sent',
-        message: `[알림톡 발송] 템플릿ID: ${params.kakaoTemplateId}, 수신자: ${params.recipientName} ${params.recipientContact}`,
+        message: renderedMessage,
         sent_at: new Date().toISOString(),
         kakao_template_id: params.kakaoTemplateId,
-        fallback_type: 'none',
+        recipient_name: params.recipientName,
+        recipient_phone: params.recipientContact,
       })
 
       if (logError) {
@@ -616,8 +629,10 @@ ${params.comment ? `💬 종합평가\n${params.comment}\n\n` : ''}문의: ${par
       session_id: null, // 리포트 발송은 세션과 무관
       notification_type: params.channel === 'sms' || params.channel === 'lms' ? 'sms' : 'email',
       status: 'sent',
-      message: `[발송 대상: ${params.recipientName} ${params.recipientContact}] ${message}`,
+      message,
       sent_at: new Date().toISOString(),
+      recipient_name: params.recipientName,
+      recipient_phone: params.recipientContact,
     })
 
     if (logError) {

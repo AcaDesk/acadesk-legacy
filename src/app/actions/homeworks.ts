@@ -492,8 +492,10 @@ export async function sendHomeworkNotificationToGuardians(homeworkId: string) {
           student_id: homework.student_id,
           notification_type: messageType,
           status: 'sent',
-          message: `[숙제 안내] ${studentName} 학생 숙제를 ${guardian.name}(${phone})에게 발송`,
+          message: messageBody,
           sent_at: new Date().toISOString(),
+          recipient_name: guardian.name,
+          recipient_phone: phone,
         })
       } else {
         failCount++
