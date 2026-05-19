@@ -599,3 +599,86 @@ export async function updateKakaoFallbackSettings(
     }
   }
 }
+
+// ============================================================================
+// Server Actions - Channel Stats (지난 7일 발송 통계)
+// ============================================================================
+
+export interface KakaoChannelStats {
+  /** 최근 7일 카카오 알림톡 발송 시도 건수 (sent + failed + pending) */
+  totalCount: number
+  /** sent 건수 */
+  sentCount: number
+  /** failed 건수 */
+  failedCount: number
+  /** pending 건수 */
+  pendingCount: number
+  /** sent / (sent + failed) — 분모 0이면 null */
+  successRate: number | null
+}
+
+/**
+ * 최근 7일 카카오 알림톡 발송 통계 — '알림 서비스 연동' 페이지 KPI 카드용
+ *
+ * - notification_logs 에서 tenant + 7일 + notification_type='kakao' 로 필터
+ * - is_test=true 도 포함 (테스트 발송도 통계에 잡혀야 화면이 비어보이지 않음)
+ */
+export async function getKakaoChannelStats(): Promise<{
+  success: boolean
+  data: KakaoChannelStats
+  error: string | null
+}> {
+  const empty: KakaoChannelStats = {
+    totalCount: 0,
+    sentCount: 0,
+    failedCount: 0,
+    pendingCount: 0,
+    successRate: null,
+  }
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    const sevenDaysAgo = new Date()
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+
+    const { data, error } = await supabase
+      .from('notification_logs')
+      .select('status')
+      .eq('tenant_id', tenantId)
+      .eq('notification_type', 'kakao')
+      .gte('sent_at', sevenDaysAgo.toISOString())
+
+    if (error) throw error
+
+    let sent = 0
+    let failed = 0
+    let pending = 0
+    for (const row of data || []) {
+      if (row.status === 'sent') sent++
+      else if (row.status === 'failed') failed++
+      else if (row.status === 'pending') pending++
+    }
+    const denom = sent + failed
+    const successRate = denom > 0 ? sent / denom : null
+
+    return {
+      success: true,
+      data: {
+        totalCount: sent + failed + pending,
+        sentCount: sent,
+        failedCount: failed,
+        pendingCount: pending,
+        successRate,
+      },
+      error: null,
+    }
+  } catch (error) {
+    console.error('[getKakaoChannelStats] Error:', error)
+    return {
+      success: false,
+      data: empty,
+      error: getErrorMessage(error),
+    }
+  }
+}
