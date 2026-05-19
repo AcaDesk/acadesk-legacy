@@ -1,2 +1,5 @@
 export { EventSubscriptionList } from './EventSubscriptionList'
-export { EventSubscriptionCard } from './EventSubscriptionCard'
+export { EventSubscriptionStatsCards } from './EventSubscriptionStatsCards'
+export { EventSubscriptionTable } from './EventSubscriptionTable'
+export { EventSubscriptionSidebar } from './EventSubscriptionSidebar'
+export { EventSubscriptionTestDialog } from './EventSubscriptionTestDialog'
