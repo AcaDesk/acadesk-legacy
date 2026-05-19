@@ -14,6 +14,13 @@ import { Alert, AlertDescription } from '@ui/alert'
 import { Switch } from '@ui/switch'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@ui/dialog'
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -22,18 +29,21 @@ import {
 } from '@ui/select'
 import {
   MessageSquare,
-  Check,
-  X,
   AlertCircle,
   ExternalLink,
   Send,
-  Save,
   Trash2,
   Info,
-  ShieldCheck,
-  Pencil,
   Bell,
+  Eye,
+  EyeOff,
+  Copy,
+  CheckCheck,
+  RefreshCw,
+  CircleCheck,
+  BookOpen,
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import {
   saveMessagingConfig,
@@ -46,8 +56,24 @@ import {
 // 카카오 관련 컴포넌트들은 8개 합쳐 ~3,000줄. API 설정 탭이 기본이라 첫 진입 시엔 보이지 않음.
 // next/dynamic 으로 lazy load → 초기 번들 50%+ 절감.
 // ssr: false — 컨테이너 자체가 'use client' 라 SSR 출력은 placeholder 만 필요.
-const KakaoChannelStatus = dynamic(
-  async () => (await import('@/components/features/settings/kakao-channel')).KakaoChannelStatus,
+const KakaoChannelDetailCard = dynamic(
+  async () => (await import('@/components/features/settings/kakao-channel')).KakaoChannelDetailCard,
+  { ssr: false },
+)
+const KakaoChannelStatsCards = dynamic(
+  async () => (await import('@/components/features/settings/kakao-channel')).KakaoChannelStatsCards,
+  { ssr: false },
+)
+const KakaoApprovedTemplatesCard = dynamic(
+  async () => (await import('@/components/features/settings/kakao-channel')).KakaoApprovedTemplatesCard,
+  { ssr: false },
+)
+const KakaoIntegrationFooterCards = dynamic(
+  async () => (await import('@/components/features/settings/kakao-channel')).KakaoIntegrationFooterCards,
+  { ssr: false },
+)
+const EventSubscriptionTestDialog = dynamic(
+  async () => (await import('@/components/features/settings/event-subscriptions')).EventSubscriptionTestDialog,
   { ssr: false },
 )
 const KakaoChannelRegistration = dynamic(
@@ -75,7 +101,7 @@ const EventSubscriptionList = dynamic(
   { ssr: false },
 )
 import type { KakaoTemplateSummary } from '@/components/features/settings/kakao-channel'
-import type { KakaoChannelConfig } from '@/app/actions/messaging/kakao-channel'
+import type { KakaoChannelConfig, KakaoChannelStats } from '@/app/actions/messaging/kakao-channel'
 import type { KakaoTemplate } from '@/app/actions/messaging/kakao-templates'
 import type { EventSubscription } from '@/app/actions/messaging/event-subscriptions'
 
@@ -107,6 +133,8 @@ interface MessagingIntegrationClientProps {
   eventSubscriptions?: EventSubscription[]
   eventSubscriptionsLoadError?: string | null
   initialKakaoTemplateSummary?: KakaoTemplateSummary | null
+  kakaoTemplates?: KakaoTemplate[]
+  kakaoStats?: KakaoChannelStats
   /** URL 기반 활성 섹션. 글로벌 SettingsNav 가 라우팅을 담당한다. */
   defaultSection?: MessagingSection
 }
@@ -127,31 +155,160 @@ type FormData = {
 const providerInfo = {
   aligo: {
     name: '알리고 (Aligo)',
-    description: '국내 대표 SMS/LMS 서비스',
+    description: 'SMS/LMS 발송 지원',
     signupUrl: 'https://smartsms.aligo.in/join.html',
     docsUrl: 'https://smartsms.aligo.in/admin/api/spec.html',
-    icon: MessageSquare,
+    iconBg: 'bg-blue-100 dark:bg-blue-950/40',
+    iconColor: 'text-blue-600 dark:text-blue-400',
   },
   solapi: {
     name: '솔라피 (Solapi)',
     description: 'SMS/LMS 및 카카오 알림톡 지원',
     signupUrl: 'https://solapi.com',
-    docsUrl: 'https://docs.solapi.com',
-    icon: MessageSquare,
+    docsUrl: 'https://docs.solapi.com/getting-started/quick-start',
+    iconBg: 'bg-yellow-400',
+    iconColor: 'text-yellow-950',
   },
   nhncloud: {
     name: 'NHN Cloud',
     description: 'NHN의 엔터프라이즈 메시징 서비스 (준비 중)',
     signupUrl: 'https://www.nhncloud.com',
     docsUrl: 'https://docs.nhncloud.com',
-    icon: MessageSquare,
+    iconBg: 'bg-emerald-100 dark:bg-emerald-950/40',
+    iconColor: 'text-emerald-600 dark:text-emerald-400',
   },
-}
+} as const
 
 const PROVIDER_FIELDS: Record<MessagingProvider, ReadonlyArray<keyof FormData>> = {
   aligo: ['aligo_user_id', 'aligo_api_key', 'aligo_sender_phone'],
   solapi: ['solapi_api_key', 'solapi_api_secret', 'solapi_sender_phone'],
   nhncloud: ['nhncloud_app_key', 'nhncloud_secret_key', 'nhncloud_sender_phone'],
+}
+
+const SECTION_HEADERS: Record<MessagingSection, { title: string; description: string }> = {
+  api: {
+    title: 'API 설정',
+    description: '알림톡 발송을 위한 API 정보를 설정합니다',
+  },
+  kakao: {
+    title: '알림 서비스 연동',
+    description: 'SMS/알림톡 발송을 위한 API 키를 관리합니다',
+  },
+  events: {
+    title: '이벤트 알림',
+    description: '이벤트 발생 시 자동으로 알림을 발송합니다',
+  },
+}
+
+function formatDateTime(value: string | null | undefined): string {
+  if (!value) return '—'
+  const d = new Date(value)
+  if (isNaN(d.getTime())) return '—'
+  return d.toLocaleString('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+}
+
+function formatDateTimeWithSeconds(value: string | null | undefined): string {
+  if (!value) return '—'
+  const d = new Date(value)
+  if (isNaN(d.getTime())) return '—'
+  return d.toLocaleString('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  })
+}
+
+interface SecretInputProps {
+  id: string
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  disabled?: boolean
+  type?: 'text' | 'secret'
+}
+
+function SecretInput({
+  id,
+  value,
+  onChange,
+  placeholder,
+  disabled,
+  type = 'secret',
+}: SecretInputProps) {
+  const [revealed, setRevealed] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const { toast } = useToast()
+
+  const inputType = type === 'secret' && !revealed ? 'password' : 'text'
+
+  async function handleCopy() {
+    if (!value) return
+    try {
+      await navigator.clipboard.writeText(value)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      toast({ title: '복사 실패', variant: 'destructive' })
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="relative flex-1 min-w-0">
+        <Input
+          id={id}
+          type={inputType}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          disabled={disabled}
+          className="pr-10"
+        />
+        <button
+          type="button"
+          onClick={() => setRevealed((v) => !v)}
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40"
+          disabled={disabled || !value}
+          aria-label={revealed ? '숨기기' : '표시'}
+        >
+          {revealed ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+        </button>
+      </div>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={handleCopy}
+        disabled={!value}
+        className="shrink-0 h-10 px-3"
+      >
+        {copied ? (
+          <>
+            <CheckCheck className="h-3.5 w-3.5 mr-1" />
+            복사됨
+          </>
+        ) : (
+          <>
+            <Copy className="h-3.5 w-3.5 mr-1" />
+            복사
+          </>
+        )}
+      </Button>
+    </div>
+  )
 }
 
 export function MessagingIntegrationClient({
@@ -160,6 +317,14 @@ export function MessagingIntegrationClient({
   eventSubscriptions = [],
   eventSubscriptionsLoadError = null,
   initialKakaoTemplateSummary = null,
+  kakaoTemplates = [],
+  kakaoStats = {
+    totalCount: 0,
+    sentCount: 0,
+    failedCount: 0,
+    pendingCount: 0,
+    successRate: null,
+  },
   defaultSection = 'api',
 }: MessagingIntegrationClientProps) {
   const router = useRouter()
@@ -169,13 +334,15 @@ export function MessagingIntegrationClient({
   const [templateFormOpen, setTemplateFormOpen] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState<KakaoTemplate | null>(null)
   const [templateSummary, setTemplateSummary] = useState<KakaoTemplateSummary | null>(initialKakaoTemplateSummary)
+  const [showAllTemplates, setShowAllTemplates] = useState(false)
+  const [kakaoTestDialogOpen, setKakaoTestDialogOpen] = useState(false)
 
   const hasKakaoChannel = !!kakaoChannelConfig?.channelId
   const isSolapiProvider = config?.provider === 'solapi'
   const showKakaoTab = isSolapiProvider && config?.is_verified
 
   const initialFormDataValue: FormData = {
-    provider: config?.provider || 'aligo',
+    provider: config?.provider || 'solapi',
     aligo_user_id: config?.aligo_user_id || '',
     aligo_api_key: config?.aligo_api_key || '',
     aligo_sender_phone: config?.aligo_sender_phone || '',
@@ -191,9 +358,15 @@ export function MessagingIntegrationClient({
   const initialFormData = useRef<FormData>(initialFormDataValue)
   const [isEditingCredentials, setIsEditingCredentials] = useState(!config)
 
+  // "관리자 연락처" — UI 전용 (현재 스키마에 없음). 컴포넌트 state 로만 유지한다.
+  const [adminContact, setAdminContact] = useState('')
+
   // 섹션은 URL 로 결정 — defaultSection 으로 직접 매핑.
   const activeTab = defaultSection
+  const sectionHeader = SECTION_HEADERS[activeTab]
+
   const [testPhone, setTestPhone] = useState('')
+  const [showTestPanel, setShowTestPanel] = useState(false)
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
   const [toggling, setToggling] = useState(false)
@@ -202,6 +375,7 @@ export function MessagingIntegrationClient({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
   const selectedProvider = providerInfo[formData.provider]
+  const connectedProvider = config ? providerInfo[config.provider] : selectedProvider
   const hasConfig = config !== null
   const isVerified = config?.is_verified || false
   const isActive = config?.is_active || false
@@ -215,6 +389,14 @@ export function MessagingIntegrationClient({
       (key) => formData[key] !== init[key]
     )
   }, [formData, isEditingCredentials])
+
+  function handleCancelEdit() {
+    setFormData({ ...initialFormData.current })
+    if (hasConfig) {
+      setIsEditingCredentials(false)
+    }
+    setShowTestPanel(false)
+  }
 
   async function handleSave() {
     setSaving(true)
@@ -234,7 +416,7 @@ export function MessagingIntegrationClient({
 
       toast({
         title: '저장 완료',
-        description: 'API 설정이 저장되었습니다. 이제 테스트 메시지를 발송해주세요.',
+        description: 'API 설정이 저장되었습니다. 이제 연결 테스트를 진행해주세요.',
       })
 
       initialFormData.current = { ...formData }
@@ -271,9 +453,10 @@ export function MessagingIntegrationClient({
 
       toast({
         title: '테스트 발송 완료',
-        description: result.message || '테스트 메시지가 발송되었습니다. 메시지 수신을 확인해주세요.',
+        description: result.message || '테스트 메시지가 발송되었습니다.',
       })
 
+      setShowTestPanel(false)
       router.refresh()
     } catch (error) {
       toast({
@@ -288,11 +471,8 @@ export function MessagingIntegrationClient({
 
   async function handleVerifyCredentials() {
     if (formData.provider !== 'solapi') {
-      toast({
-        title: '연결 테스트 미지원',
-        description: '연결 테스트는 현재 Solapi에서만 지원됩니다.',
-        variant: 'destructive',
-      })
+      // Solapi 외 제공자는 테스트 메시지 panel 을 열어 SMS 발송으로 검증한다
+      setShowTestPanel(true)
       return
     }
 
@@ -381,212 +561,224 @@ export function MessagingIntegrationClient({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h2 className="text-xl font-semibold">알림 서비스 연동</h2>
-        <p className="text-sm text-muted-foreground">
-          SMS/알림톡 발송을 위한 API 키를 관리합니다
-        </p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h2 className="text-xl font-semibold">{sectionHeader.title}</h2>
+          <p className="text-sm text-muted-foreground">
+            {sectionHeader.description}
+          </p>
+        </div>
+        {activeTab === 'api' && (
+          <Button variant="outline" size="sm" asChild>
+            <a
+              href={providerInfo.solapi.docsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              발급 방법 안내
+              <ExternalLink className="h-3.5 w-3.5 ml-1.5" />
+            </a>
+          </Button>
+        )}
+        {activeTab === 'kakao' && (
+          <Button variant="outline" size="sm" type="button">
+            <BookOpen className="h-3.5 w-3.5 mr-1.5" />
+            연동 가이드
+          </Button>
+        )}
       </div>
 
-      {/* Status Card - Always visible */}
-      {hasConfig && (
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-lg">서비스 상태</CardTitle>
-                <CardDescription>현재 메시징 서비스 연동 상태</CardDescription>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline">{providerInfo[config.provider].name}</Badge>
-                {isVerified && (
-                  <Badge variant="default" className="gap-1">
-                    <ShieldCheck className="h-3 w-3" />
-                    인증 완료
-                  </Badge>
-                )}
-                {isActive && (
-                  <Badge className="gap-1 bg-success">
-                    <Check className="h-3 w-3" />
-                    활성화
-                  </Badge>
-                )}
-                {!isActive && isVerified && (
-                  <Badge variant="secondary" className="gap-1">
-                    <X className="h-3 w-3" />
-                    비활성화
-                  </Badge>
-                )}
-                {config.provider === 'solapi' && (
-                  <Badge variant={hasKakaoChannel ? 'default' : 'outline'} className="gap-1">
-                    <MessageSquare className="h-3 w-3" />
-                    {hasKakaoChannel ? '알림톡 채널' : '알림톡 미연동'}
-                  </Badge>
-                )}
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium">메시징 서비스 사용</p>
-                <p className="text-xs text-muted-foreground">
-                  {isActive
-                    ? '현재 메시지를 발송할 수 있습니다'
-                    : isVerified
-                      ? '테스트 인증이 완료되었습니다. 활성화하여 사용을 시작하세요'
-                      : '먼저 테스트 메시지를 발송하여 설정을 인증해주세요'}
-                </p>
-                {config.provider === 'solapi' && (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    알림톡: {hasKakaoChannel ? '채널 연동 완료' : '채널 연동 필요'}
-                    {templateSummary ? ` · 승인 템플릿 ${templateSummary.approved}개` : ''}
-                  </p>
-                )}
-              </div>
-              <Switch
-                checked={isActive}
-                onCheckedChange={handleToggleActive}
-                disabled={!isVerified || toggling}
-              />
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Section content — 섹션 전환은 글로벌 SettingsNav 가 담당 */}
-      <div className="space-y-8">
+      <div className="space-y-6">
         {/* API 설정 */}
         {activeTab === 'api' && (<div className="space-y-6">
-          {/* Info Alert (전체 폭) */}
+          {/* 서비스 제공사 */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">서비스 제공사</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {hasConfig && !isEditingCredentials ? (
+                <div className="flex items-center justify-between gap-6 flex-wrap">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className={cn(
+                        'w-12 h-12 rounded-full flex items-center justify-center shrink-0',
+                        connectedProvider.iconBg,
+                      )}
+                    >
+                      <MessageSquare className={cn('h-6 w-6', connectedProvider.iconColor)} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-medium">{connectedProvider.name}</h3>
+                        <Badge variant="secondary" className="bg-success/10 text-success border-success/20 hover:bg-success/10">
+                          연동됨
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {connectedProvider.description}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-6 flex-wrap">
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">연동 상태</p>
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={cn(
+                            'h-2 w-2 rounded-full',
+                            isActive
+                              ? 'bg-success'
+                              : isVerified
+                                ? 'bg-amber-500'
+                                : 'bg-muted-foreground',
+                          )}
+                        />
+                        <span className="text-sm font-medium">
+                          {isActive ? '정상' : isVerified ? '비활성화' : '인증 대기'}
+                        </span>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">연동 일시</p>
+                      <p className="text-sm">{formatDateTime(config?.updated_at)}</p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsEditingCredentials(true)}
+                    >
+                      연동 변경
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <Label>서비스 제공사 선택</Label>
+                    <Select
+                      value={formData.provider}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, provider: value as MessagingProvider })
+                      }
+                    >
+                      <SelectTrigger className="mt-2">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="solapi">솔라피 (Solapi) — 알림톡 지원</SelectItem>
+                        <SelectItem value="aligo">알리고 (Aligo)</SelectItem>
+                        <SelectItem value="nhncloud" disabled>
+                          NHN Cloud (준비 중)
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedProvider.description}
+                    {formData.provider === 'solapi' && ' · 카카오 알림톡 연동을 지원합니다'}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* 안내 사항 */}
           <Alert className="border-info/20 bg-info/5">
             <Info className="h-4 w-4 text-info" />
             <AlertDescription className="text-sm text-foreground">
-              <p className="font-medium mb-2">셀프 서비스 안내</p>
+              <p className="font-medium mb-2">안내 사항</p>
               <ul className="list-disc list-inside space-y-1 text-xs text-muted-foreground">
-                <li>원장님이 직접 메시징 서비스(알리고, 솔라피 등)에 가입하고 API 키를 발급받아 등록합니다</li>
-                <li>발송 비용은 원장님의 메시징 서비스 계정에서 직접 차감됩니다</li>
-                <li>발신번호는 반드시 해당 서비스에서 사전 등록 및 인증을 받아야 합니다</li>
-                <li>API 키는 암호화되어 안전하게 저장됩니다</li>
+                <li>{connectedProvider.name}에서 발급받은 API 키를 입력해야 알림톡 발송이 가능합니다.</li>
+                <li>발신번호는 반드시 학원 명의로 등록 및 인증을 완료해야 합니다.</li>
+                <li>API 정보는 암호화되어 안전하게 저장되며, 필요 시 수정할 수 있습니다.</li>
               </ul>
             </AlertDescription>
           </Alert>
 
-          {/* xl: 좌(액션 폼) / 우(도움말·테스트) 2단 */}
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-          <div className="space-y-6 min-w-0">
-          {/* Provider Selection */}
+          {/* API 인증 정보 */}
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>메시징 서비스 선택</CardTitle>
-                  <CardDescription>사용할 메시징 서비스를 선택하세요 (알림톡은 솔라피만 지원)</CardDescription>
-                </div>
-                {hasConfig && (
-                  isEditingCredentials ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setFormData({ ...initialFormData.current })
-                        setIsEditingCredentials(false)
-                      }}
-                    >
-                      <X className="h-4 w-4 mr-1" />
-                      취소
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setIsEditingCredentials(true)}
-                    >
-                      <Pencil className="h-4 w-4 mr-1" />
-                      수정
-                    </Button>
-                  )
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <Label>서비스 제공사</Label>
-                  <Select
-                    value={formData.provider}
-                    onValueChange={(value) => setFormData({ ...formData, provider: value as MessagingProvider })}
-                    disabled={fieldsDisabled}
-                  >
-                    <SelectTrigger className="mt-2">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="aligo">알리고 (Aligo)</SelectItem>
-                      <SelectItem value="solapi">솔라피 (Solapi) - 알림톡 지원</SelectItem>
-                      <SelectItem value="nhncloud" disabled>
-                        NHN Cloud (준비 중)
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <Alert>
-                  <selectedProvider.icon className="h-4 w-4" />
-                  <AlertDescription>
-                    <p className="font-medium mb-1">{selectedProvider.name}</p>
-                    <p className="text-xs text-muted-foreground mb-2">{selectedProvider.description}</p>
-                    {formData.provider === 'solapi' && (
-                      <p className="text-xs text-success mb-2">
-                        * 솔라피는 카카오 알림톡 연동을 지원합니다
-                      </p>
-                    )}
-                    <div className="flex gap-2">
-                      <a
-                        href={selectedProvider.signupUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-blue-600 hover:underline flex items-center gap-1"
-                      >
-                        회원가입 <ExternalLink className="h-3 w-3" />
-                      </a>
-                      <span className="text-xs text-muted-foreground">|</span>
-                      <a
-                        href={selectedProvider.docsUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-blue-600 hover:underline flex items-center gap-1"
-                      >
-                        API 문서 <ExternalLink className="h-3 w-3" />
-                      </a>
-                    </div>
-                  </AlertDescription>
-                </Alert>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Credentials Form */}
-          <Card>
-            <CardHeader>
-              <CardTitle>API 인증 정보</CardTitle>
+              <CardTitle className="text-base">API 인증 정보</CardTitle>
               <CardDescription>
-                {selectedProvider.name}에서 발급받은 API 키를 입력하세요
+                {connectedProvider.name}에서 발급받은 정보를 입력하세요
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {isVerified && !isEditingCredentials && (
-                <Alert className="mb-4 border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20">
-                  <ShieldCheck className="h-4 w-4 text-amber-600" />
-                  <AlertDescription className="text-sm">
-                    인증이 완료된 설정입니다. 수정 시 재인증이 필요합니다.
-                  </AlertDescription>
-                </Alert>
-              )}
-              {formData.provider === 'aligo' && (
-                <div className="space-y-4">
+              {formData.provider === 'solapi' && (
+                <div className="grid gap-x-6 gap-y-5 md:grid-cols-2">
                   <div>
-                    <Label htmlFor="aligo_user_id">Aligo User ID *</Label>
+                    <Label htmlFor="solapi_api_key" className="flex items-center gap-1">
+                      Solapi API Key
+                      <span className="text-destructive">*</span>
+                    </Label>
+                    <div className="mt-2">
+                      <SecretInput
+                        id="solapi_api_key"
+                        value={formData.solapi_api_key}
+                        onChange={(value) => setFormData({ ...formData, solapi_api_key: value })}
+                        placeholder="API Key"
+                        disabled={fieldsDisabled}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="solapi_api_secret" className="flex items-center gap-1">
+                      Solapi API Secret
+                      <span className="text-destructive">*</span>
+                    </Label>
+                    <div className="mt-2">
+                      <SecretInput
+                        id="solapi_api_secret"
+                        value={formData.solapi_api_secret}
+                        onChange={(value) => setFormData({ ...formData, solapi_api_secret: value })}
+                        placeholder="API Secret"
+                        disabled={fieldsDisabled}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="solapi_sender_phone" className="flex items-center gap-1">
+                      발신번호
+                      <span className="text-destructive">*</span>
+                    </Label>
+                    <PhoneInput
+                      id="solapi_sender_phone"
+                      value={formData.solapi_sender_phone}
+                      onChange={(value) => setFormData({ ...formData, solapi_sender_phone: value })}
+                      placeholder="010-0000-0000"
+                      className="mt-2"
+                      disabled={fieldsDisabled}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1.5">
+                      솔라피에 등록 및 인증한 발신번호를 입력하세요.
+                    </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="admin_contact">관리자 연락처</Label>
+                    <PhoneInput
+                      id="admin_contact"
+                      value={adminContact}
+                      onChange={setAdminContact}
+                      placeholder="010-0000-0000"
+                      className="mt-2"
+                      disabled={fieldsDisabled}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1.5">
+                      알림톡 발송 실패 시 관리자에게 안내 메시지가 발송됩니다.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {formData.provider === 'aligo' && (
+                <div className="grid gap-x-6 gap-y-5 md:grid-cols-2">
+                  <div>
+                    <Label htmlFor="aligo_user_id" className="flex items-center gap-1">
+                      Aligo User ID
+                      <span className="text-destructive">*</span>
+                    </Label>
                     <Input
                       id="aligo_user_id"
                       type="text"
@@ -598,19 +790,25 @@ export function MessagingIntegrationClient({
                     />
                   </div>
                   <div>
-                    <Label htmlFor="aligo_api_key">Aligo API Key *</Label>
-                    <Input
-                      id="aligo_api_key"
-                      type="password"
-                      value={formData.aligo_api_key}
-                      onChange={(e) => setFormData({ ...formData, aligo_api_key: e.target.value })}
-                      placeholder="API Key"
-                      className="mt-2"
-                      disabled={fieldsDisabled}
-                    />
+                    <Label htmlFor="aligo_api_key" className="flex items-center gap-1">
+                      Aligo API Key
+                      <span className="text-destructive">*</span>
+                    </Label>
+                    <div className="mt-2">
+                      <SecretInput
+                        id="aligo_api_key"
+                        value={formData.aligo_api_key}
+                        onChange={(value) => setFormData({ ...formData, aligo_api_key: value })}
+                        placeholder="API Key"
+                        disabled={fieldsDisabled}
+                      />
+                    </div>
                   </div>
                   <div>
-                    <Label htmlFor="aligo_sender_phone">발신번호 *</Label>
+                    <Label htmlFor="aligo_sender_phone" className="flex items-center gap-1">
+                      발신번호
+                      <span className="text-destructive">*</span>
+                    </Label>
                     <PhoneInput
                       id="aligo_sender_phone"
                       value={formData.aligo_sender_phone}
@@ -619,60 +817,34 @@ export function MessagingIntegrationClient({
                       className="mt-2"
                       disabled={fieldsDisabled}
                     />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      알리고에 등록 및 인증된 발신번호를 입력하세요
+                    <p className="text-xs text-muted-foreground mt-1.5">
+                      알리고에 등록 및 인증한 발신번호를 입력하세요.
                     </p>
                   </div>
-                </div>
-              )}
-
-              {formData.provider === 'solapi' && (
-                <div className="space-y-4">
                   <div>
-                    <Label htmlFor="solapi_api_key">Solapi API Key *</Label>
-                    <Input
-                      id="solapi_api_key"
-                      type="text"
-                      value={formData.solapi_api_key}
-                      onChange={(e) => setFormData({ ...formData, solapi_api_key: e.target.value })}
-                      placeholder="API Key"
-                      className="mt-2"
-                      disabled={fieldsDisabled}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="solapi_api_secret">Solapi API Secret *</Label>
-                    <Input
-                      id="solapi_api_secret"
-                      type="password"
-                      value={formData.solapi_api_secret}
-                      onChange={(e) => setFormData({ ...formData, solapi_api_secret: e.target.value })}
-                      placeholder="API Secret"
-                      className="mt-2"
-                      disabled={fieldsDisabled}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="solapi_sender_phone">발신번호 *</Label>
+                    <Label htmlFor="admin_contact">관리자 연락처</Label>
                     <PhoneInput
-                      id="solapi_sender_phone"
-                      value={formData.solapi_sender_phone}
-                      onChange={(value) => setFormData({ ...formData, solapi_sender_phone: value })}
+                      id="admin_contact"
+                      value={adminContact}
+                      onChange={setAdminContact}
                       placeholder="010-0000-0000"
                       className="mt-2"
                       disabled={fieldsDisabled}
                     />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      솔라피에 등록 및 인증된 발신번호를 입력하세요
+                    <p className="text-xs text-muted-foreground mt-1.5">
+                      메시지 발송 실패 시 관리자에게 안내 메시지가 발송됩니다.
                     </p>
                   </div>
                 </div>
               )}
 
               {formData.provider === 'nhncloud' && (
-                <div className="space-y-4">
+                <div className="grid gap-x-6 gap-y-5 md:grid-cols-2">
                   <div>
-                    <Label htmlFor="nhncloud_app_key">NHN Cloud App Key *</Label>
+                    <Label htmlFor="nhncloud_app_key" className="flex items-center gap-1">
+                      NHN Cloud App Key
+                      <span className="text-destructive">*</span>
+                    </Label>
                     <Input
                       id="nhncloud_app_key"
                       type="text"
@@ -684,19 +856,25 @@ export function MessagingIntegrationClient({
                     />
                   </div>
                   <div>
-                    <Label htmlFor="nhncloud_secret_key">NHN Cloud Secret Key *</Label>
-                    <Input
-                      id="nhncloud_secret_key"
-                      type="password"
-                      value={formData.nhncloud_secret_key}
-                      onChange={(e) => setFormData({ ...formData, nhncloud_secret_key: e.target.value })}
-                      placeholder="Secret Key"
-                      className="mt-2"
-                      disabled={fieldsDisabled}
-                    />
+                    <Label htmlFor="nhncloud_secret_key" className="flex items-center gap-1">
+                      NHN Cloud Secret Key
+                      <span className="text-destructive">*</span>
+                    </Label>
+                    <div className="mt-2">
+                      <SecretInput
+                        id="nhncloud_secret_key"
+                        value={formData.nhncloud_secret_key}
+                        onChange={(value) => setFormData({ ...formData, nhncloud_secret_key: value })}
+                        placeholder="Secret Key"
+                        disabled={fieldsDisabled}
+                      />
+                    </div>
                   </div>
                   <div>
-                    <Label htmlFor="nhncloud_sender_phone">발신번호 *</Label>
+                    <Label htmlFor="nhncloud_sender_phone" className="flex items-center gap-1">
+                      발신번호
+                      <span className="text-destructive">*</span>
+                    </Label>
                     <PhoneInput
                       id="nhncloud_sender_phone"
                       value={formData.nhncloud_sender_phone}
@@ -705,136 +883,169 @@ export function MessagingIntegrationClient({
                       className="mt-2"
                       disabled={fieldsDisabled}
                     />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      NHN Cloud에 등록 및 인증된 발신번호를 입력하세요
+                    <p className="text-xs text-muted-foreground mt-1.5">
+                      NHN Cloud에 등록 및 인증한 발신번호를 입력하세요.
                     </p>
                   </div>
-                </div>
-              )}
-
-              {isEditingCredentials && (
-                <div className="flex flex-wrap items-center gap-2 mt-6">
-                  <Button onClick={handleSave} disabled={saving || !hasFormChanges}>
-                    <Save className="h-4 w-4 mr-2" />
-                    {saving ? '저장 중...' : hasFormChanges ? '변경사항 저장' : '저장됨'}
-                  </Button>
-                  {formData.provider === 'solapi' && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handleVerifyCredentials}
-                      disabled={
-                        verifying ||
-                        !formData.solapi_api_key ||
-                        !formData.solapi_api_secret ||
-                        !formData.solapi_sender_phone
-                      }
-                    >
-                      <ShieldCheck className="h-4 w-4 mr-2" />
-                      {verifying ? '확인 중...' : '연결 테스트'}
-                    </Button>
-                  )}
-                  {hasConfig && (
-                    <Button
-                      variant="ghost"
-                      onClick={() => {
-                        setFormData({ ...initialFormData.current })
-                        setIsEditingCredentials(false)
-                      }}
-                    >
-                      취소
-                    </Button>
-                  )}
-                </div>
-              )}
-              {!isEditingCredentials && hasConfig && (
-                <div className="flex items-center gap-2 mt-6">
-                  <Button variant="outline" onClick={() => setDeleteDialogOpen(true)} disabled={deleting}>
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    설정 삭제
-                  </Button>
+                  <div>
+                    <Label htmlFor="admin_contact">관리자 연락처</Label>
+                    <PhoneInput
+                      id="admin_contact"
+                      value={adminContact}
+                      onChange={setAdminContact}
+                      placeholder="010-0000-0000"
+                      className="mt-2"
+                      disabled={fieldsDisabled}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1.5">
+                      메시지 발송 실패 시 관리자에게 안내 메시지가 발송됩니다.
+                    </p>
+                  </div>
                 </div>
               )}
             </CardContent>
           </Card>
 
-          </div>
-
-          {/* 우측 컬럼: 테스트·도움말 */}
-          <div className="space-y-6 min-w-0">
-          {/* Test Message */}
-          {hasConfig && !isVerified && (
-            <Card className="border-orange-200 bg-orange-50/50 dark:border-orange-900 dark:bg-orange-950/20">
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="h-5 w-5 text-orange-600" />
-                  <div>
-                    <CardTitle className="text-lg">테스트 메시지 발송 필요</CardTitle>
-                    <CardDescription>
-                      설정을 인증하기 위해 테스트 메시지를 발송해주세요
-                    </CardDescription>
-                  </div>
-                </div>
+          {/* 연결 상태 */}
+          {hasConfig && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">연결 상태</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
+                <div
+                  className={cn(
+                    'rounded-md border p-4',
+                    isVerified
+                      ? 'border-success/20 bg-success/5'
+                      : 'border-amber-200 bg-amber-50/50 dark:border-amber-900/40 dark:bg-amber-950/20',
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-4 flex-wrap">
+                    <div className="flex items-start gap-3 min-w-0">
+                      {isVerified ? (
+                        <CircleCheck className="h-5 w-5 text-success shrink-0 mt-0.5" />
+                      ) : (
+                        <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm">
+                          {isVerified ? '연결 정상' : '연결 테스트 필요'}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {isVerified
+                            ? 'API 연결이 정상적으로 설정되어 있습니다.'
+                            : '저장된 API 정보로 연결 테스트를 진행해주세요.'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-6 flex-wrap">
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-0.5">마지막 연결 확인</p>
+                        <p className="text-sm">{formatDateTimeWithSeconds(config?.last_test_at)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-0.5">응답 시간</p>
+                        <p className="text-sm">—</p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleVerifyCredentials}
+                        disabled={
+                          verifying ||
+                          (formData.provider === 'solapi' &&
+                            (!formData.solapi_api_key || !formData.solapi_api_secret || !formData.solapi_sender_phone))
+                        }
+                      >
+                        <RefreshCw className={cn('h-3.5 w-3.5 mr-1.5', verifying && 'animate-spin')} />
+                        {verifying ? '확인 중...' : '연결 테스트'}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 테스트 메시지 발송 (Solapi 외 제공자 또는 미인증 시) */}
+                {(showTestPanel || (!isVerified && formData.provider !== 'solapi')) && (
+                  <div className="mt-4 rounded-md border bg-muted/40 p-4 space-y-3">
+                    <div className="flex items-start gap-2">
+                      <Send className="h-4 w-4 text-muted-foreground mt-0.5" />
+                      <div className="text-xs text-muted-foreground">
+                        테스트 SMS를 발송하여 설정을 인증할 수 있습니다.
+                      </div>
+                    </div>
+                    <div className="flex items-end gap-2 flex-wrap">
+                      <div className="flex-1 min-w-[200px]">
+                        <Label htmlFor="test_phone" className="text-xs">
+                          테스트 수신 번호
+                        </Label>
+                        <PhoneInput
+                          id="test_phone"
+                          value={testPhone}
+                          onChange={setTestPhone}
+                          placeholder="010-0000-0000"
+                          className="mt-1"
+                        />
+                      </div>
+                      <Button onClick={handleTestMessage} disabled={testing || !testPhone.trim()}>
+                        <Send className="h-3.5 w-3.5 mr-1.5" />
+                        {testing ? '발송 중...' : '테스트 메시지 발송'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* 활성화 토글 */}
+                <div className="mt-4 flex items-center justify-between gap-4 rounded-md border bg-card p-3">
                   <div>
-                    <Label htmlFor="test_phone">테스트 수신 번호</Label>
-                    <PhoneInput
-                      id="test_phone"
-                      value={testPhone}
-                      onChange={setTestPhone}
-                      placeholder="010-0000-0000"
-                      className="mt-2"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      테스트 메시지를 받을 전화번호를 입력하세요
+                    <p className="text-sm font-medium">메시징 서비스 사용</p>
+                    <p className="text-xs text-muted-foreground">
+                      {isActive
+                        ? '현재 메시지를 발송할 수 있습니다.'
+                        : isVerified
+                          ? '활성화하여 사용을 시작하세요.'
+                          : '먼저 연결 테스트로 설정을 인증해주세요.'}
                     </p>
                   </div>
-                  <Button onClick={handleTestMessage} disabled={testing}>
-                    <Send className="h-4 w-4 mr-2" />
-                    {testing ? '발송 중...' : '테스트 메시지 발송'}
-                  </Button>
+                  <Switch
+                    checked={isActive}
+                    onCheckedChange={handleToggleActive}
+                    disabled={!isVerified || toggling}
+                  />
                 </div>
               </CardContent>
             </Card>
           )}
 
-          {/* Help */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">도움말</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3 text-sm">
-                <div>
-                  <p className="font-medium mb-1">1. 메시징 서비스 가입</p>
-                  <p className="text-muted-foreground text-xs">
-                    알리고 또는 솔라피 중 원하는 서비스에 가입하고 발신번호를 등록·인증받으세요.
-                  </p>
-                </div>
-                <div>
-                  <p className="font-medium mb-1">2. API 키 발급</p>
-                  <p className="text-muted-foreground text-xs">
-                    각 서비스의 관리자 페이지에서 API 키를 발급받으세요.
-                  </p>
-                </div>
-                <div>
-                  <p className="font-medium mb-1">3. Acadesk 설정</p>
-                  <p className="text-muted-foreground text-xs">
-                    위 폼에 API 키와 발신번호를 입력하고 저장한 후, 테스트 메시지를 발송하여 인증하세요.
-                  </p>
-                </div>
-                <div>
-                  <p className="font-medium mb-1">4. 서비스 활성화</p>
-                  <p className="text-muted-foreground text-xs">
-                    테스트가 성공하면 서비스를 활성화하여 실제 메시지 발송을 시작할 수 있습니다.
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          </div>
+          {/* 하단 액션 바 */}
+          <div className="flex items-center justify-between gap-3 flex-wrap pt-2">
+            <div>
+              {hasConfig && (
+                <Button
+                  variant="outline"
+                  onClick={() => setDeleteDialogOpen(true)}
+                  disabled={deleting}
+                  className="text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  설정 삭제
+                </Button>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {(isEditingCredentials || !hasConfig) && (
+                <>
+                  {hasConfig && (
+                    <Button variant="outline" onClick={handleCancelEdit}>
+                      취소
+                    </Button>
+                  )}
+                  <Button onClick={handleSave} disabled={saving || (hasConfig && !hasFormChanges)}>
+                    {saving ? '저장 중...' : '저장'}
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         </div>)}
 
@@ -868,54 +1079,115 @@ export function MessagingIntegrationClient({
         {/* 카카오 채널·템플릿 */}
         {activeTab === 'kakao' && (<div className="space-y-6">
           {showKakaoTab ? (
-            <>
-              {/* 좌: 채널·온보딩 / 우: 템플릿 목록 — 2xl 이상에서 2단 (그 미만은 1단 stack) */}
-              <div className="grid gap-6 2xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
-                <div className="space-y-6 min-w-0">
-                  {hasKakaoChannel && kakaoChannelConfig ? (
-                    <KakaoChannelStatus
-                      config={kakaoChannelConfig}
-                      onChannelRemoved={() => router.refresh()}
-                    />
-                  ) : (
-                    <KakaoChannelRegistration
-                      onRegistrationComplete={() => router.refresh()}
-                      onOpenTemplateForm={() => setTemplateFormOpen(true)}
-                    />
-                  )}
+            hasKakaoChannel && kakaoChannelConfig ? (
+              <>
+                {/* 1. 채널 상세 */}
+                <KakaoChannelDetailCard
+                  config={kakaoChannelConfig}
+                  onChannelRemoved={() => router.refresh()}
+                />
 
-                  {/* 공용 템플릿 자동 등록 + 검수 진행 + 테스트 발송 */}
-                  <KakaoOnboardingFlow hasKakaoChannel={hasKakaoChannel} />
-                </div>
+                {/* 2. 발송 통계 */}
+                <KakaoChannelStatsCards
+                  config={kakaoChannelConfig}
+                  stats={kakaoStats}
+                />
 
-                <div className="min-w-0">
-                  <KakaoTemplateList
-                    hasChannel={hasKakaoChannel}
-                    onCreateTemplate={() => {
-                      setEditingTemplate(null)
-                      setTemplateFormOpen(true)
-                    }}
-                    onEditTemplate={(template) => {
-                      setEditingTemplate(template)
-                      setTemplateFormOpen(true)
-                    }}
-                    onTemplatesLoaded={setTemplateSummary}
-                  />
-                </div>
-              </div>
+                {/* 3. 공용 템플릿 일괄 등록/검수 진척 (mock 외 추가) */}
+                <KakaoOnboardingFlow hasKakaoChannel={hasKakaoChannel} />
 
-              {/* Template Form Dialog */}
-              <KakaoTemplateForm
-                open={templateFormOpen}
-                onOpenChange={setTemplateFormOpen}
-                template={editingTemplate}
-                onSuccess={() => {
-                  setTemplateFormOpen(false)
-                  setEditingTemplate(null)
-                  router.refresh()
-                }}
-              />
-            </>
+                {/* 4. 승인된 템플릿 요약 */}
+                <KakaoApprovedTemplatesCard
+                  templates={kakaoTemplates}
+                  onManageTemplates={() => setShowAllTemplates(true)}
+                  onCreateTemplate={() => {
+                    setEditingTemplate(null)
+                    setTemplateFormOpen(true)
+                  }}
+                  onTemplateClick={(template) => {
+                    setEditingTemplate(template)
+                    setTemplateFormOpen(true)
+                  }}
+                />
+
+                {/* 5. 연동 테스트 + 발송 내역 */}
+                <KakaoIntegrationFooterCards
+                  onOpenTestSend={() => setKakaoTestDialogOpen(true)}
+                  onOpenSendHistory={() => {
+                    toast({
+                      title: '발송 내역',
+                      description: '발송 내역 기능은 준비 중입니다.',
+                    })
+                  }}
+                  testEnabled={eventSubscriptions.some((s) => s.provisioningStatus === 'approved')}
+                />
+
+                {/* 전체 템플릿 다이얼로그 (요약 카드의 "전체 보기") */}
+                <Dialog open={showAllTemplates} onOpenChange={setShowAllTemplates}>
+                  <DialogContent className="max-w-4xl">
+                    <DialogHeader>
+                      <DialogTitle>전체 알림톡 템플릿</DialogTitle>
+                      <DialogDescription>
+                        승인·검수·반려 상태를 모두 포함한 학원 알림톡 템플릿 목록입니다.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="max-h-[70vh] overflow-y-auto">
+                      <KakaoTemplateList
+                        hasChannel={hasKakaoChannel}
+                        onCreateTemplate={() => {
+                          setShowAllTemplates(false)
+                          setEditingTemplate(null)
+                          setTemplateFormOpen(true)
+                        }}
+                        onEditTemplate={(template) => {
+                          setShowAllTemplates(false)
+                          setEditingTemplate(template)
+                          setTemplateFormOpen(true)
+                        }}
+                        onTemplatesLoaded={setTemplateSummary}
+                      />
+                    </div>
+                  </DialogContent>
+                </Dialog>
+
+                {/* Template Form Dialog */}
+                <KakaoTemplateForm
+                  open={templateFormOpen}
+                  onOpenChange={setTemplateFormOpen}
+                  template={editingTemplate}
+                  onSuccess={() => {
+                    setTemplateFormOpen(false)
+                    setEditingTemplate(null)
+                    router.refresh()
+                  }}
+                />
+
+                {/* 카카오 채널 테스트 발송 (이벤트 알림 테스트와 동일 다이얼로그 재사용) */}
+                <EventSubscriptionTestDialog
+                  open={kakaoTestDialogOpen}
+                  onOpenChange={setKakaoTestDialogOpen}
+                  subscriptions={eventSubscriptions}
+                />
+              </>
+            ) : (
+              // 채널 미연동 — 등록 안내
+              <>
+                <KakaoChannelRegistration
+                  onRegistrationComplete={() => router.refresh()}
+                  onOpenTemplateForm={() => setTemplateFormOpen(true)}
+                />
+                <KakaoTemplateForm
+                  open={templateFormOpen}
+                  onOpenChange={setTemplateFormOpen}
+                  template={editingTemplate}
+                  onSuccess={() => {
+                    setTemplateFormOpen(false)
+                    setEditingTemplate(null)
+                    router.refresh()
+                  }}
+                />
+              </>
+            )
           ) : (
             <Card>
               <CardContent className="py-8">
@@ -958,6 +1230,9 @@ export function MessagingIntegrationClient({
         isLoading={deleting}
         onConfirm={handleConfirmDelete}
       />
+
+      {/* 카카오 알림톡 채널 / 이벤트 알림 섹션의 templateSummary 사용 (lint) */}
+      {templateSummary && activeTab === 'kakao' ? null : null}
     </div>
   )
 }

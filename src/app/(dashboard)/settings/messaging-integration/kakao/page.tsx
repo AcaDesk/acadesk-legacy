@@ -19,6 +19,8 @@ export default async function MessagingKakaoPage() {
       eventSubscriptions={data.eventSubscriptions}
       eventSubscriptionsLoadError={data.eventSubscriptionsLoadError}
       initialKakaoTemplateSummary={data.kakaoTemplateSummary}
+      kakaoTemplates={data.kakaoTemplates}
+      kakaoStats={data.kakaoStats}
       defaultSection="kakao"
     />
   )

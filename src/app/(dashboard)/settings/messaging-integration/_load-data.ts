@@ -1,5 +1,9 @@
 import { getMessagingConfig } from '@/app/actions/messaging/config'
-import { getKakaoChannelConfig } from '@/app/actions/messaging/kakao-channel'
+import {
+  getKakaoChannelConfig,
+  getKakaoChannelStats,
+  type KakaoChannelStats,
+} from '@/app/actions/messaging/kakao-channel'
 import { getEventSubscriptions } from '@/app/actions/messaging/event-subscriptions'
 import { getKakaoTemplates } from '@/app/actions/messaging/kakao-templates'
 
@@ -31,11 +35,23 @@ export async function loadMessagingIntegrationData() {
     data: [],
     error: null,
   }
+  const emptyStats: KakaoChannelStats = {
+    totalCount: 0,
+    sentCount: 0,
+    failedCount: 0,
+    pendingCount: 0,
+    successRate: null,
+  }
+  let kakaoStats: KakaoChannelStats = emptyStats
   if (hasKakaoChannel) {
-    ;[eventSubsResult, kakaoTemplatesResult] = await Promise.all([
+    const [eventResult, templatesResult, statsResult] = await Promise.all([
       getEventSubscriptions(),
       getKakaoTemplates(),
+      getKakaoChannelStats(),
     ])
+    eventSubsResult = eventResult
+    kakaoTemplatesResult = templatesResult
+    kakaoStats = statsResult.success ? statsResult.data : emptyStats
   }
 
   const eventSubscriptions = eventSubsResult.success ? eventSubsResult.data : []
@@ -62,6 +78,8 @@ export async function loadMessagingIntegrationData() {
     kakaoConfig,
     eventSubscriptions,
     eventSubscriptionsLoadError,
+    kakaoTemplates,
     kakaoTemplateSummary,
+    kakaoStats,
   }
 }
