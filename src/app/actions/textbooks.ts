@@ -304,6 +304,89 @@ export async function getTextbooks(options?: {
 }
 
 /**
+ * Get all textbooks (no pagination) for client-side search/filter/sort.
+ *
+ * 데이터 규모가 학원당 ~수백 권 수준에서 client-side 검색이 round-trip 0ms 로
+ * 압도적으로 빠름. React Query staleTime 으로 multi-component 캐시 공유.
+ *
+ * @param options.activeOnly - true 면 is_active = true 만 반환
+ */
+export async function getTextbooksAll(options?: { activeOnly?: boolean }) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    let textbooksQuery = supabase
+      .from('textbooks')
+      .select(`
+        id,
+        title,
+        author,
+        publisher,
+        isbn,
+        barcode,
+        management_code,
+        total_copies,
+        price,
+        is_active,
+        created_at
+      `)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+
+    if (options?.activeOnly) {
+      textbooksQuery = textbooksQuery.eq('is_active', true)
+    }
+
+    const [textbooksResult, lendingsResult, unitsResult] = await Promise.all([
+      textbooksQuery,
+      supabase
+        .from('book_lendings')
+        .select('textbook_id')
+        .eq('tenant_id', tenantId)
+        .is('returned_at', null),
+      supabase
+        .from('textbook_units')
+        .select('textbook_id')
+        .eq('tenant_id', tenantId)
+        .is('deleted_at', null),
+    ])
+
+    if (textbooksResult.error) throw textbooksResult.error
+
+    const lendingCountByTextbookId: Record<string, number> = {}
+    for (const row of lendingsResult.data || []) {
+      const id = row.textbook_id as string
+      lendingCountByTextbookId[id] = (lendingCountByTextbookId[id] || 0) + 1
+    }
+
+    const unitCountByTextbookId: Record<string, number> = {}
+    for (const row of unitsResult.data || []) {
+      const id = row.textbook_id as string
+      unitCountByTextbookId[id] = (unitCountByTextbookId[id] || 0) + 1
+    }
+
+    return {
+      success: true as const,
+      data: (textbooksResult.data || []) as TextbookListItem[],
+      lendingCountByTextbookId,
+      unitCountByTextbookId,
+      error: null,
+    }
+  } catch (error) {
+    console.error('[getTextbooksAll] Error:', error)
+    return {
+      success: false as const,
+      data: [],
+      lendingCountByTextbookId: {} as Record<string, number>,
+      unitCountByTextbookId: {} as Record<string, number>,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
  * Bulk create textbooks
  *
  * @param input - Array of textbook data

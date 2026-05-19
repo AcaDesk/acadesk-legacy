@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { getReportDetail } from '@/app/actions/reports/queries'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
@@ -96,7 +96,6 @@ export function ReportDetailContent({
 
   const { toast } = useToast()
   const router = useRouter()
-  const supabase = useMemo(() => createClient(), [])
   const contentRef = useRef<HTMLDivElement>(null)
 
   const selectedKakaoTemplate = useMemo(
@@ -105,68 +104,20 @@ export function ReportDetailContent({
   )
 
   const loadReport = useCallback(async () => {
-    try {
-      const [reportResult, sendsResult, readsResult] = await Promise.all([
-        supabase
-          .from('reports')
-          .select(`
-            id,
-            report_type,
-            period_start,
-            period_end,
-            content,
-            generated_at,
-            sent_at,
-            students (
-              id,
-              student_code,
-              grade,
-              users (
-                name,
-                email
-              )
-            )
-          `)
-          .eq('id', reportId)
-          .single(),
-        supabase
-          .from('report_sends')
-          .select(`
-            id,
-            recipient_name,
-            recipient_phone,
-            message_type,
-            send_status,
-            sent_at,
-            send_error
-          `)
-          .eq('report_id', reportId)
-          .is('deleted_at', null)
-          .order('sent_at', { ascending: false, nullsFirst: false }),
-        supabase
-          .from('report_reads')
-          .select('id, report_send_id, user_type, read_at, pdf_downloaded, pdf_downloaded_at')
-          .eq('report_id', reportId)
-          .order('read_at', { ascending: true }),
-      ])
-
-      if (reportResult.error) throw reportResult.error
-      setReport(reportResult.data as unknown as ReportWithStudent)
-      if (!sendsResult.error && sendsResult.data) {
-        setReportSends(sendsResult.data as ReportSend[])
-      }
-      if (readsResult.data) {
-        setReportReads(readsResult.data as ReportRead[])
-      }
-    } catch (error) {
-      console.error('Error loading report:', error)
+    const result = await getReportDetail(reportId)
+    if (!result.success) {
+      console.error('Error loading report:', result.error)
       toast({
         title: '로드 오류',
-        description: '리포트를 불러오는 중 오류가 발생했습니다.',
+        description: result.error || '리포트를 불러오는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
+      return
     }
-  }, [reportId, toast, supabase])
+    setReport(result.data.report)
+    setReportSends(result.data.sends)
+    setReportReads(result.data.reads)
+  }, [reportId, toast])
 
   function handleSendClick() {
     setSendDialogOpen(true)

@@ -12,7 +12,7 @@ import { revalidatePath } from 'next/cache'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
-import type { ReportWithStudent } from '@/core/types/report.types'
+import type { ReportWithStudent, ReportSend, ReportRead } from '@/core/types/report.types'
 
 // ============================================================================
 // Report List Queries
@@ -103,6 +103,88 @@ export async function getReports(options?: {
     }
   } catch (error) {
     console.error('[getReports] Error:', error)
+    return {
+      success: false as const,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
+ * 단일 리포트 상세 + 발송/열람 이력 병렬 조회
+ *
+ * 클라이언트 측에서 RLS 정책이 부족해 직접 조회 시 빈 결과/에러가 발생하므로
+ * service_role 로 한번에 묶어 반환.
+ */
+export async function getReportDetail(reportId: string) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    const [reportResult, sendsResult, readsResult] = await Promise.all([
+      supabase
+        .from('reports')
+        .select(`
+          id,
+          report_type,
+          period_start,
+          period_end,
+          content,
+          generated_at,
+          sent_at,
+          students (
+            id,
+            student_code,
+            grade,
+            users (
+              name,
+              email
+            )
+          )
+        `)
+        .eq('id', reportId)
+        .eq('tenant_id', tenantId)
+        .maybeSingle(),
+      supabase
+        .from('report_sends')
+        .select(`
+          id,
+          recipient_name,
+          recipient_phone,
+          message_type,
+          send_status,
+          sent_at,
+          send_error
+        `)
+        .eq('report_id', reportId)
+        .eq('tenant_id', tenantId)
+        .is('deleted_at', null)
+        .order('sent_at', { ascending: false, nullsFirst: false }),
+      supabase
+        .from('report_reads')
+        .select('id, report_send_id, user_type, read_at, pdf_downloaded, pdf_downloaded_at')
+        .eq('report_id', reportId)
+        .eq('tenant_id', tenantId)
+        .order('read_at', { ascending: true }),
+    ])
+
+    if (reportResult.error) throw reportResult.error
+    if (!reportResult.data) {
+      throw new Error('리포트를 찾을 수 없습니다')
+    }
+
+    return {
+      success: true as const,
+      data: {
+        report: reportResult.data as unknown as ReportWithStudent,
+        sends: (sendsResult.data || []) as ReportSend[],
+        reads: (readsResult.data || []) as ReportRead[],
+      },
+      error: null,
+    }
+  } catch (error) {
+    console.error('[getReportDetail] Error:', error)
     return {
       success: false as const,
       data: null,
