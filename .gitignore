@@ -103,3 +103,4 @@ scripts/*_dump.sql
 # Test data with credentials
 create-test-user.sql
 
+supabase/seed-data.sql
