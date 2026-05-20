@@ -9,14 +9,14 @@
 
 'use server'
 
-import { revalidatePath, revalidateTag } from 'next/cache'
+import { revalidatePath, revalidateTag, unstable_cache } from 'next/cache'
 import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getTodayKST } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/error-handlers'
 
-interface TextbookListItem {
+export interface TextbookListItem {
   id: string
   title: string
   author: string | null
@@ -303,6 +303,108 @@ export async function getTextbooks(options?: {
   }
 }
 
+export interface TextbookListEnriched extends TextbookListItem {
+  lendingCount: number
+  unitCount: number
+  availableCopies: number
+}
+
+/**
+ * 교재 목록 페이지 전용: 전체 교재 + 대출/단원 카운트를 한 번에 반환.
+ *
+ * 검색/필터/페이지네이션은 클라이언트 인메모리로 처리하기 위해 활성/비활성 모두 포함.
+ *
+ * 캐시: 5분 TTL. 다음 태그 무효화 시 재계산됩니다.
+ *  - `textbooks-master:${tenantId}` — 교재/단원/대출 mutation
+ */
+export async function getTextbooksListEnriched(): Promise<{
+  success: boolean
+  data: TextbookListEnriched[]
+  error: string | null
+}> {
+  try {
+    const { tenantId } = await verifyStaff()
+
+    return unstable_cache(
+      async () => {
+        const supabase = createServiceRoleClient()
+
+        const [textbooksResult, lendingsResult, unitsResult] = await Promise.all([
+          supabase
+            .from('textbooks')
+            .select(`
+              id,
+              title,
+              author,
+              publisher,
+              isbn,
+              barcode,
+              management_code,
+              total_copies,
+              price,
+              is_active,
+              created_at
+            `)
+            .eq('tenant_id', tenantId)
+            .is('deleted_at', null)
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('book_lendings')
+            .select('textbook_id')
+            .eq('tenant_id', tenantId)
+            .is('returned_at', null),
+          supabase
+            .from('textbook_units')
+            .select('textbook_id')
+            .eq('tenant_id', tenantId)
+            .is('deleted_at', null),
+        ])
+
+        if (textbooksResult.error) throw textbooksResult.error
+
+        const lendingCount = new Map<string, number>()
+        for (const row of lendingsResult.data || []) {
+          const id = row.textbook_id as string
+          lendingCount.set(id, (lendingCount.get(id) || 0) + 1)
+        }
+
+        const unitCount = new Map<string, number>()
+        for (const row of unitsResult.data || []) {
+          const id = row.textbook_id as string
+          unitCount.set(id, (unitCount.get(id) || 0) + 1)
+        }
+
+        const enriched: TextbookListEnriched[] = (
+          (textbooksResult.data || []) as TextbookListItem[]
+        ).map((t) => {
+          const lc = lendingCount.get(t.id) || 0
+          const total = t.total_copies || 1
+          return {
+            ...t,
+            lendingCount: lc,
+            unitCount: unitCount.get(t.id) || 0,
+            availableCopies: Math.max(total - lc, 0),
+          }
+        })
+
+        return { success: true as const, data: enriched, error: null }
+      },
+      ['textbooks-list-enriched', tenantId],
+      {
+        revalidate: 300,
+        tags: [`textbooks-master:${tenantId}`],
+      }
+    )()
+  } catch (error) {
+    console.error('[getTextbooksListEnriched] Error:', error)
+    return {
+      success: false,
+      data: [],
+      error: getErrorMessage(error),
+    }
+  }
+}
+
 /**
  * Get all textbooks (no pagination) for client-side search/filter/sort.
  *
@@ -491,6 +593,7 @@ export async function bulkCreateTextbooks(
     revalidatePath('/textbooks')
     revalidatePath('/library/lendings')
     revalidateTag('library-form-options')
+    revalidateTag(`textbooks-master:${tenantId}`)
 
     return {
       success: true,
@@ -812,6 +915,7 @@ export async function createTextbook(
     revalidatePath('/textbooks')
     revalidatePath('/library/lendings')
     revalidateTag('library-form-options')
+    revalidateTag(`textbooks-master:${tenantId}`)
 
     return {
       success: true,
@@ -889,6 +993,7 @@ export async function updateTextbook(
     revalidatePath(`/textbooks/${validated.id}`)
     revalidatePath('/library/lendings')
     revalidateTag('library-form-options')
+    revalidateTag(`textbooks-master:${tenantId}`)
 
     return {
       success: true,
@@ -930,6 +1035,7 @@ export async function deleteTextbook(id: string) {
     revalidatePath('/textbooks')
     revalidatePath('/library/lendings')
     revalidateTag('library-form-options')
+    revalidateTag(`textbooks-master:${tenantId}`)
 
     return {
       success: true,
@@ -976,6 +1082,7 @@ export async function bulkDeleteTextbooks(ids: string[]) {
     revalidatePath('/textbooks')
     revalidatePath('/library/lendings')
     revalidateTag('library-form-options')
+    revalidateTag(`textbooks-master:${tenantId}`)
 
     return {
       success: true,
@@ -1104,6 +1211,7 @@ export async function updateTextbookWithUnits(
     revalidatePath(`/textbooks/${validated.id}`)
     revalidatePath('/library/lendings')
     revalidateTag('library-form-options')
+    revalidateTag(`textbooks-master:${tenantId}`)
 
     return { success: true, data, error: null }
   } catch (error) {
@@ -1149,6 +1257,7 @@ export async function createTextbookUnit(
 
     revalidatePath('/textbooks')
     revalidatePath(`/textbooks/${validated.textbookId}`)
+    revalidateTag(`textbooks-master:${tenantId}`)
 
     return {
       success: true,
@@ -1215,6 +1324,7 @@ export async function updateTextbookUnit(
 
     revalidatePath('/textbooks')
     revalidatePath(`/textbooks/${data.textbook_id}`)
+    revalidateTag(`textbooks-master:${tenantId}`)
 
     return {
       success: true,
@@ -1266,6 +1376,7 @@ export async function deleteTextbookUnit(id: string) {
     if (unit?.textbook_id) {
       revalidatePath(`/textbooks/${unit.textbook_id}`)
     }
+    revalidateTag(`textbooks-master:${tenantId}`)
 
     return {
       success: true,

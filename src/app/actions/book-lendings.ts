@@ -278,6 +278,7 @@ export async function createBookLending(input: z.infer<typeof createBookLendingS
       revalidatePath('/library/lendings')
       revalidatePath('/library')
       revalidateTag('library-form-options')
+      revalidateTag(`textbooks-master:${tenantId}`)
       return { id: data.id as string }
     },
     {
@@ -411,6 +412,7 @@ export async function createBulkBookLending(
       revalidatePath('/library/lendings')
       revalidatePath('/library')
       revalidateTag('library-form-options')
+      revalidateTag(`textbooks-master:${tenantId}`)
 
       const successCount = results.filter((r) => r.success).length
       const result: BulkLendingResult = {
@@ -459,6 +461,7 @@ export async function returnBook(lendingId: string) {
 
       revalidatePath('/library/lendings')
       revalidateTag('library-form-options')
+      revalidateTag(`textbooks-master:${tenantId}`)
     },
     { actionName: 'returnBook' }
   )
