@@ -1019,8 +1019,6 @@ CREATE TABLE IF NOT EXISTS "public"."batch_jobs" (
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "deleted_at" timestamp with time zone,
-    "is_template" boolean DEFAULT false NOT NULL,
-    "template_name" "text",
     CONSTRAINT "batch_jobs_action_type_check" CHECK (("action_type" = ANY (ARRAY['report'::"text", 'comment'::"text", 'send'::"text"]))),
     CONSTRAINT "batch_jobs_status_check" CHECK (("status" = ANY (ARRAY['queued'::"text", 'running'::"text", 'partial_failed'::"text", 'succeeded'::"text", 'failed'::"text", 'canceled'::"text"])))
 );
@@ -3130,10 +3128,6 @@ CREATE INDEX "idx_batch_jobs_draft" ON "public"."batch_jobs" USING "btree" ("dra
 
 
 CREATE INDEX "idx_batch_jobs_status" ON "public"."batch_jobs" USING "btree" ("tenant_id", "status") WHERE ("deleted_at" IS NULL);
-
-
-
-CREATE INDEX "idx_batch_jobs_template" ON "public"."batch_jobs" USING "btree" ("tenant_id", "is_template") WHERE (("is_template" = true) AND ("deleted_at" IS NULL));
 
 
 
