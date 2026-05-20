@@ -7,7 +7,7 @@
 
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
@@ -153,6 +153,7 @@ export async function createGuardian(data: z.infer<typeof createGuardianSchema>)
 
     // 4. 캐시 무효화
     revalidatePath('/guardians')
+    revalidateTag(`guardians:${tenantId}`)
 
     return { success: true, data: newGuardian }
   } catch (error) {
@@ -236,6 +237,7 @@ export async function updateGuardian(data: z.infer<typeof updateGuardianSchema>)
     // 4. 캐시 무효화
     revalidatePath('/guardians')
     revalidatePath(`/guardians/${validatedData.guardian_id}`)
+    revalidateTag(`guardians:${tenantId}`)
 
     return { success: true, data: updatedGuardian }
   } catch (error) {
@@ -296,6 +298,7 @@ export async function deleteGuardian(guardianId: string) {
 
     // 3. 캐시 무효화
     revalidatePath('/guardians')
+    revalidateTag(`guardians:${tenantId}`)
 
     return { success: true }
   } catch (error) {
@@ -555,6 +558,7 @@ export async function linkGuardianToStudent(
 
     revalidatePath(`/students/${studentId}`)
     revalidatePath('/guardians')
+    revalidateTag(`guardians:${tenantId}`)
     return { success: true }
   } catch (error) {
     return { success: false, error: getErrorMessage(error) }
@@ -585,6 +589,7 @@ export async function unlinkGuardianFromStudent(
     if (error) throw error
 
     revalidatePath(`/students/${studentId}`)
+    revalidateTag(`guardians:${tenantId}`)
     return { success: true }
   } catch (error) {
     return { success: false, error: getErrorMessage(error) }
@@ -1175,6 +1180,7 @@ export async function updateGuardianWithStudents(
 
     revalidatePath('/guardians')
     revalidatePath(`/guardians/${validatedData.guardian_id}`)
+    revalidateTag(`guardians:${tenantId}`)
 
     return { success: true }
   } catch (error) {
@@ -1290,6 +1296,7 @@ export async function bulkDeleteGuardians(ids: string[]) {
     }
 
     revalidatePath('/guardians')
+    revalidateTag(`guardians:${tenantId}`)
 
     return {
       success: true,
@@ -1358,6 +1365,7 @@ export async function bulkLinkGuardianToStudents(
     if (error) throw error
 
     revalidatePath('/students')
+    revalidateTag(`guardians:${tenantId}`)
 
     return {
       success: true,

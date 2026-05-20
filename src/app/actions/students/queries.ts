@@ -490,6 +490,76 @@ export async function getStudentFilterOptions() {
   }
 }
 
+export interface StudentMaster {
+  id: string
+  student_code: string
+  name: string
+  grade: string | null
+  school: string | null
+}
+
+/**
+ * 공용 학생 마스터 목록 (선택용 다이얼로그 전용)
+ *
+ * - 최소 필드(id/student_code/name/grade)만 반환 — 페이로드 최소화
+ * - `unstable_cache` 5분 TTL, 테넌트별 격리
+ * - 무효화: `revalidateTag('students-master:${tenantId}')` (학생 mutation에서 호출)
+ *
+ * 이 함수는 `StudentSearch fetchStudents={false}` 시 부모에서 props로 주입할 때 사용합니다.
+ * 페이지 필터/검색/페이지네이션이 필요한 경우는 `getStudents`를 사용하세요.
+ */
+export async function getStudentsMaster(): Promise<{
+  success: boolean
+  data: StudentMaster[]
+  error: string | null
+}> {
+  try {
+    const { tenantId } = await verifyStaff()
+
+    return unstable_cache(
+      async () => {
+        const serviceClient = createServiceRoleClient()
+
+        const { data, error } = await serviceClient
+          .from('students')
+          .select('id, student_code, grade, school, users!inner(name)')
+          .eq('tenant_id', tenantId)
+          .is('deleted_at', null)
+          .order('student_code', { ascending: true })
+
+        if (error) throw error
+
+        interface StudentMasterRow {
+          id: string
+          student_code: string
+          grade: string | null
+          school: string | null
+          users: { name: string } | null
+        }
+
+        const students: StudentMaster[] = ((data || []) as unknown as StudentMasterRow[]).map((s) => ({
+          id: s.id,
+          student_code: s.student_code,
+          name: s.users?.name ?? '이름 없음',
+          grade: s.grade,
+          school: s.school,
+        }))
+
+        return { success: true as const, data: students, error: null }
+      },
+      ['students-master', tenantId],
+      { revalidate: 300, tags: [`students-master:${tenantId}`] }
+    )()
+  } catch (error) {
+    console.error('[getStudentsMaster] Error:', error)
+    return {
+      success: false,
+      data: [],
+      error: getErrorMessage(error),
+    }
+  }
+}
+
 export interface StudentForMessaging {
   id: string
   student_code: string
@@ -503,6 +573,9 @@ export interface StudentForMessaging {
  *
  * 학생 자체에는 messaging 연락처가 없고, 보호자(`guardians.users.phone`)로 전송하므로
  * 첫 번째 보호자의 전화번호를 함께 반환합니다.
+ *
+ * 캐시: 5분 TTL. 학생/보호자 변경 시 `students-master:${tenantId}` 또는
+ * `guardians:${tenantId}` 태그 무효화로 갱신됩니다.
  */
 export async function getStudentsForBulkMessaging(): Promise<{
   success: boolean
@@ -511,51 +584,61 @@ export async function getStudentsForBulkMessaging(): Promise<{
 }> {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = createServiceRoleClient()
 
-    const { data, error } = await supabase
-      .from('students')
-      .select(`
-        id,
-        student_code,
-        grade,
-        users!inner ( name ),
-        student_guardians (
-          guardians (
-            users ( phone )
-          )
-        )
-      `)
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
-      .order('student_code')
+    return unstable_cache(
+      async () => {
+        const supabase = createServiceRoleClient()
 
-    if (error) throw error
+        const { data, error } = await supabase
+          .from('students')
+          .select(`
+            id,
+            student_code,
+            grade,
+            users!inner ( name ),
+            student_guardians (
+              guardians (
+                users ( phone )
+              )
+            )
+          `)
+          .eq('tenant_id', tenantId)
+          .is('deleted_at', null)
+          .order('student_code')
 
-    interface StudentRow {
-      id: string
-      student_code: string
-      grade: string | null
-      users: { name: string } | null
-      student_guardians: Array<{
-        guardians: {
-          users: { phone: string | null } | null
-        } | null
-      }> | null
-    }
+        if (error) throw error
 
-    const students: StudentForMessaging[] = ((data || []) as unknown as StudentRow[]).map((s) => {
-      const guardianPhone = s.student_guardians?.[0]?.guardians?.users?.phone ?? null
-      return {
-        id: s.id,
-        student_code: s.student_code,
-        name: s.users?.name || '-',
-        phone: guardianPhone,
-        grade: s.grade,
+        interface StudentRow {
+          id: string
+          student_code: string
+          grade: string | null
+          users: { name: string } | null
+          student_guardians: Array<{
+            guardians: {
+              users: { phone: string | null } | null
+            } | null
+          }> | null
+        }
+
+        const students: StudentForMessaging[] = ((data || []) as unknown as StudentRow[]).map((s) => {
+          const guardianPhone = s.student_guardians?.[0]?.guardians?.users?.phone ?? null
+          return {
+            id: s.id,
+            student_code: s.student_code,
+            name: s.users?.name || '-',
+            phone: guardianPhone,
+            grade: s.grade,
+          }
+        })
+
+        return { success: true as const, data: students, error: null }
+      },
+      ['students-bulk-messaging', tenantId],
+      {
+        revalidate: 300,
+        tags: [`students-master:${tenantId}`, `guardians:${tenantId}`],
       }
-    })
-
-    return { success: true, data: students, error: null }
+    )()
   } catch (error) {
     console.error('[getStudentsForBulkMessaging] Error:', error)
     return {

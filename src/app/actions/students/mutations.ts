@@ -287,6 +287,7 @@ export async function createStudentComplete(
     // 10. Revalidate pages
     revalidatePath('/students')
     revalidatePath('/dashboard')
+    revalidateTag(`students-master:${tenantId}`)
 
     // 입학 환영 알림톡 (fire-and-forget) — 보호자가 연결된 경우에만 발송.
     if (studentId && guardianId) {
@@ -447,6 +448,7 @@ export async function updateStudent(
     revalidatePath('/students')
     revalidatePath(`/students/${studentId}`)
     revalidatePath('/dashboard')
+    revalidateTag(`students-master:${tenantId}`)
 
     return {
       success: true,
@@ -549,6 +551,7 @@ export async function deleteStudent(studentId: string) {
     revalidatePath('/todos/planner')
     revalidatePath('/todos/verify')
     revalidateTag(`attendance-roster:${tenantId}`)
+    revalidateTag(`students-master:${tenantId}`)
 
     return {
       success: true,
@@ -650,6 +653,7 @@ export async function withdrawStudent(
     revalidatePath('/todos/planner')
     revalidatePath('/todos/verify')
     revalidateTag(`attendance-roster:${tenantId}`)
+    revalidateTag(`students-master:${tenantId}`)
 
     // 보호자에게 퇴원 안내 알림톡 (fire-and-forget).
     const withdrawalDateStr = new Date(withdrawalDate).toLocaleDateString('ko-KR', {

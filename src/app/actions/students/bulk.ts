@@ -46,6 +46,7 @@ export async function bulkUpdateStudents(
 
     // 4. Revalidate
     revalidatePath('/students')
+    revalidateTag(`students-master:${tenantId}`)
 
     return { success: true, error: null }
   } catch (error) {
@@ -156,6 +157,7 @@ export async function bulkDeleteStudents(studentIds: string[]) {
     revalidatePath('/todos/planner')
     revalidatePath('/todos/verify')
     revalidateTag(`attendance-roster:${tenantId}`)
+    revalidateTag(`students-master:${tenantId}`)
 
     return { success: true, error: null }
   } catch (error) {
