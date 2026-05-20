@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
@@ -16,35 +16,50 @@ import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { StudentTableImproved, Student } from './student-table-improved'
 import { getErrorMessage } from '@/lib/error-handlers'
-import { getStudents, deleteStudent } from '@/app/actions/students'
-import { useStudentsQuery, useStudentFilterOptionsQuery } from '@/hooks/queries/use-students-query'
+import { deleteStudent } from '@/app/actions/students'
+import { useStudentsEnrichedQuery } from '@/hooks/queries/use-students-query'
 import { queryKeys } from '@/lib/query-keys'
+import type { StudentListEnriched } from '@/app/actions/students/queries'
 
-const SEARCH_DEBOUNCE_MS = 180
+type BadgeFilter =
+  | 'overdue'
+  | 'unpaid'
+  | 'partially_paid'
+  | 'paid'
+  | 'attendance_issue'
+  | 'new_student'
+  | 'birthday_today'
+  | 'birthday_soon'
+  | 'no_guardian'
+  | null
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function formatStudents(data: any[]): Student[] {
-  return data.map(s => ({
+function toTableStudent(s: StudentListEnriched): Student {
+  return {
     id: s.id,
     student_code: s.student_code,
     grade: s.grade,
     school: s.school,
-    enrollment_date: s.enrollment_date,
-    birth_date: s.birth_date ?? null,
+    enrollment_date: s.enrollment_date ?? '',
+    birth_date: s.birth_date,
     gender: null,
-    student_phone: s.student_phone ?? null,
-    profile_image_url: s.profile_image_url ?? null,
+    student_phone: s.student_phone,
+    profile_image_url: s.profile_image_url,
     users: {
       name: s.name,
       email: s.email,
       phone: s.phone,
     },
-    class_enrollments: s.classes.map((c: { name?: string }) => ({
-      classes: { name: c.name || '' }
+    class_enrollments: s.classes.map((c) => ({
+      classes: { name: c.name || '' },
     })),
-    recentAttendance: s.recentAttendance ?? [],
-    guardians: s.guardians ?? [],
-  })) as Student[]
+    recentAttendance: s.recentAttendance,
+    invoices: s.invoices,
+    guardians: s.guardians.map((g) => ({
+      id: g.id ?? undefined,
+      name: g.name ?? undefined,
+      phone: g.phone,
+    })),
+  } as Student
 }
 
 export function StudentList() {
@@ -56,35 +71,82 @@ export function StudentList() {
   const [enrollmentDateFrom, setEnrollmentDateFrom] = useState<Date | undefined>()
   const [enrollmentDateTo, setEnrollmentDateTo] = useState<Date | undefined>()
   const [searchInput, setSearchInput] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
-  const [badgeFilter, setBadgeFilter] = useState<'overdue' | 'unpaid' | 'partially_paid' | 'paid' | 'attendance_issue' | 'new_student' | 'birthday_today' | 'birthday_soon' | 'no_guardian' | null>(null)
+  const [badgeFilter, setBadgeFilter] = useState<BadgeFilter>(null)
 
   const { toast } = useToast()
   const queryClient = useQueryClient()
 
-  // 검색어 디바운스
-  useEffect(() => {
-    const timeout = window.setTimeout(() => {
-      setDebouncedSearch(searchInput.trim())
-      setCurrentPage(1)
-    }, SEARCH_DEBOUNCE_MS)
-    return () => window.clearTimeout(timeout)
-  }, [searchInput])
+  const { data: allStudents, isFetching, isError } = useStudentsEnrichedQuery()
 
-  const filters = useMemo(() => ({
-    grade: selectedGrade !== 'all' ? selectedGrade : undefined,
-    classId: selectedClass !== 'all' ? selectedClass : undefined,
-    school: selectedSchool !== 'all' ? selectedSchool : undefined,
-    commuteMethod: selectedCommuteMethod !== 'all' ? selectedCommuteMethod : undefined,
-    marketingSource: selectedMarketingSource !== 'all' ? selectedMarketingSource : undefined,
-    enrollmentDateFrom: enrollmentDateFrom ? format(enrollmentDateFrom, 'yyyy-MM-dd') : undefined,
-    enrollmentDateTo: enrollmentDateTo ? format(enrollmentDateTo, 'yyyy-MM-dd') : undefined,
-    search: debouncedSearch || undefined,
-    page: currentPage,
-    pageSize,
-  }), [
+  // 필터 옵션은 로드된 데이터에서 직접 추출
+  const { grades, schools, classes } = useMemo(() => {
+    const data = allStudents || []
+    const gradeSet = new Set<string>()
+    const schoolSet = new Set<string>()
+    const classMap = new Map<string, string>()
+    for (const s of data) {
+      if (s.grade) gradeSet.add(s.grade)
+      if (s.school) schoolSet.add(s.school)
+      for (const c of s.classes) {
+        if (c.id && c.name) classMap.set(c.id, c.name)
+      }
+    }
+    return {
+      grades: Array.from(gradeSet).sort(),
+      schools: Array.from(schoolSet).sort(),
+      classes: Array.from(classMap, ([id, name]) => ({ id, name })).sort((a, b) =>
+        a.name.localeCompare(b.name)
+      ),
+    }
+  }, [allStudents])
+
+  // 검색·필터를 모두 메모리에서 즉시 적용
+  const filteredStudents = useMemo(() => {
+    const data = allStudents || []
+    const term = searchInput.trim().toLowerCase()
+    const fromDate = enrollmentDateFrom
+      ? format(enrollmentDateFrom, 'yyyy-MM-dd')
+      : null
+    const toDate = enrollmentDateTo ? format(enrollmentDateTo, 'yyyy-MM-dd') : null
+
+    return data.filter((s) => {
+      if (selectedGrade !== 'all' && s.grade !== selectedGrade) return false
+      if (selectedSchool !== 'all' && s.school !== selectedSchool) return false
+      if (selectedCommuteMethod !== 'all' && s.commute_method !== selectedCommuteMethod)
+        return false
+      if (
+        selectedMarketingSource !== 'all' &&
+        s.marketing_source !== selectedMarketingSource
+      )
+        return false
+      if (selectedClass !== 'all') {
+        const inClass = s.classes.some((c) => c.id === selectedClass)
+        if (!inClass) return false
+      }
+      if (fromDate && (!s.enrollment_date || s.enrollment_date < fromDate)) return false
+      if (toDate && (!s.enrollment_date || s.enrollment_date > toDate)) return false
+
+      if (term) {
+        const haystack = [
+          s.name,
+          s.student_code,
+          s.email ?? '',
+          s.phone ?? '',
+          s.student_phone ?? '',
+          s.grade ?? '',
+          s.school ?? '',
+        ]
+          .join(' ')
+          .toLowerCase()
+        if (!haystack.includes(term)) return false
+      }
+
+      return true
+    })
+  }, [
+    allStudents,
     selectedGrade,
     selectedClass,
     selectedSchool,
@@ -92,64 +154,24 @@ export function StudentList() {
     selectedMarketingSource,
     enrollmentDateFrom,
     enrollmentDateTo,
-    debouncedSearch,
-    currentPage,
-    pageSize,
+    searchInput,
   ])
 
-  const { data, isFetching, isError } = useStudentsQuery(filters)
+  const totalCount = filteredStudents.length
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
 
-  // 다음 페이지 백그라운드 프리페치
+  // 필터로 행 수가 줄어 currentPage가 범위를 벗어나면 보정
   useEffect(() => {
-    const totalCount = data?.totalCount ?? 0
-    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
-    const canPrefetchNext = data?.totalCountExact === false
-      ? data?.hasNextPage
-      : currentPage < totalPages
-    if (!canPrefetchNext) return
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
+    }
+  }, [currentPage, totalPages])
 
-    const nextFilters = { ...filters, page: currentPage + 1 }
-    queryClient.prefetchQuery({
-      queryKey: queryKeys.students.list(nextFilters as unknown as Record<string, unknown>),
-      queryFn: async () => {
-        const result = await getStudents({
-          grade: nextFilters.grade,
-          classId: nextFilters.classId,
-          school: nextFilters.school,
-          commuteMethod: nextFilters.commuteMethod,
-          marketingSource: nextFilters.marketingSource,
-          enrollmentDateFrom: nextFilters.enrollmentDateFrom,
-          enrollmentDateTo: nextFilters.enrollmentDateTo,
-          search: nextFilters.search,
-          page: nextFilters.page,
-          pageSize: nextFilters.pageSize,
-        })
-        if (!result.success || !result.data) throw new Error(result.error || '')
-        return {
-          data: result.data,
-          totalCount: result.totalCount ?? result.data.length,
-          totalCountExact: result.totalCountExact ?? true,
-          hasNextPage: result.hasNextPage ?? false,
-          page: result.page ?? nextFilters.page,
-          pageSize: result.pageSize ?? nextFilters.pageSize,
-        }
-      },
-      staleTime: 30_000,
-    })
-  }, [currentPage, data?.hasNextPage, data?.totalCount, data?.totalCountExact, filters, pageSize, queryClient])
-  const { data: filterOptions } = useStudentFilterOptionsQuery()
+  const pageStudents = useMemo(() => {
+    const start = (currentPage - 1) * pageSize
+    return filteredStudents.slice(start, start + pageSize).map(toTableStudent)
+  }, [filteredStudents, currentPage, pageSize])
 
-  const students = data ? formatStudents(data.data) : []
-  const totalCount = data?.totalCount ?? 0
-  const totalCountExact = data?.totalCountExact ?? true
-  const hasNextPage = data?.hasNextPage ?? false
-  const isSearchPending = searchInput.trim() !== debouncedSearch
-  const searchBusy = isSearchPending || (isFetching && Boolean(debouncedSearch))
-  const grades = filterOptions?.grades ?? []
-  const schools = filterOptions?.schools ?? []
-  const classes = filterOptions?.classes ?? []
-
-  // 필터 변경 시 1페이지로 이동
   function handleFilterChange(setter: (val: string) => void, val: string) {
     setter(val)
     setCurrentPage(1)
@@ -160,11 +182,18 @@ export function StudentList() {
       const result = await deleteStudent(studentId)
       if (!result.success) throw new Error(result.error || 'Failed to delete student')
 
-      toast({ title: '학생 삭제 완료', description: `${studentName} 학생이 성공적으로 삭제되었습니다.` })
+      toast({
+        title: '학생 삭제 완료',
+        description: `${studentName} 학생이 성공적으로 삭제되었습니다.`,
+      })
       queryClient.invalidateQueries({ queryKey: queryKeys.students.all() })
     } catch (error) {
       console.error('[StudentList] Failed to delete student:', error)
-      toast({ title: '학생 삭제 실패', description: getErrorMessage(error), variant: 'destructive' })
+      toast({
+        title: '학생 삭제 실패',
+        description: getErrorMessage(error),
+        variant: 'destructive',
+      })
     }
   }
 
@@ -181,11 +210,17 @@ export function StudentList() {
 
   useEffect(() => {
     if (isError) {
-      toast({ title: '학생 목록 로드 실패', description: '잠시 후 다시 시도해주세요.', variant: 'destructive' })
+      toast({
+        title: '학생 목록 로드 실패',
+        description: '잠시 후 다시 시도해주세요.',
+        variant: 'destructive',
+      })
     }
   }, [isError, toast])
 
-  const noGuardianCount = students.filter(s => !s.guardians || s.guardians.length === 0).length
+  const noGuardianCount = (allStudents || []).filter(
+    (s) => !s.guardians || s.guardians.length === 0
+  ).length
 
   return (
     <div className="space-y-4">
@@ -194,7 +229,9 @@ export function StudentList() {
         <div className="flex items-center justify-between gap-2 px-4 py-3 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
           <div className="flex items-center gap-2 text-sm text-yellow-700 dark:text-yellow-400">
             <UserX className="h-4 w-4 flex-shrink-0" />
-            <span>보호자가 연결되지 않은 학생이 <strong>{noGuardianCount}명</strong> 있습니다.</span>
+            <span>
+              보호자가 연결되지 않은 학생이 <strong>{noGuardianCount}명</strong> 있습니다.
+            </span>
           </div>
           <Button
             variant="outline"
@@ -211,41 +248,73 @@ export function StudentList() {
       <div className="flex flex-wrap gap-3 items-end">
         <div className="flex flex-col gap-1.5 min-w-[150px]">
           <label className="text-sm font-medium">학년</label>
-          <Select value={selectedGrade} onValueChange={(v) => handleFilterChange(setSelectedGrade, v)}>
-            <SelectTrigger><SelectValue placeholder="학년 선택" /></SelectTrigger>
+          <Select
+            value={selectedGrade}
+            onValueChange={(v) => handleFilterChange(setSelectedGrade, v)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="학년 선택" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">전체</SelectItem>
-              {grades.map(grade => <SelectItem key={grade} value={grade}>{grade}</SelectItem>)}
+              {grades.map((grade) => (
+                <SelectItem key={grade} value={grade}>
+                  {grade}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
 
         <div className="flex flex-col gap-1.5 min-w-[150px]">
           <label className="text-sm font-medium">수업</label>
-          <Select value={selectedClass} onValueChange={(v) => handleFilterChange(setSelectedClass, v)}>
-            <SelectTrigger><SelectValue placeholder="수업 선택" /></SelectTrigger>
+          <Select
+            value={selectedClass}
+            onValueChange={(v) => handleFilterChange(setSelectedClass, v)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="수업 선택" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">전체</SelectItem>
-              {classes.map(cls => <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>)}
+              {classes.map((cls) => (
+                <SelectItem key={cls.id} value={cls.id}>
+                  {cls.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
 
         <div className="flex flex-col gap-1.5 min-w-[150px]">
           <label className="text-sm font-medium">학교</label>
-          <Select value={selectedSchool} onValueChange={(v) => handleFilterChange(setSelectedSchool, v)}>
-            <SelectTrigger><SelectValue placeholder="학교 선택" /></SelectTrigger>
+          <Select
+            value={selectedSchool}
+            onValueChange={(v) => handleFilterChange(setSelectedSchool, v)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="학교 선택" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">전체</SelectItem>
-              {schools.map(school => <SelectItem key={school} value={school}>{school}</SelectItem>)}
+              {schools.map((school) => (
+                <SelectItem key={school} value={school}>
+                  {school}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
 
         <div className="flex flex-col gap-1.5 min-w-[150px]">
           <label className="text-sm font-medium">통학 방법</label>
-          <Select value={selectedCommuteMethod} onValueChange={(v) => handleFilterChange(setSelectedCommuteMethod, v)}>
-            <SelectTrigger><SelectValue placeholder="통학 방법" /></SelectTrigger>
+          <Select
+            value={selectedCommuteMethod}
+            onValueChange={(v) => handleFilterChange(setSelectedCommuteMethod, v)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="통학 방법" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">전체</SelectItem>
               <SelectItem value="도보">도보</SelectItem>
@@ -259,8 +328,13 @@ export function StudentList() {
 
         <div className="flex flex-col gap-1.5 min-w-[150px]">
           <label className="text-sm font-medium">유입 경로</label>
-          <Select value={selectedMarketingSource} onValueChange={(v) => handleFilterChange(setSelectedMarketingSource, v)}>
-            <SelectTrigger><SelectValue placeholder="유입 경로" /></SelectTrigger>
+          <Select
+            value={selectedMarketingSource}
+            onValueChange={(v) => handleFilterChange(setSelectedMarketingSource, v)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="유입 경로" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">전체</SelectItem>
               <SelectItem value="지인추천">지인 추천</SelectItem>
@@ -278,11 +352,20 @@ export function StudentList() {
             <PopoverTrigger asChild>
               <Button variant="outline" className="justify-start text-left font-normal">
                 <CalendarIcon className="mr-2 h-4 w-4" />
-                {enrollmentDateFrom ? format(enrollmentDateFrom, 'PPP', { locale: ko }) : '날짜 선택'}
+                {enrollmentDateFrom
+                  ? format(enrollmentDateFrom, 'PPP', { locale: ko })
+                  : '날짜 선택'}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0">
-              <Calendar mode="single" selected={enrollmentDateFrom} onSelect={(d) => { setEnrollmentDateFrom(d); setCurrentPage(1) }} />
+              <Calendar
+                mode="single"
+                selected={enrollmentDateFrom}
+                onSelect={(d) => {
+                  setEnrollmentDateFrom(d)
+                  setCurrentPage(1)
+                }}
+              />
             </PopoverContent>
           </Popover>
         </div>
@@ -293,11 +376,20 @@ export function StudentList() {
             <PopoverTrigger asChild>
               <Button variant="outline" className="justify-start text-left font-normal">
                 <CalendarIcon className="mr-2 h-4 w-4" />
-                {enrollmentDateTo ? format(enrollmentDateTo, 'PPP', { locale: ko }) : '날짜 선택'}
+                {enrollmentDateTo
+                  ? format(enrollmentDateTo, 'PPP', { locale: ko })
+                  : '날짜 선택'}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0">
-              <Calendar mode="single" selected={enrollmentDateTo} onSelect={(d) => { setEnrollmentDateTo(d); setCurrentPage(1) }} />
+              <Calendar
+                mode="single"
+                selected={enrollmentDateTo}
+                onSelect={(d) => {
+                  setEnrollmentDateTo(d)
+                  setCurrentPage(1)
+                }}
+              />
             </PopoverContent>
           </Popover>
         </div>
@@ -313,17 +405,20 @@ export function StudentList() {
 
       {/* 학생 테이블 */}
       <StudentTableImproved
-        data={students}
+        data={pageStudents}
         loading={isFetching}
         onDelete={handleDelete}
         badgeFilter={badgeFilter}
         onBadgeFilterChange={setBadgeFilter}
         searchValue={searchInput}
-        onSearchChange={setSearchInput}
+        onSearchChange={(value) => {
+          setSearchInput(value)
+          setCurrentPage(1)
+        }}
         totalCount={totalCount}
-        totalCountExact={totalCountExact}
-        hasNextPage={hasNextPage}
-        searchBusy={searchBusy}
+        totalCountExact={true}
+        hasNextPage={currentPage < totalPages}
+        searchBusy={false}
         currentPage={currentPage}
         pageSize={pageSize}
         onPageChange={setCurrentPage}
