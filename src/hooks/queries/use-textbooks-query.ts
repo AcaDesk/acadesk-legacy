@@ -1,39 +1,28 @@
 'use client'
 
-import { useQuery, keepPreviousData } from '@tanstack/react-query'
-import { getTextbooks } from '@/app/actions/textbooks'
+import { useQuery } from '@tanstack/react-query'
+import { getTextbooksListEnriched } from '@/app/actions/textbooks'
 import { queryKeys } from '@/lib/query-keys'
 
-export interface TextbookFilters {
-  search?: string
-  page: number
-  pageSize: number
-}
-
-export function useTextbooksQuery(filters: TextbookFilters) {
+/**
+ * 교재 목록 페이지 전용: 전체 교재 + 대출/단원 카운트.
+ *
+ * 검색/페이지네이션은 컴포넌트에서 인메모리로 처리하세요.
+ * 서버 unstable_cache(5분) + React Query staleTime(5분) 이중 캐시.
+ *
+ * 무효화: 교재/대출/단원 mutation 시 자동 (서버 캐시).
+ * React Query 측은 `queryClient.invalidateQueries({ queryKey: queryKeys.textbooks.all() })`로 트리거.
+ */
+export function useTextbooksEnrichedQuery() {
   return useQuery({
-    queryKey: queryKeys.textbooks.list(filters as unknown as Record<string, unknown>),
+    queryKey: queryKeys.textbooks.enriched(),
     queryFn: async () => {
-      const result = await getTextbooks({
-        search: filters.search || undefined,
-        page: filters.page,
-        pageSize: filters.pageSize,
-      })
+      const result = await getTextbooksListEnriched()
       if (!result.success) {
-        throw new Error('교재 목록을 불러올 수 없습니다')
+        throw new Error(result.error || '교재 목록을 불러올 수 없습니다')
       }
-      return {
-        data: result.data ?? [],
-        lendingCountByTextbookId: result.lendingCountByTextbookId ?? {},
-        unitCountByTextbookId: result.unitCountByTextbookId ?? {},
-        totalCount: result.totalCount ?? 0,
-        totalCountExact: result.totalCountExact ?? true,
-        hasNextPage: result.hasNextPage ?? false,
-        page: result.page ?? filters.page,
-        pageSize: result.pageSize ?? filters.pageSize,
-      }
+      return result.data
     },
-    placeholderData: keepPreviousData, // 페이지 이동 시 이전 데이터 유지
-    staleTime: 60_000, // 1분
+    staleTime: 5 * 60_000,
   })
 }
