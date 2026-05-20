@@ -31,6 +31,7 @@ export const queryKeys = {
   students: {
     all: () => ['students'] as const,
     list: (filters: Record<string, unknown>) => ['students', 'list', filters] as const,
+    enriched: () => ['students', 'enriched'] as const,
     filterOptions: () => ['students', 'filterOptions'] as const,
   },
 

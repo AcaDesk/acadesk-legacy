@@ -498,6 +498,227 @@ export interface StudentMaster {
   school: string | null
 }
 
+export interface StudentListEnriched {
+  id: string
+  student_code: string
+  name: string
+  email: string | null
+  phone: string | null
+  grade: string | null
+  school: string | null
+  enrollment_date: string | null
+  birth_date: string | null
+  student_phone: string | null
+  profile_image_url: string | null
+  commute_method: string | null
+  marketing_source: string | null
+  classes: Array<{ id: string | null; name: string | null }>
+  guardians: Array<{ id: string | null; name: string | null; phone: string | null }>
+  recentAttendance: Array<{ status: string }>
+  invoices: Array<{
+    id: string
+    status: string
+    billing_month: string
+    due_date: string
+    total_amount: number
+    paid_amount: number
+  }>
+}
+
+/**
+ * 학생 목록 페이지 전용: 전체 학생 + 부가 데이터(반/보호자/최근 출석/현재월 인보이스).
+ *
+ * 검색/필터/정렬/페이지네이션은 클라이언트에서 인메모리로 수행하기 위해
+ * 테넌트의 모든 학생을 한 번에 반환합니다. (~수천 명 규모 가정)
+ *
+ * 캐시: 5분 TTL. 다음 태그 무효화 시 재계산됩니다.
+ *  - `students-master:${tenantId}` — 학생 mutation
+ *  - `guardians:${tenantId}` — 보호자 mutation
+ *  - `classes:${tenantId}` — 반/등록 mutation
+ *
+ * 최근 출석(30일)과 인보이스(현재월) 변경은 5분 stale 허용. 필요 시
+ * 결제/출석 페이지에서 `revalidateTag('students-master:${tenantId}')`로 강제 갱신.
+ */
+export async function getStudentsListEnriched(): Promise<{
+  success: boolean
+  data: StudentListEnriched[]
+  error: string | null
+}> {
+  try {
+    const { tenantId } = await verifyStaff()
+
+    return unstable_cache(
+      async () => {
+        const supabase = createServiceRoleClient()
+
+        const { data: students, error } = await supabase
+          .from('students')
+          .select(`
+            id,
+            student_code,
+            grade,
+            school,
+            enrollment_date,
+            birth_date,
+            student_phone,
+            profile_image_url,
+            commute_method,
+            marketing_source,
+            users!inner (name, email, phone),
+            class_enrollments (
+              status,
+              classes (id, name)
+            ),
+            student_guardians (
+              guardians (
+                id,
+                users (name, phone)
+              )
+            )
+          `)
+          .eq('tenant_id', tenantId)
+          .is('deleted_at', null)
+          .order('created_at', { ascending: false })
+
+        if (error) throw error
+
+        interface StudentRow {
+          id: string
+          student_code: string
+          grade: string | null
+          school: string | null
+          enrollment_date: string | null
+          birth_date: string | null
+          student_phone: string | null
+          profile_image_url: string | null
+          commute_method: string | null
+          marketing_source: string | null
+          users: { name: string; email: string | null; phone: string | null } | null
+          class_enrollments: Array<{
+            status: string
+            classes: { id: string; name: string } | null
+          }> | null
+          student_guardians: Array<{
+            guardians: {
+              id: string
+              users: { name: string; phone: string | null } | null
+            } | null
+          }> | null
+        }
+
+        const rows = (students || []) as unknown as StudentRow[]
+        const studentIds = rows.map((s) => s.id)
+
+        // 최근 30일 출석 + 현재월 인보이스 batch 조회
+        const thirtyDaysAgo = new Date()
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+        const currentMonth = new Date().toISOString().slice(0, 7) // YYYY-MM
+
+        const [attendanceResult, invoicesResult] = studentIds.length > 0
+          ? await Promise.all([
+              supabase
+                .from('attendance')
+                .select('student_id, status')
+                .eq('tenant_id', tenantId)
+                .in('student_id', studentIds)
+                .gte('attendance_date', thirtyDaysAgo.toISOString().split('T')[0]),
+              supabase
+                .from('invoices')
+                .select('id, student_id, status, billing_month, due_date, total_amount, paid_amount')
+                .eq('tenant_id', tenantId)
+                .in('student_id', studentIds)
+                .eq('billing_month', currentMonth),
+            ])
+          : [{ data: [], error: null }, { data: [], error: null }]
+
+        if (attendanceResult.error) {
+          console.warn('[getStudentsListEnriched] attendance fetch error:', attendanceResult.error.message)
+        }
+        if (invoicesResult.error) {
+          console.warn('[getStudentsListEnriched] invoices fetch error:', invoicesResult.error.message)
+        }
+
+        const attendanceByStudent = new Map<string, Array<{ status: string }>>()
+        for (const a of attendanceResult.data || []) {
+          const list = attendanceByStudent.get(a.student_id) || []
+          list.push({ status: a.status })
+          attendanceByStudent.set(a.student_id, list)
+        }
+
+        interface InvoiceRow {
+          id: string
+          student_id: string
+          status: string
+          billing_month: string
+          due_date: string
+          total_amount: number
+          paid_amount: number
+        }
+        const invoicesByStudent = new Map<string, StudentListEnriched['invoices']>()
+        for (const inv of (invoicesResult.data || []) as InvoiceRow[]) {
+          const list = invoicesByStudent.get(inv.student_id) || []
+          list.push({
+            id: inv.id,
+            status: inv.status,
+            billing_month: inv.billing_month,
+            due_date: inv.due_date,
+            total_amount: inv.total_amount,
+            paid_amount: inv.paid_amount,
+          })
+          invoicesByStudent.set(inv.student_id, list)
+        }
+
+        const enriched: StudentListEnriched[] = rows.map((s) => ({
+          id: s.id,
+          student_code: s.student_code,
+          name: s.users?.name || '이름 없음',
+          email: s.users?.email ?? null,
+          phone: s.users?.phone ?? null,
+          grade: s.grade,
+          school: s.school,
+          enrollment_date: s.enrollment_date,
+          birth_date: s.birth_date,
+          student_phone: s.student_phone,
+          profile_image_url: s.profile_image_url,
+          commute_method: s.commute_method,
+          marketing_source: s.marketing_source,
+          classes: (s.class_enrollments || [])
+            .filter((e) => e.status === 'active')
+            .map((e) => ({
+              id: e.classes?.id ?? null,
+              name: e.classes?.name ?? null,
+            })),
+          guardians: (s.student_guardians || []).map((sg) => ({
+            id: sg.guardians?.id ?? null,
+            name: sg.guardians?.users?.name ?? null,
+            phone: sg.guardians?.users?.phone ?? null,
+          })),
+          recentAttendance: attendanceByStudent.get(s.id) || [],
+          invoices: invoicesByStudent.get(s.id) || [],
+        }))
+
+        return { success: true as const, data: enriched, error: null }
+      },
+      ['students-list-enriched', tenantId],
+      {
+        revalidate: 300,
+        tags: [
+          `students-master:${tenantId}`,
+          `guardians:${tenantId}`,
+          `classes:${tenantId}`,
+        ],
+      }
+    )()
+  } catch (error) {
+    console.error('[getStudentsListEnriched] Error:', error)
+    return {
+      success: false,
+      data: [],
+      error: getErrorMessage(error),
+    }
+  }
+}
+
 /**
  * 공용 학생 마스터 목록 (선택용 다이얼로그 전용)
  *
