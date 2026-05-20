@@ -59,6 +59,8 @@ export interface KakaoTemplate {
   securityFlag: boolean
   /** 공용 템플릿에서 자동 프로비저닝된 경우 NOT NULL. 학원장이 직접 편집/삭제 불가 */
   sharedTemplateId: string | null
+  /** 공용 템플릿의 event_type (예: monthly_report_ready). 공용 기반이 아니면 null */
+  eventType: string | null
   createdAt: string
   updatedAt: string
 }
@@ -103,6 +105,7 @@ async function getTenantChannelId(tenantId: string): Promise<string | null> {
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapDbToTemplate(row: any): KakaoTemplate {
+  const shared = row.shared_alimtalk_templates as { event_type?: string | null } | null | undefined
   return {
     id: row.id,
     tenantId: row.tenant_id,
@@ -121,6 +124,7 @@ function mapDbToTemplate(row: any): KakaoTemplate {
     rejectionReason: row.rejection_reason,
     securityFlag: row.security_flag,
     sharedTemplateId: row.shared_template_id ?? null,
+    eventType: shared?.event_type ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -212,7 +216,7 @@ export async function getKakaoTemplates(filters?: {
 
     let query = supabase
       .from('kakao_alimtalk_templates')
-      .select('*')
+      .select('*, shared_alimtalk_templates(event_type)')
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
@@ -259,7 +263,7 @@ export async function getKakaoTemplate(templateId: string): Promise<{
 
     const { data, error } = await supabase
       .from('kakao_alimtalk_templates')
-      .select('*')
+      .select('*, shared_alimtalk_templates(event_type)')
       .eq('id', templateId)
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)

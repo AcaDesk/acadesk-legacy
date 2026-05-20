@@ -85,6 +85,7 @@ export function StepperLayout({ initialStudents }: StepperLayoutProps) {
         {stepper.currentStep === 'confirm' && (
           <ConfirmStep
             previewData={stepper.getPreviewData()}
+            reportType={stepper.period.type}
             sendAfterSave={stepper.sendAfterSave}
             onSendAfterSaveChange={stepper.setSendAfterSave}
             sendChannel={stepper.sendChannel}

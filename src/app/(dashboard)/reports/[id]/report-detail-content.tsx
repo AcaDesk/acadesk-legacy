@@ -82,7 +82,6 @@ export function ReportDetailContent({
   const [reportContext, setReportContext] = useState<ReportContextData | null>(null)
   const [showAllSends, setShowAllSends] = useState(false)
   const [sendChannel, setSendChannel] = useState<ReportSendChannel>('sms')
-  const [sendKakaoTemplateId, setSendKakaoTemplateId] = useState('')
 
   const {
     hasKakaoChannel,
@@ -98,10 +97,21 @@ export function ReportDetailContent({
   const router = useRouter()
   const contentRef = useRef<HTMLDivElement>(null)
 
-  const selectedKakaoTemplate = useMemo(
-    () => kakaoTemplates.find((template) => template.id === sendKakaoTemplateId),
-    [kakaoTemplates, sendKakaoTemplateId]
-  )
+  // 리포트 종류에 따라 강제 매칭되는 알림톡 템플릿 event_type
+  // (월간 리포트 -> monthly_report_ready, 주간 -> weekly_report_ready)
+  const requiredKakaoEventType = useMemo<string | null>(() => {
+    if (report.report_type === 'monthly') return 'monthly_report_ready'
+    if (report.report_type === 'weekly') return 'weekly_report_ready'
+    return null
+  }, [report.report_type])
+
+  // 해당 리포트 종류에 맞는 승인 템플릿 (보통 1개)
+  const matchedKakaoTemplate = useMemo(() => {
+    if (!requiredKakaoEventType) return null
+    return kakaoTemplates.find((t) => t.eventType === requiredKakaoEventType) ?? null
+  }, [kakaoTemplates, requiredKakaoEventType])
+
+  const selectedKakaoTemplate = matchedKakaoTemplate
 
   const loadReport = useCallback(async () => {
     const result = await getReportDetail(reportId)
@@ -125,10 +135,13 @@ export function ReportDetailContent({
 
   async function handleConfirmSend() {
     if (!report) return
-    if (sendChannel === 'kakao' && !sendKakaoTemplateId) {
+    const kakaoTemplateIdToUse = matchedKakaoTemplate?.id ?? ''
+    if (sendChannel === 'kakao' && !kakaoTemplateIdToUse) {
       toast({
-        title: '알림톡 템플릿을 선택해주세요',
-        description: '리포트 알림톡은 승인된 템플릿으로만 발송할 수 있습니다.',
+        title: '사용할 수 있는 알림톡 템플릿이 없습니다',
+        description: requiredKakaoEventType
+          ? `이 리포트 종류에 해당하는 승인 템플릿(${requiredKakaoEventType})이 등록되어 있지 않습니다.`
+          : '리포트 종류와 매칭되는 템플릿이 없습니다.',
         variant: 'destructive',
       })
       return
@@ -142,7 +155,7 @@ export function ReportDetailContent({
 
       const result = await sendReportToAllGuardians(reportId, {
         channel: sendChannel,
-        ...(sendChannel === 'kakao' && { kakaoTemplateId: sendKakaoTemplateId }),
+        ...(sendChannel === 'kakao' && { kakaoTemplateId: kakaoTemplateIdToUse }),
       })
 
       if (!result.success) {
@@ -178,11 +191,7 @@ export function ReportDetailContent({
   }, [sendDialogOpen, kakaoChannelChecked, checkKakaoChannel])
 
   useEffect(() => {
-    if (sendChannel !== 'kakao') {
-      setSendKakaoTemplateId('')
-      return
-    }
-
+    if (sendChannel !== 'kakao') return
     if (hasKakaoChannel && kakaoTemplates.length === 0) {
       void loadKakaoTemplates()
     }
@@ -191,7 +200,6 @@ export function ReportDetailContent({
   useEffect(() => {
     if (sendChannel === 'kakao' && kakaoChannelChecked && !hasKakaoChannel) {
       setSendChannel('sms')
-      setSendKakaoTemplateId('')
     }
   }, [sendChannel, kakaoChannelChecked, hasKakaoChannel])
 
@@ -610,41 +618,35 @@ export function ReportDetailContent({
               <div className="space-y-3">
                 <div className="space-y-2">
                   <Label>알림톡 템플릿</Label>
-                  <Select value={sendKakaoTemplateId} onValueChange={setSendKakaoTemplateId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="승인된 템플릿 선택" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {loadingKakaoTemplates ? (
-                        <SelectItem value="loading" disabled>
-                          템플릿 확인 중...
-                        </SelectItem>
-                      ) : kakaoTemplates.length === 0 ? (
-                        <SelectItem value="empty" disabled>
-                          승인된 템플릿이 없습니다
-                        </SelectItem>
-                      ) : (
-                        kakaoTemplates.map((template) => (
-                          <SelectItem key={template.id} value={template.id}>
-                            {template.name}
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
+                  {loadingKakaoTemplates ? (
+                    <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+                      템플릿 확인 중...
+                    </div>
+                  ) : matchedKakaoTemplate ? (
+                    <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+                      <span className="font-medium">{matchedKakaoTemplate.name}</span>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {report.report_type === 'monthly' ? '월간' : report.report_type === 'weekly' ? '주간' : '리포트'} 종류에 맞춰 자동 선택됩니다.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                      이 리포트 종류({report.report_type === 'monthly' ? '월간' : report.report_type === 'weekly' ? '주간' : report.report_type})에 해당하는 승인된 알림톡 템플릿이 없습니다. 설정 &gt; 카카오 알림톡 템플릿에서 등록해주세요.
+                    </div>
+                  )}
                 </div>
 
-                <Alert>
-                  <Info className="h-4 w-4" />
-                  <AlertDescription className="space-y-2">
-                    <p>사용 가능한 리포트 변수: {getVariableDescriptionString()}, {'#{리포트링크}'}</p>
-                    {selectedKakaoTemplate && (
+                {matchedKakaoTemplate && (
+                  <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertDescription className="space-y-2">
+                      <p>사용 가능한 리포트 변수: {getVariableDescriptionString()}, {'#{리포트링크}'}</p>
                       <div className="rounded-md border bg-background p-3 text-xs whitespace-pre-wrap">
                         {kakaoPreview}
                       </div>
-                    )}
-                  </AlertDescription>
-                </Alert>
+                    </AlertDescription>
+                  </Alert>
+                )}
               </div>
             )}
           </div>
@@ -655,7 +657,7 @@ export function ReportDetailContent({
             </Button>
             <Button
               onClick={handleConfirmSend}
-              disabled={sending || (sendChannel === 'kakao' && !sendKakaoTemplateId)}
+              disabled={sending || (sendChannel === 'kakao' && !matchedKakaoTemplate)}
             >
               {sending ? (
                 <>
