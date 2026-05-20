@@ -37,6 +37,34 @@ const MessageDetailModal = dynamic(
 
 const PAGE_SIZE = 50
 
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  check_in: '등원 알림',
+  check_out: '하원 알림',
+  attendance_confirmed: '출석 확인',
+  absence_detected: '결석 알림',
+  homework_assigned: '숙제 등록',
+  homework_deadline: '숙제 마감',
+  monthly_report_ready: '월말 리포트',
+  weekly_report_ready: '주간 리포트',
+  consultation_scheduled: '상담 일정',
+  consultation_summary: '상담 결과',
+  payment_confirmed: '결제 완료',
+  payment_overdue: '미납 안내',
+  exam_scheduled: '시험 일정',
+  exam_grade_ready: '시험 성적',
+  retest_required: '재시험',
+  makeup_class_scheduled: '보강',
+  academy_closure_notice: '휴원 안내',
+  enrollment_welcome: '입학 환영',
+  enrollment_terminated: '퇴원',
+  book_lending_reminder: '도서 반납',
+  class_schedule_changed: '수업 일정 변경',
+}
+
+function formatEventType(eventType: string): string {
+  return EVENT_TYPE_LABELS[eventType] || eventType
+}
+
 interface NotificationLog {
   id: string
   student_id: string | null
@@ -306,9 +334,10 @@ export function NotificationsContent({ initialLogs, initialBalance, tenantId }: 
       : recipientPhone || null
 
     if (log.event_type) {
-      if (studentName) return `[${log.event_type}] ${studentName} 보호자에게 발송`
-      if (recipientLabel) return `[${log.event_type}] ${recipientLabel}에게 발송`
-      return `[${log.event_type}] 발송`
+      const eventLabel = formatEventType(log.event_type)
+      if (studentName) return `[${eventLabel}] ${studentName} 보호자에게 발송`
+      if (recipientLabel) return `[${eventLabel}] ${recipientLabel}에게 발송`
+      return `[${eventLabel}] 발송`
     }
 
     if (studentName) {

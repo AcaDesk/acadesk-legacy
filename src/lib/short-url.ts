@@ -110,8 +110,8 @@ export function generateSmsShortUrl(shortCode: string): string {
  * @returns 유효 여부
  */
 export function isValidShortCode(shortCode: string): boolean {
-  // 6-8자 영숫자
-  return /^[a-zA-Z0-9]{6,8}$/.test(shortCode)
+  // 6-8자, nanoid URL-safe 알파벳 (영숫자 + `_` + `-`)
+  return /^[A-Za-z0-9_-]{6,8}$/.test(shortCode)
 }
 
 /**
