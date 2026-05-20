@@ -7,7 +7,7 @@
 
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { unstable_cache } from 'next/cache'
 import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
@@ -471,6 +471,7 @@ export async function saveAttendance(params: {
     }
 
     revalidatePath('/attendance')
+    revalidateTag(`students-master:${tenantId}`)
 
     return { success: true, data }
   } catch (error) {
@@ -516,6 +517,7 @@ export async function cancelAttendance(params: {
     if (error) throw error
 
     revalidatePath('/attendance')
+    revalidateTag(`students-master:${tenantId}`)
     return { success: true }
   } catch (error) {
     console.error('cancelAttendance error:', error)
