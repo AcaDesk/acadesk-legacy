@@ -1,10 +1,13 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useToast } from '@/hooks/use-toast'
 import { classifyReportSendError, type ReportSendErrorInfo } from '@/lib/report-send-errors'
 import { deleteReport, deleteReports } from '@/app/actions/reports/queries'
+import { useKakaoMessaging } from '@/hooks/use-kakao-messaging'
+import type { KakaoTemplate } from '@/app/actions/messaging/kakao-templates'
 import type { ReportWithStudent } from '@/core/types/report.types'
+import type { ReportSendChannel } from '@/app/(dashboard)/reports/new/stepper/use-report-stepper'
 
 interface BulkSendProgress {
   current: number
@@ -13,10 +16,16 @@ interface BulkSendProgress {
   failCount: number
 }
 
+export interface ReportToSend {
+  id: string
+  name: string
+  reportType: 'weekly' | 'monthly' | 'quarterly' | string
+}
+
 export interface ReportActionsState {
   // Single send
   sendDialogOpen: boolean
-  reportToSend: { id: string; name: string } | null
+  reportToSend: ReportToSend | null
   isSending: boolean
   // Single delete
   deleteDialogOpen: boolean
@@ -31,6 +40,13 @@ export interface ReportActionsState {
   reportsToSend: ReportWithStudent[]
   isBulkSending: boolean
   bulkSendProgress: BulkSendProgress
+  // Channel / kakao templates (공유)
+  sendChannel: ReportSendChannel
+  hasKakaoChannel: boolean
+  kakaoChannelChecked: boolean
+  checkingKakaoChannel: boolean
+  kakaoTemplates: KakaoTemplate[]
+  loadingKakaoTemplates: boolean
   // Error dialogs
   errorDialogOpen: boolean
   errorInfo: ReportSendErrorInfo | null
@@ -40,7 +56,7 @@ export interface ReportActionsState {
 }
 
 export interface ReportActionsHandlers {
-  handleSendClick: (reportId: string, studentName: string) => void
+  handleSendClick: (reportId: string, studentName: string, reportType: string) => void
   handleConfirmSend: () => Promise<void>
   setSendDialogOpen: (open: boolean) => void
   handleDeleteClick: (reportId: string, studentName: string) => void
@@ -52,9 +68,17 @@ export interface ReportActionsHandlers {
   handleBulkSendClick: (selectedReports: ReportWithStudent[]) => void
   handleConfirmBulkSend: () => Promise<void>
   setBulkSendDialogOpen: (open: boolean) => void
+  setSendChannel: (channel: ReportSendChannel) => void
   setErrorDialogOpen: (open: boolean) => void
   setBulkErrorDialogOpen: (open: boolean) => void
   clearBulkSendErrors: () => void
+}
+
+// 리포트 종류 → 강제 매칭되는 알림톡 템플릿 event_type
+function eventTypeForReport(reportType: string): string | null {
+  if (reportType === 'monthly') return 'monthly_report_ready'
+  if (reportType === 'weekly') return 'weekly_report_ready'
+  return null
 }
 
 export function useReportActions(
@@ -64,7 +88,7 @@ export function useReportActions(
 
   // Single send state
   const [sendDialogOpen, setSendDialogOpen] = useState(false)
-  const [reportToSend, setReportToSend] = useState<{ id: string; name: string } | null>(null)
+  const [reportToSend, setReportToSend] = useState<ReportToSend | null>(null)
   const [isSending, setIsSending] = useState(false)
 
   // Single delete state
@@ -88,6 +112,18 @@ export function useReportActions(
     failCount: 0,
   })
 
+  // Channel / Kakao templates (단건/일괄 공용)
+  const [sendChannel, setSendChannel] = useState<ReportSendChannel>('sms')
+  const {
+    hasKakaoChannel,
+    isChannelChecked: kakaoChannelChecked,
+    isCheckingChannel: checkingKakaoChannel,
+    templates: kakaoTemplates,
+    isLoadingTemplates: loadingKakaoTemplates,
+    checkChannel: checkKakaoChannel,
+    loadTemplates: loadKakaoTemplates,
+  } = useKakaoMessaging({ approvedOnly: true })
+
   // Error dialog state
   const [errorDialogOpen, setErrorDialogOpen] = useState(false)
   const [errorInfo, setErrorInfo] = useState<ReportSendErrorInfo | null>(null)
@@ -95,19 +131,72 @@ export function useReportActions(
   const [bulkSendErrors, setBulkSendErrors] = useState<Array<{ name: string; error: ReportSendErrorInfo }>>([])
   const [bulkErrorDialogOpen, setBulkErrorDialogOpen] = useState(false)
 
+  // 전송 다이얼로그가 열리면 카카오 채널 가용성 확인
+  useEffect(() => {
+    if ((sendDialogOpen || bulkSendDialogOpen) && !kakaoChannelChecked) {
+      void checkKakaoChannel()
+    }
+  }, [sendDialogOpen, bulkSendDialogOpen, kakaoChannelChecked, checkKakaoChannel])
+
+  // 카카오 채널 사용 가능하면 템플릿 미리 로드
+  useEffect(() => {
+    if (sendChannel === 'kakao' && hasKakaoChannel && kakaoTemplates.length === 0) {
+      void loadKakaoTemplates()
+    }
+  }, [sendChannel, hasKakaoChannel, kakaoTemplates.length, loadKakaoTemplates])
+
+  // 카카오 채널이 없는데 카카오 선택돼 있으면 SMS 로 폴백
+  useEffect(() => {
+    if (sendChannel === 'kakao' && kakaoChannelChecked && !hasKakaoChannel) {
+      setSendChannel('sms')
+    }
+  }, [sendChannel, kakaoChannelChecked, hasKakaoChannel])
+
+  /**
+   * 리포트 종류 → 매칭되는 승인 템플릿 (없으면 null)
+   */
+  const findMatchedTemplate = useCallback(
+    (reportType: string): KakaoTemplate | null => {
+      const eventType = eventTypeForReport(reportType)
+      if (!eventType) return null
+      return kakaoTemplates.find((t) => t.eventType === eventType) ?? null
+    },
+    [kakaoTemplates]
+  )
+
   // --- Single Send ---
-  const handleSendClick = useCallback((reportId: string, studentName: string) => {
-    setReportToSend({ id: reportId, name: studentName })
-    setSendDialogOpen(true)
-  }, [])
+  const handleSendClick = useCallback(
+    (reportId: string, studentName: string, reportType: string) => {
+      setReportToSend({ id: reportId, name: studentName, reportType })
+      setSendDialogOpen(true)
+    },
+    []
+  )
 
   const handleConfirmSend = useCallback(async () => {
     if (!reportToSend) return
 
+    let kakaoTemplateId: string | undefined
+    if (sendChannel === 'kakao') {
+      const matched = findMatchedTemplate(reportToSend.reportType)
+      if (!matched) {
+        toast({
+          title: '사용할 수 있는 알림톡 템플릿이 없습니다',
+          description: '이 리포트 종류에 매칭된 승인 템플릿이 등록되어 있지 않습니다.',
+          variant: 'destructive',
+        })
+        return
+      }
+      kakaoTemplateId = matched.id
+    }
+
     setIsSending(true)
     try {
       const { sendReportToAllGuardians } = await import('@/app/actions/reports/send')
-      const result = await sendReportToAllGuardians(reportToSend.id)
+      const result = await sendReportToAllGuardians(reportToSend.id, {
+        channel: sendChannel,
+        ...(kakaoTemplateId && { kakaoTemplateId }),
+      })
 
       if (!result.success) {
         setFailedReportName(reportToSend.name)
@@ -134,7 +223,7 @@ export function useReportActions(
       setSendDialogOpen(false)
       setReportToSend(null)
     }
-  }, [reportToSend, loadReports, toast])
+  }, [reportToSend, sendChannel, findMatchedTemplate, loadReports, toast])
 
   // --- Single Delete ---
   const handleDeleteClick = useCallback((reportId: string, studentName: string) => {
@@ -212,6 +301,26 @@ export function useReportActions(
   const handleConfirmBulkSend = useCallback(async () => {
     if (reportsToSend.length === 0) return
 
+    // 카카오인 경우, 선택된 리포트 중 매칭 템플릿이 없는 종류가 있으면 사전 차단
+    if (sendChannel === 'kakao') {
+      const missingTypes = new Set<string>()
+      for (const r of reportsToSend) {
+        const matched = findMatchedTemplate(r.report_type)
+        if (!matched) missingTypes.add(r.report_type)
+      }
+      if (missingTypes.size > 0) {
+        const labels = Array.from(missingTypes).map((t) =>
+          t === 'monthly' ? '월간' : t === 'weekly' ? '주간' : t
+        ).join(', ')
+        toast({
+          title: '알림톡 템플릿 누락',
+          description: `${labels} 리포트에 매칭된 승인 템플릿이 없어 발송할 수 없습니다.`,
+          variant: 'destructive',
+        })
+        return
+      }
+    }
+
     setIsBulkSending(true)
     setBulkSendProgress({ current: 0, total: reportsToSend.length, successCount: 0, failCount: 0 })
 
@@ -230,7 +339,11 @@ export function useReportActions(
           batch.map(async (report) => {
             const studentName = report.students?.users?.name || '알 수 없음'
             try {
-              const result = await sendReportToAllGuardians(report.id)
+              const matched = sendChannel === 'kakao' ? findMatchedTemplate(report.report_type) : null
+              const result = await sendReportToAllGuardians(report.id, {
+                channel: sendChannel,
+                ...(matched && { kakaoTemplateId: matched.id }),
+              })
               if (result.success && result.data) {
                 return { success: true as const, successCount: result.data.successCount, failCount: result.data.failCount }
               } else {
@@ -292,7 +405,7 @@ export function useReportActions(
       setReportsToSend([])
       setBulkSendProgress({ current: 0, total: 0, successCount: 0, failCount: 0 })
     }
-  }, [reportsToSend, loadReports, toast])
+  }, [reportsToSend, sendChannel, findMatchedTemplate, loadReports, toast])
 
   const clearBulkSendErrors = useCallback(() => {
     setBulkErrorDialogOpen(false)
@@ -314,6 +427,12 @@ export function useReportActions(
     reportsToSend,
     isBulkSending,
     bulkSendProgress,
+    sendChannel,
+    hasKakaoChannel,
+    kakaoChannelChecked,
+    checkingKakaoChannel,
+    kakaoTemplates,
+    loadingKakaoTemplates,
     errorDialogOpen,
     errorInfo,
     failedReportName,
@@ -332,6 +451,7 @@ export function useReportActions(
     handleBulkSendClick,
     handleConfirmBulkSend,
     setBulkSendDialogOpen,
+    setSendChannel,
     setErrorDialogOpen,
     setBulkErrorDialogOpen,
     clearBulkSendErrors,

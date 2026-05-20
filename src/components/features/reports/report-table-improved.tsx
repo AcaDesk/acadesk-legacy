@@ -73,7 +73,7 @@ interface ReportTableImprovedProps {
   data: ReportWithStudent[]
   loading?: boolean
   mode?: 'browse' | 'select'
-  onSendClick: (reportId: string, studentName: string) => void
+  onSendClick: (reportId: string, studentName: string, reportType: string) => void
   onDeleteClick: (reportId: string, studentName: string) => void
   onBulkDeleteClick?: (selectedReports: ReportWithStudent[]) => void
   onBulkSendClick?: (selectedReports: ReportWithStudent[]) => void
@@ -369,7 +369,7 @@ export function ReportTableImproved({
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => onSendClick(report.id, report.students?.users?.name || '학생')}
+                onClick={() => onSendClick(report.id, report.students?.users?.name || '학생', report.report_type)}
               >
                 <Send className="h-4 w-4 text-info" />
               </Button>

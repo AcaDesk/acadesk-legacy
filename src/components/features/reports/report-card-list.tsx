@@ -13,7 +13,7 @@ import type { ReportWithStudent } from '@/core/types/report.types'
 interface ReportCardListProps {
   rows: Row<ReportWithStudent>[]
   mode: 'browse' | 'select'
-  onSendClick: (reportId: string, studentName: string) => void
+  onSendClick: (reportId: string, studentName: string, reportType: string) => void
   onDeleteClick: (reportId: string, studentName: string) => void
 }
 
@@ -89,7 +89,7 @@ export function ReportCardList({ rows, mode, onSendClick, onDeleteClick }: Repor
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => onSendClick(report.id, studentName)}
+                    onClick={() => onSendClick(report.id, studentName, report.report_type)}
                     className="gap-1.5 h-8 text-info"
                   >
                     <Send className="h-3.5 w-3.5" />
