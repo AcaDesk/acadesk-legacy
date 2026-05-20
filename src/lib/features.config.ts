@@ -90,12 +90,6 @@ export const FEATURES = {
 
   /** 자동화 워크플로우 */
   automationWorkflow: 'active' as FeatureStatus,
-
-  /** 일괄작업 센터 */
-  batchCenter: 'beta' as FeatureStatus,
-
-  /** 작업 이력 */
-  jobHistory: 'beta' as FeatureStatus,
 } as const
 
 export type FeatureKey = keyof typeof FEATURES

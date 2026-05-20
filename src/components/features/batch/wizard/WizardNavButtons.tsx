@@ -35,11 +35,11 @@ export function WizardNavButtons({
 
   const handlePrev = () => {
     if (isFirstStep) {
-      router.push('/batch')
+      router.push('/reports')
       return
     }
     const prevStep = STEP_ORDER[currentIndex - 1]
-    router.push(`/batch/new/${draftId}/${prevStep}`)
+    router.push(`/reports/bulk/${draftId}/${prevStep}`)
   }
 
   const handleNext = async () => {
@@ -49,7 +49,7 @@ export function WizardNavButtons({
     }
     if (currentIndex < STEP_ORDER.length - 1) {
       const nextStep = overrideNextStep ?? STEP_ORDER[currentIndex + 1]
-      const base = `/batch/new/${draftId}/${nextStep}`
+      const base = `/reports/bulk/${draftId}/${nextStep}`
       const qs = nextSearchParams && Object.keys(nextSearchParams).length > 0
         ? `?${new URLSearchParams(nextSearchParams).toString()}`
         : ''

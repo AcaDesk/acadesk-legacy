@@ -1,21 +1,25 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
-import { Plus, Users, Layers } from 'lucide-react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@ui/tabs'
+import { Plus, Users } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from '@/components/layout/page-wrapper'
 import { ReportTableImproved } from '@/components/features/reports/report-table-improved'
 import { ReportStatCards } from '@/components/features/reports/report-stat-cards'
 import { ReportDialogs } from '@/components/features/reports/report-dialogs'
 import { ReportFilterPresets, type PresetFilter } from '@/components/features/reports/report-filter-presets'
+import { JobsContent } from '@/components/features/jobs/JobsContent'
 import { useReportActions } from '@/hooks/use-report-actions'
 import { getReports } from '@/app/actions/reports/queries'
 import type { ReportWithStudent, StudentForFilter } from '@/core/types/report.types'
+
+type ReportsTab = 'list' | 'jobs'
 
 interface ReportsContentProps {
   initialReports: ReportWithStudent[]
@@ -56,6 +60,22 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
 
   const { toast } = useToast()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const activeTab: ReportsTab = searchParams.get('tab') === 'jobs' ? 'jobs' : 'list'
+
+  const handleTabChange = useCallback(
+    (value: string) => {
+      const params = new URLSearchParams(searchParams.toString())
+      if (value === 'list') {
+        params.delete('tab')
+      } else {
+        params.set('tab', value)
+      }
+      const queryString = params.toString()
+      router.replace(queryString ? `/reports?${queryString}` : '/reports', { scroll: false })
+    },
+    [router, searchParams],
+  )
 
   const loadReports = useCallback(async () => {
     try {
@@ -170,14 +190,20 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
             <Plus className="h-4 w-4 mr-2" />
             개별 생성
           </Button>
-          <Button onClick={() => router.push('/batch/new')} variant="outline">
+          <Button onClick={() => router.push('/reports/bulk')} variant="outline">
             <Users className="h-4 w-4 mr-2" />
             일괄 작업
           </Button>
         </div>
       }
     >
-      <div className="space-y-6">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="list">리포트 목록</TabsTrigger>
+          <TabsTrigger value="jobs">작업 이력</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="list" className="space-y-6">
         {/* Statistics */}
         <ReportStatCards
           allReports={allReports}
@@ -271,18 +297,6 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
           </Badge>
         </div>
 
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-sm text-muted-foreground">
-              일괄 생성/코멘트/전송은 이제 일괄작업센터에서 통합 실행됩니다.
-            </div>
-            <Button variant="secondary" onClick={() => router.push('/batch')}>
-              <Layers className="h-4 w-4 mr-2" />
-              일괄작업센터 이동
-            </Button>
-          </CardContent>
-        </Card>
-
         <Card>
           <CardHeader>
             <CardTitle>리포트 목록</CardTitle>
@@ -304,7 +318,12 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
 
         {/* Dialogs */}
         <ReportDialogs {...actions} />
-      </div>
+        </TabsContent>
+
+        <TabsContent value="jobs">
+          <JobsContent />
+        </TabsContent>
+      </Tabs>
     </PageWrapper>
   )
 }

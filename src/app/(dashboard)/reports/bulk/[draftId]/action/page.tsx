@@ -13,7 +13,6 @@ export default async function ActionPage({
   const { count } = await searchParams
   const result = await getDraftCached(draftId)
 
-  // URL 파라미터로 전달된 값 우선 사용 (낙관적 네비게이션 지원)
   const targetCount = count ? parseInt(count, 10) : (result.data?.target_snapshot_count ?? 0)
 
   return (

@@ -54,8 +54,6 @@ export interface BatchJob {
   created_at: string
   updated_at: string
   deleted_at: string | null
-  is_template: boolean
-  template_name: string | null
 }
 
 export interface BatchJobItem {

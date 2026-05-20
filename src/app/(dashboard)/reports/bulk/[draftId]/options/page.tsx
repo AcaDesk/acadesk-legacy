@@ -19,7 +19,6 @@ export default async function OptionsPage({
   const { action } = await searchParams
   const result = await getDraftCached(draftId)
 
-  // URL 파라미터로 전달된 action 우선 사용 (StepAction 낙관적 네비게이션 지원)
   const actionType = parseActionType(action) ?? result.data?.action_type ?? null
 
   return (

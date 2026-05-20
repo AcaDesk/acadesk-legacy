@@ -47,82 +47,6 @@ export async function createBatchDraft(payload?: CreateBatchDraftPayload) {
   }
 }
 
-function stripInternalJobParams(jobParams: Record<string, unknown>): BatchOptions {
-  const entries = Object.entries(jobParams).filter(([key]) => !key.startsWith('_'))
-  return Object.fromEntries(entries) as BatchOptions
-}
-
-export async function createBatchDraftFromTemplate(templateJobId: string) {
-  try {
-    const { tenantId, userId } = await verifyStaff()
-    const supabase = createServiceRoleClient()
-
-    const { data: templateJob, error: templateError } = await supabase
-      .from('batch_jobs')
-      .select('id, draft_id, action_type, job_params, is_template')
-      .eq('id', templateJobId)
-      .eq('tenant_id', tenantId)
-      .eq('is_template', true)
-      .is('deleted_at', null)
-      .single()
-
-    if (templateError || !templateJob) {
-      throw new Error('템플릿 정보를 찾을 수 없습니다.')
-    }
-
-    let targetIds: string[] = []
-    let schedule: BatchSchedule = { mode: 'now' }
-    let sourceOptions = stripInternalJobParams((templateJob.job_params ?? {}) as Record<string, unknown>)
-
-    if (templateJob.draft_id) {
-      const { data: sourceDraft } = await supabase
-        .from('batch_drafts')
-        .select('target_ids, schedule, options')
-        .eq('id', templateJob.draft_id)
-        .eq('tenant_id', tenantId)
-        .is('deleted_at', null)
-        .maybeSingle()
-
-      if (sourceDraft) {
-        targetIds = (sourceDraft.target_ids ?? []) as string[]
-        sourceOptions = stripInternalJobParams((sourceDraft.options ?? templateJob.job_params ?? {}) as Record<string, unknown>)
-        schedule = ((sourceDraft.schedule ?? { mode: 'now' }) as BatchSchedule)
-      }
-    }
-
-    // 과거 시각 예약은 복원 시 즉시 실행으로 초기화
-    if (schedule.mode === 'scheduled' && schedule.scheduledAt) {
-      const scheduledTime = new Date(schedule.scheduledAt).getTime()
-      if (!Number.isNaN(scheduledTime) && scheduledTime <= Date.now()) {
-        schedule = { mode: 'now' }
-      }
-    }
-
-    const { data, error } = await supabase
-      .from('batch_drafts')
-      .insert({
-        tenant_id: tenantId,
-        created_by: userId,
-        target_ids: targetIds,
-        target_snapshot_count: targetIds.length,
-        action_type: templateJob.action_type as BatchActionType,
-        options: sourceOptions,
-        schedule,
-        step: 'targets',
-        status: 'draft',
-      })
-      .select('id')
-      .single()
-
-    if (error) throw error
-
-    return { success: true as const, data: data.id as string, error: null }
-  } catch (error) {
-    console.error('[createBatchDraftFromTemplate] Error:', error)
-    return { success: false as const, data: null, error: getErrorMessage(error) }
-  }
-}
-
 export async function getBatchDraft(draftId: string) {
   try {
     const { tenantId } = await verifyStaff()
@@ -155,7 +79,7 @@ export async function patchBatchDraft(draftId: string, patch: PatchBatchDraftPay
       .select('*')
       .single()
     if (error) throw error
-    revalidatePath(`/batch/new/${draftId}`)
+    revalidatePath(`/reports/bulk/${draftId}`)
     return { success: true as const, data: data as BatchDraft, error: null }
   } catch (error) {
     console.error('[patchBatchDraft] Error:', error)
@@ -349,8 +273,7 @@ export async function executeBatchDraft(draftId: string, idempotencyKey: string)
 
     await supabase.from('batch_drafts').update({ status: 'running', step: 'run' }).eq('id', draftId).eq('tenant_id', tenantId)
 
-    revalidatePath('/batch')
-    revalidatePath('/jobs')
+    revalidatePath('/reports')
     return { success: true as const, data: job.id as string, error: null }
   } catch (error) {
     console.error('[executeBatchDraft] Error:', error)

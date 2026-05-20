@@ -11,11 +11,11 @@ interface WizardStepGuardProps {
 
 export function WizardStepGuard({ draft, draftId, targetStep, children }: WizardStepGuardProps) {
   if (!draft || draft.status === 'archived') {
-    redirect('/batch')
+    redirect('/reports')
   }
 
   if (!isStepAccessible(draft.step, targetStep)) {
-    redirect(`/batch/new/${draftId}/${draft.step}`)
+    redirect(`/reports/bulk/${draftId}/${draft.step}`)
   }
 
   return <>{children}</>

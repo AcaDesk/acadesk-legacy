@@ -29,7 +29,7 @@ export function StepRun({ draftId, draft, initialJob = null }: StepRunProps) {
     onComplete: (completedJobId) => {
       toast({ title: '작업이 종료되었습니다.' })
       // 3초 후 자동 이동
-      setTimeout(() => router.push(`/jobs/${completedJobId}`), 3000)
+      setTimeout(() => router.push(`/reports/jobs/${completedJobId}`), 3000)
     },
   })
 
@@ -129,10 +129,10 @@ export function StepRun({ draftId, draft, initialJob = null }: StepRunProps) {
               />
 
               <div className="flex justify-center gap-2">
-                <Button variant="outline" onClick={() => router.push('/batch')}>
-                  일괄작업 홈
+                <Button variant="outline" onClick={() => router.push('/reports?tab=jobs')}>
+                  작업 이력
                 </Button>
-                <Button onClick={() => router.push(`/jobs/${jobId}`)}>
+                <Button onClick={() => router.push(`/reports/jobs/${jobId}`)}>
                   작업 상세 보기
                 </Button>
               </div>

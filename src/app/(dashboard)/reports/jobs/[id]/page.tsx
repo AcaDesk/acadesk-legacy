@@ -18,7 +18,7 @@ export default async function JobDetailPage({
   const result = await getBatchJobDetail(id)
 
   if (!result.success || !result.data) {
-    redirect('/jobs')
+    redirect('/reports?tab=jobs')
   }
 
   return (

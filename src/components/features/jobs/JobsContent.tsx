@@ -130,7 +130,7 @@ export function JobsContent() {
                     <TableRow
                       key={job.id}
                       className="cursor-pointer"
-                      onClick={() => router.push(`/jobs/${job.id}`)}
+                      onClick={() => router.push(`/reports/jobs/${job.id}`)}
                     >
                       <TableCell className="text-sm">
                         {job.started_at

@@ -31,8 +31,6 @@ import {
   BookText,
   ClipboardList,
   PenSquare,
-  Layers,
-  History,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { isFeatureAvailable, type FeatureKey } from "@/lib/features.config"
@@ -127,16 +125,6 @@ const navigationGroups: NavGroup[] = [
       { name: "학원비 관리", href: "/payments", icon: HandCoins, featureFlag: "tuitionManagement" },
       { name: "직원 관리", href: "/staff", icon: Briefcase, featureFlag: "staffManagement" },
       { name: "메시지 관리", href: "/notifications", icon: Send, featureFlag: "notificationSystem" },
-      {
-        name: "일괄작업",
-        href: "/batch",
-        icon: Layers,
-        featureFlag: "batchCenter",
-        subItems: [
-          { name: "일괄작업센터", href: "/batch", icon: Layers, featureFlag: "batchCenter" },
-          { name: "작업이력", href: "/jobs", icon: History, featureFlag: "jobHistory" },
-        ]
-      },
     ]
   },
   {

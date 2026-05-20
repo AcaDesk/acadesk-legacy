@@ -117,19 +117,6 @@ export async function getBatchJobDetail(jobId: string) {
   }
 }
 
-export async function getRecentBatchJobs(limit = 5) {
-  try {
-    const { tenantId } = await verifyStaff()
-    const supabase = createServiceRoleClient()
-    const { data, error } = await supabase.from('batch_jobs').select('*').eq('tenant_id', tenantId).is('deleted_at', null).order('created_at', { ascending: false }).limit(limit)
-    if (error) throw error
-    return { success: true as const, data: (data ?? []) as BatchJob[], error: null }
-  } catch (error) {
-    console.error('[getRecentBatchJobs] Error:', error)
-    return { success: false as const, data: null, error: getErrorMessage(error) }
-  }
-}
-
 export async function updateJobItemStatus(itemId: string, status: JobItemStatus, resultData?: Record<string, unknown>, errorMessage?: string, errorCategory?: string) {
   try {
     const { tenantId } = await verifyStaff()
@@ -179,8 +166,7 @@ export async function completeJob(jobId: string, finalStatus: JobStatus) {
     if (job?.draft_id) {
       await supabase.from('batch_drafts').update({ status: 'archived' }).eq('id', job.draft_id).eq('tenant_id', tenantId)
     }
-    revalidatePath('/jobs')
-    revalidatePath('/batch')
+    revalidatePath('/reports')
     return { success: true as const, data: null, error: null }
   } catch (error) {
     console.error('[completeJob] Error:', error)
@@ -199,7 +185,7 @@ export async function retryFailedItems(jobId: string) {
     const { error: updateError } = await supabase.from('batch_job_items').update({ status: 'pending', error_message: null, error_category: null, started_at: null, completed_at: null }).in('id', retryIds).eq('tenant_id', tenantId)
     if (updateError) throw updateError
     await supabase.from('batch_jobs').update({ status: 'running', completed_at: null }).eq('id', jobId).eq('tenant_id', tenantId)
-    revalidatePath(`/jobs/${jobId}`)
+    revalidatePath(`/reports/jobs/${jobId}`)
     return { success: true as const, data: { retryCount: retryIds.length }, error: null }
   } catch (error) {
     console.error('[retryFailedItems] Error:', error)
@@ -423,8 +409,8 @@ export async function cancelJob(jobId: string) {
     await supabase.from('batch_job_items').update({ status: 'skipped', completed_at: new Date().toISOString() }).eq('job_id', jobId).eq('tenant_id', tenantId).eq('status', 'pending')
     const { error: updateError } = await supabase.from('batch_jobs').update({ status: 'canceled', completed_at: new Date().toISOString() }).eq('id', jobId).eq('tenant_id', tenantId)
     if (updateError) throw updateError
-    revalidatePath(`/jobs/${jobId}`)
-    revalidatePath('/jobs')
+    revalidatePath(`/reports/jobs/${jobId}`)
+    revalidatePath('/reports')
     return { success: true as const, data: null, error: null }
   } catch (error) {
     console.error('[cancelJob] Error:', error)
@@ -446,33 +432,6 @@ export async function getFailedItemsCsv(jobId: string) {
     return { success: true as const, data: csv, error: null }
   } catch (error) {
     console.error('[getFailedItemsCsv] Error:', error)
-    return { success: false as const, data: null, error: getErrorMessage(error) }
-  }
-}
-
-export async function saveBatchJobAsTemplate(jobId: string, name: string) {
-  try {
-    const { tenantId } = await verifyStaff()
-    const supabase = createServiceRoleClient()
-    const { error } = await supabase.from('batch_jobs').update({ is_template: true, template_name: name }).eq('id', jobId).eq('tenant_id', tenantId)
-    if (error) throw error
-    revalidatePath('/batch')
-    return { success: true as const, data: null, error: null }
-  } catch (error) {
-    console.error('[saveBatchJobAsTemplate] Error:', error)
-    return { success: false as const, data: null, error: getErrorMessage(error) }
-  }
-}
-
-export async function getBatchJobTemplates() {
-  try {
-    const { tenantId } = await verifyStaff()
-    const supabase = createServiceRoleClient()
-    const { data, error } = await supabase.from('batch_jobs').select('*').eq('tenant_id', tenantId).eq('is_template', true).is('deleted_at', null).order('created_at', { ascending: false })
-    if (error) throw error
-    return { success: true as const, data: (data ?? []) as BatchJob[], error: null }
-  } catch (error) {
-    console.error('[getBatchJobTemplates] Error:', error)
     return { success: false as const, data: null, error: getErrorMessage(error) }
   }
 }

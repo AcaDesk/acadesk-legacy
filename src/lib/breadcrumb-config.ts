@@ -132,22 +132,19 @@ export const BREADCRUMB_CONFIG: BreadcrumbConfig = {
   '/textbooks/[id]': getTextbookTitle,
   '/textbooks/[id]/edit': '교재 수정',
 
-  // Batch (일괄작업)
-  // '/batch/new'는 즉시 redirect되는 페이지, '/batch/new/[draftId]'는 page.tsx 없는 layout —
-  // 두 경로 모두 null로 브래드크럼에서 제외
-  '/batch': '일괄작업센터',
-  '/batch/new': null,
-  '/batch/new/[draftId]': null,
-  '/batch/new/[draftId]/targets': '대상 선택',
-  '/batch/new/[draftId]/action': '작업 유형',
-  '/batch/new/[draftId]/options': '옵션 설정',
-  '/batch/new/[draftId]/review': '검토',
-  '/batch/new/[draftId]/run': '실행',
-
   // Reports (보고서)
+  // '/reports/bulk'는 즉시 redirect되는 페이지, '/reports/bulk/[draftId]'는 page.tsx 없는 layout —
+  // 두 경로 모두 null로 브래드크럼에서 제외
   '/reports': '리포트 관리',
-  '/reports/bulk': '일괄 생성',
   '/reports/new': '개별 생성',
+  '/reports/bulk': null,
+  '/reports/bulk/[draftId]': null,
+  '/reports/bulk/[draftId]/targets': '대상 선택',
+  '/reports/bulk/[draftId]/action': '작업 유형',
+  '/reports/bulk/[draftId]/options': '옵션 설정',
+  '/reports/bulk/[draftId]/review': '검토',
+  '/reports/bulk/[draftId]/run': '실행',
+  '/reports/jobs/[id]': '작업 상세',
   '/reports/[id]': getReportStudentName,
   '/reports/[id]/edit': '보고서 수정',
 
@@ -198,10 +195,6 @@ export const BREADCRUMB_CONFIG: BreadcrumbConfig = {
   // Notifications (알림)
   '/notifications': '알림',
   '/notifications/[id]': '알림 상세',
-
-  // Jobs (작업이력)
-  '/jobs': '작업이력',
-  '/jobs/[id]': '작업 상세',
 
   // Kiosk (키오스크)
   '/kiosk': '키오스크',
