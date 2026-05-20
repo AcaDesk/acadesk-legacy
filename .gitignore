@@ -104,3 +104,4 @@ scripts/*_dump.sql
 create-test-user.sql
 
 supabase/seed-data.sql
+supabase/seed-auth.sql
