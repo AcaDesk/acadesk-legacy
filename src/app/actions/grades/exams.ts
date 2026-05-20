@@ -12,6 +12,7 @@ import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { createNotification } from '@/lib/notification-helpers'
+import { getStudentsMaster } from '@/app/actions/students/queries'
 
 // ============================================================================
 // Validation Schemas
@@ -989,44 +990,35 @@ export async function setExamTemplateActive(examId: string, active: boolean) {
 
 /**
  * Get all students for an exam with their current assignment status
+ *
+ * 학생 마스터 목록은 `getStudentsMaster()` 캐시(5분 TTL)를 재사용하고,
+ * 시험별 배정 정보(exam_scores)만 매번 조회합니다.
  */
 export async function getStudentsForExamAssignment(examId: string) {
   try {
     const { tenantId } = await verifyStaff()
     const serviceClient = createServiceRoleClient()
 
-    const [
-      { data: allStudents, error: studentsError },
-      { data: assignedScores, error: scoresError },
-    ] = await Promise.all([
-      serviceClient
-        .from('students')
-        .select('id, student_code, grade, users!user_id(name)')
-        .eq('tenant_id', tenantId)
-        .is('deleted_at', null)
-        .order('student_code'),
-      serviceClient
-        .from('exam_scores')
-        .select('student_id')
-        .eq('tenant_id', tenantId)
-        .eq('exam_id', examId),
-    ])
+    const [studentsMasterResult, { data: assignedScores, error: scoresError }] =
+      await Promise.all([
+        getStudentsMaster(),
+        serviceClient
+          .from('exam_scores')
+          .select('student_id')
+          .eq('tenant_id', tenantId)
+          .eq('exam_id', examId),
+      ])
 
-    if (studentsError) throw studentsError
     if (scoresError) throw scoresError
-
-    interface StudentRow {
-      id: string
-      student_code: string
-      grade: string | null
-      users: { name: string } | null
+    if (!studentsMasterResult.success) {
+      throw new Error(studentsMasterResult.error || '학생 목록을 불러오지 못했습니다.')
     }
 
     const assignedIds = new Set((assignedScores || []).map((s) => s.student_id))
-    const students = ((allStudents || []) as unknown as StudentRow[]).map((s) => ({
+    const students = studentsMasterResult.data.map((s) => ({
       id: s.id,
       student_code: s.student_code,
-      name: s.users?.name || '이름 없음',
+      name: s.name,
       grade: s.grade,
       isAssigned: assignedIds.has(s.id),
     }))

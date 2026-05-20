@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -16,18 +16,12 @@ import { Badge } from '@ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { Loader2, Search, UserPlus } from 'lucide-react'
-import { getUnenrolledStudents, enrollStudentsInClass } from '@/app/actions/classes'
-
-interface Student {
-  id: string
-  studentCode: string
-  name: string
-  grade: string
-  school: string
-}
+import { getClassEnrolledStudentIds, enrollStudentsInClass } from '@/app/actions/classes'
+import type { StudentMaster } from '@/app/actions/students/queries'
 
 interface EnrollStudentsDialogProps {
   classId: string
+  studentsMaster: StudentMaster[]
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess: () => void
@@ -35,11 +29,12 @@ interface EnrollStudentsDialogProps {
 
 export function EnrollStudentsDialog({
   classId,
+  studentsMaster,
   open,
   onOpenChange,
   onSuccess,
 }: EnrollStudentsDialogProps) {
-  const [students, setStudents] = useState<Student[]>([])
+  const [enrolledIds, setEnrolledIds] = useState<Set<string>>(new Set())
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(false)
@@ -48,19 +43,19 @@ export function EnrollStudentsDialog({
 
   useEffect(() => {
     if (open) {
-      loadStudents()
+      loadEnrolledIds()
       setSelectedIds([])
       setSearch('')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
-  async function loadStudents() {
+  async function loadEnrolledIds() {
     setLoading(true)
     try {
-      const result = await getUnenrolledStudents(classId)
+      const result = await getClassEnrolledStudentIds(classId)
       if (!result.success || !result.data) throw new Error(result.error || '불러오기 실패')
-      setStudents(result.data)
+      setEnrolledIds(new Set(result.data))
     } catch (error) {
       toast({ title: '오류', description: getErrorMessage(error), variant: 'destructive' })
     } finally {
@@ -68,11 +63,16 @@ export function EnrollStudentsDialog({
     }
   }
 
-  const filteredStudents = students.filter(s =>
+  const unenrolledStudents = useMemo(
+    () => studentsMaster.filter((s) => !enrolledIds.has(s.id)),
+    [studentsMaster, enrolledIds]
+  )
+
+  const filteredStudents = unenrolledStudents.filter(s =>
     s.name.includes(search) ||
-    s.studentCode.includes(search) ||
-    s.grade.includes(search) ||
-    s.school.includes(search)
+    s.student_code.includes(search) ||
+    (s.grade?.includes(search) ?? false) ||
+    (s.school?.includes(search) ?? false)
   )
 
   const toggleStudent = (id: string) => {
@@ -133,7 +133,7 @@ export function EnrollStudentsDialog({
             </div>
           ) : filteredStudents.length === 0 ? (
             <div className="text-center py-10 text-sm text-muted-foreground">
-              {students.length === 0
+              {unenrolledStudents.length === 0
                 ? '배정 가능한 학생이 없습니다.'
                 : '검색 결과가 없습니다.'}
             </div>
@@ -163,7 +163,7 @@ export function EnrollStudentsDialog({
                   />
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-sm">{student.name}</div>
-                    <div className="text-xs text-muted-foreground">{student.studentCode}</div>
+                    <div className="text-xs text-muted-foreground">{student.student_code}</div>
                   </div>
                   <div className="flex gap-1.5 shrink-0">
                     {student.grade && (

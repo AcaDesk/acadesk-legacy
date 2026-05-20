@@ -39,6 +39,7 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { withdrawStudentFromClass } from '@/app/actions/classes'
+import type { StudentMaster } from '@/app/actions/students/queries'
 import { EnrollStudentsDialog } from '@/components/features/classes/enroll-students-dialog'
 
 interface ClassDetail {
@@ -89,9 +90,10 @@ interface StudentInClass {
 interface ClassDetailClientProps {
   classData: ClassDetail
   students: StudentInClass[]
+  studentsMaster: StudentMaster[]
 }
 
-export function ClassDetailClient({ classData, students: initialStudents }: ClassDetailClientProps) {
+export function ClassDetailClient({ classData, students: initialStudents, studentsMaster }: ClassDetailClientProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [enrollDialogOpen, setEnrollDialogOpen] = useState(false)
@@ -174,6 +176,7 @@ export function ClassDetailClient({ classData, students: initialStudents }: Clas
     <PageWrapper>
       <EnrollStudentsDialog
         classId={classData.id}
+        studentsMaster={studentsMaster}
         open={enrollDialogOpen}
         onOpenChange={setEnrollDialogOpen}
         onSuccess={() => {

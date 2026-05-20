@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { UserPlus, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -18,51 +18,26 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { DatePicker } from '@ui/date-picker'
 import { showErrorToast, showSuccessToast } from '@/lib/toast-helpers'
-import { getStudents } from '@/app/actions/students/queries'
+import type { StudentMaster } from '@/app/actions/students/queries'
 import { assignTextbookToStudent } from '@/app/actions/textbooks'
 import { formatDate, getTodayKST } from '@/lib/utils'
 
-type StudentOption = {
-  id: string
-  name: string
-  grade: string | null
-  studentCode: string | null
-}
-
 export function AssignTextbookDialog({
   textbookId,
+  students,
   onSuccess,
 }: {
   textbookId: string
+  students: StudentMaster[]
   onSuccess: () => void
 }) {
   const [open, setOpen] = useState(false)
-  const [students, setStudents] = useState<StudentOption[]>([])
-  const [studentsLoading, setStudentsLoading] = useState(false)
   const [search, setSearch] = useState('')
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
   const [issueDate, setIssueDate] = useState(getTodayKST())
   const [paid, setPaid] = useState(false)
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
-
-  useEffect(() => {
-    if (!open) return
-    setStudentsLoading(true)
-    getStudents()
-      .then((result) => {
-        if (!result.success) return
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const mapped = (result.data || []).map((s: any) => ({
-          id: s.id as string,
-          name: (s.users?.name ?? '') as string,
-          grade: (s.grade ?? null) as string | null,
-          studentCode: (s.student_code ?? null) as string | null,
-        }))
-        setStudents(mapped)
-      })
-      .finally(() => setStudentsLoading(false))
-  }, [open])
 
   function handleOpenChange(next: boolean) {
     if (!next) {
@@ -81,7 +56,7 @@ export function AssignTextbookDialog({
     const q = search.toLowerCase()
     return (
       s.name.toLowerCase().includes(q) ||
-      (s.studentCode?.toLowerCase().includes(q) ?? false) ||
+      s.student_code.toLowerCase().includes(q) ||
       (s.grade?.toLowerCase().includes(q) ?? false)
     )
   })
@@ -145,13 +120,9 @@ export function AssignTextbookDialog({
               />
             </div>
             <ScrollArea className="h-48 rounded-md border">
-              {studentsLoading ? (
+              {filtered.length === 0 ? (
                 <div className="flex items-center justify-center h-full py-8 text-sm text-muted-foreground">
-                  학생 목록 불러오는 중...
-                </div>
-              ) : filtered.length === 0 ? (
-                <div className="flex items-center justify-center h-full py-8 text-sm text-muted-foreground">
-                  검색 결과가 없습니다
+                  {students.length === 0 ? '등록된 학생이 없습니다' : '검색 결과가 없습니다'}
                 </div>
               ) : (
                 <div className="p-1">
@@ -174,13 +145,11 @@ export function AssignTextbookDialog({
                           {student.grade}
                         </span>
                       )}
-                      {student.studentCode && (
-                        <span
-                          className={`ml-auto text-xs font-mono ${selectedStudentId === student.id ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}
-                        >
-                          {student.studentCode}
-                        </span>
-                      )}
+                      <span
+                        className={`ml-auto text-xs font-mono ${selectedStudentId === student.id ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}
+                      >
+                        {student.student_code}
+                      </span>
                     </button>
                   ))}
                 </div>

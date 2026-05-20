@@ -30,6 +30,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { showErrorToast, showSuccessToast } from '@/lib/toast-helpers'
 import { updateStudentTextbook } from '@/app/actions/textbooks'
+import type { StudentMaster } from '@/app/actions/students/queries'
 import { AssignTextbookDialog } from './assign-textbook-dialog'
 
 type UsageStatus = 'in_use' | 'completed' | 'returned'
@@ -59,9 +60,11 @@ const statusLabels: Record<UsageStatus, string> = {
 export function DistributionTableClient({
   distributions: initialDistributions,
   textbookId,
+  students,
 }: {
   distributions: TextbookUsageRecord[]
   textbookId: string
+  students: StudentMaster[]
 }) {
   const router = useRouter()
   const [distributions, setDistributions] = useState(initialDistributions)
@@ -122,7 +125,11 @@ export function DistributionTableClient({
               : '이 교재를 보유 중인 학생 목록'}
           </CardDescription>
         </div>
-        <AssignTextbookDialog textbookId={textbookId} onSuccess={() => router.refresh()} />
+        <AssignTextbookDialog
+          textbookId={textbookId}
+          students={students}
+          onSuccess={() => router.refresh()}
+        />
       </div>
     </CardHeader>
   )

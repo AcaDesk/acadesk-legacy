@@ -742,6 +742,37 @@ export async function getUnenrolledStudents(classId: string) {
 }
 
 /**
+ * 특정 수업에 active 상태로 등록된 학생 ID 목록만 반환
+ *
+ * `getUnenrolledStudents`와 달리 전체 학생 마스터를 가져오지 않음.
+ * `getStudentsMaster()`로 받은 학생 목록에서 클라이언트가 차집합을 계산합니다.
+ */
+export async function getClassEnrolledStudentIds(classId: string) {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    const { data, error } = await supabase
+      .from('class_enrollments')
+      .select('student_id')
+      .eq('tenant_id', tenantId)
+      .eq('class_id', classId)
+      .eq('status', 'active')
+
+    if (error) throw error
+
+    return {
+      success: true as const,
+      data: (data || []).map((e) => e.student_id),
+      error: null,
+    }
+  } catch (error) {
+    console.error('[getClassEnrolledStudentIds] Error:', error)
+    return { success: false as const, data: null, error: getErrorMessage(error) }
+  }
+}
+
+/**
  * Enroll multiple students in a class
  *
  * @param classId - Class ID
