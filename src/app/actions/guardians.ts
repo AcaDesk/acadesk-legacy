@@ -834,6 +834,125 @@ export async function getGuardiansForContact(studentId: string) {
 }
 
 /**
+ * 여러 학생의 보호자 정보를 한 번에 조회 (결석자 일괄 발송용)
+ *
+ * @param studentIds - 학생 ID 배열
+ * @returns 학생별 보호자 목록 매핑 + 학생 이름
+ */
+export async function getGuardiansForStudents(studentIds: string[]) {
+  try {
+    if (studentIds.length === 0) {
+      return { success: true, data: [], error: null }
+    }
+
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    const { data: links, error: linksError } = await supabase
+      .from('student_guardians')
+      .select(`
+        student_id,
+        guardian_id,
+        relation,
+        students!inner (
+          users!inner ( name )
+        ),
+        guardians!inner (
+          id,
+          relationship,
+          users!inner (
+            name,
+            email,
+            phone
+          )
+        )
+      `)
+      .in('student_id', studentIds)
+      .eq('tenant_id', tenantId)
+      .is('guardians.deleted_at', null)
+
+    if (linksError) {
+      console.error('[getGuardiansForStudents] Error:', linksError)
+      throw linksError
+    }
+
+    interface LinkRow {
+      student_id: string
+      guardian_id: string
+      relation: string | null
+      students: { users: { name: string | null } | null } | null
+      guardians: {
+        id: string
+        relationship: string | null
+        users: { name: string | null; email: string | null; phone: string | null } | null
+      } | null
+    }
+
+    const grouped = new Map<
+      string,
+      {
+        studentId: string
+        studentName: string
+        guardians: Array<{
+          id: string
+          name: string
+          relationship: string | null
+          email: string | null
+          phone: string | null
+        }>
+      }
+    >()
+
+    for (const link of ((links || []) as unknown as LinkRow[])) {
+      const studentId = link.student_id
+      const studentName = link.students?.users?.name || ''
+      const guardian = link.guardians
+      const user = guardian?.users
+      const entry = grouped.get(studentId) || {
+        studentId,
+        studentName,
+        guardians: [],
+      }
+      if (guardian) {
+        entry.guardians.push({
+          id: guardian.id,
+          name: user?.name || '',
+          relationship: link.relation || guardian.relationship || null,
+          email: user?.email || null,
+          phone: user?.phone || null,
+        })
+      }
+      grouped.set(studentId, entry)
+    }
+
+    return {
+      success: true,
+      data: Array.from(grouped.values()),
+      error: null,
+    }
+  } catch (error) {
+    console.error('[getGuardiansForStudents] Exception:', error)
+    return {
+      success: false,
+      data: null as
+        | null
+        | Array<{
+            studentId: string
+            studentName: string
+            guardians: Array<{
+              id: string
+              name: string
+              relationship: string | null
+              email: string | null
+              phone: string | null
+            }>
+          }>,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
+/**
  * 보호자에게 SMS 발송 + 연락 기록 저장
  * 설정된 메시징 provider(Aligo/Solapi)를 사용합니다.
  */
