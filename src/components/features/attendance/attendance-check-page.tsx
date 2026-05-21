@@ -7,13 +7,19 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
+  MessageSquare,
 } from 'lucide-react'
 import { Button } from '@ui/button'
+import { Badge } from '@ui/badge'
 import { Input } from '@ui/input'
 import { DatePicker } from '@ui/date-picker'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { ContactGuardianDialog } from '@/components/features/attendance/contact-guardian-dialog'
+import {
+  BulkAbsentContactDialog,
+  type AbsentStudentInput,
+} from '@/components/features/attendance/bulk-absent-contact-dialog'
 import { AttendanceMobileView } from '@/components/features/attendance/attendance-mobile-view'
 import { AttendanceDesktopView } from '@/components/features/attendance/attendance-desktop-view'
 import type { StudentAttendance } from '@/components/features/attendance/attendance-mobile-view'
@@ -174,6 +180,7 @@ export function AttendanceCheckPage({
   const [selectedContactStudent, setSelectedContactStudent] = useState<StudentAttendance | null>(null)
   const [contactPreparingStudentId, setContactPreparingStudentId] = useState<string | null>(null)
   const [contactContext, setContactContext] = useState<'absent' | 'self_study' | 'makeup' | 'late' | 'early_leave' | null>(null)
+  const [bulkContactOpen, setBulkContactOpen] = useState(false)
 
   // 로스터: 한 번만 로드하고 ref에 고정
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -694,6 +701,17 @@ export function AttendanceCheckPage({
     (s) => s.status === 'present' || s.status === 'late'
   ).length
 
+  // 일괄 연락 대상: 결석 + 지각 + 조퇴 학생 (현재 필터 적용된 범위)
+  const absentLikeStudents: AbsentStudentInput[] = filteredStudents
+    .filter((s) => s.status === 'absent' || s.status === 'late' || s.status === 'early_leave')
+    .map((s) => ({
+      studentId: s.studentId,
+      studentName: s.name,
+      sessionId: s.sessionId ?? null,
+    }))
+    // 중복 학생 제거 (여러 클래스에 등록된 경우)
+    .filter((s, idx, arr) => arr.findIndex((x) => x.studentId === s.studentId) === idx)
+
   return (
     <div className="space-y-4 md:space-y-6 pb-20 flex flex-col h-full">
       {/* 1. Top Header: Date & Summary & Download */}
@@ -752,10 +770,32 @@ export function AttendanceCheckPage({
           </div>
         </div>
 
-        <Button variant="outline" className="hidden md:flex">
-          <Download className="h-4 w-4 mr-2" />
-          엑셀 다운로드
-        </Button>
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setBulkContactOpen(true)}
+            disabled={absentLikeStudents.length === 0}
+            className="flex-1 md:flex-initial"
+            title={
+              absentLikeStudents.length === 0
+                ? '결석·지각·조퇴 학생이 없습니다'
+                : '결석·지각·조퇴 학생 보호자에게 일괄 전송'
+            }
+          >
+            <MessageSquare className="h-4 w-4 md:mr-2" />
+            <span className="hidden md:inline">결석·지각 알림</span>
+            {absentLikeStudents.length > 0 && (
+              <Badge variant="secondary" className="ml-1.5 md:ml-2 px-1.5 h-5 text-xs">
+                {absentLikeStudents.length}
+              </Badge>
+            )}
+          </Button>
+          <Button variant="outline" className="hidden md:flex">
+            <Download className="h-4 w-4 mr-2" />
+            엑셀 다운로드
+          </Button>
+        </div>
       </div>
 
       {/* 2. Control Bar: Classes & Filters */}
@@ -922,6 +962,15 @@ export function AttendanceCheckPage({
           attendanceContext={contactContext}
         />
       )}
+
+      <BulkAbsentContactDialog
+        open={bulkContactOpen}
+        onOpenChange={setBulkContactOpen}
+        absentStudents={absentLikeStudents}
+        onSent={() => {
+          recordsCacheRef.current.delete(currentDate)
+        }}
+      />
     </div>
   )
 }
