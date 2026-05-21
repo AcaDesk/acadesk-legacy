@@ -9,7 +9,10 @@
 'use client'
 
 import { useState, useCallback, useRef } from 'react'
-import { getKakaoChannelConfig } from '@/app/actions/messaging/kakao-channel'
+import {
+  getKakaoChannelConfig,
+  type KakaoUnavailableReason,
+} from '@/app/actions/messaging/kakao-channel'
 import { getKakaoTemplates, type KakaoTemplate } from '@/app/actions/messaging/kakao-templates'
 
 interface UseKakaoMessagingOptions {
@@ -18,8 +21,10 @@ interface UseKakaoMessagingOptions {
 }
 
 interface UseKakaoMessagingReturn {
-  /** 카카오 채널 연동 여부 */
+  /** 카카오 채널 연동 여부 (= isKakaoUsable: provider=solapi + verified + channel) */
   hasKakaoChannel: boolean
+  /** 알림톡 미사용 사유 (isKakaoUsable === false 일 때만 값 존재) */
+  unavailableReason: KakaoUnavailableReason | null
   /** 채널 상태 확인 완료 여부 */
   isChannelChecked: boolean
   /** 채널 상태 확인 중 여부 */
@@ -36,6 +41,24 @@ interface UseKakaoMessagingReturn {
   reset: () => void
 }
 
+/** 알림톡 미사용 사유 → 사용자 안내 문구 */
+export function getKakaoUnavailableLabel(
+  reason: KakaoUnavailableReason | null
+): string {
+  switch (reason) {
+    case 'no_config':
+      return '메시지 발송 설정이 필요합니다'
+    case 'provider_not_solapi':
+      return '알림톡은 Solapi 연동 시에만 사용 가능합니다'
+    case 'provider_not_verified':
+      return 'API 인증이 필요합니다'
+    case 'channel_not_registered':
+      return '카카오 채널 등록이 필요합니다'
+    default:
+      return '채널 연동 필요'
+  }
+}
+
 export function useKakaoMessaging(
   options: UseKakaoMessagingOptions = {}
 ): UseKakaoMessagingReturn {
@@ -43,6 +66,8 @@ export function useKakaoMessaging(
 
   // Channel state
   const [hasKakaoChannel, setHasKakaoChannel] = useState(false)
+  const [unavailableReason, setUnavailableReason] =
+    useState<KakaoUnavailableReason | null>(null)
   const [isChannelChecked, setIsChannelChecked] = useState(false)
   const [isCheckingChannel, setIsCheckingChannel] = useState(false)
 
@@ -67,10 +92,18 @@ export function useKakaoMessaging(
       // Kakao is only usable when: Solapi provider + verified + channel configured
       const isUsable = !!(result.success && result.data?.isKakaoUsable)
       setHasKakaoChannel(isUsable)
+      setUnavailableReason(
+        isUsable
+          ? null
+          : result.success
+            ? (result.data?.unavailableReason ?? 'no_config')
+            : null
+      )
       return isUsable
     } catch (error) {
       console.error('[useKakaoMessaging] Failed to check Kakao channel:', error)
       setHasKakaoChannel(false)
+      setUnavailableReason(null)
       return false
     } finally {
       setIsChannelChecked(true)
@@ -111,6 +144,7 @@ export function useKakaoMessaging(
    */
   const reset = useCallback(() => {
     setHasKakaoChannel(false)
+    setUnavailableReason(null)
     setIsChannelChecked(false)
     setIsCheckingChannel(false)
     setTemplates([])
@@ -119,6 +153,7 @@ export function useKakaoMessaging(
 
   return {
     hasKakaoChannel,
+    unavailableReason,
     isChannelChecked,
     isCheckingChannel,
     templates,

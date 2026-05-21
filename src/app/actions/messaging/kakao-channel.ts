@@ -208,6 +208,12 @@ function getKakaoActionErrorMessage(error: unknown): string {
  * Get Kakao channel configuration for current tenant
  * Returns channel config along with provider/verification status for UI validation
  */
+export type KakaoUnavailableReason =
+  | 'no_config'
+  | 'provider_not_solapi'
+  | 'provider_not_verified'
+  | 'channel_not_registered'
+
 export async function getKakaoChannelConfig(): Promise<{
   success: boolean
   data: (KakaoChannelConfig & {
@@ -217,6 +223,8 @@ export async function getKakaoChannelConfig(): Promise<{
     isProviderVerified: boolean
     /** Whether Kakao is fully usable (Solapi + verified + channel configured) */
     isKakaoUsable: boolean
+    /** When `isKakaoUsable` is false, which condition is missing */
+    unavailableReason: KakaoUnavailableReason | null
   }) | null
   error: string | null
 }> {
@@ -255,6 +263,13 @@ export async function getKakaoChannelConfig(): Promise<{
     const isProviderVerified = data.is_verified === true
     const hasKakaoChannel = !!data.kakao_channel_id
     const isKakaoUsable = isSolapiProvider && isProviderVerified && hasKakaoChannel
+    const unavailableReason: KakaoUnavailableReason | null = isKakaoUsable
+      ? null
+      : !isSolapiProvider
+        ? 'provider_not_solapi'
+        : !isProviderVerified
+          ? 'provider_not_verified'
+          : 'channel_not_registered'
 
     return {
       success: true,
@@ -269,6 +284,7 @@ export async function getKakaoChannelConfig(): Promise<{
         isSolapiProvider,
         isProviderVerified,
         isKakaoUsable,
+        unavailableReason,
       },
       error: null,
     }

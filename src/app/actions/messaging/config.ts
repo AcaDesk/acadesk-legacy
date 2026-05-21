@@ -486,6 +486,130 @@ export async function deleteMessagingConfig() {
   }
 }
 
+// ============================================================================
+// Messaging Capability — 다이얼로그에서 발송 가능 여부를 한 번에 점검
+// ============================================================================
+
+export type SmsUnavailableReason =
+  | 'no_config'
+  | 'not_active'
+  | 'not_verified'
+  | 'missing_credentials'
+
+export type AlimtalkUnavailableReason =
+  | 'no_config'
+  | 'not_active'
+  | 'provider_not_solapi'
+  | 'provider_not_verified'
+  | 'channel_not_registered'
+
+export interface MessagingCapability {
+  provider: MessagingProvider | null
+  isActive: boolean
+  isVerified: boolean
+  smsAvailable: boolean
+  smsUnavailableReason: SmsUnavailableReason | null
+  alimtalkAvailable: boolean
+  alimtalkUnavailableReason: AlimtalkUnavailableReason | null
+}
+
+/**
+ * 메시징 발송 가용성 통합 점검
+ *
+ * 발송 다이얼로그에서 SMS/알림톡 발송 가능 여부를 한 번에 확인하고,
+ * 비활성인 경우 사용자에게 친화적인 안내를 표시하기 위해 사용합니다.
+ */
+export async function getMessagingCapability(): Promise<{
+  success: boolean
+  data: MessagingCapability | null
+  error: string | null
+}> {
+  try {
+    const { tenantId } = await verifyStaff()
+    const supabase = createServiceRoleClient()
+
+    const { data: config, error } = await supabase
+      .from('tenant_messaging_config')
+      .select(
+        'provider, is_active, is_verified, aligo_api_key, aligo_user_id, aligo_sender_phone, solapi_api_key, solapi_api_secret, solapi_sender_phone, kakao_channel_id'
+      )
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (error) throw error
+
+    if (!config) {
+      return {
+        success: true,
+        data: {
+          provider: null,
+          isActive: false,
+          isVerified: false,
+          smsAvailable: false,
+          smsUnavailableReason: 'no_config',
+          alimtalkAvailable: false,
+          alimtalkUnavailableReason: 'no_config',
+        },
+        error: null,
+      }
+    }
+
+    const provider = config.provider as MessagingProvider | null
+    const isActive = !!config.is_active
+    const isVerified = !!config.is_verified
+
+    let smsUnavailableReason: SmsUnavailableReason | null = null
+    if (!isActive) {
+      smsUnavailableReason = 'not_active'
+    } else if (!isVerified) {
+      smsUnavailableReason = 'not_verified'
+    } else if (provider === 'aligo') {
+      if (!config.aligo_api_key || !config.aligo_user_id || !config.aligo_sender_phone) {
+        smsUnavailableReason = 'missing_credentials'
+      }
+    } else if (provider === 'solapi') {
+      if (!config.solapi_api_key || !config.solapi_api_secret || !config.solapi_sender_phone) {
+        smsUnavailableReason = 'missing_credentials'
+      }
+    }
+    const smsAvailable = smsUnavailableReason === null
+
+    let alimtalkUnavailableReason: AlimtalkUnavailableReason | null = null
+    if (!isActive) {
+      alimtalkUnavailableReason = 'not_active'
+    } else if (provider !== 'solapi') {
+      alimtalkUnavailableReason = 'provider_not_solapi'
+    } else if (!isVerified) {
+      alimtalkUnavailableReason = 'provider_not_verified'
+    } else if (!config.kakao_channel_id) {
+      alimtalkUnavailableReason = 'channel_not_registered'
+    }
+    const alimtalkAvailable = alimtalkUnavailableReason === null
+
+    return {
+      success: true,
+      data: {
+        provider,
+        isActive,
+        isVerified,
+        smsAvailable,
+        smsUnavailableReason,
+        alimtalkAvailable,
+        alimtalkUnavailableReason,
+      },
+      error: null,
+    }
+  } catch (error) {
+    console.error('[getMessagingCapability] Error:', error)
+    return {
+      success: false,
+      data: null,
+      error: getErrorMessage(error),
+    }
+  }
+}
+
 /**
  * Get messaging service balance (Solapi only for now)
  * 연동된 메시징 서비스 계정의 잔액을 조회합니다.
