@@ -360,10 +360,6 @@ export async function saveReport(
     let data: { id: string } | null = null
 
     if (existingReport) {
-      if (existingReport.sent_at) {
-        throw new Error('이미 전송된 동일 기간 리포트가 있습니다. 기존 리포트를 확인해주세요.')
-      }
-
       const { data: updatedReport, error: updateError } = await supabase
         .from('reports')
         .update({
