@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -9,6 +9,7 @@ import { Button } from '@ui/button'
 import { Label } from '@ui/label'
 import { Textarea } from '@ui/textarea'
 import { Checkbox } from '@ui/checkbox'
+import { Input } from '@ui/input'
 import {
   Dialog,
   DialogContent,
@@ -35,10 +36,13 @@ import {
 import { Alert, AlertDescription } from '@ui/alert'
 import { useToast } from '@/hooks/use-toast'
 import { sendMessages, getMessageTemplates } from '@/app/actions/messaging/messages'
-import { useKakaoMessaging } from '@/hooks/use-kakao-messaging'
+import {
+  useKakaoMessaging,
+  getKakaoUnavailableLabel,
+} from '@/hooks/use-kakao-messaging'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { renderKakaoTemplatePreview } from '@/lib/kakao/kakao-variables'
-import { Loader2, AlertCircle, Send, Info } from 'lucide-react'
+import { Loader2, AlertCircle, Send, Info, Search, X } from 'lucide-react'
 import { Badge } from '@ui/badge'
 
 const messageSchema = z.object({
@@ -74,8 +78,12 @@ interface Student {
   name: string
   phone: string | null
   grade: string | null
+  classes: Array<{ id: string | null; name: string | null }>
+  guardians: Array<{ name: string | null; phone: string | null }>
   selected: boolean
 }
+
+const ALL_FILTER_VALUE = '__all__'
 
 interface MessageTemplate {
   id: string
@@ -131,10 +139,14 @@ export function BulkMessageDialog({
   const [students, setStudents] = useState<Student[]>([])
   const [templates, setTemplates] = useState<MessageTemplate[]>([])
   const [sending, setSending] = useState(false)
+  const [studentSearch, setStudentSearch] = useState('')
+  const [gradeFilter, setGradeFilter] = useState<string>(ALL_FILTER_VALUE)
+  const [classFilter, setClassFilter] = useState<string>(ALL_FILTER_VALUE)
 
   const { toast } = useToast()
   const {
     hasKakaoChannel,
+    unavailableReason,
     isChannelChecked,
     isCheckingChannel,
     templates: kakaoTemplates,
@@ -142,6 +154,8 @@ export function BulkMessageDialog({
     checkChannel,
     loadTemplates: loadKakaoTemplates,
   } = useKakaoMessaging({ approvedOnly: true })
+
+  const kakaoUnavailableLabel = getKakaoUnavailableLabel(unavailableReason)
 
   const {
     register,
@@ -202,6 +216,63 @@ export function BulkMessageDialog({
     }
   }
 
+  // 학년/반 옵션 (학생 목록에서 동적으로 추출)
+  const gradeOptions = useMemo(() => {
+    const set = new Set<string>()
+    students.forEach((s) => {
+      if (s.grade) set.add(s.grade)
+    })
+    return Array.from(set).sort()
+  }, [students])
+
+  const classOptions = useMemo(() => {
+    const map = new Map<string, string>()
+    students.forEach((s) => {
+      s.classes.forEach((c) => {
+        if (c.id && c.name) map.set(c.id, c.name)
+      })
+    })
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [students])
+
+  // 검색 + 필터 적용 결과 (선택 토글의 기준이 되는 가시 목록)
+  const visibleStudents = useMemo(() => {
+    const term = studentSearch.trim().toLowerCase()
+    return students.filter((s) => {
+      if (gradeFilter !== ALL_FILTER_VALUE && s.grade !== gradeFilter) return false
+      if (
+        classFilter !== ALL_FILTER_VALUE &&
+        !s.classes.some((c) => c.id === classFilter)
+      )
+        return false
+      if (!term) return true
+      const haystack = [
+        s.name,
+        s.student_code,
+        s.grade ?? '',
+        ...s.classes.map((c) => c.name ?? ''),
+        ...s.guardians.map((g) => g.name ?? ''),
+        ...s.guardians.map((g) => g.phone ?? ''),
+      ]
+        .join(' ')
+        .toLowerCase()
+      return haystack.includes(term)
+    })
+  }, [students, studentSearch, gradeFilter, classFilter])
+
+  const isFiltering =
+    studentSearch.trim() !== '' ||
+    gradeFilter !== ALL_FILTER_VALUE ||
+    classFilter !== ALL_FILTER_VALUE
+
+  function clearFilters() {
+    setStudentSearch('')
+    setGradeFilter(ALL_FILTER_VALUE)
+    setClassFilter(ALL_FILTER_VALUE)
+  }
+
   async function loadTemplates() {
     try {
       const result = await getMessageTemplates()
@@ -219,13 +290,18 @@ export function BulkMessageDialog({
     ))
   }
 
-  function toggleAll() {
-    const sendable = students.filter(s => s.phone)
-    const allSelected = sendable.length > 0 && sendable.every(s => s.selected)
-    setStudents(students.map(s => ({
-      ...s,
-      selected: s.phone ? !allSelected : false
-    })))
+  /** 현재 필터/검색으로 보이는 학생만 일괄 토글 (전체 학생이 아님) */
+  function toggleAllVisible() {
+    const visibleIds = new Set(visibleStudents.filter((s) => s.phone).map((s) => s.id))
+    if (visibleIds.size === 0) return
+    const allVisibleSelected = visibleStudents
+      .filter((s) => s.phone)
+      .every((s) => s.selected)
+    setStudents(
+      students.map((s) =>
+        visibleIds.has(s.id) ? { ...s, selected: !allVisibleSelected } : s
+      )
+    )
   }
 
   function applyTemplate(template: MessageTemplate) {
@@ -382,13 +458,19 @@ export function BulkMessageDialog({
                     </div>
                   </div>
                 </SelectItem>
-                <SelectItem value="kakao" disabled={!hasKakaoChannel}>
+                <SelectItem
+                  value="kakao"
+                  disabled={!hasKakaoChannel && !isCheckingChannel}
+                >
                   <div className="flex items-center gap-2">
                     <span>{MESSAGE_TYPE_INFO.kakao.icon}</span>
                     <div>
                       <p className="font-medium">
                         {MESSAGE_TYPE_INFO.kakao.label}
-                        {!hasKakaoChannel && ' (채널 연동 필요)'}
+                        {!hasKakaoChannel &&
+                          (isCheckingChannel
+                            ? ' (확인 중...)'
+                            : ` (${kakaoUnavailableLabel})`)}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {MESSAGE_TYPE_INFO.kakao.estimatedCost}
@@ -460,7 +542,7 @@ export function BulkMessageDialog({
                         ? '알림톡 템플릿 확인 중...'
                         : hasKakaoChannel
                           ? '승인된 템플릿을 선택하세요'
-                          : '카카오 채널 연동이 필요합니다'
+                          : kakaoUnavailableLabel
                     }
                   />
                 </SelectTrigger>
@@ -509,53 +591,149 @@ export function BulkMessageDialog({
                 학생이 없습니다
               </div>
             ) : (
-              <div className="border rounded-lg max-h-64 overflow-y-auto">
-                <Table>
-                  <TableHeader className="sticky top-0 bg-background">
-                    <TableRow>
-                      <TableHead className="w-12">
-                        <Checkbox
-                          checked={students.filter(s => s.phone).every(s => s.selected)}
-                          onCheckedChange={toggleAll}
-                        />
-                      </TableHead>
-                      <TableHead>학생</TableHead>
-                      <TableHead>학년</TableHead>
-                      <TableHead>학부모 전화번호</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {students.map((student) => (
-                      <TableRow key={student.id}>
-                        <TableCell>
-                          <Checkbox
-                            checked={student.selected}
-                            onCheckedChange={() => toggleStudent(student.id)}
-                            disabled={!student.phone}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">{student.name}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {student.student_code}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>{student.grade || '-'}</TableCell>
-                        <TableCell>
-                          {student.phone ? (
-                            <span className="text-sm">{student.phone}</span>
-                          ) : (
-                            <Badge variant="outline" className="text-muted-foreground">
-                              미등록
-                            </Badge>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+              <div className="space-y-2">
+                {/* 검색 + 학년/반 필터 */}
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="이름·학번·반·보호자명/번호로 검색"
+                      value={studentSearch}
+                      onChange={(e) => setStudentSearch(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Select value={gradeFilter} onValueChange={setGradeFilter}>
+                      <SelectTrigger className="w-32">
+                        <SelectValue placeholder="학년" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={ALL_FILTER_VALUE}>전체 학년</SelectItem>
+                        {gradeOptions.map((g) => (
+                          <SelectItem key={g} value={g}>
+                            {g}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={classFilter} onValueChange={setClassFilter}>
+                      <SelectTrigger className="w-36">
+                        <SelectValue placeholder="반" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={ALL_FILTER_VALUE}>전체 반</SelectItem>
+                        {classOptions.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {isFiltering && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={clearFilters}
+                        aria-label="필터 초기화"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* 필터 결과 요약 */}
+                {isFiltering && (
+                  <div className="text-xs text-muted-foreground">
+                    {visibleStudents.length}명 표시 / 총 {students.length}명
+                  </div>
+                )}
+
+                <div className="border rounded-lg max-h-72 overflow-y-auto">
+                  {visibleStudents.length === 0 ? (
+                    <div className="text-center py-8 text-sm text-muted-foreground">
+                      검색/필터 조건에 맞는 학생이 없습니다
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader className="sticky top-0 bg-background z-10">
+                        <TableRow>
+                          <TableHead className="w-12">
+                            <Checkbox
+                              checked={
+                                visibleStudents.filter((s) => s.phone).length > 0 &&
+                                visibleStudents
+                                  .filter((s) => s.phone)
+                                  .every((s) => s.selected)
+                              }
+                              onCheckedChange={toggleAllVisible}
+                              aria-label={
+                                isFiltering ? '현재 표시된 학생 일괄 토글' : '전체 일괄 토글'
+                              }
+                            />
+                          </TableHead>
+                          <TableHead>학생</TableHead>
+                          <TableHead>반</TableHead>
+                          <TableHead>학년</TableHead>
+                          <TableHead>학부모 전화번호</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {visibleStudents.map((student) => (
+                          <TableRow key={student.id}>
+                            <TableCell>
+                              <Checkbox
+                                checked={student.selected}
+                                onCheckedChange={() => toggleStudent(student.id)}
+                                disabled={!student.phone}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <div>
+                                <div className="font-medium">{student.name}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {student.student_code}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {student.classes.length === 0 ? (
+                                <span className="text-xs text-muted-foreground">-</span>
+                              ) : (
+                                <div className="flex flex-wrap gap-1">
+                                  {student.classes.map((c, idx) => (
+                                    <Badge
+                                      key={c.id ?? idx}
+                                      variant="outline"
+                                      className="text-[11px]"
+                                    >
+                                      {c.name || '-'}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell>{student.grade || '-'}</TableCell>
+                            <TableCell>
+                              {student.phone ? (
+                                <span className="text-sm">{student.phone}</span>
+                              ) : (
+                                <Badge
+                                  variant="outline"
+                                  className="text-muted-foreground"
+                                >
+                                  미등록
+                                </Badge>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </div>
               </div>
             )}
           </div>

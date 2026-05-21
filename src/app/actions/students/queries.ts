@@ -787,16 +787,19 @@ export interface StudentForMessaging {
   name: string
   phone: string | null
   grade: string | null
+  classes: Array<{ id: string | null; name: string | null }>
+  guardians: Array<{ name: string | null; phone: string | null }>
 }
 
 /**
- * 일괄 메시지 다이얼로그 전용: 학생 + 1순위 보호자 연락처
+ * 일괄 메시지 다이얼로그 전용: 학생 + 보호자 연락처 + 반/학년 필터용 데이터
  *
  * 학생 자체에는 messaging 연락처가 없고, 보호자(`guardians.users.phone`)로 전송하므로
- * 첫 번째 보호자의 전화번호를 함께 반환합니다.
+ * 보호자 전화번호를 함께 반환합니다. 1순위 보호자 phone을 top-level `phone`으로 노출하되,
+ * `guardians[]`에 전체 보호자 정보를 함께 제공해 UI에서 발송 대상 선택을 정밀하게 합니다.
  *
- * 캐시: 5분 TTL. 학생/보호자 변경 시 `students-master:${tenantId}` 또는
- * `guardians:${tenantId}` 태그 무효화로 갱신됩니다.
+ * 캐시: 5분 TTL. 학생/보호자/반 변경 시 `students-master:${tenantId}`,
+ * `guardians:${tenantId}`, `classes:${tenantId}` 태그 무효화로 갱신됩니다.
  */
 export async function getStudentsForBulkMessaging(): Promise<{
   success: boolean
@@ -817,9 +820,13 @@ export async function getStudentsForBulkMessaging(): Promise<{
             student_code,
             grade,
             users!inner ( name ),
+            class_enrollments (
+              status,
+              classes ( id, name )
+            ),
             student_guardians (
               guardians (
-                users ( phone )
+                users ( name, phone )
               )
             )
           `)
@@ -834,21 +841,36 @@ export async function getStudentsForBulkMessaging(): Promise<{
           student_code: string
           grade: string | null
           users: { name: string } | null
+          class_enrollments: Array<{
+            status: string
+            classes: { id: string; name: string } | null
+          }> | null
           student_guardians: Array<{
             guardians: {
-              users: { phone: string | null } | null
+              users: { name: string | null; phone: string | null } | null
             } | null
           }> | null
         }
 
         const students: StudentForMessaging[] = ((data || []) as unknown as StudentRow[]).map((s) => {
-          const guardianPhone = s.student_guardians?.[0]?.guardians?.users?.phone ?? null
+          const guardians = (s.student_guardians || []).map((sg) => ({
+            name: sg.guardians?.users?.name ?? null,
+            phone: sg.guardians?.users?.phone ?? null,
+          }))
+          const firstPhone = guardians.find((g) => g.phone)?.phone ?? null
           return {
             id: s.id,
             student_code: s.student_code,
             name: s.users?.name || '-',
-            phone: guardianPhone,
+            phone: firstPhone,
             grade: s.grade,
+            classes: (s.class_enrollments || [])
+              .filter((e) => e.status === 'active')
+              .map((e) => ({
+                id: e.classes?.id ?? null,
+                name: e.classes?.name ?? null,
+              })),
+            guardians,
           }
         })
 
@@ -857,7 +879,11 @@ export async function getStudentsForBulkMessaging(): Promise<{
       ['students-bulk-messaging', tenantId],
       {
         revalidate: 300,
-        tags: [`students-master:${tenantId}`, `guardians:${tenantId}`],
+        tags: [
+          `students-master:${tenantId}`,
+          `guardians:${tenantId}`,
+          `classes:${tenantId}`,
+        ],
       }
     )()
   } catch (error) {
