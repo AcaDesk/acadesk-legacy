@@ -1,6 +1,7 @@
 'use client'
 
-import { AlertTriangle, Send, Info, Loader2 } from 'lucide-react'
+import Link from 'next/link'
+import { AlertTriangle, ExternalLink, Send, Info, Loader2 } from 'lucide-react'
 import { Button } from '@ui/button'
 import {
   Dialog,
@@ -182,29 +183,40 @@ export function ReportDialogs(props: ReportDialogsProps) {
             />
 
             {props.sendChannel === 'kakao' && props.reportToSend && (
-              <div className="space-y-2">
-                <Label>알림톡 템플릿</Label>
-                {props.loadingKakaoTemplates ? (
-                  <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-                    템플릿 확인 중...
-                  </div>
-                ) : singleMatched ? (
-                  <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
-                    <span className="font-medium">{singleMatched.name}</span>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {reportTypeLabel(props.reportToSend.reportType)} 리포트 종류에 맞춰 자동 선택됩니다.
+              props.loadingKakaoTemplates ? (
+                <p className="text-xs text-muted-foreground">알림톡 템플릿 확인 중...</p>
+              ) : singleMatched ? (
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs text-muted-foreground">
+                    {reportTypeLabel(props.reportToSend.reportType)} 리포트 알림톡 템플릿으로 자동 전송됩니다.
+                  </p>
+                  <Link
+                    href="/settings/messaging-integration/kakao"
+                    target="_blank"
+                    className="shrink-0 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                  >
+                    양식 변경
+                    <ExternalLink className="h-3 w-3" />
+                  </Link>
+                </div>
+              ) : (
+                <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive flex items-start gap-2">
+                  <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <div className="space-y-1">
+                    <p>
+                      {reportTypeLabel(props.reportToSend.reportType)} 리포트에 매칭된 승인 템플릿이 없습니다.
                     </p>
+                    <Link
+                      href="/settings/messaging-integration/kakao"
+                      target="_blank"
+                      className="inline-flex items-center gap-1 text-xs underline"
+                    >
+                      카카오 알림톡 템플릿 설정 열기
+                      <ExternalLink className="h-3 w-3" />
+                    </Link>
                   </div>
-                ) : (
-                  <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive flex items-start gap-2">
-                    <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                    <span>
-                      {reportTypeLabel(props.reportToSend.reportType)} 리포트에 매칭된 승인 템플릿이 없습니다. 설정 &gt;
-                      카카오 알림톡 템플릿에서 등록해주세요.
-                    </span>
-                  </div>
-                )}
-              </div>
+                </div>
+              )
             )}
           </div>
 
@@ -300,46 +312,47 @@ export function ReportDialogs(props: ReportDialogsProps) {
             />
 
             {props.sendChannel === 'kakao' && (
-              <div className="space-y-2">
-                <Label>알림톡 템플릿 매칭</Label>
-                {props.loadingKakaoTemplates ? (
-                  <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-                    템플릿 확인 중...
-                  </div>
-                ) : bulkTypeSummary.length === 0 ? (
-                  <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-                    선택된 리포트가 없습니다.
-                  </div>
-                ) : (
-                  <div className="space-y-1.5">
-                    {bulkTypeSummary.map((b) => (
-                      <div
-                        key={b.type}
-                        className={
-                          'rounded-md border px-3 py-2 text-sm ' +
-                          (b.template
-                            ? 'bg-muted/30'
-                            : 'border-destructive/40 bg-destructive/5 text-destructive')
-                        }
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-medium">
-                            {b.label} 리포트 ({b.count}건)
-                          </span>
-                          <span className="text-xs">
-                            {b.template ? `→ ${b.template.name}` : '매칭 템플릿 없음'}
-                          </span>
-                        </div>
+              props.loadingKakaoTemplates ? (
+                <p className="text-xs text-muted-foreground">알림톡 템플릿 확인 중...</p>
+              ) : bulkTypeSummary.length === 0 ? null : (
+                <div className="space-y-1.5">
+                  {bulkTypeSummary.map((b) => (
+                    <div
+                      key={b.type}
+                      className={
+                        'rounded-md border px-3 py-2 text-sm ' +
+                        (b.template
+                          ? 'bg-muted/30'
+                          : 'border-destructive/40 bg-destructive/5 text-destructive')
+                      }
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium">
+                          {b.label} 리포트 ({b.count}건)
+                        </span>
+                        <span className="text-xs">
+                          {b.template ? '자동 매칭됨' : '매칭 템플릿 없음'}
+                        </span>
                       </div>
-                    ))}
-                    {bulkHasMissing && (
-                      <p className="text-xs text-destructive">
-                        매칭 템플릿이 없는 종류가 있어 전송할 수 없습니다. 설정 &gt; 카카오 알림톡 템플릿에서 등록해주세요.
-                      </p>
-                    )}
+                    </div>
+                  ))}
+                  {bulkHasMissing && (
+                    <p className="text-xs text-destructive">
+                      매칭 템플릿이 없는 종류가 있어 전송할 수 없습니다.
+                    </p>
+                  )}
+                  <div className="flex justify-end pt-0.5">
+                    <Link
+                      href="/settings/messaging-integration/kakao"
+                      target="_blank"
+                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                    >
+                      양식 변경
+                      <ExternalLink className="h-3 w-3" />
+                    </Link>
                   </div>
-                )}
-              </div>
+                </div>
+              )
             )}
 
             {props.reportsToSend.length > 0 && (

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Card, CardContent } from '@ui/card'
 import { Button } from '@ui/button'
 import { Alert, AlertDescription } from '@ui/alert'
@@ -13,14 +14,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ui/select'
-import { ChevronLeft, Info, Loader2, Send, Save, X } from 'lucide-react'
+import { ChevronLeft, ExternalLink, Loader2, Send, Save, X } from 'lucide-react'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import { ReportViewer } from '@/components/features/reports/ReportViewer'
 import { cn } from '@/lib/utils'
 import type { ReportData } from '@/core/types/report.types'
 import { useKakaoMessaging } from '@/hooks/use-kakao-messaging'
-import { renderKakaoTemplatePreview } from '@/lib/kakao/kakao-variables'
-import { getVariableDescriptionString } from '@/lib/kakao/kakao-constants'
 import { type ReportSendChannel, REPORT_SEND_CHANNEL_LABELS } from '../use-report-stepper'
 
 interface ConfirmStepProps {
@@ -99,24 +98,9 @@ export function ConfirmStep({
     }
   }, [sendChannel, matchedKakaoTemplate, kakaoTemplateId, onKakaoTemplateIdChange])
 
-  const selectedKakaoTemplate = matchedKakaoTemplate
-
   const channelLabel = REPORT_SEND_CHANNEL_LABELS[sendChannel]
   const requiresKakaoTemplate = sendAfterSave && sendChannel === 'kakao' && !matchedKakaoTemplate
   const isSubmitDisabled = !isReady || isProcessing || requiresKakaoTemplate
-  const kakaoPreview = selectedKakaoTemplate && previewData
-    ? renderKakaoTemplatePreview(selectedKakaoTemplate.content, {
-        학생명: previewData.studentName || previewData.student?.name || '학생',
-        보호자명: '보호자',
-        기간: `${previewData.period.start} ~ ${previewData.period.end}`,
-        출석률: `${previewData.attendance.rate}%`,
-        숙제완료율: `${previewData.homework.rate}%`,
-        학원명: previewData.academy.name,
-        학원연락처: previewData.academy.phone || '',
-        종합평가: previewData.comment?.summary || previewData.instructorComment || '',
-        리포트링크: '[리포트 링크]',
-      })
-    : ''
 
   function handleSendAfterSaveChange(value: boolean) {
     onSendAfterSaveChange(value)
@@ -245,39 +229,35 @@ export function ConfirmStep({
               </div>
 
               {sendChannel === 'kakao' && (
-                <div className="space-y-3">
-                  <div className="space-y-2">
-                    <Label>알림톡 템플릿</Label>
-                    {loadingKakaoTemplates ? (
-                      <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-                        템플릿 확인 중...
-                      </div>
-                    ) : matchedKakaoTemplate ? (
-                      <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
-                        <span className="font-medium">{matchedKakaoTemplate.name}</span>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {reportTypeLabel} 리포트 종류에 맞춰 자동 선택됩니다.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-                        {reportTypeLabel} 리포트에 해당하는 승인된 알림톡 템플릿이 없습니다. 설정 &gt; 카카오 알림톡 템플릿에서 등록해주세요.
-                      </div>
-                    )}
+                loadingKakaoTemplates ? (
+                  <p className="text-xs text-muted-foreground">알림톡 템플릿 확인 중...</p>
+                ) : matchedKakaoTemplate ? (
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs text-muted-foreground">
+                      {reportTypeLabel} 리포트 알림톡 템플릿으로 자동 전송됩니다.
+                    </p>
+                    <Link
+                      href="/settings/messaging-integration/kakao"
+                      target="_blank"
+                      className="shrink-0 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                    >
+                      양식 변경
+                      <ExternalLink className="h-3 w-3" />
+                    </Link>
                   </div>
-
-                  {matchedKakaoTemplate && (
-                    <Alert>
-                      <Info className="h-4 w-4" />
-                      <AlertDescription className="space-y-2">
-                        <p>사용 가능한 리포트 변수: {getVariableDescriptionString()}, {'#{리포트링크}'}</p>
-                        <div className="rounded-md border bg-background p-3 text-xs whitespace-pre-wrap">
-                          {kakaoPreview}
-                        </div>
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                </div>
+                ) : (
+                  <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive space-y-1">
+                    <p>{reportTypeLabel} 리포트에 해당하는 승인된 알림톡 템플릿이 없습니다.</p>
+                    <Link
+                      href="/settings/messaging-integration/kakao"
+                      target="_blank"
+                      className="inline-flex items-center gap-1 text-xs underline"
+                    >
+                      카카오 알림톡 템플릿 설정 열기
+                      <ExternalLink className="h-3 w-3" />
+                    </Link>
+                  </div>
+                )
               )}
             </div>
           )}
