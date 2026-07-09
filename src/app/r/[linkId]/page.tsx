@@ -49,10 +49,6 @@ export default async function ReportSharePage({ params }: PageProps) {
     .is('deleted_at', null)
     .maybeSingle()
 
-  console.log('[ReportSharePage] linkId:', linkId)
-  console.log('[ReportSharePage] sendError:', sendError)
-  console.log('[ReportSharePage] reportSend:', reportSend ? 'found' : 'not found')
-
   if (sendError) {
     console.error('[ReportSharePage] Query error:', sendError)
     notFound()

@@ -106,8 +106,6 @@ export async function createUserProfileServer(userId: string) {
     const email = authUser.user.email || ''
     const name = authUser.user.user_metadata?.full_name || email
 
-    console.log('[createUserProfileServer] Creating profile:', { requestId, userId, email, name })
-
     // 4. 프로필 생성 (Upsert로 멱등성 보장)
     const now = new Date().toISOString()
     const { error: upsertError } = await serviceClient
@@ -547,7 +545,6 @@ export async function checkOnboardingStage(inviteToken?: string) {
         .maybeSingle()
 
       if (inviteData && new Date(inviteData.expires_at) > new Date()) {
-        console.log('[checkOnboardingStage] MEMBER_INVITED stage:', { requestId, userId, inviteToken })
         return {
           success: true,
           data: {

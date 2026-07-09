@@ -1,95 +1,93 @@
 /**
  * Student Points & Activity Server Actions
  *
- * 학생 포인트 및 활동 로그 관련 Server Actions
+ * 학생 상벌점 및 활동 로그 관련 Server Actions
  * (students.ts에서 분리됨)
- *
- * TODO: 포인트 시스템 구현 시 실제 테이블 쿼리로 변경 필요
  */
 
 'use server'
 
+import { revalidatePath } from 'next/cache'
+import { z } from 'zod'
+import { withServerAction, withServerActionVoid } from '@/lib/server-action-helpers'
 import { verifyStaff } from '@/lib/auth/verify-permission'
-import { verifyStaffPermission } from '@/lib/auth/service-role-helpers'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
+
+// ============================================================================
+// Types
+// ============================================================================
+
+export interface PointType {
+  code: string
+  label: string
+  category: 'reward' | 'penalty'
+  default_points: number
+  description: string | null
+  sort_order: number
+}
+
+export interface PointHistoryEntry {
+  id: string
+  point_type: string
+  point_label: string
+  points: number
+  reason: string | null
+  awarded_date: string
+  awarded_by_name: string | null
+  created_at: string
+}
+
+// ============================================================================
+// Point Types (reference data)
+// ============================================================================
+
+/**
+ * 상벌점 유형 목록 조회 (활성 유형만)
+ */
+export async function getPointTypes() {
+  return withServerAction(
+    async ({ serviceClient }) => {
+      const { data, error } = await serviceClient
+        .from('ref_point_types')
+        .select('code, label, category, default_points, description, sort_order')
+        .eq('active', true)
+        .order('sort_order', { ascending: true })
+
+      if (error) throw error
+      return (data || []) as PointType[]
+    },
+    { actionName: 'getPointTypes', defaultValue: [] as PointType[] }
+  )
+}
 
 // ============================================================================
 // Point Balance
 // ============================================================================
 
 /**
- * 학생 포인트 잔액 조회
- *
- * ✅ Service Role 기반 구현 (RPC 대체)
- *
- * TODO: 포인트 시스템 구현 시 실제 테이블 쿼리로 변경 필요
- * 현재는 placeholder 로직 (0 반환)
+ * 학생 상벌점 잔액 조회
  *
  * @param studentId - 학생 ID
- * @returns 포인트 잔액 또는 에러
+ * @returns 포인트 잔액 (상점 합계 - 벌점 합계)
  */
 export async function getStudentPointBalance(studentId: string) {
-  const requestId = crypto.randomUUID()
+  return withServerAction(
+    async ({ tenantId, serviceClient }) => {
+      const { data, error } = await serviceClient
+        .from('student_points')
+        .select('points')
+        .eq('student_id', studentId)
+        .eq('tenant_id', tenantId)
+        .is('deleted_at', null)
 
-  try {
-    console.log('[getStudentPointBalance] Request started:', {
-      requestId,
-      studentId,
-    })
+      if (error) throw error
 
-    // 1. Verify permissions
-    const permissionResult = await verifyStaffPermission()
-    if (!permissionResult.success || !permissionResult.data) {
-      return {
-        success: false,
-        data: null,
-        error: permissionResult.error || '권한이 없습니다.',
-      }
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { tenant_id: _tenant_id } = permissionResult.data
-
-    // 2. Service role로 포인트 조회
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _serviceClient = createServiceRoleClient()
-
-    // TODO: 실제 구현 시 student_points 테이블에서 조회
-    // const { data: pointsData } = await _serviceClient
-    //   .from('student_points')
-    //   .select('points')
-    //   .eq('student_id', studentId)
-    //   .eq('tenant_id', _tenant_id)
-    //   .order('created_at', { ascending: false })
-    //   .limit(1)
-    //   .maybeSingle()
-
-    // Placeholder: 항상 0 반환
-    const balance = 0
-
-    console.log('[getStudentPointBalance] Request completed:', {
-      requestId,
-      balance,
-    })
-
-    return {
-      success: true,
-      data: balance,
-      error: null,
-    }
-  } catch (error) {
-    console.error('[getStudentPointBalance] Error:', {
-      requestId,
-      error: error instanceof Error ? error.message : String(error),
-    })
-
-    return {
-      success: false,
-      data: null,
-      error: getErrorMessage(error),
-    }
-  }
+      const balance = (data || []).reduce((sum, row) => sum + (row.points ?? 0), 0)
+      return balance
+    },
+    { actionName: 'getStudentPointBalance', defaultValue: 0 }
+  )
 }
 
 // ============================================================================
@@ -97,87 +95,135 @@ export async function getStudentPointBalance(studentId: string) {
 // ============================================================================
 
 /**
- * 학생 포인트 이력 조회
- *
- * ✅ Service Role 기반 구현 (RPC 대체)
- *
- * TODO: 포인트 시스템 구현 시 실제 테이블 쿼리로 변경 필요
- * 현재는 placeholder 로직 (빈 배열 반환)
+ * 학생 상벌점 이력 조회
  *
  * @param studentId - 학생 ID
  * @param limit - 조회할 최대 개수 (기본: 20)
- * @returns 포인트 이력 배열 또는 에러
+ * @returns 상벌점 이력 배열
  */
 export async function getStudentPointHistory(studentId: string, limit = 20) {
-  const requestId = crypto.randomUUID()
+  return withServerAction(
+    async ({ tenantId, serviceClient }) => {
+      const { data, error } = await serviceClient
+        .from('student_points')
+        .select(`
+          id,
+          point_type,
+          points,
+          reason,
+          awarded_date,
+          created_at,
+          ref_point_types ( label ),
+          users ( name )
+        `)
+        .eq('student_id', studentId)
+        .eq('tenant_id', tenantId)
+        .is('deleted_at', null)
+        .order('awarded_date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(limit)
 
-  try {
-    console.log('[getStudentPointHistory] Request started:', {
-      requestId,
-      studentId,
-      limit,
-    })
+      if (error) throw error
 
-    // 1. Verify permissions
-    const permissionResult = await verifyStaffPermission()
-    if (!permissionResult.success || !permissionResult.data) {
-      return {
-        success: false,
-        data: null,
-        error: permissionResult.error || '권한이 없습니다.',
+      const history: PointHistoryEntry[] = (data || []).map((row) => {
+        const pointType = row.ref_point_types as { label: string } | { label: string }[] | null
+        const awardedBy = row.users as { name: string } | { name: string }[] | null
+        const pointTypeRow = Array.isArray(pointType) ? pointType[0] : pointType
+        const awardedByRow = Array.isArray(awardedBy) ? awardedBy[0] : awardedBy
+
+        return {
+          id: row.id,
+          point_type: row.point_type,
+          point_label: pointTypeRow?.label ?? row.point_type,
+          points: row.points,
+          reason: row.reason,
+          awarded_date: row.awarded_date,
+          awarded_by_name: awardedByRow?.name ?? null,
+          created_at: row.created_at,
+        }
+      })
+
+      return history
+    },
+    { actionName: 'getStudentPointHistory', defaultValue: [] as PointHistoryEntry[] }
+  )
+}
+
+// ============================================================================
+// Mutations
+// ============================================================================
+
+const awardPointSchema = z.object({
+  studentId: z.string().uuid(),
+  pointType: z.string().min(1),
+  points: z.number().int().optional(),
+  reason: z.string().trim().max(500).optional(),
+  awardedDate: z.string().optional(),
+})
+
+export type AwardPointInput = z.infer<typeof awardPointSchema>
+
+/**
+ * 학생에게 상벌점 부여
+ *
+ * points를 지정하지 않으면 유형의 기본 점수를 사용합니다.
+ */
+export async function awardStudentPoints(input: AwardPointInput) {
+  return withServerActionVoid(
+    async ({ tenantId, userId, serviceClient }) => {
+      const validated = awardPointSchema.parse(input)
+
+      // 유형 검증 및 기본 점수 조회
+      const { data: pointType, error: typeError } = await serviceClient
+        .from('ref_point_types')
+        .select('code, default_points')
+        .eq('code', validated.pointType)
+        .eq('active', true)
+        .maybeSingle()
+
+      if (typeError) throw typeError
+      if (!pointType) {
+        throw new Error('유효하지 않은 상벌점 유형입니다')
       }
-    }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { tenant_id: _tenant_id } = permissionResult.data
+      const points = validated.points ?? pointType.default_points
 
-    // 2. Service role로 포인트 이력 조회
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _serviceClient = createServiceRoleClient()
+      const { error } = await serviceClient.from('student_points').insert({
+        tenant_id: tenantId,
+        student_id: validated.studentId,
+        point_type: validated.pointType,
+        points,
+        reason: validated.reason || null,
+        awarded_by: userId,
+        awarded_date: validated.awardedDate || new Date().toISOString().split('T')[0],
+      })
 
-    // TODO: 실제 구현 시 student_point_history 테이블에서 조회
-    // const { data: historyData } = await _serviceClient
-    //   .from('student_point_history')
-    //   .select(`
-    //     id,
-    //     point_type,
-    //     point_label,
-    //     points,
-    //     reason,
-    //     awarded_date,
-    //     awarded_by_name,
-    //     created_at
-    //   `)
-    //   .eq('student_id', studentId)
-    //   .eq('tenant_id', _tenant_id)
-    //   .order('awarded_date', { ascending: false })
-    //   .limit(limit)
+      if (error) throw error
 
-    // Placeholder: 빈 배열 반환
-    const history: never[] = []
+      revalidatePath(`/students/${validated.studentId}`)
+    },
+    { actionName: 'awardStudentPoints' }
+  )
+}
 
-    console.log('[getStudentPointHistory] Request completed:', {
-      requestId,
-      count: history.length,
-    })
+/**
+ * 상벌점 기록 삭제 (soft delete)
+ */
+export async function deleteStudentPoint(pointId: string, studentId: string) {
+  return withServerActionVoid(
+    async ({ tenantId, serviceClient }) => {
+      const { error } = await serviceClient
+        .from('student_points')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', pointId)
+        .eq('tenant_id', tenantId)
 
-    return {
-      success: true,
-      data: history,
-      error: null,
-    }
-  } catch (error) {
-    console.error('[getStudentPointHistory] Error:', {
-      requestId,
-      error: error instanceof Error ? error.message : String(error),
-    })
+      if (error) throw error
 
-    return {
-      success: false,
-      data: null,
-      error: getErrorMessage(error),
-    }
-  }
+      revalidatePath(`/students/${studentId}`)
+    },
+    { actionName: 'deleteStudentPoint' }
+  )
 }
 
 // ============================================================================

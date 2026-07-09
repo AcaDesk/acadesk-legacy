@@ -35,6 +35,12 @@ export const queryKeys = {
     filterOptions: () => ['students', 'filterOptions'] as const,
   },
 
+  points: {
+    types: () => ['points', 'types'] as const,
+    balance: (studentId: string) => ['points', 'balance', studentId] as const,
+    history: (studentId: string) => ['points', 'history', studentId] as const,
+  },
+
   textbooks: {
     all: () => ['textbooks'] as const,
     list: (filters: Record<string, unknown>) => ['textbooks', 'list', filters] as const,

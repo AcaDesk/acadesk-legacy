@@ -1,76 +1,54 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
 import { Skeleton } from '@ui/skeleton'
+import { Input } from '@ui/input'
+import { Label } from '@ui/label'
+import { Textarea } from '@ui/textarea'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@ui/select'
 import { Award, TrendingUp, TrendingDown, History, Plus } from 'lucide-react'
 import { format as formatDate } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { getStudentPointBalance, getStudentPointHistory } from '@/app/actions/student-points'
-
-interface PointHistory {
-  id: string
-  point_type: string
-  point_label: string
-  points: number
-  reason: string | null
-  awarded_date: string
-  awarded_by_name: string | null
-  created_at: string
-}
+import {
+  useStudentPointBalanceQuery,
+  useStudentPointHistoryQuery,
+  usePointTypesQuery,
+} from '@/hooks/queries/use-student-points-query'
+import { useAwardStudentPointsMutation } from '@/hooks/mutations/use-student-points-mutations'
 
 interface StudentPointsWidgetProps {
   studentId: string
 }
 
 export function StudentPointsWidget({ studentId }: StudentPointsWidgetProps) {
-  const [balance, setBalance] = useState<number | null>(null)
-  const [history, setHistory] = useState<PointHistory[]>([])
-  const [loading, setLoading] = useState(true)
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false)
-  const [, setAddPointDialogOpen] = useState(false)
+  const [addPointDialogOpen, setAddPointDialogOpen] = useState(false)
 
-  useEffect(() => {
-    loadPointData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studentId])
+  const balanceQuery = useStudentPointBalanceQuery(studentId)
+  const historyQuery = useStudentPointHistoryQuery(studentId, 20)
 
-  async function loadPointData() {
-    try {
-      setLoading(true)
-
-      // Call Server Actions directly
-      const [balanceResult, historyResult] = await Promise.all([
-        getStudentPointBalance(studentId),
-        getStudentPointHistory(studentId, 20),
-      ])
-
-      if (!balanceResult.success) {
-        throw new Error(balanceResult.error || 'Failed to get point balance')
-      }
-
-      if (!historyResult.success) {
-        throw new Error(historyResult.error || 'Failed to get point history')
-      }
-
-      setBalance(balanceResult.data ?? 0)
-      setHistory(historyResult.data ?? [])
-    } catch (error) {
-      console.error('Error loading point data:', error)
-      setBalance(0)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const balance = balanceQuery.data ?? 0
+  const history = historyQuery.data ?? []
+  const loading = balanceQuery.isLoading || historyQuery.isLoading
 
   if (loading) {
     return (
@@ -171,6 +149,12 @@ export function StudentPointsWidget({ studentId }: StudentPointsWidgetProps) {
         </CardContent>
       </Card>
 
+      <AddPointDialog
+        studentId={studentId}
+        open={addPointDialogOpen}
+        onOpenChange={setAddPointDialogOpen}
+      />
+
       {/* History Dialog */}
       <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -193,11 +177,7 @@ export function StudentPointsWidget({ studentId }: StudentPointsWidgetProps) {
                   key={item.id}
                   className="flex items-start gap-3 p-3 rounded-lg border"
                 >
-                  <div
-                    className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 ${
-                      item.points > 0 ? 'bg-muted' : 'bg-muted'
-                    }`}
-                  >
+                  <div className="h-10 w-10 rounded-full flex items-center justify-center shrink-0 bg-muted">
                     {item.points > 0 ? (
                       <TrendingUp className="h-5 w-5 text-foreground" />
                     ) : (
@@ -244,5 +224,136 @@ export function StudentPointsWidget({ studentId }: StudentPointsWidgetProps) {
         </DialogContent>
       </Dialog>
     </>
+  )
+}
+
+interface AddPointDialogProps {
+  studentId: string
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}
+
+function AddPointDialog({ studentId, open, onOpenChange }: AddPointDialogProps) {
+  const pointTypesQuery = usePointTypesQuery()
+  const awardMutation = useAwardStudentPointsMutation()
+
+  const [pointType, setPointType] = useState('')
+  const [pointsOverride, setPointsOverride] = useState('')
+  const [reason, setReason] = useState('')
+
+  const pointTypes = useMemo(() => pointTypesQuery.data ?? [], [pointTypesQuery.data])
+  const rewards = useMemo(() => pointTypes.filter((t) => t.category === 'reward'), [pointTypes])
+  const penalties = useMemo(() => pointTypes.filter((t) => t.category === 'penalty'), [pointTypes])
+  const selectedType = pointTypes.find((t) => t.code === pointType)
+
+  function resetForm() {
+    setPointType('')
+    setPointsOverride('')
+    setReason('')
+  }
+
+  function handleOpenChange(next: boolean) {
+    if (!next) resetForm()
+    onOpenChange(next)
+  }
+
+  function handleSubmit() {
+    if (!pointType) return
+    const parsedOverride = pointsOverride.trim() === '' ? undefined : Number(pointsOverride)
+
+    awardMutation.mutate(
+      {
+        studentId,
+        pointType,
+        points: Number.isFinite(parsedOverride) ? parsedOverride : undefined,
+        reason: reason.trim() || undefined,
+      },
+      {
+        onSuccess: () => handleOpenChange(false),
+      }
+    )
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>상벌점 추가</DialogTitle>
+          <DialogDescription>학생에게 상점 또는 벌점을 부여합니다.</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>유형</Label>
+            <Select value={pointType} onValueChange={setPointType}>
+              <SelectTrigger>
+                <SelectValue placeholder="상벌점 유형 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                {rewards.length > 0 && (
+                  <SelectGroup>
+                    <SelectLabel>상점</SelectLabel>
+                    {rewards.map((type) => (
+                      <SelectItem key={type.code} value={type.code}>
+                        {type.label} (+{type.default_points})
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                )}
+                {penalties.length > 0 && (
+                  <SelectGroup>
+                    <SelectLabel>벌점</SelectLabel>
+                    {penalties.map((type) => (
+                      <SelectItem key={type.code} value={type.code}>
+                        {type.label} ({type.default_points})
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="points-override">
+              점수
+              {selectedType && (
+                <span className="ml-1 text-xs text-muted-foreground">
+                  (기본 {selectedType.default_points}점)
+                </span>
+              )}
+            </Label>
+            <Input
+              id="points-override"
+              type="number"
+              inputMode="numeric"
+              placeholder={selectedType ? String(selectedType.default_points) : '기본값 사용'}
+              value={pointsOverride}
+              onChange={(e) => setPointsOverride(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="point-reason">사유 (선택)</Label>
+            <Textarea
+              id="point-reason"
+              placeholder="상벌점 사유를 입력하세요"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              rows={2}
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => handleOpenChange(false)}>
+            취소
+          </Button>
+          <Button onClick={handleSubmit} disabled={!pointType || awardMutation.isPending}>
+            {awardMutation.isPending ? '저장 중...' : '부여'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
