@@ -61,14 +61,17 @@ import {
 } from '@ui/pagination'
 import { PAGE_ANIMATIONS, getListItemAnimation } from '@/lib/animation-config'
 import { cn } from '@/lib/utils'
-import { useToast } from '@/hooks/use-toast'
 import {
-  getConsultations,
-  bulkDeleteConsultations,
-  bulkUpdateConductor,
-  getConsultationPageMeta,
-} from '@/app/actions/consultations'
-import { getErrorMessage } from '@/lib/error-handlers'
+  useConsultationsQuery,
+  useConsultationPageMetaQuery,
+  type ConsultationListItem,
+  type ConsultationStats,
+  type ConsultationFilterOptions,
+} from '@/hooks/queries/use-consultations-query'
+import {
+  useBulkDeleteConsultationsMutation,
+  useBulkUpdateConductorMutation,
+} from '@/hooks/mutations/use-consultation-mutations'
 import { format } from 'date-fns'
 
 const ConsultationCalendar = dynamic(
@@ -76,36 +79,9 @@ const ConsultationCalendar = dynamic(
   { loading: () => <div className="h-[294px] w-[280px] animate-pulse rounded-md bg-muted" /> }
 )
 
-type Consultation = {
-  id: string
-  is_lead: boolean
-  student_id: string | null
-  lead_name: string | null
-  lead_guardian_name: string | null
-  lead_guardian_phone: string | null
-  converted_to_student_id: string | null
-  converted_at: string | null
-  consultation_date: string
-  consultation_type: string
-  title: string
-  summary: string | null
-  outcome: string | null
-  follow_up_required: boolean
-  next_consultation_date: string | null
-  students?: { name: string }
-  users?: { name: string }
-}
-
-type Stats = {
-  total: number
-  lead: number
-  student: number
-  converted: number
-}
-
-type FilterOptions = {
-  conductors: Array<{ id: string; name: string }>
-}
+type Consultation = ConsultationListItem
+type Stats = ConsultationStats
+type FilterOptions = ConsultationFilterOptions
 
 interface ConsultationsContentProps {
   initialData: Consultation[]
@@ -139,7 +115,6 @@ export function ConsultationsContent({
 }: ConsultationsContentProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { toast } = useToast()
 
   // URL에서 초기 상태 복원
   const initialTab = (searchParams.get('tab') as 'all' | 'lead' | 'student') || 'all'
@@ -152,10 +127,9 @@ export function ConsultationsContent({
   const initialEndDate = searchParams.get('endDate')
 
   // State
-  const [consultations, setConsultations] = useState<Consultation[]>(initialData)
-  const [totalCount, setTotalCount] = useState(initialTotalCount)
   const [currentPage, setCurrentPage] = useState(initialPage)
   const [searchTerm, setSearchTerm] = useState(initialSearch)
+  const [debouncedSearch, setDebouncedSearch] = useState(initialSearch)
   const [activeTab, setActiveTab] = useState<'all' | 'lead' | 'student'>(initialTab)
   const [consultationType, setConsultationType] = useState(initialType)
   const [conductedBy, setConductedBy] = useState(initialConductor)
@@ -173,7 +147,6 @@ export function ConsultationsContent({
     initialStartDate !== null ||
     initialEndDate !== null
   const [filterOpen, setFilterOpen] = useState(hasUrlFilters)
-  const [loading, setLoading] = useState(false)
 
   // 캘린더 토글
   const [calendarOpen, setCalendarOpen] = useState(false)
@@ -185,50 +158,65 @@ export function ConsultationsContent({
   // 선택 모드
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [stats, setStats] = useState<Stats>(initialStats ?? DEFAULT_STATS)
-  const [conductorOptions, setConductorOptions] = useState<FilterOptions | null>(filterOptions)
-  const [upcomingFollowUpsState, setUpcomingFollowUpsState] = useState<Consultation[]>(upcomingFollowUps)
 
-  // 일괄 작업 상태
+  // 일괄 작업 다이얼로그
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
-  const [isBulkDeleting, setIsBulkDeleting] = useState(false)
   const [conductorDialogOpen, setConductorDialogOpen] = useState(false)
   const [newConductorId, setNewConductorId] = useState('')
-  const [isUpdatingConductor, setIsUpdatingConductor] = useState(false)
 
-  // Race condition guard
-  const requestSeqRef = useRef(0)
   const isInitializedRef = useRef(false)
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // 목록 쿼리 — 필터/페이지가 key에 포함되어 변경 시 자동 refetch
+  const listQuery = useConsultationsQuery(
+    {
+      page: currentPage,
+      pageSize: PAGE_SIZE,
+      tab: activeTab,
+      type: consultationType,
+      conductor: conductedBy,
+      followUp: followUpFilter,
+      startDate: startDate ? format(startDate, 'yyyy-MM-dd') : undefined,
+      endDate: endDate ? format(endDate, 'yyyy-MM-dd') : undefined,
+      search: debouncedSearch,
+    },
+    { consultations: initialData, totalCount: initialTotalCount }
+  )
+
+  // 페이지 메타 쿼리 (통계·진행자 옵션·후속 상담)
+  const metaQuery = useConsultationPageMetaQuery(
+    initialStats && filterOptions
+      ? { stats: initialStats, filterOptions, upcomingFollowUps }
+      : undefined
+  )
+
+  const consultations = listQuery.data?.consultations ?? []
+  const totalCount = listQuery.data?.totalCount ?? 0
+  const loading = listQuery.isPending || listQuery.isPlaceholderData
+  const stats = metaQuery.data?.stats ?? initialStats ?? DEFAULT_STATS
+  const conductorOptions = metaQuery.data?.filterOptions ?? filterOptions
+  const upcomingFollowUpsState = metaQuery.data?.upcomingFollowUps ?? upcomingFollowUps
+
+  const bulkDeleteMutation = useBulkDeleteConsultationsMutation({
+    onSuccess: () => {
+      exitSelectionMode()
+      setBulkDeleteDialogOpen(false)
+    },
+  })
+  const conductorMutation = useBulkUpdateConductorMutation({
+    onSuccess: () => {
+      exitSelectionMode()
+      setConductorDialogOpen(false)
+      setNewConductorId('')
+    },
+  })
+
   const totalPages = Math.ceil(totalCount / PAGE_SIZE)
 
+  // 목록 데이터가 바뀌면 선택 초기화
   useEffect(() => {
-    let active = true
-
-    async function loadPageMeta() {
-      try {
-        const metaResult = await getConsultationPageMeta(7)
-
-        if (!active) return
-
-        if (metaResult.success && metaResult.data) {
-          setStats(metaResult.data.stats)
-          setConductorOptions(metaResult.data.filterOptions)
-          setUpcomingFollowUpsState(metaResult.data.upcomingFollowUps as Consultation[])
-        }
-      } catch (error) {
-        if (!active) return
-        console.error('[ConsultationsContent] Failed to load page meta:', error)
-      }
-    }
-
-    void loadPageMeta()
-
-    return () => {
-      active = false
-    }
-  }, [])
+    setSelectedIds(new Set())
+  }, [listQuery.data])
 
   // URL query 업데이트
   const updateUrl = useCallback((params: Record<string, string | undefined>) => {
@@ -245,55 +233,13 @@ export function ConsultationsContent({
     router.replace(queryString ? `?${queryString}` : '/consultations', { scroll: false })
   }, [router, searchParams])
 
-  // 데이터 로드
-  const loadConsultations = useCallback(async (page: number) => {
-    const requestSeq = ++requestSeqRef.current
-    setLoading(true)
-
-    try {
-      const result = await getConsultations({
-        page,
-        pageSize: PAGE_SIZE,
-        isLead: activeTab === 'all' ? undefined : activeTab === 'lead',
-        consultationType: consultationType !== 'all' ? consultationType : undefined,
-        conductedBy: conductedBy !== 'all' ? conductedBy : undefined,
-        followUpOnly: followUpFilter === 'required' ? true : undefined,
-        startDate: startDate ? format(startDate, 'yyyy-MM-dd') : undefined,
-        endDate: endDate ? format(endDate, 'yyyy-MM-dd') : undefined,
-        searchTerm: searchTerm.trim() || undefined,
-      })
-
-      if (requestSeq !== requestSeqRef.current) return
-
-      if (!result.success || !result.data) {
-        throw new Error(result.error || '상담 목록 로드 실패')
-      }
-
-      setConsultations(result.data as Consultation[])
-      setTotalCount(result.totalCount)
-      setSelectedIds(new Set())
-    } catch (error) {
-      if (requestSeq !== requestSeqRef.current) return
-      toast({
-        title: '데이터 로드 실패',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    } finally {
-      if (requestSeq === requestSeqRef.current) {
-        setLoading(false)
-      }
-    }
-  }, [activeTab, consultationType, conductedBy, followUpFilter, startDate, endDate, searchTerm, toast])
-
-  // 필터/탭 변경 시 재로드 (초기 마운트 제외)
+  // 필터/탭 변경 시 1페이지로 이동 + URL 반영 (초기 마운트 제외 — refetch는 쿼리 key 변경이 처리)
   useEffect(() => {
     if (!isInitializedRef.current) {
       isInitializedRef.current = true
       return
     }
     setCurrentPage(1)
-    loadConsultations(1)
     updateUrl({
       tab: activeTab,
       type: consultationType,
@@ -301,7 +247,7 @@ export function ConsultationsContent({
       followUp: followUpFilter,
       startDate: startDate ? format(startDate, 'yyyy-MM-dd') : undefined,
       endDate: endDate ? format(endDate, 'yyyy-MM-dd') : undefined,
-      search: searchTerm || undefined,
+      search: debouncedSearch || undefined,
       page: '1',
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -316,8 +262,8 @@ export function ConsultationsContent({
     }
 
     searchDebounceRef.current = setTimeout(() => {
+      setDebouncedSearch(searchTerm)
       setCurrentPage(1)
-      loadConsultations(1)
       updateUrl({
         tab: activeTab,
         type: consultationType,
@@ -341,7 +287,6 @@ export function ConsultationsContent({
   // 페이지 변경
   function handlePageChange(page: number) {
     setCurrentPage(page)
-    loadConsultations(page)
     updateUrl({
       tab: activeTab,
       type: consultationType,
@@ -349,7 +294,7 @@ export function ConsultationsContent({
       followUp: followUpFilter,
       startDate: startDate ? format(startDate, 'yyyy-MM-dd') : undefined,
       endDate: endDate ? format(endDate, 'yyyy-MM-dd') : undefined,
-      search: searchTerm || undefined,
+      search: debouncedSearch || undefined,
       page: String(page),
     })
   }
@@ -434,39 +379,14 @@ export function ConsultationsContent({
   }
 
   // 일괄 삭제
-  async function handleBulkDelete() {
-    setIsBulkDeleting(true)
-    try {
-      const result = await bulkDeleteConsultations(Array.from(selectedIds))
-      if (!result.success) throw new Error(result.error || '삭제 실패')
-      toast({ title: `${selectedIds.size}건 삭제 완료` })
-      exitSelectionMode()
-      loadConsultations(1)
-    } catch (error) {
-      toast({ title: '삭제 실패', description: getErrorMessage(error), variant: 'destructive' })
-    } finally {
-      setIsBulkDeleting(false)
-      setBulkDeleteDialogOpen(false)
-    }
+  function handleBulkDelete() {
+    bulkDeleteMutation.mutate(Array.from(selectedIds))
   }
 
   // 일괄 진행자 변경
-  async function handleBulkUpdateConductor() {
+  function handleBulkUpdateConductor() {
     if (!newConductorId) return
-    setIsUpdatingConductor(true)
-    try {
-      const result = await bulkUpdateConductor(Array.from(selectedIds), newConductorId)
-      if (!result.success) throw new Error(result.error || '변경 실패')
-      toast({ title: `${selectedIds.size}건 진행자 변경 완료` })
-      exitSelectionMode()
-      loadConsultations(1)
-    } catch (error) {
-      toast({ title: '변경 실패', description: getErrorMessage(error), variant: 'destructive' })
-    } finally {
-      setIsUpdatingConductor(false)
-      setConductorDialogOpen(false)
-      setNewConductorId('')
-    }
+    conductorMutation.mutate({ ids: Array.from(selectedIds), conductorId: newConductorId })
   }
 
   return (
@@ -1003,7 +923,7 @@ export function ConsultationsContent({
         description="선택한 상담 기록이 모두 삭제됩니다. 이 작업은 되돌릴 수 없습니다."
         confirmText="삭제"
         variant="destructive"
-        isLoading={isBulkDeleting}
+        isLoading={bulkDeleteMutation.isPending}
         onConfirm={handleBulkDelete}
       />
 
@@ -1039,9 +959,9 @@ export function ConsultationsContent({
             </Button>
             <Button
               onClick={handleBulkUpdateConductor}
-              disabled={!newConductorId || isUpdatingConductor}
+              disabled={!newConductorId || conductorMutation.isPending}
             >
-              {isUpdatingConductor ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {conductorMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               변경
             </Button>
           </DialogFooter>

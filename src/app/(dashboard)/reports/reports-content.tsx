@@ -1,14 +1,14 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@ui/tabs'
 import { Plus, Users } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from '@/components/layout/page-wrapper'
 import { ReportTableImproved } from '@/components/features/reports/report-table-improved'
 import { ReportStatCards } from '@/components/features/reports/report-stat-cards'
@@ -16,7 +16,8 @@ import { ReportDialogs } from '@/components/features/reports/report-dialogs'
 import { ReportFilterPresets, type PresetFilter } from '@/components/features/reports/report-filter-presets'
 import { JobsContent } from '@/components/features/jobs/JobsContent'
 import { useReportActions } from '@/hooks/use-report-actions'
-import { getReports } from '@/app/actions/reports/queries'
+import { useReportsQuery, type ReportPeriod } from '@/hooks/queries/use-reports-query'
+import { queryKeys } from '@/lib/query-keys'
 import type { ReportWithStudent, StudentForFilter } from '@/core/types/report.types'
 
 type ReportsTab = 'list' | 'jobs'
@@ -46,22 +47,27 @@ function getSchoolLevel(grade: string): 'elementary' | 'middle' | 'high' | 'unkn
 }
 
 export function ReportsContent({ initialReports, initialStudents }: ReportsContentProps) {
-  const [reports, setReports] = useState<ReportWithStudent[]>(initialReports)
-  const [filteredReports, setFilteredReports] = useState<ReportWithStudent[]>(initialReports)
   const [allReports, setAllReports] = useState<ReportWithStudent[]>(initialReports)
   const students = initialStudents
   const [selectedStudent, setSelectedStudent] = useState<string>('all')
   const [selectedType, setSelectedType] = useState<string>('all')
   const [selectedSchoolLevel, setSelectedSchoolLevel] = useState<string>('all')
-  const [selectedPeriod, setSelectedPeriod] = useState<'this_month' | 'last_month' | 'last_3_months' | 'all'>('this_month')
+  const [selectedPeriod, setSelectedPeriod] = useState<ReportPeriod>('this_month')
   const [activeStatFilter, setActiveStatFilter] = useState<string | null>(null)
   const [activePresets, setActivePresets] = useState<PresetFilter[]>([])
-  const [loading, setLoading] = useState(false)
 
-  const { toast } = useToast()
+  const queryClient = useQueryClient()
   const router = useRouter()
   const searchParams = useSearchParams()
   const activeTab: ReportsTab = searchParams.get('tab') === 'jobs' ? 'jobs' : 'list'
+
+  // 서버 필터가 쿼리 key에 포함되어 변경 시 자동 refetch
+  const listQuery = useReportsQuery(
+    { studentId: selectedStudent, reportType: selectedType, period: selectedPeriod },
+    initialReports
+  )
+  const reports = useMemo(() => listQuery.data ?? [], [listQuery.data])
+  const loading = listQuery.isPending || listQuery.isPlaceholderData
 
   const handleTabChange = useCallback(
     (value: string) => {
@@ -77,47 +83,22 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
     [router, searchParams],
   )
 
-  const loadReports = useCallback(async () => {
-    try {
-      setLoading(true)
+  // 리포트 액션(전송/삭제) 후 목록 갱신 — 캐시 무효화로 처리
+  const invalidateReports = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.reports.lists() })
+  }, [queryClient])
 
-      const result = await getReports({
-        studentId: selectedStudent !== 'all' ? selectedStudent : undefined,
-        reportType: selectedType !== 'all' ? selectedType : undefined,
-        period: selectedPeriod,
-      })
+  const actions = useReportActions(invalidateReports)
 
-      if (!result.success || !result.data) {
-        throw new Error(result.error || '리포트를 불러오는 중 오류가 발생했습니다.')
-      }
-
-      const fetchedReports = result.data
-      setReports(fetchedReports)
-
-      if (selectedStudent === 'all' && selectedType === 'all') {
-        setAllReports(fetchedReports)
-      }
-    } catch (error) {
-      console.error('Error loading reports:', error)
-      toast({
-        title: '데이터 로드 오류',
-        description: '리포트를 불러오는 중 오류가 발생했습니다.',
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
-    }
-  }, [toast, selectedStudent, selectedType, selectedPeriod])
-
-  const actions = useReportActions(loadReports)
-
-  // Load reports when server-side filters change
+  // 전체(무필터) 목록 스냅샷 — 통계 카드용
   useEffect(() => {
-    loadReports()
-  }, [loadReports])
+    if (listQuery.data && selectedStudent === 'all' && selectedType === 'all') {
+      setAllReports(listQuery.data)
+    }
+  }, [listQuery.data, selectedStudent, selectedType])
 
   // Apply client-side filters (school level, stat card filter, presets)
-  useEffect(() => {
+  const filteredReports = useMemo(() => {
     let filtered = reports
 
     if (selectedSchoolLevel !== 'all') {
@@ -154,7 +135,7 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
       filtered = filtered.filter((r) => r.sent_at === null)
     }
 
-    setFilteredReports(filtered)
+    return filtered
   }, [reports, selectedSchoolLevel, activeStatFilter, activePresets])
 
   function handlePresetToggle(preset: PresetFilter) {

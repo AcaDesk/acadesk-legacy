@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { Search, Loader2, Check, ChevronsUpDown } from 'lucide-react'
 import { Input } from '@ui/input'
 import { Badge } from '@ui/badge'
@@ -410,18 +411,14 @@ function StudentSearchMultiple({
     }
   }
 
-  const [actionLoading, setActionLoading] = useState<string | null>(null)
-
-  const handleQuickAction = async (action: NonNullable<typeof quickActions>[number]) => {
-    try {
-      setActionLoading(action.label)
+  const quickActionMutation = useMutation({
+    mutationFn: async (action: NonNullable<typeof quickActions>[number]) => {
       await action.onClick(students)
-    } catch (error) {
+    },
+    onError: (error) => {
       console.error('Quick action error:', error)
-    } finally {
-      setActionLoading(null)
-    }
-  }
+    },
+  })
 
   // Check if className contains 'h-full' to determine if we should use flexible height
   const useFlexibleHeight = className?.includes('h-full')
@@ -435,10 +432,10 @@ function StudentSearchMultiple({
             key={action.label}
             variant="outline"
             size="sm"
-            onClick={() => handleQuickAction(action)}
-            disabled={disabled || actionLoading !== null}
+            onClick={() => quickActionMutation.mutate(action)}
+            disabled={disabled || quickActionMutation.isPending}
           >
-            {actionLoading === action.label ? (
+            {quickActionMutation.isPending && quickActionMutation.variables?.label === action.label ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             ) : (
               action.icon

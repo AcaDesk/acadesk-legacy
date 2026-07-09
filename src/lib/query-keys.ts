@@ -8,6 +8,7 @@ export const queryKeys = {
   currentUser: () => ['currentUser'] as const,
 
   dashboard: {
+    data: () => ['dashboardData'] as const,
     kpi: (period: string) => ['dashboard', 'kpi', period] as const,
     drilldown: (widgetId: string, period: string) =>
       ['dashboard', 'drilldown', widgetId, period] as const,
@@ -20,7 +21,9 @@ export const queryKeys = {
   },
 
   consultations: {
-    list: () => ['consultations'] as const,
+    all: () => ['consultations'] as const,
+    list: (filters: Record<string, unknown>) => ['consultations', 'list', filters] as const,
+    pageMeta: () => ['consultations', 'pageMeta'] as const,
     detail: (id: string) => ['consultations', id] as const,
   },
 
@@ -53,6 +56,8 @@ export const queryKeys = {
   },
 
   reports: {
+    lists: () => ['reports', 'list'] as const,
+    list: (filters: Record<string, unknown>) => ['reports', 'list', filters] as const,
     preview: (studentId: string, period: unknown) => ['reports', 'preview', studentId, period] as const,
     templates: (context: unknown) => ['reports', 'templates', context] as const,
   },

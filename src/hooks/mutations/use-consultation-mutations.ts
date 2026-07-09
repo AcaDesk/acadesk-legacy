@@ -1,6 +1,6 @@
 'use client'
 
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/hooks/use-toast'
 import {
@@ -10,7 +10,10 @@ import {
   deleteConsultationNote,
   addConsultationParticipant,
   removeConsultationParticipant,
+  bulkDeleteConsultations,
+  bulkUpdateConductor,
 } from '@/app/actions/consultations'
+import { queryKeys } from '@/lib/query-keys'
 
 export function useDeleteConsultationMutation() {
   const { toast } = useToast()
@@ -177,6 +180,52 @@ export function useAddParticipantMutation(callbacks: {
     },
     onError: (error: Error) => {
       toast({ title: '추가 오류', description: error.message, variant: 'destructive' })
+    },
+  })
+}
+
+export function useBulkDeleteConsultationsMutation(callbacks?: { onSuccess?: () => void }) {
+  const { toast } = useToast()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      const result = await bulkDeleteConsultations(ids)
+      if (!result.success) throw new Error(result.error || '삭제 실패')
+      return ids.length
+    },
+    onSuccess: (count) => {
+      toast({ title: `${count}건 삭제 완료` })
+      callbacks?.onSuccess?.()
+    },
+    onError: (error: Error) => {
+      toast({ title: '삭제 실패', description: error.message, variant: 'destructive' })
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.consultations.all() })
+    },
+  })
+}
+
+export function useBulkUpdateConductorMutation(callbacks?: { onSuccess?: () => void }) {
+  const { toast } = useToast()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ ids, conductorId }: { ids: string[]; conductorId: string }) => {
+      const result = await bulkUpdateConductor(ids, conductorId)
+      if (!result.success) throw new Error(result.error || '변경 실패')
+      return ids.length
+    },
+    onSuccess: (count) => {
+      toast({ title: `${count}건 진행자 변경 완료` })
+      callbacks?.onSuccess?.()
+    },
+    onError: (error: Error) => {
+      toast({ title: '변경 실패', description: error.message, variant: 'destructive' })
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.consultations.all() })
     },
   })
 }

@@ -14,6 +14,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
+import { queryKeys } from '@/lib/query-keys'
 
 // Re-export types from core for convenience
 export type {
@@ -62,11 +63,6 @@ export interface UseDashboardDataReturn {
   error: Error | null
   refetch: () => Promise<void>
 }
-
-/**
- * Query key for dashboard data
- */
-export const DASHBOARD_DATA_QUERY_KEY = ['dashboardData']
 
 /**
  * Default empty dashboard data
@@ -118,7 +114,7 @@ export function useDashboardData(): UseDashboardDataReturn {
     error,
     refetch,
   } = useQuery({
-    queryKey: DASHBOARD_DATA_QUERY_KEY,
+    queryKey: queryKeys.dashboard.data(),
     queryFn: fetchDashboardData,
     staleTime: 60 * 1000,       // 1분간 캐시 유지
     gcTime: 5 * 60 * 1000,      // 5분간 가비지 컬렉션 대기

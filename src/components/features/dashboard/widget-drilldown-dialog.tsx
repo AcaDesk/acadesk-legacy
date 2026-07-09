@@ -14,6 +14,7 @@ import {
   type StudentCompletionRate,
 } from '@/app/actions/dashboard-drilldown'
 import type { KPIPeriod } from '@/app/actions/dashboard-kpi'
+import { queryKeys } from '@/lib/query-keys'
 
 interface WidgetDrilldownDialogProps {
   widgetId: DrilldownWidgetId
@@ -174,7 +175,7 @@ function CompletionDrilldown({ completionList }: { completionList: StudentComple
 
 export function WidgetDrilldownDialog({ widgetId, period, open, onClose }: WidgetDrilldownDialogProps) {
   const { data: result, isLoading } = useQuery({
-    queryKey: ['drilldown', widgetId, period],
+    queryKey: queryKeys.dashboard.drilldown(widgetId, period),
     queryFn: () => getDrilldownData(widgetId, period),
     enabled: open,
     staleTime: 60_000,
