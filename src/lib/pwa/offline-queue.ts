@@ -105,16 +105,19 @@ async function executeMutation(mutation: QueuedMutation): Promise<void> {
     }
     case 'toggleTodoComplete': {
       const { toggleTodoComplete } = await import('@/app/actions/kiosk')
+      const { kioskStorage } = await import('@/lib/kiosk-storage')
+      // 토큰은 IndexedDB에 저장하지 않고 실행 시점에 조회 (토큰 영속화 최소화)
+      const deviceToken = kioskStorage.getDeviceToken()
+      if (!deviceToken) throw new Error('키오스크 디바이스 토큰이 없습니다.')
       const p = payload as {
         todoId: string
         studentId: string
-        tenantId: string
         currentStatus: boolean
       }
       const result = await toggleTodoComplete(
         p.todoId,
         p.studentId,
-        p.tenantId,
+        deviceToken,
         p.currentStatus
       )
       if (!result.success) throw new Error(result.error)

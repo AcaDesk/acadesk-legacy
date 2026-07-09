@@ -8,6 +8,27 @@
 import bcrypt from 'bcryptjs'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { withServerAction } from '@/lib/server-action-helpers'
+import { createKioskDeviceToken, verifyKioskDeviceToken } from '@/lib/kiosk-token'
+
+const INVALID_DEVICE_ERROR = '키오스크 인증이 유효하지 않습니다. 설정 페이지에서 기기를 다시 등록해주세요.'
+
+/**
+ * 키오스크 디바이스 등록 (스태프 인증 필수)
+ *
+ * 설정 페이지에서 호출 — 이 기기가 사용할 테넌트에 대한 서명 토큰을 발급한다.
+ * 이후 모든 키오스크 액션은 이 토큰으로 테넌트를 유도하므로, 클라이언트가
+ * 임의의 tenant_id를 보내 다른 학원 데이터에 접근할 수 없다.
+ */
+export async function provisionKioskDevice() {
+  return withServerAction(
+    async ({ tenantId }) => ({
+      deviceToken: createKioskDeviceToken(tenantId),
+      tenantId,
+    }),
+    { actionName: 'provisionKioskDevice' }
+  )
+}
 
 // Legacy types for backward compatibility
 export interface Student {
@@ -36,12 +57,19 @@ export interface StudentTodo {
  * 키오스크 PIN 인증
  * @param studentCode 학생 코드 (예: S2501001)
  * @param pin 4자리 PIN
+ * @param deviceToken 키오스크 디바이스 토큰
  */
 export async function authenticateKioskPin(
   studentCode: string,
-  pin: string
+  pin: string,
+  deviceToken: string
 ): Promise<{ success: boolean; student?: Student; error?: string }> {
   try {
+    const tenantId = verifyKioskDeviceToken(deviceToken)
+    if (!tenantId) {
+      return { success: false, error: INVALID_DEVICE_ERROR }
+    }
+
     const supabase = createServiceRoleClient()
 
     // 학생 코드로 학생 조회
@@ -57,6 +85,7 @@ export async function authenticateKioskPin(
         kiosk_pin
       `)
       .eq('student_code', studentCode)
+      .eq('tenant_id', tenantId)
       .is('deleted_at', null)
       .maybeSingle()
 
@@ -114,13 +143,18 @@ export async function authenticateKioskPin(
 /**
  * 학생의 오늘 TODO 조회
  * @param studentId 학생 ID
- * @param tenantId 테넌트 ID
+ * @param deviceToken 키오스크 디바이스 토큰
  */
 export async function getStudentTodosForToday(
   studentId: string,
-  tenantId: string
+  deviceToken: string
 ): Promise<{ success: boolean; todos?: StudentTodo[]; error?: string }> {
   try {
+    const tenantId = verifyKioskDeviceToken(deviceToken)
+    if (!tenantId) {
+      return { success: false, error: INVALID_DEVICE_ERROR }
+    }
+
     const supabase = createServiceRoleClient()
 
     // 오늘 날짜의 시작과 끝
@@ -164,16 +198,21 @@ export async function getStudentTodosForToday(
  * TODO 완료 토글
  * @param todoId TODO ID
  * @param studentId 학생 ID (권한 검증용)
- * @param tenantId 테넌트 ID
+ * @param deviceToken 키오스크 디바이스 토큰
  * @param currentStatus 현재 완료 상태
  */
 export async function toggleTodoComplete(
   todoId: string,
   studentId: string,
-  tenantId: string,
+  deviceToken: string,
   currentStatus: boolean
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const tenantId = verifyKioskDeviceToken(deviceToken)
+    if (!tenantId) {
+      return { success: false, error: INVALID_DEVICE_ERROR }
+    }
+
     const supabase = createServiceRoleClient()
 
     // 권한 검증: 해당 TODO가 학생의 것인지 확인
@@ -242,12 +281,17 @@ export async function verifyKioskPin(pin: string, hash: string): Promise<boolean
 
 /**
  * 테넌트별 학생 목록 조회 (키오스크용)
- * @param tenantId 테넌트 ID
+ * @param deviceToken 키오스크 디바이스 토큰
  */
 export async function getStudentsByTenant(
-  tenantId: string
+  deviceToken: string
 ): Promise<{ success: boolean; students?: Student[]; error?: string }> {
   try {
+    const tenantId = verifyKioskDeviceToken(deviceToken)
+    if (!tenantId) {
+      return { success: false, error: INVALID_DEVICE_ERROR }
+    }
+
     const supabase = createServiceRoleClient()
 
     const { data: students, error: studentsError } = await supabase
@@ -285,12 +329,19 @@ export async function getStudentsByTenant(
  * 이름 + 부모님 전화번호 뒷자리로 키오스크 인증
  * @param studentId 학생 ID
  * @param phoneLastFour 부모님 전화번호 뒷자리 4자리
+ * @param deviceToken 키오스크 디바이스 토큰
  */
 export async function authenticateKioskByNameAndPhone(
   studentId: string,
-  phoneLastFour: string
+  phoneLastFour: string,
+  deviceToken: string
 ): Promise<{ success: boolean; student?: Student; error?: string }> {
   try {
+    const tenantId = verifyKioskDeviceToken(deviceToken)
+    if (!tenantId) {
+      return { success: false, error: INVALID_DEVICE_ERROR }
+    }
+
     const supabase = createServiceRoleClient()
 
     // 학생 정보와 Primary 보호자 전화번호 조회
@@ -311,6 +362,7 @@ export async function authenticateKioskByNameAndPhone(
         )
       `)
       .eq('id', studentId)
+      .eq('tenant_id', tenantId)
       .eq('student_guardians.is_primary', true)
       .is('deleted_at', null)
       .maybeSingle()

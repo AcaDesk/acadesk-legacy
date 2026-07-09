@@ -103,7 +103,7 @@ export default function KioskAttendancePage() {
   const router = useRouter()
 
   const [step, setStep] = useState<Step>('input')
-  const [tenantId, setTenantId] = useState<string | null>(null)
+  const [deviceToken, setDeviceToken] = useState<string | null>(null)
   const [phone, setPhone] = useState('')
   const [adminPin, setAdminPin] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -122,9 +122,9 @@ export default function KioskAttendancePage() {
   }, [])
 
   useEffect(() => {
-    const stored = kioskStorage.getTenantId()
-    if (!stored) setStep('setup_required')
-    else { setTenantId(stored); setStep('input') }
+    const storedToken = kioskStorage.getDeviceToken()
+    if (!storedToken) setStep('setup_required')
+    else { setDeviceToken(storedToken); setStep('input') }
   }, [])
 
   useEffect(() => {
@@ -160,11 +160,11 @@ export default function KioskAttendancePage() {
   }, [resetToInput])
 
   async function handlePhoneSubmit(submittedPhone: string) {
-    if (!tenantId) return
+    if (!deviceToken) return
     setIsLoading(true)
     setError(null)
 
-    const result = await lookupStudentsByPhone(tenantId, submittedPhone)
+    const result = await lookupStudentsByPhone(deviceToken, submittedPhone)
     setIsLoading(false)
 
     if (!result.success || !result.students) {
@@ -183,11 +183,11 @@ export default function KioskAttendancePage() {
   }
 
   async function handleAttendance(action: 'check_in' | 'check_out') {
-    if (!student || !tenantId) return
+    if (!student || !deviceToken) return
     setIsLoading(true)
     setError(null)
 
-    const result = await recordKioskAttendance(student.id, tenantId, action)
+    const result = await recordKioskAttendance(student.id, deviceToken, action)
     setIsLoading(false)
 
     if (!result.success) {

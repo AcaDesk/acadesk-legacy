@@ -21,6 +21,7 @@ import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { getKioskSession, clearKioskSession } from '@/lib/kiosk-session'
+import { kioskStorage } from '@/lib/kiosk-storage'
 import { getStudentTodosForToday, toggleTodoComplete, type StudentTodo } from '@/app/actions/kiosk'
 import { useNetworkStatus } from '@/hooks/use-network-status'
 import { PendingSyncBadge } from '@ui/pending-sync-badge'
@@ -55,6 +56,12 @@ export default function KioskPage() {
     if (!session) {
       // 세션이 없으면 로그인 페이지로 리다이렉트
       router.push('/kiosk/login')
+      return
+    }
+
+    // 디바이스 토큰 없으면 설정 페이지로 (서버 액션 인증에 필수)
+    if (!kioskStorage.getDeviceToken()) {
+      router.push('/kiosk/setup')
       return
     }
 
@@ -109,9 +116,11 @@ export default function KioskPage() {
   // Function definitions
   async function loadTodos() {
     if (!studentId || !tenantId) return
+    const deviceToken = kioskStorage.getDeviceToken()
+    if (!deviceToken) return
 
     try {
-      const result = await getStudentTodosForToday(studentId, tenantId)
+      const result = await getStudentTodosForToday(studentId, deviceToken)
 
       if (!result.success) {
         console.error('TODO 로드 오류:', result.error)
@@ -167,11 +176,10 @@ export default function KioskPage() {
         )
       )
 
-      // 큐에 추가
+      // 큐에 추가 (디바이스 토큰은 저장하지 않고 동기화 시점에 kioskStorage에서 읽음)
       enqueueMutation(tenantId, 'toggleTodoComplete', {
         todoId,
         studentId,
-        tenantId,
         currentStatus,
       }).catch(() => {})
 
@@ -203,7 +211,12 @@ export default function KioskPage() {
     }
 
     try {
-      const result = await toggleTodoComplete(todoId, studentId, tenantId, !!currentStatus)
+      const deviceToken = kioskStorage.getDeviceToken()
+      if (!deviceToken) {
+        router.push('/kiosk/setup')
+        return
+      }
+      const result = await toggleTodoComplete(todoId, studentId, deviceToken, !!currentStatus)
 
       if (!result.success) {
         toast({

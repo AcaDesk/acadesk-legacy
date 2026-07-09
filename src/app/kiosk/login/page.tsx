@@ -34,12 +34,12 @@ export default function KioskLoginPage() {
   const router = useRouter()
   const { toast } = useToast()
 
-  // 테넌트 ID 확인 및 학생 목록 로드
+  // 디바이스 토큰 확인 및 학생 목록 로드
   useEffect(() => {
     const loadStudents = async () => {
-      const tenantId = kioskStorage.getTenantId()
+      const deviceToken = kioskStorage.getDeviceToken()
 
-      if (!tenantId) {
+      if (!deviceToken) {
         toast({
           title: '키오스크 설정 필요',
           description: '먼저 키오스크를 설정해주세요.',
@@ -52,7 +52,7 @@ export default function KioskLoginPage() {
       setIsLoading(true)
 
       try {
-        const result = await getStudentsByTenant(tenantId)
+        const result = await getStudentsByTenant(deviceToken)
 
         if (!result.success || !result.students) {
           toast({
@@ -119,10 +119,21 @@ export default function KioskLoginPage() {
       return
     }
 
+    const deviceToken = kioskStorage.getDeviceToken()
+    if (!deviceToken) {
+      toast({
+        title: '키오스크 설정 필요',
+        description: '먼저 키오스크를 설정해주세요.',
+        variant: 'destructive',
+      })
+      router.push('/kiosk/setup')
+      return
+    }
+
     setIsAuthenticating(true)
 
     try {
-      const result = await authenticateKioskByNameAndPhone(selectedStudent.id, pin)
+      const result = await authenticateKioskByNameAndPhone(selectedStudent.id, pin, deviceToken)
 
       if (!result.success || !result.student) {
         toast({

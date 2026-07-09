@@ -9,6 +9,7 @@ import { Button } from '@ui/button'
 import { createBrowserClient } from '@/lib/supabase/client'
 import { Avatar, AvatarFallback } from '@ui/avatar'
 import { kioskStorage } from '@/lib/kiosk-storage'
+import { provisionKioskDevice } from '@/app/actions/kiosk'
 
 interface TenantInfo {
   tenantId: string
@@ -32,6 +33,7 @@ export default function KioskSetupPage() {
   const [tenantInfo, setTenantInfo] = useState<TenantInfo | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [savedTenantId, setSavedTenantId] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   useEffect(() => {
     setSavedTenantId(kioskStorage.getTenantId())
@@ -70,11 +72,22 @@ export default function KioskSetupPage() {
     }
   }
 
-  function handleSetup() {
+  async function handleSetup() {
     if (!tenantInfo) return
     setIsSaving(true)
-    kioskStorage.setTenantId(tenantInfo.tenantId)
-    setSavedTenantId(tenantInfo.tenantId)
+    setSaveError(null)
+
+    // 서버에서 스태프 인증 후 서명된 디바이스 토큰 발급
+    const result = await provisionKioskDevice()
+    if (!result.success || !result.data) {
+      setSaveError(result.error || '기기 등록에 실패했습니다. 다시 시도해주세요.')
+      setIsSaving(false)
+      return
+    }
+
+    kioskStorage.setTenantId(result.data.tenantId)
+    kioskStorage.setDeviceToken(result.data.deviceToken)
+    setSavedTenantId(result.data.tenantId)
     setTimeout(() => {
       router.push('/kiosk/attendance')
     }, 600)
@@ -181,6 +194,10 @@ export default function KioskSetupPage() {
 
             {isAlreadySet && (
               <p className="text-xs text-center text-muted-foreground">이미 이 학원으로 설정되어 있습니다</p>
+            )}
+
+            {saveError && (
+              <p className="text-xs text-center text-destructive">{saveError}</p>
             )}
 
             <div className="space-y-2">

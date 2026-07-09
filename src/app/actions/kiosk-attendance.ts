@@ -8,6 +8,9 @@
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { createNotification } from '@/lib/notification-helpers'
+import { verifyKioskDeviceToken } from '@/lib/kiosk-token'
+
+const INVALID_DEVICE_ERROR = '키오스크 인증이 유효하지 않습니다. 설정 페이지에서 기기를 다시 등록해주세요.'
 
 export type KioskStudentStatus = 'out' | 'in' | 'done'
 
@@ -25,10 +28,15 @@ export interface KioskStudentInfo {
  * - 0명: 에러
  */
 export async function lookupStudentsByPhone(
-  tenantId: string,
+  deviceToken: string,
   phoneLast4: string
 ): Promise<{ success: boolean; students?: KioskStudentInfo[]; error?: string }> {
   try {
+    const tenantId = verifyKioskDeviceToken(deviceToken)
+    if (!tenantId) {
+      return { success: false, error: INVALID_DEVICE_ERROR }
+    }
+
     const supabase = createServiceRoleClient()
 
     // 1. tenant 내 모든 학생 + primary 보호자 전화번호 조회
@@ -163,10 +171,15 @@ async function getOrCreateKioskSession(
  */
 export async function recordKioskAttendance(
   studentId: string,
-  tenantId: string,
+  deviceToken: string,
   action: 'check_in' | 'check_out'
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const tenantId = verifyKioskDeviceToken(deviceToken)
+    if (!tenantId) {
+      return { success: false, error: INVALID_DEVICE_ERROR }
+    }
+
     const supabase = createServiceRoleClient()
     const today = new Date().toISOString().split('T')[0]
     const now = new Date().toISOString()

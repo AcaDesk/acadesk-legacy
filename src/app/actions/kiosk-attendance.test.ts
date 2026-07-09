@@ -4,6 +4,12 @@ vi.mock('@/lib/supabase/service-role', () => ({
   createServiceRoleClient: vi.fn(),
 }))
 
+vi.mock('@/lib/kiosk-token', () => ({
+  verifyKioskDeviceToken: vi.fn((token: string | null | undefined) =>
+    token === 'valid-device-token' ? 'tenant-uuid-001' : null
+  ),
+}))
+
 import { lookupStudentsByPhone, recordKioskAttendance } from './kiosk-attendance'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 
@@ -35,7 +41,7 @@ const err = (msg: string) => makeChainable({ data: null, error: { message: msg }
 
 // ─── 테스트 픽스처 ────────────────────────────────────────────────────────────
 
-const TENANT_ID = 'tenant-uuid-001'
+const DEVICE_TOKEN = 'valid-device-token'
 const STUDENT_ID = 'student-uuid-001'
 const CLASS_ID = 'class-uuid-001'
 const SESSION_ID = 'session-uuid-001'
@@ -107,7 +113,7 @@ describe('lookupStudentsByPhone', () => {
       },
     })
 
-    const result = await lookupStudentsByPhone(TENANT_ID, '5678')
+    const result = await lookupStudentsByPhone(DEVICE_TOKEN, '5678')
 
     expect(result.success).toBe(true)
     expect(result.students).toHaveLength(1)
@@ -128,7 +134,7 @@ describe('lookupStudentsByPhone', () => {
       },
     })
 
-    const result = await lookupStudentsByPhone(TENANT_ID, '5678')
+    const result = await lookupStudentsByPhone(DEVICE_TOKEN, '5678')
 
     expect(result.success).toBe(true)
     expect(result.students![0].currentStatus).toBe('in')
@@ -144,7 +150,7 @@ describe('lookupStudentsByPhone', () => {
       },
     })
 
-    const result = await lookupStudentsByPhone(TENANT_ID, '5678')
+    const result = await lookupStudentsByPhone(DEVICE_TOKEN, '5678')
 
     expect(result.students![0].currentStatus).toBe('done')
   })
@@ -160,7 +166,7 @@ describe('lookupStudentsByPhone', () => {
       },
     })
 
-    const result = await lookupStudentsByPhone(TENANT_ID, '5678')
+    const result = await lookupStudentsByPhone(DEVICE_TOKEN, '5678')
     expect(result.success).toBe(true)
     expect(result.students).toHaveLength(1)
   })
@@ -174,7 +180,7 @@ describe('lookupStudentsByPhone', () => {
       },
     })
 
-    const result = await lookupStudentsByPhone(TENANT_ID, '5678')
+    const result = await lookupStudentsByPhone(DEVICE_TOKEN, '5678')
     expect(result.success).toBe(true)
     expect(result.students).toHaveLength(1)
   })
@@ -190,7 +196,7 @@ describe('lookupStudentsByPhone', () => {
       },
     })
 
-    const result = await lookupStudentsByPhone(TENANT_ID, '5678')
+    const result = await lookupStudentsByPhone(DEVICE_TOKEN, '5678')
 
     expect(result.success).toBe(true)
     expect(result.students).toHaveLength(2)
@@ -211,7 +217,7 @@ describe('lookupStudentsByPhone', () => {
       },
     })
 
-    const result = await lookupStudentsByPhone(TENANT_ID, '5678')
+    const result = await lookupStudentsByPhone(DEVICE_TOKEN, '5678')
 
     expect(result.success).toBe(true)
     const 홍길동 = result.students!.find((s) => s.name === '홍길동')
@@ -230,7 +236,7 @@ describe('lookupStudentsByPhone', () => {
       },
     })
 
-    const result = await lookupStudentsByPhone(TENANT_ID, '5678')
+    const result = await lookupStudentsByPhone(DEVICE_TOKEN, '5678')
 
     expect(result.success).toBe(false)
     expect(result.error).toContain('일치하는 학생이 없습니다')
@@ -244,7 +250,7 @@ describe('lookupStudentsByPhone', () => {
       },
     })
 
-    const result = await lookupStudentsByPhone(TENANT_ID, '5678')
+    const result = await lookupStudentsByPhone(DEVICE_TOKEN, '5678')
 
     expect(result.success).toBe(false)
     expect(result.error).toContain('일치하는 학생이 없습니다')
@@ -259,7 +265,7 @@ describe('lookupStudentsByPhone', () => {
       },
     })
 
-    const result = await lookupStudentsByPhone(TENANT_ID, '5678')
+    const result = await lookupStudentsByPhone(DEVICE_TOKEN, '5678')
 
     expect(result.success).toBe(true)
     expect(result.students).toHaveLength(1)
@@ -276,7 +282,7 @@ describe('lookupStudentsByPhone', () => {
       },
     })
 
-    const result = await lookupStudentsByPhone(TENANT_ID, '9999')
+    const result = await lookupStudentsByPhone(DEVICE_TOKEN, '9999')
 
     expect(result.success).toBe(false)
     expect(result.error).toContain('일치하는 학생이 없습니다')
@@ -290,7 +296,7 @@ describe('lookupStudentsByPhone', () => {
       },
     })
 
-    const result = await lookupStudentsByPhone(TENANT_ID, '5678')
+    const result = await lookupStudentsByPhone(DEVICE_TOKEN, '5678')
 
     expect(result.success).toBe(false)
     expect(result.error).toBe('등록된 학생이 없습니다.')
@@ -301,10 +307,23 @@ describe('lookupStudentsByPhone', () => {
       from: () => err('DB connection failed'),
     })
 
-    const result = await lookupStudentsByPhone(TENANT_ID, '5678')
+    const result = await lookupStudentsByPhone(DEVICE_TOKEN, '5678')
 
     expect(result.success).toBe(false)
     expect(result.error).toBeDefined()
+  })
+
+  // ── 디바이스 토큰 검증 ───────────────────────────────────────────────────────
+
+  it('유효하지 않은 디바이스 토큰 — DB 조회 없이 거부', async () => {
+    const fromMock = vi.fn()
+    ;(createServiceRoleClient as ReturnType<typeof vi.fn>).mockReturnValue({ from: fromMock })
+
+    const result = await lookupStudentsByPhone('forged-token', '5678')
+
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('키오스크 인증이 유효하지 않습니다')
+    expect(fromMock).not.toHaveBeenCalled()
   })
 })
 
@@ -339,7 +358,7 @@ describe('recordKioskAttendance', () => {
       },
     })
 
-    const result = await recordKioskAttendance(STUDENT_ID, TENANT_ID, 'check_in')
+    const result = await recordKioskAttendance(STUDENT_ID, DEVICE_TOKEN, 'check_in')
 
     expect(result.success).toBe(true)
     const upsertArg = upsertMock.mock.calls[0][0]
@@ -364,7 +383,7 @@ describe('recordKioskAttendance', () => {
       },
     })
 
-    const result = await recordKioskAttendance(STUDENT_ID, TENANT_ID, 'check_out')
+    const result = await recordKioskAttendance(STUDENT_ID, DEVICE_TOKEN, 'check_out')
 
     expect(result.success).toBe(true)
     const upsertArg = upsertMock.mock.calls[0][0]
@@ -388,7 +407,7 @@ describe('recordKioskAttendance', () => {
       },
     })
 
-    const result = await recordKioskAttendance(STUDENT_ID, TENANT_ID, 'check_in')
+    const result = await recordKioskAttendance(STUDENT_ID, DEVICE_TOKEN, 'check_in')
 
     expect(result.success).toBe(true)
     const upsertArg = upsertMock.mock.calls[0][0]
@@ -414,7 +433,7 @@ describe('recordKioskAttendance', () => {
       },
     })
 
-    const result = await recordKioskAttendance(STUDENT_ID, TENANT_ID, 'check_in')
+    const result = await recordKioskAttendance(STUDENT_ID, DEVICE_TOKEN, 'check_in')
 
     expect(result.success).toBe(true)
     expect(classesCallCount).toBe(2) // select 1회 + insert 1회
@@ -440,7 +459,7 @@ describe('recordKioskAttendance', () => {
       },
     })
 
-    const result = await recordKioskAttendance(STUDENT_ID, TENANT_ID, 'check_in')
+    const result = await recordKioskAttendance(STUDENT_ID, DEVICE_TOKEN, 'check_in')
 
     expect(result.success).toBe(true)
     expect(sessionCallCount).toBe(2)
@@ -468,7 +487,7 @@ describe('recordKioskAttendance', () => {
       },
     })
 
-    const result = await recordKioskAttendance(STUDENT_ID, TENANT_ID, 'check_in')
+    const result = await recordKioskAttendance(STUDENT_ID, DEVICE_TOKEN, 'check_in')
 
     expect(result.success).toBe(true)
     expect(sessionCallCount).toBe(3) // 최초조회 + 생성시도(23505) + 재조회
@@ -487,7 +506,7 @@ describe('recordKioskAttendance', () => {
       },
     })
 
-    const result = await recordKioskAttendance(STUDENT_ID, TENANT_ID, 'check_in')
+    const result = await recordKioskAttendance(STUDENT_ID, DEVICE_TOKEN, 'check_in')
 
     expect(result.success).toBe(false)
     expect(result.error).toBeDefined()
@@ -508,9 +527,22 @@ describe('recordKioskAttendance', () => {
       },
     })
 
-    const result = await recordKioskAttendance(STUDENT_ID, TENANT_ID, 'check_in')
+    const result = await recordKioskAttendance(STUDENT_ID, DEVICE_TOKEN, 'check_in')
 
     expect(result.success).toBe(false)
     expect(result.error).toBeDefined()
+  })
+
+  // ── 디바이스 토큰 검증 ───────────────────────────────────────────────────────
+
+  it('유효하지 않은 디바이스 토큰 — DB 조회 없이 거부', async () => {
+    const fromMock = vi.fn()
+    ;(createServiceRoleClient as ReturnType<typeof vi.fn>).mockReturnValue({ from: fromMock })
+
+    const result = await recordKioskAttendance(STUDENT_ID, 'forged-token', 'check_in')
+
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('키오스크 인증이 유효하지 않습니다')
+    expect(fromMock).not.toHaveBeenCalled()
   })
 })

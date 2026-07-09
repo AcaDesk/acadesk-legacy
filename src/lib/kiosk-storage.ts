@@ -5,11 +5,13 @@
  * 중복되지 않도록 한다. 키 이름도 한 곳에서만 관리해 typo 방지.
  *
  * 데이터:
- *  - tenantId: 키오스크 모드가 동작할 학원 ID (setup 페이지에서 등록)
- *  - exitPin : 관리자 종료 PIN (4자리, 기본값 9999)
+ *  - tenantId    : 키오스크 모드가 동작할 학원 ID (표시/로컬 캐시 키 용도)
+ *  - deviceToken : 서버 서명 디바이스 토큰 (Server Action 인증 용도, setup에서 발급)
+ *  - exitPin     : 관리자 종료 PIN (4자리, 기본값 9999)
  */
 
 const TENANT_ID_KEY = 'kiosk_tenant_id'
+const DEVICE_TOKEN_KEY = 'kiosk_device_token'
 const EXIT_PIN_KEY = 'kiosk_exit_pin'
 const DEFAULT_EXIT_PIN = '9999'
 
@@ -25,6 +27,15 @@ export const kioskStorage = {
   clearTenantId(): void {
     if (typeof window === 'undefined') return
     localStorage.removeItem(TENANT_ID_KEY)
+    localStorage.removeItem(DEVICE_TOKEN_KEY)
+  },
+  getDeviceToken(): string | null {
+    if (typeof window === 'undefined') return null
+    return localStorage.getItem(DEVICE_TOKEN_KEY)
+  },
+  setDeviceToken(token: string): void {
+    if (typeof window === 'undefined') return
+    localStorage.setItem(DEVICE_TOKEN_KEY, token)
   },
   /** 종료 PIN 조회 — 미설정 시 기본값(9999) 반환. 인증 비교용. */
   getExitPin(): string {
