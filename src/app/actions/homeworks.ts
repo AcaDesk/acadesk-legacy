@@ -188,11 +188,24 @@ export async function submitHomework(input: z.infer<typeof submitHomeworkSchema>
     const validated = submitHomeworkSchema.parse(input)
     const supabase = createServiceRoleClient()
 
+    // 과제가 현재 테넌트 소속인지 검증 (교차 테넌트 제출 방지)
+    const { data: task } = await supabase
+      .from('student_tasks')
+      .select('id')
+      .eq('id', validated.taskId)
+      .eq('tenant_id', tenantId)
+      .single()
+
+    if (!task) {
+      return { success: false, error: '과제를 찾을 수 없습니다' }
+    }
+
     // Update or create submission
     const { data: existing } = await supabase
       .from('homework_submissions')
       .select('id')
       .eq('task_id', validated.taskId)
+      .eq('tenant_id', tenantId)
       .single()
 
     if (existing) {
@@ -207,6 +220,7 @@ export async function submitHomework(input: z.infer<typeof submitHomeworkSchema>
           updated_at: new Date().toISOString(),
         })
         .eq('id', existing.id)
+        .eq('tenant_id', tenantId)
 
       if (error) throw error
     } else {
@@ -233,6 +247,7 @@ export async function submitHomework(input: z.infer<typeof submitHomeworkSchema>
         updated_at: new Date().toISOString(),
       })
       .eq('id', validated.taskId)
+      .eq('tenant_id', tenantId)
 
     revalidatePath('/homeworks')
 
@@ -258,7 +273,7 @@ export async function submitHomework(input: z.infer<typeof submitHomeworkSchema>
  */
 export async function gradeHomework(input: z.infer<typeof gradeHomeworkSchema>) {
   try {
-    const { userId } = await verifyStaff()
+    const { tenantId, userId } = await verifyStaff()
     const validated = gradeHomeworkSchema.parse(input)
     const supabase = createServiceRoleClient()
 
@@ -272,6 +287,7 @@ export async function gradeHomework(input: z.infer<typeof gradeHomeworkSchema>) 
         updated_at: new Date().toISOString(),
       })
       .eq('id', validated.submissionId)
+      .eq('tenant_id', tenantId)
       .select()
       .single()
 
@@ -287,6 +303,7 @@ export async function gradeHomework(input: z.infer<typeof gradeHomeworkSchema>) 
           updated_at: new Date().toISOString(),
         })
         .eq('id', data.task_id)
+        .eq('tenant_id', tenantId)
     }
 
     revalidatePath('/homeworks')

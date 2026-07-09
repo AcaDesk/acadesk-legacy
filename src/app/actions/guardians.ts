@@ -1064,6 +1064,7 @@ export async function sendGuardianAlimtalk(data: {
         .from('kakao_alimtalk_templates')
         .select('content')
         .eq('id', data.templateId)
+        .eq('tenant_id', tenantId)
         .is('deleted_at', null)
         .maybeSingle()
       const renderedMessage = kakaoTemplate?.content
