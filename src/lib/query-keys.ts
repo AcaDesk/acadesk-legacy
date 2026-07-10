@@ -74,6 +74,13 @@ export const queryKeys = {
     detail: () => ['messagingConfig', 'detail'] as const,
   },
 
+  messaging: {
+    history: (filters: Record<string, unknown>) => ['messaging', 'history', filters] as const,
+    statistics: (filters: Record<string, unknown>) => ['messaging', 'statistics', filters] as const,
+    templates: () => ['messaging', 'templates'] as const,
+    balance: () => ['messaging', 'balance'] as const,
+  },
+
   subjects: {
     all: () => ['subjects'] as const,
     listWithStats: () => ['subjects', 'list', 'with-stats'] as const,

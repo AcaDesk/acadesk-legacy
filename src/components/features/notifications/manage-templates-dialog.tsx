@@ -23,13 +23,12 @@ import {
 } from '@ui/select'
 import { Plus, Edit, Trash2, MessageSquare, Mail } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { useMessageTemplatesQuery } from '@/hooks/queries/use-messaging-query'
 import {
-  getMessageTemplates,
-  createMessageTemplate,
-  updateMessageTemplate,
-  deleteMessageTemplate,
-  createDefaultTemplates,
-} from '@/app/actions/messaging/messages'
+  useSaveMessageTemplateMutation,
+  useDeleteMessageTemplateMutation,
+  useCreateDefaultTemplatesMutation,
+} from '@/hooks/mutations/use-message-template-mutations'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 
@@ -51,8 +50,6 @@ export function ManageTemplatesDialog({
   open,
   onOpenChange,
 }: ManageTemplatesDialogProps) {
-  const [templates, setTemplates] = useState<MessageTemplate[]>([])
-  const [loading, setLoading] = useState(true)
   const [editingTemplate, setEditingTemplate] = useState<MessageTemplate | null>(null)
   const [creating, setCreating] = useState(false)
   const [formData, setFormData] = useState({
@@ -61,54 +58,43 @@ export function ManageTemplatesDialog({
     type: 'sms' as const,  // Email removed - SMS/알림톡 only
     category: 'general' as 'general' | 'report' | 'todo' | 'attendance' | 'event' | 'payment' | 'consultation',
   })
-  const [saving, setSaving] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [templateToDelete, setTemplateToDelete] = useState<{ id: string; name: string } | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [creatingDefaults, setCreatingDefaults] = useState(false)
 
   const { toast } = useToast()
 
+  const templatesQuery = useMessageTemplatesQuery(open)
+  const templates = (templatesQuery.data ?? []) as MessageTemplate[]
+  const loading = templatesQuery.isPending
+
+  // 로드 실패 알림 (권한 문제일 경우 안내 추가)
   useEffect(() => {
-    if (open) {
-      loadTemplates()
+    if (!templatesQuery.error) return
+    let errorMsg = getErrorMessage(templatesQuery.error)
+    if (errorMsg.includes('권한') || errorMsg.includes('인증')) {
+      errorMsg =
+        `${errorMsg}\n\n확인사항:\n` +
+        '1. 로그인 상태를 확인하세요\n' +
+        '2. Staff 권한(원장, 강사, 조교)이 있는지 확인하세요\n' +
+        '3. Tenant가 올바르게 설정되어 있는지 확인하세요'
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
+    toast({
+      title: '템플릿 로드 오류',
+      description: errorMsg,
+      variant: 'destructive',
+    })
+  }, [templatesQuery.error, toast])
 
-  async function loadTemplates() {
-    try {
-      setLoading(true)
-      const result = await getMessageTemplates()
-
-      if (!result.success || !result.data) {
-        const errorMsg = result.error || '템플릿 로드 실패'
-
-        // Provide more helpful error message for permission issues
-        if (errorMsg.includes('권한') || errorMsg.includes('인증')) {
-          throw new Error(
-            `${errorMsg}\n\n확인사항:\n` +
-            '1. 로그인 상태를 확인하세요\n' +
-            '2. Staff 권한(원장, 강사, 조교)이 있는지 확인하세요\n' +
-            '3. Tenant가 올바르게 설정되어 있는지 확인하세요'
-          )
-        }
-
-        throw new Error(errorMsg)
-      }
-
-      setTemplates(result.data)
-    } catch (error) {
-      console.error('Error loading templates:', error)
-      toast({
-        title: '템플릿 로드 오류',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
+  const saveMutation = useSaveMessageTemplateMutation({
+    onSuccess: () => cancelEditing(),
+  })
+  const deleteMutation = useDeleteMessageTemplateMutation({
+    onSettled: () => {
+      setDeleteDialogOpen(false)
+      setTemplateToDelete(null)
+    },
+  })
+  const createDefaultsMutation = useCreateDefaultTemplatesMutation()
 
   function startCreating() {
     setCreating(true)
@@ -143,7 +129,7 @@ export function ManageTemplatesDialog({
     })
   }
 
-  async function handleSave() {
+  function handleSave() {
     if (!formData.name.trim() || !formData.content.trim()) {
       toast({
         title: '입력 오류',
@@ -153,38 +139,7 @@ export function ManageTemplatesDialog({
       return
     }
 
-    setSaving(true)
-
-    try {
-      let result
-
-      if (editingTemplate) {
-        result = await updateMessageTemplate(editingTemplate.id, formData)
-      } else {
-        result = await createMessageTemplate(formData)
-      }
-
-      if (!result.success) {
-        throw new Error(result.error || '템플릿 저장 실패')
-      }
-
-      toast({
-        title: editingTemplate ? '템플릿 수정 완료' : '템플릿 생성 완료',
-        description: `${formData.name} 템플릿이 저장되었습니다.`,
-      })
-
-      await loadTemplates()
-      cancelEditing()
-    } catch (error) {
-      console.error('Error saving template:', error)
-      toast({
-        title: '저장 오류',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    } finally {
-      setSaving(false)
-    }
+    saveMutation.mutate({ id: editingTemplate?.id, data: formData })
   }
 
   function handleDeleteClick(template: MessageTemplate) {
@@ -192,62 +147,13 @@ export function ManageTemplatesDialog({
     setDeleteDialogOpen(true)
   }
 
-  async function handleConfirmDelete() {
+  function handleConfirmDelete() {
     if (!templateToDelete) return
-
-    setIsDeleting(true)
-    try {
-      const result = await deleteMessageTemplate(templateToDelete.id)
-
-      if (!result.success) {
-        throw new Error(result.error || '템플릿 삭제 실패')
-      }
-
-      toast({
-        title: '템플릿 삭제 완료',
-        description: `${templateToDelete.name} 템플릿이 삭제되었습니다.`,
-      })
-
-      await loadTemplates()
-    } catch (error) {
-      console.error('Error deleting template:', error)
-      toast({
-        title: '삭제 오류',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    } finally {
-      setIsDeleting(false)
-      setDeleteDialogOpen(false)
-      setTemplateToDelete(null)
-    }
+    deleteMutation.mutate(templateToDelete)
   }
 
-  async function handleCreateDefaults() {
-    setCreatingDefaults(true)
-    try {
-      const result = await createDefaultTemplates()
-
-      if (!result.success) {
-        throw new Error(result.error || '기본 템플릿 생성 실패')
-      }
-
-      toast({
-        title: '기본 템플릿 생성 완료',
-        description: '6개의 샘플 템플릿이 추가되었습니다.',
-      })
-
-      await loadTemplates()
-    } catch (error) {
-      console.error('Error creating defaults:', error)
-      toast({
-        title: '생성 오류',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    } finally {
-      setCreatingDefaults(false)
-    }
+  function handleCreateDefaults() {
+    createDefaultsMutation.mutate()
   }
 
   const getCategoryLabel = (category: string) => {
@@ -364,8 +270,8 @@ export function ManageTemplatesDialog({
                 <Button variant="outline" onClick={cancelEditing}>
                   취소
                 </Button>
-                <Button onClick={handleSave} disabled={saving}>
-                  {saving ? '저장 중...' : editingTemplate ? '수정' : '생성'}
+                <Button onClick={handleSave} disabled={saveMutation.isPending}>
+                  {saveMutation.isPending ? '저장 중...' : editingTemplate ? '수정' : '생성'}
                 </Button>
               </div>
             </div>
@@ -383,9 +289,9 @@ export function ManageTemplatesDialog({
                   onClick={handleCreateDefaults}
                   className="flex-1"
                   variant="default"
-                  disabled={creatingDefaults}
+                  disabled={createDefaultsMutation.isPending}
                 >
-                  {creatingDefaults ? '생성 중...' : '기본 템플릿 추가'}
+                  {createDefaultsMutation.isPending ? '생성 중...' : '기본 템플릿 추가'}
                 </Button>
               )}
             </div>
@@ -475,7 +381,7 @@ export function ManageTemplatesDialog({
         description={templateToDelete ? `"${templateToDelete.name}" 템플릿이 삭제됩니다. 이 작업은 되돌릴 수 없습니다.` : ''}
         confirmText="삭제"
         variant="destructive"
-        isLoading={isDeleting}
+        isLoading={deleteMutation.isPending}
         onConfirm={handleConfirmDelete}
       />
     </Dialog>

@@ -1,7 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
@@ -18,7 +18,7 @@ import {
 import { Bell, CheckCircle, XCircle, Search, AlertCircle, MessageSquare, Settings, Wallet, RefreshCw, Loader2, ArrowRight, FlaskConical } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
-import { getMessagingBalance } from '@/app/actions/messaging/config'
+import { useMessagingBalanceQuery } from '@/hooks/queries/use-messaging-query'
 
 const BulkMessageDialog = dynamic(
   () => import('@/components/features/notifications/bulk-message-dialog').then((mod) => mod.BulkMessageDialog),
@@ -111,13 +111,16 @@ export function NotificationsContent({ initialLogs, initialBalance, tenantId }: 
   const [hasMore, setHasMore] = useState(initialLogs.length >= PAGE_SIZE)
   const [sendMessageOpen, setSendMessageOpen] = useState(false)
   const [manageTemplatesOpen, setManageTemplatesOpen] = useState(false)
-  const [balance, setBalance] = useState<BalanceInfo | null>(initialBalance)
-  const [balanceLoading, setBalanceLoading] = useState(!initialBalance)
   const [selectedLog, setSelectedLog] = useState<NotificationLog | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
 
   const { toast } = useToast()
   const supabase = createClient()
+
+  // 잔액 조회 — SSR 값이 있으면 시딩, 없으면 클라이언트에서 조회
+  const balanceQuery = useMessagingBalanceQuery(initialBalance ?? undefined)
+  const balance: BalanceInfo | null = balanceQuery.data ?? null
+  const balanceLoading = balanceQuery.isPending
 
   const filteredLogs = useMemo(() => {
     let filtered = logs
@@ -255,30 +258,6 @@ export function NotificationsContent({ initialLogs, initialBalance, tenantId }: 
     }
   }, [loadingMore, hasMore, logs, supabase, tenantId, toast])
 
-  const loadBalance = useCallback(async () => {
-    try {
-      setBalanceLoading(true)
-      const result = await getMessagingBalance()
-
-      if (result.success && result.data) {
-        setBalance(result.data)
-      } else {
-        setBalance(null)
-      }
-    } catch (error) {
-      console.error('Error loading balance:', error)
-      setBalance(null)
-    } finally {
-      setBalanceLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!initialBalance) {
-      void loadBalance()
-    }
-  }, [initialBalance, loadBalance])
-
   function getStatusBadge(status: string) {
     switch (status) {
       case 'sent':
@@ -387,10 +366,10 @@ export function NotificationsContent({ initialLogs, initialBalance, tenantId }: 
                 variant="ghost"
                 size="icon"
                 className="h-6 w-6"
-                onClick={loadBalance}
-                disabled={balanceLoading}
+                onClick={() => balanceQuery.refetch()}
+                disabled={balanceQuery.isFetching}
               >
-                <RefreshCw className={`h-3 w-3 ${balanceLoading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-3 w-3 ${balanceQuery.isFetching ? 'animate-spin' : ''}`} />
               </Button>
             </div>
             <div className="flex gap-2">

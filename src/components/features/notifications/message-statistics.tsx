@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useMessageStatisticsQuery } from '@/hooks/queries/use-messaging-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@ui/popover'
@@ -8,7 +9,6 @@ import { CalendarIcon, TrendingUp, Send, CheckCircle2, XCircle, Clock } from 'lu
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
-import { getMessageStatistics } from '@/app/actions/messaging/messages'
 import { useToast } from '@/hooks/use-toast'
 
 interface MessageStatisticsProps {
@@ -16,9 +16,6 @@ interface MessageStatisticsProps {
 }
 
 export function MessageStatistics({ className }: MessageStatisticsProps) {
-  const [loading, setLoading] = useState(false)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [statistics, setStatistics] = useState<any>(null)
   const [dateRange, setDateRange] = useState<{
     from: Date
     to: Date
@@ -29,35 +26,23 @@ export function MessageStatistics({ className }: MessageStatisticsProps) {
 
   const { toast } = useToast()
 
+  // 기간이 쿼리 key에 포함되어 프리셋 변경 시 자동 refetch
+  const statisticsQuery = useMessageStatisticsQuery({
+    startDate: format(dateRange.from, 'yyyy-MM-dd'),
+    endDate: format(dateRange.to, 'yyyy-MM-dd'),
+  })
+  const statistics = statisticsQuery.data ?? null
+  const loading = statisticsQuery.isFetching
+
   useEffect(() => {
-    loadStatistics()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  async function loadStatistics() {
-    setLoading(true)
-    try {
-      const result = await getMessageStatistics({
-        startDate: format(dateRange.from, 'yyyy-MM-dd'),
-        endDate: format(dateRange.to, 'yyyy-MM-dd'),
-      })
-
-      if (!result.success || !result.data) {
-        throw new Error(result.error || '통계 조회 실패')
-      }
-
-      setStatistics(result.data)
-    } catch (error) {
-      console.error('Error loading statistics:', error)
+    if (statisticsQuery.error) {
       toast({
         title: '통계 조회 실패',
-        description: error instanceof Error ? error.message : '통계를 불러올 수 없습니다',
+        description: statisticsQuery.error.message || '통계를 불러올 수 없습니다',
         variant: 'destructive',
       })
-    } finally {
-      setLoading(false)
     }
-  }
+  }, [statisticsQuery.error, toast])
 
   // 통계 데이터가 없으면 기본값 설정
   const stats = statistics || {
@@ -100,7 +85,6 @@ export function MessageStatistics({ className }: MessageStatisticsProps) {
                     from: new Date(new Date().setDate(new Date().getDate() - 7)),
                     to: new Date(),
                   })
-                  loadStatistics()
                 }}
               >
                 최근 7일
@@ -114,7 +98,6 @@ export function MessageStatistics({ className }: MessageStatisticsProps) {
                     from: new Date(new Date().setDate(new Date().getDate() - 30)),
                     to: new Date(),
                   })
-                  loadStatistics()
                 }}
               >
                 최근 30일
@@ -128,7 +111,6 @@ export function MessageStatistics({ className }: MessageStatisticsProps) {
                     from: new Date(new Date().setDate(new Date().getDate() - 90)),
                     to: new Date(),
                   })
-                  loadStatistics()
                 }}
               >
                 최근 90일

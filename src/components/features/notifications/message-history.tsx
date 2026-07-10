@@ -24,7 +24,10 @@ import { CalendarIcon, RefreshCw, Filter } from 'lucide-react'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
-import { getMessageHistory } from '@/app/actions/messaging/messages'
+import {
+  useMessageHistoryQuery,
+  type MessageHistoryFilters,
+} from '@/hooks/queries/use-messaging-query'
 import { useToast } from '@/hooks/use-toast'
 import { EmptyState } from '@ui/empty-state'
 import { MessageSquare } from 'lucide-react'
@@ -34,9 +37,6 @@ interface MessageHistoryProps {
 }
 
 export function MessageHistory({ className }: MessageHistoryProps) {
-  const [loading, setLoading] = useState(false)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [messages, setMessages] = useState<any[]>([])
   const [messageType, setMessageType] = useState<'all' | 'SMS' | 'LMS' | 'MMS'>('all')
   const [limit, setLimit] = useState(20)
   const [dateRange, setDateRange] = useState<{
@@ -47,37 +47,36 @@ export function MessageHistory({ className }: MessageHistoryProps) {
     to: new Date(),
   })
 
+  // "조회" 버튼을 눌렀을 때의 필터 스냅샷 — 쿼리 key로 사용
+  const buildFilters = (): MessageHistoryFilters => ({
+    limit,
+    startDate: format(dateRange.from, 'yyyy-MM-dd'),
+    endDate: format(dateRange.to, 'yyyy-MM-dd'),
+    type: messageType === 'all' ? undefined : messageType,
+  })
+  const [appliedFilters, setAppliedFilters] = useState<MessageHistoryFilters>(buildFilters)
+
   const { toast } = useToast()
+  const historyQuery = useMessageHistoryQuery(appliedFilters)
+  const messages = historyQuery.data ?? []
+  const loading = historyQuery.isFetching
 
   useEffect(() => {
-    loadMessages()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  async function loadMessages() {
-    setLoading(true)
-    try {
-      const result = await getMessageHistory({
-        limit,
-        startDate: format(dateRange.from, 'yyyy-MM-dd'),
-        endDate: format(dateRange.to, 'yyyy-MM-dd'),
-        type: messageType === 'all' ? undefined : messageType,
-      })
-
-      if (!result.success || !result.data) {
-        throw new Error(result.error || '메시지 이력 조회 실패')
-      }
-
-      setMessages(result.data.messageList || [])
-    } catch (error) {
-      console.error('Error loading messages:', error)
+    if (historyQuery.error) {
       toast({
         title: '메시지 이력 조회 실패',
-        description: error instanceof Error ? error.message : '메시지 이력을 불러올 수 없습니다',
+        description: historyQuery.error.message || '메시지 이력을 불러올 수 없습니다',
         variant: 'destructive',
       })
-    } finally {
-      setLoading(false)
+    }
+  }, [historyQuery.error, toast])
+
+  function loadMessages() {
+    const next = buildFilters()
+    if (JSON.stringify(next) === JSON.stringify(appliedFilters)) {
+      historyQuery.refetch()
+    } else {
+      setAppliedFilters(next)
     }
   }
 
