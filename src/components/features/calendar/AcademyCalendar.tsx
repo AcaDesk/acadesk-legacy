@@ -455,7 +455,7 @@ export function AcademyCalendar({
               className="w-2.5 h-2.5 rounded-full shrink-0"
               style={{ backgroundColor: config.color }}
             />
-            <span className="text-xs text-gray-500 dark:text-gray-400">{config.label}</span>
+            <span className="text-xs text-muted-foreground">{config.label}</span>
           </div>
         ))}
       </div>

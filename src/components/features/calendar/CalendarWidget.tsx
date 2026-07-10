@@ -120,15 +120,15 @@ export function CalendarWidget({ className = '' }: CalendarWidgetProps) {
 
   return (
     <div
-      className={`bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden flex flex-col ${className}`}
+      className={`bg-background rounded-2xl border border-border shadow-sm overflow-hidden flex flex-col ${className}`}
     >
       {/* 헤더 */}
-      <div className="px-4 pt-4 pb-3 border-b border-gray-100 dark:border-gray-700">
+      <div className="px-4 pt-4 pb-3 border-b border-border">
         <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-bold text-gray-900 dark:text-white">캘린더</span>
+          <span className="text-sm font-bold text-foreground">캘린더</span>
           <Link
             href="/calendar"
-            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            className="p-1.5 hover:bg-muted rounded-lg transition-colors text-muted-foreground/70 hover:text-foreground"
             title="전체 캘린더 보기"
           >
             <ExternalLink size={14} />
@@ -136,21 +136,21 @@ export function CalendarWidget({ className = '' }: CalendarWidgetProps) {
         </div>
 
         {/* 네비게이션 */}
-        <div className="flex items-center gap-1 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700 p-1">
+        <div className="flex items-center gap-1 bg-muted/50 rounded-lg border border-border p-1">
           <button
             onClick={handlePrev}
-            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+            className="p-1 hover:bg-muted rounded-md transition-colors"
           >
-            <ChevronLeft size={15} className="text-gray-500 dark:text-gray-400" />
+            <ChevronLeft size={15} className="text-muted-foreground" />
           </button>
-          <span className="flex-1 text-xs font-bold text-center text-gray-900 dark:text-white">
+          <span className="flex-1 text-xs font-bold text-center text-foreground">
             {format(currentDate, 'yyyy년 M월', { locale: ko })}
           </span>
           <button
             onClick={handleNext}
-            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+            className="p-1 hover:bg-muted rounded-md transition-colors"
           >
-            <ChevronRight size={15} className="text-gray-500 dark:text-gray-400" />
+            <ChevronRight size={15} className="text-muted-foreground" />
           </button>
         </div>
       </div>
@@ -163,7 +163,7 @@ export function CalendarWidget({ className = '' }: CalendarWidgetProps) {
             <div
               key={day}
               className={`text-center text-[10px] font-bold py-1 ${
-                i === 0 ? 'text-red-500' : 'text-gray-400 dark:text-gray-500'
+                i === 0 ? 'text-red-500' : 'text-muted-foreground/70'
               }`}
             >
               {day}
@@ -189,19 +189,19 @@ export function CalendarWidget({ className = '' }: CalendarWidgetProps) {
                 onClick={() =>
                   setSelectedDate(isSelected ? null : date)
                 }
-                className="flex flex-col items-center py-1 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group"
+                className="flex flex-col items-center py-1 rounded-lg hover:bg-muted/50 transition-colors group"
               >
                 <span
                   className={`text-xs font-medium inline-flex items-center justify-center w-6 h-6 rounded-full transition-colors ${
                     isToday_
-                      ? 'bg-black text-white dark:bg-white dark:text-black font-extrabold'
+                      ? 'bg-foreground text-background font-extrabold'
                       : isSelected
-                        ? 'bg-gray-200 dark:bg-gray-600 font-bold text-gray-900 dark:text-white'
+                        ? 'bg-accent font-bold text-accent-foreground'
                         : !isCurrentMonth
-                          ? 'text-gray-300 dark:text-gray-600'
+                          ? 'text-muted-foreground/40'
                           : isSun
                             ? 'text-red-500'
-                            : 'text-gray-700 dark:text-gray-300'
+                            : 'text-foreground/80'
                   }`}
                 >
                   {date.getDate()}
@@ -230,12 +230,12 @@ export function CalendarWidget({ className = '' }: CalendarWidgetProps) {
 
       {/* 선택된 날짜 이벤트 목록 */}
       {selectedDate && (
-        <div className="px-3 pb-3 border-t border-gray-100 dark:border-gray-700 pt-3 space-y-1.5">
-          <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-2">
+        <div className="px-3 pb-3 border-t border-border pt-3 space-y-1.5">
+          <p className="text-[10px] font-bold text-muted-foreground mb-2">
             {format(selectedDate, 'M월 d일 (EEE)', { locale: ko })}
           </p>
           {selectedDateEvents.length === 0 ? (
-            <p className="text-xs text-gray-400 dark:text-gray-500 py-1">일정이 없습니다</p>
+            <p className="text-xs text-muted-foreground/70 py-1">일정이 없습니다</p>
           ) : (
             selectedDateEvents.map((event) => (
               <Link key={event.id} href="/calendar">
