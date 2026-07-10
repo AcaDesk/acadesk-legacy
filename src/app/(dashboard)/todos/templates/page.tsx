@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 
 import { Button } from '@ui/button'
@@ -58,9 +58,14 @@ import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { DAYS_OF_WEEK } from '@/lib/constants'
+import { useMutation } from '@tanstack/react-query'
 import { getStudents } from '@/app/actions/students'
-import { getTodoTemplates } from '@/app/actions/todo-templates'
 import { createTodosForStudents } from '@/app/actions/todos'
+import { useTodoTemplatesQuery } from '@/hooks/queries/use-todo-templates-query'
+import {
+  useDeleteTodoTemplateMutation,
+  useToggleTodoTemplateActiveMutation,
+} from '@/hooks/mutations/use-todo-mutations'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 
@@ -83,9 +88,7 @@ const PRIORITY_CONFIG = {
 
 export default function TodoTemplatesPage() {
   // All Hooks must be called before any early returns
-  const [templates, setTemplates] = useState<TodoTemplate[]>([])
   const [searchTerm, setSearchTerm] = useState('')
-  const [loading, setLoading] = useState(true)
   const [selectedTemplate, setSelectedTemplate] = useState<TodoTemplate | null>(null)
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
 
@@ -97,31 +100,22 @@ export default function TodoTemplatesPage() {
   // Delete confirmation dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [templateToDelete, setTemplateToDelete] = useState<{ id: string; title: string } | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
 
   // Generate todos confirmation dialog state
   const [generateDialogOpen, setGenerateDialogOpen] = useState(false)
   const [templateToGenerate, setTemplateToGenerate] = useState<TodoTemplate | null>(null)
-  const [isGenerating, setIsGenerating] = useState(false)
 
   const { toast } = useToast()
   const router = useRouter()
   const { user: currentUser } = useCurrentUser()
 
-  const loadTemplates = useCallback(async () => {
-    if (!currentUser?.tenantId) return
+  const templatesQuery = useTodoTemplatesQuery(!!currentUser?.tenantId)
+  const loading = templatesQuery.isPending
 
-    try {
-      setLoading(true)
-
-      const result = await getTodoTemplates()
-
-      if (!result.success || !result.data) {
-        throw new Error(result.error || '템플릿 목록을 불러올 수 없습니다')
-      }
-
-      // Server Action에서 반환하는 데이터를 UI 타입으로 매핑
-      const mapped = result.data.map(template => ({
+  // Server Action에서 반환하는 데이터를 UI 타입으로 매핑
+  const templates: TodoTemplate[] = useMemo(
+    () =>
+      (templatesQuery.data ?? []).map((template) => ({
         id: template.id,
         title: template.title,
         description: template.description,
@@ -130,25 +124,28 @@ export default function TodoTemplatesPage() {
         estimated_duration_minutes: template.estimated_duration_minutes,
         priority: template.priority,
         active: template.active,
-      }))
+      })),
+    [templatesQuery.data]
+  )
 
-      setTemplates(mapped)
-    } catch (error) {
+  // 로드 실패 알림
+  useEffect(() => {
+    if (templatesQuery.error) {
       toast({
         title: '데이터 로드 오류',
-        description: getErrorMessage(error),
+        description: getErrorMessage(templatesQuery.error),
         variant: 'destructive',
       })
-    } finally {
-      setLoading(false)
     }
-  }, [currentUser?.tenantId, toast])
+  }, [templatesQuery.error, toast])
 
-  useEffect(() => {
-    if (currentUser?.tenantId) {
-      loadTemplates()
-    }
-  }, [loadTemplates, currentUser?.tenantId])
+  const deleteMutation = useDeleteTodoTemplateMutation({
+    onSettled: () => {
+      setDeleteDialogOpen(false)
+      setTemplateToDelete(null)
+    },
+  })
+  const toggleActiveMutation = useToggleTodoTemplateActiveMutation()
 
   const filteredTemplates = useMemo(() => {
     let filtered = templates
@@ -199,61 +196,17 @@ export default function TodoTemplatesPage() {
     setDeleteDialogOpen(true)
   }
 
-  async function handleConfirmDelete() {
+  function handleConfirmDelete() {
     if (!templateToDelete) return
-
-    setIsDeleting(true)
-    try {
-      // ✅ Use Server Action instead of direct Supabase CUD
-      const { deleteTodoTemplate } = await import('@/app/actions/todo-templates')
-      const result = await deleteTodoTemplate(templateToDelete.id)
-
-      if (!result.success) {
-        throw new Error(result.error || '삭제 실패')
-      }
-
-      toast({
-        title: '삭제 완료',
-        description: `${templateToDelete.title} 템플릿이 삭제되었습니다.`,
-      })
-
-      loadTemplates()
-    } catch (error) {
-      toast({
-        title: '삭제 오류',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    } finally {
-      setIsDeleting(false)
-      setDeleteDialogOpen(false)
-      setTemplateToDelete(null)
-    }
+    deleteMutation.mutate(templateToDelete)
   }
 
-  async function handleToggleActive(template: TodoTemplate) {
-    try {
-      // ✅ Use Server Action instead of direct Supabase CUD
-      const { toggleTodoTemplateActive } = await import('@/app/actions/todo-templates')
-      const result = await toggleTodoTemplateActive(template.id)
-
-      if (!result.success) {
-        throw new Error(result.error || '변경 실패')
-      }
-
-      toast({
-        title: template.active ? '비활성화됨' : '활성화됨',
-        description: `"${template.title}" 템플릿이 ${template.active ? '비활성화' : '활성화'}되었습니다.`,
-      })
-
-      loadTemplates()
-    } catch (error) {
-      toast({
-        title: '변경 오류',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    }
+  function handleToggleActive(template: TodoTemplate) {
+    toggleActiveMutation.mutate({
+      id: template.id,
+      title: template.title,
+      active: template.active,
+    })
   }
 
   function handleGenerateClick(template: TodoTemplate) {
@@ -261,11 +214,8 @@ export default function TodoTemplatesPage() {
     setGenerateDialogOpen(true)
   }
 
-  async function handleConfirmGenerate() {
-    if (!currentUser?.tenantId || !templateToGenerate) return
-
-    setIsGenerating(true)
-    try {
+  const generateMutation = useMutation({
+    mutationFn: async (template: TodoTemplate) => {
       // Get all active students
       const studentsResult = await getStudents()
 
@@ -273,18 +223,13 @@ export default function TodoTemplatesPage() {
         throw new Error(studentsResult.error || '학생 목록을 불러올 수 없습니다')
       }
 
-      if (!studentsResult.data || studentsResult.data.length === 0) {
-        toast({
-          title: '학생 없음',
-          description: '등록된 학생이 없습니다.',
-          variant: 'destructive',
-        })
-        return
+      if (studentsResult.data.length === 0) {
+        throw new Error('등록된 학생이 없습니다.')
       }
 
       // Calculate due date based on day_of_week
       const today = new Date()
-      const targetDayOfWeek = templateToGenerate.day_of_week !== null ? templateToGenerate.day_of_week : today.getDay()
+      const targetDayOfWeek = template.day_of_week !== null ? template.day_of_week : today.getDay()
       const daysUntilTarget = (targetDayOfWeek - today.getDay() + 7) % 7
       const dueDate = new Date(today)
       dueDate.setDate(today.getDate() + (daysUntilTarget === 0 ? 7 : daysUntilTarget))
@@ -292,34 +237,42 @@ export default function TodoTemplatesPage() {
       // Create todos using Server Action
       const createResult = await createTodosForStudents({
         studentIds: studentsResult.data.map(s => s.id),
-        title: templateToGenerate.title,
-        description: templateToGenerate.description || undefined,
-        subject: templateToGenerate.subject || undefined,
+        title: template.title,
+        description: template.description || undefined,
+        subject: template.subject || undefined,
         dueDate: dueDate.toISOString(),
-        priority: (templateToGenerate.priority || 'normal') as 'low' | 'normal' | 'high' | 'urgent',
+        priority: (template.priority || 'normal') as 'low' | 'normal' | 'high' | 'urgent',
       })
 
       if (!createResult.success) {
         throw new Error(createResult.error || 'TODO 생성 실패')
       }
 
+      return { studentCount: studentsResult.data.length, title: template.title }
+    },
+    onSuccess: ({ studentCount, title }) => {
       toast({
         title: '과제 생성 완료',
-        description: `${studentsResult.data.length}명의 학생에게 "${templateToGenerate.title}" 과제가 배정되었습니다.`,
+        description: `${studentCount}명의 학생에게 "${title}" 과제가 배정되었습니다.`,
       })
-
       router.push('/todos')
-    } catch (error) {
+    },
+    onError: (error: Error) => {
       toast({
         title: '생성 오류',
         description: getErrorMessage(error),
         variant: 'destructive',
       })
-    } finally {
-      setIsGenerating(false)
+    },
+    onSettled: () => {
       setGenerateDialogOpen(false)
       setTemplateToGenerate(null)
-    }
+    },
+  })
+
+  function handleConfirmGenerate() {
+    if (!currentUser?.tenantId || !templateToGenerate) return
+    generateMutation.mutate(templateToGenerate)
   }
 
   function handleViewTemplate(template: TodoTemplate) {
@@ -845,7 +798,7 @@ export default function TodoTemplatesPage() {
           description={templateToDelete ? `"${templateToDelete.title}" 템플릿을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.` : ''}
           confirmText="삭제"
           variant="destructive"
-          isLoading={isDeleting}
+          isLoading={deleteMutation.isPending}
           onConfirm={handleConfirmDelete}
         />
 
@@ -857,7 +810,7 @@ export default function TodoTemplatesPage() {
           description={templateToGenerate ? `전체 학생에게 "${templateToGenerate.title}" 과제를 배정하시겠습니까?` : ''}
           confirmText="생성"
           variant="default"
-          isLoading={isGenerating}
+          isLoading={generateMutation.isPending}
           onConfirm={handleConfirmGenerate}
         />
       </div>

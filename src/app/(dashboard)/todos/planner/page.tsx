@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
@@ -23,9 +24,9 @@ import {
 import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
-import { getStudents } from '@/app/actions/students'
-import { getTodoTemplates } from '@/app/actions/todo-templates'
 import { createTodosForStudents } from '@/app/actions/todos'
+import { useStudentsBasicQuery } from '@/hooks/queries/use-students-query'
+import { useTodoTemplatesQuery } from '@/hooks/queries/use-todo-templates-query'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import { getCellKey, parseCellKey } from './planner-cell-key'
@@ -58,16 +59,12 @@ interface PlannedTodo {
 
 export default function WeeklyPlannerPage() {
   // All Hooks must be called before any early returns
-  const [students, setStudents] = useState<Student[]>([])
-  const [filteredStudents, setFilteredStudents] = useState<Student[]>([])
-  const [templates, setTemplates] = useState<TodoTemplate[]>([])
   const [plannedTodos, setPlannedTodos] = useState<PlannedTodo[]>([])
   const [selectedCell, setSelectedCell] = useState<{ studentId: string; dayOfWeek: number } | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [copyDialogOpen, setCopyDialogOpen] = useState(false)
   const [sourceStudentId, setSourceStudentId] = useState<string | null>(null)
   const [targetStudentIds, setTargetStudentIds] = useState<Set<string>>(new Set())
-  const [loading, setLoading] = useState(false)
   const [dragOverCell, setDragOverCell] = useState<{ studentId: string; dayOfWeek: number } | null>(null)
   const [recommendedTemplates, setRecommendedTemplates] = useState<TodoTemplate[]>([])
 
@@ -94,81 +91,57 @@ export default function WeeklyPlannerPage() {
   const supabase = createClient()
   const { user: currentUser } = useCurrentUser()
 
-  useEffect(() => {
-    if (currentUser?.tenantId) {
-      loadStudents()
-      loadTemplates()
-    }
-  }, [currentUser?.tenantId]) // eslint-disable-line react-hooks/exhaustive-deps -- initial load only
+  const studentsQuery = useStudentsBasicQuery(!!currentUser?.tenantId)
+  const templatesQuery = useTodoTemplatesQuery(!!currentUser?.tenantId)
 
-  // Filter and paginate students
-  useEffect(() => {
-    let filtered = [...students]
-
-    // Apply search filter
-    if (searchTerm) {
-      const search = searchTerm.toLowerCase()
-      filtered = filtered.filter(
-        (s) =>
-          s.users?.name?.toLowerCase().includes(search) ||
-          s.student_code?.toLowerCase().includes(search)
-      )
-    }
-
-    setFilteredStudents(filtered)
-    // Reset to first page when search changes
-    setCurrentPage(1)
-  }, [students, searchTerm])
-
-  async function loadStudents() {
-    if (!currentUser?.tenantId) return
-
-    try {
-      const result = await getStudents()
-
-      if (!result.success || !result.data) {
-        throw new Error(result.error || '학생 목록을 불러올 수 없습니다')
-      }
-
-      // Server Action에서 반환하는 데이터를 UI 타입으로 변환
-      const mappedStudents = result.data.map(student => ({
+  // Server Action에서 반환하는 데이터를 UI 타입으로 변환
+  const students: Student[] = useMemo(
+    () =>
+      (studentsQuery.data ?? []).map((student) => ({
         id: student.id,
         student_code: student.student_code,
-        users: {
-          name: student.name,
-        },
-      }))
+        users: { name: student.name },
+      })),
+    [studentsQuery.data]
+  )
+  const templates: TodoTemplate[] = templatesQuery.data ?? []
 
-      setStudents(mappedStudents)
-    } catch (error: unknown) {
+  // 로드 실패 알림
+  useEffect(() => {
+    if (studentsQuery.error) {
       toast({
         title: '학생 목록 로드 실패',
-        description: getErrorMessage(error),
+        description: getErrorMessage(studentsQuery.error),
         variant: 'destructive',
       })
     }
-  }
+  }, [studentsQuery.error, toast])
 
-  async function loadTemplates() {
-    if (!currentUser?.tenantId) return
-
-    try {
-      const result = await getTodoTemplates()
-
-      if (!result.success || !result.data) {
-        throw new Error(result.error || '템플릿 목록을 불러올 수 없습니다')
-      }
-
-      // Server Action에서 반환하는 데이터는 이미 UI 타입과 일치
-      setTemplates(result.data)
-    } catch (error: unknown) {
+  useEffect(() => {
+    if (templatesQuery.error) {
       toast({
         title: '템플릿 로드 실패',
-        description: getErrorMessage(error),
+        description: getErrorMessage(templatesQuery.error),
         variant: 'destructive',
       })
     }
-  }
+  }, [templatesQuery.error, toast])
+
+  // Filter students by search term
+  const filteredStudents = useMemo(() => {
+    if (!searchTerm) return students
+    const search = searchTerm.toLowerCase()
+    return students.filter(
+      (s) =>
+        s.users?.name?.toLowerCase().includes(search) ||
+        s.student_code?.toLowerCase().includes(search)
+    )
+  }, [students, searchTerm])
+
+  // Reset to first page when search changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm])
 
   async function handleCellClick(studentId: string, dayOfWeek: number) {
     // If in selection mode, toggle cell selection
@@ -241,13 +214,6 @@ export default function WeeklyPlannerPage() {
           priority: template.priority,
         })
       }
-    })
-
-    console.log('[addTodoToBulkCells] Adding todos:', {
-      newTodosCount: newTodos.length,
-      selectedCellsCount: selectedCells.size,
-      newTodos: newTodos,
-      template: template.title
     })
 
     setPlannedTodos([...plannedTodos, ...newTodos])
@@ -345,20 +311,8 @@ export default function WeeklyPlannerPage() {
     })
   }
 
-  async function publishWeeklyPlan() {
-    if (!currentUser?.tenantId) return
-    if (plannedTodos.length === 0) {
-      toast({
-        title: '과제 없음',
-        description: '먼저 과제를 배정해주세요.',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    setLoading(true)
-
-    try {
+  const publishMutation = useMutation({
+    mutationFn: async (todos: PlannedTodo[]) => {
       // Get Monday of current week
       const today = new Date()
       const dayOfWeek = today.getDay()
@@ -369,7 +323,7 @@ export default function WeeklyPlannerPage() {
       // Group todos by date and content to batch create
       const groupedTodos = new Map<string, { studentIds: string[], todo: PlannedTodo, dueDate: Date }>()
 
-      plannedTodos.forEach(pt => {
+      todos.forEach(pt => {
         const dueDate = new Date(monday)
         // dayOfWeek is 1 for Monday, 2 for Tuesday, etc.
         // Monday + (1 - 1) = Monday, Monday + (2 - 1) = Tuesday, etc.
@@ -414,22 +368,35 @@ export default function WeeklyPlannerPage() {
         }
       }
 
+      return todos.length
+    },
+    onSuccess: (count) => {
       toast({
         title: '주간 과제 게시 완료',
-        description: `${plannedTodos.length}개의 과제가 배정되었습니다.`,
+        description: `${count}개의 과제가 배정되었습니다.`,
       })
-
-      // Clear planned todos
       setPlannedTodos([])
-    } catch (error: unknown) {
+    },
+    onError: (error: Error) => {
       toast({
         title: '게시 실패',
         description: getErrorMessage(error),
         variant: 'destructive',
       })
-    } finally {
-      setLoading(false)
+    },
+  })
+
+  function publishWeeklyPlan() {
+    if (!currentUser?.tenantId) return
+    if (plannedTodos.length === 0) {
+      toast({
+        title: '과제 없음',
+        description: '먼저 과제를 배정해주세요.',
+        variant: 'destructive',
+      })
+      return
     }
+    publishMutation.mutate(plannedTodos)
   }
 
   function copyStudentPlan(studentId: string) {
@@ -623,11 +590,11 @@ export default function WeeklyPlannerPage() {
                 </Button>
                 <Button
                   onClick={publishWeeklyPlan}
-                  disabled={loading || plannedTodos.length === 0}
+                  disabled={publishMutation.isPending || plannedTodos.length === 0}
                   className="gap-2"
                 >
                   <Save className="h-4 w-4" />
-                  {loading ? '게시 중...' : '이번 주 과제 게시'}
+                  {publishMutation.isPending ? '게시 중...' : '이번 주 과제 게시'}
                 </Button>
               </>
             )}

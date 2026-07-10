@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { getStudentsListEnriched } from '@/app/actions/students/queries'
+import { getStudents, getStudentsListEnriched } from '@/app/actions/students/queries'
 import { queryKeys } from '@/lib/query-keys'
 
 /**
@@ -24,5 +24,23 @@ export function useStudentsEnrichedQuery() {
       return result.data
     },
     staleTime: 5 * 60_000,
+  })
+}
+
+/**
+ * 기본 학생 목록 (id, 이름, 학생 코드 등) — 선택기/플래너 등 가벼운 용도.
+ */
+export function useStudentsBasicQuery(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.students.list({ view: 'basic' }),
+    queryFn: async () => {
+      const result = await getStudents()
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '학생 목록을 불러올 수 없습니다')
+      }
+      return result.data
+    },
+    staleTime: 5 * 60_000,
+    enabled,
   })
 }

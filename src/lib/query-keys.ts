@@ -29,6 +29,9 @@ export const queryKeys = {
 
   todos: {
     list: () => ['todos'] as const,
+    templates: () => ['todos', 'templates'] as const,
+    template: (id: string) => ['todos', 'templates', id] as const,
+    pendingVerification: () => ['todos', 'pendingVerification'] as const,
   },
 
   students: {

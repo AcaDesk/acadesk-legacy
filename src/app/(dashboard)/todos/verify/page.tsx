@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
 import { Badge } from '@ui/badge'
@@ -26,95 +25,38 @@ import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import type { StudentTodoWithStudent } from '@/core/types/todo.types'
-import { verifyTodos, rejectTodo } from '@/app/actions/todos'
+import { usePendingTodosQuery } from '@/hooks/queries/use-pending-todos-query'
+import { useVerifyTodosBulkMutation, useRejectTodoMutation } from '@/hooks/mutations/use-todo-mutations'
 import { getErrorMessage } from '@/lib/error-handlers'
 
 export default function VerifyTodosPage() {
   // All Hooks must be called before any early returns
-  const [pendingTodos, setPendingTodos] = useState<StudentTodoWithStudent[]>([])
   const [selectedTodos, setSelectedTodos] = useState<Set<string>>(new Set())
   const [feedbackDialog, setFeedbackDialog] = useState(false)
   const [detailDialog, setDetailDialog] = useState(false)
   const [currentTodoId, setCurrentTodoId] = useState<string | null>(null)
   const [currentTodo, setCurrentTodo] = useState<StudentTodoWithStudent | null>(null)
   const [feedback, setFeedback] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [tenantId, setTenantId] = useState<string | null>(null)
 
   const { toast } = useToast()
-  const supabase = createClient()
   const { user: currentUser } = useCurrentUser()
 
+  const pendingQuery = usePendingTodosQuery(currentUser?.tenantId)
+  const pendingTodos = pendingQuery.data ?? []
+
+  const verifyMutation = useVerifyTodosBulkMutation()
+  const rejectMutation = useRejectTodoMutation()
+
+  // 로드 실패 알림
   useEffect(() => {
-    if (currentUser) {
-      loadTenantId()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser])
-
-  useEffect(() => {
-    if (tenantId) {
-      loadPendingTodos()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantId])
-
-  async function loadTenantId() {
-    if (!currentUser) return
-
-    try {
-      const { data } = await supabase
-        .from('users')
-        .select('tenant_id')
-        .eq('id', currentUser.id)
-        .single()
-
-      if (data?.tenant_id) {
-        setTenantId(data.tenant_id)
-      }
-    } catch (error) {
-      toast({
-        title: '초기화 오류',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    }
-  }
-
-  async function loadPendingTodos() {
-    if (!tenantId) return
-
-    try {
-      // Load todos that are completed but not verified
-      // Using direct Supabase query for complex join (presentation concern)
-      const { data, error } = await supabase
-        .from('todos')
-        .select(`
-          *,
-          students (
-            id,
-            student_code,
-            users (
-              name
-            )
-          )
-        `)
-        .eq('tenant_id', tenantId)
-        .not('completed_at', 'is', null)
-        .is('verified_at', null)
-        .is('deleted_at', null)
-        .order('completed_at', { ascending: false })
-
-      if (error) throw error
-      setPendingTodos(data as StudentTodoWithStudent[])
-    } catch (error) {
+    if (pendingQuery.error) {
       toast({
         title: '로딩 오류',
-        description: getErrorMessage(error),
+        description: getErrorMessage(pendingQuery.error),
         variant: 'destructive',
       })
     }
-  }
+  }, [pendingQuery.error, toast])
 
   function toggleTodoSelection(todoId: string) {
     const newSelection = new Set(selectedTodos)
@@ -134,8 +76,8 @@ export default function VerifyTodosPage() {
     }
   }
 
-  async function verifySelectedTodos() {
-    if (!currentUser || !tenantId) return
+  function verifySelectedTodos() {
+    if (!currentUser?.tenantId) return
     if (selectedTodos.size === 0) {
       toast({
         title: '선택 필요',
@@ -145,42 +87,9 @@ export default function VerifyTodosPage() {
       return
     }
 
-    setLoading(true)
-
-    try {
-      const result = await verifyTodos({
-        todoIds: Array.from(selectedTodos),
-      })
-
-      if (!result.success) {
-        throw new Error(result.error || '검증 실패')
-      }
-
-      if (result.data && result.data.failedTodoIds.length > 0) {
-        toast({
-          title: '일부 검증 실패',
-          description: `${result.data.verifiedCount}개 검증 완료, ${result.data.failedTodoIds.length}개 실패`,
-          variant: 'destructive',
-        })
-      } else {
-        toast({
-          title: '검증 완료',
-          description: `${result.data?.verifiedCount || 0}개의 과제가 검증되었습니다.`,
-        })
-      }
-
-      // Reload list and clear selection
-      setSelectedTodos(new Set())
-      await loadPendingTodos()
-    } catch (error) {
-      toast({
-        title: '검증 실패',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
-    }
+    verifyMutation.mutate(Array.from(selectedTodos), {
+      onSuccess: () => setSelectedTodos(new Set()),
+    })
   }
 
   function openFeedbackDialog(todoId: string) {
@@ -208,8 +117,8 @@ export default function VerifyTodosPage() {
     urgent: 'bg-red-500',
   }
 
-  async function handleRejectTodo() {
-    if (!currentUser || !tenantId || !currentTodoId || !feedback.trim()) {
+  function handleRejectTodo() {
+    if (!currentUser?.tenantId || !currentTodoId || !feedback.trim()) {
       toast({
         title: '피드백 필요',
         description: '반려 사유를 입력해주세요.',
@@ -218,34 +127,10 @@ export default function VerifyTodosPage() {
       return
     }
 
-    setLoading(true)
-
-    try {
-      const result = await rejectTodo({
-        todoId: currentTodoId,
-        rejectionReason: feedback,
-      })
-
-      if (!result.success) {
-        throw new Error(result.error || '반려 실패')
-      }
-
-      toast({
-        title: '과제 반려',
-        description: '과제가 반려되었습니다. 학생에게 피드백이 전달됩니다.',
-      })
-
-      setFeedbackDialog(false)
-      await loadPendingTodos()
-    } catch (error) {
-      toast({
-        title: '반려 실패',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
-    }
+    rejectMutation.mutate(
+      { todoId: currentTodoId, rejectionReason: feedback },
+      { onSuccess: () => setFeedbackDialog(false) }
+    )
   }
 
   // Feature flag checks after all Hooks
@@ -286,11 +171,11 @@ export default function VerifyTodosPage() {
             </Button>
             <Button
               onClick={verifySelectedTodos}
-              disabled={loading || selectedTodos.size === 0}
+              disabled={verifyMutation.isPending || selectedTodos.size === 0}
               className="gap-2"
             >
               <CheckCircle className="h-4 w-4" />
-              {loading ? '검증 중...' : `선택 항목 검증 (${selectedTodos.size})`}
+              {verifyMutation.isPending ? '검증 중...' : `선택 항목 검증 (${selectedTodos.size})`}
             </Button>
           </div>
         </div>
@@ -401,11 +286,11 @@ export default function VerifyTodosPage() {
               <Button
                 variant="destructive"
                 onClick={handleRejectTodo}
-                disabled={loading || !feedback.trim()}
+                disabled={rejectMutation.isPending || !feedback.trim()}
                 className="gap-2"
               >
                 <XCircle className="h-4 w-4" />
-                {loading ? '반려 중...' : '반려하기'}
+                {rejectMutation.isPending ? '반려 중...' : '반려하기'}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -529,40 +414,18 @@ export default function VerifyTodosPage() {
                     반려
                   </Button>
                   <Button
-                    onClick={async () => {
-                      if (currentUser && currentTodo && tenantId) {
-                        setLoading(true)
-                        try {
-                          const result = await verifyTodos({
-                            todoIds: [currentTodo.id],
-                          })
-
-                          if (!result.success) {
-                            throw new Error(result.error || '검증 실패')
-                          }
-
-                          toast({
-                            title: '검증 완료',
-                            description: '과제가 검증되었습니다.',
-                          })
-                          setDetailDialog(false)
-                          await loadPendingTodos()
-                        } catch (error) {
-                          toast({
-                            title: '검증 실패',
-                            description: getErrorMessage(error),
-                            variant: 'destructive',
-                          })
-                        } finally {
-                          setLoading(false)
-                        }
+                    onClick={() => {
+                      if (currentUser?.tenantId && currentTodo) {
+                        verifyMutation.mutate([currentTodo.id], {
+                          onSuccess: () => setDetailDialog(false),
+                        })
                       }
                     }}
-                    disabled={loading}
+                    disabled={verifyMutation.isPending}
                     className="gap-2"
                   >
                     <CheckCircle className="h-4 w-4" />
-                    {loading ? '검증 중...' : '검증'}
+                    {verifyMutation.isPending ? '검증 중...' : '검증'}
                   </Button>
                 </>
               )}

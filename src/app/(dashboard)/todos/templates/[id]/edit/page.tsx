@@ -48,6 +48,8 @@ import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { useTodoTemplateQuery } from '@/hooks/queries/use-todo-templates-query'
+import { useUpdateTodoTemplateMutation } from '@/hooks/mutations/use-todo-mutations'
 
 const DURATION_PRESETS = [
   { label: '15분', value: 15 },
@@ -72,8 +74,6 @@ export default function EditTodoTemplatePage() {
   const [subject, setSubject] = useState('')
   const [estimatedDuration, setEstimatedDuration] = useState('')
   const [priority, setPriority] = useState('normal')
-  const [loading, setLoading] = useState(false)
-  const [loadingTemplate, setLoadingTemplate] = useState(true)
   const [textareaRef, setTextareaRef] = useState<HTMLTextAreaElement | null>(null)
   const [linkDialogOpen, setLinkDialogOpen] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
@@ -83,42 +83,35 @@ export default function EditTodoTemplatePage() {
   const router = useRouter()
   const { user: currentUser, loading: userLoading } = useCurrentUser()
 
-  // Load template data
+  const templateQuery = useTodoTemplateQuery(templateId)
+  const loadingTemplate = templateQuery.isPending
+
+  // 템플릿 데이터가 도착하면 폼 상태로 복사
   useEffect(() => {
-    async function loadTemplate() {
-      if (!templateId) return
+    const template = templateQuery.data
+    if (!template) return
+    setTitle(template.title)
+    setDescription(template.description || '')
+    setSubject(template.subject || '')
+    setEstimatedDuration(template.estimated_duration_minutes != null ? template.estimated_duration_minutes.toString() : '')
+    setPriority(template.priority || 'normal')
+  }, [templateQuery.data])
 
-      try {
-        setLoadingTemplate(true)
-
-        const { getTodoTemplateById } = await import('@/app/actions/todo-templates')
-        const result = await getTodoTemplateById(templateId)
-
-        if (!result.success || !result.data) {
-          throw new Error(result.error || '템플릿을 불러올 수 없습니다')
-        }
-
-        const template = result.data
-        setTitle(template.title)
-        setDescription(template.description || '')
-        setSubject(template.subject || '')
-        setEstimatedDuration(template.estimated_duration_minutes != null ? template.estimated_duration_minutes.toString() : '')
-        setPriority(template.priority || 'normal')
-      } catch (error) {
-        toast({
-          title: '로드 오류',
-          description: getErrorMessage(error),
-          variant: 'destructive',
-        })
-        router.push('/todos/templates')
-      } finally {
-        setLoadingTemplate(false)
-      }
+  // 로드 실패 시 목록으로 복귀
+  useEffect(() => {
+    if (templateQuery.error) {
+      toast({
+        title: '로드 오류',
+        description: getErrorMessage(templateQuery.error),
+        variant: 'destructive',
+      })
+      router.push('/todos/templates')
     }
+  }, [templateQuery.error, toast, router])
 
-    loadTemplate()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [templateId])
+  const updateMutation = useUpdateTodoTemplateMutation({
+    onSuccess: () => router.push('/todos/templates'),
+  })
 
   // Markdown formatting functions
   const wrapSelection = (before: string, after: string) => {
@@ -217,7 +210,7 @@ export default function EditTodoTemplatePage() {
   const handleList = () => insertAtCursor('\n- ')
   const handleOrderedList = () => insertAtCursor('\n1. ')
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
     if (!currentUser) {
@@ -238,39 +231,14 @@ export default function EditTodoTemplatePage() {
       return
     }
 
-    setLoading(true)
-
-    try {
-      // ✅ Use Server Action instead of direct Supabase CUD
-      const { updateTodoTemplate } = await import('@/app/actions/todo-templates')
-      const result = await updateTodoTemplate({
-        id: templateId,
-        title: title.trim(),
-        description: description.trim() || undefined,
-        subject: subject.trim() || undefined,
-        estimatedDurationMinutes: estimatedDuration ? parseInt(estimatedDuration) : null,
-        priority: priority as 'low' | 'normal' | 'high' | 'urgent',
-      })
-
-      if (!result.success) {
-        throw new Error(result.error || '템플릿 수정 실패')
-      }
-
-      toast({
-        title: '템플릿 수정 완료',
-        description: `${title} 템플릿이 수정되었습니다.`,
-      })
-
-      router.push('/todos/templates')
-    } catch (error) {
-      toast({
-        title: '수정 오류',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
-    }
+    updateMutation.mutate({
+      id: templateId,
+      title: title.trim(),
+      description: description.trim() || undefined,
+      subject: subject.trim() || undefined,
+      estimatedDurationMinutes: estimatedDuration ? parseInt(estimatedDuration) : null,
+      priority: priority as 'low' | 'normal' | 'high' | 'urgent',
+    })
   }
 
   const selectedPriority = PRIORITY_OPTIONS.find(opt => opt.value === priority)
@@ -560,16 +528,16 @@ export default function EditTodoTemplatePage() {
                   variant="outline"
                   className="flex-1"
                   onClick={() => router.push('/todos/templates')}
-                  disabled={loading}
+                  disabled={updateMutation.isPending}
                 >
                   취소
                 </Button>
                 <Button
                   type="submit"
                   className="flex-1"
-                  disabled={loading || !title.trim()}
+                  disabled={updateMutation.isPending || !title.trim()}
                 >
-                  {loading ? (
+                  {updateMutation.isPending ? (
                     <>
                       <Repeat className="h-4 w-4 mr-2 animate-spin" />
                       수정 중...
