@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -10,12 +11,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { getErrorMessage } from '@/lib/error-handlers'
 import { formatPhoneNumber } from '@/lib/utils'
 import {
-  getStudentGuardians,
-  getAvailableGuardians,
   linkGuardianToStudent,
   unlinkGuardianFromStudent,
   createGuardian,
 } from '@/app/actions/guardians'
+import {
+  useStudentGuardiansQuery,
+  useAvailableGuardiansQuery,
+} from '@/hooks/queries/use-student-guardians-query'
+import { queryKeys } from '@/lib/query-keys'
 import {
   Dialog,
   DialogContent,
@@ -78,18 +82,15 @@ export function ManageGuardiansDialog({
   studentName,
   onSuccess,
 }: ManageGuardiansDialogProps) {
-  const [loading, setLoading] = useState(false)
-  const [linkedGuardians, setLinkedGuardians] = useState<GuardianWithUser[]>([])
-  const [availableGuardians, setAvailableGuardians] = useState<Array<{ id: string; name: string; phone: string }>>([])
   const [guardianSearchOpen, setGuardianSearchOpen] = useState(false)
   const [actionMode, setActionMode] = useState<'add' | 'link'>('add')
   const { toast } = useToast()
   const { user: currentUser } = useCurrentUser()
+  const queryClient = useQueryClient()
 
   // Unlink confirmation dialog state
   const [unlinkDialogOpen, setUnlinkDialogOpen] = useState(false)
   const [guardianToUnlink, setGuardianToUnlink] = useState<{ id: string; name: string } | null>(null)
-  const [isUnlinking, setIsUnlinking] = useState(false)
 
   const linkForm = useForm<LinkGuardianFormValues>({
     resolver: zodResolver(linkGuardianSchema),
@@ -99,95 +100,29 @@ export function ManageGuardiansDialog({
     },
   })
 
+  const linkedGuardiansQuery = useStudentGuardiansQuery(studentId, open)
+  const availableGuardiansQuery = useAvailableGuardiansQuery(studentId, open)
+  const linkedGuardians = (linkedGuardiansQuery.data ?? []) as GuardianWithUser[]
+  const availableGuardians = availableGuardiansQuery.data ?? []
+
   useEffect(() => {
-    if (open) {
-      loadLinkedGuardians()
-      loadAvailableGuardians()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, studentId])
-
-  async function loadLinkedGuardians() {
-    if (!currentUser || !currentUser.tenantId) return
-
-    try {
-      // Server Action을 통한 학생의 보호자 목록 조회
-      const result = await getStudentGuardians(studentId)
-
-      if (!result.success || !result.data) {
-        throw new Error(result.error || '보호자 목록 조회 실패')
-      }
-
-      // Transform to GuardianWithUser format
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const guardiansWithUser: GuardianWithUser[] = result.data.map((sg: any) => ({
-        id: sg.guardians?.id || '',
-        user_id: sg.guardians?.user_id || '',
-        name: sg.guardians?.users?.name || '',
-        phone: sg.guardians?.users?.phone || '',
-        email: sg.guardians?.users?.email || null,
-        relationship: sg.guardians?.relationship || '',
-        address: sg.guardians?.users?.address || null,
-        occupation: sg.guardians?.users?.occupation || null,
-        relation: sg.relation,
-        is_primary_contact: sg.is_primary || false,
-        receives_notifications: true,
-        receives_billing: true,
-        can_pickup: true,
-      }))
-
-      setLinkedGuardians(guardiansWithUser)
-    } catch (error) {
+    const error = linkedGuardiansQuery.error || availableGuardiansQuery.error
+    if (error) {
       toast({
         title: '데이터 로드 오류',
         description: getErrorMessage(error),
         variant: 'destructive',
       })
     }
+  }, [linkedGuardiansQuery.error, availableGuardiansQuery.error, toast])
+
+  function invalidateGuardians() {
+    queryClient.invalidateQueries({ queryKey: queryKeys.students.guardians(studentId) })
+    queryClient.invalidateQueries({ queryKey: queryKeys.students.availableGuardians(studentId) })
   }
 
-  async function loadAvailableGuardians() {
-    if (!currentUser || !currentUser.tenantId) return
-
-    try {
-      // Server Action을 통한 사용 가능한 보호자 목록 조회
-      const result = await getAvailableGuardians(studentId)
-
-      if (!result.success || !result.data) {
-        throw new Error(result.error || '보호자 목록 조회 실패')
-      }
-
-      // Transform to simple format for dropdown
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const available = result.data.map((g: any) => ({
-        id: g.id,
-        name: g.users?.name || '',
-        phone: g.users?.phone || '',
-      }))
-
-      setAvailableGuardians(available)
-    } catch (error) {
-      toast({
-        title: '데이터 로드 오류',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    }
-  }
-
-  async function handleAddGuardian(data: GuardianFormValues) {
-    if (!currentUser || !currentUser.tenantId) {
-      toast({
-        title: '인증 오류',
-        description: '로그인 정보를 확인할 수 없습니다.',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    setLoading(true)
-    try {
-      // Server Action을 통한 보호자 생성 및 연결
+  const addMutation = useMutation({
+    mutationFn: async (data: GuardianFormValues) => {
       const result = await createGuardian({
         name: data.name,
         phone: data.phone || '',
@@ -197,73 +132,83 @@ export function ManageGuardiansDialog({
         address: data.address || null,
         student_ids: [studentId], // 자동으로 학생과 연결
       })
-
-      if (!result.success) {
-        throw new Error(result.error || '보호자 추가 실패')
-      }
-
+      if (!result.success) throw new Error(result.error || '보호자 추가 실패')
+      return data
+    },
+    onSuccess: (data) => {
       toast({
         title: '학부모 추가 완료',
         description: `${data.name} 학부모가 추가되고 ${studentName} 학생과 연결되었습니다.`,
       })
-
-      loadLinkedGuardians()
-      loadAvailableGuardians()
       onSuccess?.()
-    } catch (error: unknown) {
-      toast({
-        title: '학부모 추가 실패',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
+    },
+    onError: (error: Error) => {
+      toast({ title: '학부모 추가 실패', description: error.message, variant: 'destructive' })
+    },
+    onSettled: invalidateGuardians,
+  })
 
-  async function handleLinkGuardian(data: LinkGuardianFormValues) {
-    if (!currentUser || !currentUser.tenantId) {
-      toast({
-        title: '인증 오류',
-        description: '로그인 정보를 확인할 수 없습니다.',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    setLoading(true)
-    try {
-      // Server Action을 통한 보호자 연결
-      const result = await linkGuardianToStudent(
-        studentId,
-        data.guardianId,
-        data.relationship
-      )
-
-      if (!result.success) {
-        throw new Error(result.error || '보호자 연결 실패')
-      }
-
-      const guardianName = availableGuardians.find(g => g.id === data.guardianId)?.name
-
+  const linkMutation = useMutation({
+    mutationFn: async (data: LinkGuardianFormValues) => {
+      const result = await linkGuardianToStudent(studentId, data.guardianId, data.relationship)
+      if (!result.success) throw new Error(result.error || '보호자 연결 실패')
+      return availableGuardians.find((g) => g.id === data.guardianId)?.name
+    },
+    onSuccess: (guardianName) => {
       toast({
         title: '학부모 연결 완료',
         description: `${guardianName} 학부모가 ${studentName} 학생과 연결되었습니다.`,
       })
-
       linkForm.reset()
-      loadLinkedGuardians()
-      loadAvailableGuardians()
       onSuccess?.()
-    } catch (error: unknown) {
+    },
+    onError: (error: Error) => {
+      toast({ title: '학부모 연결 실패', description: error.message, variant: 'destructive' })
+    },
+    onSettled: invalidateGuardians,
+  })
+
+  const unlinkMutation = useMutation({
+    mutationFn: async (guardian: { id: string; name: string }) => {
+      const result = await unlinkGuardianFromStudent(studentId, guardian.id)
+      if (!result.success) throw new Error(result.error || '연결 해제 실패')
+      return guardian.name
+    },
+    onSuccess: (name) => {
       toast({
-        title: '학부모 연결 실패',
-        description: getErrorMessage(error),
-        variant: 'destructive',
+        title: '연결 해제 완료',
+        description: `${name} 학부모와의 연결이 해제되었습니다.`,
       })
-    } finally {
-      setLoading(false)
+      onSuccess?.()
+    },
+    onError: (error: Error) => {
+      toast({ title: '연결 해제 실패', description: error.message, variant: 'destructive' })
+    },
+    onSettled: () => {
+      invalidateGuardians()
+      setUnlinkDialogOpen(false)
+      setGuardianToUnlink(null)
+    },
+  })
+
+  const loading = addMutation.isPending || linkMutation.isPending
+  const isUnlinking = unlinkMutation.isPending
+
+  async function handleAddGuardian(data: GuardianFormValues) {
+    if (!currentUser?.tenantId) {
+      toast({ title: '인증 오류', description: '로그인 정보를 확인할 수 없습니다.', variant: 'destructive' })
+      return
     }
+    // GuardianFormStandalone은 Promise를 기대 — 에러는 mutation onError가 처리
+    await addMutation.mutateAsync(data).catch(() => {})
+  }
+
+  function handleLinkGuardian(data: LinkGuardianFormValues) {
+    if (!currentUser?.tenantId) {
+      toast({ title: '인증 오류', description: '로그인 정보를 확인할 수 없습니다.', variant: 'destructive' })
+      return
+    }
+    linkMutation.mutate(data)
   }
 
   function handleUnlinkClick(guardianId: string, guardianName: string) {
@@ -271,37 +216,9 @@ export function ManageGuardiansDialog({
     setUnlinkDialogOpen(true)
   }
 
-  async function handleConfirmUnlink() {
-    if (!currentUser || !currentUser.tenantId || !guardianToUnlink) return
-
-    setIsUnlinking(true)
-    try {
-      // Server Action을 통한 보호자 연결 해제
-      const result = await unlinkGuardianFromStudent(studentId, guardianToUnlink.id)
-
-      if (!result.success) {
-        throw new Error(result.error || '연결 해제 실패')
-      }
-
-      toast({
-        title: '연결 해제 완료',
-        description: `${guardianToUnlink.name} 학부모와의 연결이 해제되었습니다.`,
-      })
-
-      loadLinkedGuardians()
-      loadAvailableGuardians()
-      onSuccess?.()
-    } catch (error: unknown) {
-      toast({
-        title: '연결 해제 실패',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    } finally {
-      setIsUnlinking(false)
-      setUnlinkDialogOpen(false)
-      setGuardianToUnlink(null)
-    }
+  function handleConfirmUnlink() {
+    if (!currentUser?.tenantId || !guardianToUnlink) return
+    unlinkMutation.mutate(guardianToUnlink)
   }
 
   const getRelationText = (relation: GuardianRelation) => {

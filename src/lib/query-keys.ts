@@ -39,6 +39,15 @@ export const queryKeys = {
     list: (filters: Record<string, unknown>) => ['students', 'list', filters] as const,
     enriched: () => ['students', 'enriched'] as const,
     filterOptions: () => ['students', 'filterOptions'] as const,
+    guardians: (studentId: string) => ['students', studentId, 'guardians'] as const,
+    availableGuardians: (studentId: string) =>
+      ['students', studentId, 'availableGuardians'] as const,
+    activityLogs: (studentId: string, limit: number) =>
+      ['students', studentId, 'activityLogs', limit] as const,
+  },
+
+  classes: {
+    active: () => ['classes', 'active'] as const,
   },
 
   points: {

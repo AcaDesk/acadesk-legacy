@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import {
   Dialog,
   DialogContent,
@@ -67,92 +68,111 @@ export function BulkGuardianLinkDialog({
 
   // 탭 1: 기존 보호자 연결
   const [searchQuery, setSearchQuery] = useState('')
-  const [guardianOptions, setGuardianOptions] = useState<GuardianOption[]>([])
-  const [searchLoading, setSearchLoading] = useState(false)
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [selectedGuardian, setSelectedGuardian] = useState<GuardianOption | null>(null)
   const [relation, setRelation] = useState('')
-  const [linkLoading, setLinkLoading] = useState(false)
 
   // 탭 2: 자동 매칭
   const [suggestions, setSuggestions] = useState<MatchSuggestion[]>([])
-  const [autoMatchLoading, setAutoMatchLoading] = useState(false)
-  const [autoMatchLoaded, setAutoMatchLoaded] = useState(false)
-  const [autoLinkLoading, setAutoLinkLoading] = useState(false)
+  const [autoMatchEnabled, setAutoMatchEnabled] = useState(false)
 
   // Dialog 열릴 때 초기화
   useEffect(() => {
     if (open) {
       setSearchQuery('')
-      setGuardianOptions([])
+      setDebouncedQuery('')
       setSelectedGuardian(null)
       setRelation('')
       setSuggestions([])
-      setAutoMatchLoaded(false)
+      setAutoMatchEnabled(false)
     }
   }, [open])
 
-  // 보호자 검색
-  const handleSearch = useCallback(async (query: string) => {
-    setSearchLoading(true)
-    try {
-      const result = await searchGuardians(query || '', 20)
-      if (result.success && result.data) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const options: GuardianOption[] = result.data.map((g: any) => {
-          const users = Array.isArray(g.users) ? g.users[0] : g.users
-          return {
-            id: g.id,
-            name: users?.name || '이름 없음',
-            phone: users?.phone || null,
-          }
-        })
-        setGuardianOptions(options)
-      }
-    } catch (error) {
-      console.error('[BulkGuardianLinkDialog] search error:', error)
-    } finally {
-      setSearchLoading(false)
-    }
-  }, [])
-
+  // 검색어 디바운스 (300ms)
   useEffect(() => {
     if (!open) return
-    const timer = setTimeout(() => {
-      handleSearch(searchQuery)
-    }, 300)
+    const timer = setTimeout(() => setDebouncedQuery(searchQuery), 300)
     return () => clearTimeout(timer)
-  }, [searchQuery, open, handleSearch])
+  }, [searchQuery, open])
 
-  // 자동 매칭 로드
-  async function loadAutoMatch() {
-    if (autoMatchLoaded) return
-    setAutoMatchLoading(true)
-    try {
-      const studentIds = selectedStudents.map(s => s.id)
-      const result = await getAutoMatchSuggestions(studentIds)
-      if (result.success && result.data) {
-        setSuggestions(
-          result.data.map(s => ({
-            ...s,
-            checked: true,
-            relation: 'mother',
-          }))
-        )
-      }
-      setAutoMatchLoaded(true)
-    } catch (error) {
+  // 보호자 검색 쿼리 — 디바운스된 검색어가 key
+  const searchGuardiansQuery = useQuery({
+    queryKey: ['guardians', 'search', debouncedQuery],
+    queryFn: async (): Promise<GuardianOption[]> => {
+      const result = await searchGuardians(debouncedQuery || '', 20)
+      if (!result.success || !result.data) return []
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return result.data.map((g: any) => {
+        const users = Array.isArray(g.users) ? g.users[0] : g.users
+        return { id: g.id, name: users?.name || '이름 없음', phone: users?.phone || null }
+      })
+    },
+    enabled: open,
+  })
+  const guardianOptions = searchGuardiansQuery.data ?? []
+  const searchLoading = searchGuardiansQuery.isFetching
+
+  // 자동 매칭 쿼리 — 탭 클릭 시(autoMatchEnabled) 1회 로드
+  const autoMatchQuery = useQuery({
+    queryKey: ['guardians', 'autoMatch', selectedStudents.map((s) => s.id)],
+    queryFn: async () => {
+      const result = await getAutoMatchSuggestions(selectedStudents.map((s) => s.id))
+      if (!result.success || !result.data) return []
+      return result.data
+    },
+    enabled: open && autoMatchEnabled,
+  })
+  const autoMatchLoading = autoMatchQuery.isFetching
+
+  // 서버 제안이 도착하면 편집 가능한 로컬 상태로 시딩
+  useEffect(() => {
+    if (autoMatchQuery.data) {
+      setSuggestions(
+        autoMatchQuery.data.map((s) => ({ ...s, checked: true, relation: 'mother' }))
+      )
+    }
+  }, [autoMatchQuery.data])
+
+  useEffect(() => {
+    if (autoMatchQuery.error) {
       toast({
         title: '자동 매칭 실패',
-        description: getErrorMessage(error),
+        description: getErrorMessage(autoMatchQuery.error),
         variant: 'destructive',
       })
-    } finally {
-      setAutoMatchLoading(false)
     }
+  }, [autoMatchQuery.error, toast])
+
+  function loadAutoMatch() {
+    setAutoMatchEnabled(true)
   }
 
   // 탭 1: 연결 실행
-  async function handleLink() {
+  const linkMutation = useMutation({
+    mutationFn: async () => {
+      const result = await bulkLinkGuardianToStudents(
+        selectedGuardian!.id,
+        selectedStudents.map((s) => s.id),
+        relation
+      )
+      if (!result.success) throw new Error(result.error)
+      return result.data ?? { linkedCount: 0, skippedCount: 0 }
+    },
+    onSuccess: ({ linkedCount = 0, skippedCount = 0 }) => {
+      toast({
+        title: '보호자 연결 완료',
+        description: `${linkedCount}명 연결됨${skippedCount > 0 ? `, ${skippedCount}명 이미 연결됨 (건너뜀)` : ''}`,
+      })
+      onComplete()
+      onOpenChange(false)
+    },
+    onError: (error: Error) => {
+      toast({ title: '보호자 연결 실패', description: error.message, variant: 'destructive' })
+    },
+  })
+  const linkLoading = linkMutation.isPending
+
+  function handleLink() {
     if (!selectedGuardian) {
       toast({ title: '보호자를 선택해주세요', variant: 'destructive' })
       return
@@ -161,43 +181,12 @@ export function BulkGuardianLinkDialog({
       toast({ title: '관계를 선택해주세요', variant: 'destructive' })
       return
     }
-
-    setLinkLoading(true)
-    try {
-      const studentIds = selectedStudents.map(s => s.id)
-      const result = await bulkLinkGuardianToStudents(selectedGuardian.id, studentIds, relation)
-
-      if (!result.success) throw new Error(result.error)
-
-      const { linkedCount = 0, skippedCount = 0 } = result.data ?? {}
-      toast({
-        title: '보호자 연결 완료',
-        description: `${linkedCount}명 연결됨${skippedCount > 0 ? `, ${skippedCount}명 이미 연결됨 (건너뜀)` : ''}`,
-      })
-
-      onComplete()
-      onOpenChange(false)
-    } catch (error) {
-      toast({
-        title: '보호자 연결 실패',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    } finally {
-      setLinkLoading(false)
-    }
+    linkMutation.mutate()
   }
 
   // 탭 2: 자동 매칭 연결 실행
-  async function handleAutoLink() {
-    const checkedSuggestions = suggestions.filter(s => s.checked)
-    if (!checkedSuggestions.length) {
-      toast({ title: '연결할 항목을 선택해주세요', variant: 'destructive' })
-      return
-    }
-
-    setAutoLinkLoading(true)
-    try {
+  const autoLinkMutation = useMutation({
+    mutationFn: async (checkedSuggestions: MatchSuggestion[]) => {
       // 보호자별로 그룹화하여 배치 처리
       const byGuardian = new Map<string, { studentIds: string[]; relation: string }>()
       for (const s of checkedSuggestions) {
@@ -216,23 +205,29 @@ export function BulkGuardianLinkDialog({
           totalSkipped += result.data.skippedCount ?? 0
         }
       }
-
+      return { totalLinked, totalSkipped }
+    },
+    onSuccess: ({ totalLinked, totalSkipped }) => {
       toast({
         title: '자동 매칭 연결 완료',
         description: `${totalLinked}명 연결됨${totalSkipped > 0 ? `, ${totalSkipped}명 건너뜀` : ''}`,
       })
-
       onComplete()
       onOpenChange(false)
-    } catch (error) {
-      toast({
-        title: '자동 매칭 연결 실패',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    } finally {
-      setAutoLinkLoading(false)
+    },
+    onError: (error: Error) => {
+      toast({ title: '자동 매칭 연결 실패', description: error.message, variant: 'destructive' })
+    },
+  })
+  const autoLinkLoading = autoLinkMutation.isPending
+
+  function handleAutoLink() {
+    const checkedSuggestions = suggestions.filter((s) => s.checked)
+    if (!checkedSuggestions.length) {
+      toast({ title: '연결할 항목을 선택해주세요', variant: 'destructive' })
+      return
     }
+    autoLinkMutation.mutate(checkedSuggestions)
   }
 
   const checkedCount = suggestions.filter(s => s.checked).length
@@ -368,7 +363,7 @@ export function BulkGuardianLinkDialog({
               <div className="flex items-center justify-center h-40 text-sm text-muted-foreground">
                 매칭 분석 중...
               </div>
-            ) : !autoMatchLoaded ? (
+            ) : !autoMatchQuery.isSuccess ? (
               <div className="flex items-center justify-center h-40 text-sm text-muted-foreground">
                 자동 매칭 탭을 클릭하면 분석이 시작됩니다.
               </div>

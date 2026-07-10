@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { Download, Trash2, GraduationCap, Users, UserPlus } from 'lucide-react'
 import {
   Dialog,
@@ -22,7 +23,7 @@ import {
   bulkDeleteStudents,
   bulkEnrollClass,
 } from '@/app/actions/students'
-import { getActiveClasses } from '@/app/actions/classes'
+import { useActiveClassesQuery } from '@/hooks/queries/use-active-classes-query'
 import { ConfirmationDialog } from '@ui/confirmation-dialog'
 import { BulkGuardianLinkDialog } from './bulk-guardian-link-dialog'
 
@@ -44,154 +45,114 @@ export function BulkActionsDialog({
   const [selectedAction, setSelectedAction] = useState<BulkAction | null>(null)
   const [selectedGrade, setSelectedGrade] = useState<string>('')
   const [selectedClass, setSelectedClass] = useState<string>('')
-  const [classes, setClasses] = useState<Array<{ id: string; name: string; subject?: string | null; active?: boolean }>>([])
-  const [loading, setLoading] = useState(false)
 
   const { toast } = useToast()
 
   // Delete confirmation dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
 
   // Guardian link dialog state
   const [guardianLinkOpen, setGuardianLinkOpen] = useState(false)
 
-  const loadClasses = useCallback(async () => {
-    try {
-      const result = await getActiveClasses()
-      if (!result.success || !result.data) {
-        throw new Error(result.error || '수업 목록을 불러오지 못했습니다.')
-      }
-      setClasses(result.data)
-    } catch (error) {
+  // 수업 배정 액션 선택 시에만 수업 목록 조회
+  const classesQuery = useActiveClassesQuery(open && selectedAction === 'class')
+  const classes = classesQuery.data ?? []
+
+  useEffect(() => {
+    if (classesQuery.error) {
       toast({
         title: '수업 목록 로드 실패',
-        description: getErrorMessage(error),
+        description: getErrorMessage(classesQuery.error),
         variant: 'destructive',
       })
     }
-  }, [toast])
-
-  // Load classes when dialog opens
-  useEffect(() => {
-    if (open && selectedAction === 'class') {
-      loadClasses()
-    }
-  }, [open, selectedAction, loadClasses])
+  }, [classesQuery.error, toast])
 
   function handleDeleteClick() {
     setDeleteDialogOpen(true)
   }
 
-  async function handleConfirmDelete() {
-    setIsDeleting(true)
-    try {
-      const studentIds = selectedStudents.map(s => s.id)
-
-      // Server Action을 통한 일괄 삭제
-      const result = await bulkDeleteStudents(studentIds)
-
-      if (!result.success) {
-        throw new Error(result.error || '일괄 삭제에 실패했습니다.')
-      }
-
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      const result = await bulkDeleteStudents(selectedStudents.map((s) => s.id))
+      if (!result.success) throw new Error(result.error || '일괄 삭제에 실패했습니다.')
+    },
+    onSuccess: () => {
       toast({
         title: '일괄 삭제 완료',
         description: `${selectedStudents.length}명의 학생이 삭제되었습니다.`,
       })
-
       onComplete()
       onOpenChange(false)
-    } catch (error) {
-      toast({
-        title: '일괄 삭제 실패',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    } finally {
-      setIsDeleting(false)
-      setDeleteDialogOpen(false)
-    }
+    },
+    onError: (error: Error) => {
+      toast({ title: '일괄 삭제 실패', description: error.message, variant: 'destructive' })
+    },
+    onSettled: () => setDeleteDialogOpen(false),
+  })
+
+  function handleConfirmDelete() {
+    deleteMutation.mutate()
   }
 
-  async function handleBulkGradeChange() {
-    if (!selectedGrade) {
-      toast({
-        title: '학년을 선택해주세요',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    setLoading(true)
-    try {
-      // Prepare updates
-      const updates = selectedStudents.map(student => ({
-        id: student.id,
-        grade: selectedGrade,
-      }))
-
-      // Server Action을 통한 일괄 업데이트
+  const gradeMutation = useMutation({
+    mutationFn: async () => {
+      const updates = selectedStudents.map((student) => ({ id: student.id, grade: selectedGrade }))
       const result = await bulkUpdateStudents(updates)
-
-      if (!result.success) {
-        throw new Error(result.error || '일괄 학년 변경에 실패했습니다.')
-      }
-
+      if (!result.success) throw new Error(result.error || '일괄 학년 변경에 실패했습니다.')
+    },
+    onSuccess: () => {
       toast({
         title: '일괄 학년 변경 완료',
         description: `${selectedStudents.length}명의 학생 학년이 ${selectedGrade}(으)로 변경되었습니다.`,
       })
-
       onComplete()
       onOpenChange(false)
-    } catch (error) {
-      toast({
-        title: '일괄 학년 변경 실패',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
+    },
+    onError: (error: Error) => {
+      toast({ title: '일괄 학년 변경 실패', description: error.message, variant: 'destructive' })
+    },
+  })
 
-  async function handleBulkClassAssignment() {
-    if (!selectedClass) {
-      toast({
-        title: '수업을 선택해주세요',
-        variant: 'destructive',
-      })
+  function handleBulkGradeChange() {
+    if (!selectedGrade) {
+      toast({ title: '학년을 선택해주세요', variant: 'destructive' })
       return
     }
+    gradeMutation.mutate()
+  }
 
-    setLoading(true)
-    try {
-      // Server Action을 통한 일괄 수업 배정
-      const studentIds = selectedStudents.map(s => s.id)
-      const result = await bulkEnrollClass(studentIds, selectedClass)
-
-      if (!result.success) {
-        throw new Error(result.error || '일괄 수업 배정에 실패했습니다.')
-      }
-
+  const classMutation = useMutation({
+    mutationFn: async () => {
+      const result = await bulkEnrollClass(
+        selectedStudents.map((s) => s.id),
+        selectedClass
+      )
+      if (!result.success) throw new Error(result.error || '일괄 수업 배정에 실패했습니다.')
+    },
+    onSuccess: () => {
       toast({
         title: '일괄 수업 배정 완료',
         description: `${selectedStudents.length}명의 학생이 수업에 배정되었습니다.`,
       })
-
       onComplete()
       onOpenChange(false)
-    } catch (error) {
-      toast({
-        title: '일괄 수업 배정 실패',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
+    },
+    onError: (error: Error) => {
+      toast({ title: '일괄 수업 배정 실패', description: error.message, variant: 'destructive' })
+    },
+  })
+
+  function handleBulkClassAssignment() {
+    if (!selectedClass) {
+      toast({ title: '수업을 선택해주세요', variant: 'destructive' })
+      return
     }
+    classMutation.mutate()
   }
+
+  const loading = gradeMutation.isPending || classMutation.isPending
+  const isDeleting = deleteMutation.isPending
 
   function handleExportCSV() {
     try {

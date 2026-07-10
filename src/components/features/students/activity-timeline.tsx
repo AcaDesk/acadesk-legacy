@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Badge } from '@ui/badge'
 import { Button } from '@ui/button'
@@ -8,7 +8,7 @@ import { Skeleton } from '@ui/skeleton'
 import { format as formatDate } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { motion, AnimatePresence } from 'motion/react'
-import { getStudentActivityLogs } from '@/app/actions/student-points'
+import { useStudentActivityLogsQuery } from '@/hooks/queries/use-activity-logs-query'
 import {
   GraduationCap,
   CheckCircle,
@@ -87,29 +87,11 @@ const colorMap: Record<string, string> = {
 }
 
 export function ActivityTimeline({ studentId, limit = 50 }: ActivityTimelineProps) {
-  const [activities, setActivities] = useState<ActivityLog[]>([])
-  const [loading, setLoading] = useState(true)
   const [showAll, setShowAll] = useState(false)
 
-  useEffect(() => {
-    loadActivities()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studentId])
-
-  async function loadActivities() {
-    try {
-      setLoading(true)
-      const result = await getStudentActivityLogs(studentId, limit)
-      
-      if (result.success && result.data) {
-        setActivities(result.data)
-      }
-    } catch (error) {
-      console.error('Error loading activities:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const activitiesQuery = useStudentActivityLogsQuery(studentId, limit)
+  const activities = (activitiesQuery.data ?? []) as ActivityLog[]
+  const loading = activitiesQuery.isPending
 
   const displayActivities = showAll ? activities : activities.slice(0, 10)
 

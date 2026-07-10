@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import {
   Dialog,
   DialogContent,
@@ -16,15 +17,8 @@ import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { Loader2 } from 'lucide-react'
-import { getActiveClasses } from '@/app/actions/classes'
 import { updateStudentClassEnrollments } from '@/app/actions/students'
-
-interface Class {
-  id: string
-  name: string
-  subject: string | null
-  active: boolean
-}
+import { useActiveClassesQuery } from '@/hooks/queries/use-active-classes-query'
 
 interface ManageClassesDialogProps {
   open: boolean
@@ -41,43 +35,30 @@ export function ManageClassesDialog({
   currentClassIds,
   onSuccess,
 }: ManageClassesDialogProps) {
-  const [classes, setClasses] = useState<Class[]>([])
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([])
-  const [loading, setLoading] = useState(false)
-  const [saving, setSaving] = useState(false)
   const { toast } = useToast()
   const { user: currentUser } = useCurrentUser()
 
+  const classesQuery = useActiveClassesQuery(open)
+  const classes = classesQuery.data ?? []
+  const loading = classesQuery.isPending
+
   useEffect(() => {
     if (open) {
-      loadClasses()
       setSelectedClassIds(currentClassIds)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
-  async function loadClasses() {
-    try {
-      setLoading(true)
-
-      // Server Action을 통한 활성 클래스 로드
-      const result = await getActiveClasses()
-
-      if (!result.success || !result.data) {
-        throw new Error(result.error || '수업 목록을 불러올 수 없습니다')
-      }
-
-      setClasses(result.data)
-    } catch (error) {
+  useEffect(() => {
+    if (classesQuery.error) {
       toast({
         title: '데이터 로드 오류',
-        description: getErrorMessage(error),
+        description: getErrorMessage(classesQuery.error),
         variant: 'destructive',
       })
-    } finally {
-      setLoading(false)
     }
-  }
+  }, [classesQuery.error, toast])
 
   const handleToggleClass = (classId: string) => {
     setSelectedClassIds((prev) =>
@@ -87,37 +68,26 @@ export function ManageClassesDialog({
     )
   }
 
-  const handleSave = async () => {
-    if (!currentUser || !currentUser.tenantId) return
-
-    setSaving(true)
-    try {
-      // Server Action을 통한 수업 등록 업데이트
-      const result = await updateStudentClassEnrollments(
-        studentId,
-        selectedClassIds
-      )
-
-      if (!result.success) {
-        throw new Error(result.error || '수업 배정 실패')
-      }
-
-      toast({
-        title: '수업 배정 완료',
-        description: '수업 정보가 업데이트되었습니다.',
-      })
-
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const result = await updateStudentClassEnrollments(studentId, selectedClassIds)
+      if (!result.success) throw new Error(result.error || '수업 배정 실패')
+    },
+    onSuccess: () => {
+      toast({ title: '수업 배정 완료', description: '수업 정보가 업데이트되었습니다.' })
       onSuccess()
       onOpenChange(false)
-    } catch (error: unknown) {
-      toast({
-        title: '저장 실패',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    } finally {
-      setSaving(false)
-    }
+    },
+    onError: (error: Error) => {
+      toast({ title: '저장 실패', description: error.message, variant: 'destructive' })
+    },
+  })
+
+  const saving = saveMutation.isPending
+
+  const handleSave = () => {
+    if (!currentUser?.tenantId) return
+    saveMutation.mutate()
   }
 
   return (
