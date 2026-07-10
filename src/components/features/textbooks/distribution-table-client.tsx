@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ExternalLink } from 'lucide-react'
@@ -68,51 +69,72 @@ export function DistributionTableClient({
 }) {
   const router = useRouter()
   const [distributions, setDistributions] = useState(initialDistributions)
-  const [updating, setUpdating] = useState<string | null>(null)
 
-  async function togglePaid(id: string, currentPaid: boolean) {
-    setUpdating(id)
-    setDistributions((prev) =>
-      prev.map((d) => (d.id === id ? { ...d, paid: !currentPaid } : d))
-    )
-    const result = await updateStudentTextbook({ id, paid: !currentPaid })
-    if (!result.success) {
+  const togglePaidMutation = useMutation({
+    mutationFn: async ({ id, currentPaid }: { id: string; currentPaid: boolean }) => {
+      // 낙관적 UI
       setDistributions((prev) =>
-        prev.map((d) => (d.id === id ? { ...d, paid: currentPaid } : d))
+        prev.map((d) => (d.id === id ? { ...d, paid: !currentPaid } : d))
       )
-      showErrorToast(
-        '결제 상태 변경 실패',
-        new Error(result.error || '변경 실패'),
-        'DistributionTableClient.togglePaid'
-      )
-    } else {
-      showSuccessToast('결제 상태 변경', `결제 상태가 ${!currentPaid ? '완료' : '미완료'}로 변경되었습니다`)
-    }
-    setUpdating(null)
+      const result = await updateStudentTextbook({ id, paid: !currentPaid })
+      if (!result.success) {
+        setDistributions((prev) =>
+          prev.map((d) => (d.id === id ? { ...d, paid: currentPaid } : d))
+        )
+        throw new Error(result.error || '변경 실패')
+      }
+      return !currentPaid
+    },
+    onSuccess: (nextPaid) => {
+      showSuccessToast('결제 상태 변경', `결제 상태가 ${nextPaid ? '완료' : '미완료'}로 변경되었습니다`)
+    },
+    onError: (error: Error) => {
+      showErrorToast('결제 상태 변경 실패', error, 'DistributionTableClient.togglePaid')
+    },
+  })
+
+  function togglePaid(id: string, currentPaid: boolean) {
+    togglePaidMutation.mutate({ id, currentPaid })
   }
 
-  async function changeStatus(id: string, newStatus: UsageStatus) {
-    const prev = distributions.find((d) => d.id === id)
-    if (!prev || prev.status === newStatus) return
-    setUpdating(id)
-    setDistributions((prevList) =>
-      prevList.map((d) => (d.id === id ? { ...d, status: newStatus } : d))
-    )
-    const result = await updateStudentTextbook({ id, status: newStatus })
-    if (!result.success) {
+  const changeStatusMutation = useMutation({
+    mutationFn: async ({ id, newStatus }: { id: string; newStatus: UsageStatus }) => {
+      const prev = distributions.find((d) => d.id === id)
+      if (!prev || prev.status === newStatus) return null
+      // 낙관적 UI
       setDistributions((prevList) =>
-        prevList.map((d) => (d.id === id ? { ...d, status: prev.status } : d))
+        prevList.map((d) => (d.id === id ? { ...d, status: newStatus } : d))
       )
-      showErrorToast(
-        '상태 변경 실패',
-        new Error(result.error || '변경 실패'),
-        'DistributionTableClient.changeStatus'
-      )
-    } else {
-      showSuccessToast('상태 변경', `상태가 ${statusLabels[newStatus]}로 변경되었습니다`)
-    }
-    setUpdating(null)
+      const result = await updateStudentTextbook({ id, status: newStatus })
+      if (!result.success) {
+        setDistributions((prevList) =>
+          prevList.map((d) => (d.id === id ? { ...d, status: prev.status } : d))
+        )
+        throw new Error(result.error || '변경 실패')
+      }
+      return newStatus
+    },
+    onSuccess: (newStatus) => {
+      if (newStatus) {
+        showSuccessToast('상태 변경', `상태가 ${statusLabels[newStatus]}로 변경되었습니다`)
+      }
+    },
+    onError: (error: Error) => {
+      showErrorToast('상태 변경 실패', error, 'DistributionTableClient.changeStatus')
+    },
+  })
+
+  function changeStatus(id: string, newStatus: UsageStatus) {
+    changeStatusMutation.mutate({ id, newStatus })
   }
+
+  const updatingId =
+    togglePaidMutation.isPending
+      ? togglePaidMutation.variables?.id
+      : changeStatusMutation.isPending
+        ? changeStatusMutation.variables?.id
+        : null
+  const updating = updatingId ?? null
 
   const header = (
     <CardHeader>

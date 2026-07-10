@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
@@ -76,8 +77,6 @@ export function KakaoTemplateList({
 
   const [templates, setTemplates] = useState<KakaoTemplate[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [actionTemplateId, setActionTemplateId] = useState<string | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [templateToDelete, setTemplateToDelete] = useState<KakaoTemplate | null>(null)
   const [previewTemplate, setPreviewTemplate] = useState<KakaoTemplate | null>(null)
@@ -106,15 +105,34 @@ export function KakaoTemplateList({
     }
   }, [hasChannel, loadTemplates])
 
-  async function handleRefreshStatus(template: KakaoTemplate) {
-    setActionTemplateId(template.id)
-    try {
-      const result = await refreshTemplateStatus(template.id)
+  const TEMPLATE_ACTIONS = {
+    refresh: {
+      run: (id: string) => refreshTemplateStatus(id),
+      failTitle: '갱신 실패',
+      successTitle: '상태 갱신',
+      successDescription: '템플릿 상태가 갱신되었습니다.',
+    },
+    request: {
+      run: (id: string) => requestKakaoTemplateInspection(id),
+      failTitle: '검수 요청 실패',
+      successTitle: '검수 요청 완료',
+      successDescription: '카카오 검수가 시작되었습니다.',
+    },
+    cancel: {
+      run: (id: string) => cancelKakaoTemplateInspection(id),
+      failTitle: '검수 취소 실패',
+      successTitle: '검수 취소 완료',
+      successDescription: '템플릿을 다시 수정할 수 있습니다.',
+    },
+  } as const
 
-      if (!result.success) {
-        throw new Error(result.error || '상태 갱신 실패')
-      }
+  type TemplateActionKind = keyof typeof TEMPLATE_ACTIONS
 
+  const templateActionMutation = useMutation({
+    mutationFn: async ({ template, kind }: { template: KakaoTemplate; kind: TemplateActionKind }) => {
+      const spec = TEMPLATE_ACTIONS[kind]
+      const result = await spec.run(template.id)
+      if (!result.success) throw new Error(result.error || spec.failTitle)
       if (result.data) {
         setTemplates((prev) => {
           const updated = prev.map((t) => (t.id === template.id ? result.data! : t))
@@ -122,84 +140,34 @@ export function KakaoTemplateList({
           return updated
         })
       }
-
+      return kind
+    },
+    onSuccess: (kind) => {
+      const spec = TEMPLATE_ACTIONS[kind]
+      toast({ title: spec.successTitle, description: spec.successDescription })
+    },
+    onError: (error: Error, { kind }) => {
       toast({
-        title: '상태 갱신',
-        description: '템플릿 상태가 갱신되었습니다.',
-      })
-    } catch (error) {
-      toast({
-        title: '갱신 실패',
-        description: error instanceof Error ? error.message : '알 수 없는 오류',
+        title: TEMPLATE_ACTIONS[kind].failTitle,
+        description: error.message || '알 수 없는 오류',
         variant: 'destructive',
       })
-    } finally {
-      setActionTemplateId(null)
-    }
+    },
+  })
+  const actionTemplateId = templateActionMutation.isPending
+    ? templateActionMutation.variables?.template.id
+    : null
+
+  function handleRefreshStatus(template: KakaoTemplate) {
+    templateActionMutation.mutate({ template, kind: 'refresh' })
   }
 
-  async function handleRequestInspection(template: KakaoTemplate) {
-    setActionTemplateId(template.id)
-    try {
-      const result = await requestKakaoTemplateInspection(template.id)
-
-      if (!result.success) {
-        throw new Error(result.error || '검수 요청 실패')
-      }
-
-      if (result.data) {
-        setTemplates((prev) => {
-          const updated = prev.map((t) => (t.id === template.id ? result.data! : t))
-          onTemplatesLoaded?.(buildTemplateSummary(updated))
-          return updated
-        })
-      }
-
-      toast({
-        title: '검수 요청 완료',
-        description: '카카오 검수가 시작되었습니다.',
-      })
-    } catch (error) {
-      toast({
-        title: '검수 요청 실패',
-        description: error instanceof Error ? error.message : '알 수 없는 오류',
-        variant: 'destructive',
-      })
-    } finally {
-      setActionTemplateId(null)
-    }
+  function handleRequestInspection(template: KakaoTemplate) {
+    templateActionMutation.mutate({ template, kind: 'request' })
   }
 
-  async function handleCancelInspection(template: KakaoTemplate) {
-    setActionTemplateId(template.id)
-    try {
-      const result = await cancelKakaoTemplateInspection(template.id)
-
-      if (!result.success) {
-        throw new Error(result.error || '검수 취소 실패')
-      }
-
-      if (result.data) {
-        setTemplates((prev) => {
-          const updated = prev.map((t) => (t.id === template.id ? result.data! : t))
-          onTemplatesLoaded?.(buildTemplateSummary(updated))
-          return updated
-        })
-      }
-
-      toast({
-        title: '검수 취소 완료',
-        description: '템플릿을 다시 수정할 수 있습니다.',
-      })
-    } catch (error) {
-      toast({
-        title: '검수 취소 실패',
-        description: error instanceof Error ? error.message : '알 수 없는 오류',
-        variant: 'destructive',
-      })
-    } finally {
-      setActionTemplateId(null)
-    }
+  function handleCancelInspection(template: KakaoTemplate) {
+    templateActionMutation.mutate({ template, kind: 'cancel' })
   }
 
   function handleDeleteClick(template: KakaoTemplate) {
@@ -207,38 +175,37 @@ export function KakaoTemplateList({
     setDeleteDialogOpen(true)
   }
 
-  async function handleConfirmDelete() {
-    if (!templateToDelete) return
-
-    setDeletingId(templateToDelete.id)
-    try {
-      const result = await deleteKakaoTemplate(templateToDelete.id)
-
-      if (!result.success) {
-        throw new Error(result.error || '삭제 실패')
-      }
-
-      toast({
-        title: '삭제 완료',
-        description: '템플릿이 삭제되었습니다.',
-      })
-
+  const deleteMutation = useMutation({
+    mutationFn: async (template: KakaoTemplate) => {
+      const result = await deleteKakaoTemplate(template.id)
+      if (!result.success) throw new Error(result.error || '삭제 실패')
+      return template.id
+    },
+    onSuccess: (deletedId) => {
+      toast({ title: '삭제 완료', description: '템플릿이 삭제되었습니다.' })
       setTemplates((prev) => {
-        const updated = prev.filter((t) => t.id !== templateToDelete.id)
+        const updated = prev.filter((t) => t.id !== deletedId)
         onTemplatesLoaded?.(buildTemplateSummary(updated))
         return updated
       })
-    } catch (error) {
+    },
+    onError: (error: Error) => {
       toast({
         title: '삭제 실패',
-        description: error instanceof Error ? error.message : '알 수 없는 오류',
+        description: error.message || '알 수 없는 오류',
         variant: 'destructive',
       })
-    } finally {
-      setDeletingId(null)
+    },
+    onSettled: () => {
       setDeleteDialogOpen(false)
       setTemplateToDelete(null)
-    }
+    },
+  })
+  const deletingId = deleteMutation.isPending ? deleteMutation.variables?.id : null
+
+  function handleConfirmDelete() {
+    if (!templateToDelete) return
+    deleteMutation.mutate(templateToDelete)
   }
 
   if (!hasChannel) {

@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import Link from 'next/link'
 import { Button } from '@ui/button'
 import { Card, CardContent } from '@ui/card'
@@ -44,8 +45,6 @@ export function EventSubscriptionList({
   const [subscriptions, setSubscriptions] = useState(initialSubscriptions)
   const [loadError, setLoadError] = useState<string | null>(initialLoadError)
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [togglingEventType, setTogglingEventType] = useState<string | null>(null)
-  const [provisioningEventType, setProvisioningEventType] = useState<string | null>(null)
   const [bulkBusy, setBulkBusy] = useState(false)
   const [resetOpen, setResetOpen] = useState(false)
   const [resetting, setResetting] = useState(false)
@@ -66,50 +65,68 @@ export function EventSubscriptionList({
     }
   }, [])
 
-  async function handleToggle(eventType: string, enabled: boolean) {
-    setTogglingEventType(eventType)
-    try {
+  const toggleMutation = useMutation({
+    mutationFn: async ({ eventType, enabled }: { eventType: string; enabled: boolean }) => {
       const result = await toggleEventSubscription(eventType, enabled)
-      if (!result.success) {
-        toast({ variant: 'destructive', title: '변경 실패', description: result.error || '' })
-        return
-      }
+      if (!result.success) throw new Error(result.error || '변경 실패')
+      return enabled
+    },
+    onSuccess: (enabled) => {
       toast({ title: enabled ? '이벤트 활성화' : '이벤트 비활성화' })
-      await handleRefresh()
-    } finally {
-      setTogglingEventType(null)
-    }
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: '변경 실패', description: error.message })
+    },
+    onSettled: () => handleRefresh(),
+  })
+  const togglingEventType = toggleMutation.isPending ? toggleMutation.variables?.eventType : null
+
+  function handleToggle(eventType: string, enabled: boolean) {
+    toggleMutation.mutate({ eventType, enabled })
   }
 
-  async function handleProvision(eventType: string) {
-    setProvisioningEventType(eventType)
-    try {
+  const provisionMutation = useMutation({
+    mutationFn: async (eventType: string) => {
       const result = await provisionTemplate(eventType)
-      if (!result.success) {
-        toast({ variant: 'destructive', title: '등록 실패', description: result.error || '' })
-        return
-      }
+      if (!result.success) throw new Error(result.error || '등록 실패')
+    },
+    onSuccess: () => {
       toast({ title: '템플릿 등록 완료', description: '카카오 검수가 시작되었습니다.' })
-      await handleRefresh()
-    } finally {
-      setProvisioningEventType(null)
-    }
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: '등록 실패', description: error.message })
+    },
+    onSettled: () => handleRefresh(),
+  })
+
+  function handleProvision(eventType: string) {
+    provisionMutation.mutate(eventType)
   }
 
-  async function handleRetry(eventType: string) {
-    setProvisioningEventType(eventType)
-    try {
+  const retryMutation = useMutation({
+    mutationFn: async (eventType: string) => {
       const result = await retryProvision(eventType)
-      if (!result.success) {
-        toast({ variant: 'destructive', title: '재등록 실패', description: result.error || '' })
-        return
-      }
+      if (!result.success) throw new Error(result.error || '재등록 실패')
+    },
+    onSuccess: () => {
       toast({ title: '재등록 완료', description: '카카오 검수가 다시 시작되었습니다.' })
-      await handleRefresh()
-    } finally {
-      setProvisioningEventType(null)
-    }
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: '재등록 실패', description: error.message })
+    },
+    onSettled: () => handleRefresh(),
+  })
+
+  function handleRetry(eventType: string) {
+    retryMutation.mutate(eventType)
   }
+
+  // provision·retry가 공유하는 진행 중 eventType
+  const provisioningEventType = provisionMutation.isPending
+    ? provisionMutation.variables
+    : retryMutation.isPending
+      ? retryMutation.variables
+      : null
 
   async function handleBulkToggle(eventTypes: string[], enabled: boolean) {
     if (eventTypes.length === 0) return

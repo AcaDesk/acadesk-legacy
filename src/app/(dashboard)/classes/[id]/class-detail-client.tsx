@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useTransition } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { Button } from '@ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
@@ -97,7 +98,6 @@ export function ClassDetailClient({ classData, students: initialStudents, studen
   const router = useRouter()
   const { toast } = useToast()
   const [enrollDialogOpen, setEnrollDialogOpen] = useState(false)
-  const [withdrawingId, setWithdrawingId] = useState<string | null>(null)
   const [students, setStudents] = useState<StudentInClass[]>(initialStudents)
   const [, startTransition] = useTransition()
 
@@ -106,28 +106,37 @@ export function ClassDetailClient({ classData, students: initialStudents, studen
     setStudents(initialStudents)
   }, [initialStudents])
 
-  async function handleWithdraw(studentId: string, studentName: string) {
-    setWithdrawingId(studentId)
-    // 낙관적 UI: 서버 응답을 기다리지 않고 즉시 목록에서 제거
-    const previousStudents = students
-    setStudents((prev) => prev.filter((s) => s.id !== studentId))
-    try {
-      const result = await withdrawStudentFromClass(classData.id, studentId)
-      if (!result.success) {
+  const withdrawMutation = useMutation({
+    mutationFn: async ({ studentId, studentName }: { studentId: string; studentName: string }) => {
+      // 낙관적 UI: 서버 응답을 기다리지 않고 즉시 목록에서 제거
+      const previousStudents = students
+      setStudents((prev) => prev.filter((s) => s.id !== studentId))
+      try {
+        const result = await withdrawStudentFromClass(classData.id, studentId)
+        if (!result.success) {
+          setStudents(previousStudents)
+          throw new Error(result.error ?? '배정 해제 중 오류가 발생했습니다')
+        }
+        return studentName
+      } catch (error) {
         setStudents(previousStudents)
-        toast({ title: '배정 해제 실패', description: result.error ?? '배정 해제 중 오류가 발생했습니다', variant: 'destructive' })
-        return
+        throw error
       }
+    },
+    onSuccess: (studentName) => {
       toast({ title: `${studentName} 배정 해제 완료` })
       startTransition(() => {
         router.refresh()
       })
-    } catch (error) {
-      setStudents(previousStudents)
+    },
+    onError: (error: Error) => {
       toast({ title: '배정 해제 실패', description: getErrorMessage(error), variant: 'destructive' })
-    } finally {
-      setWithdrawingId(null)
-    }
+    },
+  })
+  const withdrawingId = withdrawMutation.isPending ? withdrawMutation.variables?.studentId : null
+
+  function handleWithdraw(studentId: string, studentName: string) {
+    withdrawMutation.mutate({ studentId, studentName })
   }
 
   // usePagination for students table

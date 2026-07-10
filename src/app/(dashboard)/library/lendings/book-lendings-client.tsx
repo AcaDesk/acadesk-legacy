@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
@@ -82,8 +83,6 @@ export function BookLendingsClient({ initialLendings }: BookLendingsClientProps)
   const [currentPage, setCurrentPage] = useState(1)
   const [bulkReminderDialogOpen, setBulkReminderDialogOpen] = useState(false)
   const [isSendingBulkReminder, setIsSendingBulkReminder] = useState(false)
-  const [isReturningId, setIsReturningId] = useState<string | null>(null)
-  const [isSendingReminderId, setIsSendingReminderId] = useState<string | null>(null)
   const [returnTarget, setReturnTarget] = useState<BookLending | null>(null)
   const [reminderTarget, setReminderTarget] = useState<BookLending | null>(null)
 
@@ -283,74 +282,63 @@ export function BookLendingsClient({ initialLendings }: BookLendingsClientProps)
     setDueRange('today')
   }
 
-  async function handleReturn(lendingId: string) {
-    setIsReturningId(lendingId)
-    try {
+  const returnMutation = useMutation({
+    mutationFn: async (lendingId: string) => {
       const result = await returnBook(lendingId)
-
-      if (!result.success) {
-        throw new Error(result.error || '반납 처리 실패')
-      }
-
-      // Update local state
+      if (!result.success) throw new Error(result.error || '반납 처리 실패')
+      return lendingId
+    },
+    onSuccess: (lendingId) => {
       setLendings((prev) =>
-        prev.map((l) =>
-          l.id === lendingId
-            ? { ...l, returned_at: getTodayKST() }
-            : l
-        )
+        prev.map((l) => (l.id === lendingId ? { ...l, returned_at: getTodayKST() } : l))
       )
-
-      toast({
-        title: '반납 처리 완료',
-        description: '도서가 반납 처리되었습니다.',
-      })
-    } catch (error) {
-      console.error('Error returning book:', error)
+      toast({ title: '반납 처리 완료', description: '도서가 반납 처리되었습니다.' })
+    },
+    onError: () => {
       toast({
         title: '반납 처리 오류',
         description: '도서 반납 처리 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
-    } finally {
-      setIsReturningId(null)
-      setReturnTarget(null)
-    }
+    },
+    onSettled: () => setReturnTarget(null),
+  })
+  const isReturningId = returnMutation.isPending ? returnMutation.variables : null
+
+  function handleReturn(lendingId: string) {
+    returnMutation.mutate(lendingId)
   }
 
-  async function handleSendReminder(lending: BookLending) {
-    setIsSendingReminderId(lending.id)
-    try {
+  const reminderMutation = useMutation({
+    mutationFn: async (lending: BookLending) => {
       const result = await sendReminder(lending.id)
-
-      if (!result.success) {
-        throw new Error(result.error || '알림 전송 실패')
-      }
-
-      // Update local state
+      if (!result.success) throw new Error(result.error || '알림 전송 실패')
+      return lending
+    },
+    onSuccess: (lending) => {
       setLendings((prev) =>
         prev.map((l) =>
-          l.id === lending.id
-            ? { ...l, reminder_sent_at: new Date().toISOString() }
-            : l
+          l.id === lending.id ? { ...l, reminder_sent_at: new Date().toISOString() } : l
         )
       )
-
       toast({
         title: '알림 전송 완료',
         description: `${lending.students?.users?.name} 학생에게 반납 알림이 전송되었습니다.`,
       })
-    } catch (error) {
-      console.error('Error sending reminder:', error)
+    },
+    onError: () => {
       toast({
         title: '알림 전송 오류',
         description: '알림 전송 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
-    } finally {
-      setIsSendingReminderId(null)
-      setReminderTarget(null)
-    }
+    },
+    onSettled: () => setReminderTarget(null),
+  })
+  const isSendingReminderId = reminderMutation.isPending ? reminderMutation.variables?.id : null
+
+  function handleSendReminder(lending: BookLending) {
+    reminderMutation.mutate(lending)
   }
 
   function handleBulkReminderClick() {

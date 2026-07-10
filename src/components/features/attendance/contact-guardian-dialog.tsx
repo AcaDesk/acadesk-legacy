@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import Link from 'next/link'
 import {
   Dialog,
@@ -152,7 +153,6 @@ export function ContactGuardianDialog({
   const [message, setMessage] = useState('')
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
   const [sending, setSending] = useState(false)
-  const [logging, setLogging] = useState<string | null>(null)
   const [copiedPhone, setCopiedPhone] = useState<string | null>(null)
   const [capability, setCapability] = useState<MessagingCapability | null>(null)
   const { toast } = useToast()
@@ -384,7 +384,34 @@ export function ContactGuardianDialog({
   }
 
   // ── 전화 기록 저장 ──────────────────────────────────────────────
-  const handleLogPhoneContact = async (guardian: Guardian) => {
+  const logContactMutation = useMutation({
+    mutationFn: async (guardian: Guardian) => {
+      const result = await logGuardianContact({
+        studentId,
+        guardianId: guardian.id,
+        sessionId: sessionId!,
+        notificationType: 'phone',
+        message: `${studentName} 학생 관련 전화 연락`,
+      })
+      if (!result.success || result.error) {
+        throw new Error(result.error || '연락 기록 저장에 실패했습니다.')
+      }
+      return guardian
+    },
+    onSuccess: (guardian) => {
+      toast({
+        title: '전화 연락 기록 저장',
+        description: `${guardian.name}님에게 전화한 기록이 저장되었습니다.`,
+      })
+      onContactLogged?.()
+    },
+    onError: (error: Error) => {
+      toast({ title: '기록 저장 실패', description: getErrorMessage(error), variant: 'destructive' })
+    },
+  })
+  const logging = logContactMutation.isPending ? logContactMutation.variables?.id : null
+
+  const handleLogPhoneContact = (guardian: Guardian) => {
     if (!sessionId) {
       toast({
         title: '연락 기록 불가',
@@ -393,32 +420,7 @@ export function ContactGuardianDialog({
       })
       return
     }
-    setLogging(guardian.id)
-    try {
-      const result = await logGuardianContact({
-        studentId,
-        guardianId: guardian.id,
-        sessionId,
-        notificationType: 'phone',
-        message: `${studentName} 학생 관련 전화 연락`,
-      })
-      if (!result.success || result.error) {
-        throw new Error(result.error || '연락 기록 저장에 실패했습니다.')
-      }
-      toast({
-        title: '전화 연락 기록 저장',
-        description: `${guardian.name}님에게 전화한 기록이 저장되었습니다.`,
-      })
-      onContactLogged?.()
-    } catch (error) {
-      toast({
-        title: '기록 저장 실패',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    } finally {
-      setLogging(null)
-    }
+    logContactMutation.mutate(guardian)
   }
 
   // ── 미리보기 (알림톡) ───────────────────────────────────────────

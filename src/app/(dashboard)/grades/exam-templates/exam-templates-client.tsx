@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -92,12 +93,10 @@ export function ExamTemplatesClient() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [templateToDelete, setTemplateToDelete] = useState<{ id: string; name: string } | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [togglingTemplateId, setTogglingTemplateId] = useState<string | null>(null)
   const [generateDialogOpen, setGenerateDialogOpen] = useState(false)
   const [templateToGenerate, setTemplateToGenerate] = useState<ExamTemplate | null>(null)
   const [generateExamName, setGenerateExamName] = useState('')
   const [generateExamDate, setGenerateExamDate] = useState<Date | undefined>(new Date())
-  const [isGeneratingTemplateId, setIsGeneratingTemplateId] = useState<string | null>(null)
 
   const { toast } = useToast()
   const router = useRouter()
@@ -207,39 +206,47 @@ export function ExamTemplatesClient() {
     }
   }
 
-  async function handleToggleTemplateActive(template: ExamTemplate) {
-    const nextActive = !template.is_template_active
-    const previousTemplates = templates
-    setTogglingTemplateId(template.id)
-
-    setTemplates((prev) =>
-      prev.map((item) =>
-        item.id === template.id ? { ...item, is_template_active: nextActive } : item
+  const toggleActiveMutation = useMutation({
+    mutationFn: async (template: ExamTemplate) => {
+      const nextActive = !template.is_template_active
+      const previousTemplates = templates
+      // 낙관적 UI
+      setTemplates((prev) =>
+        prev.map((item) =>
+          item.id === template.id ? { ...item, is_template_active: nextActive } : item
+        )
       )
-    )
-
-    try {
-      const result = await setExamTemplateActive(template.id, nextActive)
-
-      if (!result.success) throw new Error(result.error || '상태 변경 실패')
-
+      try {
+        const result = await setExamTemplateActive(template.id, nextActive)
+        if (!result.success) throw new Error(result.error || '상태 변경 실패')
+        return { template, nextActive }
+      } catch (error) {
+        setTemplates(previousTemplates)
+        throw error
+      }
+    },
+    onSuccess: ({ template, nextActive }) => {
       toast({
         title: nextActive ? '템플릿 활성화' : '템플릿 일시중지',
         description: nextActive
           ? `"${template.name}" 템플릿의 자동 생성이 다시 활성화되었습니다.`
           : `"${template.name}" 템플릿의 자동 생성이 일시중지되었습니다.`,
       })
-    } catch (error) {
-      console.error('Error toggling template active state:', error)
-      setTemplates(previousTemplates)
+    },
+    onError: () => {
       toast({
         title: '상태 변경 오류',
         description: '템플릿 상태를 변경하는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
-    } finally {
-      setTogglingTemplateId(null)
-    }
+    },
+  })
+  const togglingTemplateId = toggleActiveMutation.isPending
+    ? toggleActiveMutation.variables?.id
+    : null
+
+  function handleToggleTemplateActive(template: ExamTemplate) {
+    toggleActiveMutation.mutate(template)
   }
 
   function handleDelete(id: string, name: string) {
@@ -287,70 +294,58 @@ export function ExamTemplatesClient() {
     setGenerateDialogOpen(true)
   }
 
-  async function handleConfirmGenerateExam() {
-    if (!currentUser || !templateToGenerate) return
-    if (!generateExamDate) {
-      toast({
-        title: '입력 필요',
-        description: '시험일을 선택해주세요.',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    if (!generateExamName.trim()) {
-      toast({
-        title: '입력 필요',
-        description: '시험명을 입력해주세요.',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    setIsGeneratingTemplateId(templateToGenerate.id)
-    try {
+  const generateExamMutation = useMutation({
+    mutationFn: async (template: ExamTemplate) => {
       const result = await createExam({
         name: generateExamName.trim(),
-        subject_id: templateToGenerate.subject_id,
-        category_code: templateToGenerate.category_code,
-        exam_type: templateToGenerate.exam_type,
-        total_questions: templateToGenerate.total_questions,
-        passing_score: templateToGenerate.passing_score,
-        class_id: templateToGenerate.class_id,
-        description: templateToGenerate.description,
-        exam_date: formatDateToYmd(generateExamDate),
+        subject_id: template.subject_id,
+        category_code: template.category_code,
+        exam_type: template.exam_type,
+        total_questions: template.total_questions,
+        passing_score: template.passing_score,
+        class_id: template.class_id,
+        description: template.description,
+        exam_date: formatDateToYmd(generateExamDate!),
         is_recurring: false,
       })
-
       if (!result.success) {
         throw new Error(result.error || '시험을 생성하는 중 오류가 발생했습니다.')
       }
-
+      return result.data
+    },
+    onSuccess: (data) => {
       toast({
         title: '시험 생성 완료',
         description: `"${generateExamName.trim()}" 시험이 생성되었습니다.`,
       })
-
       setGenerateDialogOpen(false)
       setTemplateToGenerate(null)
-
       // Redirect to the created exam detail page for student assignment
-      if (result.data?.examId) {
-        router.push(`/grades/exams/${result.data.examId}`)
+      if (data?.examId) {
+        router.push(`/grades/exams/${data.examId}`)
       } else {
         router.push('/grades')
       }
-    } catch (error: unknown) {
-      console.error('Error generating exam:', error)
-      const errorMessage = error instanceof Error ? error.message : '시험을 생성하는 중 오류가 발생했습니다.'
-      toast({
-        title: '생성 오류',
-        description: errorMessage,
-        variant: 'destructive',
-      })
-    } finally {
-      setIsGeneratingTemplateId(null)
+    },
+    onError: (error: Error) => {
+      toast({ title: '생성 오류', description: error.message, variant: 'destructive' })
+    },
+  })
+  const isGeneratingTemplateId = generateExamMutation.isPending
+    ? generateExamMutation.variables?.id
+    : null
+
+  function handleConfirmGenerateExam() {
+    if (!currentUser || !templateToGenerate) return
+    if (!generateExamDate) {
+      toast({ title: '입력 필요', description: '시험일을 선택해주세요.', variant: 'destructive' })
+      return
     }
+    if (!generateExamName.trim()) {
+      toast({ title: '입력 필요', description: '시험명을 입력해주세요.', variant: 'destructive' })
+      return
+    }
+    generateExamMutation.mutate(templateToGenerate)
   }
 
   function getCategoryLabel(code: string | null) {

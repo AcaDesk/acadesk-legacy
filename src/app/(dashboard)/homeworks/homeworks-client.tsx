@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'motion/react'
 import Link from 'next/link'
 import { Button } from '@ui/button'
@@ -94,7 +95,6 @@ export function HomeworksClient({ initialHomeworks }: HomeworksClientProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string } | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [submittingId, setSubmittingId] = useState<string | null>(null)
   const [isBulkSubmitting, setIsBulkSubmitting] = useState(false)
   const [gradeTarget, setGradeTarget] = useState<HomeworkWithStudent | null>(null)
   const [notifyDialogOpen, setNotifyDialogOpen] = useState(false)
@@ -152,21 +152,23 @@ export function HomeworksClient({ initialHomeworks }: HomeworksClientProps) {
   )
 
   // 개별 제출 처리
-  async function handleSubmitSingle(taskId: string) {
-    setSubmittingId(taskId)
-    try {
+  const submitSingleMutation = useMutation({
+    mutationFn: async (taskId: string) => {
       const result = await submitHomework({ taskId })
-      if (result.success) {
-        toast({ title: '제출 처리 완료' })
-        window.location.reload()
-      } else {
-        toast({ title: '제출 오류', description: result.error ?? undefined, variant: 'destructive' })
-      }
-    } catch {
-      toast({ title: '제출 오류', variant: 'destructive' })
-    } finally {
-      setSubmittingId(null)
-    }
+      if (!result.success) throw new Error(result.error ?? '제출 오류')
+    },
+    onSuccess: () => {
+      toast({ title: '제출 처리 완료' })
+      window.location.reload()
+    },
+    onError: (error: Error) => {
+      toast({ title: '제출 오류', description: error.message, variant: 'destructive' })
+    },
+  })
+  const submittingId = submitSingleMutation.isPending ? submitSingleMutation.variables : null
+
+  function handleSubmitSingle(taskId: string) {
+    submitSingleMutation.mutate(taskId)
   }
 
   // 일괄 제출 처리
