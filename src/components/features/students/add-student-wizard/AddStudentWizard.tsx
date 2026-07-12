@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useForm, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format } from 'date-fns'
@@ -18,6 +19,7 @@ import { Step2_GuardianInfo } from './Step2_GuardianInfo'
 import { Step3_AdditionalInfo } from './Step3_AdditionalInfo'
 import { studentWizardSchema, type StudentWizardFormValues, type StepInfo } from './types'
 import { getTenantCodes } from '@/app/actions/tenant'
+import { queryKeys } from '@/lib/query-keys'
 import { createStudentComplete } from '@/app/actions/students'
 import { convertLeadToStudent } from '@/app/actions/consultations'
 
@@ -71,9 +73,18 @@ interface AddStudentWizardProps {
 export function AddStudentWizard({ open, onOpenChange, onSuccess, initialValues }: AddStudentWizardProps) {
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
-  const [schools, setSchools] = useState<string[]>([])
   const [consultationId, setConsultationId] = useState<string | undefined>(initialValues?.consultationId)
-  const schoolsLoaded = useRef(false)
+
+  // 학교 목록 — 위저드 열릴 때 조회 (없으면 직접 입력)
+  const { data: schools = [] } = useQuery({
+    queryKey: queryKeys.tenantCodes.byType('school'),
+    queryFn: async (): Promise<string[]> => {
+      const result = await getTenantCodes('school')
+      return result.success && result.data ? result.data : []
+    },
+    enabled: open,
+    staleTime: 5 * 60_000,
+  })
 
   const { toast } = useToast()
   const { user: currentUser } = useCurrentUser()
@@ -131,34 +142,6 @@ export function AddStudentWizard({ open, onOpenChange, onSuccess, initialValues 
 
   const { handleSubmit, trigger } = form
   const guardianMode = form.watch('guardianMode')
-
-  // ============================================================================
-  // Data Loading
-  // ============================================================================
-
-  useEffect(() => {
-    if (open && !schoolsLoaded.current) {
-      schoolsLoaded.current = true
-      loadSchools()
-    }
-  }, [open])
-
-  async function loadSchools() {
-    try {
-      const result = await getTenantCodes('school')
-
-      if (!result.success || !result.data) {
-        throw new Error(result.error || '학교 목록 조회 실패')
-      }
-
-      // 사용자가 입력한 학교 데이터만 사용
-      setSchools(result.data)
-    } catch (error) {
-      // 오류 발생 시 빈 배열 사용 (사용자가 직접 입력하도록)
-      console.warn('tenant_codes 테이블을 사용할 수 없습니다. 학교를 직접 입력해주세요:', error)
-      setSchools([])
-    }
-  }
 
   // ============================================================================
   // Step Navigation

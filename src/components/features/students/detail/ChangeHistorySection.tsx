@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
 import { Badge } from '@ui/badge'
 import { ArrowRight, History, Loader2 } from 'lucide-react'
 import { format as formatDate } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { getStudentChangeLogs } from '@/app/actions/students/promotion'
+import { queryKeys } from '@/lib/query-keys'
 
 interface ChangeLog {
   id: string
@@ -41,19 +42,14 @@ interface ChangeHistorySectionProps {
 }
 
 export function ChangeHistorySection({ studentId }: ChangeHistorySectionProps) {
-  const [logs, setLogs] = useState<ChangeLog[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    async function fetchLogs() {
+  const { data: logs = [], isPending: isLoading } = useQuery({
+    queryKey: queryKeys.students.changeLogs(studentId),
+    queryFn: async (): Promise<ChangeLog[]> => {
       const result = await getStudentChangeLogs(studentId)
-      if (result.success && result.data) {
-        setLogs(result.data as ChangeLog[])
-      }
-      setIsLoading(false)
-    }
-    fetchLogs()
-  }, [studentId])
+      return result.success && result.data ? (result.data as ChangeLog[]) : []
+    },
+    enabled: !!studentId,
+  })
 
   if (isLoading) {
     return (

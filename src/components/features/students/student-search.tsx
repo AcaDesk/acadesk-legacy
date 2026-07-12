@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useState, useEffect, useMemo } from 'react'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { Search, Loader2, Check, ChevronsUpDown } from 'lucide-react'
 import { Input } from '@ui/input'
 import { Badge } from '@ui/badge'
@@ -21,6 +21,7 @@ import { ScrollArea } from '@ui/scroll-area'
 import { getStudents } from '@/app/actions/students'
 import { useToast } from '@/hooks/use-toast'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { queryKeys } from '@/lib/query-keys'
 import { cn } from '@/lib/utils'
 
 export interface Student {
@@ -148,41 +149,38 @@ export function StudentSearch(props: StudentSearchProps) {
   } = props
 
   const { toast } = useToast()
-  const [internalStudents, setInternalStudents] = useState<Student[]>([])
-  const [internalLoading, setInternalLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
 
-  const students = externalStudents || internalStudents
-  const loading = externalLoading || internalLoading
-
-  const loadStudents = useCallback(async () => {
-    try {
-      setInternalLoading(true)
+  // 외부 목록이 없으면 내부에서 조회
+  const shouldFetch = fetchStudents && !externalStudents
+  const studentsQuery = useQuery({
+    queryKey: queryKeys.students.list({ view: 'basic' }),
+    queryFn: async (): Promise<Student[]> => {
       const result = await getStudents()
-
       if (!result.success || !result.data) {
         throw new Error(result.error || '학생 목록을 불러올 수 없습니다')
       }
+      return result.data as Student[]
+    },
+    enabled: shouldFetch,
+    staleTime: 5 * 60_000,
+  })
 
-      setInternalStudents(result.data)
-    } catch (error) {
-      console.error('Error loading students:', error)
+  useEffect(() => {
+    if (studentsQuery.error) {
       toast({
         title: '데이터 로드 오류',
-        description: getErrorMessage(error),
+        description: getErrorMessage(studentsQuery.error),
         variant: 'destructive',
       })
-    } finally {
-      setInternalLoading(false)
     }
-  }, [toast])
+  }, [studentsQuery.error, toast])
 
-  // Fetch students if needed
-  useEffect(() => {
-    if (fetchStudents && !externalStudents) {
-      loadStudents()
-    }
-  }, [fetchStudents, externalStudents, loadStudents])
+  const students = useMemo(
+    () => externalStudents || studentsQuery.data || [],
+    [externalStudents, studentsQuery.data]
+  )
+  const loading = externalLoading || (shouldFetch && studentsQuery.isPending)
 
   // Filter and search students
   const filteredStudents = useMemo(() => {

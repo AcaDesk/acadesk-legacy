@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/card'
 import { Badge } from '@ui/badge'
 import { Skeleton } from '@ui/skeleton'
@@ -8,6 +8,7 @@ import { BookOpen } from 'lucide-react'
 import { format as formatDate } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { getRecentClassSessions } from '@/app/actions/classes'
+import { queryKeys } from '@/lib/query-keys'
 
 interface ClassSession {
   id: string
@@ -28,28 +29,14 @@ export function ClassProgressCard({
   classId,
   className,
 }: ClassProgressCardProps) {
-  const [sessions, setSessions] = useState<ClassSession[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    loadClassSessions()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [classId])
-
-  async function loadClassSessions() {
-    try {
-      setLoading(true)
+  const { data: sessions = [], isPending: loading } = useQuery({
+    queryKey: queryKeys.classSessions.recent(classId, 5),
+    queryFn: async (): Promise<ClassSession[]> => {
       const result = await getRecentClassSessions(classId, 5)
-      
-      if (result.success && result.data) {
-        setSessions(result.data)
-      }
-    } catch (error) {
-      console.error('Error loading class sessions:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+      return result.success && result.data ? result.data : []
+    },
+    enabled: !!classId,
+  })
 
   if (loading) {
     return (

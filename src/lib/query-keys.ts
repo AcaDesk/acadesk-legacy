@@ -44,6 +44,16 @@ export const queryKeys = {
       ['students', studentId, 'availableGuardians'] as const,
     activityLogs: (studentId: string, limit: number) =>
       ['students', studentId, 'activityLogs', limit] as const,
+    changeLogs: (studentId: string) => ['students', studentId, 'changeLogs'] as const,
+  },
+
+  classSessions: {
+    recent: (classId: string, limit: number) =>
+      ['classSessions', 'recent', classId, limit] as const,
+  },
+
+  tenantCodes: {
+    byType: (type: string) => ['tenantCodes', type] as const,
   },
 
   classes: {
