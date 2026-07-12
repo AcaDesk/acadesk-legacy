@@ -151,6 +151,11 @@ function getExamTypeBadgeVariant(type: string | null): 'default' | 'secondary' |
   }
 }
 
+// 시험 삭제 다이얼로그 통합 상태 (discriminated union)
+type ActiveDialog =
+  | { type: 'delete'; exam: { id: string; name: string } }
+  | { type: 'bulkDelete' }
+
 export function ExamsClient({ initialExams, categories, templates }: ExamsClientProps) {
   const router = useRouter()
   const [exams, setExams] = useState(initialExams)
@@ -161,10 +166,11 @@ export function ExamsClient({ initialExams, categories, templates }: ExamsClient
   const [selectedPeriod, setSelectedPeriod] = useState<ExamListPeriod>('this_month')
   const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>('active')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [examToDelete, setExamToDelete] = useState<{ id: string; name: string } | null>(null)
-  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
+  const [activeDialog, setActiveDialog] = useState<ActiveDialog | null>(null)
   const [pageSize, setPageSize] = useState(10)
+
+  const closeDialog = () => setActiveDialog(null)
+  const examToDelete = activeDialog?.type === 'delete' ? activeDialog.exam : null
 
   const deleteMutation = useDeleteExamMutation({
     onMutate: (id) => {
@@ -314,15 +320,14 @@ export function ExamsClient({ initialExams, categories, templates }: ExamsClient
   }, [])
 
   function handleDeleteClick(id: string, name: string) {
-    setExamToDelete({ id, name })
-    setDeleteDialogOpen(true)
+    setActiveDialog({ type: 'delete', exam: { id, name } })
   }
 
   function handleConfirmDelete() {
     if (!examToDelete) return
     deleteMutation.mutate(
       { id: examToDelete.id, name: examToDelete.name },
-      { onSettled: () => { setDeleteDialogOpen(false); setExamToDelete(null) } }
+      { onSettled: () => closeDialog() }
     )
   }
 
@@ -331,7 +336,7 @@ export function ExamsClient({ initialExams, categories, templates }: ExamsClient
     if (ids.length === 0) return
     bulkDeleteMutation.mutate(ids, {
       onSuccess: () => setSelectedIds(new Set()),
-      onSettled: () => setBulkDeleteDialogOpen(false),
+      onSettled: () => setActiveDialog(null),
     })
   }, [selectedIds, bulkDeleteMutation])
 
@@ -560,7 +565,7 @@ export function ExamsClient({ initialExams, categories, templates }: ExamsClient
           <Button
             variant="destructive"
             size="sm"
-            onClick={() => setBulkDeleteDialogOpen(true)}
+            onClick={() => setActiveDialog({ type: 'bulkDelete' })}
           >
             <Trash2 className="h-4 w-4 mr-1" />
             일괄 삭제
@@ -817,8 +822,8 @@ export function ExamsClient({ initialExams, categories, templates }: ExamsClient
 
       {/* Single Delete Confirmation Dialog */}
       <ConfirmationDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        open={activeDialog?.type === 'delete'}
+        onOpenChange={(open) => !open && closeDialog()}
         title="시험을 삭제하시겠습니까?"
         description={examToDelete ? `"${examToDelete.name}" 시험과 연결된 모든 성적 데이터가 함께 삭제됩니다. 이 작업은 되돌릴 수 없습니다.` : ''}
         confirmText="삭제"
@@ -829,8 +834,8 @@ export function ExamsClient({ initialExams, categories, templates }: ExamsClient
 
       {/* Bulk Delete Confirmation Dialog */}
       <ConfirmationDialog
-        open={bulkDeleteDialogOpen}
-        onOpenChange={setBulkDeleteDialogOpen}
+        open={activeDialog?.type === 'bulkDelete'}
+        onOpenChange={(open) => !open && closeDialog()}
         title={`${selectedIds.size}개의 시험을 삭제하시겠습니까?`}
         description="삭제된 시험과 연결된 모든 성적 데이터가 함께 삭제됩니다. 이 작업은 되돌릴 수 없습니다."
         confirmText="삭제"

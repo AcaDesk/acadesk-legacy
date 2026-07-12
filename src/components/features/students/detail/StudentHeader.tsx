@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { motion } from 'motion/react'
 import { Badge } from '@ui/badge'
@@ -47,6 +48,9 @@ interface StudentHeaderProps {
   onClassDialogOpen: () => void
 }
 
+// 학생 헤더 다이얼로그 통합 상태 (discriminated union)
+type ActiveDialog = { type: 'profile' } | { type: 'delete' }
+
 export function StudentHeader({
   student,
   onStudentUpdate,
@@ -54,10 +58,8 @@ export function StudentHeader({
 }: StudentHeaderProps) {
   const router = useRouter()
   const { toast } = useToast()
-  const [profileDialogOpen, setProfileDialogOpen] = useState(false)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
-  // const [reportDialogOpen, setReportDialogOpen] = useState(false) // DISABLED: Report feature migration pending
+  const [activeDialog, setActiveDialog] = useState<ActiveDialog | null>(null)
+  const closeDialog = () => setActiveDialog(null)
 
   const calculateAge = (birthDate: string | null) => {
     if (!birthDate) return null
@@ -94,7 +96,7 @@ export function StudentHeader({
         description: '프로필 사진이 업데이트되었습니다.',
       })
 
-      setProfileDialogOpen(false)
+      closeDialog()
     } catch (error) {
       toast({
         title: '업데이트 오류',
@@ -141,34 +143,28 @@ export function StudentHeader({
   }
 
   const handleDeleteClick = () => {
-    setDeleteDialogOpen(true)
+    setActiveDialog({ type: 'delete' })
   }
 
-  const handleConfirmDelete = async () => {
-    setIsDeleting(true)
-    try {
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
       const result = await deleteStudent(student.id)
-
       if (!result.success || result.error) {
         throw new Error(result.error || '학생 삭제에 실패했습니다')
       }
-
-      toast({
-        title: '학생 삭제 완료',
-        description: '학생 정보가 성공적으로 삭제되었습니다.',
-      })
-
+    },
+    onSuccess: () => {
+      toast({ title: '학생 삭제 완료', description: '학생 정보가 성공적으로 삭제되었습니다.' })
       router.push('/students')
-    } catch (error) {
-      toast({
-        title: '삭제 실패',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    } finally {
-      setIsDeleting(false)
-      setDeleteDialogOpen(false)
-    }
+    },
+    onError: (error) => {
+      toast({ title: '삭제 실패', description: getErrorMessage(error), variant: 'destructive' })
+    },
+    onSettled: () => closeDialog(),
+  })
+
+  const handleConfirmDelete = () => {
+    deleteMutation.mutate()
   }
 
   return (
@@ -184,7 +180,7 @@ export function StudentHeader({
           {/* Profile Image */}
           <motion.div
             className="cursor-pointer relative group"
-            onClick={() => setProfileDialogOpen(true)}
+            onClick={() => setActiveDialog({ type: 'profile' })}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
@@ -317,7 +313,7 @@ export function StudentHeader({
       </motion.div>
 
       {/* Profile Image Upload Dialog */}
-      <Dialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen}>
+      <Dialog open={activeDialog?.type === 'profile'} onOpenChange={(open) => !open && closeDialog()}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>프로필 사진 변경</DialogTitle>
@@ -344,13 +340,13 @@ export function StudentHeader({
 
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        open={activeDialog?.type === 'delete'}
+        onOpenChange={(open) => !open && closeDialog()}
         title="정말로 삭제하시겠습니까?"
         description={`"${student.users?.name || '이 학생'}"의 모든 정보가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`}
         confirmText="삭제"
         variant="destructive"
-        isLoading={isDeleting}
+        isLoading={deleteMutation.isPending}
         onConfirm={handleConfirmDelete}
       />
     </div>

@@ -38,6 +38,12 @@ import {
   useCreateRetestMutation,
 } from '@/hooks/mutations/use-retest-mutations'
 
+// 재시험 다이얼로그 통합 상태 (discriminated union)
+type ActiveDialog =
+  | { type: 'waive'; student: RetestStudent }
+  | { type: 'postpone'; student: RetestStudent }
+  | { type: 'createRetest' }
+
 export function RetestsClient() {
   const { toast } = useToast()
 
@@ -47,12 +53,15 @@ export function RetestsClient() {
   const createRetestMutation = useCreateRetestMutation()
 
   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set())
-  const [targetStudent, setTargetStudent] = useState<RetestStudent | null>(null)
 
-  // Confirmation dialogs
-  const [waiveDialogOpen, setWaiveDialogOpen] = useState(false)
-  const [postponeDialogOpen, setPostponeDialogOpen] = useState(false)
-  const [createRetestDialogOpen, setCreateRetestDialogOpen] = useState(false)
+  // 다이얼로그 통합 상태 (discriminated union)
+  const [activeDialog, setActiveDialog] = useState<ActiveDialog | null>(null)
+  const closeDialog = () => setActiveDialog(null)
+  // waive/postpone가 참조하는 대상 학생 (닫힘 애니메이션 중에도 유지)
+  const targetStudent =
+    activeDialog?.type === 'waive' || activeDialog?.type === 'postpone'
+      ? activeDialog.student
+      : null
 
   // Retest creation form
   const [retestDate, setRetestDate] = useState<Date | undefined>(undefined)
@@ -73,7 +82,7 @@ export function RetestsClient() {
     if (!targetStudent) return
     waiveMutation.mutate(
       { examScoreId: targetStudent.exam_score_id, studentName: targetStudent.student_name },
-      { onSettled: () => { setWaiveDialogOpen(false); setTargetStudent(null) } }
+      { onSettled: () => closeDialog() }
     )
   }
 
@@ -81,7 +90,7 @@ export function RetestsClient() {
     if (!targetStudent) return
     postponeMutation.mutate(
       { examScoreId: targetStudent.exam_score_id, studentName: targetStudent.student_name },
-      { onSettled: () => { setPostponeDialogOpen(false); setTargetStudent(null) } }
+      { onSettled: () => closeDialog() }
     )
   }
 
@@ -118,7 +127,7 @@ export function RetestsClient() {
     // Set default retest date to today
     setRetestDate(new Date())
 
-    setCreateRetestDialogOpen(true)
+    setActiveDialog({ type: 'createRetest' })
   }
 
   function handleCreateRetest() {
@@ -134,7 +143,7 @@ export function RetestsClient() {
       { examId, studentIds, retestDate: format(retestDate, 'yyyy-MM-dd'), selectedCount: selectedStudents.size },
       {
         onSettled: () => {
-          setCreateRetestDialogOpen(false)
+          closeDialog()
           setSelectedStudents(new Set())
           setRetestDate(undefined)
           setOriginalExamName('')
@@ -282,19 +291,13 @@ export function RetestsClient() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
-                            onClick={() => {
-                              setTargetStudent(student)
-                              setWaiveDialogOpen(true)
-                            }}
+                            onClick={() => setActiveDialog({ type: 'waive', student })}
                           >
                             <CheckCircle2 className="w-4 h-4 mr-2" />
                             재시험 면제
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={() => {
-                              setTargetStudent(student)
-                              setPostponeDialogOpen(true)
-                            }}
+                            onClick={() => setActiveDialog({ type: 'postpone', student })}
                           >
                             <Clock className="w-4 h-4 mr-2" />
                             다른 날로 연기
@@ -312,8 +315,8 @@ export function RetestsClient() {
 
       {/* Waive Confirmation Dialog */}
       <ConfirmationDialog
-        open={waiveDialogOpen}
-        onOpenChange={setWaiveDialogOpen}
+        open={activeDialog?.type === 'waive'}
+        onOpenChange={(open) => !open && closeDialog()}
         title="재시험을 면제하시겠습니까?"
         description={
           targetStudent
@@ -328,8 +331,8 @@ export function RetestsClient() {
 
       {/* Postpone Confirmation Dialog */}
       <ConfirmationDialog
-        open={postponeDialogOpen}
-        onOpenChange={setPostponeDialogOpen}
+        open={activeDialog?.type === 'postpone'}
+        onOpenChange={(open) => !open && closeDialog()}
         title="재시험을 연기하시겠습니까?"
         description={
           targetStudent
@@ -343,7 +346,7 @@ export function RetestsClient() {
       />
 
       {/* Create Retest Dialog */}
-      <Dialog open={createRetestDialogOpen} onOpenChange={setCreateRetestDialogOpen}>
+      <Dialog open={activeDialog?.type === 'createRetest'} onOpenChange={(open) => !open && closeDialog()}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>재시험 생성 및 배정</DialogTitle>
@@ -391,7 +394,7 @@ export function RetestsClient() {
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setCreateRetestDialogOpen(false)}
+              onClick={closeDialog}
               disabled={createRetestMutation.isPending}
             >
               취소

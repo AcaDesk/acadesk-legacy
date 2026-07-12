@@ -32,12 +32,18 @@ interface PaymentsContentProps {
   }
 }
 
+// 수납 다이얼로그 통합 상태 (discriminated union)
+type ActiveDialog =
+  | { type: 'payment'; invoiceId: string }
+  | { type: 'createInvoices' }
+  | { type: 'reminder' }
+
 export function PaymentsContent({ initialStats }: PaymentsContentProps) {
-  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
-  const [createInvoicesDialogOpen, setCreateInvoicesDialogOpen] = useState(false)
-  const [reminderDialogOpen, setReminderDialogOpen] = useState(false)
-  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string>('')
+  const [activeDialog, setActiveDialog] = useState<ActiveDialog | null>(null)
   const [, setRefreshKey] = useState(0)
+
+  const closeDialog = () => setActiveDialog(null)
+  const selectedInvoiceId = activeDialog?.type === 'payment' ? activeDialog.invoiceId : ''
   const [selectedMonth] = useState(() => {
     const now = new Date()
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
@@ -70,7 +76,7 @@ export function PaymentsContent({ initialStats }: PaymentsContentProps) {
               </p>
             </div>
           {stats.unpaidCount > 0 && (
-            <Button onClick={() => setReminderDialogOpen(true)}>
+            <Button onClick={() => setActiveDialog({ type: 'reminder' })}>
               <Bell className="h-4 w-4 mr-2" />
               미납자 알림 발송
             </Button>
@@ -179,10 +185,7 @@ export function PaymentsContent({ initialStats }: PaymentsContentProps) {
                 <CardContent>
                   <PaymentList
                     month={selectedMonth}
-                    onPaymentClick={(invoiceId) => {
-                      setSelectedInvoiceId(invoiceId)
-                      setPaymentDialogOpen(true)
-                    }}
+                    onPaymentClick={(invoiceId) => setActiveDialog({ type: 'payment', invoiceId })}
                   />
                 </CardContent>
               </Card>
@@ -200,7 +203,7 @@ export function PaymentsContent({ initialStats }: PaymentsContentProps) {
                         매월 초, 수강 중인 학생들에게 학원비를 일괄 청구하세요
                       </CardDescription>
                     </div>
-                    <Button onClick={() => setCreateInvoicesDialogOpen(true)}>
+                    <Button onClick={() => setActiveDialog({ type: 'createInvoices' })}>
                       <FileText className="h-4 w-4 mr-2" />
                       청구서 생성
                     </Button>
@@ -272,8 +275,8 @@ export function PaymentsContent({ initialStats }: PaymentsContentProps) {
 
         {/* Payment Dialog */}
         <ProcessPaymentDialog
-          open={paymentDialogOpen}
-          onOpenChange={setPaymentDialogOpen}
+          open={activeDialog?.type === 'payment'}
+          onOpenChange={(open) => !open && closeDialog()}
           invoiceId={selectedInvoiceId}
           invoiceDetails={
             selectedInvoiceId
@@ -291,15 +294,15 @@ export function PaymentsContent({ initialStats }: PaymentsContentProps) {
 
         {/* Create Invoices Dialog */}
         <CreateInvoicesDialog
-          open={createInvoicesDialogOpen}
-          onOpenChange={setCreateInvoicesDialogOpen}
+          open={activeDialog?.type === 'createInvoices'}
+          onOpenChange={(open) => !open && closeDialog()}
           onSuccess={handleInvoicesCreated}
         />
 
         {/* Payment Reminder Dialog */}
         <PaymentReminderDialog
-          open={reminderDialogOpen}
-          onOpenChange={setReminderDialogOpen}
+          open={activeDialog?.type === 'reminder'}
+          onOpenChange={(open) => !open && closeDialog()}
           month={selectedMonth}
           onSuccess={handleReminderSent}
         />
