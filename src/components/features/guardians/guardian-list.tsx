@@ -9,42 +9,40 @@ import {
   useBulkDeleteGuardiansMutation,
 } from '@/hooks/queries/use-guardians-query'
 
+// 삭제 다이얼로그 통합 상태 (discriminated union)
+type ActiveDialog =
+  | { type: 'delete'; guardian: { id: string; name: string } }
+  | { type: 'bulkDelete'; ids: string[] }
+
 export function GuardianList() {
   const { data: guardians = [], isLoading } = useGuardiansQuery()
   const deleteMutation = useDeleteGuardianMutation()
   const bulkDeleteMutation = useBulkDeleteGuardiansMutation()
 
-  // Single delete state
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [guardianToDelete, setGuardianToDelete] = useState<{ id: string; name: string } | null>(null)
-
-  // Bulk delete state
-  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
-  const [idsToDelete, setIdsToDelete] = useState<string[]>([])
+  const [activeDialog, setActiveDialog] = useState<ActiveDialog | null>(null)
+  const closeDialog = () => setActiveDialog(null)
 
   function handleDeleteClick(id: string, name: string) {
-    setGuardianToDelete({ id, name })
-    setDeleteDialogOpen(true)
+    setActiveDialog({ type: 'delete', guardian: { id, name } })
   }
 
   async function handleConfirmDelete() {
-    if (!guardianToDelete) return
-    await deleteMutation.mutateAsync(guardianToDelete.id)
-    setDeleteDialogOpen(false)
-    setGuardianToDelete(null)
+    if (activeDialog?.type !== 'delete') return
+    await deleteMutation.mutateAsync(activeDialog.guardian.id)
+    closeDialog()
   }
 
   function handleBulkDeleteClick(ids: string[]) {
-    setIdsToDelete(ids)
-    setBulkDeleteDialogOpen(true)
+    setActiveDialog({ type: 'bulkDelete', ids })
   }
 
   async function handleConfirmBulkDelete() {
-    if (idsToDelete.length === 0) return
-    await bulkDeleteMutation.mutateAsync(idsToDelete)
-    setBulkDeleteDialogOpen(false)
-    setIdsToDelete([])
+    if (activeDialog?.type !== 'bulkDelete' || activeDialog.ids.length === 0) return
+    await bulkDeleteMutation.mutateAsync(activeDialog.ids)
+    closeDialog()
   }
+
+  const bulkCount = activeDialog?.type === 'bulkDelete' ? activeDialog.ids.length : 0
 
   return (
     <>
@@ -57,12 +55,12 @@ export function GuardianList() {
 
       {/* Single Delete Confirmation */}
       <ConfirmationDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        open={activeDialog?.type === 'delete'}
+        onOpenChange={(open) => !open && closeDialog()}
         title="정말로 삭제하시겠습니까?"
         description={
-          guardianToDelete
-            ? `"${guardianToDelete.name}" 보호자의 모든 정보가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`
+          activeDialog?.type === 'delete'
+            ? `"${activeDialog.guardian.name}" 보호자의 모든 정보가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`
             : ''
         }
         confirmText="삭제"
@@ -73,10 +71,10 @@ export function GuardianList() {
 
       {/* Bulk Delete Confirmation */}
       <ConfirmationDialog
-        open={bulkDeleteDialogOpen}
-        onOpenChange={setBulkDeleteDialogOpen}
+        open={activeDialog?.type === 'bulkDelete'}
+        onOpenChange={(open) => !open && closeDialog()}
         title="선택한 보호자를 모두 삭제하시겠습니까?"
-        description={`${idsToDelete.length}명의 보호자가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`}
+        description={`${bulkCount}명의 보호자가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`}
         confirmText="일괄 삭제"
         variant="destructive"
         isLoading={bulkDeleteMutation.isPending}

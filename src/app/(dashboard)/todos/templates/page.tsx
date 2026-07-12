@@ -86,24 +86,27 @@ const PRIORITY_CONFIG = {
   low: { label: '낮음', icon: Info, color: 'text-gray-600', variant: 'outline' as const },
 }
 
+// 템플릿 다이얼로그 통합 상태 (discriminated union)
+type ActiveDialog =
+  | { type: 'detail'; template: TodoTemplate }
+  | { type: 'delete'; template: { id: string; title: string } }
+  | { type: 'generate'; template: TodoTemplate }
+
 export default function TodoTemplatesPage() {
   // All Hooks must be called before any early returns
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedTemplate, setSelectedTemplate] = useState<TodoTemplate | null>(null)
-  const [detailDialogOpen, setDetailDialogOpen] = useState(false)
+  const [activeDialog, setActiveDialog] = useState<ActiveDialog | null>(null)
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
   const [priorityFilter, setPriorityFilter] = useState<'all' | 'high' | 'normal' | 'low'>('all')
   const [dayFilter, setDayFilter] = useState<'all' | string>('all')
 
-  // Delete confirmation dialog state
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [templateToDelete, setTemplateToDelete] = useState<{ id: string; title: string } | null>(null)
-
-  // Generate todos confirmation dialog state
-  const [generateDialogOpen, setGenerateDialogOpen] = useState(false)
-  const [templateToGenerate, setTemplateToGenerate] = useState<TodoTemplate | null>(null)
+  const closeDialog = () => setActiveDialog(null)
+  // 상세 모달이 참조하는 템플릿 (닫힘 애니메이션 중에도 유지)
+  const selectedTemplate = activeDialog?.type === 'detail' ? activeDialog.template : null
+  const templateToDelete = activeDialog?.type === 'delete' ? activeDialog.template : null
+  const templateToGenerate = activeDialog?.type === 'generate' ? activeDialog.template : null
 
   const { toast } = useToast()
   const router = useRouter()
@@ -141,8 +144,7 @@ export default function TodoTemplatesPage() {
 
   const deleteMutation = useDeleteTodoTemplateMutation({
     onSettled: () => {
-      setDeleteDialogOpen(false)
-      setTemplateToDelete(null)
+      closeDialog()
     },
   })
   const toggleActiveMutation = useToggleTodoTemplateActiveMutation()
@@ -192,8 +194,7 @@ export default function TodoTemplatesPage() {
   }
 
   function handleDeleteClick(id: string, title: string) {
-    setTemplateToDelete({ id, title })
-    setDeleteDialogOpen(true)
+    setActiveDialog({ type: 'delete', template: { id, title } })
   }
 
   function handleConfirmDelete() {
@@ -210,8 +211,7 @@ export default function TodoTemplatesPage() {
   }
 
   function handleGenerateClick(template: TodoTemplate) {
-    setTemplateToGenerate(template)
-    setGenerateDialogOpen(true)
+    setActiveDialog({ type: 'generate', template })
   }
 
   const generateMutation = useMutation({
@@ -265,8 +265,7 @@ export default function TodoTemplatesPage() {
       })
     },
     onSettled: () => {
-      setGenerateDialogOpen(false)
-      setTemplateToGenerate(null)
+      closeDialog()
     },
   })
 
@@ -276,8 +275,7 @@ export default function TodoTemplatesPage() {
   }
 
   function handleViewTemplate(template: TodoTemplate) {
-    setSelectedTemplate(template)
-    setDetailDialogOpen(true)
+    setActiveDialog({ type: 'detail', template })
   }
 
   // Remove markdown syntax for clean preview
@@ -640,7 +638,7 @@ export default function TodoTemplatesPage() {
         )}
 
         {/* Template Detail Dialog */}
-        <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+        <Dialog open={activeDialog?.type === 'detail'} onOpenChange={(open) => !open && closeDialog()}>
           <DialogContent className="max-w-2xl">
             {selectedTemplate && (
               <>
@@ -728,10 +726,7 @@ export default function TodoTemplatesPage() {
                   <div className="flex flex-col sm:flex-row gap-3">
                     <Button
                       variant="default"
-                      onClick={() => {
-                        setDetailDialogOpen(false)
-                        handleGenerateClick(selectedTemplate)
-                      }}
+                      onClick={() => handleGenerateClick(selectedTemplate)}
                       disabled={!selectedTemplate.active}
                       className="flex-1 gap-2"
                     >
@@ -741,7 +736,7 @@ export default function TodoTemplatesPage() {
                     <Button
                       variant="outline"
                       onClick={() => {
-                        setDetailDialogOpen(false)
+                        closeDialog()
                         router.push(`/todos/templates/${selectedTemplate.id}/edit`)
                       }}
                       className="flex-1 gap-2"
@@ -752,7 +747,7 @@ export default function TodoTemplatesPage() {
                     <Button
                       variant="outline"
                       onClick={() => {
-                        setDetailDialogOpen(false)
+                        closeDialog()
                         handleToggleActive(selectedTemplate)
                       }}
                       className="gap-2"
@@ -774,10 +769,7 @@ export default function TodoTemplatesPage() {
                   <div className="flex justify-end">
                     <Button
                       variant="ghost"
-                      onClick={() => {
-                        setDetailDialogOpen(false)
-                        handleDeleteClick(selectedTemplate.id, selectedTemplate.title)
-                      }}
+                      onClick={() => handleDeleteClick(selectedTemplate.id, selectedTemplate.title)}
                       className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-2"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -792,8 +784,8 @@ export default function TodoTemplatesPage() {
 
         {/* Delete Confirmation Dialog */}
         <ConfirmationDialog
-          open={deleteDialogOpen}
-          onOpenChange={setDeleteDialogOpen}
+          open={activeDialog?.type === 'delete'}
+          onOpenChange={(open) => !open && closeDialog()}
           title="템플릿 삭제"
           description={templateToDelete ? `"${templateToDelete.title}" 템플릿을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.` : ''}
           confirmText="삭제"
@@ -804,8 +796,8 @@ export default function TodoTemplatesPage() {
 
         {/* Generate Todos Confirmation Dialog */}
         <ConfirmationDialog
-          open={generateDialogOpen}
-          onOpenChange={setGenerateDialogOpen}
+          open={activeDialog?.type === 'generate'}
+          onOpenChange={(open) => !open && closeDialog()}
           title="과제 일괄 생성"
           description={templateToGenerate ? `전체 학생에게 "${templateToGenerate.title}" 과제를 배정하시겠습니까?` : ''}
           confirmText="생성"

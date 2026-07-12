@@ -118,7 +118,7 @@ describe('detachStudentActiveRelations', () => {
           },
         }),
         expect.objectContaining({
-          table: 'student_todos',
+          table: 'student_tasks',
           action: 'update',
           payload: {
             deleted_at: '2026-05-13T10:00:00.000Z',
@@ -141,6 +141,20 @@ describe('detachStudentActiveRelations', () => {
         ['eq', 'tenant_id', 'tenant-1'],
         ['in', 'student_id', ['student-1', 'student-2']],
         ['eq', 'status', 'active'],
+      ])
+    )
+
+    // 미검증 과제만 soft delete 하는지 확인
+    const taskUpdate = supabase.calls.find(
+      (call) => call.table === 'student_tasks' && call.action === 'update'
+    )
+
+    expect(taskUpdate?.filters).toEqual(
+      expect.arrayContaining([
+        ['eq', 'tenant_id', 'tenant-1'],
+        ['in', 'student_id', ['student-1', 'student-2']],
+        ['is', 'deleted_at', null],
+        ['is', 'verified_at', null],
       ])
     )
   })

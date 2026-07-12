@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { RRule } from 'rrule'
 import { AcademyCalendar } from '@/components/features/calendar/AcademyCalendar'
 import { EventDetailModal } from '@/components/features/calendar/EventDetailModal'
@@ -19,29 +20,35 @@ interface CalendarContentProps {
   initialEvents: CalendarEvent[]
 }
 
+// 캘린더 다이얼로그 통합 상태 (discriminated union)
+type ActiveDialog =
+  | { type: 'detail'; event: CalendarEvent }
+  | { type: 'add'; slot: { start: Date; end: Date } | null }
+  | { type: 'edit'; event: CalendarEvent }
+  | { type: 'delete'; event: CalendarEvent }
+
 export function CalendarContent({ initialEvents }: CalendarContentProps) {
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents)
-  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [slotInfo, setSlotInfo] = useState<{ start: Date; end: Date } | null>(null)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [eventToDelete, setEventToDelete] = useState<CalendarEvent | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
+  const [activeDialog, setActiveDialog] = useState<ActiveDialog | null>(null)
 
   const { toast } = useToast()
 
+  const closeDialog = useCallback(() => setActiveDialog(null), [])
+
+  // 상세/수정 모달이 참조할 이벤트 (닫힘 애니메이션 중에도 유지)
+  const dialogEvent =
+    activeDialog?.type === 'detail' || activeDialog?.type === 'edit'
+      ? activeDialog.event
+      : null
+
   // 이벤트 클릭
   const handleSelectEvent = useCallback((event: CalendarEvent) => {
-    setSelectedEvent(event)
-    setIsDetailModalOpen(true)
+    setActiveDialog({ type: 'detail', event })
   }, [])
 
   // 슬롯 클릭 (날짜/시간 클릭 시 새 일정 등록)
   const handleSelectSlot = useCallback((info: { start: Date; end: Date; action: string }) => {
-    setSlotInfo({ start: info.start, end: info.end })
-    setIsAddModalOpen(true)
+    setActiveDialog({ type: 'add', slot: { start: info.start, end: info.end } })
   }, [])
 
   // 일정 추가
@@ -107,9 +114,7 @@ export function CalendarContent({ initialEvents }: CalendarContentProps) {
 
   // 일정 수정 모달 열기
   const handleEditEvent = useCallback((event: CalendarEvent) => {
-    setSelectedEvent(event)
-    setIsDetailModalOpen(false)
-    setIsEditModalOpen(true)
+    setActiveDialog({ type: 'edit', event })
   }, [])
 
   // 일정 수정 저장
@@ -161,28 +166,30 @@ export function CalendarContent({ initialEvents }: CalendarContentProps) {
 
   // 일정 삭제 확인 다이얼로그 열기
   const handleDeleteEvent = useCallback((event: CalendarEvent) => {
-    setEventToDelete(event)
-    setDeleteDialogOpen(true)
-    setIsDetailModalOpen(false)
+    setActiveDialog({ type: 'delete', event })
   }, [])
 
   // 일정 삭제 확정
-  const handleConfirmDelete = async () => {
-    if (!eventToDelete) return
-    setIsDeleting(true)
-    try {
-      const result = await deleteCalendarEvent(eventToDelete.id)
+  const deleteMutation = useMutation({
+    mutationFn: async (event: CalendarEvent) => {
+      const result = await deleteCalendarEvent(event.id)
       if (!result.success) throw new Error(result.error || '일정 삭제에 실패했습니다')
-
-      setEvents((prev) => prev.filter((e) => e.id !== eventToDelete.id))
-      toast({ title: '일정 삭제 완료', description: `"${eventToDelete.title}" 일정이 삭제되었습니다.` })
-    } catch (error) {
+      return event
+    },
+    onSuccess: (event) => {
+      setEvents((prev) => prev.filter((e) => e.id !== event.id))
+      toast({ title: '일정 삭제 완료', description: `"${event.title}" 일정이 삭제되었습니다.` })
+    },
+    onError: (error) => {
       console.error('Failed to delete event:', error)
       toast({ variant: 'destructive', title: '일정 삭제 실패', description: '일정을 삭제하는데 실패했습니다.' })
-    } finally {
-      setIsDeleting(false)
-      setDeleteDialogOpen(false)
-      setEventToDelete(null)
+    },
+    onSettled: () => closeDialog(),
+  })
+
+  const handleConfirmDelete = () => {
+    if (activeDialog?.type === 'delete') {
+      deleteMutation.mutate(activeDialog.event)
     }
   }
 
@@ -192,51 +199,48 @@ export function CalendarContent({ initialEvents }: CalendarContentProps) {
         events={events}
         onSelectEvent={handleSelectEvent}
         onSelectSlot={handleSelectSlot}
-        onAddEvent={() => setIsAddModalOpen(true)}
+        onAddEvent={() => setActiveDialog({ type: 'add', slot: null })}
       />
 
       {/* 일정 상세 모달 */}
       <EventDetailModal
-        event={selectedEvent}
-        open={isDetailModalOpen}
-        onOpenChange={setIsDetailModalOpen}
+        event={dialogEvent}
+        open={activeDialog?.type === 'detail'}
+        onOpenChange={(open) => !open && closeDialog()}
         onEdit={handleEditEvent}
         onDelete={handleDeleteEvent}
       />
 
       {/* 일정 추가 모달 */}
       <AddEventModal
-        open={isAddModalOpen}
-        onOpenChange={(open) => {
-          setIsAddModalOpen(open)
-          if (!open) setSlotInfo(null)
-        }}
+        open={activeDialog?.type === 'add'}
+        onOpenChange={(open) => !open && closeDialog()}
         onSubmit={handleAddEvent}
-        initialStart={slotInfo?.start}
-        initialEnd={slotInfo?.end}
+        initialStart={activeDialog?.type === 'add' ? activeDialog.slot?.start : undefined}
+        initialEnd={activeDialog?.type === 'add' ? activeDialog.slot?.end : undefined}
       />
 
       {/* 일정 수정 모달 */}
       <EditEventModal
-        event={selectedEvent}
-        open={isEditModalOpen}
-        onOpenChange={setIsEditModalOpen}
+        event={dialogEvent}
+        open={activeDialog?.type === 'edit'}
+        onOpenChange={(open) => !open && closeDialog()}
         onSubmit={handleUpdateEvent}
       />
 
       {/* 삭제 확인 다이얼로그 */}
       <ConfirmationDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        open={activeDialog?.type === 'delete'}
+        onOpenChange={(open) => !open && closeDialog()}
         title="정말로 삭제하시겠습니까?"
         description={
-          eventToDelete
-            ? `"${eventToDelete.title}" 일정이 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`
+          activeDialog?.type === 'delete'
+            ? `"${activeDialog.event.title}" 일정이 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`
             : ''
         }
         confirmText="삭제"
         variant="destructive"
-        isLoading={isDeleting}
+        isLoading={deleteMutation.isPending}
         onConfirm={handleConfirmDelete}
       />
     </div>
