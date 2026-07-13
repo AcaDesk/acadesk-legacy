@@ -40,8 +40,7 @@ interface StudentPointsWidgetProps {
 }
 
 export function StudentPointsWidget({ studentId }: StudentPointsWidgetProps) {
-  const [historyDialogOpen, setHistoryDialogOpen] = useState(false)
-  const [addPointDialogOpen, setAddPointDialogOpen] = useState(false)
+  const [activeDialog, setActiveDialog] = useState<'history' | 'addPoint' | null>(null)
 
   const balanceQuery = useStudentPointBalanceQuery(studentId)
   const historyQuery = useStudentPointHistoryQuery(studentId, 20)
@@ -82,7 +81,7 @@ export function StudentPointsWidget({ studentId }: StudentPointsWidgetProps) {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setAddPointDialogOpen(true)}
+                onClick={() => setActiveDialog('addPoint')}
                 className="h-8 gap-1"
               >
                 <Plus className="h-3 w-3" />
@@ -91,7 +90,7 @@ export function StudentPointsWidget({ studentId }: StudentPointsWidgetProps) {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setHistoryDialogOpen(true)}
+                onClick={() => setActiveDialog('history')}
                 className="h-8 gap-1"
               >
                 <History className="h-3 w-3" />
@@ -151,12 +150,15 @@ export function StudentPointsWidget({ studentId }: StudentPointsWidgetProps) {
 
       <AddPointDialog
         studentId={studentId}
-        open={addPointDialogOpen}
-        onOpenChange={setAddPointDialogOpen}
+        open={activeDialog === 'addPoint'}
+        onOpenChange={(open) => setActiveDialog(open ? 'addPoint' : null)}
       />
 
       {/* History Dialog */}
-      <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
+      <Dialog
+        open={activeDialog === 'history'}
+        onOpenChange={(open) => setActiveDialog(open ? 'history' : null)}
+      >
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>상벌점 상세 내역</DialogTitle>

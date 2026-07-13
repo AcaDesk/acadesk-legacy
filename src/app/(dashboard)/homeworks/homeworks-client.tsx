@@ -88,19 +88,25 @@ const priorityLabels = {
 
 type StatusFilter = 'all' | 'pending' | 'submitted' | 'graded'
 
+// 다이얼로그 상태 통합 — discriminated union 패턴
+type HomeworksDialog =
+  | { type: 'delete'; id: string; name: string }
+  | { type: 'grade'; homework: HomeworkWithStudent }
+  | { type: 'notify'; id: string; title: string; studentName: string }
+
 export function HomeworksClient({ initialHomeworks }: HomeworksClientProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string } | null>(null)
+  const [activeDialog, setActiveDialog] = useState<HomeworksDialog | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isBulkSubmitting, setIsBulkSubmitting] = useState(false)
-  const [gradeTarget, setGradeTarget] = useState<HomeworkWithStudent | null>(null)
-  const [notifyDialogOpen, setNotifyDialogOpen] = useState(false)
-  const [itemToNotify, setItemToNotify] = useState<{ id: string; title: string; studentName: string } | null>(null)
   const [isSendingNotification, setIsSendingNotification] = useState(false)
   const { toast } = useToast()
+
+  const itemToDelete = activeDialog?.type === 'delete' ? activeDialog : null
+  const gradeTarget = activeDialog?.type === 'grade' ? activeDialog.homework : null
+  const itemToNotify = activeDialog?.type === 'notify' ? activeDialog : null
 
   const stats = useMemo(() => ({
     total: initialHomeworks.length,
@@ -198,12 +204,12 @@ export function HomeworksClient({ initialHomeworks }: HomeworksClientProps) {
 
   // 부모님께 발송
   function handleSendNotificationClick(homework: HomeworkWithStudent) {
-    setItemToNotify({
+    setActiveDialog({
+      type: 'notify',
       id: homework.id,
       title: homework.title,
       studentName: homework.students?.user_id?.name ?? '학생',
     })
-    setNotifyDialogOpen(true)
   }
 
   async function handleConfirmSendNotification() {
@@ -229,15 +235,13 @@ export function HomeworksClient({ initialHomeworks }: HomeworksClientProps) {
       toast({ title: '발송 오류', variant: 'destructive' })
     } finally {
       setIsSendingNotification(false)
-      setNotifyDialogOpen(false)
-      setItemToNotify(null)
+      setActiveDialog(null)
     }
   }
 
   // 삭제
   function handleDeleteClick(id: string, title: string) {
-    setItemToDelete({ id, name: title })
-    setDeleteDialogOpen(true)
+    setActiveDialog({ type: 'delete', id, name: title })
   }
 
   async function handleConfirmDelete() {
@@ -253,8 +257,7 @@ export function HomeworksClient({ initialHomeworks }: HomeworksClientProps) {
       }
     } finally {
       setIsDeleting(false)
-      setDeleteDialogOpen(false)
-      setItemToDelete(null)
+      setActiveDialog(null)
     }
   }
 
@@ -508,7 +511,7 @@ export function HomeworksClient({ initialHomeworks }: HomeworksClientProps) {
                               <Button
                                 size="sm"
                                 variant={homework.graded_at ? 'outline' : 'default'}
-                                onClick={() => setGradeTarget(homework)}
+                                onClick={() => setActiveDialog({ type: 'grade', homework })}
                               >
                                 {homework.graded_at ? '재채점' : '채점'}
                               </Button>
@@ -545,10 +548,10 @@ export function HomeworksClient({ initialHomeworks }: HomeworksClientProps) {
       {gradeDialogData && (
         <GradeDialog
           open={gradeTarget !== null}
-          onOpenChange={(open) => { if (!open) setGradeTarget(null) }}
+          onOpenChange={(open) => { if (!open) setActiveDialog(null) }}
           submission={gradeDialogData}
           onGradeComplete={() => {
-            setGradeTarget(null)
+            setActiveDialog(null)
             window.location.reload()
           }}
         />
@@ -556,8 +559,8 @@ export function HomeworksClient({ initialHomeworks }: HomeworksClientProps) {
 
       {/* 삭제 확인 다이얼로그 */}
       <ConfirmationDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        open={activeDialog?.type === 'delete'}
+        onOpenChange={(open) => !open && setActiveDialog(null)}
         title="정말로 삭제하시겠습니까?"
         description={itemToDelete ? `"${itemToDelete.name}"이(가) 삭제됩니다. 이 작업은 되돌릴 수 없습니다.` : ''}
         confirmText="삭제"
@@ -568,8 +571,8 @@ export function HomeworksClient({ initialHomeworks }: HomeworksClientProps) {
 
       {/* 부모님께 발송 확인 다이얼로그 */}
       <ConfirmationDialog
-        open={notifyDialogOpen}
-        onOpenChange={setNotifyDialogOpen}
+        open={activeDialog?.type === 'notify'}
+        onOpenChange={(open) => !open && setActiveDialog(null)}
         title="부모님께 숙제 안내 발송"
         description={
           itemToNotify

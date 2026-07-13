@@ -57,13 +57,17 @@ interface PlannedTodo {
   priority: string
 }
 
+// 다이얼로그 상태 통합 — consultation.store.ts 의 discriminated union 패턴
+type PlannerDialog =
+  | { type: 'addTodo'; studentId: string; dayOfWeek: number }
+  | { type: 'copyWeek'; sourceStudentId: string }
+  | { type: 'bulkAdd' }
+  | { type: 'deleteSelected' }
+
 export default function WeeklyPlannerPage() {
   // All Hooks must be called before any early returns
   const [plannedTodos, setPlannedTodos] = useState<PlannedTodo[]>([])
-  const [selectedCell, setSelectedCell] = useState<{ studentId: string; dayOfWeek: number } | null>(null)
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [copyDialogOpen, setCopyDialogOpen] = useState(false)
-  const [sourceStudentId, setSourceStudentId] = useState<string | null>(null)
+  const [activeDialog, setActiveDialog] = useState<PlannerDialog | null>(null)
   const [targetStudentIds, setTargetStudentIds] = useState<Set<string>>(new Set())
   const [dragOverCell, setDragOverCell] = useState<{ studentId: string; dayOfWeek: number } | null>(null)
   const [recommendedTemplates, setRecommendedTemplates] = useState<TodoTemplate[]>([])
@@ -76,8 +80,11 @@ export default function WeeklyPlannerPage() {
   // Multi-cell selection
   const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set())
   const [selectionMode, setSelectionMode] = useState(false)
-  const [bulkDialogOpen, setBulkDialogOpen] = useState(false)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+
+  // 다이얼로그별 대상 파생값
+  const selectedCell = activeDialog?.type === 'addTodo' ? activeDialog : null
+  const sourceStudentId =
+    activeDialog?.type === 'copyWeek' ? activeDialog.sourceStudentId : null
 
 
   // Helper to get todos for a specific cell
@@ -151,8 +158,7 @@ export default function WeeklyPlannerPage() {
     }
 
     // Otherwise, open dialog for single cell
-    setSelectedCell({ studentId, dayOfWeek })
-    setDialogOpen(true)
+    setActiveDialog({ type: 'addTodo', studentId, dayOfWeek })
 
     // Load recommended templates based on student's schedule
     await loadRecommendedTemplates(studentId)
@@ -195,7 +201,7 @@ export default function WeeklyPlannerPage() {
       })
       return
     }
-    setBulkDialogOpen(true)
+    setActiveDialog({ type: 'bulkAdd' })
   }
 
   function addTodoToBulkCells(template: TodoTemplate) {
@@ -217,7 +223,7 @@ export default function WeeklyPlannerPage() {
     })
 
     setPlannedTodos([...plannedTodos, ...newTodos])
-    setBulkDialogOpen(false)
+    setActiveDialog(null)
     clearCellSelection()
 
     toast({
@@ -227,7 +233,7 @@ export default function WeeklyPlannerPage() {
   }
 
   function deleteTodosFromBulkCellsClick() {
-    setDeleteDialogOpen(true)
+    setActiveDialog({ type: 'deleteSelected' })
   }
 
   function handleConfirmDelete() {
@@ -239,7 +245,7 @@ export default function WeeklyPlannerPage() {
 
     setPlannedTodos(updatedTodos)
     clearCellSelection()
-    setDeleteDialogOpen(false)
+    setActiveDialog(null)
 
     toast({
       title: '일괄 삭제 완료',
@@ -304,7 +310,7 @@ export default function WeeklyPlannerPage() {
     }
 
     setPlannedTodos([...plannedTodos, newTodo])
-    setDialogOpen(false)
+    setActiveDialog(null)
     toast({
       title: '과제 추가',
       description: `${template.title}이(가) 추가되었습니다.`,
@@ -411,9 +417,8 @@ export default function WeeklyPlannerPage() {
       return
     }
 
-    setSourceStudentId(studentId)
     setTargetStudentIds(new Set())
-    setCopyDialogOpen(true)
+    setActiveDialog({ type: 'copyWeek', sourceStudentId: studentId })
   }
 
   function toggleStudentSelection(studentId: string) {
@@ -442,7 +447,7 @@ export default function WeeklyPlannerPage() {
     })
 
     setPlannedTodos([...plannedTodos, ...newTodos])
-    setCopyDialogOpen(false)
+    setActiveDialog(null)
 
     toast({
       title: '계획 복사 완료',
@@ -812,7 +817,10 @@ export default function WeeklyPlannerPage() {
         </div>
 
         {/* Add Todo Dialog */}
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog
+          open={activeDialog?.type === 'addTodo'}
+          onOpenChange={(open) => !open && setActiveDialog(null)}
+        >
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>과제 추가</DialogTitle>
@@ -909,7 +917,7 @@ export default function WeeklyPlannerPage() {
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              <Button variant="outline" onClick={() => setActiveDialog(null)}>
                 취소
               </Button>
             </DialogFooter>
@@ -917,7 +925,10 @@ export default function WeeklyPlannerPage() {
         </Dialog>
 
         {/* Bulk Add Dialog */}
-        <Dialog open={bulkDialogOpen} onOpenChange={setBulkDialogOpen}>
+        <Dialog
+          open={activeDialog?.type === 'bulkAdd'}
+          onOpenChange={(open) => !open && setActiveDialog(null)}
+        >
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>일괄 과제 추가</DialogTitle>
@@ -969,7 +980,7 @@ export default function WeeklyPlannerPage() {
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setBulkDialogOpen(false)}>
+              <Button variant="outline" onClick={() => setActiveDialog(null)}>
                 취소
               </Button>
             </DialogFooter>
@@ -977,7 +988,10 @@ export default function WeeklyPlannerPage() {
         </Dialog>
 
         {/* Copy Plan Dialog */}
-        <Dialog open={copyDialogOpen} onOpenChange={setCopyDialogOpen}>
+        <Dialog
+          open={activeDialog?.type === 'copyWeek'}
+          onOpenChange={(open) => !open && setActiveDialog(null)}
+        >
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>주간 계획 복사</DialogTitle>
@@ -1024,7 +1038,7 @@ export default function WeeklyPlannerPage() {
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setCopyDialogOpen(false)}>
+              <Button variant="outline" onClick={() => setActiveDialog(null)}>
                 취소
               </Button>
               <Button
@@ -1041,8 +1055,8 @@ export default function WeeklyPlannerPage() {
 
         {/* Delete Confirmation Dialog */}
         <ConfirmationDialog
-          open={deleteDialogOpen}
-          onOpenChange={setDeleteDialogOpen}
+          open={activeDialog?.type === 'deleteSelected'}
+          onOpenChange={(open) => !open && setActiveDialog(null)}
           title="정말로 삭제하시겠습니까?"
           description={`선택한 ${selectedCells.size}개 셀의 모든 과제가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`}
           confirmText="삭제"
