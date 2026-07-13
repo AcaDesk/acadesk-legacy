@@ -1,15 +1,16 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useState, useMemo } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import {
   getExamTemplates,
   setExamTemplateActive,
   deleteExam,
   createExam,
 } from '@/app/actions/grades/exams'
+import { useExamCategoriesQuery } from '@/hooks/queries/use-exam-form-options-query'
+import { queryKeys } from '@/lib/query-keys'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
 import { Badge } from '@ui/badge'
@@ -82,17 +83,13 @@ function formatDateToYmd(date: Date) {
 
 export function ExamTemplatesClient() {
   // All Hooks must be called before any early returns
-  const [templates, setTemplates] = useState<ExamTemplate[]>([])
-  const [categories, setCategories] = useState<ExamCategory[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [subjectFilter, setSubjectFilter] = useState('all')
   const [scheduleFilter, setScheduleFilter] = useState('all')
   const [classFilter, setClassFilter] = useState('all')
   const [questionFilter, setQuestionFilter] = useState<QuestionFilter>('all')
-  const [loading, setLoading] = useState(true)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [templateToDelete, setTemplateToDelete] = useState<{ id: string; name: string } | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
   const [generateDialogOpen, setGenerateDialogOpen] = useState(false)
   const [templateToGenerate, setTemplateToGenerate] = useState<ExamTemplate | null>(null)
   const [generateExamName, setGenerateExamName] = useState('')
@@ -100,16 +97,25 @@ export function ExamTemplatesClient() {
 
   const { toast } = useToast()
   const router = useRouter()
-  const supabase = createClient()
+  const queryClient = useQueryClient()
   const { user: currentUser, loading: userLoading } = useCurrentUser()
 
-  // useEffect must be called before any early returns
-  useEffect(() => {
-    if (!userLoading && currentUser) {
-      loadData()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser, userLoading])
+  const categoriesQuery = useExamCategoriesQuery()
+  const categories: ExamCategory[] = categoriesQuery.data ?? []
+
+  const templatesQuery = useQuery({
+    queryKey: queryKeys.grades.examTemplates(),
+    queryFn: async (): Promise<ExamTemplate[]> => {
+      const result = await getExamTemplates()
+      if (!result.success) {
+        throw new Error(result.error || '템플릿 조회 실패')
+      }
+      return (result.data || []) as unknown as ExamTemplate[]
+    },
+    enabled: !userLoading && !!currentUser,
+  })
+  const templates = useMemo(() => templatesQuery.data ?? [], [templatesQuery.data])
+  const loading = templatesQuery.isPending
 
   const availableSubjects = useMemo(() => {
     const map = new Map<string, string>()
@@ -176,54 +182,25 @@ export function ExamTemplatesClient() {
     })
   }, [templates, searchTerm, subjectFilter, scheduleFilter, classFilter, questionFilter])
 
-  async function loadData() {
-    try {
-      setLoading(true)
-
-      const [categoriesResult, templatesResult] = await Promise.all([
-        supabase
-          .from('ref_exam_categories')
-          .select('code, label')
-          .eq('active', true)
-          .order('sort_order'),
-        getExamTemplates(),
-      ])
-
-      if (categoriesResult.error) throw categoriesResult.error
-      if (!templatesResult.success) throw new Error(templatesResult.error || '템플릿 조회 실패')
-
-      setCategories(categoriesResult.data || [])
-      setTemplates((templatesResult.data || []) as unknown as ExamTemplate[])
-    } catch (error) {
-      console.error('Error loading data:', error)
-      toast({
-        title: '데이터 로드 오류',
-        description: error instanceof Error ? error.message : '템플릿을 불러오는 중 오류가 발생했습니다.',
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const toggleActiveMutation = useMutation({
     mutationFn: async (template: ExamTemplate) => {
       const nextActive = !template.is_template_active
-      const previousTemplates = templates
-      // 낙관적 UI
-      setTemplates((prev) =>
-        prev.map((item) =>
-          item.id === template.id ? { ...item, is_template_active: nextActive } : item
+      const result = await setExamTemplateActive(template.id, nextActive)
+      if (!result.success) throw new Error(result.error || '상태 변경 실패')
+      return { template, nextActive }
+    },
+    // 낙관적 UI — 실패 시 이전 목록으로 롤백
+    onMutate: (template) => {
+      const key = queryKeys.grades.examTemplates()
+      const previous = queryClient.getQueryData<ExamTemplate[]>(key)
+      queryClient.setQueryData<ExamTemplate[]>(key, (prev) =>
+        prev?.map((item) =>
+          item.id === template.id
+            ? { ...item, is_template_active: !template.is_template_active }
+            : item
         )
       )
-      try {
-        const result = await setExamTemplateActive(template.id, nextActive)
-        if (!result.success) throw new Error(result.error || '상태 변경 실패')
-        return { template, nextActive }
-      } catch (error) {
-        setTemplates(previousTemplates)
-        throw error
-      }
+      return { previous }
     },
     onSuccess: ({ template, nextActive }) => {
       toast({
@@ -233,7 +210,10 @@ export function ExamTemplatesClient() {
           : `"${template.name}" 템플릿의 자동 생성이 일시중지되었습니다.`,
       })
     },
-    onError: () => {
+    onError: (_error, _template, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKeys.grades.examTemplates(), context.previous)
+      }
       toast({
         title: '상태 변경 오류',
         description: '템플릿 상태를 변경하는 중 오류가 발생했습니다.',
@@ -254,35 +234,47 @@ export function ExamTemplatesClient() {
     setDeleteDialogOpen(true)
   }
 
-  async function handleConfirmDelete() {
-    if (!templateToDelete) return
-
-    setIsDeleting(true)
-    const previousTemplates = templates
-    setTemplates((prev) => prev.filter((template) => template.id !== templateToDelete.id))
-
-    try {
-      const result = await deleteExam(templateToDelete.id)
-
+  const deleteMutation = useMutation({
+    mutationFn: async (target: { id: string; name: string }) => {
+      const result = await deleteExam(target.id)
       if (!result.success) throw new Error(result.error || '삭제 실패')
-
+      return target
+    },
+    // 낙관적 UI — 실패 시 이전 목록으로 롤백
+    onMutate: (target) => {
+      const key = queryKeys.grades.examTemplates()
+      const previous = queryClient.getQueryData<ExamTemplate[]>(key)
+      queryClient.setQueryData<ExamTemplate[]>(key, (prev) =>
+        prev?.filter((template) => template.id !== target.id)
+      )
+      return { previous }
+    },
+    onSuccess: (target) => {
       toast({
         title: '삭제 완료',
-        description: `${templateToDelete.name} 템플릿이 삭제되었습니다.`,
+        description: `${target.name} 템플릿이 삭제되었습니다.`,
       })
-    } catch (error) {
-      console.error('Error deleting template:', error)
-      setTemplates(previousTemplates)
+    },
+    onError: (_error, _target, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKeys.grades.examTemplates(), context.previous)
+      }
       toast({
         title: '삭제 오류',
         description: '템플릿을 삭제하는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
-    } finally {
-      setIsDeleting(false)
+    },
+    onSettled: () => {
       setDeleteDialogOpen(false)
       setTemplateToDelete(null)
-    }
+    },
+  })
+  const isDeleting = deleteMutation.isPending
+
+  function handleConfirmDelete() {
+    if (!templateToDelete) return
+    deleteMutation.mutate(templateToDelete)
   }
 
   function openGenerateDialog(template: ExamTemplate) {
@@ -320,6 +312,8 @@ export function ExamTemplatesClient() {
       })
       setGenerateDialogOpen(false)
       setTemplateToGenerate(null)
+      // 생성 횟수(_count.generated) 갱신을 위해 목록 캐시 무효화
+      queryClient.invalidateQueries({ queryKey: queryKeys.grades.examTemplates() })
       // Redirect to the created exam detail page for student assignment
       if (data?.examId) {
         router.push(`/grades/exams/${data.examId}`)
@@ -393,6 +387,18 @@ export function ExamTemplatesClient() {
       <PageWrapper>
         <div className="flex items-center justify-center h-64">
           <div className="text-muted-foreground">로딩 중...</div>
+        </div>
+      </PageWrapper>
+    )
+  }
+
+  if (templatesQuery.isError) {
+    return (
+      <PageWrapper>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-destructive">
+            템플릿을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.
+          </div>
         </div>
       </PageWrapper>
     )

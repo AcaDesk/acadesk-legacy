@@ -19,6 +19,7 @@ export const queryKeys = {
     exams: () => ['grades', 'exams'] as const,
     exam: (id: string) => ['grades', 'exam', id] as const,
     examAssignment: (examId: string) => ['grades', 'exam', examId, 'assignment'] as const,
+    examTemplates: () => ['grades', 'examTemplates'] as const,
     listData: () => ['grades', 'listData'] as const,
     studentStats: (studentId: string) => ['grades', 'studentStats', studentId] as const,
   },
@@ -62,6 +63,7 @@ export const queryKeys = {
 
   classes: {
     active: () => ['classes', 'active'] as const,
+    detail: (id: string) => ['classes', id] as const,
     forExam: () => ['classes', 'forExam'] as const,
     enrolledIds: (classId: string) => ['classes', classId, 'enrolledIds'] as const,
   },

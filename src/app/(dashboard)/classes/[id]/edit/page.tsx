@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter, useParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -25,6 +26,7 @@ import { PAGE_LAYOUT, TEXT_STYLES } from '@/lib/constants'
 import { useToast } from '@/hooks/use-toast'
 import { getClassById, updateClass, getInstructors } from '@/app/actions/classes'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { queryKeys } from '@/lib/query-keys'
 import { PAGE_ANIMATIONS } from '@/lib/animation-config'
 import { LoadingState } from '@/components/ui/loading-state'
 import { SubjectSelector } from '@/components/features/common/subject-selector'
@@ -58,9 +60,9 @@ export default function EditClassPage() {
   const router = useRouter()
   const params = useParams<{ id: string }>()
   const { toast } = useToast()
+  const queryClient = useQueryClient()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [instructors, setInstructors] = useState<Instructor[]>([])
-  const [loading, setLoading] = useState(true)
+  const [formSeeded, setFormSeeded] = useState(false)
 
   const form = useForm<ClassFormData>({
     resolver: zodResolver(classSchema),
@@ -79,54 +81,63 @@ export default function EditClassPage() {
     },
   })
 
+  const classQuery = useQuery({
+    queryKey: queryKeys.classes.detail(params.id),
+    queryFn: async () => {
+      const result = await getClassById(params.id)
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '수업 정보를 불러올 수 없습니다')
+      }
+      return result.data
+    },
+    enabled: !!params.id,
+  })
+
+  const instructorsQuery = useQuery({
+    queryKey: queryKeys.staff.instructors(),
+    queryFn: async (): Promise<Instructor[]> => {
+      const result = await getInstructors()
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '강사 목록을 불러올 수 없습니다')
+      }
+      return result.data
+    },
+    staleTime: 5 * 60_000,
+  })
+  const instructors = instructorsQuery.data ?? []
+  const loading = classQuery.isPending
+
+  // 서버 데이터로 폼을 1회만 시드 — 재조회가 편집 중인 값을 덮어쓰지 않도록 보호
   useEffect(() => {
-    loadData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    const classData = classQuery.data
+    if (!classData || formSeeded) return
+    const schedule = classData.schedule as { days?: string[], startTime?: string, endTime?: string } | null
+    form.reset({
+      name: classData.name || '',
+      description: classData.description || '',
+      subject: classData.subject || '',
+      gradeLevel: classData.grade_level || '',
+      instructorId: classData.instructor_id || '',
+      room: classData.room || '',
+      capacity: classData.capacity ?? undefined,
+      active: classData.active ?? true,
+      scheduleDays: schedule?.days ?? [],
+      scheduleStartTime: schedule?.startTime ?? '',
+      scheduleEndTime: schedule?.endTime ?? '',
+    })
+    setFormSeeded(true)
+  }, [classQuery.data, formSeeded, form])
 
-  async function loadData() {
-    try {
-      setLoading(true)
-      const [classResult, instructorResult] = await Promise.all([
-        getClassById(params.id),
-        getInstructors(),
-      ])
-
-      if (!classResult.success || !classResult.data) {
-        throw new Error(classResult.error || '수업 정보를 불러올 수 없습니다')
-      }
-
-      if (instructorResult.success && instructorResult.data) {
-        setInstructors(instructorResult.data)
-      }
-
-      const classData = classResult.data
-      const schedule = classData.schedule as { days?: string[], startTime?: string, endTime?: string } | null
-      form.reset({
-        name: classData.name || '',
-        description: classData.description || '',
-        subject: classData.subject || '',
-        gradeLevel: classData.grade_level || '',
-        instructorId: classData.instructor_id || '',
-        room: classData.room || '',
-        capacity: classData.capacity ?? undefined,
-        active: classData.active ?? true,
-        scheduleDays: schedule?.days ?? [],
-        scheduleStartTime: schedule?.startTime ?? '',
-        scheduleEndTime: schedule?.endTime ?? '',
-      })
-    } catch (error) {
-      console.error('Error loading class:', error)
+  useEffect(() => {
+    if (classQuery.isError) {
       toast({
         title: '데이터 로드 오류',
-        description: getErrorMessage(error),
+        description: getErrorMessage(classQuery.error),
         variant: 'destructive',
       })
       router.push('/classes')
-    } finally {
-      setLoading(false)
     }
-  }
+  }, [classQuery.isError, classQuery.error, toast, router])
 
   async function onSubmit(data: ClassFormData) {
     setIsSubmitting(true)
@@ -156,6 +167,7 @@ export default function EditClassPage() {
         description: `${data.name} 수업이 수정되었습니다.`,
       })
 
+      queryClient.invalidateQueries({ queryKey: queryKeys.classes.detail(params.id) })
       router.push(`/classes/${params.id}`)
     } catch (error) {
       console.error('Error updating class:', error)
