@@ -6,7 +6,7 @@ import {
   getMessageStatistics,
   getMessageTemplates,
 } from '@/app/actions/messaging/messages'
-import { getMessagingBalance } from '@/app/actions/messaging/config'
+import { getMessagingBalance, getMessagingCapability } from '@/app/actions/messaging/config'
 import { queryKeys } from '@/lib/query-keys'
 
 export interface MessageHistoryFilters {
@@ -68,6 +68,22 @@ export function useMessageTemplatesQuery(enabled = true) {
       return result.data
     },
     enabled,
+  })
+}
+
+/** SMS/알림톡 발송 가능 여부 — 연락 다이얼로그들이 공유 */
+export function useMessagingCapabilityQuery(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.messaging.capability(),
+    queryFn: async () => {
+      const result = await getMessagingCapability()
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '메시징 상태 조회 실패')
+      }
+      return result.data
+    },
+    enabled,
+    staleTime: 5 * 60_000,
   })
 }
 

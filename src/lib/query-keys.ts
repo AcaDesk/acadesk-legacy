@@ -90,6 +90,8 @@ export const queryKeys = {
   guardians: {
     all: () => ['guardians'] as const,
     list: () => ['guardians', 'list'] as const,
+    forStudents: (studentIds: string[]) => ['guardians', 'forStudents', studentIds] as const,
+    forContact: (studentId: string) => ['guardians', 'forContact', studentId] as const,
   },
 
   reports: {
@@ -124,6 +126,7 @@ export const queryKeys = {
     templates: () => ['messaging', 'templates'] as const,
     kakaoTemplates: () => ['messaging', 'kakaoTemplates'] as const,
     kakaoTemplateCategories: () => ['messaging', 'kakaoTemplateCategories'] as const,
+    capability: () => ['messaging', 'capability'] as const,
     balance: () => ['messaging', 'balance'] as const,
   },
 

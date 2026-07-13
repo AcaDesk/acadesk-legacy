@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import {
   Dialog,
@@ -39,10 +40,9 @@ import {
   sendGuardianSMS,
   sendGuardianAlimtalk,
 } from '@/app/actions/guardians'
-import {
-  getMessagingCapability,
-  type MessagingCapability,
-} from '@/app/actions/messaging/config'
+import { type MessagingCapability } from '@/app/actions/messaging/config'
+import { useMessagingCapabilityQuery } from '@/hooks/queries/use-messaging-query'
+import { queryKeys } from '@/lib/query-keys'
 import {
   extractKakaoVariableNames,
   renderKakaoTemplatePreview,
@@ -126,14 +126,12 @@ export function BulkAbsentContactDialog({
   onSent,
 }: BulkAbsentContactDialogProps) {
   const { toast } = useToast()
-  const [loading, setLoading] = useState(false)
-  const [studentRows, setStudentRows] = useState<StudentWithGuardians[]>([])
   const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(new Set())
+  const [selectionSeeded, setSelectionSeeded] = useState(false)
   const [activeTab, setActiveTab] = useState<TabKey>('sms')
   const [message, setMessage] = useState(DEFAULT_MESSAGE)
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
   const [sending, setSending] = useState(false)
-  const [capability, setCapability] = useState<MessagingCapability | null>(null)
 
   const {
     isChannelChecked,
@@ -144,66 +142,54 @@ export function BulkAbsentContactDialog({
   } = useKakaoMessaging({ approvedOnly: true })
 
   // ── 초기 로드 ────────────────────────────────────────────────
-  const loadData = useCallback(async () => {
-    setLoading(true)
-    try {
-      const studentIds = absentStudents.map((s) => s.studentId)
-      const [guardiansResult, capabilityResult] = await Promise.all([
-        getGuardiansForStudents(studentIds),
-        getMessagingCapability(),
-      ])
+  const studentIds = useMemo(() => absentStudents.map((s) => s.studentId), [absentStudents])
 
-      const guardiansByStudent = new Map<string, GuardianRow[]>()
-      if (guardiansResult.success && guardiansResult.data) {
-        for (const row of guardiansResult.data) {
-          guardiansByStudent.set(
-            row.studentId,
-            row.guardians.map((g) => ({
-              id: g.id,
-              name: g.name,
-              relationship: g.relationship,
-              phone: g.phone,
-            }))
-          )
-        }
+  const guardiansQuery = useQuery({
+    queryKey: queryKeys.guardians.forStudents(studentIds),
+    queryFn: async () => {
+      const result = await getGuardiansForStudents(studentIds)
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '보호자 정보를 불러오지 못했습니다.')
       }
+      return result.data
+    },
+    enabled: open,
+  })
 
-      const rows: StudentWithGuardians[] = absentStudents.map((s) => ({
-        studentId: s.studentId,
-        studentName: s.studentName,
-        sessionId: s.sessionId,
-        guardians: guardiansByStudent.get(s.studentId) || [],
-      }))
+  const capabilityQuery = useMessagingCapabilityQuery(open)
+  const capability: MessagingCapability | null = capabilityQuery.data ?? null
+  const loading = open && (guardiansQuery.isPending || capabilityQuery.isPending)
 
-      setStudentRows(rows)
-      // 보호자 + 전화번호가 있는 학생들만 기본 선택
-      const initialSelection = new Set(
-        rows.filter((r) => r.guardians.some((g) => g.phone)).map((r) => r.studentId)
+  const studentRows: StudentWithGuardians[] = useMemo(() => {
+    const guardiansByStudent = new Map<string, GuardianRow[]>()
+    for (const row of guardiansQuery.data ?? []) {
+      guardiansByStudent.set(
+        row.studentId,
+        row.guardians.map((g) => ({
+          id: g.id,
+          name: g.name,
+          relationship: g.relationship,
+          phone: g.phone,
+        }))
       )
-      setSelectedStudentIds(initialSelection)
-
-      if (capabilityResult.success && capabilityResult.data) {
-        setCapability(capabilityResult.data)
-      } else {
-        setCapability(null)
-      }
-    } catch (error) {
-      toast({
-        title: '데이터 로드 오류',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
     }
-  }, [absentStudents, toast])
+    return absentStudents.map((s) => ({
+      studentId: s.studentId,
+      studentName: s.studentName,
+      sessionId: s.sessionId,
+      guardians: guardiansByStudent.get(s.studentId) || [],
+    }))
+  }, [absentStudents, guardiansQuery.data])
 
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      setSelectedStudentIds(new Set())
+      setSelectionSeeded(false)
+      return
+    }
     setActiveTab('sms')
     setMessage(DEFAULT_MESSAGE)
     setSelectedTemplateId('')
-    loadData()
     if (!isChannelChecked) {
       checkChannel().then((hasChannel) => {
         if (hasChannel) loadTemplates()
@@ -211,6 +197,18 @@ export function BulkAbsentContactDialog({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
+
+  // 보호자 전화번호가 있는 학생만 기본 선택 — 오픈당 1회만 시드해 재조회가 선택을 덮어쓰지 않도록 보호
+  useEffect(() => {
+    if (open && !selectionSeeded && guardiansQuery.data) {
+      setSelectedStudentIds(
+        new Set(
+          studentRows.filter((r) => r.guardians.some((g) => g.phone)).map((r) => r.studentId)
+        )
+      )
+      setSelectionSeeded(true)
+    }
+  }, [open, selectionSeeded, guardiansQuery.data, studentRows])
 
   useEffect(() => {
     if (isChannelChecked && hasKakaoChannel && kakaoTemplates.length === 0) {

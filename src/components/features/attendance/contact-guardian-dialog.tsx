@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useState, useEffect, useMemo } from 'react'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import {
   Dialog,
@@ -44,10 +44,9 @@ import {
   sendGuardianSMS,
   sendGuardianAlimtalk,
 } from '@/app/actions/guardians'
-import {
-  getMessagingCapability,
-  type MessagingCapability,
-} from '@/app/actions/messaging/config'
+import { type MessagingCapability } from '@/app/actions/messaging/config'
+import { useMessagingCapabilityQuery } from '@/hooks/queries/use-messaging-query'
+import { queryKeys } from '@/lib/query-keys'
 import {
   extractKakaoVariableNames,
   renderKakaoTemplatePreview,
@@ -146,15 +145,13 @@ export function ContactGuardianDialog({
   attendanceContext = null,
   onContactLogged,
 }: ContactGuardianDialogProps) {
-  const [guardians, setGuardians] = useState<Guardian[]>([])
-  const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<TabKey>('sms')
   const [selectedGuardianIds, setSelectedGuardianIds] = useState<string[]>([])
+  const [selectionSeeded, setSelectionSeeded] = useState(false)
   const [message, setMessage] = useState('')
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
   const [sending, setSending] = useState(false)
   const [copiedPhone, setCopiedPhone] = useState<string | null>(null)
-  const [capability, setCapability] = useState<MessagingCapability | null>(null)
   const { toast } = useToast()
 
   const {
@@ -165,38 +162,29 @@ export function ContactGuardianDialog({
     loadTemplates,
   } = useKakaoMessaging({ approvedOnly: true })
 
-  const loadInitial = useCallback(async () => {
-    try {
-      setLoading(true)
-      const [guardianList, capabilityResult] = await Promise.all([
-        getGuardiansForContact(studentId),
-        getMessagingCapability(),
-      ])
-      setGuardians(guardianList)
-      const phoneOwnerIds = guardianList.filter((g) => g.phone).map((g) => g.id)
-      setSelectedGuardianIds(phoneOwnerIds)
-      if (capabilityResult.success && capabilityResult.data) {
-        setCapability(capabilityResult.data)
-      } else {
-        setCapability(null)
-      }
-    } catch (error) {
-      toast({
-        title: '데이터 로드 오류',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
-    }
-  }, [studentId, toast])
+  const guardiansQuery = useQuery({
+    queryKey: queryKeys.guardians.forContact(studentId),
+    queryFn: async (): Promise<Guardian[]> => getGuardiansForContact(studentId),
+    enabled: open && !!studentId,
+  })
+  const guardians = useMemo(() => guardiansQuery.data ?? [], [guardiansQuery.data])
+
+  const capabilityQuery = useMessagingCapabilityQuery(open)
+  const capability: MessagingCapability | null = capabilityQuery.data ?? null
+  const loading = open && (guardiansQuery.isPending || capabilityQuery.isPending)
 
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      setSelectedGuardianIds([])
+      setSelectionSeeded(false)
+      return
+    }
     setMessage(getDefaultMessage(studentName, attendanceContext))
     setSelectedTemplateId('')
     setActiveTab('sms')
-    loadInitial()
+    // 다른 학생으로 다시 열리는 경우에도 선택을 재시드
+    setSelectedGuardianIds([])
+    setSelectionSeeded(false)
     if (!isChannelChecked) {
       checkChannel().then((hasChannel) => {
         if (hasChannel) loadTemplates()
@@ -204,6 +192,16 @@ export function ContactGuardianDialog({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, studentId])
+
+  // 전화번호 보유 보호자를 기본 선택 — 오픈당 1회만 시드해 재조회가 선택을 덮어쓰지 않도록 보호
+  useEffect(() => {
+    if (open && !selectionSeeded && guardiansQuery.data) {
+      setSelectedGuardianIds(
+        guardiansQuery.data.filter((g) => g.phone).map((g) => g.id)
+      )
+      setSelectionSeeded(true)
+    }
+  }, [open, selectionSeeded, guardiansQuery.data])
 
   useEffect(() => {
     if (isChannelChecked && hasKakaoChannel && kakaoTemplates.length === 0) {
