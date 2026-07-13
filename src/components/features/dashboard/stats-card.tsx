@@ -1,8 +1,6 @@
 "use client"
 
 import { TrendingUp, TrendingDown, type LucideIcon } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@ui/card"
-import { Badge } from "@ui/badge"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 
@@ -32,53 +30,91 @@ export function StatsCard({
   onClick,
 }: StatsCardProps) {
   const TrendIcon = trend?.isPositive ? TrendingUp : TrendingDown
+  // primary variant = 히어로 카드 (브랜드 컬러 배경의 피처 타일)
+  const isHero = variant === "primary"
 
   const cardContent = (
-    <Card
+    <div
       className={cn(
-        "h-full transition-all hover:shadow-md",
-        (href || onClick) && "cursor-pointer"
+        "group relative h-full overflow-hidden rounded-3xl p-5 transition-all duration-300",
+        isHero
+          ? "bg-primary text-primary-foreground shadow-xl"
+          : "border bg-card shadow-sm hover:border-primary/40",
+        (href || onClick) && "cursor-pointer hover:-translate-y-0.5 hover:shadow-lg"
       )}
       onClick={onClick}
     >
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">
-          {title}
-        </CardTitle>
-        <Icon className={cn(
-          "h-4 w-4",
-          variant === "primary" && "text-primary",
-          variant === "success" && "text-green-600 dark:text-green-500",
-          variant === "warning" && "text-warning",
-          variant === "danger" && "text-destructive",
-          variant === "default" && "text-muted-foreground"
-        )} />
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
-        {description && (
-          <p className="text-xs text-muted-foreground mt-1">
-            {description}
+      {/* 히어로 카드 radial glow 장식 */}
+      {isHero && (
+        <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-white/20 blur-2xl" />
+      )}
+
+      <div className="relative flex h-full flex-col justify-between gap-3">
+        {/* 상단: 제목 + 아이콘 칩 */}
+        <div className="flex items-center justify-between gap-2">
+          <p
+            className={cn(
+              "truncate text-sm font-medium",
+              isHero ? "text-primary-foreground/85" : "text-muted-foreground"
+            )}
+          >
+            {title}
           </p>
-        )}
-        {trend && (
-          <div className="flex items-center mt-2">
-            <Badge
-              variant={trend.isPositive ? "default" : "secondary"}
+          <div
+            className={cn(
+              "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl",
+              isHero ? "bg-white/20" : "bg-primary/10"
+            )}
+          >
+            <Icon
               className={cn(
-                "text-xs px-2 py-0",
-                trend.isPositive
-                  ? "bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-950 dark:text-green-400"
-                  : "bg-destructive/10 text-destructive hover:bg-destructive/10"
+                "h-4 w-4",
+                isHero && "text-primary-foreground",
+                !isHero && variant === "success" && "text-success",
+                !isHero && variant === "warning" && "text-warning",
+                !isHero && variant === "danger" && "text-destructive",
+                !isHero && variant === "default" && "text-primary"
               )}
-            >
-              <TrendIcon className="mr-1 h-3 w-3" />
-              {trend.isPositive ? "+" : ""}{trend.value}%
-            </Badge>
+            />
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </div>
+
+        {/* 하단: 값 + 트렌드 */}
+        <div className="space-y-1.5">
+          <div className="text-3xl font-extrabold tracking-tight">{value}</div>
+          {(trend || description) && (
+            <div className="flex items-center gap-1.5">
+              {trend && (
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold",
+                    isHero
+                      ? "bg-white/20 text-primary-foreground"
+                      : trend.isPositive
+                        ? "bg-success/10 text-success"
+                        : "bg-destructive/10 text-destructive"
+                  )}
+                >
+                  <TrendIcon className="h-3 w-3" />
+                  {trend.isPositive ? "+" : ""}
+                  {trend.value}%
+                </span>
+              )}
+              {description && (
+                <span
+                  className={cn(
+                    "truncate text-xs",
+                    isHero ? "text-primary-foreground/70" : "text-muted-foreground"
+                  )}
+                >
+                  {description}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   )
 
   // onClick(드릴다운)이 있으면 Link 이동 대신 클릭 핸들러만 실행

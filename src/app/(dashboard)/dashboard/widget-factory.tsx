@@ -133,7 +133,7 @@ export function renderWidgetContent({
           trend={{ value: newStudentsThisMonth, isPositive: newStudentsThisMonth > 0 }}
           index={0}
           href="/students"
-          variant="default"
+          variant="primary"
           onClick={onDrilldown}
         />
       )
@@ -190,7 +190,7 @@ export function renderWidgetContent({
           trend={{ value: scoreChange, isPositive: scoreChange >= 0 }}
           index={3}
           href="/grades"
-          variant="primary"
+          variant="default"
           onClick={onDrilldown}
         />
       )
@@ -229,7 +229,7 @@ export function renderWidgetContent({
             isPositive: financialData.currentMonthRevenue >= (financialData.previousMonthRevenue || 0)
           }}
           index={5}
-          variant="primary"
+          variant="default"
           href="/payments"
         />
       ) : null
