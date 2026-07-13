@@ -23,6 +23,7 @@ import {
 import { Badge } from '@ui/badge';
 import { ScrollArea } from '@ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { isFeatureAvailable, type FeatureKey } from '@/lib/features.config';
 import {
   Plus,
   GripVertical,
@@ -104,14 +105,15 @@ const ACTION_STYLES = {
 type ActionColor = keyof typeof ACTION_STYLES;
 
 // 사용 가능한 모든 액션 정의 (색상 통일 - Primary 베이스 + 중요 기능만 강조)
-const AVAILABLE_ACTIONS = [
+const ALL_ACTIONS: QuickAction[] = [
   {
     id: 'new-student',
     label: '학생 등록',
     icon: UserPlus,
-    href: '/students',
+    href: '/students/new',
     color: 'accent' as ActionColor, // 강조 - 가장 중요한 기능
     category: '학생 관리',
+    feature: 'studentManagement',
   },
   {
     id: 'new-report',
@@ -120,6 +122,7 @@ const AVAILABLE_ACTIONS = [
     href: '/reports/new',
     color: 'primary' as ActionColor,
     category: '리포트',
+    feature: 'reportManagement',
   },
   {
     id: 'new-consultation',
@@ -128,6 +131,7 @@ const AVAILABLE_ACTIONS = [
     href: '/consultations/new',
     color: 'primary' as ActionColor,
     category: '상담',
+    feature: 'consultationManagement',
   },
   {
     id: 'new-todo',
@@ -136,6 +140,7 @@ const AVAILABLE_ACTIONS = [
     href: '/todos/new',
     color: 'primary' as ActionColor,
     category: 'TODO',
+    feature: 'todoManagement',
   },
   {
     id: 'attendance-check',
@@ -144,6 +149,7 @@ const AVAILABLE_ACTIONS = [
     href: '/attendance',
     color: 'primary' as ActionColor,
     category: '출석',
+    feature: 'attendanceManagement',
   },
   {
     id: 'new-class',
@@ -152,6 +158,7 @@ const AVAILABLE_ACTIONS = [
     href: '/classes/new',
     color: 'primary' as ActionColor,
     category: '수업',
+    feature: 'classManagement',
   },
   {
     id: 'exam-entry',
@@ -160,6 +167,7 @@ const AVAILABLE_ACTIONS = [
     href: '/grades/exams',
     color: 'primary' as ActionColor,
     category: '성적',
+    feature: 'gradesManagement',
   },
   {
     id: 'library-lending',
@@ -168,6 +176,7 @@ const AVAILABLE_ACTIONS = [
     href: '/library/lendings',
     color: 'primary' as ActionColor,
     category: '도서관',
+    feature: 'libraryManagement',
   },
   {
     id: 'send-message',
@@ -176,6 +185,7 @@ const AVAILABLE_ACTIONS = [
     href: '/notifications',
     color: 'primary' as ActionColor,
     category: '소통',
+    feature: 'notificationSystem',
   },
   {
     id: 'payment-record',
@@ -184,6 +194,7 @@ const AVAILABLE_ACTIONS = [
     href: '/payments',
     color: 'success' as ActionColor, // 강조 - 재무 관련 중요 기능
     category: '재무',
+    feature: 'tuitionManagement',
   },
   {
     id: 'notifications',
@@ -192,6 +203,7 @@ const AVAILABLE_ACTIONS = [
     href: '/notifications',
     color: 'primary' as ActionColor,
     category: '알림',
+    feature: 'notificationSystem',
   },
   {
     id: 'settings',
@@ -202,6 +214,11 @@ const AVAILABLE_ACTIONS = [
     category: '시스템',
   },
 ];
+
+// 비활성(inactive/maintenance) 기능의 액션은 노출하지 않음
+const AVAILABLE_ACTIONS = ALL_ACTIONS.filter(
+  (a) => !a.feature || isFeatureAvailable(a.feature)
+);
 
 // 기본 액션 (처음 표시될 액션들)
 const DEFAULT_QUICK_ACTIONS = [
@@ -237,6 +254,8 @@ interface QuickAction {
   href: string;
   color: ActionColor;
   category: string;
+  /** 연결된 feature flag — 비활성이면 빠른 실행에서 숨김 */
+  feature?: FeatureKey;
 }
 
 interface SortableActionItemProps {

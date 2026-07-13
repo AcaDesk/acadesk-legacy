@@ -12,8 +12,6 @@ import { GradesTab } from '@/components/features/students/detail/GradesTab'
 import { ScheduleTab } from '@/components/features/students/detail/ScheduleTab'
 import { AttendanceTab } from '@/components/features/students/detail/AttendanceTab'
 import { TodoTab } from '@/components/features/students/detail/TodoTab'
-// import { LearningStatusTab } from '@/components/features/students/detail/LearningStatusTab' // TODO: Re-enable when migrated
-// import { ActivityTab } from '@/components/features/students/detail/ActivityTab' // TODO: Re-enable when migrated
 import { ConsultationTab } from '@/components/features/students/detail/ConsultationTab'
 import { ManageClassesDialog } from '@/components/features/students/manage-classes-dialog'
 import { StudentDetailProvider } from '@/hooks/use-student-detail'
@@ -135,13 +133,6 @@ export function StudentDetailClient({
               </SectionErrorBoundary>
             </TabsContent>
 
-            {/* TODO: Re-enable when migrated */}
-            {/* <TabsContent value="learning" className="mt-0">
-              <SectionErrorBoundary sectionName="학습 탭">
-                <LearningStatusTab />
-              </SectionErrorBoundary>
-            </TabsContent> */}
-
             <TabsContent value="consultations" className="mt-0">
               <SectionErrorBoundary sectionName="상담 탭">
                 <ConsultationTab
@@ -151,13 +142,6 @@ export function StudentDetailClient({
                 />
               </SectionErrorBoundary>
             </TabsContent>
-
-            {/* TODO: Re-enable when migrated */}
-            {/* <TabsContent value="activity" className="mt-0">
-              <SectionErrorBoundary sectionName="활동 탭">
-                <ActivityTab studentId={student.id} />
-              </SectionErrorBoundary>
-            </TabsContent> */}
           </Tabs>
 
         {/* Dialogs */}
