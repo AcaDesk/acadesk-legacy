@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -25,6 +26,7 @@ import { PAGE_LAYOUT, TEXT_STYLES } from '@/lib/constants'
 import { useToast } from '@/hooks/use-toast'
 import { createClass, getInstructors } from '@/app/actions/classes'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { queryKeys } from '@/lib/query-keys'
 import { PAGE_ANIMATIONS } from '@/lib/animation-config'
 import { LoadingState } from '@/components/ui/loading-state'
 import { SubjectSelector } from '@/components/features/common/subject-selector'
@@ -58,8 +60,20 @@ export default function NewClassPage() {
   const router = useRouter()
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [instructors, setInstructors] = useState<Instructor[]>([])
-  const [loadingInstructors, setLoadingInstructors] = useState(true)
+
+  const instructorsQuery = useQuery({
+    queryKey: queryKeys.staff.instructors(),
+    queryFn: async (): Promise<Instructor[]> => {
+      const result = await getInstructors()
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '강사 목록을 불러올 수 없습니다')
+      }
+      return result.data
+    },
+    staleTime: 5 * 60_000,
+  })
+  const instructors = instructorsQuery.data ?? []
+  const loadingInstructors = instructorsQuery.isPending
 
   const form = useForm<ClassFormData>({
     resolver: zodResolver(classSchema),
@@ -77,32 +91,6 @@ export default function NewClassPage() {
       scheduleEndTime: '',
     },
   })
-
-  const loadInstructors = useCallback(async () => {
-    try {
-      setLoadingInstructors(true)
-      const result = await getInstructors()
-
-      if (!result.success || !result.data) {
-        throw new Error(result.error || '강사 목록을 불러올 수 없습니다')
-      }
-
-      setInstructors(result.data)
-    } catch (error) {
-      console.error('Error loading instructors:', error)
-      toast({
-        title: '강사 목록 로드 오류',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    } finally {
-      setLoadingInstructors(false)
-    }
-  }, [toast])
-
-  useEffect(() => {
-    loadInstructors()
-  }, [loadInstructors])
 
   async function onSubmit(data: ClassFormData) {
     setIsSubmitting(true)
@@ -253,6 +241,9 @@ export default function NewClassPage() {
                       ))}
                     </SelectContent>
                   </Select>
+                  {instructorsQuery.isError && (
+                    <p className="text-xs text-destructive">강사 목록을 불러오지 못했습니다</p>
+                  )}
                 </div>
 
                 {/* Room and Capacity */}

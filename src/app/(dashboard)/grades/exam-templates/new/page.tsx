@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
@@ -17,28 +16,12 @@ import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { ClassSelector } from '@/components/features/common/class-selector'
-import { getSubjects } from '@/app/actions/subjects'
-import { createExam, getClassesForExam } from '@/app/actions/grades/exams'
-
-interface ExamCategory {
-  code: string
-  label: string
-}
-
-interface Class {
-  id: string
-  name: string
-  subject: string | null
-  active: boolean
-}
-
-interface Subject {
-  id: string
-  name: string
-  code: string | null
-  color: string
-  active: boolean
-}
+import { createExam } from '@/app/actions/grades/exams'
+import {
+  useExamCategoriesQuery,
+  useClassesForExamQuery,
+  useSubjectsListQuery,
+} from '@/hooks/queries/use-exam-form-options-query'
 
 export default function NewExamTemplatePage() {
   // All Hooks must be called before any early returns
@@ -51,58 +34,18 @@ export default function NewExamTemplatePage() {
   const [recurringSchedule, setRecurringSchedule] = useState('weekly')
   const [classId, setClassId] = useState('')
   const [description, setDescription] = useState('')
-  const [categories, setCategories] = useState<ExamCategory[]>([])
-  const [classes, setClasses] = useState<Class[]>([])
-  const [subjects, setSubjects] = useState<Subject[]>([])
   const [loading, setLoading] = useState(false)
 
   const { toast } = useToast()
   const router = useRouter()
-  const supabase = createClient()
   const { loading: userLoading } = useCurrentUser()
 
-  const loadCategories = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('ref_exam_categories')
-        .select('code, label')
-        .eq('active', true)
-        .order('sort_order')
-
-      if (error) throw error
-      setCategories(data)
-    } catch (error) {
-      console.error('Error loading categories:', error)
-    }
-  }, [supabase])
-
-  const loadClasses = useCallback(async () => {
-    const result = await getClassesForExam()
-    if (result.success && result.data) {
-      setClasses(
-        result.data.map((c) => ({
-          id: c.id,
-          name: c.name,
-          subject: c.subject ?? null,
-          active: true,
-        }))
-      )
-    }
-  }, [])
-
-  const loadSubjects = useCallback(async () => {
-    const result = await getSubjects()
-    if (result.success && result.data) {
-      setSubjects(result.data)
-    }
-  }, [])
-
-  // useEffect must be called before any early returns
-  useEffect(() => {
-    loadCategories()
-    loadClasses()
-    loadSubjects()
-  }, [loadCategories, loadClasses, loadSubjects])
+  const categoriesQuery = useExamCategoriesQuery()
+  const classesQuery = useClassesForExamQuery()
+  const subjectsQuery = useSubjectsListQuery()
+  const categories = categoriesQuery.data ?? []
+  const classes = useMemo(() => classesQuery.data ?? [], [classesQuery.data])
+  const subjects = subjectsQuery.data ?? []
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

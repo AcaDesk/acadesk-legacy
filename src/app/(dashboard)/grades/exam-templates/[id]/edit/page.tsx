@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter, useParams } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
@@ -17,28 +17,13 @@ import { FEATURES } from '@/lib/features.config'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { ClassSelector } from '@/components/features/common/class-selector'
-import { getSubjects } from '@/app/actions/subjects'
-import { getExamById, updateExam, getClassesForExam } from '@/app/actions/grades/exams'
-
-interface ExamCategory {
-  code: string
-  label: string
-}
-
-interface Class {
-  id: string
-  name: string
-  subject: string | null
-  active: boolean
-}
-
-interface Subject {
-  id: string
-  name: string
-  code: string | null
-  color: string
-  active: boolean
-}
+import { getExamById, updateExam } from '@/app/actions/grades/exams'
+import { queryKeys } from '@/lib/query-keys'
+import {
+  useExamCategoriesQuery,
+  useClassesForExamQuery,
+  useSubjectsListQuery,
+} from '@/hooks/queries/use-exam-form-options-query'
 
 export default function EditExamTemplatePage() {
   const params = useParams()
@@ -54,116 +39,74 @@ export default function EditExamTemplatePage() {
   const [recurringSchedule, setRecurringSchedule] = useState('weekly')
   const [classId, setClassId] = useState('')
   const [description, setDescription] = useState('')
-  const [categories, setCategories] = useState<ExamCategory[]>([])
-  const [classes, setClasses] = useState<Class[]>([])
-  const [subjects, setSubjects] = useState<Subject[]>([])
   const [loading, setLoading] = useState(false)
-  const [loadingTemplate, setLoadingTemplate] = useState(true)
+  const [formSeeded, setFormSeeded] = useState(false)
 
   const { toast } = useToast()
   const router = useRouter()
-  const supabase = createClient()
+  const queryClient = useQueryClient()
   const { user: currentUser, loading: userLoading } = useCurrentUser()
 
-  const loadTemplate = useCallback(async () => {
-    try {
-      setLoadingTemplate(true)
+  const categoriesQuery = useExamCategoriesQuery()
+  const classesQuery = useClassesForExamQuery()
+  const subjectsQuery = useSubjectsListQuery()
+  const categories = categoriesQuery.data ?? []
+  const classes = classesQuery.data ?? []
+  const subjects = subjectsQuery.data ?? []
 
+  const templateQuery = useQuery({
+    queryKey: queryKeys.grades.exam(templateId),
+    queryFn: async () => {
       const result = await getExamById(templateId)
-
       if (!result.success || !result.data) {
-        toast({
-          title: '템플릿을 찾을 수 없습니다',
-          description: result.error || '존재하지 않거나 삭제된 템플릿입니다.',
-          variant: 'destructive',
-        })
-        router.push('/grades/exam-templates')
-        return
+        throw new Error(result.error || '존재하지 않거나 삭제된 템플릿입니다.')
       }
+      return result.data
+    },
+    enabled: !!currentUser && !!templateId,
+  })
+  const loadingTemplate = templateQuery.isPending
 
-      const data = result.data
+  // 서버 데이터로 폼을 1회만 시드 — 재조회가 편집 중인 값을 덮어쓰지 않도록 보호
+  useEffect(() => {
+    const data = templateQuery.data
+    if (!data || formSeeded) return
 
-      if (!data.is_recurring) {
-        toast({
-          title: '템플릿이 아닙니다',
-          description: '반복 설정된 템플릿만 수정할 수 있습니다.',
-          variant: 'destructive',
-        })
-        router.push('/grades/exam-templates')
-        return
-      }
-
-      // Populate form fields
-      setName(data.name || '')
-      setSubjectId(data.subject_id || 'none')
-      setCategoryCode(data.category_code || 'none')
-      setExamType(data.exam_type || 'none')
-      setTotalQuestions(data.total_questions?.toString() || '')
-      setPassingScore(data.passing_score?.toString() || '')
-      setRecurringSchedule(data.recurring_schedule || 'weekly')
-      setClassId(data.class_id || '')
-      setDescription(data.description || '')
-    } catch (error) {
-      console.error('Error loading template:', error)
+    if (!data.is_recurring) {
       toast({
-        title: '로드 오류',
-        description: error instanceof Error ? error.message : '템플릿을 불러오는 중 오류가 발생했습니다.',
+        title: '템플릿이 아닙니다',
+        description: '반복 설정된 템플릿만 수정할 수 있습니다.',
         variant: 'destructive',
       })
       router.push('/grades/exam-templates')
-    } finally {
-      setLoadingTemplate(false)
+      return
     }
-  }, [templateId, toast, router])
 
-  const loadCategories = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('ref_exam_categories')
-        .select('code, label')
-        .eq('active', true)
-        .order('sort_order')
-
-      if (error) throw error
-      setCategories(data)
-    } catch (error) {
-      console.error('Error loading categories:', error)
-    }
-  }, [supabase])
-
-  const loadClasses = useCallback(async () => {
-    const result = await getClassesForExam()
-    if (result.success && result.data) {
-      setClasses(
-        result.data.map((c) => ({
-          id: c.id,
-          name: c.name,
-          subject: c.subject ?? null,
-          active: true,
-        }))
-      )
-    }
-  }, [])
-
-  const loadSubjects = useCallback(async () => {
-    const result = await getSubjects()
-    if (result.success && result.data) {
-      setSubjects(result.data)
-    }
-  }, [])
-
-  // useEffect must be called before any early returns
-  useEffect(() => {
-    loadCategories()
-    loadClasses()
-    loadSubjects()
-  }, [loadCategories, loadClasses, loadSubjects])
+    setName(data.name || '')
+    setSubjectId(data.subject_id || 'none')
+    setCategoryCode(data.category_code || 'none')
+    setExamType(data.exam_type || 'none')
+    setTotalQuestions(data.total_questions?.toString() || '')
+    setPassingScore(data.passing_score?.toString() || '')
+    setRecurringSchedule(data.recurring_schedule || 'weekly')
+    setClassId(data.class_id || '')
+    setDescription(data.description || '')
+    setFormSeeded(true)
+  }, [templateQuery.data, formSeeded, toast, router])
 
   useEffect(() => {
-    if (currentUser) {
-      loadTemplate()
+    if (templateQuery.isError) {
+      toast({
+        title: '템플릿을 찾을 수 없습니다',
+        description:
+          templateQuery.error instanceof Error
+            ? templateQuery.error.message
+            : '템플릿을 불러오는 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      })
+      router.push('/grades/exam-templates')
     }
-  }, [currentUser, loadTemplate])
+  }, [templateQuery.isError, templateQuery.error, toast, router])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -192,6 +135,7 @@ export default function EditExamTemplatePage() {
         description: `${name} 템플릿이 수정되었습니다.`,
       })
 
+      queryClient.invalidateQueries({ queryKey: queryKeys.grades.exam(templateId) })
       router.push('/grades/exam-templates')
     } catch (error: unknown) {
       console.error('Error updating template:', error)

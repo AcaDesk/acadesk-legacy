@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams, useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -19,6 +20,8 @@ import { PageWrapper } from "@/components/layout/page-wrapper"
 import { getErrorMessage } from '@/lib/error-handlers'
 import { getStudentDetail, updateStudent } from '@/app/actions/students'
 import { getTenantCodes } from '@/app/actions/tenant'
+import { queryKeys } from '@/lib/query-keys'
+import { DEFAULT_SCHOOLS } from '@/lib/constants'
 import { GradeSelector } from '@/components/features/common/grade-selector'
 import { SchoolSelector } from '@/components/features/common/school-selector'
 
@@ -56,12 +59,12 @@ interface StudentData {
 
 export default function EditStudentPage() {
   const params = useParams()
+  const studentId = typeof params.id === 'string' ? params.id : undefined
   const [loading, setLoading] = useState(false)
-  const [initialLoading, setInitialLoading] = useState(true)
-  const [student, setStudent] = useState<StudentData | null>(null)
-  const [schools, setSchools] = useState<string[]>([])
+  const [formSeeded, setFormSeeded] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
+  const queryClient = useQueryClient()
 
   const {
     register,
@@ -83,95 +86,83 @@ export default function EditStudentPage() {
     }
   }, [errors])
 
-  useEffect(() => {
-    if (params.id) {
-      loadStudentData(params.id as string)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.id])
-
-  useEffect(() => {
-    loadSchools()
-  }, [])
-
-  async function loadSchools() {
-    try {
+  const schoolsQuery = useQuery({
+    queryKey: queryKeys.tenantCodes.byType('school'),
+    queryFn: async (): Promise<string[]> => {
       const result = await getTenantCodes('school')
+      return result.success && result.data ? result.data : []
+    },
+    staleTime: 5 * 60_000,
+  })
+  // tenant_codes가 비어있거나 조회 실패 시 기본 학교 목록 사용
+  const schools = useMemo(
+    () => (schoolsQuery.data?.length ? schoolsQuery.data : [...DEFAULT_SCHOOLS]),
+    [schoolsQuery.data]
+  )
 
-      if (!result.success || !result.data) {
-        throw new Error(result.error || '학교 목록 조회 실패')
-      }
-
-      // 데이터가 있으면 사용, 없으면 기본 학교 목록 사용
-      if (result.data.length > 0) {
-        setSchools(result.data)
-      } else {
-        // tenant_codes 테이블이 비어있거나 없는 경우 기본 목록 사용
-        const { DEFAULT_SCHOOLS } = await import('@/lib/constants')
-        setSchools([...DEFAULT_SCHOOLS])
-      }
-    } catch (error) {
-      // 테이블이 존재하지 않거나 RLS 에러 등이 발생하면 기본 목록 사용
-      console.warn('tenant_codes 테이블을 사용할 수 없습니다. 기본 학교 목록을 사용합니다:', error)
-      const { DEFAULT_SCHOOLS } = await import('@/lib/constants')
-      setSchools([...DEFAULT_SCHOOLS])
-    }
-  }
-
-  async function loadStudentData(studentId: string) {
-    try {
-      setInitialLoading(true)
-      const result = await getStudentDetail(studentId)
-
+  const studentQuery = useQuery({
+    queryKey: queryKeys.students.detail(studentId ?? ''),
+    queryFn: async () => {
+      const result = await getStudentDetail(studentId!)
       if (!result.success || !result.data) {
         throw new Error(result.error || '학생 정보를 찾을 수 없습니다.')
       }
+      return result.data.student
+    },
+    enabled: !!studentId,
+  })
+  const initialLoading = studentQuery.isPending
 
-      const data = result.data.student
+  const student: StudentData | null = useMemo(() => {
+    const data = studentQuery.data
+    if (!data) return null
+    return {
+      id: data.id as string,
+      student_code: data.student_code as string,
+      grade: data.grade,
+      school: data.school,
+      student_phone: data.student_phone,
+      emergency_contact: data.emergency_contact,
+      notes: data.notes,
+      users: data.users
+        ? {
+            name: data.users.name,
+            email: data.users.email,
+            phone: data.users.phone,
+          }
+        : null,
+    }
+  }, [studentQuery.data])
 
-      const normalized: StudentData = {
-        id: data.id as string,
-        student_code: data.student_code as string,
-        grade: data.grade,
-        school: data.school,
-        student_phone: data.student_phone,
-        emergency_contact: data.emergency_contact,
-        notes: data.notes,
-        users: data.users
-          ? {
-              name: data.users.name,
-              email: data.users.email,
-              phone: data.users.phone,
-            }
-          : null,
-      }
+  // 서버 데이터로 폼을 1회만 시드 — 재조회가 편집 중인 값을 덮어쓰지 않도록 보호
+  useEffect(() => {
+    const data = studentQuery.data
+    if (!data || formSeeded) return
+    if (data.users) {
+      setValue('name', data.users.name)
+      setValue('email', data.users.email || '')
+      setValue('phone', data.users.phone || '')
+    }
+    setValue('studentPhone', data.student_phone || '')
+    setValue('grade', data.grade || '')
+    setValue('school', data.school || '')
+    setValue('emergencyContact', data.emergency_contact || '')
+    setValue('notes', data.notes || '')
+    // kiosk_pin은 보안상 조회되지 않으므로 빈 값으로 설정
+    setValue('kioskPin', '')
+    setFormSeeded(true)
+  }, [studentQuery.data, formSeeded, setValue])
 
-      setStudent(normalized)
-
-      // Populate form fields
-      if (data.users) {
-        setValue('name', data.users.name)
-        setValue('email', data.users.email || '')
-        setValue('phone', data.users.phone || '')
-      }
-      setValue('studentPhone', data.student_phone || '')
-      setValue('grade', data.grade || '')
-      setValue('school', data.school || '')
-      setValue('emergencyContact', data.emergency_contact || '')
-      setValue('notes', data.notes || '')
-      // kiosk_pin은 보안상 조회되지 않으므로 빈 값으로 설정
-      setValue('kioskPin', '')
-    } catch (error) {
+  useEffect(() => {
+    if (studentQuery.isError) {
       toast({
         title: '학생 조회 실패',
-        description: getErrorMessage(error),
+        description: getErrorMessage(studentQuery.error),
         variant: 'destructive',
       })
       router.push('/students')
-    } finally {
-      setInitialLoading(false)
     }
-  }
+  }, [studentQuery.isError, studentQuery.error, toast, router])
 
   const onSubmit = async (data: StudentFormValues) => {
     console.log('onSubmit called with data:', data)
@@ -205,6 +196,7 @@ export default function EditStudentPage() {
         description: `${data.name} 학생의 정보가 수정되었습니다.`,
       })
 
+      queryClient.invalidateQueries({ queryKey: queryKeys.students.detail(student.id) })
       router.push(`/students/${student.id}`)
       router.refresh()
     } catch (error) {

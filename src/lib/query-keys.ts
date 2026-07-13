@@ -37,6 +37,7 @@ export const queryKeys = {
 
   students: {
     all: () => ['students'] as const,
+    detail: (id: string) => ['students', id] as const,
     list: (filters: Record<string, unknown>) => ['students', 'list', filters] as const,
     enriched: () => ['students', 'enriched'] as const,
     filterOptions: () => ['students', 'filterOptions'] as const,
@@ -59,7 +60,16 @@ export const queryKeys = {
 
   classes: {
     active: () => ['classes', 'active'] as const,
+    forExam: () => ['classes', 'forExam'] as const,
     enrolledIds: (classId: string) => ['classes', classId, 'enrolledIds'] as const,
+  },
+
+  staff: {
+    instructors: () => ['staff', 'instructors'] as const,
+  },
+
+  refCodes: {
+    examCategories: () => ['refCodes', 'examCategories'] as const,
   },
 
   points: {
@@ -105,6 +115,7 @@ export const queryKeys = {
 
   subjects: {
     all: () => ['subjects'] as const,
+    list: () => ['subjects', 'list'] as const,
     listWithStats: () => ['subjects', 'list', 'with-stats'] as const,
   },
 } as const
