@@ -1,6 +1,5 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
 import {
   Select,
@@ -9,9 +8,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ui/select'
-import { getSubjectsWithStatistics, type Subject } from '@/app/actions/subjects'
-import { useToast } from '@/hooks/use-toast'
-import { getErrorMessage } from '@/lib/error-handlers'
+import type { Subject } from '@/app/actions/subjects'
+import { useSubjectsWithStatsQuery } from '@/hooks/queries/use-subjects-query'
 
 interface SubjectSelectorProps {
   value?: string
@@ -77,45 +75,9 @@ export function SubjectSelector({
   showColor = true,
   onlyActive = true,
 }: SubjectSelectorProps) {
-  const [subjects, setSubjects] = useState<Subject[]>(externalSubjects || [])
-  const [loading, setLoading] = useState(false)
-  const { toast } = useToast()
-
-  useEffect(() => {
-    // If external subjects provided, use them
-    if (externalSubjects) {
-      setSubjects(externalSubjects)
-      return
-    }
-
-    // Otherwise, fetch subjects
-    async function fetchSubjects() {
-      setLoading(true)
-      try {
-        const result = await getSubjectsWithStatistics()
-        if (result.success && result.data) {
-          setSubjects(result.data)
-        } else {
-          toast({
-            title: '과목 로딩 실패',
-            description: result.error || '과목 목록을 불러올 수 없습니다.',
-            variant: 'destructive',
-          })
-        }
-      } catch (error) {
-        console.error('[SubjectSelector] Error fetching subjects:', error)
-        toast({
-          title: '오류',
-          description: getErrorMessage(error),
-          variant: 'destructive',
-        })
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchSubjects()
-  }, [externalSubjects, toast])
+  const subjectsQuery = useSubjectsWithStatsQuery(undefined, !externalSubjects)
+  const subjects: Subject[] = externalSubjects ?? subjectsQuery.data ?? []
+  const loading = !externalSubjects && subjectsQuery.isPending
 
   // Filter subjects
   const filteredSubjects = subjects.filter((subject) => {
@@ -140,7 +102,7 @@ export function SubjectSelector({
       <SelectContent>
         {filteredSubjects.length === 0 ? (
           <div className="py-6 text-center text-sm text-muted-foreground">
-            등록된 과목이 없습니다
+            {subjectsQuery.isError ? '과목 목록을 불러올 수 없습니다' : '등록된 과목이 없습니다'}
           </div>
         ) : (
           filteredSubjects.map((subject) => (

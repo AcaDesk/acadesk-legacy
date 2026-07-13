@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { getSubjectsWithStatistics, type SubjectStatistics } from '@/app/actions/subjects'
 import { queryKeys } from '@/lib/query-keys'
 
-export function useSubjectsWithStatsQuery(initialData?: SubjectStatistics[]) {
+export function useSubjectsWithStatsQuery(initialData?: SubjectStatistics[], enabled = true) {
   return useQuery({
     queryKey: queryKeys.subjects.listWithStats(),
     queryFn: async () => {
@@ -13,5 +13,6 @@ export function useSubjectsWithStatsQuery(initialData?: SubjectStatistics[]) {
       return result.data
     },
     initialData,
+    enabled,
   })
 }

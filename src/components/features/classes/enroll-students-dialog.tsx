@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Dialog,
   DialogContent,
@@ -17,6 +18,7 @@ import { useToast } from '@/hooks/use-toast'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { Loader2, Search, UserPlus } from 'lucide-react'
 import { getClassEnrolledStudentIds, enrollStudentsInClass } from '@/app/actions/classes'
+import { queryKeys } from '@/lib/query-keys'
 import type { StudentMaster } from '@/app/actions/students/queries'
 
 interface EnrollStudentsDialogProps {
@@ -34,34 +36,33 @@ export function EnrollStudentsDialog({
   onOpenChange,
   onSuccess,
 }: EnrollStudentsDialogProps) {
-  const [enrolledIds, setEnrolledIds] = useState<Set<string>>(new Set())
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [search, setSearch] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [saving, setSaving] = useState(false)
   const { toast } = useToast()
+  const queryClient = useQueryClient()
 
   useEffect(() => {
     if (open) {
-      loadEnrolledIds()
       setSelectedIds([])
       setSearch('')
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
-  async function loadEnrolledIds() {
-    setLoading(true)
-    try {
+  const enrolledIdsQuery = useQuery({
+    queryKey: queryKeys.classes.enrolledIds(classId),
+    queryFn: async () => {
       const result = await getClassEnrolledStudentIds(classId)
       if (!result.success || !result.data) throw new Error(result.error || '불러오기 실패')
-      setEnrolledIds(new Set(result.data))
-    } catch (error) {
-      toast({ title: '오류', description: getErrorMessage(error), variant: 'destructive' })
-    } finally {
-      setLoading(false)
-    }
-  }
+      return result.data
+    },
+    enabled: open,
+  })
+  const loading = open && enrolledIdsQuery.isPending
+
+  const enrolledIds = useMemo(
+    () => new Set(enrolledIdsQuery.data ?? []),
+    [enrolledIdsQuery.data]
+  )
 
   const unenrolledStudents = useMemo(
     () => studentsMaster.filter((s) => !enrolledIds.has(s.id)),
@@ -89,20 +90,29 @@ export function EnrollStudentsDialog({
     }
   }
 
-  async function handleSave() {
-    if (selectedIds.length === 0) return
-    setSaving(true)
-    try {
-      const result = await enrollStudentsInClass(classId, selectedIds)
+  const enrollMutation = useMutation({
+    mutationFn: async (studentIds: string[]) => {
+      const result = await enrollStudentsInClass(classId, studentIds)
       if (!result.success) throw new Error(result.error || '배정 실패')
-      toast({ title: `${selectedIds.length}명 배정 완료` })
+      return studentIds.length
+    },
+    onSuccess: (count) => {
+      toast({ title: `${count}명 배정 완료` })
       onSuccess()
       onOpenChange(false)
-    } catch (error) {
+    },
+    onError: (error: Error) => {
       toast({ title: '배정 실패', description: getErrorMessage(error), variant: 'destructive' })
-    } finally {
-      setSaving(false)
-    }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.classes.enrolledIds(classId) })
+    },
+  })
+  const saving = enrollMutation.isPending
+
+  function handleSave() {
+    if (selectedIds.length === 0) return
+    enrollMutation.mutate(selectedIds)
   }
 
   const allFilteredSelected =
@@ -130,6 +140,10 @@ export function EnrollStudentsDialog({
           {loading ? (
             <div className="flex items-center justify-center py-10">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : enrolledIdsQuery.isError ? (
+            <div className="text-center py-10 text-sm text-destructive">
+              배정 정보를 불러올 수 없습니다. 다시 시도해주세요.
             </div>
           ) : filteredStudents.length === 0 ? (
             <div className="text-center py-10 text-sm text-muted-foreground">

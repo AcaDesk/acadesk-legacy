@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@ui/dialog'
@@ -13,6 +14,7 @@ import {
   assignStudentsToExam,
   getEnrolledStudentIdsForClass,
 } from '@/app/actions/grades/exams'
+import { queryKeys } from '@/lib/query-keys'
 
 type SchoolLevel = 'all' | 'kindergarten' | 'elementary' | 'middle' | 'high'
 
@@ -72,12 +74,28 @@ export function AssignStudentsDialog({
   onSuccess,
 }: AssignStudentsDialogProps) {
   const { toast } = useToast()
+  const queryClient = useQueryClient()
 
-  const [students, setStudents] = useState<Student[]>([])
   const [selectedIds, setSelectedIds] = useState<string[]>([])
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+  const [selectionSeeded, setSelectionSeeded] = useState(false)
   const [schoolLevelFilter, setSchoolLevelFilter] = useState<SchoolLevel>('all')
+
+  const assignmentQuery = useQuery({
+    queryKey: queryKeys.grades.examAssignment(examId),
+    queryFn: async () => {
+      const result = await getStudentsForExamAssignment(examId)
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '학생 목록을 불러오지 못했습니다.')
+      }
+      return result.data
+    },
+    enabled: open,
+  })
+  const students: Student[] = useMemo(
+    () => assignmentQuery.data?.students ?? [],
+    [assignmentQuery.data]
+  )
+  const loading = open && assignmentQuery.isPending
 
   // Calculate currently assigned student IDs
   const currentlyAssignedIds = useMemo(
@@ -125,42 +143,21 @@ export function AssignStudentsDialog({
     return counts
   }, [students])
 
-  // Reset state when dialog closes
+  // 닫힐 때 선택 상태 초기화, 열려 있는 동안 서버 기배정 목록으로 1회만 시드
+  // (시드 후 재조회가 일어나도 사용자의 선택 변경을 덮어쓰지 않도록 플래그로 보호)
   useEffect(() => {
     if (!open) {
       setSelectedIds([])
+      setSelectionSeeded(false)
     }
   }, [open])
 
-  const loadStudents = useCallback(async () => {
-    try {
-      setLoading(true)
-
-      const result = await getStudentsForExamAssignment(examId)
-
-      if (!result.success || !result.data) {
-        throw new Error(result.error || '학생 목록을 불러오지 못했습니다.')
-      }
-
-      setStudents(result.data.students)
-      setSelectedIds(result.data.assignedIds)
-    } catch (error) {
-      console.error('Error loading students:', error)
-      toast({
-        title: '로드 오류',
-        description: error instanceof Error ? error.message : '학생 목록을 불러오는 중 오류가 발생했습니다.',
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
-    }
-  }, [examId, toast])
-
   useEffect(() => {
-    if (open) {
-      loadStudents()
+    if (open && !selectionSeeded && assignmentQuery.data) {
+      setSelectedIds(assignmentQuery.data.assignedIds)
+      setSelectionSeeded(true)
     }
-  }, [open, loadStudents])
+  }, [open, selectionSeeded, assignmentQuery.data])
 
   async function handleAssignFromClass() {
     if (!classId) {
@@ -202,44 +199,40 @@ export function AssignStudentsDialog({
     }
   }
 
-  async function handleSave() {
-    try {
-      setSaving(true)
-
+  const assignMutation = useMutation({
+    mutationFn: async () => {
       const currentlyAssignedSet = new Set(currentlyAssignedIds)
       const selectedSet = new Set(selectedIds)
-
-      // Students to add (selected but not currently assigned)
       const toAdd = selectedIds.filter(id => !currentlyAssignedSet.has(id))
-
-      // Students to remove (currently assigned but not selected)
       const toRemove = currentlyAssignedIds.filter(id => !selectedSet.has(id))
 
       const result = await assignStudentsToExam(examId, toAdd, toRemove)
-
       if (!result.success) {
         throw new Error(result.error || '학생을 배정하는 중 오류가 발생했습니다.')
       }
-
+      return selectedIds.length
+    },
+    onSuccess: (count) => {
       toast({
         title: '배정 완료',
-        description: `${selectedIds.length}명의 학생이 배정되었습니다.`,
+        description: `${count}명의 학생이 배정되었습니다.`,
       })
-
       onSuccess()
       onOpenChange(false)
-    } catch (error) {
-      console.error('Error assigning students:', error)
+    },
+    onError: (error: Error) => {
+      // 실패 시 다이얼로그를 열어둬 재시도 가능하게 유지
       toast({
         title: '배정 오류',
-        description: error instanceof Error ? error.message : '학생을 배정하는 중 오류가 발생했습니다.',
+        description: error.message || '학생을 배정하는 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
-      // Error case: keep dialog open so user can retry
-    } finally {
-      setSaving(false)
-    }
-  }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.grades.examAssignment(examId) })
+    },
+  })
+  const saving = assignMutation.isPending
 
   const totalCount = students.length
   const assignedCount = students.filter(s => s.isAssigned).length
@@ -289,6 +282,11 @@ export function AssignStudentsDialog({
         </DialogHeader>
 
         <div className="flex-1 min-h-0 overflow-hidden">
+          {assignmentQuery.isError && (
+            <p className="text-sm text-destructive mb-2">
+              학생 목록을 불러오지 못했습니다. 다이얼로그를 닫았다가 다시 열어주세요.
+            </p>
+          )}
           <StudentSearch
             mode="multiple"
             variant="checkbox-list"
@@ -326,7 +324,7 @@ export function AssignStudentsDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             취소
           </Button>
-          <Button onClick={handleSave} disabled={saving || !hasChanges}>
+          <Button onClick={() => assignMutation.mutate()} disabled={saving || !hasChanges}>
             <UserPlus className="h-4 w-4 mr-2" />
             {saving ? '배정 중...' : `${selectedIds.length}명 배정`}
           </Button>

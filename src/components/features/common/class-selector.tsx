@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Check, ChevronsUpDown, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@ui/button'
@@ -14,9 +14,7 @@ import {
 } from '@ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@ui/popover'
 import { Badge } from '@ui/badge'
-import { getActiveClasses } from '@/app/actions/classes'
-import { useToast } from '@/hooks/use-toast'
-import { getErrorMessage } from '@/lib/error-handlers'
+import { useActiveClassesQuery } from '@/hooks/queries/use-active-classes-query'
 
 export interface ClassItem {
   id: string
@@ -78,45 +76,9 @@ export function ClassSelector({
   onlyActive = true,
 }: ClassSelectorProps) {
   const [open, setOpen] = useState(false)
-  const [classes, setClasses] = useState<ClassItem[]>(externalClasses || [])
-  const [loading, setLoading] = useState(false)
-  const { toast } = useToast()
-
-  useEffect(() => {
-    // If external classes provided, use them
-    if (externalClasses) {
-      setClasses(externalClasses)
-      return
-    }
-
-    // Otherwise, fetch classes
-    async function fetchClasses() {
-      setLoading(true)
-      try {
-        const result = await getActiveClasses()
-        if (result.success && result.data) {
-          setClasses(result.data)
-        } else {
-          toast({
-            title: '수업 로딩 실패',
-            description: result.error || '수업 목록을 불러올 수 없습니다.',
-            variant: 'destructive',
-          })
-        }
-      } catch (error) {
-        console.error('[ClassSelector] Error fetching classes:', error)
-        toast({
-          title: '오류',
-          description: getErrorMessage(error),
-          variant: 'destructive',
-        })
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchClasses()
-  }, [externalClasses, toast])
+  const classesQuery = useActiveClassesQuery(!externalClasses)
+  const classes: ClassItem[] = externalClasses ?? classesQuery.data ?? []
+  const loading = !externalClasses && classesQuery.isPending
 
   // Filter classes
   const filteredClasses = classes.filter((cls) => {
@@ -168,7 +130,7 @@ export function ClassSelector({
             <CommandEmpty>검색 결과가 없습니다.</CommandEmpty>
             {Object.keys(groupedClasses).length === 0 ? (
               <div className="py-6 text-center text-sm text-muted-foreground">
-                등록된 수업이 없습니다
+                {classesQuery.isError ? '수업 목록을 불러올 수 없습니다' : '등록된 수업이 없습니다'}
               </div>
             ) : (
               Object.entries(groupedClasses).map(([subject, classList]) => (
