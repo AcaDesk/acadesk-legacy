@@ -1,7 +1,24 @@
 import type { Metadata, Viewport } from "next"
+import localFont from "next/font/local"
 import "./globals.css"
 import { Toaster } from "@ui/toaster"
 import { Providers } from "./providers"
+
+// Inter Tight (영문) - Variable Font
+const interTight = localFont({
+  src: "../../public/fonts/Inter_Tight/InterTight-VariableFont_wght.ttf",
+  variable: "--font-inter",
+  display: "swap",
+  weight: "100 900",
+})
+
+// Noto Sans KR (한글) - Variable Font
+const notoSansKR = localFont({
+  src: "../../public/fonts/Noto_Sans_KR/NotoSansKR-VariableFont_wght.ttf",
+  variable: "--font-noto-sans-kr",
+  display: "swap",
+  weight: "100 900",
+})
 
 export const viewport: Viewport = {
   themeColor: '#0f172a',
@@ -44,7 +61,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko" suppressHydrationWarning>
-      <body className="antialiased">
+      <body className={`${interTight.variable} ${notoSansKR.variable} font-sans antialiased`}>
         <Providers>
           {children}
         </Providers>

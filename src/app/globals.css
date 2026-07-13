@@ -67,9 +67,29 @@
   --radius-sm: calc(var(--radius) - 4px);
 
   /* ── Fonts ── */
-  --font-sans: Inter, sans-serif;
+  --font-sans: var(--font-inter), var(--font-noto-sans-kr), ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Source Serif 4", serif;
   --font-mono: "JetBrains Mono", monospace;
+
+  /* ── Duration 토큰 (애니메이션 지속 시간) ── */
+  --duration-fast: 150ms;
+  --duration-normal: 300ms;
+  --duration-slow: 500ms;
+
+  /* ── Easing 토큰 (애니메이션 가속 곡선) ── */
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ── Transition 토큰 (자주 사용하는 조합) ── */
+  --transition-fast: var(--duration-fast) var(--ease-out);
+  --transition-normal: var(--duration-normal) var(--ease-out);
+  --transition-slow: var(--duration-slow) var(--ease-out);
+  --transition-spring: var(--duration-normal) var(--ease-spring);
+
+  /* ── Shadow 토큰 (신규 이름만 — 기존 shadow 스케일은 유지) ── */
+  --shadow-float: 0 10px 40px -10px rgb(0 0 0 / 0.15);
 
   /* ── Letter Spacing ── */
   --tracking-tighter: -0.05em;
@@ -230,7 +250,29 @@
     overflow: hidden;
     font-feature-settings: "rlig" 1, "calt" 1;
     letter-spacing: var(--tracking-normal);
+    word-break: keep-all; /* 한글 어색한 줄바꿈 방지 */
   }
+}
+
+/* ── 토큰 기반 트랜지션 유틸리티 ── */
+@utility transition-fast {
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
+}
+
+@utility transition-normal {
+  transition-duration: var(--duration-normal);
+  transition-timing-function: var(--ease-out);
+}
+
+@utility transition-slow {
+  transition-duration: var(--duration-slow);
+  transition-timing-function: var(--ease-out);
+}
+
+@utility transition-spring {
+  transition-duration: var(--duration-normal);
+  transition-timing-function: var(--ease-spring);
 }
 
 @layer utilities {
@@ -277,4 +319,25 @@
 .react-grid-item.react-draggable-dragging {
   opacity: 0.8;
   z-index: 50;
+}
+
+/* 커스텀 스크롤바 (미니멀 디자인) */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #e5e7eb;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #d1d5db;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #374151;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #4b5563;
 }
