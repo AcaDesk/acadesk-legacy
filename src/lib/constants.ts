@@ -20,6 +20,26 @@ export const GRADES = [
 
 export type GradeValue = typeof GRADES[number]['value']
 
+// 학생 유형 (ref_student_types 참조 테이블과 동기)
+export const STUDENT_TYPES = [
+  { value: 'elementary', label: '초등부' },
+  { value: 'middle', label: '중등부' },
+  { value: 'high', label: '고등부' },
+  { value: 'prep_high1', label: '예비 고1' },
+  { value: 'prep_middle1', label: '예비 중1' },
+  { value: 'repeat', label: '재수생' },
+  { value: 'adult', label: '성인' },
+] as const
+
+export type StudentTypeValue = typeof STUDENT_TYPES[number]['value']
+
+// 학생 유형 라벨 헬퍼 함수
+export function getStudentTypeLabel(type: string | null | undefined): string | null {
+  if (!type) return null
+  const found = STUDENT_TYPES.find((t) => t.value === type)
+  return found?.label || type
+}
+
 // 보호자 관계
 export const GUARDIAN_RELATIONSHIPS = [
   { value: 'father', label: '아버지' },

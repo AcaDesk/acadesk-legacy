@@ -95,6 +95,7 @@ interface ConsultationFormClientProps {
   schools: string[]
   mode: 'create' | 'edit'
   consultation?: Consultation
+  initialStudentId?: string
 }
 
 export function ConsultationFormClient({
@@ -102,6 +103,7 @@ export function ConsultationFormClient({
   schools,
   mode,
   consultation,
+  initialStudentId,
 }: ConsultationFormClientProps) {
   const router = useRouter()
   const { toast } = useToast()
@@ -116,7 +118,7 @@ export function ConsultationFormClient({
     resolver: zodResolver(consultationSchema),
     defaultValues: {
       isLead: false,
-      studentId: consultation?.student_id || '',
+      studentId: consultation?.student_id || initialStudentId || '',
       leadName: '',
       leadSchool: '',
       leadGuardianName: '',

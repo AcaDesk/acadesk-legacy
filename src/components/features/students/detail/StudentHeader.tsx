@@ -27,7 +27,6 @@ import { StudentAvatar } from '@ui/student-avatar'
 import {
   Edit,
   MoreVertical,
-  Send,
   Users,
   Trash2,
   MessageSquare,
@@ -40,7 +39,6 @@ import { RoleGuard } from '@/components/auth/role-guard'
 import type { StudentDetail } from '@/core/types/studentDetail.types'
 import { updateStudent, deleteStudent } from '@/app/actions/students'
 import { SendAlimtalkMenu } from '@/components/features/messaging/SendAlimtalkMenu'
-// import { SendReportDialog } from './SendReportDialog' // DISABLED: Report feature migration pending
 
 interface StudentHeaderProps {
   student: StudentDetail
@@ -106,40 +104,8 @@ export function StudentHeader({
     }
   }
 
-  const handleSendReport = () => {
-    // DISABLED: Report feature migration pending
-    // setReportDialogOpen(true)
-    toast({
-      title: '기능 준비 중',
-      description: '보고서 전송 기능은 현재 마이그레이션 작업 중입니다.',
-      variant: 'default',
-    })
-  }
-
-  const handleContactGuardian = () => {
-    if (!student.student_guardians || student.student_guardians.length === 0) {
-      toast({
-        title: '보호자 정보 없음',
-        description: '등록된 보호자가 없습니다.',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    const guardian = student.student_guardians[0].guardians
-    if (!guardian?.users?.phone) {
-      toast({
-        title: '연락처 정보 없음',
-        description: '보호자 연락처가 등록되어 있지 않습니다.',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    toast({
-      title: '보호자 연락',
-      description: `${guardian.users.name} (${guardian.users.phone})`,
-    })
+  const handleAddConsultation = () => {
+    router.push(`/consultations/new?studentId=${student.id}`)
   }
 
   const handleDeleteClick = () => {
@@ -289,11 +255,7 @@ export function StudentHeader({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={handleSendReport}>
-                <Send className="h-4 w-4 mr-2" />
-                리포트 발송
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleContactGuardian}>
+              <DropdownMenuItem onClick={handleAddConsultation}>
                 <MessageSquare className="h-4 w-4 mr-2" />
                 상담 기록 추가
               </DropdownMenuItem>
@@ -328,15 +290,6 @@ export function StudentHeader({
           />
         </DialogContent>
       </Dialog>
-
-      {/* Send Report Dialog */}
-      {/* DISABLED: Report feature migration pending
-      <SendReportDialog
-        open={reportDialogOpen}
-        onOpenChange={setReportDialogOpen}
-        student={student}
-      />
-      */}
 
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog

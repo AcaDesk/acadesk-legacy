@@ -14,9 +14,14 @@ const SCHOOLS = [
   '기타',
 ]
 
-export default async function NewConsultationPage() {
+export default async function NewConsultationPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ studentId?: string }>
+}) {
   const { tenantId } = await verifyStaff()
   const supabase = await createServiceRoleClient()
+  const { studentId } = await searchParams
 
   // Fetch students list for the dropdown
   const { data: students } = await supabase
@@ -31,6 +36,7 @@ export default async function NewConsultationPage() {
       students={students || []}
       schools={SCHOOLS}
       mode="create"
+      initialStudentId={studentId}
     />
   )
 }

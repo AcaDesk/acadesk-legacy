@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useTransition, useRef } from 'react'
 import {
   Search,
-  Download,
   ChevronLeft,
   ChevronRight,
   Loader2,
@@ -714,7 +713,7 @@ export function AttendanceCheckPage({
 
   return (
     <div className="space-y-4 md:space-y-6 pb-20 flex flex-col h-full">
-      {/* 1. Top Header: Date & Summary & Download */}
+      {/* 1. Top Header: Date & Summary */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 md:gap-4 shrink-0">
         <div className="flex items-center gap-2 w-full md:w-auto">
           {/* Date Picker UI */}
@@ -790,10 +789,6 @@ export function AttendanceCheckPage({
                 {absentLikeStudents.length}
               </Badge>
             )}
-          </Button>
-          <Button variant="outline" className="hidden md:flex">
-            <Download className="h-4 w-4 mr-2" />
-            엑셀 다운로드
           </Button>
         </div>
       </div>

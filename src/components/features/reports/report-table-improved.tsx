@@ -19,7 +19,6 @@ import {
 import {
   Search,
   Eye,
-  Download,
   Send,
   Trash2,
   Settings2,
@@ -356,14 +355,6 @@ export function ReportTableImproved({
               onClick={() => router.push(`/reports/${report.id}`)}
             >
               <Eye className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              disabled
-              title="다운로드 기능 준비 중"
-            >
-              <Download className="h-4 w-4" />
             </Button>
             {!report.sent_at && (
               <Button
