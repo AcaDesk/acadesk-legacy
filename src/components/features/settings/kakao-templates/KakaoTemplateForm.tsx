@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import {
   Dialog,
@@ -39,6 +40,7 @@ import {
   kakaoTemplateFormSchema,
 } from '@/lib/kakao/kakao-validation'
 import type { KakaoTemplateCategory } from '@/infra/messaging/types/kakao.types'
+import { queryKeys } from '@/lib/query-keys'
 
 interface KakaoTemplateFormProps {
   open: boolean
@@ -79,18 +81,24 @@ export function KakaoTemplateForm({
   const router = useRouter()
   const isEditing = !!template
 
+  const queryClient = useQueryClient()
   const [formData, setFormData] = useState<FormData>(defaultFormData)
-  const [categories, setCategories] = useState<KakaoTemplateCategory[]>([])
-  const [loadingCategories, setLoadingCategories] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [rightPane, setRightPane] = useState<'preview' | 'guide'>('preview')
 
-  // Load categories
-  useEffect(() => {
-    if (open) {
-      loadCategories()
-    }
-  }, [open])
+  const categoriesQuery = useQuery({
+    queryKey: queryKeys.messaging.kakaoTemplateCategories(),
+    queryFn: async (): Promise<KakaoTemplateCategory[]> => {
+      const result = await getKakaoTemplateCategories()
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '카테고리 조회 실패')
+      }
+      return result.data
+    },
+    enabled: open,
+    staleTime: 30 * 60_000, // Solapi 고정 목록이라 자주 바뀌지 않음
+  })
+  const categories = categoriesQuery.data ?? []
+  const loadingCategories = open && categoriesQuery.isPending
 
   // Populate form when editing
   useEffect(() => {
@@ -112,20 +120,6 @@ export function KakaoTemplateForm({
     }
   }, [template, open])
 
-  async function loadCategories() {
-    setLoadingCategories(true)
-    try {
-      const result = await getKakaoTemplateCategories()
-      if (result.success && result.data) {
-        setCategories(result.data)
-      }
-    } catch (error) {
-      console.error('Failed to load categories:', error)
-    } finally {
-      setLoadingCategories(false)
-    }
-  }
-
   function handleChange(field: keyof FormData, value: FormData[keyof FormData]) {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
@@ -136,21 +130,8 @@ export function KakaoTemplateForm({
     return matches.map((m) => m.slice(2, -1))
   }
 
-  async function handleSubmit() {
-    // Zod validation
-    const validationResult = kakaoTemplateFormSchema.safeParse(formData)
-    if (!validationResult.success) {
-      const firstError = validationResult.error.issues[0]
-      toast({
-        title: '입력 오류',
-        description: firstError.message,
-        variant: 'destructive',
-      })
-      return
-    }
-
-    setIsSubmitting(true)
-    try {
+  const saveMutation = useMutation({
+    mutationFn: async () => {
       const payload = {
         name: formData.name,
         content: formData.content,
@@ -164,17 +145,16 @@ export function KakaoTemplateForm({
         securityFlag: formData.securityFlag,
       }
 
-      let result
-      if (isEditing && template) {
-        result = await updateKakaoTemplate(template.id, payload)
-      } else {
-        result = await createKakaoTemplate(payload)
-      }
+      const result = isEditing && template
+        ? await updateKakaoTemplate(template.id, payload)
+        : await createKakaoTemplate(payload)
 
       if (!result.success) {
         throw new Error(result.error || '저장 실패')
       }
-
+      return result
+    },
+    onSuccess: (result) => {
       toast({
         title: isEditing ? '템플릿 수정 완료' : '템플릿 등록 완료',
         description: result.warning || (
@@ -185,18 +165,35 @@ export function KakaoTemplateForm({
         variant: result.warning ? 'destructive' : undefined,
       })
 
+      queryClient.invalidateQueries({ queryKey: queryKeys.messaging.kakaoTemplates() })
       onOpenChange(false)
       onSuccess?.()
       router.refresh()
-    } catch (error) {
+    },
+    onError: (error: Error) => {
       toast({
         title: '저장 실패',
-        description: error instanceof Error ? error.message : '알 수 없는 오류',
+        description: error.message || '알 수 없는 오류',
         variant: 'destructive',
       })
-    } finally {
-      setIsSubmitting(false)
+    },
+  })
+  const isSubmitting = saveMutation.isPending
+
+  function handleSubmit() {
+    // Zod validation
+    const validationResult = kakaoTemplateFormSchema.safeParse(formData)
+    if (!validationResult.success) {
+      const firstError = validationResult.error.issues[0]
+      toast({
+        title: '입력 오류',
+        description: firstError.message,
+        variant: 'destructive',
+      })
+      return
     }
+
+    saveMutation.mutate()
   }
 
   const variables = extractVariables(formData.content)

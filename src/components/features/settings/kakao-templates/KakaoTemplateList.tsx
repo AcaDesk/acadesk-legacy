@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useState, useEffect, useRef } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/card'
 import { Button } from '@ui/button'
 import { Badge } from '@ui/badge'
@@ -43,6 +43,7 @@ import {
   kakaoTemplateStatusConfig,
   kakaoMessageTypeLabels,
 } from '@/lib/kakao/kakao-status-config'
+import { queryKeys } from '@/lib/query-keys'
 import type { KakaoTemplateSummary } from '@/components/features/settings/kakao-channel'
 
 interface KakaoTemplateListProps {
@@ -74,36 +75,36 @@ export function KakaoTemplateList({
   onTemplatesLoaded,
 }: KakaoTemplateListProps) {
   const { toast } = useToast()
+  const queryClient = useQueryClient()
 
-  const [templates, setTemplates] = useState<KakaoTemplate[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [templateToDelete, setTemplateToDelete] = useState<KakaoTemplate | null>(null)
   const [previewTemplate, setPreviewTemplate] = useState<KakaoTemplate | null>(null)
 
-  const loadTemplates = useCallback(async () => {
-    setIsLoading(true)
-    try {
+  const templatesQuery = useQuery({
+    queryKey: queryKeys.messaging.kakaoTemplates(),
+    queryFn: async () => {
       const result = await getKakaoTemplates()
-      if (result.success && result.data) {
-        setTemplates(result.data)
-        onTemplatesLoaded?.(buildTemplateSummary(result.data))
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '템플릿 조회 실패')
       }
-    } catch (error) {
-      console.error('Failed to load templates:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [onTemplatesLoaded])
+      return result.data
+    },
+    enabled: hasChannel,
+  })
+  const templates = templatesQuery.data ?? []
+  const isLoading = hasChannel && templatesQuery.isPending
 
-  // Load templates
+  // 목록이 갱신될 때마다 부모 요약 카드 동기화 (콜백 identity 변화로 인한 재실행 방지용 ref)
+  const onTemplatesLoadedRef = useRef(onTemplatesLoaded)
   useEffect(() => {
-    if (hasChannel) {
-      loadTemplates()
-    } else {
-      setIsLoading(false)
+    onTemplatesLoadedRef.current = onTemplatesLoaded
+  })
+  useEffect(() => {
+    if (templatesQuery.data) {
+      onTemplatesLoadedRef.current?.(buildTemplateSummary(templatesQuery.data))
     }
-  }, [hasChannel, loadTemplates])
+  }, [templatesQuery.data])
 
   const TEMPLATE_ACTIONS = {
     refresh: {
@@ -134,11 +135,10 @@ export function KakaoTemplateList({
       const result = await spec.run(template.id)
       if (!result.success) throw new Error(result.error || spec.failTitle)
       if (result.data) {
-        setTemplates((prev) => {
-          const updated = prev.map((t) => (t.id === template.id ? result.data! : t))
-          onTemplatesLoaded?.(buildTemplateSummary(updated))
-          return updated
-        })
+        queryClient.setQueryData<KakaoTemplate[]>(
+          queryKeys.messaging.kakaoTemplates(),
+          (prev) => prev?.map((t) => (t.id === template.id ? result.data! : t))
+        )
       }
       return kind
     },
@@ -183,11 +183,10 @@ export function KakaoTemplateList({
     },
     onSuccess: (deletedId) => {
       toast({ title: '삭제 완료', description: '템플릿이 삭제되었습니다.' })
-      setTemplates((prev) => {
-        const updated = prev.filter((t) => t.id !== deletedId)
-        onTemplatesLoaded?.(buildTemplateSummary(updated))
-        return updated
-      })
+      queryClient.setQueryData<KakaoTemplate[]>(
+        queryKeys.messaging.kakaoTemplates(),
+        (prev) => prev?.filter((t) => t.id !== deletedId)
+      )
     },
     onError: (error: Error) => {
       toast({

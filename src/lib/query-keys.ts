@@ -116,6 +116,8 @@ export const queryKeys = {
     history: (filters: Record<string, unknown>) => ['messaging', 'history', filters] as const,
     statistics: (filters: Record<string, unknown>) => ['messaging', 'statistics', filters] as const,
     templates: () => ['messaging', 'templates'] as const,
+    kakaoTemplates: () => ['messaging', 'kakaoTemplates'] as const,
+    kakaoTemplateCategories: () => ['messaging', 'kakaoTemplateCategories'] as const,
     balance: () => ['messaging', 'balance'] as const,
   },
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { Button } from '@ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@ui/dialog'
 import { Textarea } from '@ui/textarea'
@@ -17,7 +18,8 @@ import {
 import { Send, MessageSquare, Smartphone, Info, Sparkles } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { Card, CardContent } from '@ui/card'
-import { getMessageTemplates, sendDirectMessages } from '@/app/actions/messaging/messages'
+import { sendDirectMessages } from '@/app/actions/messaging/messages'
+import { useMessageTemplatesQuery } from '@/hooks/queries/use-messaging-query'
 import { useKakaoMessaging } from '@/hooks/use-kakao-messaging'
 import { extractKakaoVariableNames, renderKakaoTemplatePreview } from '@/lib/kakao/kakao-variables'
 import { getErrorMessage } from '@/lib/error-handlers'
@@ -76,13 +78,10 @@ export function SendMessageDialog({
 }: SendMessageDialogProps) {
   const { toast } = useToast()
   const [channel, setChannel] = useState<'kakao' | 'sms'>('sms')
-  const [templates, setTemplates] = useState<MessageTemplate[]>([CUSTOM_TEMPLATE])
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(
     defaultTemplate || 'custom'
   )
   const [messageContent, setMessageContent] = useState('')
-  const [sending, setSending] = useState(false)
-  const [loading, setLoading] = useState(false)
   const {
     hasKakaoChannel,
     isCheckingChannel,
@@ -92,33 +91,19 @@ export function SendMessageDialog({
     loadTemplates: loadKakaoTemplates,
   } = useKakaoMessaging({ approvedOnly: true })
 
-  const loadTemplates = useCallback(async () => {
-    setLoading(true)
-    try {
-      const result = await getMessageTemplates()
-      if (result.success && result.data) {
-        // Add custom template at the beginning
-        setTemplates([CUSTOM_TEMPLATE, ...result.data])
-      }
-    } catch (error) {
-      console.error('Failed to load templates:', error)
-      toast({
-        title: '템플릿 로드 실패',
-        description: '템플릿을 불러오는 중 오류가 발생했습니다.',
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
-    }
-  }, [toast])
+  const templatesQuery = useMessageTemplatesQuery(open)
+  // 직접 입력 항목을 항상 첫 번째로 노출
+  const templates: MessageTemplate[] = useMemo(
+    () => [CUSTOM_TEMPLATE, ...((templatesQuery.data ?? []) as MessageTemplate[])],
+    [templatesQuery.data]
+  )
+  const loading = open && templatesQuery.isPending
 
-  // Load templates from database when dialog opens
   useEffect(() => {
     if (open) {
-      loadTemplates()
       checkChannel()
     }
-  }, [open, loadTemplates, checkChannel])
+  }, [open, checkChannel])
 
   useEffect(() => {
     if (open && channel === 'kakao' && hasKakaoChannel && kakaoTemplates.length === 0) {
@@ -157,7 +142,44 @@ export function SendMessageDialog({
     }
   }, [channel, handleTemplateChange, templates, selectedTemplateId])
 
-  async function handleSend() {
+  const sendMutation = useMutation({
+    mutationFn: async () => {
+      const result = await sendDirectMessages({
+        recipients: recipients.map((recipient) => ({
+          id: recipient.id,
+          name: recipient.name,
+          phone: recipient.phone,
+          studentName: recipient.studentName,
+        })),
+        type: channel,
+        message: messageContent,
+        context,
+        ...(channel === 'kakao' && { kakaoTemplateId: selectedTemplateId }),
+      })
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '메시지 전송 실패')
+      }
+      return result.data
+    },
+    onSuccess: (data) => {
+      toast({
+        title: '전송 완료',
+        description: `${data.successCount}건 성공, ${data.failCount}건 실패`,
+      })
+      onSuccess?.()
+      onOpenChange(false)
+    },
+    onError: (error: Error) => {
+      toast({
+        title: '전송 실패',
+        description: getErrorMessage(error),
+        variant: 'destructive',
+      })
+    },
+  })
+  const sending = sendMutation.isPending
+
+  function handleSend() {
     if (channel === 'kakao' && !selectedTemplateId) {
       toast({
         title: '템플릿 선택 필요',
@@ -176,42 +198,7 @@ export function SendMessageDialog({
       return
     }
 
-    setSending(true)
-
-    try {
-      const result = await sendDirectMessages({
-        recipients: recipients.map((recipient) => ({
-          id: recipient.id,
-          name: recipient.name,
-          phone: recipient.phone,
-          studentName: recipient.studentName,
-        })),
-        type: channel,
-        message: messageContent,
-        context,
-        ...(channel === 'kakao' && { kakaoTemplateId: selectedTemplateId }),
-      })
-
-      if (!result.success || !result.data) {
-        throw new Error(result.error || '메시지 전송 실패')
-      }
-
-      toast({
-        title: '전송 완료',
-        description: `${result.data.successCount}건 성공, ${result.data.failCount}건 실패`,
-      })
-
-      onSuccess?.()
-      onOpenChange(false)
-    } catch (error) {
-      toast({
-        title: '전송 실패',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    } finally {
-      setSending(false)
-    }
+    sendMutation.mutate()
   }
 
   const selectedTemplate = channel === 'kakao'
