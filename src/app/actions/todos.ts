@@ -12,6 +12,7 @@ import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { createNotification } from '@/lib/notification-helpers'
+import { filterOwnedStudentIds } from '@/lib/tenant-guards'
 
 // ============================================================================
 // Validation Schemas
@@ -109,8 +110,18 @@ export async function createTodosForStudents(
     // 3. Create service_role client
     const supabase = createServiceRoleClient()
 
+    // 3-1. student_id 소유 검증 — 타 테넌트 학생 참조 삽입 차단
+    const ownedStudentIds = await filterOwnedStudentIds(
+      supabase,
+      tenantId,
+      validated.studentIds
+    )
+    if (ownedStudentIds.length === 0) {
+      return { success: false, data: null, error: '대상 학생을 찾을 수 없습니다.' }
+    }
+
     // 4. Create TODOs for each student
-    const todoRecords = validated.studentIds.map((studentId) => ({
+    const todoRecords = ownedStudentIds.map((studentId) => ({
       tenant_id: tenantId,
       student_id: studentId,
       title: validated.title.trim(),

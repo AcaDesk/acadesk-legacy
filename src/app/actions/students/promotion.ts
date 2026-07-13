@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { verifyRole, verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { filterOwnedStudentIds } from '@/lib/tenant-guards'
 
 /**
  * 진급 후보 학생 조회 (활성 학생 전체)
@@ -57,11 +58,24 @@ export async function executePromotion(
     const supabase = createServiceRoleClient()
     const now = new Date().toISOString()
 
+    // student_id 소유 검증 — 타 테넌트 학생 대상 진급/로그 기록 차단
+    const ownedStudentIds = new Set(
+      await filterOwnedStudentIds(
+        supabase,
+        tenantId,
+        changes.map((c) => c.studentId)
+      )
+    )
+    const ownedChanges = changes.filter((c) => ownedStudentIds.has(c.studentId))
+    if (ownedChanges.length === 0) {
+      return { success: false, data: null, error: '대상 학생을 찾을 수 없습니다.' }
+    }
+
     const results: Array<{ studentId: string; success: boolean; error?: string }> = []
 
     // 학생별 업데이트 + 로그 기록
     await Promise.all(
-      changes.map(async (change) => {
+      ownedChanges.map(async (change) => {
         try {
           // 1. 학생 grade/school 업데이트
           const updateFields: Record<string, string | null> = { updated_at: now }

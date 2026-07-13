@@ -14,6 +14,7 @@ import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { createNotification } from '@/lib/notification-helpers'
+import { filterOwnedStudentIds } from '@/lib/tenant-guards'
 
 // ============================================================================
 // Validation Schemas
@@ -97,8 +98,18 @@ export async function createHomework(input: z.infer<typeof createHomeworkSchema>
     const validated = createHomeworkSchema.parse(input)
     const supabase = createServiceRoleClient()
 
+    // student_id 소유 검증 — 타 테넌트 학생 참조 삽입 차단
+    const ownedStudentIds = await filterOwnedStudentIds(
+      supabase,
+      tenantId,
+      validated.studentIds
+    )
+    if (ownedStudentIds.length === 0) {
+      return { success: false, data: null, error: '대상 학생을 찾을 수 없습니다.' }
+    }
+
     // Create homework tasks for each student
-    const tasks = validated.studentIds.map((studentId) => ({
+    const tasks = ownedStudentIds.map((studentId) => ({
       tenant_id: tenantId,
       student_id: studentId,
       assigned_by: userId,

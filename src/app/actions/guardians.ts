@@ -13,6 +13,7 @@ import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { createNotification } from '@/lib/notification-helpers'
+import { filterOwnedStudentIds } from '@/lib/tenant-guards'
 
 // ============================================================================
 // Validation Schemas
@@ -123,9 +124,13 @@ export async function createGuardian(data: z.infer<typeof createGuardianSchema>)
       throw new Error(`보호자 정보 생성 실패: ${guardianError?.message}`)
     }
 
-    // 3-3. 선택된 학생들과 연결
-    if (validatedData.student_ids && validatedData.student_ids.length > 0) {
-      const guardianStudentRecords = validatedData.student_ids.map((studentId) => ({
+    // 3-3. 선택된 학생들과 연결 (소유 검증된 학생만)
+    const ownedStudentIds =
+      validatedData.student_ids && validatedData.student_ids.length > 0
+        ? await filterOwnedStudentIds(supabase, tenantId, validatedData.student_ids)
+        : []
+    if (ownedStudentIds.length > 0) {
+      const guardianStudentRecords = ownedStudentIds.map((studentId) => ({
         tenant_id: tenantId,
         student_id: studentId,
         guardian_id: newGuardian.id,
@@ -1267,9 +1272,14 @@ export async function updateGuardianWithStudents(
         throw new Error(`기존 학생 연결 삭제 실패: ${deleteError.message}`)
       }
 
-      // 새 연결 생성
-      if (validatedData.student_ids.length > 0) {
-        const records = validatedData.student_ids.map((studentId) => ({
+      // 새 연결 생성 (소유 검증된 학생만 — 타 테넌트 학생 참조 삽입 차단)
+      const ownedStudentIds = await filterOwnedStudentIds(
+        supabase,
+        tenantId,
+        validatedData.student_ids
+      )
+      if (ownedStudentIds.length > 0) {
+        const records = ownedStudentIds.map((studentId) => ({
           tenant_id: tenantId,
           student_id: studentId,
           guardian_id: validatedData.guardian_id,
@@ -1453,16 +1463,36 @@ export async function bulkLinkGuardianToStudents(
     const { tenantId } = await verifyStaff()
     const supabase = createServiceRoleClient()
 
+    // guardian_id 소유 검증 — 타 테넌트 보호자로의 연결 차단
+    const { data: ownedGuardian, error: guardianOwnershipError } = await supabase
+      .from('guardians')
+      .select('id')
+      .eq('id', guardianId)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (guardianOwnershipError) throw guardianOwnershipError
+    if (!ownedGuardian) {
+      return { success: false, error: '보호자를 찾을 수 없습니다' }
+    }
+
+    // student_id 소유 검증 — 타 테넌트 학생 참조 삽입 차단
+    const ownedStudentIds = await filterOwnedStudentIds(supabase, tenantId, studentIds)
+    if (!ownedStudentIds.length) {
+      return { success: false, error: '연결할 학생을 찾을 수 없습니다' }
+    }
+
     // 이미 연결된 쌍 확인
     const { data: existingLinks } = await supabase
       .from('student_guardians')
       .select('student_id')
       .eq('guardian_id', guardianId)
       .eq('tenant_id', tenantId)
-      .in('student_id', studentIds)
+      .in('student_id', ownedStudentIds)
 
     const alreadyLinked = new Set((existingLinks || []).map(l => l.student_id))
-    const toLink = studentIds.filter(id => !alreadyLinked.has(id))
+    const toLink = ownedStudentIds.filter(id => !alreadyLinked.has(id))
 
     if (!toLink.length) {
       return { success: true, data: { linkedCount: 0, skippedCount: alreadyLinked.size } }
