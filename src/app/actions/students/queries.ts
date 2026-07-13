@@ -270,9 +270,11 @@ export async function getStudents(filters?: {
 
       // users 테이블은 foreign table이므로 .or() 내에서 직접 cross-table OR 불가.
       // 먼저 name/phone 일치하는 user_id를 조회한 뒤 메인 쿼리에서 포함.
+      // (최종 결과는 tenant 스코프되지만, 검색 대상 자체도 테넌트로 한정해 불필요한 전역 스캔 방지)
       const { data: matchingUsers } = await serviceClient
         .from('users')
         .select('id')
+        .eq('tenant_id', tenantId)
         .or(`name.ilike.%${safeTerm}%,phone.ilike.%${safeTerm}%`)
         .limit(500)
 

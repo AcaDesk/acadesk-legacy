@@ -46,7 +46,21 @@ export async function findOrCreateSession(
     // 3. Service Role 클라이언트로 DB 작업
     const supabase = createServiceRoleClient()
 
-    // 4. 기존 세션 조회
+    // 4. class_id 소유 검증 — 다른 테넌트 수업의 세션 생성/스케줄 조회를 차단
+    const { data: ownedClass, error: classOwnershipError } = await supabase
+      .from('classes')
+      .select('id, schedule')
+      .eq('id', validatedData.class_id)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (classOwnershipError) throw classOwnershipError
+    if (!ownedClass) {
+      return { success: false, error: '수업을 찾을 수 없습니다.' }
+    }
+
+    // 5. 기존 세션 조회
     const { data: existingSessions, error: selectError } = await supabase
       .from('attendance_sessions')
       .select('*')
@@ -58,19 +72,13 @@ export async function findOrCreateSession(
 
     if (selectError) throw selectError
 
-    // 5. 세션이 이미 존재하면 반환
+    // 6. 세션이 이미 존재하면 반환
     if (existingSessions && existingSessions.length > 0) {
       return { success: true, data: existingSessions[0] }
     }
 
-    // 6. 세션이 없으면 생성 — 수업 스케줄 시간 우선, 없으면 기본값(09:00~18:00)
-    const { data: classRow } = await supabase
-      .from('classes')
-      .select('schedule')
-      .eq('id', validatedData.class_id)
-      .single()
-
-    const classSchedule = classRow?.schedule as { startTime?: string; endTime?: string } | null
+    // 7. 세션이 없으면 생성 — 수업 스케줄 시간 우선, 없으면 기본값(09:00~18:00)
+    const classSchedule = ownedClass.schedule as { startTime?: string; endTime?: string } | null
 
     const sessionDate = new Date(validatedData.session_date)
 

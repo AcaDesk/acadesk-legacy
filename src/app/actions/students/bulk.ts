@@ -183,8 +183,37 @@ export async function bulkEnrollClass(studentIds: string[], classId: string) {
     // 2. Create service_role client
     const serviceClient = createServiceRoleClient()
 
-    // 3. Create enrollment records
-    const enrollments = studentIds.map(studentId => ({
+    // 3. class_id 소유 검증 — 타 테넌트 수업으로의 배정 차단
+    const { data: ownedClass, error: classError } = await serviceClient
+      .from('classes')
+      .select('id')
+      .eq('id', classId)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (classError) throw classError
+    if (!ownedClass) {
+      return { success: false, error: '수업을 찾을 수 없습니다.' }
+    }
+
+    // 4. student_id 소유 검증 — 현재 테넌트 소속 학생만 배정 (upsert가 타 테넌트 행을 덮어쓰는 것을 방지)
+    const { data: ownedStudents, error: studentsError } = await serviceClient
+      .from('students')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .in('id', studentIds)
+
+    if (studentsError) throw studentsError
+
+    const ownedStudentIds = (ownedStudents ?? []).map((s) => s.id)
+    if (ownedStudentIds.length === 0) {
+      return { success: false, error: '배정할 학생을 찾을 수 없습니다.' }
+    }
+
+    // 5. Create enrollment records — 검증된 학생 id만 사용
+    const enrollments = ownedStudentIds.map(studentId => ({
       tenant_id: tenantId,
       class_id: classId,
       student_id: studentId,

@@ -579,6 +579,7 @@ ${params.comment ? `💬 종합평가\n${params.comment}\n\n` : ''}문의: ${par
         .from('kakao_alimtalk_templates')
         .select('content')
         .eq('id', params.kakaoTemplateId)
+        .eq('tenant_id', tenantId)
         .is('deleted_at', null)
         .maybeSingle()
       const renderedMessage = kakaoTemplate?.content
