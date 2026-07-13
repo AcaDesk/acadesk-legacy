@@ -53,7 +53,6 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
   const [selectedType, setSelectedType] = useState<string>('all')
   const [selectedSchoolLevel, setSelectedSchoolLevel] = useState<string>('all')
   const [selectedPeriod, setSelectedPeriod] = useState<ReportPeriod>('this_month')
-  const [activeStatFilter, setActiveStatFilter] = useState<string | null>(null)
   const [activePresets, setActivePresets] = useState<PresetFilter[]>([])
 
   const queryClient = useQueryClient()
@@ -97,7 +96,7 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
     }
   }, [listQuery.data, selectedStudent, selectedType])
 
-  // Apply client-side filters (school level, stat card filter, presets)
+  // Apply client-side filters (school level, presets)
   const filteredReports = useMemo(() => {
     let filtered = reports
 
@@ -108,24 +107,6 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
       })
     }
 
-    if (activeStatFilter) {
-      const now = new Date()
-      switch (activeStatFilter) {
-        case 'thisMonth':
-          filtered = filtered.filter((r) => {
-            const genDate = new Date(r.generated_at)
-            return genDate.getMonth() === now.getMonth() && genDate.getFullYear() === now.getFullYear()
-          })
-          break
-        case 'sent':
-          filtered = filtered.filter((r) => r.sent_at !== null)
-          break
-        case 'notSent':
-          filtered = filtered.filter((r) => r.sent_at === null)
-          break
-      }
-    }
-
     // Apply preset filters
     if (activePresets.includes('today')) {
       const today = new Date().toISOString().split('T')[0]
@@ -134,14 +115,22 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
     if (activePresets.includes('notSent')) {
       filtered = filtered.filter((r) => r.sent_at === null)
     }
+    if (activePresets.includes('sent')) {
+      filtered = filtered.filter((r) => r.sent_at !== null)
+    }
 
     return filtered
-  }, [reports, selectedSchoolLevel, activeStatFilter, activePresets])
+  }, [reports, selectedSchoolLevel, activePresets])
 
   function handlePresetToggle(preset: PresetFilter) {
-    setActivePresets((prev) =>
-      prev.includes(preset) ? prev.filter((p) => p !== preset) : [...prev, preset]
-    )
+    setActivePresets((prev) => {
+      if (prev.includes(preset)) return prev.filter((p) => p !== preset)
+      // 전송 상태 프리셋은 상호 배타 (미전송 ↔ 전송 완료)
+      const exclusive: Record<string, PresetFilter> = { notSent: 'sent', sent: 'notSent' }
+      const opposite = exclusive[preset]
+      const next = opposite ? prev.filter((p) => p !== opposite) : prev
+      return [...next, preset]
+    })
   }
 
   function resetAllFilters() {
@@ -149,7 +138,6 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
     setSelectedStudent('all')
     setSelectedType('all')
     setSelectedPeriod('this_month')
-    setActiveStatFilter(null)
     setActivePresets([])
   }
 
@@ -158,7 +146,6 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
     selectedStudent !== 'all' ||
     selectedType !== 'all' ||
     selectedPeriod !== 'this_month' ||
-    activeStatFilter !== null ||
     activePresets.length > 0
 
   return (
@@ -186,11 +173,7 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
 
         <TabsContent value="list" className="space-y-6">
         {/* Statistics */}
-        <ReportStatCards
-          allReports={allReports}
-          activeStatFilter={activeStatFilter}
-          onStatFilterChange={setActiveStatFilter}
-        />
+        <ReportStatCards allReports={allReports} />
 
         {/* Quick filter presets */}
         <ReportFilterPresets
@@ -243,35 +226,20 @@ export function ReportsContent({ initialReports, initialStudents }: ReportsConte
               <SelectItem value="all">전체 유형</SelectItem>
               <SelectItem value="weekly">주간</SelectItem>
               <SelectItem value="monthly">월간</SelectItem>
-              <SelectItem value="quarterly" disabled>분기 (준비 중)</SelectItem>
             </SelectContent>
           </Select>
 
           {/* Active filters display */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {activeStatFilter && (
-              <Badge
-                variant="outline"
-                className="h-8 px-3 cursor-pointer hover:bg-destructive/10"
-                onClick={() => setActiveStatFilter(null)}
-              >
-                {activeStatFilter === 'thisMonth' && '이번 달'}
-                {activeStatFilter === 'sent' && '전송 완료'}
-                {activeStatFilter === 'notSent' && '미전송'}
-                <span className="ml-1 text-muted-foreground">x</span>
-              </Badge>
-            )}
-            {hasActiveFilters && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={resetAllFilters}
-                className="h-8 text-muted-foreground hover:text-foreground"
-              >
-                필터 초기화
-              </Button>
-            )}
-          </div>
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={resetAllFilters}
+              className="h-8 text-muted-foreground hover:text-foreground"
+            >
+              필터 초기화
+            </Button>
+          )}
 
           <Badge variant="secondary" className="h-10 px-4 flex items-center whitespace-nowrap ml-auto">
             {filteredReports.length}개 리포트

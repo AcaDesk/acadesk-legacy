@@ -6,23 +6,12 @@ import type { ReportWithStudent } from '@/core/types/report.types'
 
 interface ReportStatCardsProps {
   allReports: ReportWithStudent[]
-  activeStatFilter: string | null
-  onStatFilterChange: (filter: string | null) => void
 }
 
-export function ReportStatCards({
-  allReports,
-  activeStatFilter,
-  onStatFilterChange,
-}: ReportStatCardsProps) {
+export function ReportStatCards({ allReports }: ReportStatCardsProps) {
   return (
     <div className="grid gap-4 md:grid-cols-4">
-      <Card
-        className={`cursor-pointer transition-all hover:shadow-md ${
-          activeStatFilter === null ? 'ring-2 ring-primary' : 'hover:border-primary/50'
-        }`}
-        onClick={() => onStatFilterChange(null)}
-      >
+      <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardDescription>총 리포트 수</CardDescription>
@@ -31,12 +20,7 @@ export function ReportStatCards({
           <CardTitle className="text-3xl">{allReports.length}개</CardTitle>
         </CardHeader>
       </Card>
-      <Card
-        className={`cursor-pointer transition-all hover:shadow-md ${
-          activeStatFilter === 'thisMonth' ? 'ring-2 ring-primary' : 'hover:border-primary/50'
-        }`}
-        onClick={() => onStatFilterChange(activeStatFilter === 'thisMonth' ? null : 'thisMonth')}
-      >
+      <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardDescription>이번 달 생성</CardDescription>
@@ -54,12 +38,7 @@ export function ReportStatCards({
           </CardTitle>
         </CardHeader>
       </Card>
-      <Card
-        className={`cursor-pointer transition-all hover:shadow-md ${
-          activeStatFilter === 'sent' ? 'ring-2 ring-primary' : 'hover:border-primary/50'
-        }`}
-        onClick={() => onStatFilterChange(activeStatFilter === 'sent' ? null : 'sent')}
-      >
+      <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardDescription>전송 완료</CardDescription>
@@ -70,12 +49,7 @@ export function ReportStatCards({
           </CardTitle>
         </CardHeader>
       </Card>
-      <Card
-        className={`cursor-pointer transition-all hover:shadow-md ${
-          activeStatFilter === 'notSent' ? 'ring-2 ring-primary' : 'hover:border-primary/50'
-        }`}
-        onClick={() => onStatFilterChange(activeStatFilter === 'notSent' ? null : 'notSent')}
-      >
+      <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardDescription>미전송</CardDescription>

@@ -394,11 +394,9 @@ export function ReportDetailContent({
             </div>
             <p className="text-muted-foreground">
               {formatPeriod(report.period_start, report.period_end)}
-              {report.sent_at && (
-                <span className="ml-2 text-xs">
-                  (마지막 전송: {new Date(report.sent_at).toLocaleString('ko-KR')})
-                </span>
-              )}
+              <span className="ml-2 text-xs">
+                (생성: {new Date(report.generated_at).toLocaleDateString('ko-KR')})
+              </span>
             </p>
           </div>
           <div className="flex gap-2 print:hidden">
@@ -420,33 +418,6 @@ export function ReportDetailContent({
             onEditComment={handleEditComment}
             showEditButton={true}
           />
-
-          {/* Report Metadata */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                리포트 정보
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">생성일</span>
-                  <span className="font-medium">
-                    {new Date(report.generated_at).toLocaleString('ko-KR')}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">전송일</span>
-                  <span className="font-medium">
-                    {report.sent_at
-                      ? new Date(report.sent_at).toLocaleString('ko-KR')
-                      : '미전송'}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
 
           {/* Send History */}
           <Card>

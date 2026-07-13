@@ -2,16 +2,11 @@
 
 import { memo, useMemo } from "react"
 import { Card } from "@ui/card"
-import { Badge } from "@ui/badge"
-import { Users, Calendar, Trophy, AlertCircle, CheckCircle, Clock } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { AlertCircle, CheckCircle, Clock } from "lucide-react"
 import Link from "next/link"
 
 interface WelcomeBannerProps {
   userName?: string
-  totalStudents: number
-  attendanceRate: number
-  averageScore: number
   // 선택적 알림 정보
   urgentTasks?: {
     type: 'overdue_payment' | 'scheduled_consultation' | 'low_attendance' | 'pending_reports'
@@ -45,9 +40,6 @@ function getGreetingByTime(): { greeting: string; icon: typeof Clock } {
 
 export const WelcomeBanner = memo(function WelcomeBanner({
   userName = "원장님",
-  totalStudents,
-  attendanceRate,
-  averageScore,
   urgentTasks = []
 }: WelcomeBannerProps) {
   // Memoize formatted date to prevent recalculation on every render
@@ -66,33 +58,6 @@ export const WelcomeBanner = memo(function WelcomeBanner({
   // 가장 우선순위 높은 알림 선택
   const primaryAlert = urgentTasks[0]
 
-  // Memoize stats array to prevent recalculation
-  const stats = useMemo(() => [
-    {
-      icon: Users,
-      label: "총 학생 수",
-      value: `${totalStudents}명`,
-      href: "/students",
-      color: "text-info"
-    },
-    {
-      icon: Calendar,
-      label: "오늘 출석률",
-      value: `${attendanceRate}%`,
-      href: "/attendance",
-      color: "text-green-600 dark:text-green-400",
-      status: attendanceRate >= 90 ? 'good' : attendanceRate >= 70 ? 'normal' : 'warning'
-    },
-    {
-      icon: Trophy,
-      label: "평균 성적",
-      value: `${averageScore}점`,
-      href: "/grades",
-      color: "text-yellow-600 dark:text-yellow-400",
-      status: averageScore >= 85 ? 'good' : averageScore >= 70 ? 'normal' : 'warning'
-    }
-  ], [totalStudents, attendanceRate, averageScore])
-
   return (
     <Card className="relative overflow-hidden border-none shadow-lg bg-primary">
       {/* 미묘한 장식 패턴 */}
@@ -102,116 +67,44 @@ export const WelcomeBanner = memo(function WelcomeBanner({
       </div>
 
       {/* 컨텐츠 */}
-      <div className="relative p-8 md:p-10">
-        <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-          {/* 좌측: 환영 메시지 */}
-          <div className="space-y-3">
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/25 px-3 py-1 text-xs font-medium text-white backdrop-blur-md shadow-lg">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75"></span>
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-white"></span>
-              </span>
-              {formattedDate}
-            </div>
-
-            <h2 className="text-3xl md:text-4xl font-bold text-white drop-shadow-lg">
-              안녕하세요, {userName}!
-            </h2>
-
-            {/* 상황별 동적 메시지 */}
-            {primaryAlert ? (
-              <div className="flex items-start gap-2 rounded-lg bg-white/25 backdrop-blur-md px-4 py-3 border border-white/30 shadow-lg">
-                <AlertCircle className="h-5 w-5 text-white shrink-0 mt-0.5 drop-shadow" />
-                <div>
-                  <p className="text-sm font-semibold text-white drop-shadow">
-                    {primaryAlert.message}
-                  </p>
-                  {primaryAlert.link && (
-                    <Link
-                      href={primaryAlert.link}
-                      className="text-xs text-white/90 underline hover:text-white mt-1 inline-block drop-shadow"
-                    >
-                      자세히 보기 →
-                    </Link>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <p className="text-lg text-white/95 flex items-center gap-2 drop-shadow">
-                <GreetingIcon className="h-5 w-5" />
-                {greeting}
-              </p>
-            )}
+      <div className="relative p-6 md:p-8">
+        <div className="space-y-3">
+          <div className="inline-flex items-center gap-2 rounded-full bg-white/25 px-3 py-1 text-xs font-medium text-white backdrop-blur-md shadow-lg">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75"></span>
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-white"></span>
+            </span>
+            {formattedDate}
           </div>
 
-          {/* 우측: 클릭 가능한 주요 통계 */}
-          <div className="flex flex-wrap gap-4 md:gap-6">
-            {stats.map((stat, index) => {
-              const Icon = stat.icon
-              const isClickable = !!stat.href
+          <h2 className="text-3xl md:text-4xl font-bold text-white drop-shadow-lg">
+            안녕하세요, {userName}!
+          </h2>
 
-              const content = (
-                <>
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white/30 backdrop-blur-sm">
-                    <Icon className="h-6 w-6 text-white drop-shadow" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-white/90 drop-shadow">{stat.label}</p>
-                    <p className="text-xl font-bold text-white drop-shadow-lg">{stat.value}</p>
-                  </div>
-                  {stat.status && (
-                    <div className="shrink-0">
-                      {stat.status === 'good' && (
-                        <Badge variant="secondary" className="h-6 px-2 text-xs bg-green-500/30 text-white border-green-400/40 backdrop-blur-sm drop-shadow">
-                          양호
-                        </Badge>
-                      )}
-                      {stat.status === 'warning' && (
-                        <Badge variant="secondary" className="h-6 px-2 text-xs bg-yellow-500/30 text-white border-yellow-400/40 backdrop-blur-sm drop-shadow">
-                          주의
-                        </Badge>
-                      )}
-                    </div>
-                  )}
-                </>
-              )
-
-              if (isClickable) {
-                return (
+          {/* 상황별 동적 메시지 */}
+          {primaryAlert ? (
+            <div className="flex items-start gap-2 rounded-lg bg-white/25 backdrop-blur-md px-4 py-3 border border-white/30 shadow-lg">
+              <AlertCircle className="h-5 w-5 text-white shrink-0 mt-0.5 drop-shadow" />
+              <div>
+                <p className="text-sm font-semibold text-white drop-shadow">
+                  {primaryAlert.message}
+                </p>
+                {primaryAlert.link && (
                   <Link
-                    key={index}
-                    href={stat.href}
-                    className={cn(
-                      "relative flex items-center gap-3 rounded-lg bg-white/20 backdrop-blur-md px-4 py-3",
-                      "border border-white/30 shadow-lg",
-                      "transition-all duration-300",
-                      "hover:bg-white/30 hover:scale-105 hover:shadow-xl",
-                      "cursor-pointer group",
-                      "animate-in fade-in-50 slide-in-from-bottom-2 duration-500"
-                    )}
-                    style={{ animationDelay: `${index * 100}ms` }}
+                    href={primaryAlert.link}
+                    className="text-xs text-white/90 underline hover:text-white mt-1 inline-block drop-shadow"
                   >
-                    {content}
-                    <div className="absolute inset-0 rounded-lg bg-white/0 group-hover:bg-white/5 transition-colors" />
+                    자세히 보기 →
                   </Link>
-                )
-              }
-
-              return (
-                <div
-                  key={index}
-                  className={cn(
-                    "relative flex items-center gap-3 rounded-lg bg-white/20 backdrop-blur-md px-4 py-3",
-                    "border border-white/30 shadow-lg",
-                    "animate-in fade-in-50 slide-in-from-bottom-2 duration-500"
-                  )}
-                  style={{ animationDelay: `${index * 100}ms` }}
-                >
-                  {content}
-                </div>
-              )
-            })}
-          </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <p className="text-lg text-white/95 flex items-center gap-2 drop-shadow">
+              <GreetingIcon className="h-5 w-5" />
+              {greeting}
+            </p>
+          )}
         </div>
       </div>
     </Card>

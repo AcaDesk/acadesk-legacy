@@ -4,7 +4,7 @@ import { X } from 'lucide-react'
 import { Badge } from '@ui/badge'
 import { cn } from '@/lib/utils'
 
-export type PresetFilter = 'today' | 'notSent'
+export type PresetFilter = 'today' | 'notSent' | 'sent'
 
 interface ReportFilterPresetsProps {
   activePresets: PresetFilter[]
@@ -14,6 +14,7 @@ interface ReportFilterPresetsProps {
 const PRESETS: { key: PresetFilter; label: string }[] = [
   { key: 'today', label: '오늘 생성' },
   { key: 'notSent', label: '미전송' },
+  { key: 'sent', label: '전송 완료' },
 ]
 
 export function ReportFilterPresets({ activePresets, onToggle }: ReportFilterPresetsProps) {

@@ -509,11 +509,7 @@ export function DashboardClient({ data: initialData, savedPreferences }: Dashboa
     <div className="space-y-6" role="main" aria-labelledby="dashboard-title">
       {/* Welcome Banner */}
       <section aria-label="환영 배너" className="animate-in fade-in-50 slide-in-from-top-2 duration-500">
-        <WelcomeBanner
-          totalStudents={activeStats.totalStudents}
-          attendanceRate={attendanceRate}
-          averageScore={activeStats.averageScore}
-        />
+        <WelcomeBanner />
       </section>
 
       {/* 헤더 */}

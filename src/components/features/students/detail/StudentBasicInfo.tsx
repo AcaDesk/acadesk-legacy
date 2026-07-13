@@ -10,9 +10,11 @@ import {
   Users,
   Bus,
   Tag,
+  Cake,
+  FileText,
 } from 'lucide-react'
-import { format as formatDate } from 'date-fns'
-import { getGuardianDisplayName } from '@/lib/constants'
+import { format as formatDate, differenceInYears, differenceInCalendarDays } from 'date-fns'
+import { getGuardianDisplayName, getStudentTypeLabel } from '@/lib/constants'
 import type { StudentDetail } from '@/core/types/studentDetail.types'
 import { formatPhoneNumber } from '@/lib/utils'
 
@@ -53,20 +55,6 @@ export function StudentBasicInfo({ student: baseStudent }: StudentBasicInfoProps
       other: '기타',
     }
     return labels[source] || source
-  }
-
-  const getStudentTypeLabel = (type: string | null) => {
-    if (!type) return null
-    const labels: Record<string, string> = {
-      elementary: '초등부',
-      middle: '중등부',
-      high: '고등부',
-      prep_high1: '예비 고1',
-      prep_middle1: '예비 중1',
-      repeat: '재수생',
-      adult: '성인',
-    }
-    return labels[type] || type
   }
 
   const getRegionLabel = (region: string | null) => {
@@ -178,6 +166,23 @@ export function StudentBasicInfo({ student: baseStudent }: StudentBasicInfoProps
                   )}
                 </div>
               </div>
+
+              {student.birth_date && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Cake className="h-4 w-4" />
+                    <span className="font-medium">생년월일</span>
+                  </div>
+                  <div className="pl-6">
+                    <p className="text-xs">
+                      {formatDate(new Date(student.birth_date), 'yyyy.MM.dd')}
+                      <span className="ml-1 text-muted-foreground">
+                        ({differenceInYears(new Date(), new Date(student.birth_date))}세)
+                      </span>
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Column 3: 입회 정보 및 기타 */}
@@ -190,6 +195,9 @@ export function StudentBasicInfo({ student: baseStudent }: StudentBasicInfoProps
                 <div className="pl-6">
                   <p className="font-medium">
                     {formatDate(new Date(student.enrollment_date), 'yyyy.MM.dd')}
+                    <span className="ml-1 text-xs font-normal text-muted-foreground">
+                      ({differenceInCalendarDays(new Date(), new Date(student.enrollment_date))}일째)
+                    </span>
                   </p>
                 </div>
               </div>
@@ -266,6 +274,19 @@ export function StudentBasicInfo({ student: baseStudent }: StudentBasicInfoProps
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* 특이사항 - 전체 너비로 하단에 표시 */}
+          {student.notes && (
+            <div className="mt-6 pt-6 border-t">
+              <div className="flex items-center gap-2 text-muted-foreground mb-2">
+                <FileText className="h-4 w-4" />
+                <span className="font-medium">특이사항</span>
+              </div>
+              <p className="pl-6 text-xs whitespace-pre-wrap break-words">
+                {student.notes}
+              </p>
             </div>
           )}
         </CardContent>
