@@ -2,6 +2,7 @@ import { Suspense } from "react"
 import { redirect } from "next/navigation"
 import { getCurrentUserWithTenant } from "@/lib/auth/service-role-helpers"
 import { createServiceRoleClient } from "@/lib/supabase/service-role"
+import { env } from "@/lib/env"
 import { ApprovalManagementClient } from "./approval-management-client"
 
 // Edge 런타임 방지 - service_role은 Node.js에서만 작동
@@ -19,21 +20,28 @@ export default async function ApprovalsPage() {
 
   const userId = userResult.data.id
 
-  // Owner 권한 체크 (service_role 사용 - RLS 우회)
+  // 플랫폼 운영자 권한 체크 (PLATFORM_ADMIN_EMAILS 허용목록) — service_role 사용
   const admin = createServiceRoleClient()
   const { data: userData } = await admin
     .from("users")
-    .select("role_code")
+    .select("email")
     .eq("id", userId)
     .single()
 
-  if (userData?.role_code !== 'owner') {
+  const allowlist = (env.PLATFORM_ADMIN_EMAILS ?? '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean)
+  const email = userData?.email?.trim().toLowerCase()
+  const isPlatformAdmin = !!email && allowlist.length > 0 && allowlist.includes(email)
+
+  if (!isPlatformAdmin) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">접근 권한 없음</h1>
           <p className="text-muted-foreground">
-            이 페이지는 원장님만 접근할 수 있습니다.
+            이 페이지는 플랫폼 운영자만 접근할 수 있습니다.
           </p>
         </div>
       </div>

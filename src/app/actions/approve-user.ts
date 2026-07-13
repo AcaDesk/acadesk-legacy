@@ -1,15 +1,16 @@
 /**
  * User Approval Server Actions
  *
- * Owner 권한을 가진 사용자만 대기 중인 사용자를 승인/거부할 수 있습니다.
+ * 플랫폼 운영자(PLATFORM_ADMIN_EMAILS)만 대기 중인 사용자를 승인/거부할 수 있습니다.
  * 승인 시 새로운 Tenant가 생성되고 사용자가 owner로 설정됩니다.
+ * (새 학원·원장을 만드는 테넌트 경계 밖 작업이므로 일반 원장이 아닌 운영자 전용)
  */
 
 'use server'
 
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
-import { verifyOwner } from '@/lib/auth/verify-permission'
+import { verifyPlatformAdmin } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 
 // ============================================================================
@@ -47,8 +48,8 @@ const rejectUserSchema = z.object({
  */
 export async function approveUser(userId: string): Promise<ApproveUserResult> {
   try {
-    // 1. Verify authentication and owner permission
-    const { userId: currentUserId } = await verifyOwner()
+    // 1. Verify platform operator permission (새 학원·원장 생성은 운영자 전용)
+    const { userId: currentUserId } = await verifyPlatformAdmin()
 
     // 2. Validate input
     const validated = approveUserSchema.parse({ userId })
@@ -136,8 +137,8 @@ export async function rejectUser(
   reason?: string
 ): Promise<ApproveUserResult> {
   try {
-    // 1. Verify authentication and owner permission
-    const { userId: currentUserId } = await verifyOwner()
+    // 1. Verify platform operator permission (승인 거부도 운영자 전용)
+    const { userId: currentUserId } = await verifyPlatformAdmin()
 
     // 2. Validate input
     const validated = rejectUserSchema.parse({ userId, reason })

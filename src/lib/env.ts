@@ -62,6 +62,9 @@ const serverEnvSchema = z.object({
   RESEND_API_KEY: z.string().optional(),
   SUPPORT_NOTIFY_EMAIL: z.string().email().optional(),
 
+  // 플랫폼 운영자 이메일 목록 (쉼표 구분) — 새 원장/학원 승인 권한
+  PLATFORM_ADMIN_EMAILS: z.string().optional(),
+
   // 학원별 외부 API 시크릿 암호화 키 (base64 인코딩된 32바이트)
   ENCRYPTION_KEY: z.string().optional(),
 })

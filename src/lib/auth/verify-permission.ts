@@ -15,6 +15,7 @@
 
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
+import { env } from '@/lib/env'
 
 /**
  * User context returned after successful authentication
@@ -154,4 +155,31 @@ export async function verifyOwner(): Promise<UserContext> {
  */
 export async function verifyStaff(): Promise<UserContext> {
   return verifyRole(['owner', 'instructor', 'assistant'])
+}
+
+/**
+ * Verify that the user is a platform operator (플랫폼 운영자)
+ *
+ * 운영자는 PLATFORM_ADMIN_EMAILS 환경변수(쉼표 구분)에 등록된 이메일 계정입니다.
+ * 새 원장 승인·새 학원(tenant) 생성처럼 테넌트 경계를 넘는 작업에만 사용합니다.
+ * 일반 학원 원장(role_code='owner')과는 별개의 권한입니다.
+ *
+ * @throws {Error} If user is not authenticated or not in the operator allowlist
+ * @returns Promise<UserContext> User context
+ */
+export async function verifyPlatformAdmin(): Promise<UserContext> {
+  const context = await verifyPermission()
+
+  const allowlist = (env.PLATFORM_ADMIN_EMAILS ?? '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean)
+
+  const email = context.email?.trim().toLowerCase()
+
+  if (!email || allowlist.length === 0 || !allowlist.includes(email)) {
+    throw new Error('플랫폼 운영자만 수행할 수 있는 작업입니다.')
+  }
+
+  return context
 }
