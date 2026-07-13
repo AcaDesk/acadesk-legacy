@@ -1,4 +1,7 @@
+'use client'
+
 import { ReactNode } from "react"
+import { motion } from "motion/react"
 import { cn } from "@/lib/utils"
 import { createPageContainer } from "@/lib/design-system"
 
@@ -13,6 +16,7 @@ interface PageWrapperProps {
 
 /**
  * PageWrapper - 모든 페이지의 일관된 레이아웃 제공
+ * 페이지 진입 시 부드러운 fade + slide-up 전환 적용
  *
  * @param title - 페이지 제목
  * @param subtitle - 페이지 부제목 (선택)
@@ -32,7 +36,12 @@ export function PageWrapper({
   const desc = subtitle || description
 
   return (
-    <div className={cn(createPageContainer(), className)}>
+    <motion.div
+      className={cn(createPageContainer(), className)}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, ease: [0, 0, 0.2, 1] }}
+    >
       {hasHeader && (
         <div className="flex items-start justify-between gap-4 mb-6">
           <div className="space-y-1">
@@ -43,6 +52,6 @@ export function PageWrapper({
         </div>
       )}
       {children}
-    </div>
+    </motion.div>
   )
 }

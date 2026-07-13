@@ -467,7 +467,7 @@ export function DashboardShell({
               헤더(sticky)를 제외한 나머지 뷰포트 높이를 명시해 h-full 기반
               고정 높이 페이지(출석 등)가 기존과 동일하게 동작하도록 유지 */}
           <main className={cn(
-            "bg-background",
+            "bg-muted/60 dark:bg-background",
             isStandalone ? "h-[calc(100%-3rem)]" : "h-[calc(100%-4rem)]"
           )}>
             {!isStandalone && (
