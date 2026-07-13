@@ -121,13 +121,18 @@ const SidebarContent = memo(function SidebarContent({
  * 데스크톱 사이드바 (접기/펼치기 기능)
  */
 const DesktopSidebar = memo(function DesktopSidebar({
-  isCollapsed
+  isCollapsed,
+  isPeeking = false,
 }: {
   isCollapsed: boolean
+  isPeeking?: boolean
 }) {
   return (
     <aside
-      className="relative h-full border-r bg-card overflow-hidden transition-all duration-300 ease-out"
+      className={cn(
+        "relative h-full border-r bg-card overflow-hidden transition-all duration-300 ease-out",
+        isPeeking && "shadow-2xl"
+      )}
       style={{ width: isCollapsed ? "4rem" : "16rem" }}
     >
       <SidebarContent isCollapsed={isCollapsed} />
@@ -371,6 +376,11 @@ export function DashboardShell({
 }: DashboardShellProps) {
   const { sidebarCollapsed: isCollapsed, setSidebarCollapsed, toggleSidebar, mobileMenuOpen, setMobileMenuOpen } = useUIStore()
 
+  // 접힌 사이드바에 호버하면 오버레이로 펼쳐 보기 (hover-to-peek)
+  const [isSidebarHovered, setIsSidebarHovered] = useState(false)
+  const visuallyCollapsed = isCollapsed && !isSidebarHovered
+  const isPeeking = isCollapsed && isSidebarHovered
+
   // 로그아웃 처리
   const { logout, isLoading: isLoggingOut } = useLogout()
 
@@ -408,21 +418,24 @@ export function DashboardShell({
       {/* 데스크톱: 고정 사이드바 (standalone 모드에서는 숨김) */}
       {isDesktop && !isStandalone && (
         <motion.div
-          className="relative flex-shrink-0"
+          className="relative z-40 flex-shrink-0"
           animate={{
             width: isCollapsed ? "4rem" : "16rem"
           }}
           transition={{ duration: 0.3, ease: "easeOut" }}
+          onMouseEnter={() => setIsSidebarHovered(true)}
+          onMouseLeave={() => setIsSidebarHovered(false)}
         >
-          <DesktopSidebar isCollapsed={isCollapsed} />
+          {/* 접힌 상태에서 호버 시 콘텐츠 위로 오버레이 확장 (레이아웃은 4rem 유지) */}
+          <DesktopSidebar isCollapsed={visuallyCollapsed} isPeeking={isPeeking} />
 
           {/* 접기/펼치기 버튼 */}
           <Button
             variant="ghost"
             size="icon"
-            className="absolute top-20 h-6 w-6 rounded-full border bg-background shadow-md transition-all duration-300 ease-in-out z-10"
+            className="absolute top-20 h-6 w-6 rounded-full border bg-background shadow-md transition-all duration-300 ease-in-out z-50"
             style={{
-              left: isCollapsed ? '3.25rem' : '15.25rem',
+              left: visuallyCollapsed ? '3.25rem' : '15.25rem',
             }}
             onClick={toggleSidebar}
           >

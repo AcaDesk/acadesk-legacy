@@ -24,7 +24,7 @@ export function DashboardWidgetWrapper({
     <div className={cn("relative h-full group/edit", className)}>
       {/* Edit Mode Controls — 오버레이로 표시하여 콘텐츠 영역 침범 방지 */}
       <div className={cn(
-        "absolute top-0 left-0 right-0 z-10 flex items-center justify-between gap-2 rounded-t-lg",
+        "absolute top-0 left-0 right-0 z-10 flex items-center justify-between gap-2 rounded-t-2xl",
         "bg-accent/80 backdrop-blur-sm border-b border-primary/20",
         "opacity-40 group-hover/edit:opacity-100 transition-all duration-200",
         disablePadding ? "px-2 py-0.5" : "px-3 py-1.5"
