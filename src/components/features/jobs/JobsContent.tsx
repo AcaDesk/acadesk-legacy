@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { useToast } from '@/hooks/use-toast'
 import { getBatchJobs, runDueScheduledBatchJobs } from '@/app/actions/batch/jobs'
+import { queryKeys } from '@/lib/query-keys'
 import { JobStatusBadge } from './JobStatusBadge'
 import { JobTypeBadge } from './JobTypeBadge'
 import { Progress } from '@ui/progress'
@@ -29,40 +30,38 @@ import type { BatchJob, BatchActionType, JobStatus } from '@/core/types/batch.ty
 
 export function JobsContent() {
   const router = useRouter()
-  const { toast } = useToast()
-  const [jobs, setJobs] = useState<BatchJob[]>([])
-  const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [actionType, setActionType] = useState<string>('all')
   const [status, setStatus] = useState<string>('all')
-  const [loading, setLoading] = useState(true)
   const [dueChecked, setDueChecked] = useState(false)
 
   const pageSize = 20
 
+  // 예약된 배치 작업의 실행 시점 도래 여부를 목록 조회 전에 1회 확인한다 (side effect)
   useEffect(() => {
-    async function load() {
-      setLoading(true)
-      if (!dueChecked) {
-        await runDueScheduledBatchJobs(1)
-        setDueChecked(true)
-      }
+    runDueScheduledBatchJobs(1).finally(() => setDueChecked(true))
+  }, [])
+
+  const jobsQuery = useQuery({
+    queryKey: queryKeys.batch.jobs({ page, actionType, status }),
+    queryFn: async (): Promise<{ jobs: BatchJob[]; total: number }> => {
       const result = await getBatchJobs({
         actionType: actionType === 'all' ? undefined : actionType as BatchActionType,
         status: status === 'all' ? undefined : status as JobStatus,
         page,
         pageSize,
       })
-      if (result.success && result.data) {
-        setJobs(result.data.jobs)
-        setTotal(result.data.total)
-      } else {
-        toast({ title: '작업 이력 조회 실패', description: result.error ?? '', variant: 'destructive' })
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '작업 이력 조회 실패')
       }
-      setLoading(false)
-    }
-    load()
-  }, [page, actionType, status, toast, dueChecked])
+      return result.data
+    },
+    enabled: dueChecked,
+    placeholderData: keepPreviousData,
+  })
+  const jobs = jobsQuery.data?.jobs ?? []
+  const total = jobsQuery.data?.total ?? 0
+  const loading = jobsQuery.isPending
 
   const totalPages = Math.ceil(total / pageSize)
 
@@ -100,6 +99,10 @@ export function JobsContent() {
       {loading ? (
         <div className="flex items-center justify-center h-48 text-muted-foreground">
           불러오는 중...
+        </div>
+      ) : jobsQuery.isError ? (
+        <div className="flex items-center justify-center h-48 text-destructive">
+          작업 이력을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.
         </div>
       ) : jobs.length === 0 ? (
         <EmptyState

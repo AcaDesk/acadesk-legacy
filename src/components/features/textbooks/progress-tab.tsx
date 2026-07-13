@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { ExternalLink, TrendingUp } from 'lucide-react'
 import {
@@ -20,8 +20,8 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { WidgetSkeleton } from '@/components/ui/widget-skeleton'
-import { showErrorToast } from '@/lib/toast-helpers'
 import { getRecentProgress } from '@/app/actions/textbook-progress'
+import { queryKeys } from '@/lib/query-keys'
 
 type ProgressRecord = {
   id: string
@@ -46,42 +46,40 @@ type ProgressRecord = {
 }
 
 export function ProgressTab({ textbookId }: { textbookId: string }) {
-  const [progressRecords, setProgressRecords] = useState<ProgressRecord[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const loadProgress = useCallback(async () => {
-    try {
-      setLoading(true)
+  const progressQuery = useQuery({
+    queryKey: queryKeys.textbooks.recentProgress(textbookId),
+    queryFn: async (): Promise<ProgressRecord[]> => {
       const result = await getRecentProgress({
         textbookId,
         limit: 50,
         days: 90, // Last 90 days
       })
-
       if (!result.success || !result.data) {
-        showErrorToast(
-          '진도 기록 로드 실패',
-          new Error(result.error || '진도 기록을 불러올 수 없습니다'),
-          'ProgressTab.loadProgress'
-        )
-        return
+        throw new Error(result.error || '진도 기록을 불러올 수 없습니다')
       }
+      return result.data as unknown as ProgressRecord[]
+    },
+  })
+  const progressRecords = progressQuery.data ?? []
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setProgressRecords(result.data as any)
-    } catch (error) {
-      showErrorToast('진도 기록 로드 실패', error, 'ProgressTab.loadProgress')
-    } finally {
-      setLoading(false)
-    }
-  }, [textbookId])
-
-  useEffect(() => {
-    loadProgress()
-  }, [loadProgress])
-
-  if (loading) {
+  if (progressQuery.isPending) {
     return <WidgetSkeleton variant="table" />
+  }
+
+  if (progressQuery.isError) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>진도 기록</CardTitle>
+          <CardDescription>최근 90일간의 진도 기록</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-destructive text-center py-8">
+            진도 기록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.
+          </p>
+        </CardContent>
+      </Card>
+    )
   }
 
   if (progressRecords.length === 0) {

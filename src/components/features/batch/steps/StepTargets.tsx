@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback, useTransition } from 'react'
+import { useState, useEffect, useTransition } from 'react'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useToast } from '@/hooks/use-toast'
 import { getStudentsForBatchFilter, patchBatchDraft } from '@/app/actions/batch'
+import { queryKeys } from '@/lib/query-keys'
 import { TargetFilterPanel, type SchoolLevel } from '../shared/TargetFilterPanel'
 import { TargetTable } from '../shared/TargetTable'
 import { SelectionSummary } from '../shared/SelectionSummary'
@@ -19,13 +21,12 @@ export function StepTargets({ draftId, initialTargetIds, presetActionType }: Ste
   const { toast } = useToast()
   const [isPending, startTransition] = useTransition()
 
-  const [students, setStudents] = useState<BatchTarget[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(initialTargetIds))
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [grade, setGrade] = useState('all')
   const [classId, setClassId] = useState('all')
   const [schoolLevel, setSchoolLevel] = useState<SchoolLevel>('all')
-  const [loading, setLoading] = useState(true)
 
   function getSchoolLevel(g: string | null): SchoolLevel {
     if (!g) return 'all'
@@ -35,25 +36,28 @@ export function StepTargets({ draftId, initialTargetIds, presetActionType }: Ste
     return 'all'
   }
 
-  const loadStudents = useCallback(async () => {
-    setLoading(true)
-    const result = await getStudentsForBatchFilter({
-      grade: grade === 'all' ? undefined : grade,
-      classId: classId === 'all' ? undefined : classId,
-      search: search || undefined,
-    })
-    if (result.success && result.data) {
-      setStudents(result.data)
-    } else {
-      toast({ title: '학생 목록 조회 실패', description: result.error ?? '', variant: 'destructive' })
-    }
-    setLoading(false)
-  }, [grade, classId, search, toast])
-
   useEffect(() => {
-    const timer = setTimeout(loadStudents, 300)
+    const timer = setTimeout(() => setDebouncedSearch(search), 300)
     return () => clearTimeout(timer)
-  }, [loadStudents])
+  }, [search])
+
+  const studentsQuery = useQuery({
+    queryKey: queryKeys.batch.targets({ grade, classId, search: debouncedSearch }),
+    queryFn: async (): Promise<BatchTarget[]> => {
+      const result = await getStudentsForBatchFilter({
+        grade: grade === 'all' ? undefined : grade,
+        classId: classId === 'all' ? undefined : classId,
+        search: debouncedSearch || undefined,
+      })
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '학생 목록 조회 실패')
+      }
+      return result.data
+    },
+    placeholderData: keepPreviousData,
+  })
+  const students = studentsQuery.data ?? []
+  const loading = studentsQuery.isPending
 
   const grades = [...new Set(students.map((s) => s.grade).filter(Boolean))] as string[]
   const classes = [...new Map(
@@ -109,6 +113,10 @@ export function StepTargets({ draftId, initialTargetIds, presetActionType }: Ste
       {loading ? (
         <div className="flex items-center justify-center h-48 text-muted-foreground">
           불러오는 중...
+        </div>
+      ) : studentsQuery.isError ? (
+        <div className="flex items-center justify-center h-48 text-destructive">
+          학생 목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.
         </div>
       ) : (
         <TargetTable

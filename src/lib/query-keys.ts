@@ -82,6 +82,7 @@ export const queryKeys = {
     all: () => ['textbooks'] as const,
     list: (filters: Record<string, unknown>) => ['textbooks', 'list', filters] as const,
     enriched: () => ['textbooks', 'enriched'] as const,
+    recentProgress: (textbookId: string) => ['textbooks', textbookId, 'recentProgress'] as const,
   },
 
   guardians: {
@@ -94,6 +95,11 @@ export const queryKeys = {
     list: (filters: Record<string, unknown>) => ['reports', 'list', filters] as const,
     preview: (studentId: string, period: unknown) => ['reports', 'preview', studentId, period] as const,
     templates: (context: unknown) => ['reports', 'templates', context] as const,
+  },
+
+  batch: {
+    jobs: (filters: Record<string, unknown>) => ['batch', 'jobs', filters] as const,
+    targets: (filters: Record<string, unknown>) => ['batch', 'targets', filters] as const,
   },
 
   eventSubscriptions: {
