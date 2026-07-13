@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState, useEffect } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -35,7 +36,9 @@ import {
 } from '@ui/select'
 import { Alert, AlertDescription } from '@ui/alert'
 import { useToast } from '@/hooks/use-toast'
-import { sendMessages, getMessageTemplates } from '@/app/actions/messaging/messages'
+import { sendMessages } from '@/app/actions/messaging/messages'
+import { useMessageTemplatesQuery } from '@/hooks/queries/use-messaging-query'
+import { queryKeys } from '@/lib/query-keys'
 import {
   useKakaoMessaging,
   getKakaoUnavailableLabel,
@@ -135,15 +138,42 @@ export function BulkMessageDialog({
   onOpenChange,
   onMessageSent,
 }: BulkMessageDialogProps) {
-  const [loadingStudents, setLoadingStudents] = useState(false)
-  const [students, setStudents] = useState<Student[]>([])
-  const [templates, setTemplates] = useState<MessageTemplate[]>([])
-  const [sending, setSending] = useState(false)
+  // 기본이 "전체 선택"이므로 선택 해제된 ID만 추적한다 — 서버 목록이 갱신돼도 시드가 필요 없다
+  const [deselectedIds, setDeselectedIds] = useState<Set<string>>(new Set())
   const [studentSearch, setStudentSearch] = useState('')
   const [gradeFilter, setGradeFilter] = useState<string>(ALL_FILTER_VALUE)
   const [classFilter, setClassFilter] = useState<string>(ALL_FILTER_VALUE)
 
   const { toast } = useToast()
+  const queryClient = useQueryClient()
+
+  const studentsQuery = useQuery({
+    queryKey: queryKeys.students.list({ view: 'bulkMessaging' }),
+    queryFn: async () => {
+      const result = await getStudentsForBulkMessaging()
+      if (!result.success) {
+        throw new Error(result.error || '학생 목록을 불러오지 못했습니다.')
+      }
+      return result.data
+    },
+    enabled: open,
+  })
+  const loadingStudents = open && studentsQuery.isPending
+
+  const students: Student[] = useMemo(
+    () =>
+      (studentsQuery.data ?? []).map((s) => ({
+        ...s,
+        selected: !deselectedIds.has(s.id),
+      })),
+    [studentsQuery.data, deselectedIds]
+  )
+
+  const templatesQuery = useMessageTemplatesQuery(open)
+  const templates: MessageTemplate[] = useMemo(
+    () => (templatesQuery.data ?? []).filter((t) => t.type === 'sms'),
+    [templatesQuery.data]
+  )
   const {
     hasKakaoChannel,
     unavailableReason,
@@ -180,8 +210,7 @@ export function BulkMessageDialog({
 
   useEffect(() => {
     if (open) {
-      loadStudents()
-      loadTemplates()
+      setDeselectedIds(new Set())
       if (!isChannelChecked) {
         checkChannel()
       }
@@ -194,27 +223,6 @@ export function BulkMessageDialog({
       loadKakaoTemplates()
     }
   }, [open, messageType, hasKakaoChannel, kakaoTemplates.length, loadKakaoTemplates])
-
-  async function loadStudents() {
-    setLoadingStudents(true)
-    try {
-      const result = await getStudentsForBulkMessaging()
-      if (!result.success) {
-        throw new Error(result.error || '학생 목록을 불러오지 못했습니다.')
-      }
-      // 기본적으로 모두 선택된 상태로 시작
-      setStudents(result.data.map((s) => ({ ...s, selected: true })))
-    } catch (error) {
-      console.error('Error loading students:', error)
-      toast({
-        title: '학생 로드 오류',
-        description: error instanceof Error ? error.message : '학생 목록을 불러오는 중 오류가 발생했습니다.',
-        variant: 'destructive',
-      })
-    } finally {
-      setLoadingStudents(false)
-    }
-  }
 
   // 학년/반 옵션 (학생 목록에서 동적으로 추출)
   const gradeOptions = useMemo(() => {
@@ -273,35 +281,34 @@ export function BulkMessageDialog({
     setClassFilter(ALL_FILTER_VALUE)
   }
 
-  async function loadTemplates() {
-    try {
-      const result = await getMessageTemplates()
-      if (result.success && result.data) {
-        setTemplates(result.data.filter(t => t.type === 'sms'))
-      }
-    } catch (error) {
-      console.error('Error loading templates:', error)
-    }
-  }
-
   function toggleStudent(studentId: string) {
-    setStudents(students.map(s =>
-      s.id === studentId ? { ...s, selected: !s.selected } : s
-    ))
+    setDeselectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(studentId)) {
+        next.delete(studentId)
+      } else {
+        next.add(studentId)
+      }
+      return next
+    })
   }
 
   /** 현재 필터/검색으로 보이는 학생만 일괄 토글 (전체 학생이 아님) */
   function toggleAllVisible() {
-    const visibleIds = new Set(visibleStudents.filter((s) => s.phone).map((s) => s.id))
-    if (visibleIds.size === 0) return
-    const allVisibleSelected = visibleStudents
-      .filter((s) => s.phone)
-      .every((s) => s.selected)
-    setStudents(
-      students.map((s) =>
-        visibleIds.has(s.id) ? { ...s, selected: !allVisibleSelected } : s
-      )
-    )
+    const visibleWithPhone = visibleStudents.filter((s) => s.phone)
+    if (visibleWithPhone.length === 0) return
+    const allVisibleSelected = visibleWithPhone.every((s) => s.selected)
+    setDeselectedIds((prev) => {
+      const next = new Set(prev)
+      visibleWithPhone.forEach((s) => {
+        if (allVisibleSelected) {
+          next.add(s.id)
+        } else {
+          next.delete(s.id)
+        }
+      })
+      return next
+    })
   }
 
   function applyTemplate(template: MessageTemplate) {
@@ -325,7 +332,37 @@ export function BulkMessageDialog({
       .replace(/\{학년\}/g, student.grade || '-')
   }
 
-  const onSubmit = async (data: MessageFormValues) => {
+  const sendMutation = useMutation({
+    mutationFn: async (payload: Parameters<typeof sendMessages>[0]) => {
+      const result = await sendMessages(payload)
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '메시지 전송 실패')
+      }
+      return result.data
+    },
+    onSuccess: (data) => {
+      toast({
+        title: '메시지 전송 완료',
+        description: `${data.successCount}건 성공, ${data.failCount}건 실패`,
+      })
+      reset()
+      onMessageSent?.()
+      onOpenChange(false)
+    },
+    onError: (error: Error) => {
+      toast({
+        title: '전송 오류',
+        description: getErrorMessage(error),
+        variant: 'destructive',
+      })
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.messaging.all() })
+    },
+  })
+  const sending = sendMutation.isPending
+
+  const onSubmit = (data: MessageFormValues) => {
     const selectedStudents = students.filter(s => s.selected && s.phone)
 
     if (selectedStudents.length === 0) {
@@ -366,40 +403,14 @@ export function BulkMessageDialog({
       return
     }
 
-    setSending(true)
-
-    try {
-      const result = await sendMessages({
-        studentIds: selectedStudents.map(s => s.id),
-        message: data.message.trim(),
-        type: messageType,
-        ...(data.type === 'kakao' && data.kakaoTemplateId && {
-          kakaoTemplateId: data.kakaoTemplateId,
-        }),
-      })
-
-      if (!result.success || !result.data) {
-        throw new Error(result.error || '메시지 전송 실패')
-      }
-
-      toast({
-        title: '메시지 전송 완료',
-        description: `${result.data.successCount}건 성공, ${result.data.failCount}건 실패`,
-      })
-
-      reset()
-      onMessageSent?.()
-      onOpenChange(false)
-    } catch (error) {
-      console.error('Error sending messages:', error)
-      toast({
-        title: '전송 오류',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    } finally {
-      setSending(false)
-    }
+    sendMutation.mutate({
+      studentIds: selectedStudents.map(s => s.id),
+      message: data.message.trim(),
+      type: messageType,
+      ...(data.type === 'kakao' && data.kakaoTemplateId && {
+        kakaoTemplateId: data.kakaoTemplateId,
+      }),
+    })
   }
 
   const selectedCount = students.filter(s => s.selected && s.phone).length
@@ -584,6 +595,11 @@ export function BulkMessageDialog({
               <div className="text-center py-8 text-muted-foreground">
                 <Loader2 className="h-8 w-8 mx-auto mb-2 animate-spin" />
                 학생 목록을 불러오는 중...
+              </div>
+            ) : studentsQuery.isError ? (
+              <div className="text-center py-8 text-destructive border rounded-lg">
+                <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                학생 목록을 불러오지 못했습니다
               </div>
             ) : students.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground border rounded-lg">
