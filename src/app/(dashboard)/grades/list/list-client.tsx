@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import {
   getGradesListData,
   getStudentScoreStats,
-  type GradesListStudent,
   type GradesListScore,
 } from '@/app/actions/grades/grades'
+import { queryKeys } from '@/lib/query-keys'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
 import { Badge } from '@ui/badge'
@@ -28,7 +29,6 @@ import {
   IconChevronsLeft,
   IconChevronsRight,
 } from '@tabler/icons-react'
-import { useToast } from '@/hooks/use-toast'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/page-error-boundary'
 import dynamic from 'next/dynamic'
@@ -55,50 +55,29 @@ import {
 } from '@tanstack/react-table'
 
 type ExamScore = GradesListScore
-type Student = GradesListStudent
 
 export function GradesListClient() {
   // All Hooks must be called before any early returns
-  const [scores, setScores] = useState<ExamScore[]>([])
-  const [students, setStudents] = useState<Student[]>([])
   const [selectedStudent, setSelectedStudent] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
-  const [loading, setLoading] = useState(true)
-  const [studentStats, setStudentStats] = useState<{ average: number; total: number; retests: number }>({
-    average: 0,
-    total: 0,
-    retests: 0
-  })
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
 
-  const { toast } = useToast()
   const router = useRouter()
 
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true)
+  const listQuery = useQuery({
+    queryKey: queryKeys.grades.listData(),
+    queryFn: async () => {
       const result = await getGradesListData()
       if (!result.success) {
         throw new Error(result.error || '데이터를 불러오지 못했습니다.')
       }
-      setStudents(result.data.students)
-      setScores(result.data.scores)
-    } catch (error) {
-      console.error('Error loading grades list:', error)
-      toast({
-        title: '데이터 로드 오류',
-        description: error instanceof Error ? error.message : '성적 정보를 불러오는 중 오류가 발생했습니다.',
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
-    }
-  }, [toast])
-
-  useEffect(() => {
-    loadData()
-  }, [loadData])
+      return result.data
+    },
+  })
+  const students = useMemo(() => listQuery.data?.students ?? [], [listQuery.data])
+  const scores = useMemo(() => listQuery.data?.scores ?? [], [listQuery.data])
+  const loading = listQuery.isPending
 
   function getScoreBadgeVariant(percentage: number) {
     if (percentage >= 90) return 'default'
@@ -122,26 +101,19 @@ export function GradesListClient() {
     }
   }
 
-  const loadStudentStats = useCallback(async () => {
-    try {
+  // Load student statistics when a student is selected
+  const statsQuery = useQuery({
+    queryKey: queryKeys.grades.studentStats(selectedStudent),
+    queryFn: async () => {
       const result = await getStudentScoreStats(selectedStudent)
       if (!result.success) {
-        setStudentStats({ average: 0, total: 0, retests: 0 })
-        return
+        return { average: 0, total: 0, retests: 0 }
       }
-      setStudentStats(result.data)
-    } catch (error) {
-      console.error('Error loading student stats:', error)
-      setStudentStats({ average: 0, total: 0, retests: 0 })
-    }
-  }, [selectedStudent])
-
-  // Load student statistics when a student is selected
-  useEffect(() => {
-    if (selectedStudent !== 'all') {
-      loadStudentStats()
-    }
-  }, [loadStudentStats, selectedStudent])
+      return result.data
+    },
+    enabled: selectedStudent !== 'all',
+  })
+  const studentStats = statsQuery.data ?? { average: 0, total: 0, retests: 0 }
 
   // 필터링된 데이터 (학생 및 상태 필터 적용)
   const filteredScores = useMemo(() => {
@@ -329,6 +301,18 @@ export function GradesListClient() {
       <PageWrapper>
         <div className="flex items-center justify-center h-64">
           <div className="text-muted-foreground">로딩 중...</div>
+        </div>
+      </PageWrapper>
+    )
+  }
+
+  if (listQuery.isError) {
+    return (
+      <PageWrapper>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-destructive">
+            성적 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.
+          </div>
         </div>
       </PageWrapper>
     )

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'motion/react'
 import { UserCircle, Lock, LogIn, Loader2, Search, Settings, ArrowLeft } from 'lucide-react'
@@ -12,6 +13,7 @@ import { useToast } from '@/hooks/use-toast'
 import { getStudentsByTenant, authenticateKioskByNameAndPhone } from '@/app/actions/kiosk'
 import { createKioskSession } from '@/lib/kiosk-session'
 import { kioskStorage } from '@/lib/kiosk-storage'
+import { queryKeys } from '@/lib/query-keys'
 
 interface Student {
   id: string
@@ -24,60 +26,45 @@ interface Student {
 
 export default function KioskLoginPage() {
   const [step, setStep] = useState<'select' | 'pin'>('select')
-  const [students, setStudents] = useState<Student[]>([])
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [pin, setPin] = useState('')
-  const [isLoading, setIsLoading] = useState(true)
+  const [deviceToken, setDeviceToken] = useState<string | null>(null)
   const [isAuthenticating, setIsAuthenticating] = useState(false)
 
   const router = useRouter()
   const { toast } = useToast()
 
-  // 디바이스 토큰 확인 및 학생 목록 로드
+  // 디바이스 토큰 확인 (localStorage 접근이라 클라이언트 마운트 후 수행)
   useEffect(() => {
-    const loadStudents = async () => {
-      const deviceToken = kioskStorage.getDeviceToken()
+    const token = kioskStorage.getDeviceToken()
 
-      if (!deviceToken) {
-        toast({
-          title: '키오스크 설정 필요',
-          description: '먼저 키오스크를 설정해주세요.',
-          variant: 'destructive',
-        })
-        router.push('/kiosk/setup')
-        return
-      }
-
-      setIsLoading(true)
-
-      try {
-        const result = await getStudentsByTenant(deviceToken)
-
-        if (!result.success || !result.students) {
-          toast({
-            title: '학생 목록 로드 실패',
-            description: result.error || '학생 목록을 불러올 수 없습니다.',
-            variant: 'destructive',
-          })
-          return
-        }
-
-        setStudents(result.students)
-      } catch (error) {
-        console.error('학생 목록 로드 오류:', error)
-        toast({
-          title: '오류',
-          description: '학생 목록을 불러오는 중 문제가 발생했습니다.',
-          variant: 'destructive',
-        })
-      } finally {
-        setIsLoading(false)
-      }
+    if (!token) {
+      toast({
+        title: '키오스크 설정 필요',
+        description: '먼저 키오스크를 설정해주세요.',
+        variant: 'destructive',
+      })
+      router.push('/kiosk/setup')
+      return
     }
 
-    loadStudents()
+    setDeviceToken(token)
   }, [router, toast])
+
+  const studentsQuery = useQuery({
+    queryKey: queryKeys.kiosk.students(),
+    queryFn: async (): Promise<Student[]> => {
+      const result = await getStudentsByTenant(deviceToken!)
+      if (!result.success || !result.students) {
+        throw new Error(result.error || '학생 목록을 불러올 수 없습니다.')
+      }
+      return result.students
+    },
+    enabled: !!deviceToken,
+  })
+  const students = useMemo(() => studentsQuery.data ?? [], [studentsQuery.data])
+  const isLoading = !deviceToken || studentsQuery.isPending
 
   // 검색 필터링 및 중복 이름 감지
   const filteredStudents = useMemo(() => {
@@ -245,7 +232,23 @@ export default function KioskLoginPage() {
               </Card>
 
               {/* 학생 카드 그리드 */}
-              {filteredStudents.length === 0 ? (
+              {studentsQuery.isError ? (
+                <Card className="shadow-lg">
+                  <CardContent className="flex flex-col items-center justify-center py-16">
+                    <UserCircle className="h-16 w-16 text-muted-foreground mb-4" />
+                    <p className="text-xl text-destructive">
+                      학생 목록을 불러오지 못했습니다
+                    </p>
+                    <Button
+                      variant="outline"
+                      className="mt-4"
+                      onClick={() => studentsQuery.refetch()}
+                    >
+                      다시 시도
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : filteredStudents.length === 0 ? (
                 <Card className="shadow-lg">
                   <CardContent className="flex flex-col items-center justify-center py-16">
                     <UserCircle className="h-16 w-16 text-muted-foreground mb-4" />

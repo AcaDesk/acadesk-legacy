@@ -19,6 +19,8 @@ export const queryKeys = {
     exams: () => ['grades', 'exams'] as const,
     exam: (id: string) => ['grades', 'exam', id] as const,
     examAssignment: (examId: string) => ['grades', 'exam', examId, 'assignment'] as const,
+    listData: () => ['grades', 'listData'] as const,
+    studentStats: (studentId: string) => ['grades', 'studentStats', studentId] as const,
   },
 
   consultations: {
@@ -95,6 +97,10 @@ export const queryKeys = {
     list: (filters: Record<string, unknown>) => ['reports', 'list', filters] as const,
     preview: (studentId: string, period: unknown) => ['reports', 'preview', studentId, period] as const,
     templates: (context: unknown) => ['reports', 'templates', context] as const,
+  },
+
+  kiosk: {
+    students: () => ['kiosk', 'students'] as const,
   },
 
   batch: {
