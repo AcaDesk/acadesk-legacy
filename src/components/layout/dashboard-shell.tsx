@@ -199,7 +199,7 @@ const Header = memo(function Header({
   return (
     <>
       <header className={cn(
-        "flex items-center justify-between border-b bg-card px-4 md:px-6",
+        "sticky top-0 z-30 flex items-center justify-between border-b bg-card/80 backdrop-blur-md supports-[backdrop-filter]:bg-card/60 px-4 md:px-6",
         isStandalone ? "h-12" : "h-16"
       )}>
         {/* 모바일: 햄버거 메뉴 + 로고 / standalone: 타이틀 */}
@@ -447,30 +447,37 @@ export function DashboardShell({
         </Sheet>
       )}
 
-      {/* 메인 콘텐츠 영역 */}
+      {/* 메인 콘텐츠 영역 — 헤더가 스크롤 컨테이너 안에서 sticky (글래스 효과) */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Header
-          onMenuClick={toggleMobileMenu}
-          showMenuButton={!isDesktop && !isStandalone}
-          onLogout={logout}
-          isLoggingOut={isLoggingOut}
-          userName={userName}
-          userEmail={userEmail}
-          userRole={userRole}
-          userTenantName={userTenantName}
-          userAvatarUrl={userAvatarUrl}
-          isStandalone={isStandalone}
-        />
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+          <Header
+            onMenuClick={toggleMobileMenu}
+            showMenuButton={!isDesktop && !isStandalone}
+            onLogout={logout}
+            isLoggingOut={isLoggingOut}
+            userName={userName}
+            userEmail={userEmail}
+            userRole={userRole}
+            userTenantName={userTenantName}
+            userAvatarUrl={userAvatarUrl}
+            isStandalone={isStandalone}
+          />
 
-        {/* 메인 - 페이지 컨텐츠만 전환 */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-background">
-          {!isStandalone && (
-            <div className="px-6 lg:px-8 pt-6">
-              <Breadcrumbs />
-            </div>
-          )}
-          {children}
-        </main>
+          {/* 메인 - 페이지 컨텐츠만 전환.
+              헤더(sticky)를 제외한 나머지 뷰포트 높이를 명시해 h-full 기반
+              고정 높이 페이지(출석 등)가 기존과 동일하게 동작하도록 유지 */}
+          <main className={cn(
+            "bg-background",
+            isStandalone ? "h-[calc(100%-3rem)]" : "h-[calc(100%-4rem)]"
+          )}>
+            {!isStandalone && (
+              <div className="px-6 lg:px-8 pt-6">
+                <Breadcrumbs />
+              </div>
+            )}
+            {children}
+          </main>
+        </div>
       </div>
     </div>
   )

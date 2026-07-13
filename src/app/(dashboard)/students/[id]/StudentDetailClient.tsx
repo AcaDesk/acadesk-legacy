@@ -77,7 +77,7 @@ export function StudentDetailClient({
           transition={{ duration: 0.3 }}
         >
           {/* Sticky Header - 학생 이름과 액션만 고정 */}
-          <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 pb-4 border-b">
+          <div className="sticky top-16 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 pb-4 border-b">
             <StudentHeader
               student={student}
               onStudentUpdate={setStudent}

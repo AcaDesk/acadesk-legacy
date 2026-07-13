@@ -882,7 +882,7 @@ export function AttendanceCheckPage({
                   ? '전체'
                   : filter === 'present'
                     ? '출석'
-                    : '결석'}
+                    : '미출석'}
               </button>
             ))}
           </div>
