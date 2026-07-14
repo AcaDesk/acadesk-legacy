@@ -16,7 +16,8 @@ import {
 import { Button } from "@ui/button"
 import { Input } from "@ui/input"
 import { Label } from "@ui/label"
-import { KeyRound, Eye, EyeOff, Loader2 } from "lucide-react"
+import Link from "next/link"
+import { KeyRound, Eye, EyeOff, Loader2, ArrowLeft } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { updatePassword } from "@/app/actions/auth"
 import { GENERIC_ERROR_MESSAGE } from "@/lib/auth/messages"
@@ -242,6 +243,13 @@ export default function ResetPasswordPage() {
               ) : (
                 "비밀번호 변경"
               )}
+            </Button>
+
+            <Button asChild variant="ghost" className="w-full" size="lg">
+              <Link href="/auth/login">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                로그인으로 돌아가기
+              </Link>
             </Button>
           </CardContent>
         </form>
