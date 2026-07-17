@@ -10,6 +10,12 @@ import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { withServerAction } from '@/lib/server-action-helpers'
 import { createKioskDeviceToken, verifyKioskDeviceToken } from '@/lib/kiosk-token'
+import {
+  KIOSK_RATE_LIMIT_ERROR,
+  clearKioskAuthFailures,
+  isKioskAuthRateLimited,
+  recordKioskAuthFailure,
+} from '@/lib/kiosk-rate-limit'
 
 const INVALID_DEVICE_ERROR = '키오스크 인증이 유효하지 않습니다. 설정 페이지에서 기기를 다시 등록해주세요.'
 
@@ -72,6 +78,12 @@ export async function authenticateKioskPin(
 
     const supabase = createServiceRoleClient()
 
+    // 브루트포스 방어: 학생 코드 단위 시도 제한
+    const rateLimitKey = `pin:${studentCode}`
+    if (await isKioskAuthRateLimited(supabase, tenantId, rateLimitKey)) {
+      return { success: false, error: KIOSK_RATE_LIMIT_ERROR }
+    }
+
     // 학생 코드로 학생 조회
     const { data: student, error: studentError } = await supabase
       .from('students')
@@ -94,6 +106,7 @@ export async function authenticateKioskPin(
     }
 
     if (!student) {
+      await recordKioskAuthFailure(supabase, tenantId, rateLimitKey)
       return {
         success: false,
         error: '학생을 찾을 수 없습니다.',
@@ -101,6 +114,7 @@ export async function authenticateKioskPin(
     }
 
     if (!student.kiosk_pin) {
+      await recordKioskAuthFailure(supabase, tenantId, rateLimitKey)
       return {
         success: false,
         error: 'PIN이 등록되지 않았습니다.',
@@ -111,11 +125,14 @@ export async function authenticateKioskPin(
     const isValidPin = await bcrypt.compare(pin, student.kiosk_pin)
 
     if (!isValidPin) {
+      await recordKioskAuthFailure(supabase, tenantId, rateLimitKey)
       return {
         success: false,
         error: 'PIN이 올바르지 않습니다.',
       }
     }
+
+    await clearKioskAuthFailures(supabase, tenantId, rateLimitKey)
 
     // Transform data to match Student interface
     const studentData: Student = {
@@ -280,11 +297,17 @@ export async function verifyKioskPin(pin: string, hash: string): Promise<boolean
 }
 
 /**
- * 테넌트별 학생 목록 조회 (키오스크용)
+ * 학생 이름 검색 (키오스크용)
+ *
+ * 디바이스 토큰만으로 테넌트 전체 명부(미성년자 이름·사진)가 노출되지 않도록
+ * 2글자 이상 검색어를 요구하고 결과를 최대 20건으로 제한한다.
+ *
  * @param deviceToken 키오스크 디바이스 토큰
+ * @param query 학생 이름 검색어 (2글자 이상)
  */
-export async function getStudentsByTenant(
-  deviceToken: string
+export async function searchKioskStudents(
+  deviceToken: string,
+  query: string
 ): Promise<{ success: boolean; students?: Student[]; error?: string }> {
   try {
     const tenantId = verifyKioskDeviceToken(deviceToken)
@@ -292,7 +315,15 @@ export async function getStudentsByTenant(
       return { success: false, error: INVALID_DEVICE_ERROR }
     }
 
+    const trimmed = query.trim()
+    if (trimmed.length < 2) {
+      return { success: true, students: [] }
+    }
+
     const supabase = createServiceRoleClient()
+
+    // ilike 와일드카드 이스케이프 (검색어의 %, _, \를 리터럴로 처리)
+    const escaped = trimmed.replace(/[\\%_]/g, (ch) => `\\${ch}`)
 
     const { data: students, error: studentsError } = await supabase
       .from('students')
@@ -306,7 +337,9 @@ export async function getStudentsByTenant(
       `)
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
-      .order('student_code')
+      .ilike('name', `%${escaped}%`)
+      .order('name')
+      .limit(20)
 
     if (studentsError) {
       throw studentsError
@@ -317,7 +350,7 @@ export async function getStudentsByTenant(
       students: students || [],
     }
   } catch (error) {
-    console.error('학생 목록 조회 오류:', error)
+    console.error('학생 검색 오류:', error)
     return {
       success: false,
       error: getErrorMessage(error),
@@ -343,6 +376,12 @@ export async function authenticateKioskByNameAndPhone(
     }
 
     const supabase = createServiceRoleClient()
+
+    // 브루트포스 방어: 학생 단위 시도 제한
+    const rateLimitKey = `phone:${studentId}`
+    if (await isKioskAuthRateLimited(supabase, tenantId, rateLimitKey)) {
+      return { success: false, error: KIOSK_RATE_LIMIT_ERROR }
+    }
 
     // 학생 정보와 Primary 보호자 전화번호 조회
     const { data: student, error: studentError } = await supabase
@@ -372,6 +411,7 @@ export async function authenticateKioskByNameAndPhone(
     }
 
     if (!student) {
+      await recordKioskAuthFailure(supabase, tenantId, rateLimitKey)
       return {
         success: false,
         error: '학생을 찾을 수 없습니다.',
@@ -383,26 +423,13 @@ export async function authenticateKioskByNameAndPhone(
     const guardianPhone = typedGuardians?.[0]?.guardians?.users?.phone
 
     if (!guardianPhone) {
-      // 보호자 전화번호가 없으면 기본 PIN 1234 사용
-      if (phoneLastFour === '1234') {
-        const studentData: Student = {
-          id: student.id,
-          tenant_id: student.tenant_id,
-          student_code: student.student_code,
-          name: student.name,
-          grade: student.grade,
-          profile_image_url: student.profile_image_url,
-        }
-
-        return {
-          success: true,
-          student: studentData,
-        }
-      }
-
+      // 보호자 전화번호 미등록 학생은 인증 수단이 없으므로 거부한다.
+      // (과거의 기본 PIN 1234 폴백은 사실상 무인증 접근이라 제거 — 데스크에서
+      //  보호자 연락처를 등록해야 키오스크 이용 가능)
+      await recordKioskAuthFailure(supabase, tenantId, rateLimitKey)
       return {
         success: false,
-        error: '보호자 전화번호가 등록되지 않았습니다. 기본 PIN(1234)을 사용하세요.',
+        error: '보호자 전화번호가 등록되지 않았습니다. 선생님께 문의해주세요.',
       }
     }
 
@@ -412,6 +439,7 @@ export async function authenticateKioskByNameAndPhone(
 
     // 입력값 검증
     if (phoneLastFour !== correctLastFour) {
+      await recordKioskAuthFailure(supabase, tenantId, rateLimitKey)
       return {
         success: false,
         error: '전화번호 뒷자리가 일치하지 않습니다.',
@@ -419,6 +447,7 @@ export async function authenticateKioskByNameAndPhone(
     }
 
     // 인증 성공
+    await clearKioskAuthFailures(supabase, tenantId, rateLimitKey)
     const studentData: Student = {
       id: student.id,
       tenant_id: student.tenant_id,

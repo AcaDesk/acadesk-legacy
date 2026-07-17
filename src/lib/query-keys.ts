@@ -104,7 +104,7 @@ export const queryKeys = {
   },
 
   kiosk: {
-    students: () => ['kiosk', 'students'] as const,
+    students: (search: string) => ['kiosk', 'students', search] as const,
   },
 
   batch: {

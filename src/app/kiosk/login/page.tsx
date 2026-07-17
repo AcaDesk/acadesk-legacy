@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'motion/react'
 import { UserCircle, Lock, LogIn, Loader2, Search, Settings, ArrowLeft } from 'lucide-react'
@@ -10,7 +10,7 @@ import { Button } from '@ui/button'
 import { Input } from '@ui/input'
 import { Label } from '@ui/label'
 import { useToast } from '@/hooks/use-toast'
-import { getStudentsByTenant, authenticateKioskByNameAndPhone } from '@/app/actions/kiosk'
+import { searchKioskStudents, authenticateKioskByNameAndPhone } from '@/app/actions/kiosk'
 import { createKioskSession } from '@/lib/kiosk-session'
 import { kioskStorage } from '@/lib/kiosk-storage'
 import { queryKeys } from '@/lib/query-keys'
@@ -52,37 +52,42 @@ export default function KioskLoginPage() {
     setDeviceToken(token)
   }, [router, toast])
 
+  // 검색어 디바운스 — 전체 명부를 내려받지 않고 서버 검색(2글자 이상)으로 조회
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchTerm.trim()), 300)
+    return () => clearTimeout(timer)
+  }, [searchTerm])
+
+  const canSearch = debouncedSearch.length >= 2
+
   const studentsQuery = useQuery({
-    queryKey: queryKeys.kiosk.students(),
+    queryKey: queryKeys.kiosk.students(debouncedSearch),
     queryFn: async (): Promise<Student[]> => {
-      const result = await getStudentsByTenant(deviceToken!)
+      const result = await searchKioskStudents(deviceToken!, debouncedSearch)
       if (!result.success || !result.students) {
-        throw new Error(result.error || '학생 목록을 불러올 수 없습니다.')
+        throw new Error(result.error || '학생을 검색할 수 없습니다.')
       }
       return result.students
     },
-    enabled: !!deviceToken,
+    enabled: !!deviceToken && canSearch,
+    placeholderData: keepPreviousData,
   })
   const students = useMemo(() => studentsQuery.data ?? [], [studentsQuery.data])
-  const isLoading = !deviceToken || studentsQuery.isPending
+  const isLoading = !deviceToken
 
-  // 검색 필터링 및 중복 이름 감지
+  // 중복 이름 감지 (검색 결과 내)
   const filteredStudents = useMemo(() => {
-    const filtered = students.filter((student) =>
-      student.name.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-
-    // 중복 이름 감지
     const nameCount = new Map<string, number>()
-    filtered.forEach((student) => {
+    students.forEach((student) => {
       nameCount.set(student.name, (nameCount.get(student.name) || 0) + 1)
     })
 
-    return filtered.map((student) => ({
+    return students.map((student) => ({
       ...student,
       isDuplicate: (nameCount.get(student.name) || 0) > 1,
     }))
-  }, [students, searchTerm])
+  }, [students])
 
   // 학생 선택
   const handleSelectStudent = (student: Student) => {
@@ -167,7 +172,7 @@ export default function KioskLoginPage() {
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary/5 via-background to-primary/10">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          <p className="text-lg text-muted-foreground">학생 목록을 불러오는 중...</p>
+          <p className="text-lg text-muted-foreground">키오스크를 준비하는 중...</p>
         </div>
       </div>
     )
@@ -189,7 +194,7 @@ export default function KioskLoginPage() {
             <div>
               <h1 className="text-3xl font-bold tracking-tight">키오스크 로그인</h1>
               <p className="text-sm text-muted-foreground">
-                {step === 'select' ? '이름을 선택하세요' : '전화번호 뒷자리를 입력하세요'}
+                {step === 'select' ? '이름을 검색하세요' : '전화번호 뒷자리를 입력하세요'}
               </p>
             </div>
           </motion.div>
@@ -232,12 +237,21 @@ export default function KioskLoginPage() {
               </Card>
 
               {/* 학생 카드 그리드 */}
-              {studentsQuery.isError ? (
+              {!canSearch ? (
+                <Card className="shadow-lg">
+                  <CardContent className="flex flex-col items-center justify-center py-16">
+                    <Search className="h-16 w-16 text-muted-foreground mb-4" />
+                    <p className="text-xl text-muted-foreground">
+                      이름을 두 글자 이상 입력하세요
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : studentsQuery.isError ? (
                 <Card className="shadow-lg">
                   <CardContent className="flex flex-col items-center justify-center py-16">
                     <UserCircle className="h-16 w-16 text-muted-foreground mb-4" />
                     <p className="text-xl text-destructive">
-                      학생 목록을 불러오지 못했습니다
+                      학생을 검색하지 못했습니다
                     </p>
                     <Button
                       variant="outline"
@@ -248,12 +262,19 @@ export default function KioskLoginPage() {
                     </Button>
                   </CardContent>
                 </Card>
+              ) : studentsQuery.isPending ? (
+                <Card className="shadow-lg">
+                  <CardContent className="flex flex-col items-center justify-center py-16">
+                    <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+                    <p className="text-xl text-muted-foreground">검색 중...</p>
+                  </CardContent>
+                </Card>
               ) : filteredStudents.length === 0 ? (
                 <Card className="shadow-lg">
                   <CardContent className="flex flex-col items-center justify-center py-16">
                     <UserCircle className="h-16 w-16 text-muted-foreground mb-4" />
                     <p className="text-xl text-muted-foreground">
-                      {searchTerm ? '검색 결과가 없습니다' : '등록된 학생이 없습니다'}
+                      검색 결과가 없습니다
                     </p>
                   </CardContent>
                 </Card>
@@ -384,7 +405,7 @@ export default function KioskLoginPage() {
                         />
                       </div>
                       <p className="text-sm text-muted-foreground text-center">
-                        전화번호를 모르면 기본 PIN <strong>1234</strong>를 입력하세요
+                        보호자 전화번호가 등록되지 않았다면 선생님께 문의해주세요
                       </p>
                     </div>
 

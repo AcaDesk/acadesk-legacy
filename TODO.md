@@ -13,10 +13,11 @@
 - [x] `JobsContent.tsx` 마운트 실행을 비차단 보조 트리거로 강등 (목록 조회 차단 제거)
 - [ ] 배포 후: Vercel 환경변수에 `CRON_SECRET` 등록 + 크론 첫 실행 로그 확인 (수동)
 
-### 1.2 키오스크 보안 (High 3건)
-- [ ] PIN/전화 인증에 레이트리밋 + 잠금 도입 (`kiosk.ts:62 authenticateKioskPin`, `kiosk.ts:334`, `kiosk-attendance.ts:30`)
-- [ ] `getStudentsByTenant`(`kiosk.ts:286`) 전체 명부 반환 → 검색 기반 최소 응답으로 축소
-- [ ] 기본 PIN `1234` 폴백 제거 (`kiosk.ts:386-401`)
+### 1.2 키오스크 보안 (High 3건) ✅ (2026-07-17 완료)
+- [x] PIN/전화 인증에 DB 기반 레이트리밋 도입 — `kiosk_auth_attempts` 테이블(migration 20260717000001) + `src/lib/kiosk-rate-limit.ts` (식별자별 5회/5분 + 테넌트별 30회/10분, 판정 쿼리 실패 시 fail-open)
+- [x] `getStudentsByTenant` 전체 명부 반환 제거 → `searchKioskStudents` (2글자 이상 검색, 최대 20건, ilike 이스케이프)
+- [x] 기본 PIN `1234` 폴백 제거 — 보호자 전화 미등록 학생은 인증 거부, UI 힌트 문구 교체
+- [ ] 배포 후: `supabase db push`로 migration 적용 (미적용 시 레이트리밋은 fail-open으로 무해하게 비활성)
 
 ### 1.3 CI/CD + 품질 게이트
 - [ ] `.github/workflows/ci.yml`: type-check + lint + test:run + build (PR/push)

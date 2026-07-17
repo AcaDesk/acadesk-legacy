@@ -9,6 +9,11 @@ import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { createNotification } from '@/lib/notification-helpers'
 import { verifyKioskDeviceToken } from '@/lib/kiosk-token'
+import {
+  KIOSK_RATE_LIMIT_ERROR,
+  isKioskAuthRateLimited,
+  recordKioskAuthFailure,
+} from '@/lib/kiosk-rate-limit'
 
 const INVALID_DEVICE_ERROR = '키오스크 인증이 유효하지 않습니다. 설정 페이지에서 기기를 다시 등록해주세요.'
 
@@ -37,7 +42,17 @@ export async function lookupStudentsByPhone(
       return { success: false, error: INVALID_DEVICE_ERROR }
     }
 
+    if (!/^\d{4}$/.test(phoneLast4)) {
+      return { success: false, error: '전화번호 뒷 4자리를 입력해주세요.' }
+    }
+
     const supabase = createServiceRoleClient()
+
+    // 브루트포스 방어: 뒷자리 값 단위 + 테넌트(기기) 단위 시도 제한
+    const rateLimitKey = `lookup:${phoneLast4}`
+    if (await isKioskAuthRateLimited(supabase, tenantId, rateLimitKey)) {
+      return { success: false, error: KIOSK_RATE_LIMIT_ERROR }
+    }
 
     // 1. tenant 내 모든 학생 + primary 보호자 전화번호 조회
     const { data: students, error: studentsError } = await supabase
@@ -72,6 +87,7 @@ export async function lookupStudentsByPhone(
     })
 
     if (matched.length === 0) {
+      await recordKioskAuthFailure(supabase, tenantId, rateLimitKey)
       return { success: false, error: '일치하는 학생이 없습니다.\n보호자 전화번호를 확인해주세요.' }
     }
 
