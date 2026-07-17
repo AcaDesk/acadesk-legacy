@@ -86,10 +86,13 @@
 - [x] `detach_student_relations` RPC — 관계 해제(수강/스케줄/TODO/보호자) + 선택적 퇴원(withdrawal_date/meta)·소프트삭제(students+users)를 하나로. `deleteStudent`/`bulkDeleteStudents`/`withdrawStudent` 세 흐름 모두 이 RPC 사용, `relations.ts`는 얇은 래퍼로 재작성 (테스트 6종 교체)
 - [x] `create_homework_with_submissions` RPC — 태스크 일괄 + 빈 제출 레코드 동시 생성 (submission 없는 태스크 근절)
 
-### 2.4 페이지네이션 표준화
-- [ ] `consultations.ts:114` 패턴을 공통 유틸로 추출
-- [ ] `todos.ts:58`, `homeworks.ts:59`, `guardians.ts:328`, `classes.ts:72`, `reports/queries.ts:43(period=all)` 적용
-- [ ] select('*') → 명시 컬럼 (특히 `messaging/config.ts` 시크릿 오버페치)
+### 2.4 페이지네이션/응답 경계 표준화 ✅ (2026-07-17 완료)
+- [x] 공통 유틸 `src/lib/pagination.ts` 신설 (`resolvePageRange`/`buildPaginatedResult`, pageSize 클램프) — consultations가 첫 사용처로 전환. 새 리스트 액션의 표준
+- [x] `getTodosWithStudent`/`getHomeworksWithSubmissions` 무제한 조회 경계 — 미완료(실행 대상)는 항상 포함, 완료분만 최근 90일 윈도우. 완료 이력이 누적돼도 응답 크기 유지, UI 변경 없음
+- [x] `getGuardiansWithDetails` — 확인 결과 이미 명시 컬럼으로 개선돼 있었음(감사 목록 구버전). 안전 상한 limit(2000)만 추가
+- [x] `getReports` period='all' 무제한 → 기본 상한 500
+- [x] `getClassesWithDetails` — 확인 결과 이미 unstable_cache 적용돼 있었음(감사 목록 구버전)
+- 이연: 3개 리스트의 완전한 서버 페이지네이션(page 컨트롤 UI + 서버 필터 전환)은 UI 재작업 필요 → Phase 3 목록 UX 개선과 함께. `messaging/config.ts` select('*') 시크릿 오버페치는 별도 소규모 정리로 백로그 유지
 
 ### 2.5 발송 성능
 - [ ] `messaging/messages.ts:475`, `reports/send.ts:733` 순차 발송 → 동시성 제한(5~10) 병렬화

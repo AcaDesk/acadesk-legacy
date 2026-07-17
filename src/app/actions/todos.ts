@@ -42,17 +42,27 @@ const rejectTodoSchema = z.object({
 // ============================================================================
 
 /**
- * Get all TODOs with student information
+ * Get TODOs with student information
  *
+ * 무제한 전량 조회 방지: 미완료 TODO는 (실행 대상이므로) 기간과 무관하게
+ * 항상 포함하고, 완료된 TODO는 최근 sinceDays 윈도우로 경계를 둔다.
+ * 완료 이력이 무한 누적돼도 응답 크기가 유지된다.
+ *
+ * @param options.sinceDays 완료 TODO 조회 윈도우 (기본 90일)
  * @returns TODO list with student info or error
  */
-export async function getTodosWithStudent() {
+export async function getTodosWithStudent(options?: { sinceDays?: number }) {
   try {
     // 1. Verify authentication and get tenant
     const { tenantId } = await verifyStaff()
 
     // 2. Create service_role client
     const supabase = createServiceRoleClient()
+
+    const sinceDays = options?.sinceDays ?? 90
+    const since = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split('T')[0]
 
     // 3. Query TODOs with student info
     const { data, error } = await supabase
@@ -69,6 +79,7 @@ export async function getTodosWithStudent() {
       `)
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
+      .or(`completed_at.is.null,due_date.gte.${since}`)
       .order('due_date', { ascending: true })
 
     if (error) {

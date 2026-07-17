@@ -46,15 +46,25 @@ const gradeHomeworkSchema = z.object({
 // ============================================================================
 
 /**
- * Get all homeworks with submission status + student info (single query)
+ * Get homeworks with submission status + student info (single query)
  *
  * RLS 활성화 후 page.tsx 의 cookie-client 쿼리가 깨졌던 N+1 학생 fetch 를
  * service_role JOIN 한 번으로 대체합니다.
+ *
+ * 무제한 전량 조회 방지: 채점 완료되지 않은 숙제는 (처리 대상이므로) 항상
+ * 포함하고, 채점 완료분은 최근 sinceDays 윈도우로 경계를 둔다.
+ *
+ * @param options.sinceDays 채점 완료 숙제 조회 윈도우 (기본 90일)
  */
-export async function getHomeworksWithSubmissions() {
+export async function getHomeworksWithSubmissions(options?: { sinceDays?: number }) {
   try {
     const { tenantId } = await verifyStaff()
     const supabase = createServiceRoleClient()
+
+    const sinceDays = options?.sinceDays ?? 90
+    const since = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split('T')[0]
 
     const { data, error } = await supabase
       .from('homeworks')
@@ -66,6 +76,7 @@ export async function getHomeworksWithSubmissions() {
         )
       `)
       .eq('tenant_id', tenantId)
+      .or(`graded_at.is.null,due_date.gte.${since}`)
       .order('due_date', { ascending: false })
 
     if (error) throw error

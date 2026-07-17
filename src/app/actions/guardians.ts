@@ -347,6 +347,8 @@ export async function getGuardiansWithDetails() {
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
+      // 보호자 수는 재적생 규모에 비례하므로 정상적으론 도달하지 않는 안전 상한
+      .limit(2000)
 
     if (guardiansError) throw guardiansError
 

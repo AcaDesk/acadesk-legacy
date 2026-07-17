@@ -86,9 +86,8 @@ export async function getReports(options?: {
     }
     // 'all' → no date filter
 
-    if (options?.limit) {
-      query = query.limit(options.limit)
-    }
+    // period='all' 무제한 조회 방지 — 명시 limit이 없으면 상한 500 적용
+    query = query.limit(options?.limit ?? 500)
 
     const { data, error } = await query
 

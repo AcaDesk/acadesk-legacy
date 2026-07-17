@@ -17,6 +17,7 @@ import { getTodayKST, getDateKST } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { createNotification } from '@/lib/notification-helpers'
 import { filterOwnedStudentIds } from '@/lib/tenant-guards'
+import { resolvePageRange } from '@/lib/pagination'
 
 // ============================================================================
 // Validation Schemas
@@ -129,10 +130,7 @@ export async function getConsultations(options?: {
     const { tenantId } = await verifyStaff()
     const supabase = createServiceRoleClient()
 
-    const page = options?.page ?? 1
-    const pageSize = options?.pageSize ?? 20
-    const from = (page - 1) * pageSize
-    const to = from + pageSize - 1
+    const { from, to } = resolvePageRange(options)
 
     let query = supabase
       .from('consultations')
