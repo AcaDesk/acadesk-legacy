@@ -7,3 +7,4 @@ DROP INDEX IF EXISTS public.idx_batch_jobs_template;
 ALTER TABLE public.batch_jobs
   DROP COLUMN IF EXISTS is_template,
   DROP COLUMN IF EXISTS template_name;
+;

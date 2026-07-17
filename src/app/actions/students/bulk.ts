@@ -212,23 +212,40 @@ export async function bulkEnrollClass(studentIds: string[], classId: string) {
       return { success: false, error: '배정할 학생을 찾을 수 없습니다.' }
     }
 
-    // 5. Create enrollment records — 검증된 학생 id만 사용
-    const enrollments = ownedStudentIds.map(studentId => ({
-      tenant_id: tenantId,
-      class_id: classId,
-      student_id: studentId,
-      enrolled_at: new Date().toISOString(),
-    }))
-
-    const { error } = await serviceClient
+    // 5. 기존 활성 등록을 제외하고 신규 등록 생성
+    // (유니크가 "활성 등록"에만 걸리는 부분 인덱스로 바뀌어 upsert onConflict를
+    //  쓸 수 없다 — 탈퇴 이력 행은 보존하고 재등록은 새 행으로 추가한다)
+    const { data: existingActive, error: existingError } = await serviceClient
       .from('class_enrollments')
-      .upsert(enrollments, {
-        onConflict: 'class_id,student_id',
-      })
+      .select('student_id')
+      .eq('tenant_id', tenantId)
+      .eq('class_id', classId)
+      .eq('status', 'active')
+      .is('deleted_at', null)
+      .in('student_id', ownedStudentIds)
 
-    if (error) {
-      console.error('[bulkAssignClass] Assignment error:', error.message)
-      throw new Error('수업 배정에 실패했습니다')
+    if (existingError) throw existingError
+
+    const alreadyEnrolled = new Set((existingActive ?? []).map((e) => e.student_id))
+    const enrollments = ownedStudentIds
+      .filter((studentId) => !alreadyEnrolled.has(studentId))
+      .map((studentId) => ({
+        tenant_id: tenantId,
+        class_id: classId,
+        student_id: studentId,
+        status: 'active',
+        enrolled_at: new Date().toISOString(),
+      }))
+
+    if (enrollments.length > 0) {
+      const { error } = await serviceClient
+        .from('class_enrollments')
+        .insert(enrollments)
+
+      if (error) {
+        console.error('[bulkAssignClass] Assignment error:', error.message)
+        throw new Error('수업 배정에 실패했습니다')
+      }
     }
 
     // 4. Revalidate

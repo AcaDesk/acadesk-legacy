@@ -37,13 +37,18 @@
 - [x] Noto Sans KR/Inter Tight를 `next/font/google`로 전환 — 빌드 시 셀프 호스팅, 한글은 unicode-range 슬라이스 131개(최대 90KB)로 필요한 조각만 로드
 - [x] `public/fonts/` 삭제 (~23MB: variable TTF 2종 + 미참조 Bold/Regular TTF 12.4MB)
 
-### 1.6 DB 정합성
-- [ ] 스키마 드리프트 해소: `payments`/`tuition_invoices` 정의 마이그레이션 확정 (대시보드 RPC가 참조 중), seed-schema 재생성
-- [ ] `class_enrollments` UNIQUE → `WHERE status='active'` 부분 유니크로 전환 (탈퇴 후 재등록 허용)
-- [ ] `notification_logs.tenant_id` NOT NULL + ON DELETE CASCADE로 변경
-- [ ] `exam_scores` 범위 CHECK 추가 (percentage 0~100, score≥0)
-- [ ] `students.kiosk_pin` 테넌트 내 UNIQUE
-- [ ] 누락 인덱스: `attendance(tenant_id, attendance_date)`, `class_enrollments(tenant_id, status)` 부분 인덱스
+### 1.6 DB 정합성 ✅ (2026-07-17 완료, 프로덕션 적용됨)
+- [x] 스키마 드리프트 해소 — 조사 결과 `payments`/`tuition_invoices`는 레거시 `get_dashboard_data`(코드 미사용)만 참조 → 수납 구현(Phase 2.1)으로 이연. 실제 드리프트는:
+  - [x] 코드가 호출하는 `get_dashboard_stats` RPC가 원격에서 삭제된 상태(추적 마이그레이션도 없었음) → migration 20260717000004로 정식 재정의 (stats 위젯 복구)
+  - [x] `student_points`/`ref_point_types`가 2026-05 원격 정리 때 삭제됨(코드는 사용 중 → 포인트 위젯 프로덕션 고장) → migration 20260717000002로 복구
+  - [x] 마이그레이션 히스토리 정합: 원격 전용 20260520103049를 fetch로 로컬화, 동일 내용 중복이던 로컬 20260520102905 삭제
+- [x] `class_enrollments` 전역 UNIQUE → `(class_id, student_id) WHERE status='active' AND deleted_at IS NULL` 부분 유니크 (migration 20260717000003) + 이에 의존하던 `bulkAssignClass` upsert를 조회-후-insert로 수정
+- [x] `class_enrollments.deleted_at` 컬럼 추가 — 코드 3곳(kiosk-attendance/dashboard/drilldown)이 존재하지 않는 컬럼을 필터해 조용히 오동작하던 문제 해소
+- [x] `notification_logs.tenant_id` NOT NULL + ON DELETE CASCADE (고아 로그 삭제 포함)
+- [x] `exam_scores` 범위 CHECK (기존 이상치 클램프 후 적용)
+- [x] ~~`students.kiosk_pin` 테넌트 내 UNIQUE~~ → 부적용 결정: kiosk_pin은 bcrypt 해시(같은 PIN도 솔트로 해시가 달라 DB 유니크 무의미)이고, PIN 인증은 student_code로 학생을 특정한 뒤 비교하므로 중복 PIN에 모호성 없음
+- [x] 인덱스 보강: `attendance(tenant_id, attendance_date DESC)`, `class_enrollments(tenant_id, status)`, `student_change_logs(changed_by)`
+- [ ] `supabase/seed-schema.sql` 스냅샷 재생성 (로컬 시드 플로우 검증 필요 — 별도 작업)
 
 ### 1.7 보안 소유권 검증 (Medium)
 - [ ] `awardStudentPoints`(`student-points.ts:193`)에 `filterOwnedStudentIds` 적용
