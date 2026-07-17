@@ -108,38 +108,22 @@ export async function createHomework(input: z.infer<typeof createHomeworkSchema>
       return { success: false, data: null, error: '대상 학생을 찾을 수 없습니다.' }
     }
 
-    // Create homework tasks for each student
-    const tasks = ownedStudentIds.map((studentId) => ({
-      tenant_id: tenantId,
-      student_id: studentId,
-      assigned_by: userId,
-      kind: 'homework' as const,
-      title: validated.title,
-      description: validated.description || null,
-      subject: validated.subject || null,
-      priority: validated.priority,
-      due_date: validated.dueDate,
-      due_day_of_week: new Date(validated.dueDate).getDay() === 0
-        ? 7
-        : new Date(validated.dueDate).getDay(), // 0(일요일) → 7로 변환
-    }))
-
-    const { data, error } = await supabase
-      .from('student_tasks')
-      .insert(tasks)
-      .select()
+    // 학생별 태스크 + 빈 제출 레코드를 단일 트랜잭션 RPC로 생성
+    // (부분 실패 시 전체 롤백 — submission 없는 태스크가 남지 않는다)
+    const { data: rpcData, error } = await supabase.rpc('create_homework_with_submissions', {
+      p_tenant_id: tenantId,
+      p_assigned_by: userId,
+      p_student_ids: ownedStudentIds,
+      p_title: validated.title,
+      p_description: validated.description || null,
+      p_subject: validated.subject || null,
+      p_priority: validated.priority,
+      p_due_date: validated.dueDate,
+    })
 
     if (error) throw error
 
-    // Create empty submission records for each homework
-    if (data && data.length > 0) {
-      const submissions = data.map((task) => ({
-        tenant_id: tenantId,
-        task_id: task.id,
-      }))
-
-      await supabase.from('homework_submissions').insert(submissions)
-    }
+    const data = (rpcData ?? []) as Array<{ id: string; student_id: string }>
 
     revalidatePath('/homeworks')
 

@@ -1,132 +1,70 @@
+/**
+ * 학생 관계 해제 (수강/스케줄/TODO/보호자) — RPC 래퍼
+ *
+ * 다단계 UPDATE/DELETE가 부분 실패하면 정합성이 깨지므로,
+ * 실제 쓰기는 단일 트랜잭션 RPC `detach_student_relations`
+ * (migration 20260717000006)에서 원자적으로 수행한다.
+ *
+ * 세 흐름을 모두 커버한다:
+ * - 삭제/일괄삭제: softDeleteStudents=true (students+users 소프트삭제 포함)
+ * - 퇴원: withdrawalDate 지정 (students.withdrawal_date + meta 병합 포함)
+ * - 관계 해제만: 기본 옵션
+ */
+
 interface DetachStudentRelationsOptions {
   tenantId: string
   studentIds: string[]
-  now?: string
   endDate?: string
   reason?: string | null
   unlinkGuardians?: boolean
   closeOpenTodos?: boolean
+  /** true면 students + student role users까지 소프트삭제 */
+  softDeleteStudents?: boolean
+  /** 지정 시 students.withdrawal_date 및 meta.withdrawal_reason 갱신 (퇴원 흐름) */
+  withdrawalDate?: string
 }
 
 interface DetachStudentRelationsResult {
   classIds: string[]
+  affectedCount: number
 }
 
-interface SupabaseQueryResult {
-  data: unknown
-  error: unknown
-}
-
-interface SupabaseFilterBuilder extends PromiseLike<SupabaseQueryResult> {
-  eq: (column: string, value: unknown) => SupabaseFilterBuilder
-  in: (column: string, values: string[]) => SupabaseFilterBuilder
-  is: (column: string, value: unknown) => SupabaseFilterBuilder
-  neq: (column: string, value: unknown) => SupabaseFilterBuilder
-}
-
-interface SupabaseTableBuilder {
-  select: (columns: string) => SupabaseFilterBuilder
-  update: (payload: Record<string, unknown>) => SupabaseFilterBuilder
-  delete: () => SupabaseFilterBuilder
-}
-
-interface SupabaseLikeClient {
-  from: (table: string) => SupabaseTableBuilder
+interface SupabaseRpcClient {
+  rpc: (
+    fn: string,
+    params: Record<string, unknown>
+  ) => PromiseLike<{ data: unknown; error: unknown }>
 }
 
 export async function detachStudentActiveRelations(
   supabase: unknown,
   options: DetachStudentRelationsOptions
 ): Promise<DetachStudentRelationsResult> {
-  const client = supabase as SupabaseLikeClient
+  const client = supabase as SupabaseRpcClient
   const studentIds = Array.from(new Set(options.studentIds.filter(Boolean)))
 
   if (studentIds.length === 0) {
-    return { classIds: [] }
+    return { classIds: [], affectedCount: 0 }
   }
 
-  const now = options.now ?? new Date().toISOString()
-  const endDate = options.endDate ?? now.split('T')[0]
-  const withdrawalReason =
-    options.reason?.trim() || '학생 퇴원/삭제로 인한 자동 해제'
+  const { data, error } = await client.rpc('detach_student_relations', {
+    p_tenant_id: options.tenantId,
+    p_student_ids: studentIds,
+    p_end_date: options.endDate ?? new Date().toISOString().split('T')[0],
+    p_reason: options.reason ?? null,
+    p_unlink_guardians: options.unlinkGuardians ?? false,
+    p_close_open_todos: options.closeOpenTodos ?? false,
+    p_soft_delete_students: options.softDeleteStudents ?? false,
+    p_withdrawal_date: options.withdrawalDate ?? null,
+  })
 
-  const { data: activeEnrollments, error: enrollmentFetchError } = await client
-    .from('class_enrollments')
-    .select('class_id')
-    .eq('tenant_id', options.tenantId)
-    .in('student_id', studentIds)
-    .eq('status', 'active')
-
-  if (enrollmentFetchError) {
-    throw enrollmentFetchError
+  if (error) {
+    throw error
   }
 
-  const classIds: string[] = Array.from(
-    new Set(
-      ((activeEnrollments || []) as Array<{ class_id: string | null }>)
-        .map((row) => row.class_id)
-        .filter((classId): classId is string => Boolean(classId))
-    )
-  )
-
-  const { error: enrollmentUpdateError } = await client
-    .from('class_enrollments')
-    .update({
-      status: 'withdrawn',
-      end_date: endDate,
-      withdrawal_reason: withdrawalReason,
-      updated_at: now,
-    })
-    .eq('tenant_id', options.tenantId)
-    .in('student_id', studentIds)
-    .eq('status', 'active')
-
-  if (enrollmentUpdateError) {
-    throw enrollmentUpdateError
+  const result = (data ?? {}) as { affected_count?: number; class_ids?: string[] }
+  return {
+    classIds: result.class_ids ?? [],
+    affectedCount: result.affected_count ?? 0,
   }
-
-  const { error: scheduleUpdateError } = await client
-    .from('student_schedules')
-    .update({
-      active: false,
-      updated_at: now,
-    })
-    .eq('tenant_id', options.tenantId)
-    .in('student_id', studentIds)
-    .eq('active', true)
-
-  if (scheduleUpdateError) {
-    throw scheduleUpdateError
-  }
-
-  if (options.closeOpenTodos) {
-    const { error: todoUpdateError } = await client
-      .from('student_tasks')
-      .update({
-        deleted_at: now,
-        updated_at: now,
-      })
-      .eq('tenant_id', options.tenantId)
-      .in('student_id', studentIds)
-      .is('deleted_at', null)
-      .is('verified_at', null)
-
-    if (todoUpdateError) {
-      throw todoUpdateError
-    }
-  }
-
-  if (options.unlinkGuardians) {
-    const { error: guardianDeleteError } = await client
-      .from('student_guardians')
-      .delete()
-      .eq('tenant_id', options.tenantId)
-      .in('student_id', studentIds)
-
-    if (guardianDeleteError) {
-      throw guardianDeleteError
-    }
-  }
-
-  return { classIds }
 }

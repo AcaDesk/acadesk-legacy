@@ -81,9 +81,10 @@
   - `monthly/weekly_report_ready` → 의도적 수동: 리포트는 스태프 검토 후 명시적 발송 플로우(sendReportToAllGuardians)가 이미 알림 역할 수행. 생성 즉시 자동 발송은 미검토 리포트 노출 위험
   - `academy_closure_notice` → 공지성 수동 발송 (일괄 메시지 화면에서 발송)
 
-### 2.3 쓰기 원자화 (RPC)
-- [ ] `createStudentComplete`(`students/mutations.ts:31`) 5단계 INSERT → 단일 SECURITY DEFINER RPC
-- [ ] `bulkDeleteStudents`, `createHomework` 다단계 mutation 원자화
+### 2.3 쓰기 원자화 (RPC) ✅ (2026-07-17 완료, 프로덕션 적용됨)
+- [x] `create_student_complete` RPC — 보호자 user·guardian·학생 user·student·연결 5단계를 단일 트랜잭션으로 (migration 20260717000006). 읽기(보호자 자동매칭·이메일 중복 사전검증)는 TS 유지, 23505 제약별 친화 메시지 매핑
+- [x] `detach_student_relations` RPC — 관계 해제(수강/스케줄/TODO/보호자) + 선택적 퇴원(withdrawal_date/meta)·소프트삭제(students+users)를 하나로. `deleteStudent`/`bulkDeleteStudents`/`withdrawStudent` 세 흐름 모두 이 RPC 사용, `relations.ts`는 얇은 래퍼로 재작성 (테스트 6종 교체)
+- [x] `create_homework_with_submissions` RPC — 태스크 일괄 + 빈 제출 레코드 동시 생성 (submission 없는 태스크 근절)
 
 ### 2.4 페이지네이션 표준화
 - [ ] `consultations.ts:114` 패턴을 공통 유틸로 추출

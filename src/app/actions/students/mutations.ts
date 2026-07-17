@@ -44,6 +44,7 @@ export async function createStudentComplete(
     let guardianId: string | null = null
     let studentId: string | null = null
     let autoMatchedGuardian: { id: string; name: string; siblingStudents: string[] } | null = null
+    let newGuardianPayload: Record<string, string | null> | null = null
 
     // 4. Handle guardian creation/linking based on mode
     if (validated.guardianMode === 'new' && validated.guardian && 'name' in validated.guardian) {
@@ -94,9 +95,9 @@ export async function createStudentComplete(
         }
       }
 
-      // 신규 보호자 생성 (자동 매칭 실패 시)
+      // 신규 보호자 생성 준비 (자동 매칭 실패 시) — 실제 INSERT는 아래 원자화 RPC에서 수행
       if (!guardianId) {
-        // 이메일이 있는 경우, 중복 체크
+        // 이메일이 있는 경우, 중복 체크 (사용자 친화 메시지를 위한 사전 검증)
         if (guardianEmail) {
           const { data: existingUser } = await serviceClient
             .from('users')
@@ -111,54 +112,14 @@ export async function createStudentComplete(
           }
         }
 
-        const { data: userData, error: userError } = await serviceClient
-          .from('users')
-          .insert({
-            tenant_id: tenantId,
-            email: guardianEmail,
-            phone: guardianPhone,
-            name: guardianData.name,
-            role_code: 'parent',
-            approval_status: 'approved',
-            onboarding_completed: true,
-            onboarding_completed_at: new Date().toISOString(),
-          })
-          .select('id')
-          .single()
-
-        if (userError || !userData) {
-          if (userError?.code === '23505' && userError?.message?.includes('uq_users_email_active')) {
-            throw new Error(`이메일이 이미 사용 중입니다. 학부모 검색에서 기존 보호자를 선택하거나 다른 이메일을 사용해주세요.`)
-          }
-          console.error('[createStudentComplete] Guardian user creation error:', userError?.message)
-          throw new Error('보호자 사용자 생성에 실패했습니다')
+        newGuardianPayload = {
+          name: guardianData.name,
+          phone: guardianPhone,
+          email: guardianEmail,
+          relationship: guardianData.relationship || null,
+          occupation: guardianData.occupation || null,
+          address: guardianData.address || null,
         }
-
-        // 4-2. Create guardian record (guardians 단일 출처)
-        const { data: guardianRecord, error: guardianError } = await serviceClient
-          .from('guardians')
-          .insert({
-            user_id: userData.id,
-            tenant_id: tenantId,
-            name: guardianData.name,
-            phone: guardianPhone,
-            email: guardianEmail,
-            relationship: guardianData.relationship || null,
-            occupation: guardianData.occupation || null,
-            address: guardianData.address || null,
-          })
-          .select('id')
-          .single()
-
-        if (guardianError || !guardianRecord) {
-          if (guardianError?.code === '23505') {
-            throw new Error('같은 전화번호와 이름의 보호자가 이미 있습니다. 학부모 검색에서 선택해주세요.')
-          }
-          console.error('[createStudentComplete] Guardian record creation error:', guardianError?.message)
-          throw new Error('보호자 정보 생성에 실패했습니다')
-        }
-
-        guardianId = guardianRecord.id
       }
     } else if (validated.guardianMode === 'existing' && validated.guardian && 'id' in validated.guardian) {
       // Mode: Use existing guardian
@@ -185,42 +146,40 @@ export async function createStudentComplete(
     const randomSuffix = (randomBytes[0] % 100000).toString().padStart(5, '0')
     const studentCode = `${studentCodePrefix}-${randomSuffix}`
 
-    // 6. Create user record for student
+    // 6. Hash kiosk_pin if provided
     const studentEmail = validated.student.email || null
     const studentPhone = validated.student.student_phone || null
 
-    const { data: studentUserData, error: studentUserError } = await serviceClient
-      .from('users')
-      .insert({
-        tenant_id: tenantId,
-        email: studentEmail,
-        phone: studentPhone,
-        name: validated.student.name,
-        role_code: 'student',
-        approval_status: 'approved',
-        onboarding_completed: true,
-        onboarding_completed_at: new Date().toISOString(),
-      })
-      .select('id')
-      .single()
-
-    if (studentUserError || !studentUserData) {
-      console.error('[createStudentComplete] Student user creation error:', studentUserError?.message)
-      throw new Error('학생 사용자 생성에 실패했습니다')
-    }
-
-    // 7. Hash kiosk_pin if provided
     let hashedKioskPin: string | null = null
     if (validated.student.kiosk_pin) {
       hashedKioskPin = await hashKioskPin(validated.student.kiosk_pin)
     }
 
-    // 8. Create student record
-    const { data: studentRecord, error: studentError } = await serviceClient
-      .from('students')
-      .insert({
-        user_id: studentUserData.id,
-        tenant_id: tenantId,
+    // 7. 보호자-학생 연결 옵션 (new/existing 모두 동일 필드 구조)
+    const guardianOptions = validated.guardian as
+      | {
+          is_primary_contact?: boolean
+          receives_notifications?: boolean
+          receives_billing?: boolean
+          can_pickup?: boolean
+        }
+      | undefined
+    const linkPayload =
+      (guardianId || newGuardianPayload) && guardianOptions
+        ? {
+            is_primary: guardianOptions.is_primary_contact ?? true,
+            is_primary_contact: guardianOptions.is_primary_contact ?? true,
+            receives_notifications: guardianOptions.receives_notifications ?? true,
+            receives_billing: guardianOptions.receives_billing ?? false,
+            can_pickup: guardianOptions.can_pickup ?? true,
+          }
+        : null
+
+    // 8. 원자화 RPC — 보호자 user·guardian·학생 user·student·연결을 단일 트랜잭션으로.
+    // 중간 실패 시 전체 롤백되어 고아 레코드가 남지 않는다 (migration 20260717000006)
+    const { data: rpcData, error: rpcError } = await serviceClient.rpc('create_student_complete', {
+      p_tenant_id: tenantId,
+      p_student: {
         name: validated.student.name,
         student_code: studentCode,
         grade: validated.student.grade,
@@ -228,61 +187,34 @@ export async function createStudentComplete(
         birth_date: validated.student.birth_date || null,
         gender: validated.student.gender || null,
         student_phone: studentPhone,
+        email: studentEmail,
         profile_image_url: validated.student.profile_image_url || null,
         enrollment_date: validated.student.enrollment_date || getTodayKST(),
         notes: validated.student.notes || null,
         commute_method: validated.student.commute_method || null,
         marketing_source: validated.student.marketing_source || null,
-        kiosk_pin: hashedKioskPin,
-      })
-      .select('id')
-      .single()
+        kiosk_pin_hash: hashedKioskPin,
+      },
+      p_new_guardian: newGuardianPayload,
+      p_existing_guardian_id: guardianId,
+      p_link: linkPayload,
+    })
 
-    if (studentError || !studentRecord) {
-      console.error('[createStudentComplete] Student record creation error:', studentError?.message)
-      throw new Error('학생 정보 생성에 실패했습니다')
-    }
-
-    studentId = studentRecord.id
-
-    // 9. Link guardian to student (if guardian exists)
-    if (guardianId && studentId) {
-      const guardianLinkData =
-        validated.guardianMode === 'existing' && validated.guardian && 'id' in validated.guardian
-          ? {
-              tenant_id: tenantId,
-              student_id: studentId,
-              guardian_id: guardianId,
-              is_primary: validated.guardian.is_primary_contact ?? true,
-              is_primary_contact: validated.guardian.is_primary_contact ?? true,
-              receives_notifications: validated.guardian.receives_notifications ?? true,
-              receives_billing: validated.guardian.receives_billing ?? false,
-              can_pickup: validated.guardian.can_pickup ?? true,
-            }
-          : validated.guardianMode === 'new' && validated.guardian && 'name' in validated.guardian
-          ? {
-              tenant_id: tenantId,
-              student_id: studentId,
-              guardian_id: guardianId,
-              is_primary: validated.guardian.is_primary_contact ?? true,
-              is_primary_contact: validated.guardian.is_primary_contact ?? true,
-              receives_notifications: validated.guardian.receives_notifications ?? true,
-              receives_billing: validated.guardian.receives_billing ?? false,
-              can_pickup: validated.guardian.can_pickup ?? true,
-            }
-          : null
-
-      if (guardianLinkData) {
-        const { error: linkError } = await serviceClient
-          .from('student_guardians')
-          .insert(guardianLinkData)
-
-        if (linkError) {
-          console.error('[createStudentComplete] Guardian link error:', linkError.message)
-          throw new Error('보호자와 학생을 연결하는 데 실패했습니다')
-        }
+    if (rpcError || !rpcData) {
+      const message = rpcError?.message || ''
+      if (rpcError?.code === '23505' && message.includes('uq_users_email_active')) {
+        throw new Error('이메일이 이미 사용 중입니다. 학부모 검색에서 기존 보호자를 선택하거나 다른 이메일을 사용해주세요.')
       }
+      if (rpcError?.code === '23505' && message.includes('guardians')) {
+        throw new Error('같은 전화번호와 이름의 보호자가 이미 있습니다. 학부모 검색에서 선택해주세요.')
+      }
+      console.error('[createStudentComplete] RPC error:', message)
+      throw new Error('학생 등록에 실패했습니다')
     }
+
+    const rpcResult = rpcData as { student_id: string; guardian_id: string | null }
+    studentId = rpcResult.student_id
+    guardianId = rpcResult.guardian_id ?? guardianId
 
     // 10. Revalidate pages
     revalidatePath('/students')
@@ -499,48 +431,15 @@ export async function deleteStudent(studentId: string) {
       }
     }
 
-    const now = new Date().toISOString()
-
+    // 4. 관계 해제 + 소프트삭제를 단일 트랜잭션 RPC로 수행 (부분 실패 시 전체 롤백)
     const { classIds } = await detachStudentActiveRelations(serviceClient, {
       tenantId,
       studentIds: [studentId],
-      now,
       reason: '학생 삭제로 인한 자동 해제',
       unlinkGuardians: true,
       closeOpenTodos: true,
+      softDeleteStudents: true,
     })
-
-    // 4. Soft delete with service_role
-    const { error: deleteError } = await serviceClient
-      .from('students')
-      .update({
-        deleted_at: now,
-        updated_at: now,
-      })
-      .eq('id', studentId)
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
-
-    if (deleteError) {
-      throw deleteError
-    }
-
-    if (existingStudent.user_id) {
-      const { error: userDeleteError } = await serviceClient
-        .from('users')
-        .update({
-          deleted_at: now,
-          updated_at: now,
-        })
-        .eq('id', existingStudent.user_id)
-        .eq('tenant_id', tenantId)
-        .eq('role_code', 'student')
-        .is('deleted_at', null)
-
-      if (userDeleteError) {
-        throw userDeleteError
-      }
-    }
 
     // 5. Revalidate pages
     revalidatePath('/students')
@@ -608,40 +507,17 @@ export async function withdrawStudent(
       }
     }
 
-    const now = new Date().toISOString()
     const endDate = withdrawalDate.split('T')[0]
 
+    // 4. 관계 해제 + 퇴원 처리(withdrawal_date/meta 병합)를 단일 트랜잭션 RPC로 수행
     const { classIds } = await detachStudentActiveRelations(serviceClient, {
       tenantId,
       studentIds: [studentId],
-      now,
       endDate,
       reason: reason || '학생 퇴원으로 인한 자동 해제',
       closeOpenTodos: true,
+      withdrawalDate,
     })
-
-    const currentMeta =
-      existingStudent.meta && typeof existingStudent.meta === 'object' && !Array.isArray(existingStudent.meta)
-        ? existingStudent.meta as Record<string, unknown>
-        : {}
-
-    // 4. Update withdrawal status with service_role
-    const { error: updateError } = await serviceClient
-      .from('students')
-      .update({
-        withdrawal_date: withdrawalDate,
-        meta: {
-          ...currentMeta,
-          withdrawal_reason: reason || null,
-        },
-        updated_at: now,
-      })
-      .eq('id', studentId)
-      .eq('tenant_id', tenantId)
-
-    if (updateError) {
-      throw updateError
-    }
 
     // 5. Revalidate pages
     revalidatePath('/students')

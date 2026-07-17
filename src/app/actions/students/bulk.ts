@@ -80,71 +80,20 @@ export async function bulkDeleteStudents(studentIds: string[]) {
     // 2. Create service_role client
     const serviceClient = createServiceRoleClient()
 
-    const now = new Date().toISOString()
-
-    const { classIds } = await detachStudentActiveRelations(serviceClient, {
+    // 3. 관계 해제 + 소프트삭제를 단일 트랜잭션 RPC로 수행 (부분 실패 시 전체 롤백)
+    const { classIds, affectedCount } = await detachStudentActiveRelations(serviceClient, {
       tenantId,
       studentIds: uniqueStudentIds,
-      now,
       reason: '학생 일괄 삭제로 인한 자동 해제',
       unlinkGuardians: true,
       closeOpenTodos: true,
+      softDeleteStudents: true,
     })
 
-    const { data: studentsToDelete, error: fetchError } = await serviceClient
-      .from('students')
-      .select('id, user_id')
-      .in('id', uniqueStudentIds)
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
-
-    if (fetchError) {
-      throw fetchError
-    }
-
-    const existingStudentIds = (studentsToDelete || []).map((student) => student.id)
-
-    if (existingStudentIds.length === 0) {
+    if (affectedCount === 0) {
       return {
         success: false,
         error: '삭제할 학생을 찾을 수 없습니다',
-      }
-    }
-
-    // 3. Soft delete each student
-    const { error } = await serviceClient
-      .from('students')
-      .update({
-        deleted_at: now,
-        updated_at: now,
-      })
-      .in('id', existingStudentIds)
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
-
-    if (error) {
-      console.error('[bulkDeleteStudents] Delete error:', error.message)
-      throw new Error('학생 삭제에 실패했습니다')
-    }
-
-    const studentUserIds = (studentsToDelete || [])
-      .map((student) => student.user_id)
-      .filter((userId): userId is string => Boolean(userId))
-
-    if (studentUserIds.length > 0) {
-      const { error: userDeleteError } = await serviceClient
-        .from('users')
-        .update({
-          deleted_at: now,
-          updated_at: now,
-        })
-        .in('id', studentUserIds)
-        .eq('tenant_id', tenantId)
-        .eq('role_code', 'student')
-        .is('deleted_at', null)
-
-      if (userDeleteError) {
-        throw userDeleteError
       }
     }
 
