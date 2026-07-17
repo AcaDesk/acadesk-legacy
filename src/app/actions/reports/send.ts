@@ -19,6 +19,7 @@ import {
   calculateLinkExpiry,
 } from '@/lib/short-url'
 import { classifyReportSendError, type ReportSendErrorInfo } from '@/lib/report-send-errors'
+import { mapWithConcurrency } from '@/lib/concurrency'
 import { renderKakaoTemplatePreview } from '@/lib/kakao/kakao-variables'
 
 interface ReportSendOptions {
@@ -721,30 +722,18 @@ export async function sendReportToAllGuardians(
       throw new Error(prepareResult.error || '발송 준비 실패')
     }
 
-    // 2. 각 보호자에게 전송
-    const sendResults: Array<{
-      recipientName: string
-      success: boolean
-      error: string | null
-    }> = []
-    let successCount = 0
-    let failCount = 0
-
-    for (const reportSend of prepareResult.data) {
+    // 2. 각 보호자에게 전송 — 동시성 제한 병렬 (직렬 대비 다보호자 발송 시간 단축)
+    const sendResults = await mapWithConcurrency(prepareResult.data, 5, async (reportSend) => {
       const result = await sendReportMessage(reportSend.id)
-
-      if (result.success) {
-        successCount++
-      } else {
-        failCount++
-      }
-
-      sendResults.push({
+      return {
         recipientName: reportSend.recipientName,
         success: result.success,
         error: result.error,
-      })
-    }
+      }
+    })
+
+    const successCount = sendResults.filter((r) => r.success).length
+    const failCount = sendResults.length - successCount
 
     return {
       success: true,

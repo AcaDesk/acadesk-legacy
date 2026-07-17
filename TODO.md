@@ -94,11 +94,12 @@
 - [x] `getClassesWithDetails` — 확인 결과 이미 unstable_cache 적용돼 있었음(감사 목록 구버전)
 - 이연: 3개 리스트의 완전한 서버 페이지네이션(page 컨트롤 UI + 서버 필터 전환)은 UI 재작업 필요 → Phase 3 목록 UX 개선과 함께. `messaging/config.ts` select('*') 시크릿 오버페치는 별도 소규모 정리로 백로그 유지
 
-### 2.5 발송 성능
-- [ ] `messaging/messages.ts:475`, `reports/send.ts:733` 순차 발송 → 동시성 제한(5~10) 병렬화
-- [ ] 실패 항목 자동 재시도 (현재 수동 버튼만)
-- [ ] `batch/jobs.ts:261-305` 아이템당 중복 status 재조회 제거
-- [ ] `bulkUpdateStudents`(`students/bulk.ts:26`) N개 UPDATE → 단일 upsert
+### 2.5 발송 성능 ✅ (2026-07-17 완료)
+- [x] 동시성 유틸 `src/lib/concurrency.ts` 신설 (`mapWithConcurrency` 워커 풀 + `withRetry`, 테스트 7종)
+- [x] `sendMessages` 순차 발송 → 대상 분리 후 동시성 5 병렬 + 일시 오류 1회 자동 재시도
+- [x] `sendReportToAllGuardians` 수신자별 순차 → 동시성 5 병렬
+- [x] `batch/jobs.ts` 아이템당 job/item status 중복 재조회(2쿼리) 제거 — 취소 감지는 배치 경계(3개)로 충분
+- [x] `bulkUpdateStudents` — 동일 변경값 그룹핑으로 N쿼리 → G쿼리 (단일 upsert는 테넌트 가드 불가로 배제, 사유 코드 주석)
 
 ### 2.6 프론트 성능
 - [ ] 학생 목록 SSR 프리페치 + HydrationBoundary (`getStudentsListEnriched` limit 추가 포함)

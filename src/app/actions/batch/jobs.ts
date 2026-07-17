@@ -274,29 +274,9 @@ export async function executePendingJobItems(jobId: string) {
 
       const batch = resumableItems.slice(i, i + JOB_EXECUTION_BATCH_SIZE)
       for (const item of batch) {
-        const { data: liveStatus } = await supabase
-          .from('batch_jobs')
-          .select('status')
-          .eq('id', jobId)
-          .eq('tenant_id', tenantId)
-          .single()
-        if (liveStatus?.status === 'canceled') {
-          wasCanceled = true
-          break
-        }
-
-        const { data: itemStatusCheck } = await supabase
-          .from('batch_job_items')
-          .select('status')
-          .eq('id', item.id)
-          .eq('tenant_id', tenantId)
-          .single()
-
-        if (itemStatusCheck?.status === 'skipped') {
-          processed++
-          continue
-        }
-
+        // 취소 감지는 배치 경계(위 statusCheck)에서 수행 — 아이템마다 job/item
+        // status를 재조회하던 중복 왕복(아이템당 2쿼리)을 제거했다.
+        // 취소가 같은 배치(3개) 내 잔여 아이템까지 즉시 멈추지는 못하지만 허용 범위.
         await supabase
           .from('batch_job_items')
           .update({ status: 'in_progress', started_at: new Date().toISOString() })

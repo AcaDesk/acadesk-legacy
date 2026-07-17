@@ -12,6 +12,7 @@ import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { sendAlimtalk, sendMessage } from '@/lib/messaging/provider'
+import { mapWithConcurrency, withRetry } from '@/lib/concurrency'
 import { renderKakaoTemplatePreview } from '@/lib/kakao/kakao-variables'
 
 // ============================================================================
@@ -471,7 +472,18 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
       }>
     }
 
-    // Process each student
+    // 1단계: 발송 가능 대상과 즉시 실패(보호자/전화번호 없음)를 분리
+    interface SendTarget {
+      studentId: string
+      studentName: string
+      studentCode: string
+      grade: string
+      guardianName: string
+      recipientPhone: string
+    }
+
+    const sendTargets: SendTarget[] = []
+
     for (const student of students || []) {
       const typedStudent = student as unknown as StudentWithGuardians
       const studentName = typedStudent.users?.name || '학생'
@@ -522,7 +534,22 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
         continue
       }
 
-      // Replace template variables
+      sendTargets.push({
+        studentId: typedStudent.id,
+        studentName,
+        studentCode,
+        grade,
+        guardianName,
+        recipientPhone,
+      })
+    }
+
+    // 2단계: 외부 발송을 동시성 제한 병렬로 수행 (직렬 대비 대량 발송 시간 단축,
+    // 무제한 병렬은 프로바이더 스로틀 위험). 일시 오류는 1회 자동 재시도.
+    const SEND_CONCURRENCY = 5
+    const sendLogs = await mapWithConcurrency(sendTargets, SEND_CONCURRENCY, async (target) => {
+      const { studentId, studentName, studentCode, grade, guardianName, recipientPhone } = target
+
       const variableMap = buildStudentMessageVariables({
         studentName,
         studentCode,
@@ -552,26 +579,29 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
         : undefined
 
       try {
-        const result = validated.type === 'kakao'
-          ? await sendAlimtalk({
-              to: recipientPhone,
-              templateId: validated.kakaoTemplateId!,
-              variables: variableMap,
-            })
-          : await sendMessage({
-              type: validated.type,
-              to: recipientPhone,
-              message: personalizedMessage,
-              subject: personalizedSubject,
-            })
+        await withRetry(async () => {
+          const result = validated.type === 'kakao'
+            ? await sendAlimtalk({
+                to: recipientPhone,
+                templateId: validated.kakaoTemplateId!,
+                variables: variableMap,
+              })
+            : await sendMessage({
+                type: validated.type,
+                to: recipientPhone,
+                message: personalizedMessage,
+                subject: personalizedSubject,
+              })
 
-        if (!result.success) {
-          throw new Error(result.error || '발송 실패')
-        }
+          if (!result.success) {
+            throw new Error(result.error || '발송 실패')
+          }
+        })
 
-        logs.push({
+        successCount++
+        return {
           tenant_id: tenantId,
-          student_id: typedStudent.id,
+          student_id: studentId,
           session_id: null,
           notification_type: validated.type,
           message: personalizedMessage,
@@ -584,14 +614,12 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
           ...(validated.type === 'kakao' && {
             kakao_template_id: validated.kakaoTemplateId,
           }),
-        })
-
-        successCount++
+        }
       } catch (error) {
         failCount++
-        logs.push({
+        return {
           tenant_id: tenantId,
-          student_id: typedStudent.id,
+          student_id: studentId,
           session_id: null,
           notification_type: validated.type,
           message: personalizedMessage,
@@ -604,9 +632,11 @@ export async function sendMessages(input: z.infer<typeof sendMessageSchema>) {
           ...(validated.type === 'kakao' && {
             kakao_template_id: validated.kakaoTemplateId,
           }),
-        })
+        }
       }
-    }
+    })
+
+    logs.push(...sendLogs)
 
     // Save notification logs
     if (logs.length > 0) {

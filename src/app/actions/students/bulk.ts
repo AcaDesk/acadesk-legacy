@@ -21,26 +21,40 @@ export async function bulkUpdateStudents(
     // 2. Create service_role client
     const serviceClient = createServiceRoleClient()
 
-    // 3. Update all students in parallel (N+1 순차 → N번 병렬)
+    // 3. 동일 변경값끼리 그룹핑 → 그룹당 UPDATE 1회 (학생 N명 → 그룹 G개 쿼리)
+    // 진급/학교 변경은 대부분 같은 값이라 실질 1~수 개 쿼리로 줄어든다.
+    // (upsert 단일화는 타 테넌트 id 충돌 시 테넌트 가드가 불가능해 배제)
     const now = new Date().toISOString()
+    const groups = new Map<string, { grade?: string; school?: string; ids: string[] }>()
+    for (const update of updates) {
+      const key = JSON.stringify([update.grade ?? null, update.school ?? null])
+      const group = groups.get(key)
+      if (group) {
+        group.ids.push(update.id)
+      } else {
+        groups.set(key, { grade: update.grade, school: update.school, ids: [update.id] })
+      }
+    }
+
     const updateResults = await Promise.all(
-      updates.map(update =>
+      [...groups.values()].map((group) =>
         serviceClient
           .from('students')
           .update({
-            grade: update.grade,
-            school: update.school,
+            ...(group.grade !== undefined && { grade: group.grade }),
+            ...(group.school !== undefined && { school: group.school }),
             updated_at: now,
           })
-          .eq('id', update.id)
+          .in('id', group.ids)
           .eq('tenant_id', tenantId)
       )
     )
 
     // 에러 로깅
+    const groupList = [...groups.values()]
     updateResults.forEach((result, idx) => {
       if (result.error) {
-        console.error(`Failed to update student ${updates[idx].id}:`, result.error)
+        console.error(`Failed to update students ${groupList[idx].ids.join(', ')}:`, result.error)
       }
     })
 
