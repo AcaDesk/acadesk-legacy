@@ -4,6 +4,7 @@
  * 에러를 사용자 친화적인 메시지로 변환하고 적절한 로깅을 제공
  */
 
+import * as Sentry from '@sentry/nextjs'
 import {
   isAppError,
   ValidationError,
@@ -207,11 +208,21 @@ export function logError(error: unknown, context?: Record<string, unknown>) {
   // Programming/system errors - error level
   console.error('[System Error]', errorInfo, error)
 
-  // In production, send to error tracking service (Sentry, etc.)
-  if (process.env.NODE_ENV === 'production') {
-    // TODO: Send to error tracking service
-    // Sentry.captureException(error, { extra: errorInfo })
+  // Next.js 내부 제어 흐름 신호는 에러가 아니므로 Sentry로 보내지 않는다
+  // (빌드 시 정적 렌더 프로빙의 DYNAMIC_SERVER_USAGE, redirect()/notFound() 등)
+  const digest = (error as { digest?: string } | null)?.digest
+  if (
+    typeof digest === 'string' &&
+    (digest === 'DYNAMIC_SERVER_USAGE' ||
+      digest === 'NEXT_NOT_FOUND' ||
+      digest.startsWith('NEXT_REDIRECT'))
+  ) {
+    return
   }
+
+  // 시스템 에러는 Sentry로 전송 (DSN 미설정 시 no-op).
+  // 운영성(operational) 에러는 위에서 warn으로 끝나므로 노이즈가 되지 않는다.
+  Sentry.captureException(error, { extra: errorInfo })
 }
 
 /**

@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import withSerwistInit from "@serwist/next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const withSerwist = withSerwistInit({
   swSrc: "src/app/sw.ts",
@@ -67,4 +68,10 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withSerwist(nextConfig);
+// Sentry: 소스맵 업로드는 SENTRY_AUTH_TOKEN + org/project env가 있을 때만 수행되고,
+// 없으면 빌드에 영향 없이 건너뛴다 (에러 수집 자체는 DSN만으로 동작).
+export default withSentryConfig(withSerwist(nextConfig), {
+  silent: true,
+  disableLogger: true,
+  widenClientFileUpload: true,
+});

@@ -17,6 +17,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { env } from '@/lib/env'
 import { getSystemContext } from '@/lib/auth/system-context'
+import { AuthorizationError } from '@/lib/error-types'
 
 /**
  * User context returned after successful authentication
@@ -68,7 +69,8 @@ export async function verifyPermission(): Promise<UserContext> {
   } = await supabase.auth.getUser()
 
   if (authError || !user) {
-    throw new Error('인증이 필요합니다. 다시 로그인해주세요.')
+    // 세션 만료는 일상적인 운영성 에러 — AuthorizationError로 분류해 Sentry 노이즈 방지
+    throw new AuthorizationError('인증이 필요합니다. 다시 로그인해주세요.')
   }
 
   // 2. Fetch user profile with service_role (bypass RLS)
@@ -124,7 +126,7 @@ export async function verifyRole(allowedRoles: string[]): Promise<UserContext> {
   const context = await verifyPermission()
 
   if (!allowedRoles.includes(context.roleCode)) {
-    throw new Error(
+    throw new AuthorizationError(
       `이 작업을 수행할 권한이 없습니다. 필요한 권한: ${allowedRoles.join(', ')}`
     )
   }
@@ -185,7 +187,7 @@ export async function verifyPlatformAdmin(): Promise<UserContext> {
   const email = context.email?.trim().toLowerCase()
 
   if (!email || allowlist.length === 0 || !allowlist.includes(email)) {
-    throw new Error('플랫폼 운영자만 수행할 수 있는 작업입니다.')
+    throw new AuthorizationError('플랫폼 운영자만 수행할 수 있는 작업입니다.')
   }
 
   return context

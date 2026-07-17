@@ -32,7 +32,7 @@
 
 import { verifyStaff, verifyOwner, verifyRole, type UserContext } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
-import { getErrorMessage } from '@/lib/error-handlers'
+import { getErrorMessage, logError } from '@/lib/error-handlers'
 import type {
   ServerActionContext,
   ServerActionResult,
@@ -114,7 +114,8 @@ export async function withServerAction<T, TDefault = null>(
       error: null,
     }
   } catch (error) {
-    console.error(`[${actionName}] Error:`, error)
+    // 시스템 에러는 Sentry로 전송, 운영성 에러(권한/검증 등)는 warn 로그만 (error-handlers.ts)
+    logError(error, { action: actionName })
 
     return {
       success: false,
@@ -176,7 +177,8 @@ export async function withServerActionVoid(
       error: null,
     }
   } catch (error) {
-    console.error(`[${actionName}] Error:`, error)
+    // 시스템 에러는 Sentry로 전송, 운영성 에러(권한/검증 등)는 warn 로그만 (error-handlers.ts)
+    logError(error, { action: actionName })
 
     return {
       success: false,

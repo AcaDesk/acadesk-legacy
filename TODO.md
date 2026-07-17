@@ -24,10 +24,14 @@
 - [x] husky + lint-staged pre-commit 훅 (`*.{ts,tsx}` → eslint --fix --max-warnings=0)
 - [x] `internal/tech/Architecture.md`의 CI/CD 오기재 수정 (migrations 경로도 supabase/로 정정)
 
-### 1.4 에러 트래킹
-- [ ] `@sentry/nextjs` 설치 + `src/lib/monitoring/error-reporter.ts` 주석 해제/연동
-- [ ] `error-handlers.ts:210` TODO 해소 (서버 액션 에러 Sentry 전송)
-- [ ] `global-error.tsx` 추가 + 주요 라우트 `error.tsx` 확충 (현재 attendance 1곳뿐)
+### 1.4 에러 트래킹 ✅ (2026-07-17 완료)
+- [x] `@sentry/nextjs` 설치 + instrumentation 3종(server/edge/client) — DSN 미설정 시 완전 no-op
+- [x] `logError` → Sentry 전송 (운영성 에러는 warn만, Next 내부 신호 DYNAMIC_SERVER_USAGE/NEXT_REDIRECT/NEXT_NOT_FOUND 필터)
+- [x] `withServerAction`/`withServerActionVoid` catch가 `logError` 경유하도록 통합 — 모든 래퍼 기반 액션 에러가 Sentry로
+- [x] 인증/권한 실패를 `AuthorizationError`(operational)로 분류 — 세션 만료 노이즈 차단
+- [x] `global-error.tsx` + `(dashboard)/error.tsx` 그룹 레벨 바운더리 (하위 전 세그먼트 커버)
+- [x] 데드 코드 `src/lib/monitoring/error-reporter.ts` 삭제 (import 0건 확인)
+- [ ] 배포 후: Sentry 프로젝트 생성 → Vercel env에 `NEXT_PUBLIC_SENTRY_DSN` 등록 (소스맵은 SENTRY_AUTH_TOKEN/ORG/PROJECT 추가 시)
 
 ### 1.5 폰트 최적화 (LCP)
 - [ ] Noto Sans KR 9.9MB TTF → woff2 + 한글 서브셋 (`src/app/layout.tsx:15`)
