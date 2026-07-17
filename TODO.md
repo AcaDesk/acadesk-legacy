@@ -33,9 +33,9 @@
 - [x] 데드 코드 `src/lib/monitoring/error-reporter.ts` 삭제 (import 0건 확인)
 - [ ] 배포 후: Sentry 프로젝트 생성 → Vercel env에 `NEXT_PUBLIC_SENTRY_DSN` 등록 (소스맵은 SENTRY_AUTH_TOKEN/ORG/PROJECT 추가 시)
 
-### 1.5 폰트 최적화 (LCP)
-- [ ] Noto Sans KR 9.9MB TTF → woff2 + 한글 서브셋 (`src/app/layout.tsx:15`)
-- [ ] Inter Tight 567KB TTF도 동일 처리
+### 1.5 폰트 최적화 (LCP) ✅ (2026-07-17 완료)
+- [x] Noto Sans KR/Inter Tight를 `next/font/google`로 전환 — 빌드 시 셀프 호스팅, 한글은 unicode-range 슬라이스 131개(최대 90KB)로 필요한 조각만 로드
+- [x] `public/fonts/` 삭제 (~23MB: variable TTF 2종 + 미참조 Bold/Regular TTF 12.4MB)
 
 ### 1.6 DB 정합성
 - [ ] 스키마 드리프트 해소: `payments`/`tuition_invoices` 정의 마이그레이션 확정 (대시보드 RPC가 참조 중), seed-schema 재생성

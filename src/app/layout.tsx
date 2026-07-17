@@ -1,23 +1,23 @@
 import type { Metadata, Viewport } from "next"
-import localFont from "next/font/local"
+import { Inter_Tight, Noto_Sans_KR } from "next/font/google"
 import "./globals.css"
 import { Toaster } from "@ui/toaster"
 import { Providers } from "./providers"
 
-// Inter Tight (영문) - Variable Font
-const interTight = localFont({
-  src: "../../public/fonts/Inter_Tight/InterTight-VariableFont_wght.ttf",
+// 폰트는 빌드 시 Google Fonts에서 다운로드해 셀프 호스팅된다 (런타임 외부 요청 없음).
+// Inter Tight (영문) - Variable Font, woff2
+const interTight = Inter_Tight({
+  subsets: ["latin"],
   variable: "--font-inter",
   display: "swap",
-  weight: "100 900",
 })
 
-// Noto Sans KR (한글) - Variable Font
-const notoSansKR = localFont({
-  src: "../../public/fonts/Noto_Sans_KR/NotoSansKR-VariableFont_wght.ttf",
+// Noto Sans KR (한글) - unicode-range로 슬라이스된 woff2 조각을 사용해
+// 페이지에 실제 등장하는 글자 범위만 다운로드된다 (기존 9.9MB 단일 TTF 대체)
+const notoSansKR = Noto_Sans_KR({
+  subsets: ["latin"],
   variable: "--font-noto-sans-kr",
   display: "swap",
-  weight: "100 900",
 })
 
 export const viewport: Viewport = {
