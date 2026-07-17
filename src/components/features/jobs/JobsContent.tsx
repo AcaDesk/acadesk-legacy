@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { getBatchJobs, runDueScheduledBatchJobs } from '@/app/actions/batch/jobs'
 import { queryKeys } from '@/lib/query-keys'
@@ -30,17 +30,24 @@ import type { BatchJob, BatchActionType, JobStatus } from '@/core/types/batch.ty
 
 export function JobsContent() {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
   const [actionType, setActionType] = useState<string>('all')
   const [status, setStatus] = useState<string>('all')
-  const [dueChecked, setDueChecked] = useState(false)
 
   const pageSize = 20
 
-  // 예약된 배치 작업의 실행 시점 도래 여부를 목록 조회 전에 1회 확인한다 (side effect)
+  // 예약 배치의 주 트리거는 Vercel Cron(/api/cron/run-due-jobs)이다.
+  // 크론 미설정 환경을 위한 보조 트리거로만 유지하며, 목록 조회를 막지 않는다.
   useEffect(() => {
-    runDueScheduledBatchJobs(1).finally(() => setDueChecked(true))
-  }, [])
+    runDueScheduledBatchJobs(1)
+      .then((result) => {
+        if (result.success && result.data && result.data.triggered > 0) {
+          queryClient.invalidateQueries({ queryKey: queryKeys.batch.jobs({}) })
+        }
+      })
+      .catch(() => {})
+  }, [queryClient])
 
   const jobsQuery = useQuery({
     queryKey: queryKeys.batch.jobs({ page, actionType, status }),
@@ -56,7 +63,6 @@ export function JobsContent() {
       }
       return result.data
     },
-    enabled: dueChecked,
     placeholderData: keepPreviousData,
   })
   const jobs = jobsQuery.data?.jobs ?? []

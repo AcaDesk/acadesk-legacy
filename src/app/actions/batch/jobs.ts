@@ -5,6 +5,7 @@ import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { normalizeBatchOptions } from '@/lib/batch-options'
+import { isBatchJobDue } from '@/lib/batch/due-jobs'
 import type {
   BatchJob,
   BatchJobItem,
@@ -472,16 +473,7 @@ export async function runDueScheduledBatchJobs(limit = 1) {
     if (error) throw error
 
     const now = Date.now()
-    const dueJobs = (candidateJobs ?? []).filter((job) => {
-      if (job.status === 'running') return true
-      const params = (job.job_params ?? {}) as Record<string, unknown>
-      const schedule = (params._schedule ?? { mode: 'now' }) as BatchSchedule
-      if (schedule.mode !== 'scheduled') return true
-      if (!schedule.scheduledAt) return true
-      const scheduledAt = new Date(schedule.scheduledAt).getTime()
-      if (Number.isNaN(scheduledAt)) return true
-      return scheduledAt <= now
-    })
+    const dueJobs = (candidateJobs ?? []).filter((job) => isBatchJobDue(job, now))
 
     let triggered = 0
     let failed = 0

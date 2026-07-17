@@ -16,6 +16,7 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { env } from '@/lib/env'
+import { getSystemContext } from '@/lib/auth/system-context'
 
 /**
  * User context returned after successful authentication
@@ -53,6 +54,12 @@ export interface UserContext {
  * }
  */
 export async function verifyPermission(): Promise<UserContext> {
+  // 0. 시스템 컨텍스트 (크론 등 세션 없는 신뢰된 진입점에서만 설정됨 — system-context.ts 참조)
+  const systemContext = getSystemContext()
+  if (systemContext) {
+    return systemContext
+  }
+
   // 1. Check authentication (regular client)
   const supabase = await createServerClient()
   const {
