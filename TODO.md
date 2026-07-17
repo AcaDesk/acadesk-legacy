@@ -19,10 +19,10 @@
 - [x] 기본 PIN `1234` 폴백 제거 — 보호자 전화 미등록 학생은 인증 거부, UI 힌트 문구 교체
 - [ ] 배포 후: `supabase db push`로 migration 적용 (미적용 시 레이트리밋은 fail-open으로 무해하게 비활성)
 
-### 1.3 CI/CD + 품질 게이트
-- [ ] `.github/workflows/ci.yml`: type-check + lint + test:run + build (PR/push)
-- [ ] husky + lint-staged pre-commit 훅
-- [ ] `internal/tech/Architecture.md`의 CI/CD 오기재 수정
+### 1.3 CI/CD + 품질 게이트 ✅ (2026-07-17 완료)
+- [x] `.github/workflows/ci.yml`: type-check + lint + test:run + build (PR/main push, 더미 env로 빌드)
+- [x] husky + lint-staged pre-commit 훅 (`*.{ts,tsx}` → eslint --fix --max-warnings=0)
+- [x] `internal/tech/Architecture.md`의 CI/CD 오기재 수정 (migrations 경로도 supabase/로 정정)
 
 ### 1.4 에러 트래킹
 - [ ] `@sentry/nextjs` 설치 + `src/lib/monitoring/error-reporter.ts` 주석 해제/연동

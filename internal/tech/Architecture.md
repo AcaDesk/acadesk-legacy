@@ -26,7 +26,7 @@ Acadesk는 학원 관리 SaaS 플랫폼으로, 멀티 테넌트 환경에서 **�
   - Frontend → Vercel
   - Database/Edge → Supabase Cloud
 - **DNS/WAF**: Cloudflare
-- **CI/CD**: GitHub Actions → Vercel 자동 배포
+- **CI/CD**: GitHub Actions(품질 게이트: type-check/lint/test/build, `.github/workflows/ci.yml`) + Vercel Git 연동 자동 배포
 
 ---
 
@@ -84,9 +84,11 @@ Acadesk는 학원 관리 SaaS 플랫폼으로, 멀티 테넌트 환경에서 **�
   - Strict RLS / 최소 권한 설정
 
 ### CI/CD
-- GitHub Actions → Lint/Test → Deploy to Vercel
-- DB Migration은 `internal/migrations/` SQL 파일 관리
-- 자동 백업: Supabase Daily Snapshot + GitHub Release 업로드
+- GitHub Actions: PR·main push마다 type-check → lint → unit test → build 검증 (`.github/workflows/ci.yml`)
+- 로컬: husky pre-commit 훅으로 스테이징된 파일 lint (lint-staged)
+- 배포: Vercel Git 연동 자동 배포 (main push 시)
+- DB Migration은 `supabase/migrations/` SQL 파일 관리 (`supabase db push`)
+- 백업: Supabase Daily Snapshot (PITR 활성화 여부·RPO/RTO 정의는 TODO.md 1.8 참조)
 
 ---
 
