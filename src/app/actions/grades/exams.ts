@@ -336,6 +336,21 @@ export async function createExam(input: z.infer<typeof examSchema>) {
       revalidatePath('/grades/exam-templates')
     }
 
+    // 시험 일정 안내 알림톡 (fire-and-forget) — 해당 반 재원생 보호자에게 발송.
+    // 반복 시험 템플릿 생성은 실제 일정이 아니므로 제외.
+    if (validated.class_id && !validated.is_recurring) {
+      const examDateStr = new Date(examDate).toLocaleDateString('ko-KR', {
+        year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Seoul',
+      })
+      void import('@/lib/messaging/event-alimtalk').then(({ fireClassEventAlimtalk }) =>
+        fireClassEventAlimtalk(tenantId, validated.class_id!, 'exam_scheduled', {
+          시험명: validated.name,
+          시험일시: examDateStr,
+          시험범위: validated.description || '',
+        })
+      )
+    }
+
     return {
       success: true,
       data: { examId: exam.id },
@@ -942,6 +957,20 @@ export async function createExamFromTemplate(templateId: string, examDate: strin
 
     revalidatePath('/grades')
     revalidatePath('/grades/exams')
+
+    // 시험 일정 안내 알림톡 (fire-and-forget) — 해당 반 재원생 보호자에게 발송.
+    if (template.class_id) {
+      const examDateStr = new Date(examDate).toLocaleDateString('ko-KR', {
+        year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Seoul',
+      })
+      void import('@/lib/messaging/event-alimtalk').then(({ fireClassEventAlimtalk }) =>
+        fireClassEventAlimtalk(tenantId, template.class_id, 'exam_scheduled', {
+          시험명: template.name,
+          시험일시: examDateStr,
+          시험범위: template.description || '',
+        })
+      )
+    }
 
     return { success: true, data: { examId: created.id }, error: null }
   } catch (error) {

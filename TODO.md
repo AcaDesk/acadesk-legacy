@@ -17,7 +17,7 @@
 - [x] PIN/전화 인증에 DB 기반 레이트리밋 도입 — `kiosk_auth_attempts` 테이블(migration 20260717000001) + `src/lib/kiosk-rate-limit.ts` (식별자별 5회/5분 + 테넌트별 30회/10분, 판정 쿼리 실패 시 fail-open)
 - [x] `getStudentsByTenant` 전체 명부 반환 제거 → `searchKioskStudents` (2글자 이상 검색, 최대 20건, ilike 이스케이프)
 - [x] 기본 PIN `1234` 폴백 제거 — 보호자 전화 미등록 학생은 인증 거부, UI 힌트 문구 교체
-- [ ] 배포 후: `supabase db push`로 migration 적용 (미적용 시 레이트리밋은 fail-open으로 무해하게 비활성)
+- [x] `supabase db push`로 migration 적용 완료 (2026-07-17, 1.6 작업에서 일괄 적용)
 
 ### 1.3 CI/CD + 품질 게이트 ✅ (2026-07-17 완료)
 - [x] `.github/workflows/ci.yml`: type-check + lint + test:run + build (PR/main push, 더미 env로 빌드)
@@ -69,8 +69,17 @@
 - [ ] `payment_confirmed`/`payment_overdue` 알림톡 배선
 - [ ] `tuitionManagement` 플래그 beta → active 전환
 
-### 2.2 미배선 알림 12종 크론 연결
-- [ ] homework_deadline, monthly/weekly_report_ready, exam_scheduled, retest_required, makeup_class_scheduled, class_schedule_changed, academy_closure_notice, book_lending_reminder 등 fire 지점 구현 (1.1의 크론 인프라 활용)
+### 2.2 미배선 알림 배선 ✅ (2026-07-17 완료 — 현시점 배선 가능분 전부)
+- [x] `homework_deadline` — 데일리 크론(`/api/cron/daily-reminders`, 09:00 KST)으로 마감 D-1 미완료 숙제 발송. `student_tasks.deadline_reminder_sent_at`로 중복 방지 (migration 20260717000005, 적용됨)
+- [x] `book_lending_reminder` — 동일 크론, 반납 D-1 미반납 도서. 기존 `reminder_sent_at` 컬럼 활용
+- [x] `exam_scheduled` — 시험 등록 시 액션 배선 (`createExam`/`createExamFromTemplate` → 반 재원생 보호자, `fireClassEventAlimtalk` 헬퍼 신설. 반복 템플릿 생성은 제외)
+- [x] `retest_required` — 확인 결과 이미 배선돼 있었음 (`retests.ts` createRetestExam, 감사 목록이 구버전)
+- 이연/의도적 미배선 (사유 기록):
+  - `payment_confirmed`/`payment_overdue` → 수납 백엔드(2.1) 구현 시 배선
+  - `makeup_class_scheduled` → 보강 관리 기능(Phase 3) 구현 시
+  - `class_schedule_changed` → 시간표 기능(Phase 3) 구현 시 (현재는 자유 편집이라 모든 수정에 발송되면 노이즈)
+  - `monthly/weekly_report_ready` → 의도적 수동: 리포트는 스태프 검토 후 명시적 발송 플로우(sendReportToAllGuardians)가 이미 알림 역할 수행. 생성 즉시 자동 발송은 미검토 리포트 노출 위험
+  - `academy_closure_notice` → 공지성 수동 발송 (일괄 메시지 화면에서 발송)
 
 ### 2.3 쓰기 원자화 (RPC)
 - [ ] `createStudentComplete`(`students/mutations.ts:31`) 5단계 INSERT → 단일 SECURITY DEFINER RPC

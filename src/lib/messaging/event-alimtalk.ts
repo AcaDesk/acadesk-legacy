@@ -147,6 +147,50 @@ export async function sendEventAlimtalk(
 // ============================================================================
 
 /**
+ * 반 단위 이벤트 알림톡 fire-and-forget 발송
+ *
+ * 해당 반의 활성 재원생 전원의 보호자에게 발송합니다 (시험 일정 안내 등).
+ * 절대 throw하지 않으며, 실패 시 콘솔 로그만 남깁니다.
+ */
+export async function fireClassEventAlimtalk(
+  tenantId: string,
+  classId: string,
+  eventType: string,
+  extraVariables?: Record<string, string>
+): Promise<void> {
+  try {
+    const supabase = createServiceRoleClient()
+
+    // 빠른 구독 확인 (비활성이면 재원생 조회 스킵)
+    const { data: sub } = await supabase
+      .from('tenant_event_subscriptions')
+      .select('is_enabled, provisioning_status')
+      .eq('tenant_id', tenantId)
+      .eq('event_type', eventType)
+      .maybeSingle()
+
+    if (!sub?.is_enabled || sub.provisioning_status !== 'approved') {
+      return
+    }
+
+    const { data: enrollments } = await supabase
+      .from('class_enrollments')
+      .select('student_id')
+      .eq('tenant_id', tenantId)
+      .eq('class_id', classId)
+      .eq('status', 'active')
+      .is('deleted_at', null)
+
+    for (const enrollment of enrollments ?? []) {
+      await fireEventAlimtalk(tenantId, eventType, enrollment.student_id, extraVariables)
+    }
+  } catch (error) {
+    // fire-and-forget — 절대 throw하지 않음
+    console.error(`[fireClassEventAlimtalk] ${eventType} Error (silent):`, error)
+  }
+}
+
+/**
  * 이벤트 알림톡 fire-and-forget 발송
  *
  * 학생 ID로 보호자를 조회하고, 각 보호자에게 알림톡을 발송합니다.
