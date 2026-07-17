@@ -16,6 +16,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getTodayKST, getDateKST } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { createNotification } from '@/lib/notification-helpers'
+import { filterOwnedStudentIds } from '@/lib/tenant-guards'
 
 // ============================================================================
 // Validation Schemas
@@ -413,6 +414,14 @@ export async function createConsultation(
     const validated = createConsultationSchema.parse(input)
     const { tenantId, userId } = await verifyStaff()
     const supabase = createServiceRoleClient()
+
+    // 학생 소유권 검증 — 클라이언트 제공 studentId의 교차 테넌트 참조 삽입 차단
+    if (!validated.isLead && validated.studentId) {
+      const ownedIds = await filterOwnedStudentIds(supabase, tenantId, [validated.studentId])
+      if (ownedIds.length === 0) {
+        return { success: false, data: null, error: '학생을 찾을 수 없습니다.' }
+      }
+    }
 
     const { data, error } = await supabase
       .from('consultations')

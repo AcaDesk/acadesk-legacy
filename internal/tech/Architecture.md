@@ -88,7 +88,7 @@ Acadesk는 학원 관리 SaaS 플랫폼으로, 멀티 테넌트 환경에서 **�
 - 로컬: husky pre-commit 훅으로 스테이징된 파일 lint (lint-staged)
 - 배포: Vercel Git 연동 자동 배포 (main push 시)
 - DB Migration은 `supabase/migrations/` SQL 파일 관리 (`supabase db push`)
-- 백업: Supabase Daily Snapshot (PITR 활성화 여부·RPO/RTO 정의는 TODO.md 1.8 참조)
+- 백업/복구: docs/BACKUP_RECOVERY.md 참조 (RPO/RTO 정의·복구 런북)
 
 ---
 

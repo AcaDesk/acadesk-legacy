@@ -13,6 +13,7 @@ import { withServerAction, withServerActionVoid } from '@/lib/server-action-help
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { filterOwnedStudentIds } from '@/lib/tenant-guards'
 
 // ============================================================================
 // Types
@@ -172,6 +173,12 @@ export async function awardStudentPoints(input: AwardPointInput) {
   return withServerActionVoid(
     async ({ tenantId, userId, serviceClient }) => {
       const validated = awardPointSchema.parse(input)
+
+      // 학생 소유권 검증 — 클라이언트 제공 studentId의 교차 테넌트 참조 삽입 차단
+      const ownedIds = await filterOwnedStudentIds(serviceClient, tenantId, [validated.studentId])
+      if (ownedIds.length === 0) {
+        throw new Error('학생을 찾을 수 없습니다')
+      }
 
       // 유형 검증 및 기본 점수 조회
       const { data: pointType, error: typeError } = await serviceClient

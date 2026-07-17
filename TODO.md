@@ -50,14 +50,15 @@
 - [x] 인덱스 보강: `attendance(tenant_id, attendance_date DESC)`, `class_enrollments(tenant_id, status)`, `student_change_logs(changed_by)`
 - [ ] `supabase/seed-schema.sql` 스냅샷 재생성 (로컬 시드 플로우 검증 필요 — 별도 작업)
 
-### 1.7 보안 소유권 검증 (Medium)
-- [ ] `awardStudentPoints`(`student-points.ts:193`)에 `filterOwnedStudentIds` 적용
-- [ ] `createConsultation`(`consultations.ts:422`)에 학생 소유권 검증 추가
-- [ ] `/admin` 레이아웃 레벨 플랫폼관리자 가드 추가 (심층방어)
-- [ ] `getCurrentTenantId`(`src/lib/auth/helpers.ts:50`)에 `deleted_at is null` 필터 추가
+### 1.7 보안 소유권 검증 (Medium) ✅ (2026-07-17 완료)
+- [x] `awardStudentPoints`에 `filterOwnedStudentIds` 적용
+- [x] `createConsultation`에 학생 소유권 검증 추가 (비리드 상담만 해당)
+- [x] `src/app/admin/layout.tsx` 신설 — `/admin` 하위 전체 verifyPlatformAdmin 심층방어
+- [x] `getCurrentTenantId`에 `deleted_at is null` 필터 추가
 
-### 1.8 백업
-- [ ] Supabase PITR 활성화 확인 + RPO/RTO 문서화
+### 1.8 백업 ✅ (2026-07-17 문서화 완료)
+- [x] RPO/RTO 정의 + 복구 런북 문서화 — `docs/BACKUP_RECOVERY.md`
+- [ ] 수동: Supabase Dashboard → Add-ons에서 PITR 활성화 여부 확인/활성화 (Pro 플랜, 보존 7일 권장) — CLI/API로 확인 불가하여 대시보드 확인 필요
 
 ## Phase 2 — 중요: 수익화와 성능 (목표: +6~8주)
 

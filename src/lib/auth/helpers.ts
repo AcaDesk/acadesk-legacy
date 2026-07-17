@@ -52,6 +52,7 @@ export async function getCurrentTenantId() {
     .from('users')
     .select('tenant_id, role_code')
     .eq('id', user.id)
+    .is('deleted_at', null)
     .single()
 
   if (error || !userData?.tenant_id) {
