@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'motion/react'
 import { PageWrapper } from '@/components/layout/page-wrapper'
@@ -43,14 +43,27 @@ export function StudentDetailClient({
   }, [initialData.consultations])
 
   const handleConsultationAdded = (consultation: Consultation) => {
-    setConsultations([consultation, ...consultations])
+    setConsultations((prev) => [consultation, ...prev])
   }
 
-  const handleDataRefresh = async () => {
+  const handleDataRefresh = useCallback(async () => {
     startTransition(() => {
       router.refresh()
     })
-  }
+  }, [router])
+
+  // 컨텍스트 value를 매 렌더마다 새 객체로 만들면 탭 전환 등 모든 상태 변경에
+  // 7개 탭 컨슈머 전체가 리렌더되므로 반드시 메모이즈한다.
+  const detailContextValue = useMemo(
+    () => ({
+      ...initialData,
+      student,
+      consultations,
+      refreshStudent: handleDataRefresh,
+      onRefresh: handleDataRefresh,
+    }),
+    [initialData, student, consultations, handleDataRefresh]
+  )
 
   const activeClassIds =
     student.class_enrollments
@@ -60,15 +73,7 @@ export function StudentDetailClient({
 
   return (
     <PageErrorBoundary pageName="학생 상세">
-      <StudentDetailProvider
-        value={{
-          ...initialData,
-          student,
-          consultations,
-          refreshStudent: handleDataRefresh,
-          onRefresh: handleDataRefresh,
-        }}
-      >
+      <StudentDetailProvider value={detailContextValue}>
         <PageWrapper>
         <motion.div
           className="space-y-6"

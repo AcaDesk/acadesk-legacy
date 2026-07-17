@@ -101,11 +101,12 @@
 - [x] `batch/jobs.ts` 아이템당 job/item status 중복 재조회(2쿼리) 제거 — 취소 감지는 배치 경계(3개)로 충분
 - [x] `bulkUpdateStudents` — 동일 변경값 그룹핑으로 N쿼리 → G쿼리 (단일 upsert는 테넌트 가드 불가로 배제, 사유 코드 주석)
 
-### 2.6 프론트 성능
-- [ ] 학생 목록 SSR 프리페치 + HydrationBoundary (`getStudentsListEnriched` limit 추가 포함)
-- [ ] 출석 로스터 가상화 (`attendance-check-page.tsx:119`)
-- [ ] `StudentDetailClient.tsx:63` 컨텍스트 value `useMemo`
-- [ ] exceljs 지연 로드, `react-big-calendar` 데드 의존성 제거
+### 2.6 프론트 성능 ✅ (2026-07-17 완료)
+- [x] 학생 목록 SSR 프리페치 — 비동기 서버 컴포넌트 + `HydrationBoundary` 스트리밍 (셸 즉시 페인트, 마운트 후 워터폴 제거, 프리페치 실패 시 클라이언트 재시도로 안전)
+- [x] `StudentDetailClient` 컨텍스트 value `useMemo` + `handleDataRefresh` useCallback — 탭 전환 시 7개 탭 리렌더 폭포 제거. `handleConsultationAdded` stale closure도 함수형 업데이트로 수정
+- [x] exceljs 지연 로드 — `excel-parser`/`excel-template`이 타입만 정적 import, 실제 로드는 사용 시점 (학생 임포트 라우트 번들 축소)
+- [x] `react-big-calendar` + `@types` 데드 의존성 제거, 미사용 `calendar.css` 삭제 (AcademyCalendar는 자체 구현)
+- 이연: 출석 로스터 가상화 → 현 재원생 규모(수백 명)에선 클라이언트 페이지네이션으로 충분, 가상 스크롤 라이브러리 도입은 e2e 안전망(2.7) 확보 후 Phase 3에서
 
 ### 2.7 테스트 안전망
 - [ ] `playwright.config.ts` + 핵심 e2e 4종 (로그인→출석→성적 입력→메시지 발송)

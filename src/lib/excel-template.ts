@@ -3,14 +3,14 @@
  * 학생 Import용 엑셀 템플릿 생성
  */
 
-import { Workbook } from 'exceljs'
 import { downloadWorkbook } from './excel-parser'
 
 /**
  * 학생 Import 템플릿 생성 및 다운로드
  */
 export async function downloadStudentImportTemplate() {
-  // 워크북 생성
+  // 워크북 생성 (exceljs는 무거워 사용 시점에 지연 로드)
+  const { Workbook } = await import('exceljs')
   const workbook = new Workbook()
 
   // 헤더 정의

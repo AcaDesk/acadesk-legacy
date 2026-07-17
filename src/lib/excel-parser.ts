@@ -3,7 +3,9 @@
  * exceljs를 사용한 엑셀 파일 파싱 유틸리티
  */
 
-import { Workbook, type CellValue } from 'exceljs'
+// exceljs는 무거운 라이브러리라 정적 import 시 이 모듈을 참조하는 페이지 번들이
+// 통째로 팽창한다. 타입만 정적으로 쓰고 실제 로드는 사용 시점에 한다.
+import type { Workbook, CellValue } from 'exceljs'
 import type {
   StudentImportData,
   GuardianImportData,
@@ -127,6 +129,7 @@ export async function downloadWorkbook(workbook: Workbook, fileName: string): Pr
  */
 export async function validateExcelHeaders(file: File): Promise<{ valid: boolean; missing: string[] }> {
   try {
+    const { Workbook } = await import('exceljs')
     const buffer = await file.arrayBuffer()
     const workbook = new Workbook()
     await workbook.xlsx.load(buffer)
@@ -160,6 +163,7 @@ export async function validateExcelHeaders(file: File): Promise<{ valid: boolean
  */
 export async function parseExcelFile(file: File): Promise<StudentImportItem[]> {
   try {
+    const { Workbook } = await import('exceljs')
     const buffer = await file.arrayBuffer()
     const workbook = new Workbook()
     await workbook.xlsx.load(buffer)
@@ -372,6 +376,7 @@ export async function downloadErrorReport(
   invalidItems: Array<{ item: StudentImportItem; errors: string[] }>
 ): Promise<void> {
   // 워크북 생성
+  const { Workbook } = await import('exceljs')
   const workbook = new Workbook()
   const worksheet = workbook.addWorksheet('오류 리포트')
 
