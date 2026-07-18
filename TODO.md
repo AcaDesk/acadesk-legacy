@@ -123,7 +123,12 @@
 
 - [ ] 주간 시간표 그리드 (요일×시간 UI + 강의실 배정 + 충돌 검사)
 - [ ] 학부모 웹 포털 (조회 전용, `/r/[linkId]` 인프라 확장)
-- [ ] SaaS 빌링 + 학생 수 기반 플랜 게이팅 (`PricingStrategy.md` 티어 구현)
+- [x] SaaS 빌링 기반 + 학생 수 플랜 게이팅 (2026-07-18, 프로덕션 적용됨) — PG 연동 전 단계:
+  - migration 20260718000002: `ref_saas_plans`(trial/starter 30명/standard 100명/growth 300명/unlimited) + `tenant_subscriptions`. **기존 테넌트는 unlimited로 백필** (갑작스런 차단 방지), 신규 테넌트는 구독 부재 시 trial 한도 적용
+  - 게이팅: `checkStudentQuota`(fail-open) — `createStudentComplete` + 엑셀 일괄 임포트에서 한도 초과 시 차단
+  - `/admin/subscriptions`: 플랫폼 관리자 수동 플랜 지정 UI (테넌트별 학생 수/한도 현황, 초과 표시)
+  - [ ] PG(결제사) 연동 — **사업 결정 필요**: 토스페이먼츠/Stripe/수동 계좌이체 중 선택 후 구독 결제·자동 갱신 구현
+  - [ ] 테넌트 측 플랜 표시/업그레이드 안내 UI (PG 연동과 함께)
 - [x] 전역 커맨드 팔레트 ⌘K (2026-07-18) — `src/components/layout/command-palette.tsx`. 학생 이름/학번 검색→상세 점프(search RPC 재사용), 빠른 액션 6종, 페이지 이동(feature flag 반영). 헤더 트리거 + ⌘K/Ctrl+K, standalone 모드 제외
 - [ ] 보강/클리닉 관리 (결석→보강 제안→알림 플로우)
 - [ ] 입학 대기자(waitlist) 관리

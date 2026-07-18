@@ -8,6 +8,7 @@ import { getErrorMessage } from '@/lib/error-handlers'
 import { getTodayKST } from '@/lib/utils'
 import { hashKioskPin } from '../kiosk'
 import { createStudentCompleteSchema, studentSchema } from './schemas'
+import { checkStudentQuota, quotaExceededMessage } from '@/lib/billing/plan-limits'
 import { detachStudentActiveRelations } from './relations'
 import { createNotification } from '@/lib/notification-helpers'
 
@@ -40,6 +41,12 @@ export async function createStudentComplete(
 
     // 3. Create service_role client
     const serviceClient = createServiceRoleClient()
+
+    // 3-1. 플랜 학생 수 한도 확인 (SaaS 게이팅)
+    const quota = await checkStudentQuota(serviceClient, tenantId, 1)
+    if (!quota.allowed) {
+      throw new Error(quotaExceededMessage(quota, 1))
+    }
 
     let guardianId: string | null = null
     let studentId: string | null = null

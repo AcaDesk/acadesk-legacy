@@ -14,6 +14,7 @@ import { z } from 'zod'
 import { verifyStaffPermission } from '@/lib/auth/service-role-helpers'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
+import { checkStudentQuota, quotaExceededMessage } from '@/lib/billing/plan-limits'
 
 // ============================================================================
 // Types
@@ -268,6 +269,15 @@ export async function confirmStudentImport(input: z.infer<typeof confirmImportSc
 
     // 3. Service role로 학생 생성
     const serviceClient = createServiceRoleClient()
+
+    // 3-1. 플랜 학생 수 한도 확인 (SaaS 게이팅) — 신규 생성분 기준 최대치로 사전 검증
+    const quota = await checkStudentQuota(serviceClient, tenant_id, validated.items.length)
+    if (!quota.allowed) {
+      return {
+        success: false,
+        error: quotaExceededMessage(quota, validated.items.length),
+      }
+    }
 
     const result: ImportConfirmResult = {
       total_processed: validated.items.length,
