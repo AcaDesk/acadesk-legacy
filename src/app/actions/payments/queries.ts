@@ -45,7 +45,11 @@ function flattenStudent(row: InvoiceRowRaw): InvoiceListRow {
 export async function getInvoices(options?: {
   billingMonth?: string
   status?: InvoiceStatus | 'all'
+  /** true면 완납 제외 전체 (미납/부분납/연체) */
+  unpaidOnly?: boolean
   studentId?: string
+  /** 학생 이름/학번 검색 */
+  search?: string
   page?: number
   pageSize?: number
 }) {
@@ -62,11 +66,19 @@ export async function getInvoices(options?: {
       if (options?.billingMonth) {
         query = query.eq('billing_month', options.billingMonth)
       }
-      if (options?.status && options.status !== 'all') {
+      if (options?.unpaidOnly) {
+        query = query.neq('status', 'paid')
+      } else if (options?.status && options.status !== 'all') {
         query = query.eq('status', options.status)
       }
       if (options?.studentId) {
         query = query.eq('student_id', options.studentId)
+      }
+      if (options?.search?.trim()) {
+        const escaped = options.search.trim().replace(/[\\%_,]/g, (ch) => `\\${ch}`)
+        query = query.or(`name.ilike.%${escaped}%,student_code.ilike.%${escaped}%`, {
+          referencedTable: 'students',
+        })
       }
 
       const { data, count, error } = await query
@@ -190,6 +202,9 @@ export interface PaymentHistoryRow extends Payment {
  */
 export async function getPaymentHistory(options?: {
   billingMonth?: string
+  method?: 'card' | 'transfer' | 'cash' | 'all'
+  /** 학생 이름/학번 검색 */
+  search?: string
   page?: number
   pageSize?: number
 }) {
@@ -208,6 +223,15 @@ export async function getPaymentHistory(options?: {
 
       if (options?.billingMonth) {
         query = query.eq('tuition_invoices.billing_month', options.billingMonth)
+      }
+      if (options?.method && options.method !== 'all') {
+        query = query.eq('payment_method', options.method)
+      }
+      if (options?.search?.trim()) {
+        const escaped = options.search.trim().replace(/[\\%_,]/g, (ch) => `\\${ch}`)
+        query = query.or(`name.ilike.%${escaped}%,student_code.ilike.%${escaped}%`, {
+          referencedTable: 'tuition_invoices.students',
+        })
       }
 
       const { data, count, error } = await query

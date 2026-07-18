@@ -68,8 +68,9 @@
 - [x] 원자화 RPC 2종: `create_tuition_invoice`(청구서+항목, 학생 소유 검증), `record_tuition_payment`(FOR UPDATE 잠금, 수납 합계 기반 상태 재계산)
 - [x] `src/app/actions/payments/` — queries(청구 목록/상세/월 통계/수납 이력, 표준 페이지네이션) + mutations(일괄 청구 생성—중복 스킵 집계, 수납 처리, 청구 삭제, 미납 안내 수동 발송). Zod 검증
 - [x] 알림톡 배선: `payment_confirmed`(수납 처리 시) / `payment_overdue`(데일리 크론 — 기한 경과 시 overdue 전환은 구독 무관 수행, 안내 발송은 구독 테넌트만 + claim 스탬프. 수동 발송 액션도 제공)
-- [ ] 기존 UI(`create-invoices-dialog`/`process-payment-dialog`/`payment-list` 등 6종)의 mock 제거 + 실연결 → 다음 작업
-- [ ] UI 연결 후 `tuitionManagement` 플래그 inactive → beta 전환
+- [x] UI 6종 실연결 완료 (2026-07-18) — mock 전면 제거. 표준 훅 신설(use-payments-query/mutations, queryKeys.payments·academy). 청구 목록/수납 이력은 서버 페이지네이션+디바운스 검색, 청구서 생성은 재원생 실데이터(반 수 × 기본 수강료, 개별 수정 가능), 수납 다이얼로그는 청구서 상세 자체 조회, 영수증은 실 결제·학원 정보
+- [x] 미납 알림 다이얼로그 재작성 — SMS/이메일·자유 메시지 UI 제거(알림톡 사전 승인 체계와 불일치), 승인 템플릿(payment_overdue) 발송으로 통일
+- [x] `tuitionManagement` 플래그 inactive → **beta** 전환 (베타 뱃지 노출, 전체 공개 전 실사용 검증 권장)
 
 ### 2.2 미배선 알림 배선 ✅ (2026-07-17 완료 — 현시점 배선 가능분 전부)
 - [x] `homework_deadline` — 데일리 크론(`/api/cron/daily-reminders`, 09:00 KST)으로 마감 D-1 미완료 숙제 발송. `student_tasks.deadline_reminder_sent_at`로 중복 방지 (migration 20260717000005, 적용됨)

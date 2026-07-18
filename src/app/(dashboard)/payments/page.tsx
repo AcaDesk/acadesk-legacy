@@ -15,16 +15,5 @@ export default function PaymentsPage() {
     return <Maintenance featureName="학원비 관리" reason="학원비 관리 시스템 업데이트가 진행 중입니다." />;
   }
 
-  // Mock data for dashboard stats
-  // TODO: Replace with actual data fetching from server action
-  const stats = {
-    totalBilled: 15000000,
-    totalCollected: 12500000,
-    totalUnpaid: 2500000,
-    unpaidCount: 8,
-    overdueCount: 3,
-    collectionRate: 83.3,
-  }
-
-  return <PaymentsContent initialStats={stats} />
+  return <PaymentsContent />
 }

@@ -107,6 +107,18 @@ export const queryKeys = {
     students: (search: string) => ['kiosk', 'students', search] as const,
   },
 
+  academy: {
+    info: () => ['academy', 'info'] as const,
+  },
+
+  payments: {
+    all: () => ['payments'] as const,
+    invoices: (filters: Record<string, unknown>) => ['payments', 'invoices', filters] as const,
+    invoiceDetail: (id: string) => ['payments', 'invoice', id] as const,
+    history: (filters: Record<string, unknown>) => ['payments', 'history', filters] as const,
+    stats: (month: string) => ['payments', 'stats', month] as const,
+  },
+
   batch: {
     jobs: (filters: Record<string, unknown>) => ['batch', 'jobs', filters] as const,
     targets: (filters: Record<string, unknown>) => ['batch', 'targets', filters] as const,

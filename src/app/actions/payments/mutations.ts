@@ -22,17 +22,26 @@ const invoiceItemSchema = z.object({
 })
 
 const createInvoicesSchema = z.object({
-  studentIds: z.array(z.string().uuid()).min(1, '대상 학생을 선택해주세요'),
   billingMonth: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, '청구 월 형식이 올바르지 않습니다'),
+  issueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '납부 기한 형식이 올바르지 않습니다'),
-  items: z.array(invoiceItemSchema).min(1, '청구 항목을 추가해주세요'),
+  // 학생별 개별 청구: 단일 금액(amount) 또는 상세 항목(items) 중 하나
+  invoices: z
+    .array(
+      z.object({
+        studentId: z.string().uuid(),
+        amount: z.number().int().positive('청구 금액은 0원보다 커야 합니다').optional(),
+        items: z.array(invoiceItemSchema).optional(),
+      })
+    )
+    .min(1, '대상 학생을 선택해주세요'),
   notes: z.string().trim().max(500).optional(),
 })
 
 export type CreateInvoicesInput = z.infer<typeof createInvoicesSchema>
 
 /**
- * 청구서 일괄 생성 (선택 학생 × 청구 월)
+ * 청구서 일괄 생성 (선택 학생 × 청구 월, 학생별 개별 금액 지원)
  *
  * 이미 같은 달 청구서가 있는 학생은 건너뛰고 결과에 집계한다.
  */
@@ -45,29 +54,47 @@ export async function createInvoicesBulk(input: CreateInvoicesInput) {
     async ({ tenantId, serviceClient }) => {
       const validated = createInvoicesSchema.parse(input)
 
-      const ownedIds = await filterOwnedStudentIds(
-        serviceClient,
-        tenantId,
-        validated.studentIds
+      const ownedIds = new Set(
+        await filterOwnedStudentIds(
+          serviceClient,
+          tenantId,
+          validated.invoices.map((i) => i.studentId)
+        )
       )
-      if (ownedIds.length === 0) {
+      const targets = validated.invoices.filter((i) => ownedIds.has(i.studentId))
+      if (targets.length === 0) {
         throw new Error('대상 학생을 찾을 수 없습니다')
       }
 
-      const results = await mapWithConcurrency(ownedIds, 5, async (studentId) => {
+      const results = await mapWithConcurrency(targets, 5, async (target) => {
+        const items =
+          target.items && target.items.length > 0
+            ? target.items
+            : target.amount
+              ? [
+                  {
+                    description: `${validated.billingMonth} 수강료`,
+                    amount: target.amount,
+                    item_type: 'tuition' as const,
+                  },
+                ]
+              : null
+        if (!items) return 'failed' as const
+
         const { error } = await serviceClient.rpc('create_tuition_invoice', {
           p_tenant_id: tenantId,
-          p_student_id: studentId,
+          p_student_id: target.studentId,
           p_billing_month: validated.billingMonth,
           p_due_date: validated.dueDate,
-          p_items: validated.items,
+          p_items: items,
+          p_issue_date: validated.issueDate ?? new Date().toISOString().split('T')[0],
           p_notes: validated.notes ?? null,
         })
 
         if (!error) return 'created' as const
         // 학생·월 중복 청구는 스킵으로 집계
         if (error.code === '23505') return 'skipped' as const
-        console.error(`[createInvoicesBulk] student ${studentId}:`, error.message)
+        console.error(`[createInvoicesBulk] student ${target.studentId}:`, error.message)
         return 'failed' as const
       })
 

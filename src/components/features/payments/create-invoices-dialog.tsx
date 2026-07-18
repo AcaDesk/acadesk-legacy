@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -26,7 +26,8 @@ import {
   TableRow,
 } from '@ui/table'
 import { useToast } from '@/hooks/use-toast'
-import { useCurrentUser } from '@/hooks/use-current-user'
+import { useStudentsEnrichedQuery } from '@/hooks/queries/use-students-query'
+import { useCreateInvoicesMutation } from '@/hooks/mutations/use-payments-mutations'
 import { FileText, AlertCircle, Loader2 } from 'lucide-react'
 import { Badge } from '@ui/badge'
 import { DatePicker } from '@ui/date-picker'
@@ -61,11 +62,12 @@ export function CreateInvoicesDialog({
   onOpenChange,
   onSuccess,
 }: CreateInvoicesDialogProps) {
-  const [loadingStudents, setLoadingStudents] = useState(false)
   const [students, setStudents] = useState<StudentForInvoice[]>([])
-  const [creating, setCreating] = useState(false)
   const { toast } = useToast()
-  const { user: currentUser } = useCurrentUser()
+  const studentsQuery = useStudentsEnrichedQuery()
+  const createInvoicesMutation = useCreateInvoicesMutation()
+  const loadingStudents = studentsQuery.isPending
+  const creating = createInvoicesMutation.isPending
 
   const {
     register,
@@ -100,87 +102,28 @@ export function CreateInvoicesDialog({
     })
   }, [defaultTuition])
 
-  const loadStudents = useCallback(async () => {
-    if (!currentUser) return
-
-    try {
-      setLoadingStudents(true)
-
-      // TODO: Replace with actual query when database is ready
-      // Load active students with their enrolled classes
-      // const { data, error } = await supabase
-      //   .from('students')
-      //   .select(`
-      //     id,
-      //     student_code,
-      //     users!inner(name),
-      //     grade,
-      //     class_enrollments!inner(
-      //       class_id,
-      //       classes!inner(id)
-      //     )
-      //   `)
-      //   .is('deleted_at', null)
-      //   .eq('class_enrollments.status', 'active')
-
-      // Mock data
-      const mockStudents: StudentForInvoice[] = [
-        {
-          id: '1',
-          student_code: 'ST001',
-          student_name: '김철수',
-          grade: '초6',
-          enrolled_classes: 2,
-          tuition_amount: parseInt(defaultTuition) * 2,
-          selected: true,
-        },
-        {
-          id: '2',
-          student_code: 'ST002',
-          student_name: '이영희',
-          grade: '중1',
-          enrolled_classes: 3,
-          tuition_amount: parseInt(defaultTuition) * 3,
-          selected: true,
-        },
-        {
-          id: '3',
-          student_code: 'ST003',
-          student_name: '박민수',
-          grade: '중2',
-          enrolled_classes: 2,
-          tuition_amount: parseInt(defaultTuition) * 2,
-          selected: true,
-        },
-        {
-          id: '4',
-          student_code: 'ST004',
-          student_name: '최지영',
-          grade: '고1',
-          enrolled_classes: 4,
-          tuition_amount: parseInt(defaultTuition) * 4,
-          selected: true,
-        },
-      ]
-
-      setStudents(mockStudents)
-    } catch (error) {
-      console.error('Error loading students:', error)
-      toast({
-        title: '학생 로드 오류',
-        description: '학생 목록을 불러오는 중 오류가 발생했습니다.',
-        variant: 'destructive',
-      })
-    } finally {
-      setLoadingStudents(false)
-    }
-  }, [currentUser, defaultTuition, toast])
-
+  // 다이얼로그 오픈 시 재원생 목록을 청구 대상으로 초기화
+  // (기본 수강료 × 수강 반 수 — 이후 학생별 금액은 표에서 개별 수정 가능)
   useEffect(() => {
-    if (open) {
-      loadStudents()
-    }
-  }, [open, loadStudents])
+    if (!open || !studentsQuery.data) return
+    const baseTuition = parseInt(defaultTuition) || 0
+    setStudents(
+      studentsQuery.data.map((s) => {
+        const enrolledClasses = Math.max(s.classes.length, 1)
+        return {
+          id: s.id,
+          student_code: s.student_code,
+          student_name: s.name,
+          grade: s.grade,
+          enrolled_classes: enrolledClasses,
+          tuition_amount: baseTuition * enrolledClasses,
+          selected: true,
+        }
+      })
+    )
+    // defaultTuition 변경은 위의 별도 effect가 반영하므로 여기선 제외
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, studentsQuery.data])
 
   function toggleStudent(studentId: string) {
     setStudents(students.map(s =>
@@ -199,18 +142,8 @@ export function CreateInvoicesDialog({
     ))
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const onSubmit = async (_data: CreateInvoicesFormValues) => {
-    if (!currentUser) {
-      toast({
-        title: '인증 오류',
-        description: '로그인 정보를 확인할 수 없습니다.',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    const selectedStudents = students.filter(s => s.selected)
+  const onSubmit = async (data: CreateInvoicesFormValues) => {
+    const selectedStudents = students.filter(s => s.selected && s.tuition_amount > 0)
     if (selectedStudents.length === 0) {
       toast({
         title: '학생 선택 필요',
@@ -220,62 +153,24 @@ export function CreateInvoicesDialog({
       return
     }
 
-    setCreating(true)
-    try {
-      // TODO: Replace with actual database insert when tables are created
-      // for (const student of selectedStudents) {
-      //   // Create invoice
-      //   const { data: invoice, error: invoiceError } = await supabase
-      //     .from('invoices')
-      //     .insert({
-      //       tenant_id: currentUser.tenantId,
-      //       student_id: student.id,
-      //       billing_month: data.billing_month,
-      //       issue_date: data.issue_date,
-      //       due_date: data.due_date,
-      //       total_amount: student.tuition_amount,
-      //       status: 'unpaid',
-      //     })
-      //     .select()
-      //     .single()
-
-      //   if (invoiceError) throw invoiceError
-
-      //   // Create invoice items
-      //   const { error: itemError } = await supabase
-      //     .from('invoice_items')
-      //     .insert({
-      //       tenant_id: currentUser.tenantId,
-      //       invoice_id: invoice.id,
-      //       description: `${data.billing_month} 월 수강료`,
-      //       amount: student.tuition_amount,
-      //       item_type: 'tuition',
-      //     })
-
-      //   if (itemError) throw itemError
-      // }
-
-      // Mock success
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-
-      toast({
-        title: '청구서 생성 완료',
-        description: `${selectedStudents.length}명의 학생에게 청구서가 생성되었습니다.`,
-      })
-
-      reset()
-      onOpenChange(false)
-      onSuccess?.()
-    } catch (error: unknown) {
-      console.error('청구서 생성 오류:', error)
-      toast({
-        title: '청구서 생성 실패',
-        description: error instanceof Error ? error.message : '청구서를 생성하는 중 오류가 발생했습니다.',
-        variant: 'destructive',
-      })
-    } finally {
-      setCreating(false)
-    }
+    createInvoicesMutation.mutate(
+      {
+        billingMonth: data.billing_month,
+        issueDate: data.issue_date,
+        dueDate: data.due_date,
+        invoices: selectedStudents.map((s) => ({
+          studentId: s.id,
+          amount: s.tuition_amount,
+        })),
+      },
+      {
+        onSuccess: () => {
+          reset()
+          onOpenChange(false)
+          onSuccess?.()
+        },
+      }
+    )
   }
 
   const selectedCount = students.filter(s => s.selected).length

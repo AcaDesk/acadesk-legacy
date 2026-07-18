@@ -20,17 +20,7 @@ import { PaymentHistoryList } from '@/components/features/payments/payment-histo
 import { PaymentReminderDialog } from '@/components/features/payments/payment-reminder-dialog'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/page-error-boundary'
-
-interface PaymentsContentProps {
-  initialStats: {
-    totalBilled: number
-    totalCollected: number
-    totalUnpaid: number
-    unpaidCount: number
-    overdueCount: number
-    collectionRate: number
-  }
-}
+import { usePaymentStatsQuery } from '@/hooks/queries/use-payments-query'
 
 // 수납 다이얼로그 통합 상태 (discriminated union)
 type ActiveDialog =
@@ -38,9 +28,17 @@ type ActiveDialog =
   | { type: 'createInvoices' }
   | { type: 'reminder' }
 
-export function PaymentsContent({ initialStats }: PaymentsContentProps) {
+const EMPTY_STATS = {
+  totalBilled: 0,
+  totalCollected: 0,
+  totalUnpaid: 0,
+  unpaidCount: 0,
+  overdueCount: 0,
+  collectionRate: 0,
+}
+
+export function PaymentsContent() {
   const [activeDialog, setActiveDialog] = useState<ActiveDialog | null>(null)
-  const [, setRefreshKey] = useState(0)
 
   const closeDialog = () => setActiveDialog(null)
   const selectedInvoiceId = activeDialog?.type === 'payment' ? activeDialog.invoiceId : ''
@@ -49,19 +47,10 @@ export function PaymentsContent({ initialStats }: PaymentsContentProps) {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   })
 
-  const handlePaymentSuccess = () => {
-    setRefreshKey(prev => prev + 1)
-  }
-
-  const handleInvoicesCreated = () => {
-    setRefreshKey(prev => prev + 1)
-  }
-
-  const handleReminderSent = () => {
-    setRefreshKey(prev => prev + 1)
-  }
-
-  const stats = initialStats
+  // mutation 성공 시 use-payments-mutations가 payments 쿼리 전체를 invalidate하므로
+  // 별도 refresh 처리가 필요 없다.
+  const statsQuery = usePaymentStatsQuery(selectedMonth)
+  const stats = statsQuery.data ?? EMPTY_STATS
 
   return (
     <PageErrorBoundary pageName="학원비 관리">
@@ -278,25 +267,12 @@ export function PaymentsContent({ initialStats }: PaymentsContentProps) {
           open={activeDialog?.type === 'payment'}
           onOpenChange={(open) => !open && closeDialog()}
           invoiceId={selectedInvoiceId}
-          invoiceDetails={
-            selectedInvoiceId
-              ? {
-                  student_name: '김철수',
-                  billing_month: selectedMonth,
-                  total_amount: 500000,
-                  paid_amount: 0,
-                  remaining_amount: 500000,
-                }
-              : undefined
-          }
-          onSuccess={handlePaymentSuccess}
         />
 
         {/* Create Invoices Dialog */}
         <CreateInvoicesDialog
           open={activeDialog?.type === 'createInvoices'}
           onOpenChange={(open) => !open && closeDialog()}
-          onSuccess={handleInvoicesCreated}
         />
 
         {/* Payment Reminder Dialog */}
@@ -304,7 +280,6 @@ export function PaymentsContent({ initialStats }: PaymentsContentProps) {
           open={activeDialog?.type === 'reminder'}
           onOpenChange={(open) => !open && closeDialog()}
           month={selectedMonth}
-          onSuccess={handleReminderSent}
         />
       </div>
     </PageWrapper>

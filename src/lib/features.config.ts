@@ -66,8 +66,8 @@ export const FEATURES = {
   // 3차 배포: 고급 기능 (Advanced Features)
   // ========================================
 
-  /** 학원비 관리 */
-  tuitionManagement: 'inactive' as FeatureStatus,
+  /** 학원비 관리 (2026-07-18 백엔드+UI 실연결 완료 — 베타 검증 중) */
+  tuitionManagement: 'beta' as FeatureStatus,
 
   /** 학부모 앱 */
   parentApp: 'inactive' as FeatureStatus,

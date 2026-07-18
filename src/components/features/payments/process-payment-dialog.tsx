@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -19,7 +18,8 @@ import {
   DialogTitle,
 } from '@ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { useCurrentUser } from '@/hooks/use-current-user'
+import { useInvoiceDetailQuery } from '@/hooks/queries/use-payments-query'
+import { useRecordPaymentMutation } from '@/hooks/mutations/use-payments-mutations'
 import type { PaymentMethod } from '@/core/types/payment'
 import { CreditCard, Building2, Banknote } from 'lucide-react'
 import { DatePicker } from '@ui/date-picker'
@@ -40,25 +40,29 @@ interface ProcessPaymentDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   invoiceId: string
-  invoiceDetails?: {
-    student_name: string
-    billing_month: string
-    total_amount: number
-    paid_amount: number
-    remaining_amount: number
-  }
   onSuccess?: () => void
 }
 
 export function ProcessPaymentDialog({
   open,
   onOpenChange,
-  invoiceDetails,
+  invoiceId,
   onSuccess,
 }: ProcessPaymentDialogProps) {
-  const [loading, setLoading] = useState(false)
   const { toast } = useToast()
-  const { user: currentUser } = useCurrentUser()
+  const detailQuery = useInvoiceDetailQuery(invoiceId, open)
+  const recordPaymentMutation = useRecordPaymentMutation()
+  const loading = recordPaymentMutation.isPending
+
+  const invoiceDetails = detailQuery.data
+    ? {
+        student_name: detailQuery.data.student_name,
+        billing_month: detailQuery.data.billing_month,
+        total_amount: detailQuery.data.total_amount,
+        paid_amount: detailQuery.data.paid_amount,
+        remaining_amount: detailQuery.data.remaining_amount,
+      }
+    : undefined
 
   const {
     register,
@@ -78,53 +82,33 @@ export function ProcessPaymentDialog({
   const selectedPaymentMethod = watch('payment_method')
 
   const onSubmit = async (data: PaymentFormValues) => {
-    if (!currentUser) {
+    const paidAmount = parseInt(data.paid_amount.replace(/[^0-9]/g, ''), 10)
+    if (!Number.isFinite(paidAmount) || paidAmount <= 0) {
       toast({
-        title: '인증 오류',
-        description: '로그인 정보를 확인할 수 없습니다.',
+        title: '입력 오류',
+        description: '수납 금액을 확인해주세요.',
         variant: 'destructive',
       })
       return
     }
 
-    setLoading(true)
-    try {
-      // TODO: Replace with actual database insert when tables are created
-      // const { error } = await supabase
-      //   .from('payments')
-      //   .insert({
-      //     tenant_id: currentUser.tenantId,
-      //     invoice_id: invoiceId,
-      //     payment_date: data.payment_date,
-      //     paid_amount: parseFloat(data.paid_amount),
-      //     payment_method: data.payment_method,
-      //     reference_number: data.reference_number || null,
-      //     notes: data.notes || null,
-      //   })
-
-      // if (error) throw error
-
-      // Mock success
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      toast({
-        title: '수납 처리 완료',
-        description: `${parseFloat(data.paid_amount).toLocaleString()}원이 수납 처리되었습니다.`,
-      })
-
-      reset()
-      onOpenChange(false)
-      onSuccess?.()
-    } catch (error: unknown) {
-      console.error('수납 처리 오류:', error)
-      toast({
-        title: '수납 처리 실패',
-        description: error instanceof Error ? error.message : '수납 처리 중 오류가 발생했습니다.',
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
-    }
+    recordPaymentMutation.mutate(
+      {
+        invoiceId,
+        paidAmount,
+        paymentMethod: data.payment_method,
+        paymentDate: data.payment_date,
+        referenceNumber: data.reference_number || undefined,
+        notes: data.notes || undefined,
+      },
+      {
+        onSuccess: () => {
+          reset()
+          onOpenChange(false)
+          onSuccess?.()
+        },
+      }
+    )
   }
 
   // Unused helper function - may be used for future UI enhancements

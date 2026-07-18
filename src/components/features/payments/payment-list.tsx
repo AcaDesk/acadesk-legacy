@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@ui/button'
 import { Input } from '@ui/input'
 import { Badge } from '@ui/badge'
@@ -14,8 +14,8 @@ import {
   TableRow,
 } from '@ui/table'
 import { Search, CreditCard, AlertCircle, CheckCircle, Clock, DollarSign } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
 import { useServerPagination } from '@/hooks/use-pagination'
+import { useInvoicesQuery } from '@/hooks/queries/use-payments-query'
 import {
   Pagination,
   PaginationContent,
@@ -45,14 +45,22 @@ interface PaymentListProps {
   onPaymentClick?: (invoiceId: string) => void
 }
 
-export function PaymentList({ month, onPaymentClick }: PaymentListProps) {
-  const [invoices, setInvoices] = useState<InvoiceListItem[]>([])
-  const [totalCount, setTotalCount] = useState(0)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [loading, setLoading] = useState(true)
+/** 연체일 계산 (표시용) */
+function daysOverdue(dueDate: string): number {
+  const diff = Date.now() - new Date(dueDate).getTime()
+  return Math.max(Math.floor(diff / 86_400_000), 0)
+}
 
-  const { toast } = useToast()
+export function PaymentList({ month, onPaymentClick }: PaymentListProps) {
+  const [searchTerm, setSearchTerm] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [totalCount, setTotalCount] = useState(0)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchTerm.trim()), 300)
+    return () => clearTimeout(timer)
+  }, [searchTerm])
 
   const itemsPerPage = 20
 
@@ -73,103 +81,35 @@ export function PaymentList({ month, onPaymentClick }: PaymentListProps) {
     itemsPerPage,
   })
 
-  const loadInvoices = useCallback(async () => {
-    try {
-      setLoading(true)
+  const invoicesQuery = useInvoicesQuery({
+    billingMonth: month,
+    status: statusFilter as InvoiceStatus | 'all',
+    search: debouncedSearch || undefined,
+    page: currentPage,
+    pageSize: itemsPerPage,
+  })
 
-      // TODO: Replace with actual database query when tables are created
-      // Mock data for now
-      const mockInvoices: InvoiceListItem[] = [
-        {
-          id: '1',
-          student_code: 'ST001',
-          student_name: '김철수',
-          billing_month: '2025-10',
-          due_date: '2025-10-05',
-          total_amount: 500000,
-          paid_amount: 500000,
-          remaining_amount: 0,
-          status: 'paid',
-          days_overdue: 0,
-        },
-        {
-          id: '2',
-          student_code: 'ST002',
-          student_name: '이영희',
-          billing_month: '2025-10',
-          due_date: '2025-10-05',
-          total_amount: 600000,
-          paid_amount: 300000,
-          remaining_amount: 300000,
-          status: 'partially_paid',
-          days_overdue: 0,
-        },
-        {
-          id: '3',
-          student_code: 'ST003',
-          student_name: '박민수',
-          billing_month: '2025-10',
-          due_date: '2025-09-30',
-          total_amount: 550000,
-          paid_amount: 0,
-          remaining_amount: 550000,
-          status: 'overdue',
-          days_overdue: 5,
-        },
-        {
-          id: '4',
-          student_code: 'ST004',
-          student_name: '최지영',
-          billing_month: '2025-10',
-          due_date: '2025-10-10',
-          total_amount: 700000,
-          paid_amount: 0,
-          remaining_amount: 700000,
-          status: 'unpaid',
-          days_overdue: 0,
-        },
-      ]
-
-      // Apply filters
-      let filtered = mockInvoices
-
-      if (searchTerm) {
-        filtered = filtered.filter(
-          (inv) =>
-            inv.student_name.includes(searchTerm) ||
-            inv.student_code.includes(searchTerm)
-        )
-      }
-
-      if (statusFilter !== 'all') {
-        filtered = filtered.filter((inv) => inv.status === statusFilter)
-      }
-
-      if (month) {
-        filtered = filtered.filter((inv) => inv.billing_month === month)
-      }
-
-      setInvoices(filtered)
-      setTotalCount(filtered.length)
-    } catch (error) {
-      console.error('Error loading invoices:', error)
-      toast({
-        title: '데이터 로드 오류',
-        description: '청구서 목록을 불러오는 중 오류가 발생했습니다.',
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
-    }
-  }, [searchTerm, statusFilter, month, toast])
+  const invoices: InvoiceListItem[] = (invoicesQuery.data?.items ?? []).map((row) => ({
+    id: row.id,
+    student_code: row.student_code,
+    student_name: row.student_name,
+    billing_month: row.billing_month,
+    due_date: row.due_date,
+    total_amount: row.total_amount,
+    paid_amount: row.paid_amount,
+    remaining_amount: row.remaining_amount,
+    status: row.status,
+    days_overdue: row.status === 'overdue' ? daysOverdue(row.due_date) : 0,
+  }))
+  const loading = invoicesQuery.isPending
 
   useEffect(() => {
-    loadInvoices()
-  }, [loadInvoices, currentPage])
+    if (invoicesQuery.data) setTotalCount(invoicesQuery.data.total)
+  }, [invoicesQuery.data])
 
   useEffect(() => {
     resetPage()
-  }, [searchTerm, statusFilter, month, resetPage])
+  }, [debouncedSearch, statusFilter, month, resetPage])
 
   function getStatusBadge(status: InvoiceStatus, daysOverdue: number) {
     switch (status) {

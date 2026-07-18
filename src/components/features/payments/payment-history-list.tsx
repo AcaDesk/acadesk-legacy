@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { Input } from '@ui/input'
 import { Badge } from '@ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ui/select'
@@ -13,8 +13,11 @@ import {
   TableRow,
 } from '@ui/table'
 import { Search, CreditCard, Building2, Banknote, Download } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
 import { useServerPagination } from '@/hooks/use-pagination'
+import { usePaymentHistoryQuery } from '@/hooks/queries/use-payments-query'
+import { useQuery } from '@tanstack/react-query'
+import { getAcademyInfo } from '@/app/actions/academy'
+import { queryKeys } from '@/lib/query-keys'
 import {
   Pagination,
   PaginationContent,
@@ -44,15 +47,17 @@ interface PaymentHistoryListProps {
 }
 
 export function PaymentHistoryList({ month }: PaymentHistoryListProps) {
-  const [payments, setPayments] = useState<PaymentHistoryItem[]>([])
   const [totalCount, setTotalCount] = useState(0)
   const [searchTerm, setSearchTerm] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [methodFilter, setMethodFilter] = useState<string>('all')
-  const [loading, setLoading] = useState(true)
   const [receiptDialogOpen, setReceiptDialogOpen] = useState(false)
   const [selectedPaymentId, setSelectedPaymentId] = useState<string>('')
 
-  const { toast } = useToast()
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchTerm.trim()), 300)
+    return () => clearTimeout(timer)
+  }, [searchTerm])
 
   const itemsPerPage = 20
 
@@ -73,96 +78,53 @@ export function PaymentHistoryList({ month }: PaymentHistoryListProps) {
     itemsPerPage,
   })
 
-  const loadPayments = useCallback(async () => {
-    try {
-      setLoading(true)
+  const historyQuery = usePaymentHistoryQuery({
+    billingMonth: month,
+    method: methodFilter as 'card' | 'transfer' | 'cash' | 'all',
+    search: debouncedSearch || undefined,
+    page: currentPage,
+    pageSize: itemsPerPage,
+  })
 
-      // TODO: Replace with actual database query when tables are created
-      // Mock data
-      const mockPayments: PaymentHistoryItem[] = [
-        {
-          id: '1',
-          student_code: 'ST001',
-          student_name: '김철수',
-          billing_month: '2025-10',
-          payment_date: '2025-10-01',
-          paid_amount: 500000,
-          payment_method: 'transfer',
-          reference_number: 'TR20251001001',
-        },
-        {
-          id: '2',
-          student_code: 'ST002',
-          student_name: '이영희',
-          billing_month: '2025-10',
-          payment_date: '2025-10-02',
-          paid_amount: 300000,
-          payment_method: 'card',
-          reference_number: 'CARD20251002001',
-        },
-        {
-          id: '3',
-          student_code: 'ST003',
-          student_name: '박민수',
-          billing_month: '2025-09',
-          payment_date: '2025-10-03',
-          paid_amount: 550000,
-          payment_method: 'cash',
-          reference_number: null,
-        },
-        {
-          id: '4',
-          student_code: 'ST001',
-          student_name: '김철수',
-          billing_month: '2025-09',
-          payment_date: '2025-09-05',
-          paid_amount: 500000,
-          payment_method: 'transfer',
-          reference_number: 'TR20250905001',
-        },
-      ]
-
-      // Apply filters
-      let filtered = mockPayments
-
-      if (searchTerm) {
-        filtered = filtered.filter(
-          (payment) =>
-            payment.student_name.includes(searchTerm) ||
-            payment.student_code.includes(searchTerm) ||
-            payment.reference_number?.includes(searchTerm)
-        )
-      }
-
-      if (methodFilter !== 'all') {
-        filtered = filtered.filter((payment) => payment.payment_method === methodFilter)
-      }
-
-      if (month) {
-        filtered = filtered.filter((payment) => payment.billing_month === month)
-      }
-
-      setPayments(filtered)
-      setTotalCount(filtered.length)
-    } catch (error) {
-      console.error('Error loading payments:', error)
-      toast({
-        title: '데이터 로드 오류',
-        description: '수납 내역을 불러오는 중 오류가 발생했습니다.',
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
-    }
-  }, [searchTerm, methodFilter, month, toast])
+  const payments: PaymentHistoryItem[] = (historyQuery.data?.items ?? []).map((row) => ({
+    id: row.id,
+    student_code: row.student_code,
+    student_name: row.student_name,
+    billing_month: row.billing_month,
+    payment_date: row.payment_date,
+    paid_amount: row.paid_amount,
+    payment_method: row.payment_method,
+    reference_number: row.reference_number,
+  }))
+  const loading = historyQuery.isPending
 
   useEffect(() => {
-    loadPayments()
-  }, [loadPayments, currentPage])
+    if (historyQuery.data) setTotalCount(historyQuery.data.total)
+  }, [historyQuery.data])
+
+  // 영수증에 표시할 학원 정보 (서버 캐시 1시간)
+  const academyQuery = useQuery({
+    queryKey: queryKeys.academy.info(),
+    queryFn: async () => {
+      const result = await getAcademyInfo()
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '학원 정보를 불러올 수 없습니다')
+      }
+      return result.data as {
+        name: string | null
+        business_number: string | null
+        address: string | null
+        phone: string | null
+      }
+    },
+    staleTime: 60 * 60_000,
+  })
+  const academy = academyQuery.data
+  const selectedPayment = payments.find((p) => p.id === selectedPaymentId)
 
   useEffect(() => {
     resetPage()
-  }, [searchTerm, methodFilter, month, resetPage])
+  }, [debouncedSearch, methodFilter, month, resetPage])
 
   function getPaymentMethodBadge(method: PaymentMethod) {
     switch (method) {
@@ -377,20 +339,20 @@ export function PaymentHistoryList({ month }: PaymentHistoryListProps) {
         onOpenChange={setReceiptDialogOpen}
         paymentId={selectedPaymentId}
         paymentDetails={
-          selectedPaymentId
+          selectedPayment
             ? {
-                receipt_number: `RC-${new Date().getFullYear()}-${selectedPaymentId.padStart(6, '0')}`,
-                student_name: payments.find(p => p.id === selectedPaymentId)?.student_name || '',
-                student_code: payments.find(p => p.id === selectedPaymentId)?.student_code || '',
-                payment_date: payments.find(p => p.id === selectedPaymentId)?.payment_date || '',
-                billing_month: payments.find(p => p.id === selectedPaymentId)?.billing_month || '',
-                paid_amount: payments.find(p => p.id === selectedPaymentId)?.paid_amount || 0,
-                payment_method: payments.find(p => p.id === selectedPaymentId)?.payment_method || 'cash',
-                reference_number: payments.find(p => p.id === selectedPaymentId)?.reference_number || null,
-                academy_name: '아카데스크 학원',
-                academy_registration_number: '123-45-67890',
-                academy_address: '서울특별시 강남구 테헤란로 123',
-                academy_phone: '02-1234-5678',
+                receipt_number: `RC-${selectedPayment.payment_date.replace(/-/g, '')}-${selectedPayment.id.slice(0, 6).toUpperCase()}`,
+                student_name: selectedPayment.student_name,
+                student_code: selectedPayment.student_code,
+                payment_date: selectedPayment.payment_date,
+                billing_month: selectedPayment.billing_month,
+                paid_amount: selectedPayment.paid_amount,
+                payment_method: selectedPayment.payment_method,
+                reference_number: selectedPayment.reference_number,
+                academy_name: academy?.name || '',
+                academy_registration_number: academy?.business_number || '',
+                academy_address: academy?.address || '',
+                academy_phone: academy?.phone || '',
               }
             : undefined
         }
