@@ -6,9 +6,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ui/c
 import { Button } from '@ui/button'
 import { Textarea } from '@ui/textarea'
 import { Switch } from '@ui/switch'
-import { ChevronLeft, ChevronRight, Keyboard, MessageSquareOff, MessageSquare, BarChart2, CalendarDays } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Keyboard, MessageSquareOff, MessageSquare, BarChart2, CalendarDays, Loader2, Sparkles } from 'lucide-react'
 import { TemplateSection } from '@/components/features/reports/template-section'
 import { getReportTemplates } from '@/app/actions/reports/templates'
+import {
+  useAiCommentAvailableQuery,
+  useGenerateAiCommentMutation,
+} from '@/hooks/mutations/use-ai-comment-mutation'
 import { cn } from '@/lib/utils'
 import { queryKeys } from '@/lib/query-keys'
 import { useReportStore } from '@/lib/stores/report.store'
@@ -130,6 +134,29 @@ export function CommentStep({ comment, onChange, onConfirm, onBack, reportData }
     staleTime: 5 * 60 * 1000,
   })
 
+  // AI 초안 — 서버에 API 키가 설정된 경우에만 버튼 노출
+  const { data: aiAvailable = false } = useAiCommentAvailableQuery(!skipComment)
+  const aiDraftMutation = useGenerateAiCommentMutation((draft) => onChange(draft))
+
+  const handleGenerateAiDraft = useCallback(() => {
+    if (!reportData) return
+    aiDraftMutation.mutate({
+      studentName: reportData.student?.name ?? reportData.studentName ?? '',
+      grade: reportData.student?.grade ?? reportData.grade ?? undefined,
+      period: reportData.period,
+      attendance: reportData.attendance,
+      homework: reportData.homework,
+      scores: reportData.scores.map((s) => ({
+        category: s.category,
+        current: s.current,
+        previous: s.previous,
+        change: s.change,
+        average: s.average,
+        retestRate: s.retestRate,
+      })),
+    })
+  }, [reportData, aiDraftMutation])
+
   // Ctrl+Enter 단축키
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -205,6 +232,22 @@ export function CommentStep({ comment, onChange, onConfirm, onBack, reportData }
               <CardDescription>
                 강사 코멘트를 작성하세요. 템플릿을 클릭하면 자동으로 입력됩니다.
               </CardDescription>
+              {!skipComment && aiAvailable && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 gap-1.5"
+                  onClick={handleGenerateAiDraft}
+                  disabled={aiDraftMutation.isPending || !reportData}
+                >
+                  {aiDraftMutation.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3.5 w-3.5" />
+                  )}
+                  {aiDraftMutation.isPending ? 'AI 초안 생성 중...' : 'AI 초안 생성'}
+                </Button>
+              )}
             </div>
 
             {/* 작성 진행률 */}

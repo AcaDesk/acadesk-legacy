@@ -68,6 +68,9 @@ const serverEnvSchema = z.object({
   // 학원별 외부 API 시크릿 암호화 키 (base64 인코딩된 32바이트)
   ENCRYPTION_KEY: z.string().optional(),
 
+  // Claude API — 리포트 코멘트 AI 초안 (미설정 시 AI 기능 비활성)
+  ANTHROPIC_API_KEY: z.string().optional(),
+
   // Vercel Cron 인증 시크릿 — /api/cron/* 라우트 보호 (미설정 시 크론 라우트는 503)
   CRON_SECRET: z.string().optional(),
 })

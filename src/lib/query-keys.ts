@@ -101,6 +101,7 @@ export const queryKeys = {
     list: (filters: Record<string, unknown>) => ['reports', 'list', filters] as const,
     preview: (studentId: string, period: unknown) => ['reports', 'preview', studentId, period] as const,
     templates: (context: unknown) => ['reports', 'templates', context] as const,
+    aiAvailable: () => ['reports', 'ai-available'] as const,
   },
 
   kiosk: {
