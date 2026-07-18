@@ -112,7 +112,7 @@
 - 이연: 출석 로스터 가상화 → 현 재원생 규모(수백 명)에선 클라이언트 페이지네이션으로 충분, 가상 스크롤 라이브러리 도입은 e2e 안전망(2.7) 확보 후 Phase 3에서
 - [x] 설정 탭 전환 지연 개선 (2026-07-18, 사용자 리포트) — 3중 수정: ① `settings/loading.tsx` 스켈레톤(내비 유지, 즉각 피드백) ② `lib/auth/request-cache.ts` — React cache()로 요청 단위 `auth.getUser()`+users 행 조회 메모이즈, `requireAuth`/`verifyPermission` 계열 전부 배선 (탭당 인증 왕복 10여 회→2회; **전역 효과 — 모든 페이지/액션의 중복 인증 제거**) ③ messaging config 읽기 2종 unstable_cache 10분 + `messaging-config:${tenantId}` 태그 (변경 액션 7곳 revalidateTag 배선)
 - [x] 미들웨어 인증 왕복 제거 (2026-07-19, 후속) — `updateSession`의 `getUser()`(매 요청 Auth 서버 왕복, 렌더 전 직렬 비용) → `getSession()`(쿠키 읽기, 만료 임박 시에만 리프레시 왕복). 미들웨어는 UX 리다이렉트 전용이고 보안 경계는 페이지/액션의 검증된 getUser가 유지. **전 페이지 네비게이션 공통 이득**
-- [ ] Vercel Functions 리전 확인 (사용자 액션) — vercel.json에 regions 미설정 = 기본 iad1(미 동부). Supabase가 서울(ap-northeast-2)이면 왕복당 ~200ms 손해 → Vercel 프로젝트 설정 또는 vercel.json `"regions": ["icn1"]`로 서울 고정 권장 (Supabase 리전 확인 후)
+- [x] Vercel Functions 서울 리전 고정 (2026-07-19) — Supabase 서울(ap-northeast-2) 확인 후 vercel.json `"regions": ["icn1"]` 적용. 기존 기본 iad1(미 동부)에서 DB/Auth 왕복당 ~200ms 손실이 있었음 → 함수-DB 왕복이 수 ms대로 단축 (전 페이지 공통 이득, 미들웨어 엣지 아님·함수만 해당)
 
 ### 2.7 테스트 안전망 ✅ (2026-07-18 구성 완료)
 - [x] `playwright.config.ts` + 스모크 e2e 5종 (`pnpm test:e2e`) — 로그인 → 대시보드/학생/출석/성적/상담 렌더 검증 (읽기 전용). `E2E_EMAIL`/`E2E_PASSWORD` 미설정 시 skip, dev 서버 자동 기동
