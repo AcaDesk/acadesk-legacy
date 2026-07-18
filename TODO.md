@@ -135,7 +135,8 @@
 - [ ] 입학 대기자(waitlist) 관리
 - [~] 대시보드 스트리밍 — 조사 결과(2026-07-18): 셸-우선 스트리밍은 기존 `loading.tsx`로 이미 확보, 데이터는 5분 unstable_cache라 캐시 미스 1회만 느림. 위젯별 데이터 스트리밍은 react-grid-layout 클라이언트 그리드의 props 구조 전면 재작업(React 19 use() 프로미스 전달) 필요 → 실익 대비 과대해 보류. 재검토 시점: 대시보드 느림 불만 발생 시
 - [ ] `tenant_daily_stats` KPI 집계 테이블 — 1,000 테넌트 규모 또는 추세 차트 요구 시점으로 이연 (현재는 캐시로 부하 제한됨)
-- [x] `admin_audit_logs` (2026-07-18, 프로덕션 적용됨) — `recordAuditLog`(fire-and-forget) 배선 7곳: 사용자 승인/거부, 플랜 변경, 플래그 변경, 학생 삭제/일괄삭제/퇴원, 청구서 삭제. 조회 UI(/admin/audit-logs)는 후속
+- [x] `admin_audit_logs` (2026-07-18, 프로덕션 적용됨) — `recordAuditLog`(fire-and-forget) 배선 7곳: 사용자 승인/거부, 플랜 변경, 플래그 변경, 학생 삭제/일괄삭제/퇴원, 청구서 삭제
+- [x] 감사 로그 조회 UI `/admin/audit-logs` (2026-07-18) — `actions/admin/audit-logs.ts`(listAuditLogs 페이지네이션 30건 + 액션/테넌트 필터, getAuditLogFilterOptions), 파급 큰 액션(destructive) 배지 강조, KST 표시. admin/layout.tsx에 플랫폼 관리 내비게이션 추가(승인/구독/플래그/감사 로그)
 - [x] 피처 플래그 DB화 (2026-07-18, 프로덕션 적용됨) — `feature_flag_overrides` + `getEffectiveFeatureStatus`(60초 캐시 + revalidateTag 즉시 무효화, 우선순위: 테넌트별>전역>코드 기본값). `/admin/feature-flags`에서 재배포 없이 변경(킬스위치). payments 페이지가 첫 DB 게이트
   - [ ] 나머지 feature 게이트 페이지 DB 게이트 전환 (payments 패턴 점진 적용) / 테넌트별 오버라이드 UI
 - [ ] 제품 분석 도구 도입 (PostHog 또는 Vercel Analytics)
@@ -147,10 +148,10 @@
 ## Phase 4 — AI 혁신 (Phase 2~3과 병행 가능)
 
 - [x] 리포트 코멘트 AI 초안 (2026-07-18) — `@anthropic-ai/sdk` + `generateAiCommentDraft` 액션(`actions/reports/ai-comment.ts`), claude-opus-4-8 structured output(json_schema)으로 총평/잘한점/보완점/다음목표 4필드 생성. CommentStep "AI 초안 생성" 버튼은 `ANTHROPIC_API_KEY` 설정 시에만 노출(서버 판단), 초안 모드(강사 검토 후 저장·발송). 미설정 시 기능 자동 비활성 — **Vercel 환경변수에 `ANTHROPIC_API_KEY` 등록 필요**
-- [ ] 상담 노트 요약 + 후속 액션 추출
+- [ ] 상담 노트 요약 + 후속 액션 추출 — **보류 (2026-07-18, 사용자 결정: Claude API 추가 연동 보류)**
 - [x] 위험 학생 조기 경보 (2026-07-18) — 규칙 기반 복합 스코어링 (AI 비용 없음). `lib/risk-score.ts` 순수 함수(`computeStudentRisk`, 단위테스트 8종): 최근 28일 vs 이전 28일 비교로 출석률 저조/하락·7일 공백·결석 누적·성적 10점+ 하락·평균 60 미만·미완료 과제를 합산, 5점+ 위험 / 3~4점 주의. `student-alerts` 위젯을 장기결석+과제부진 2분할 → 통합 위험 목록(사유 표시, 위험/주의 배지)으로 개편, quick-stats needsAttention도 연동
-- [ ] 학부모 메시지 초안 생성 (초안 모드 — 반드시 사람 확인 후 발송)
-- [ ] 성적 분석 내러티브 (성장 차트 자연어 해설)
+- [ ] 학부모 메시지 초안 생성 (초안 모드 — 반드시 사람 확인 후 발송) — **보류 (2026-07-18, 사용자 결정: Claude API 추가 연동 보류)**
+- [ ] 성적 분석 내러티브 (성장 차트 자연어 해설) — **보류 (2026-07-18, 사용자 결정: Claude API 추가 연동 보류)**
 
 ## 문서-구현 정합화 (백로그)
 
