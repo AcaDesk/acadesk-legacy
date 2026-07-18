@@ -119,6 +119,11 @@
 - [ ] CI에 e2e/통합 잡 추가 — 시크릿(테스트 계정) 및 CI용 로컬 Supabase 기동 구성 필요 (후속)
 - 변경: 뮤테이션 포함 e2e(출석 체크·성적 입력·메시지 발송)는 테스트 전용 테넌트 시드 체계가 갖춰진 뒤로 이연 — 현재는 운영 데이터 오염 위험
 
+### 2.8 의존성 취약점 정리 ✅ (2026-07-18)
+- [x] dependabot 64건 → 6건 (critical/high 0). next 15.5.12→15.5.20(미들웨어 우회·SSRF·DoS 패치), vitest/@vitest/ui 4.0→4.1(critical), 전이 의존성 pnpm overrides: flatted/picomatch/effect(solapi)/ws(supabase realtime)/vite/tmp/lodash/js-yaml/brace-expansion/postcss. 죽은 react-big-calendar 오버라이드 제거
+- 잔여 6건(moderate 4·low 2)은 심층 전이(dev 빌드체인 brace-expansion 4.x, exceljs>uuid 등) — 상위 패키지 릴리스 대기, 실사용 경로상 위험 낮음 (수용)
+- 참고: vitest 서브트리 override는 lockfile 스냅샷이 갱신 안 될 수 있음 → `pnpm remove` 후 재추가로 해결한 사례
+
 ## Phase 3 — 고도화: 경쟁 우위
 
 - [x] 주간 시간표 그리드 v1 (2026-07-18) — `/classes/timetable`: 요일×시간 그리드(수업 블록: 반/시간/강의실/강사, 수업별 고정 색), **강의실·강사 시간 충돌 감지**(배너+블록 강조), 겹침 레인 분할, 시간 미설정 수업 안내. 순수 로직 `src/lib/timetable.ts` + 테스트 10종. 진입: 수업 목록 헤더 + ⌘K
