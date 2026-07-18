@@ -13,6 +13,7 @@ import { withServerAction, withServerActionVoid } from '@/lib/server-action-help
 import { filterOwnedStudentIds } from '@/lib/tenant-guards'
 import { mapWithConcurrency } from '@/lib/concurrency'
 import { fireEventAlimtalk } from '@/lib/messaging/event-alimtalk'
+import { recordAuditLog } from '@/lib/audit-log'
 
 const invoiceItemSchema = z.object({
   description: z.string().trim().min(1, '항목명을 입력해주세요').max(200),
@@ -184,7 +185,7 @@ export async function recordPayment(input: RecordPaymentInput) {
  */
 export async function deleteInvoice(invoiceId: string) {
   return withServerActionVoid(
-    async ({ tenantId, serviceClient }) => {
+    async ({ tenantId, userId, serviceClient }) => {
       const { error } = await serviceClient
         .from('tuition_invoices')
         .update({ deleted_at: new Date().toISOString() })
@@ -193,6 +194,16 @@ export async function deleteInvoice(invoiceId: string) {
         .is('deleted_at', null)
 
       if (error) throw error
+
+      // 감사 로그 (fire-and-forget) — 재무 데이터 삭제는 추적 대상
+      void recordAuditLog(serviceClient, {
+        tenantId,
+        actorUserId: userId,
+        action: 'invoice.delete',
+        targetType: 'invoice',
+        targetId: invoiceId,
+      })
+
       revalidatePath('/payments')
     },
     { actionName: 'deleteInvoice' }

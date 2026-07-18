@@ -11,6 +11,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { verifyPlatformAdmin } from '@/lib/auth/verify-permission'
+import { recordAuditLog } from '@/lib/audit-log'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 
 // ============================================================================
@@ -104,7 +105,17 @@ export async function approveUser(userId: string): Promise<ApproveUserResult> {
       return { success: false, error: '승인 처리 중 오류가 발생했습니다.' }
     }
 
-    // 7. Invalidate cache
+    // 7. 감사 로그 (fire-and-forget)
+    void recordAuditLog(supabase, {
+      tenantId: newTenant.id,
+      actorUserId: currentUserId,
+      action: 'user.approve',
+      targetType: 'user',
+      targetId: validated.userId,
+      details: { email: targetUser.email, createdTenantId: newTenant.id },
+    })
+
+    // 8. Invalidate cache
     revalidatePath('/admin/approvals')
     revalidatePath('/auth/pending')
 
@@ -162,7 +173,17 @@ export async function rejectUser(
       return { success: false, error: '거부 처리 중 오류가 발생했습니다.' }
     }
 
-    // 5. Invalidate cache
+    // 5. 감사 로그 (fire-and-forget)
+    void recordAuditLog(supabase, {
+      tenantId: null,
+      actorUserId: currentUserId,
+      action: 'user.reject',
+      targetType: 'user',
+      targetId: validated.userId,
+      details: { reason: validated.reason || null },
+    })
+
+    // 6. Invalidate cache
     revalidatePath('/admin/approvals')
 
     return { success: true }

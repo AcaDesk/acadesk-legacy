@@ -12,6 +12,7 @@ import { z } from 'zod'
 import { verifyPlatformAdmin } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage, logError } from '@/lib/error-handlers'
+import { recordAuditLog } from '@/lib/audit-log'
 
 export interface TenantSubscriptionRow {
   tenantId: string
@@ -150,9 +151,16 @@ export async function setTenantPlan(input: z.infer<typeof setPlanSchema>) {
       )
     if (error) throw error
 
-    console.log(
-      `[setTenantPlan] ${admin.email} set tenant ${validated.tenantId} → ${validated.planCode}`
-    )
+    void recordAuditLog(supabase, {
+      tenantId: validated.tenantId,
+      actorUserId: admin.userId,
+      actorEmail: admin.email,
+      action: 'subscription.set_plan',
+      targetType: 'tenant',
+      targetId: validated.tenantId,
+      details: { planCode: validated.planCode },
+    })
+
     revalidatePath('/admin/subscriptions')
     return { success: true as const, error: null }
   } catch (error) {

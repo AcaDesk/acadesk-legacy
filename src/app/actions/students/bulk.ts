@@ -5,6 +5,7 @@ import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getErrorMessage } from '@/lib/error-handlers'
 import { detachStudentActiveRelations } from './relations'
+import { recordAuditLog } from '@/lib/audit-log'
 
 /**
  * Bulk update students (e.g., grade change)
@@ -89,7 +90,7 @@ export async function bulkDeleteStudents(studentIds: string[]) {
     }
 
     // 1. Verify authentication and get tenant
-    const { tenantId } = await verifyStaff()
+    const { tenantId, userId } = await verifyStaff()
 
     // 2. Create service_role client
     const serviceClient = createServiceRoleClient()
@@ -110,6 +111,15 @@ export async function bulkDeleteStudents(studentIds: string[]) {
         error: '삭제할 학생을 찾을 수 없습니다',
       }
     }
+
+    // 감사 로그 (fire-and-forget)
+    void recordAuditLog(serviceClient, {
+      tenantId,
+      actorUserId: userId,
+      action: 'student.bulk_delete',
+      targetType: 'student',
+      details: { studentIds: uniqueStudentIds, affectedCount },
+    })
 
     // 4. Revalidate
     revalidatePath('/students')

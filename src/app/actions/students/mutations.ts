@@ -9,6 +9,7 @@ import { getTodayKST } from '@/lib/utils'
 import { hashKioskPin } from '../kiosk'
 import { createStudentCompleteSchema, studentSchema } from './schemas'
 import { checkStudentQuota, quotaExceededMessage } from '@/lib/billing/plan-limits'
+import { recordAuditLog } from '@/lib/audit-log'
 import { detachStudentActiveRelations } from './relations'
 import { createNotification } from '@/lib/notification-helpers'
 
@@ -411,7 +412,7 @@ export async function updateStudent(
 export async function deleteStudent(studentId: string) {
   try {
     // 1. Verify authentication and get tenant
-    const { tenantId } = await verifyStaff()
+    const { tenantId, userId } = await verifyStaff()
 
     // 2. Create service_role client
     const serviceClient = createServiceRoleClient()
@@ -446,6 +447,15 @@ export async function deleteStudent(studentId: string) {
       unlinkGuardians: true,
       closeOpenTodos: true,
       softDeleteStudents: true,
+    })
+
+    // 감사 로그 (fire-and-forget)
+    void recordAuditLog(serviceClient, {
+      tenantId,
+      actorUserId: userId,
+      action: 'student.delete',
+      targetType: 'student',
+      targetId: studentId,
     })
 
     // 5. Revalidate pages
@@ -524,6 +534,16 @@ export async function withdrawStudent(
       reason: reason || '학생 퇴원으로 인한 자동 해제',
       closeOpenTodos: true,
       withdrawalDate,
+    })
+
+    // 감사 로그 (fire-and-forget)
+    void recordAuditLog(serviceClient, {
+      tenantId,
+      actorUserId: userId,
+      action: 'student.withdraw',
+      targetType: 'student',
+      targetId: studentId,
+      details: { withdrawalDate, reason: reason || null },
     })
 
     // 5. Revalidate pages
