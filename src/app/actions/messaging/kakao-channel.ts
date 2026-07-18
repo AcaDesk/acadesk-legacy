@@ -8,7 +8,7 @@
 
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag, unstable_cache } from 'next/cache'
 import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
@@ -230,26 +230,33 @@ export async function getKakaoChannelConfig(): Promise<{
 }> {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = createServiceRoleClient()
 
-    const { data, error } = await supabase
-      .from('tenant_messaging_config')
-      .select(`
-        provider,
-        is_verified,
-        kakao_channel_id,
-        kakao_channel_search_id,
-        kakao_channel_name,
-        kakao_channel_status,
-        kakao_sms_fallback_enabled,
-        kakao_manual_fallback_enabled,
-        kakao_channel_verified_at
-      `)
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
-      .maybeSingle()
-
-    if (error) throw error
+    // 설정성 읽기 캐시 (10분 TTL) — messaging-config 변경 액션들이 같은 태그로 무효화
+    const data = await unstable_cache(
+      async () => {
+        const supabase = createServiceRoleClient()
+        const { data, error } = await supabase
+          .from('tenant_messaging_config')
+          .select(`
+            provider,
+            is_verified,
+            kakao_channel_id,
+            kakao_channel_search_id,
+            kakao_channel_name,
+            kakao_channel_status,
+            kakao_sms_fallback_enabled,
+            kakao_manual_fallback_enabled,
+            kakao_channel_verified_at
+          `)
+          .eq('tenant_id', tenantId)
+          .is('deleted_at', null)
+          .maybeSingle()
+        if (error) throw error
+        return data
+      },
+      [`kakao-channel-config-${tenantId}`],
+      { revalidate: 600, tags: [`messaging-config:${tenantId}`] }
+    )()
 
     if (!data) {
       return {
@@ -470,6 +477,7 @@ export async function createKakaoChannel(
     }
 
     revalidatePath('/settings/messaging-integration')
+    revalidateTag(`messaging-config:${tenantId}`)
 
     return {
       success: true,
@@ -557,6 +565,7 @@ export async function removeKakaoChannel(): Promise<{
     }
 
     revalidatePath('/settings/messaging-integration')
+    revalidateTag(`messaging-config:${tenantId}`)
 
     return {
       success: true,
@@ -602,6 +611,7 @@ export async function updateKakaoFallbackSettings(
     if (error) throw error
 
     revalidatePath('/settings/messaging-integration')
+    revalidateTag(`messaging-config:${tenantId}`)
 
     return {
       success: true,

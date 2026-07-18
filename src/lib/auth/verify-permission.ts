@@ -13,8 +13,7 @@
 
 'use server'
 
-import { createServerClient } from '@/lib/supabase/server'
-import { createServiceRoleClient } from '@/lib/supabase/service-role'
+import { getCachedAuthUser, getCachedUserRow } from '@/lib/auth/request-cache'
 import { env } from '@/lib/env'
 import { getSystemContext } from '@/lib/auth/system-context'
 import { AuthorizationError } from '@/lib/error-types'
@@ -61,26 +60,16 @@ export async function verifyPermission(): Promise<UserContext> {
     return systemContext
   }
 
-  // 1. Check authentication (regular client)
-  const supabase = await createServerClient()
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
+  // 1. Check authentication (요청 단위 캐시 — 같은 요청 내 중복 왕복 제거)
+  const { user, error: authError } = await getCachedAuthUser()
 
   if (authError || !user) {
     // 세션 만료는 일상적인 운영성 에러 — AuthorizationError로 분류해 Sentry 노이즈 방지
     throw new AuthorizationError('인증이 필요합니다. 다시 로그인해주세요.')
   }
 
-  // 2. Fetch user profile with service_role (bypass RLS)
-  const admin = createServiceRoleClient()
-  const { data: userData, error: userError } = await admin
-    .from('users')
-    .select('tenant_id, role_code, name, email')
-    .eq('id', user.id)
-    .is('deleted_at', null)
-    .maybeSingle()
+  // 2. Fetch user profile with service_role (요청 단위 캐시, bypass RLS)
+  const { data: userData, error: userError } = await getCachedUserRow(user.id)
 
   if (userError) {
     console.error('[verifyPermission] Error fetching user data:', {

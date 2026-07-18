@@ -110,6 +110,7 @@
 - [x] exceljs 지연 로드 — `excel-parser`/`excel-template`이 타입만 정적 import, 실제 로드는 사용 시점 (학생 임포트 라우트 번들 축소)
 - [x] `react-big-calendar` + `@types` 데드 의존성 제거, 미사용 `calendar.css` 삭제 (AcademyCalendar는 자체 구현)
 - 이연: 출석 로스터 가상화 → 현 재원생 규모(수백 명)에선 클라이언트 페이지네이션으로 충분, 가상 스크롤 라이브러리 도입은 e2e 안전망(2.7) 확보 후 Phase 3에서
+- [x] 설정 탭 전환 지연 개선 (2026-07-18, 사용자 리포트) — 3중 수정: ① `settings/loading.tsx` 스켈레톤(내비 유지, 즉각 피드백) ② `lib/auth/request-cache.ts` — React cache()로 요청 단위 `auth.getUser()`+users 행 조회 메모이즈, `requireAuth`/`verifyPermission` 계열 전부 배선 (탭당 인증 왕복 10여 회→2회; **전역 효과 — 모든 페이지/액션의 중복 인증 제거**) ③ messaging config 읽기 2종 unstable_cache 10분 + `messaging-config:${tenantId}` 태그 (변경 액션 7곳 revalidateTag 배선)
 
 ### 2.7 테스트 안전망 ✅ (2026-07-18 구성 완료)
 - [x] `playwright.config.ts` + 스모크 e2e 5종 (`pnpm test:e2e`) — 로그인 → 대시보드/학생/출석/성적/상담 렌더 검증 (읽기 전용). `E2E_EMAIL`/`E2E_PASSWORD` 미설정 시 skip, dev 서버 자동 기동

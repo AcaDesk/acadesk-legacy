@@ -8,7 +8,7 @@
 
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag, unstable_cache } from 'next/cache'
 import { z } from 'zod'
 import { verifyStaff } from '@/lib/auth/verify-permission'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
@@ -135,16 +135,23 @@ const messagingConfigSchema = z.discriminatedUnion('provider', [
 export async function getMessagingConfig() {
   try {
     const { tenantId } = await verifyStaff()
-    const supabase = createServiceRoleClient()
 
-    const { data, error } = await supabase
-      .from('tenant_messaging_config')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
-      .maybeSingle()
-
-    if (error) throw error
+    // 설정성 읽기 캐시 (10분 TTL) — 변경 액션이 revalidateTag로 즉시 무효화
+    const data = await unstable_cache(
+      async () => {
+        const supabase = createServiceRoleClient()
+        const { data, error } = await supabase
+          .from('tenant_messaging_config')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .is('deleted_at', null)
+          .maybeSingle()
+        if (error) throw error
+        return data
+      },
+      [`messaging-config-${tenantId}`],
+      { revalidate: 600, tags: [`messaging-config:${tenantId}`] }
+    )()
 
     return {
       success: true,
@@ -280,6 +287,7 @@ export async function saveMessagingConfig(
     }
 
     revalidatePath('/settings/messaging-integration')
+    revalidateTag(`messaging-config:${tenantId}`)
 
     return {
       success: true,
@@ -358,6 +366,7 @@ export async function sendTestMessage(phoneNumber: string) {
       .eq('id', config.id)
 
     revalidatePath('/settings/messaging-integration')
+    revalidateTag(`messaging-config:${tenantId}`)
 
     return {
       success: true,
@@ -440,6 +449,7 @@ export async function toggleMessagingActive(isActive: boolean) {
     if (error) throw error
 
     revalidatePath('/settings/messaging-integration')
+    revalidateTag(`messaging-config:${tenantId}`)
 
     return {
       success: true,
@@ -472,6 +482,7 @@ export async function deleteMessagingConfig() {
     if (error) throw error
 
     revalidatePath('/settings/messaging-integration')
+    revalidateTag(`messaging-config:${tenantId}`)
 
     return {
       success: true,

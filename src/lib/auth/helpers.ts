@@ -10,9 +10,8 @@
  * 2. Query database with service_role (bypass RLS)
  */
 
-import { createClient } from '@/lib/supabase/server'
-import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { redirect } from 'next/navigation'
+import { getCachedAuthUser, getCachedUserRow } from '@/lib/auth/request-cache'
 import { AuthenticationError, DatabaseError } from '@/lib/error-types'
 import { logError } from '@/lib/error-handlers'
 
@@ -21,12 +20,8 @@ import { logError } from '@/lib/error-handlers'
  * 미인증 시 로그인 페이지로 리다이렉트
  */
 export async function requireAuth() {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-    error
-  } = await supabase.auth.getUser()
+  // 요청 단위 캐시 — 같은 요청에서 페이지/액션이 중복 호출해도 왕복 1회
+  const { supabase, user, error } = await getCachedAuthUser()
 
   if (error || !user) {
     const authError = new AuthenticationError('인증이 필요합니다')
@@ -46,14 +41,8 @@ export async function requireAuth() {
 export async function getCurrentTenantId() {
   const { supabase, user } = await requireAuth()
 
-  // Use service_role to bypass RLS
-  const admin = createServiceRoleClient()
-  const { data: userData, error } = await admin
-    .from('users')
-    .select('tenant_id, role_code')
-    .eq('id', user.id)
-    .is('deleted_at', null)
-    .single()
+  // 요청 단위 캐시된 users 행 재사용 (service_role, bypass RLS)
+  const { data: userData, error } = await getCachedUserRow(user.id)
 
   if (error || !userData?.tenant_id) {
     const dbError = new DatabaseError('사용자 정보를 조회할 수 없습니다', error || undefined)
@@ -77,13 +66,8 @@ export async function getCurrentTenantId() {
 export async function getCurrentUserWithProfile() {
   const { supabase, user } = await requireAuth()
 
-  // Use service_role to bypass RLS
-  const admin = createServiceRoleClient()
-  const { data: userData, error } = await admin
-    .from('users')
-    .select('tenant_id, role_code, name, email, phone')
-    .eq('id', user.id)
-    .single()
+  // 요청 단위 캐시된 users 행 재사용 (service_role, bypass RLS)
+  const { data: userData, error } = await getCachedUserRow(user.id)
 
   if (error || !userData?.tenant_id) {
     const dbError = new DatabaseError('사용자 프로필을 조회할 수 없습니다', error || undefined)
