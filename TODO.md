@@ -49,6 +49,7 @@
 - [x] ~~`students.kiosk_pin` 테넌트 내 UNIQUE~~ → 부적용 결정: kiosk_pin은 bcrypt 해시(같은 PIN도 솔트로 해시가 달라 DB 유니크 무의미)이고, PIN 인증은 student_code로 학생을 특정한 뒤 비교하므로 중복 PIN에 모호성 없음
 - [x] 인덱스 보강: `attendance(tenant_id, attendance_date DESC)`, `class_enrollments(tenant_id, status)`, `student_change_logs(changed_by)`
 - [ ] `supabase/seed-schema.sql` 스냅샷 재생성 (로컬 시드 플로우 검증 필요 — 별도 작업)
+- [ ] **베이스라인 마이그레이션 부재** (2026-07-18 발견) — 마이그레이션 히스토리가 20251003부터 시작해 기반 테이블(tenants/users/students 등)이 어떤 마이그레이션에도 없음 → `supabase db reset`만으로 로컬 부트스트랩 불가. 프로덕션 덤프를 베이스라인 마이그레이션으로 확정 + `migration repair`로 원격 히스토리 정합하는 작업 필요 (신규 환경 구축·CI 통합 테스트의 전제)
 
 ### 1.7 보안 소유권 검증 (Medium) ✅ (2026-07-17 완료)
 - [x] `awardStudentPoints`에 `filterOwnedStudentIds` 적용
@@ -113,7 +114,7 @@
 - [x] `playwright.config.ts` + 스모크 e2e 5종 (`pnpm test:e2e`) — 로그인 → 대시보드/학생/출석/성적/상담 렌더 검증 (읽기 전용). `E2E_EMAIL`/`E2E_PASSWORD` 미설정 시 skip, dev 서버 자동 기동
 - [x] 테넌트 격리 회귀 테스트 (`pnpm test:integration`, `tests/integration/tenant-isolation.test.ts`) — 두 테넌트 시드 후 5개 검증: tenant_id 필터, 소유권 가드, detach RPC 교차 차단, 타 테넌트 보호자 연결 거부, 대시보드 집계 격리. `TEST_SUPABASE_URL`/`TEST_SUPABASE_SERVICE_ROLE_KEY` 미설정 시 skip
 - [x] vitest/playwright 분리 (vitest exclude tests/e2e), setup.ts node 환경 호환
-- [ ] 통합 테스트 로컬 실검증 — `supabase start`가 다른 프로젝트(acadesk-v2) 스택과 포트 충돌(54322). `supabase stop --project-id acadesk-v2` 후 .env.example의 TEST_* 값으로 `pnpm test:integration` 실행 필요
+- [x] 통합 테스트 로컬 실검증 완료 (2026-07-18) — config.toml 포트 이동(55321/55322, acadesk-v2와 공존) 후 로컬 스택 기동, **5/5 통과**. 절차: `supabase start -x storage-api,imgproxy` → 프로덕션 스키마 덤프 주입 → ref_roles 시드 → `pnpm test:integration` (.env.example 참조)
 - [ ] CI에 e2e/통합 잡 추가 — 시크릿(테스트 계정) 및 CI용 로컬 Supabase 기동 구성 필요 (후속)
 - 변경: 뮤테이션 포함 e2e(출석 체크·성적 입력·메시지 발송)는 테스트 전용 테넌트 시드 체계가 갖춰진 뒤로 이연 — 현재는 운영 데이터 오염 위험
 
