@@ -51,6 +51,7 @@ export interface ClassWithDetails {
   description: string | null
   subject: string | null
   gradeLevel: string | null
+  instructorId: string | null
   instructorName: string | null
   studentCount: number
   schedule: Record<string, unknown> | null
@@ -125,6 +126,7 @@ export async function getClassesWithDetails() {
           description: classItem.description,
           subject: classItem.subject,
           gradeLevel: classItem.grade_level,
+          instructorId: classItem.instructor_id ?? null,
           instructorName: (classItem.users as { name: string } | null)?.name || null,
           studentCount: countMap.get(classItem.id) || 0,
           schedule: classItem.schedule,

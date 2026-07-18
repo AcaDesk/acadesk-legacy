@@ -59,6 +59,7 @@ const PAGE_ENTRIES: PageEntry[] = [
   { label: '출석 관리', href: '/attendance', icon: ClipboardCheck, feature: 'attendanceManagement', keywords: 'attendance 출결' },
   { label: '성적 관리', href: '/grades', icon: GraduationCap, feature: 'gradesManagement', keywords: 'grades 시험' },
   { label: '수업 관리', href: '/classes', icon: BookOpen, feature: 'classManagement', keywords: 'classes 반' },
+  { label: '주간 시간표', href: '/classes/timetable', icon: CalendarDays, feature: 'classManagement', keywords: 'timetable schedule 스케줄' },
   { label: '상담 관리', href: '/consultations', icon: MessageSquare, feature: 'consultationManagement', keywords: 'consultations' },
   { label: '리포트', href: '/reports', icon: NotebookPen, feature: 'reportManagement', keywords: 'reports' },
   { label: '숙제 관리', href: '/homeworks', icon: FilePlus2, keywords: 'homeworks' },

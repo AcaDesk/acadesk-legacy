@@ -9,6 +9,7 @@ import {
   Plus,
   Users,
   Calendar,
+  CalendarRange,
   Clock,
   Search,
   MoreVertical,
@@ -163,12 +164,20 @@ export function ClassesPageClient({ initialData }: ClassesPageClientProps) {
                 학원의 모든 수업을 관리하고 운영하세요
               </p>
             </div>
-            <Button asChild className="gap-2">
-              <Link href="/classes/new">
-                <Plus className="h-4 w-4" />
-                새 수업 추가
-              </Link>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button asChild variant="outline" className="gap-2">
+                <Link href="/classes/timetable">
+                  <CalendarRange className="h-4 w-4" />
+                  주간 시간표
+                </Link>
+              </Button>
+              <Button asChild className="gap-2">
+                <Link href="/classes/new">
+                  <Plus className="h-4 w-4" />
+                  새 수업 추가
+                </Link>
+              </Button>
+            </div>
           </div>
         </section>
 
