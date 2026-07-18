@@ -60,7 +60,7 @@ describe('runDailyReminders', () => {
     vi.useRealTimers()
   })
 
-  it('구독 활성 테넌트가 없으면 아무것도 조회/발송하지 않는다', async () => {
+  it('구독 활성 테넌트가 없으면 알림 조회/발송 없이 연체 전환만 수행한다', async () => {
     const fromCalls: string[] = []
     ;(createServiceRoleClient as ReturnType<typeof vi.fn>).mockReturnValue({
       from: (table: string) => {
@@ -71,8 +71,14 @@ describe('runDailyReminders', () => {
 
     const result = await runDailyReminders()
 
-    expect(result).toEqual({ homeworkDeadline: 0, bookLendingReminder: 0 })
-    expect(fromCalls).toEqual(['tenant_event_subscriptions'])
+    expect(result).toEqual({
+      homeworkDeadline: 0,
+      bookLendingReminder: 0,
+      invoicesMarkedOverdue: 0,
+      paymentOverdueNotices: 0,
+    })
+    // 연체 상태 전환(tuition_invoices)은 도메인 로직이라 구독과 무관하게 수행됨
+    expect(fromCalls).toEqual(['tenant_event_subscriptions', 'tuition_invoices'])
     expect(fireEventAlimtalk).not.toHaveBeenCalled()
   })
 

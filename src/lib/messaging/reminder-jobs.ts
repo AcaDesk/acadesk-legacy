@@ -7,6 +7,7 @@
  *
  * - homework_deadline: 내일 마감 미완료 숙제 → student_tasks.deadline_reminder_sent_at
  * - book_lending_reminder: 내일 반납 예정 미반납 도서 → book_lendings.reminder_sent_at
+ * - payment_overdue: 기한 경과 청구서 연체 전환(구독 무관) + 미납 알림 → overdue_notified_at
  *
  * 발송 자체는 fireEventAlimtalk(절대 throw 안 함)에 위임하므로,
  * 개별 발송 실패는 notification_logs(status='failed')로 관측된다.
@@ -30,29 +31,39 @@ function formatKoreanDate(dateStr: string): string {
 export interface DailyRemindersResult {
   homeworkDeadline: number
   bookLendingReminder: number
+  invoicesMarkedOverdue: number
+  paymentOverdueNotices: number
 }
 
 export async function runDailyReminders(): Promise<DailyRemindersResult> {
   const supabase = createServiceRoleClient()
+  const today = kstDateString(0)
   const tomorrow = kstDateString(1)
   const now = new Date().toISOString()
-  const result: DailyRemindersResult = { homeworkDeadline: 0, bookLendingReminder: 0 }
+  const result: DailyRemindersResult = {
+    homeworkDeadline: 0,
+    bookLendingReminder: 0,
+    invoicesMarkedOverdue: 0,
+    paymentOverdueNotices: 0,
+  }
 
   // 이벤트별 활성 구독 테넌트 (비활성 테넌트의 데이터는 스캔하지 않는다)
   const { data: subs, error: subsError } = await supabase
     .from('tenant_event_subscriptions')
     .select('tenant_id, event_type')
-    .in('event_type', ['homework_deadline', 'book_lending_reminder'])
+    .in('event_type', ['homework_deadline', 'book_lending_reminder', 'payment_overdue'])
     .eq('is_enabled', true)
     .eq('provisioning_status', 'approved')
   if (subsError) throw subsError
 
-  const homeworkTenants = [
-    ...new Set((subs ?? []).filter((s) => s.event_type === 'homework_deadline').map((s) => s.tenant_id)),
+  const tenantsFor = (eventType: string) => [
+    ...new Set(
+      (subs ?? []).filter((s) => s.event_type === eventType).map((s) => s.tenant_id)
+    ),
   ]
-  const lendingTenants = [
-    ...new Set((subs ?? []).filter((s) => s.event_type === 'book_lending_reminder').map((s) => s.tenant_id)),
-  ]
+  const homeworkTenants = tenantsFor('homework_deadline')
+  const lendingTenants = tenantsFor('book_lending_reminder')
+  const overdueTenants = tenantsFor('payment_overdue')
 
   // ── 숙제 마감 D-1 리마인더 ─────────────────────────────────────────
   if (homeworkTenants.length > 0) {
@@ -117,6 +128,52 @@ export async function runDailyReminders(): Promise<DailyRemindersResult> {
         })
       }
       result.bookLendingReminder = lendings.length
+    }
+  }
+
+  // ── 청구서 연체 처리 ────────────────────────────────────────────────
+  // 1) 기한 경과 청구서를 overdue로 전환 — 도메인 상태이므로 알림 구독과 무관하게 수행
+  {
+    const { data: marked, error: markError } = await supabase
+      .from('tuition_invoices')
+      .update({ status: 'overdue' })
+      .lt('due_date', today)
+      .in('status', ['unpaid', 'partially_paid'])
+      .is('deleted_at', null)
+      .select('id')
+    if (markError) throw markError
+    result.invoicesMarkedOverdue = marked?.length ?? 0
+  }
+
+  // 2) 구독 테넌트의 연체 청구서에 미납 안내 발송 (미발송분만)
+  if (overdueTenants.length > 0) {
+    const { data: overdueInvoices, error: overdueError } = await supabase
+      .from('tuition_invoices')
+      .select('id, tenant_id, student_id, billing_month, due_date, total_amount, paid_amount')
+      .in('tenant_id', overdueTenants)
+      .eq('status', 'overdue')
+      .is('overdue_notified_at', null)
+      .is('deleted_at', null)
+      .limit(500)
+    if (overdueError) throw overdueError
+
+    if (overdueInvoices && overdueInvoices.length > 0) {
+      // claim 먼저 (크론 재실행 중복 발송 방지)
+      const { error: claimError } = await supabase
+        .from('tuition_invoices')
+        .update({ overdue_notified_at: now })
+        .in('id', overdueInvoices.map((i) => i.id))
+      if (claimError) throw claimError
+
+      for (const invoice of overdueInvoices) {
+        const remaining = Math.max(invoice.total_amount - invoice.paid_amount, 0)
+        await fireEventAlimtalk(invoice.tenant_id, 'payment_overdue', invoice.student_id, {
+          납부월: invoice.billing_month,
+          납부금액: `${remaining.toLocaleString('ko-KR')}원`,
+          납부기한: invoice.due_date,
+        })
+      }
+      result.paymentOverdueNotices = overdueInvoices.length
     }
   }
 
