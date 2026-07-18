@@ -108,9 +108,13 @@
 - [x] `react-big-calendar` + `@types` 데드 의존성 제거, 미사용 `calendar.css` 삭제 (AcademyCalendar는 자체 구현)
 - 이연: 출석 로스터 가상화 → 현 재원생 규모(수백 명)에선 클라이언트 페이지네이션으로 충분, 가상 스크롤 라이브러리 도입은 e2e 안전망(2.7) 확보 후 Phase 3에서
 
-### 2.7 테스트 안전망
-- [ ] `playwright.config.ts` + 핵심 e2e 4종 (로그인→출석→성적 입력→메시지 발송)
-- [ ] 테넌트 격리 회귀 테스트 스위트 (두 테넌트 시드, 교차 접근 전부 실패 검증)
+### 2.7 테스트 안전망 ✅ (2026-07-18 구성 완료)
+- [x] `playwright.config.ts` + 스모크 e2e 5종 (`pnpm test:e2e`) — 로그인 → 대시보드/학생/출석/성적/상담 렌더 검증 (읽기 전용). `E2E_EMAIL`/`E2E_PASSWORD` 미설정 시 skip, dev 서버 자동 기동
+- [x] 테넌트 격리 회귀 테스트 (`pnpm test:integration`, `tests/integration/tenant-isolation.test.ts`) — 두 테넌트 시드 후 5개 검증: tenant_id 필터, 소유권 가드, detach RPC 교차 차단, 타 테넌트 보호자 연결 거부, 대시보드 집계 격리. `TEST_SUPABASE_URL`/`TEST_SUPABASE_SERVICE_ROLE_KEY` 미설정 시 skip
+- [x] vitest/playwright 분리 (vitest exclude tests/e2e), setup.ts node 환경 호환
+- [ ] 통합 테스트 로컬 실검증 — `supabase start`가 다른 프로젝트(acadesk-v2) 스택과 포트 충돌(54322). `supabase stop --project-id acadesk-v2` 후 .env.example의 TEST_* 값으로 `pnpm test:integration` 실행 필요
+- [ ] CI에 e2e/통합 잡 추가 — 시크릿(테스트 계정) 및 CI용 로컬 Supabase 기동 구성 필요 (후속)
+- 변경: 뮤테이션 포함 e2e(출석 체크·성적 입력·메시지 발송)는 테스트 전용 테넌트 시드 체계가 갖춰진 뒤로 이연 — 현재는 운영 데이터 오염 위험
 
 ## Phase 3 — 고도화: 경쟁 우위
 

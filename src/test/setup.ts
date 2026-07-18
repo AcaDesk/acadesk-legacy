@@ -5,7 +5,12 @@
  */
 
 import { vi } from 'vitest'
-import '@testing-library/jest-dom/vitest'
+
+// jest-dom 매처는 DOM 환경에서만 로드
+// (tests/integration은 @vitest-environment node로 실행되어 document가 없음)
+if (typeof document !== 'undefined') {
+  await import('@testing-library/jest-dom/vitest')
+}
 
 // Mock Next.js cache functions
 vi.mock('next/cache', () => ({
