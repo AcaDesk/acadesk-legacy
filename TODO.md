@@ -143,7 +143,8 @@
 - [x] `admin_audit_logs` (2026-07-18, 프로덕션 적용됨) — `recordAuditLog`(fire-and-forget) 배선 7곳: 사용자 승인/거부, 플랜 변경, 플래그 변경, 학생 삭제/일괄삭제/퇴원, 청구서 삭제
 - [x] 감사 로그 조회 UI `/admin/audit-logs` (2026-07-18) — `actions/admin/audit-logs.ts`(listAuditLogs 페이지네이션 30건 + 액션/테넌트 필터, getAuditLogFilterOptions), 파급 큰 액션(destructive) 배지 강조, KST 표시. admin/layout.tsx에 플랫폼 관리 내비게이션 추가(승인/구독/플래그/감사 로그)
 - [x] 피처 플래그 DB화 (2026-07-18, 프로덕션 적용됨) — `feature_flag_overrides` + `getEffectiveFeatureStatus`(60초 캐시 + revalidateTag 즉시 무효화, 우선순위: 테넌트별>전역>코드 기본값). `/admin/feature-flags`에서 재배포 없이 변경(킬스위치). payments 페이지가 첫 DB 게이트
-  - [ ] 나머지 feature 게이트 페이지 DB 게이트 전환 (payments 패턴 점진 적용) / 테넌트별 오버라이드 UI
+  - [x] 테넌트별 오버라이드 UI (2026-07-18) — `/admin/feature-flags`에 "테넌트별 오버라이드" 섹션 추가: 테넌트×기능×상태 설정 폼 + 현황 테이블 + 제거. `setTenantFeatureFlag`/`listTenantFeatureOverrides` 액션(감사 로그 `feature_flag.set_tenant`, revalidateTag 즉시 반영). 특정 학원만 beta 개방/잠금 가능
+  - [ ] 나머지 feature 게이트 페이지 DB 게이트 전환 (payments 패턴 점진 적용)
 - [ ] 제품 분석 도구 도입 (PostHog 또는 Vercel Analytics)
 - [x] `/short`·`/s` 오픈 리다이렉트 도메인 화이트리스트 (2026-07-18) — `isAllowedRedirectTarget` (앱 도메인/VERCEL_URL/localhost만, 스킴 검증 포함, 테스트 5종)
 - [ ] `tuitionManagement` inactive 메뉴 노출 정리 (숨김 또는 "준비 중" 뱃지)
