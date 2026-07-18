@@ -29,7 +29,16 @@ export async function updateSession(request: NextRequest, requestHeaders?: Heade
     }
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
+  // getSession(): 쿠키의 세션을 읽고, 만료(임박) 시에만 리프레시 네트워크 호출.
+  // 토큰이 유효한 대부분의 요청은 Auth 서버 왕복 0회 — 이전 getUser()는 매 요청
+  // 왕복 1회를 페이지 렌더 앞에 직렬로 추가해 모든 네비게이션을 느리게 했다.
+  //
+  // 보안 노트: 여기의 user는 미검증(쿠키 신뢰) 값이지만 미들웨어의 역할은
+  // UX용 리다이렉트뿐이다. 실제 보안 경계는 페이지/서버 액션의
+  // requireAuth()/verifyStaff()가 수행하는 검증된 getUser()다 — 위조 쿠키는
+  // 미들웨어를 통과해도 그 단계에서 차단된다.
+  const { data: { session } } = await supabase.auth.getSession()
+  const user = session?.user ?? null
   const isPublic = isPublicPath(pathname)
 
   // 공개 경로는 그대로 통과
