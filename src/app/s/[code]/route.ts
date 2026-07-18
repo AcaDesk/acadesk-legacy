@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
-import { isValidShortCode } from '@/lib/short-url'
+import { isValidShortCode, isAllowedRedirectTarget } from '@/lib/short-url'
 
 export async function GET(
   request: NextRequest,
@@ -57,12 +57,21 @@ export async function GET(
       )
     }
 
-    // 5. 클릭 카운트 증가 (RPC 함수 호출)
+    // 5. 오픈 리다이렉트 방지 — 자체 도메인 대상만 허용
+    if (!isAllowedRedirectTarget(shortUrl.target_url)) {
+      console.error('[Short URL Redirect] Blocked non-allowlisted target:', shortUrl.target_url)
+      return NextResponse.json(
+        { error: '유효하지 않은 링크입니다' },
+        { status: 410 }
+      )
+    }
+
+    // 6. 클릭 카운트 증가 (RPC 함수 호출)
     await supabase.rpc('increment_short_url_click', {
       p_short_code: code,
     })
 
-    // 6. 리다이렉트
+    // 7. 리다이렉트
     return NextResponse.redirect(shortUrl.target_url, { status: 302 })
   } catch (error) {
     console.error('[Short URL Redirect] Error:', error)

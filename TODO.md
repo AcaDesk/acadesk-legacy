@@ -127,15 +127,15 @@
 - [x] 전역 커맨드 팔레트 ⌘K (2026-07-18) — `src/components/layout/command-palette.tsx`. 학생 이름/학번 검색→상세 점프(search RPC 재사용), 빠른 액션 6종, 페이지 이동(feature flag 반영). 헤더 트리거 + ⌘K/Ctrl+K, standalone 모드 제외
 - [ ] 보강/클리닉 관리 (결석→보강 제안→알림 플로우)
 - [ ] 입학 대기자(waitlist) 관리
-- [ ] 대시보드 위젯별 Suspense 스트리밍 (`dashboard.ts:88` 단일 페이로드 분해)
-- [ ] `tenant_daily_stats` KPI 집계 테이블 + pg_cron 갱신
+- [~] 대시보드 스트리밍 — 조사 결과(2026-07-18): 셸-우선 스트리밍은 기존 `loading.tsx`로 이미 확보, 데이터는 5분 unstable_cache라 캐시 미스 1회만 느림. 위젯별 데이터 스트리밍은 react-grid-layout 클라이언트 그리드의 props 구조 전면 재작업(React 19 use() 프로미스 전달) 필요 → 실익 대비 과대해 보류. 재검토 시점: 대시보드 느림 불만 발생 시
+- [ ] `tenant_daily_stats` KPI 집계 테이블 — 1,000 테넌트 규모 또는 추세 차트 요구 시점으로 이연 (현재는 캐시로 부하 제한됨)
 - [ ] `admin_audit_logs` 테이블 (권한 변경·삭제·설정 변경 추적)
 - [ ] 피처 플래그 DB화 (런타임 변경 + 테넌트별 override + 킬스위치)
 - [ ] 제품 분석 도구 도입 (PostHog 또는 Vercel Analytics)
-- [ ] `/short`·`/s` 오픈 리다이렉트 도메인 화이트리스트
+- [x] `/short`·`/s` 오픈 리다이렉트 도메인 화이트리스트 (2026-07-18) — `isAllowedRedirectTarget` (앱 도메인/VERCEL_URL/localhost만, 스킴 검증 포함, 테스트 5종)
 - [ ] `tuitionManagement` inactive 메뉴 노출 정리 (숨김 또는 "준비 중" 뱃지)
 - [ ] 온보딩 마법사 확장 (학생 CSV → 반 생성 → 카카오 연동 체크리스트)
-- [ ] `/api/health` 헬스체크 엔드포인트
+- [x] `/api/health` 헬스체크 엔드포인트 (2026-07-18) — DB 연결 확인(3초 타임아웃), 정보 비노출, 비정상 시 503
 
 ## Phase 4 — AI 혁신 (Phase 2~3과 병행 가능)
 

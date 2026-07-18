@@ -115,6 +115,42 @@ export function isValidShortCode(shortCode: string): boolean {
 }
 
 /**
+ * 리다이렉트 대상 URL 화이트리스트 검증 (오픈 리다이렉트 방지)
+ *
+ * short_urls.target_url은 이 앱이 생성한 자체 도메인 링크만 유효하다.
+ * DB가 오염되더라도 신뢰 도메인을 경유한 외부 피싱 리다이렉트가
+ * 발생하지 않도록 호스트를 화이트리스트로 강제한다.
+ */
+export function isAllowedRedirectTarget(targetUrl: string): boolean {
+  let parsed: URL
+  try {
+    parsed = new URL(targetUrl)
+  } catch {
+    return false
+  }
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return false
+  }
+
+  const allowedHosts = new Set<string>(['localhost:3000', 'localhost:3001'])
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL
+  if (appUrl) {
+    try {
+      allowedHosts.add(new URL(appUrl).host)
+    } catch {
+      // 잘못된 env 값은 무시
+    }
+  }
+  if (process.env.VERCEL_URL) {
+    allowedHosts.add(process.env.VERCEL_URL)
+  }
+
+  return allowedHosts.has(parsed.host)
+}
+
+/**
  * 리포트 문자 메시지 본문 생성
  *
  * @param params - 메시지 파라미터
