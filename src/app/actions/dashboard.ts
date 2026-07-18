@@ -15,7 +15,8 @@ import { unstable_cache } from 'next/cache'
 import { verifyStaffPermission } from '@/lib/auth/service-role-helpers'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { getTodayKST } from '@/lib/utils'
-import type { DashboardData, WeeklyPerformanceData } from '@/core/types/dashboard'
+import { computeStudentRisk } from '@/lib/risk-score'
+import type { DashboardData, RiskStudentAlert, WeeklyPerformanceData } from '@/core/types/dashboard'
 
 // ============================================================================
 // Types
@@ -236,7 +237,7 @@ const getCachedDashboardPayload = unstable_cache(
 
     const studentAlerts = studentAlertsResult.status === 'fulfilled' && studentAlertsResult.value
       ? studentAlertsResult.value
-      : { longAbsence: [], pendingAssignments: [] }
+      : { atRisk: [] }
 
     const financialData = financialDataResult.status === 'fulfilled' && financialDataResult.value.data
       ? financialDataResult.value.data
@@ -327,13 +328,22 @@ const getCachedDashboardPayload = unstable_cache(
 // Helper Functions
 // ============================================================================
 
+/**
+ * 위험 학생 조기 경보 — 규칙 기반 복합 스코어링
+ *
+ * 최근 28일 vs 이전 28일을 비교해 출결 변화 + 성적 하락 + 과제 미제출을
+ * 합산 점수로 평가한다. 점수 5+ → 위험, 3~4 → 주의.
+ */
 async function fetchStudentAlerts(supabase: ReturnType<typeof createServiceRoleClient>, tenantId: string, today: string) {
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const daysAgo = (n: number) =>
+    new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const recentStart = daysAgo(27)
+  const prevStart = daysAgo(55)
+  const prevEnd = daysAgo(28)
+  const sevenDaysAgo = daysAgo(7)
 
   try {
-    // 1. 장기 결석자 - 최근 7일간 출석 기록이 없는 학생
-    // ✅ N+1 쿼리 제거: 2개 쿼리로 통합 (학생 목록 + 출석 기록)
-    const [studentsResult, attendanceResult] = await Promise.all([
+    const [studentsResult, attendanceResult, pendingTodosResult, examsResult] = await Promise.all([
       supabase
         .from('students')
         .select('id, users!inner(name), grade')
@@ -341,88 +351,134 @@ async function fetchStudentAlerts(supabase: ReturnType<typeof createServiceRoleC
         .is('deleted_at', null),
       supabase
         .from('attendance')
+        .select('student_id, attendance_date, status')
+        .eq('tenant_id', tenantId)
+        .gte('attendance_date', prevStart)
+        .lte('attendance_date', today),
+      supabase
+        .from('student_todos')
         .select('student_id')
         .eq('tenant_id', tenantId)
-        .gte('attendance_date', sevenDaysAgo)
-        .lte('attendance_date', today),
+        .is('completed_at', null)
+        .is('verified_at', null)
+        .is('deleted_at', null),
+      supabase
+        .from('exams')
+        .select('id, exam_date')
+        .eq('tenant_id', tenantId)
+        .is('deleted_at', null)
+        .gte('exam_date', prevStart)
+        .lte('exam_date', today),
     ])
 
     const allStudents = studentsResult.data || []
-    const attendanceRecords = attendanceResult.data || []
+    const attendanceRows = (attendanceResult.data || []) as Array<{
+      student_id: string
+      attendance_date: string
+      status: string
+    }>
 
-    // Set으로 출석 기록이 있는 학생 ID 저장 (O(1) 조회)
-    const studentsWithAttendance = new Set(
-      attendanceRecords.map((r: { student_id: string }) => r.student_id)
-    )
+    // 시험 점수 (해당 기간 시험이 있을 때만 조회)
+    const exams = (examsResult.data || []) as Array<{ id: string; exam_date: string }>
+    const examDateById = new Map(exams.map((e) => [e.id, e.exam_date]))
+    let scoreRows: Array<{
+      student_id: string
+      exam_id: string
+      percentage: number | null
+      score: number | null
+      total_points: number | null
+    }> = []
+    if (exams.length > 0) {
+      const { data } = await supabase
+        .from('exam_scores')
+        .select('student_id, exam_id, percentage, score, total_points')
+        .eq('tenant_id', tenantId)
+        .in('exam_id', exams.map((e) => e.id))
+        .is('deleted_at', null)
+      scoreRows = (data || []) as typeof scoreRows
+    }
 
-    // 출석 기록이 없는 학생 필터링
-    const longAbsence = allStudents
-      .filter((student: { id: string }) => !studentsWithAttendance.has(student.id))
+    // ---- 학생별 신호 집계 ----
+    interface Window { present: number; late: number; absent: number; total: number }
+    const emptyWindow = (): Window => ({ present: 0, late: 0, absent: 0, total: 0 })
+    const attendanceByStudent = new Map<string, { recent: Window; prev: Window; hasLast7d: boolean; hasAny: boolean }>()
+
+    for (const row of attendanceRows) {
+      let entry = attendanceByStudent.get(row.student_id)
+      if (!entry) {
+        entry = { recent: emptyWindow(), prev: emptyWindow(), hasLast7d: false, hasAny: false }
+        attendanceByStudent.set(row.student_id, entry)
+      }
+      entry.hasAny = true
+      if (row.attendance_date >= sevenDaysAgo) entry.hasLast7d = true
+
+      const window =
+        row.attendance_date >= recentStart
+          ? entry.recent
+          : row.attendance_date <= prevEnd
+            ? entry.prev
+            : null
+      if (!window) continue
+      window.total++
+      if (row.status === 'present') window.present++
+      else if (row.status === 'late' || row.status === 'left_early') window.late++
+      else if (row.status === 'absent') window.absent++
+    }
+
+    const pendingCountByStudent = new Map<string, number>()
+    for (const row of (pendingTodosResult.data || []) as Array<{ student_id: string }>) {
+      pendingCountByStudent.set(row.student_id, (pendingCountByStudent.get(row.student_id) ?? 0) + 1)
+    }
+
+    const scoresByStudent = new Map<string, { recent: number[]; prev: number[] }>()
+    for (const row of scoreRows) {
+      const examDate = examDateById.get(row.exam_id)
+      if (!examDate) continue
+      const percentage =
+        row.percentage ??
+        (row.score !== null && row.total_points ? (row.score / row.total_points) * 100 : null)
+      if (percentage === null) continue
+
+      let entry = scoresByStudent.get(row.student_id)
+      if (!entry) {
+        entry = { recent: [], prev: [] }
+        scoresByStudent.set(row.student_id, entry)
+      }
+      if (examDate >= recentStart) entry.recent.push(percentage)
+      else entry.prev.push(percentage)
+    }
+
+    // ---- 스코어링 (규칙은 lib/risk-score.ts에 집중) ----
+    const atRisk: RiskStudentAlert[] = []
+
+    for (const student of allStudents) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((student: any) => ({
-        id: student.id,
-        name: student.users?.name || 'Unknown',
-        grade: student.grade || '',
-        reason: '최근 7일간 출석 기록 없음',
-        days: 7,
-      }))
-      .slice(0, 10) // 상위 10명만
+      const s = student as any
 
-    // 2. 미완료 과제가 많은 학생 - 미완료 과제 3개 이상
-    const { data: studentsWithPendingTodos } = await supabase
-      .from('student_todos')
-      .select('student_id, students!inner(id, users!inner(name), grade)')
-      .eq('students.tenant_id', tenantId)
-      .is('completed_at', null)
-      .is('verified_at', null)
-      .is('deleted_at', null)
-
-    const pendingAssignmentsMap = new Map<string, { name: string; grade: string; count: number }>()
-
-    if (studentsWithPendingTodos) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      studentsWithPendingTodos.forEach((todo: any) => {
-        const studentId = todo.student_id
-        const student = todo.students
-
-        if (!pendingAssignmentsMap.has(studentId)) {
-          pendingAssignmentsMap.set(studentId, {
-            name: student?.users?.name || 'Unknown',
-            grade: student?.grade || '',
-            count: 0,
-          })
-        }
-
-        const current = pendingAssignmentsMap.get(studentId)!
-        current.count++
+      const assessment = computeStudentRisk({
+        attendance: attendanceByStudent.get(s.id),
+        scores: scoresByStudent.get(s.id),
+        pendingTodoCount: pendingCountByStudent.get(s.id) ?? 0,
       })
+
+      if (assessment) {
+        atRisk.push({
+          id: s.id,
+          name: s.users?.name || '이름 없음',
+          grade: s.grade || '',
+          level: assessment.level,
+          score: assessment.score,
+          reasons: assessment.reasons,
+        })
+      }
     }
 
-    const pendingAssignments: Array<{
-      id: string
-      name: string
-      grade: string
-      reason: string
-    }> = Array.from(pendingAssignmentsMap.entries())
-      .filter(([, data]) => data.count >= 3)
-      .map(([id, data]) => ({
-        id,
-        name: data.name,
-        grade: data.grade,
-        reason: `미완료 과제 ${data.count}개`,
-      }))
-      .slice(0, 10) // 상위 10명만
+    atRisk.sort((a, b) => b.score - a.score)
 
-    return {
-      longAbsence,
-      pendingAssignments,
-    }
+    return { atRisk: atRisk.slice(0, 12) }
   } catch (error) {
     console.error('[fetchStudentAlerts] Error:', error)
-    return {
-      longAbsence: [],
-      pendingAssignments: [],
-    }
+    return { atRisk: [] }
   }
 }
 

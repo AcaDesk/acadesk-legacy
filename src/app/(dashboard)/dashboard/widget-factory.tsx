@@ -8,7 +8,7 @@ import type {
   TodaySession,
   BirthdayStudent,
   ScheduledConsultation,
-  StudentAlert,
+  RiskStudentAlert,
   ClassStatus as ClassStatusType,
   ParentToContact,
   CalendarEvent,
@@ -79,8 +79,7 @@ export interface WidgetFactoryProps {
   birthdayStudents: BirthdayStudent[]
   scheduledConsultations: ScheduledConsultation[]
   studentAlerts: {
-    longAbsence: StudentAlert[]
-    pendingAssignments: StudentAlert[]
+    atRisk: RiskStudentAlert[]
   }
   financialData: FinancialData | undefined
   classStatus: ClassStatusType[]
@@ -260,12 +259,7 @@ export function renderWidgetContent({
       return financialData ? <FinancialSnapshot data={financialData} /> : null
 
     case 'student-alerts':
-      return (
-        <StudentAlerts
-          longAbsence={studentAlerts?.longAbsence || []}
-          pendingAssignments={studentAlerts?.pendingAssignments || []}
-        />
-      )
+      return <StudentAlerts atRisk={studentAlerts?.atRisk || []} />
 
     case 'class-status':
       return classStatus && classStatus.length > 0 ? (
@@ -294,9 +288,7 @@ export function renderWidgetContent({
       const newStudentsCount = stats.previousMonthStudents != null
         ? stats.totalStudents - stats.previousMonthStudents
         : 0
-      const needsAttentionCount =
-        (studentAlerts?.longAbsence?.length ?? 0) +
-        (studentAlerts?.pendingAssignments?.length ?? 0)
+      const needsAttentionCount = studentAlerts?.atRisk?.length ?? 0
       return (
         <QuickStats
           newStudents={Math.max(0, newStudentsCount)}

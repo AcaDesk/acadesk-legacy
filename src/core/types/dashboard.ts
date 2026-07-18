@@ -196,6 +196,16 @@ export interface StudentAlert {
   description?: string
 }
 
+/** 위험 학생 조기 경보 항목 (규칙 기반 복합 스코어) */
+export interface RiskStudentAlert {
+  id: string
+  name: string
+  grade: string
+  level: 'danger' | 'warning'
+  score: number
+  reasons: string[]
+}
+
 export interface ClassStatus {
   id: string
   class_name: string
@@ -268,8 +278,7 @@ export interface DashboardData {
   birthdayStudents: BirthdayStudent[]
   scheduledConsultations: ScheduledConsultation[]
   studentAlerts: {
-    longAbsence: StudentAlert[]
-    pendingAssignments: StudentAlert[]
+    atRisk: RiskStudentAlert[]
   }
   financialData?: FinancialData
   classStatus: ClassStatus[]

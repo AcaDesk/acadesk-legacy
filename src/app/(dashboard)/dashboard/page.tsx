@@ -52,8 +52,7 @@ export default async function DashboardPage() {
         birthdayStudents: [],
         scheduledConsultations: [],
         studentAlerts: {
-          longAbsence: [],
-          pendingAssignments: [],
+          atRisk: [],
         },
         financialData: {
           currentMonthRevenue: 0,

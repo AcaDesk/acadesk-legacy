@@ -148,7 +148,7 @@
 
 - [x] 리포트 코멘트 AI 초안 (2026-07-18) — `@anthropic-ai/sdk` + `generateAiCommentDraft` 액션(`actions/reports/ai-comment.ts`), claude-opus-4-8 structured output(json_schema)으로 총평/잘한점/보완점/다음목표 4필드 생성. CommentStep "AI 초안 생성" 버튼은 `ANTHROPIC_API_KEY` 설정 시에만 노출(서버 판단), 초안 모드(강사 검토 후 저장·발송). 미설정 시 기능 자동 비활성 — **Vercel 환경변수에 `ANTHROPIC_API_KEY` 등록 필요**
 - [ ] 상담 노트 요약 + 후속 액션 추출
-- [ ] 위험 학생 조기 경보 (출결 변화 + 성적 하락 + 과제 미제출 스코어 → `student-alerts` 위젯)
+- [x] 위험 학생 조기 경보 (2026-07-18) — 규칙 기반 복합 스코어링 (AI 비용 없음). `lib/risk-score.ts` 순수 함수(`computeStudentRisk`, 단위테스트 8종): 최근 28일 vs 이전 28일 비교로 출석률 저조/하락·7일 공백·결석 누적·성적 10점+ 하락·평균 60 미만·미완료 과제를 합산, 5점+ 위험 / 3~4점 주의. `student-alerts` 위젯을 장기결석+과제부진 2분할 → 통합 위험 목록(사유 표시, 위험/주의 배지)으로 개편, quick-stats needsAttention도 연동
 - [ ] 학부모 메시지 초안 생성 (초안 모드 — 반드시 사람 확인 후 발송)
 - [ ] 성적 분석 내러티브 (성장 차트 자연어 해설)
 

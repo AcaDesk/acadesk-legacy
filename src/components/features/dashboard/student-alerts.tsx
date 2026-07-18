@@ -5,165 +5,105 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@ui/c
 import { Badge } from "@ui/badge"
 import { Button } from "@ui/button"
 import Link from "next/link"
-import { AlertTriangle, UserX, ListTodo, ChevronLeft, ChevronRight } from "lucide-react"
-import type { StudentAlert } from "@/hooks/use-dashboard-data"
+import { AlertTriangle, ChevronLeft, ChevronRight, ShieldAlert, UserX } from "lucide-react"
+import type { RiskStudentAlert } from "@/core/types/dashboard"
 
 interface StudentAlertsProps {
-  longAbsence: StudentAlert[]
-  pendingAssignments: StudentAlert[]
+  atRisk: RiskStudentAlert[]
 }
 
-export function StudentAlerts({ longAbsence, pendingAssignments }: StudentAlertsProps) {
-  const hasAlerts = longAbsence.length > 0 || pendingAssignments.length > 0
-  const [absencePage, setAbsencePage] = useState(0)
-  const [assignmentPage, setAssignmentPage] = useState(0)
-  const itemsPerPage = 3
+/**
+ * 위험 학생 조기 경보 위젯
+ *
+ * 최근 28일 vs 이전 28일의 출결 변화 + 성적 하락 + 과제 미제출을
+ * 규칙 기반으로 합산한 스코어를 위험(danger)/주의(warning)로 표시한다.
+ */
+export function StudentAlerts({ atRisk }: StudentAlertsProps) {
+  const [page, setPage] = useState(0)
+  const itemsPerPage = 4
 
-  if (!hasAlerts) return null
+  if (atRisk.length === 0) return null
 
-  const paginatedAbsence = longAbsence.slice(
-    absencePage * itemsPerPage,
-    (absencePage + 1) * itemsPerPage
-  )
-  const paginatedAssignments = pendingAssignments.slice(
-    assignmentPage * itemsPerPage,
-    (assignmentPage + 1) * itemsPerPage
-  )
-
-  const absencePages = Math.ceil(longAbsence.length / itemsPerPage)
-  const assignmentPages = Math.ceil(pendingAssignments.length / itemsPerPage)
+  const totalPages = Math.ceil(atRisk.length / itemsPerPage)
+  const paginated = atRisk.slice(page * itemsPerPage, (page + 1) * itemsPerPage)
+  const dangerCount = atRisk.filter((s) => s.level === "danger").length
 
   return (
     <Card className="h-full border-warning/20 bg-warning/5">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <AlertTriangle className="h-5 w-5 text-warning" />
-          학생 이상 징후
-        </CardTitle>
-        <CardDescription>관심이 필요한 학생들입니다</CardDescription>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-warning" />
+            위험 학생 조기 경보
+          </CardTitle>
+          <span className="text-xs text-muted-foreground">
+            위험 {dangerCount}명 · 주의 {atRisk.length - dangerCount}명
+          </span>
+        </div>
+        <CardDescription>
+          최근 4주간 출결 변화·성적 하락·과제 미제출을 종합한 결과입니다
+        </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Long Absence Students */}
-        {longAbsence.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-medium flex items-center gap-2">
-                <UserX className="h-4 w-4 text-destructive" />
-                장기 결석 의심 (최근 2주 출석률 50% 미만)
-              </h4>
-              <span className="text-xs text-muted-foreground">
-                총 {longAbsence.length}명
-              </span>
-            </div>
-            <div className="space-y-2.5">
-              {paginatedAbsence.map((student) => (
-                <div key={student.id} className="block">
-                  <Link href={`/students/${student.id}`}>
-                    <div className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted transition-colors cursor-pointer bg-white dark:bg-gray-900">
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-full bg-destructive/10 flex items-center justify-center">
-                          <UserX className="h-4 w-4 text-destructive" />
-                        </div>
-                        <div>
-                          <div className="font-medium">{student.name || '이름 없음'}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {student.reason}
-                          </div>
-                        </div>
-                      </div>
-                      <Badge variant="destructive">
-                        장기 결석
-                      </Badge>
+      <CardContent className="space-y-2.5">
+        {paginated.map((student) => {
+          const isDanger = student.level === "danger"
+          const Icon = isDanger ? ShieldAlert : UserX
+          return (
+            <Link key={student.id} href={`/students/${student.id}`} className="block">
+              <div className="flex items-center justify-between gap-3 p-3 rounded-lg border hover:bg-muted transition-colors cursor-pointer bg-white dark:bg-gray-900">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className={`h-8 w-8 shrink-0 rounded-full flex items-center justify-center ${
+                      isDanger ? "bg-destructive/10" : "bg-warning/10"
+                    }`}
+                  >
+                    <Icon
+                      className={`h-4 w-4 ${isDanger ? "text-destructive" : "text-warning"}`}
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">
+                      {student.name}
+                      {student.grade && (
+                        <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                          {student.grade}
+                        </span>
+                      )}
                     </div>
-                  </Link>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {student.reasons.join(" · ")}
+                    </div>
+                  </div>
                 </div>
-              ))}
-            </div>
-            {absencePages > 1 && (
-              <div className="flex items-center justify-between pt-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setAbsencePage(p => Math.max(0, p - 1))}
-                  disabled={absencePage === 0}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="text-xs text-muted-foreground">
-                  {absencePage + 1} / {absencePages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setAbsencePage(p => Math.min(absencePages - 1, p + 1))}
-                  disabled={absencePage === absencePages - 1}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
+                <Badge variant={isDanger ? "destructive" : "secondary"} className="shrink-0">
+                  {isDanger ? "위험" : "주의"}
+                </Badge>
               </div>
-            )}
-          </div>
-        )}
+            </Link>
+          )
+        })}
 
-        {/* Pending Assignments Students */}
-        {pendingAssignments.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-medium flex items-center gap-2">
-                <ListTodo className="h-4 w-4 text-warning" />
-                과제 부진 (미제출 과제 3개 이상)
-              </h4>
-              <span className="text-xs text-muted-foreground">
-                총 {pendingAssignments.length}명
-              </span>
-            </div>
-            <div className="space-y-2.5">
-              {paginatedAssignments.map((student) => (
-                <div key={student.id} className="block">
-                  <Link href={`/students/${student.id}`}>
-                    <div className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted transition-colors cursor-pointer bg-white dark:bg-gray-900">
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-full bg-warning/10 flex items-center justify-center">
-                          <ListTodo className="h-4 w-4 text-warning" />
-                        </div>
-                        <div>
-                          <div className="font-medium">{student.name || '이름 없음'}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {student.reason}
-                          </div>
-                        </div>
-                      </div>
-                      <Badge variant="secondary">
-                        과제 부진
-                      </Badge>
-                    </div>
-                  </Link>
-                </div>
-              ))}
-            </div>
-            {assignmentPages > 1 && (
-              <div className="flex items-center justify-between pt-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setAssignmentPage(p => Math.max(0, p - 1))}
-                  disabled={assignmentPage === 0}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="text-xs text-muted-foreground">
-                  {assignmentPage + 1} / {assignmentPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setAssignmentPage(p => Math.min(assignmentPages - 1, p + 1))}
-                  disabled={assignmentPage === assignmentPages - 1}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={page === 0}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              {page + 1} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={page === totalPages - 1}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
         )}
       </CardContent>

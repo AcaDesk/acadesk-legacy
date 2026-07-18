@@ -22,6 +22,7 @@ export type {
   RecentStudent,
   BirthdayStudent,
   StudentAlert,
+  RiskStudentAlert,
   ActivityLog,
   CalendarEvent,
   ClassStatus,
@@ -42,8 +43,7 @@ export interface DashboardDataCompat {
   birthdayStudents: unknown[]
   scheduledConsultations: unknown[]
   studentAlerts: {
-    longAbsence: unknown[]
-    pendingAssignments: unknown[]
+    atRisk: unknown[]
   }
   financialData: {
     currentMonthRevenue: number
@@ -79,8 +79,7 @@ const EMPTY_DASHBOARD_DATA: DashboardDataCompat = {
   birthdayStudents: [],
   scheduledConsultations: [],
   studentAlerts: {
-    longAbsence: [],
-    pendingAssignments: [],
+    atRisk: [],
   },
   financialData: {
     currentMonthRevenue: 0,
