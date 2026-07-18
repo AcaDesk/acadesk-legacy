@@ -45,6 +45,7 @@ import { useMediaQuery } from "@/hooks/use-media-query"
 import { useStandaloneMode } from "@/hooks/use-standalone-mode"
 import { usePathname, useRouter } from "next/navigation"
 import { useUIStore } from "@/lib/stores/ui.store"
+import { CommandPalette } from "@/components/layout/command-palette"
 
 interface DashboardShellProps {
   children: React.ReactNode
@@ -233,6 +234,9 @@ const Header = memo(function Header({
 
         {/* 우측 액션 영역 */}
         <div className="ml-auto flex items-center gap-2">
+          {/* 전역 커맨드 팔레트 (⌘K) — standalone(출석 전용) 모드에서는 숨김 */}
+          {!isStandalone && <CommandPalette />}
+
           {/* standalone: 키오스크(학생 TODO) 전환 버튼 */}
           {isStandalone && (
             <Button

@@ -124,7 +124,7 @@
 - [ ] 주간 시간표 그리드 (요일×시간 UI + 강의실 배정 + 충돌 검사)
 - [ ] 학부모 웹 포털 (조회 전용, `/r/[linkId]` 인프라 확장)
 - [ ] SaaS 빌링 + 학생 수 기반 플랜 게이팅 (`PricingStrategy.md` 티어 구현)
-- [ ] 전역 커맨드 팔레트 ⌘K (cmdk 이미 설치됨)
+- [x] 전역 커맨드 팔레트 ⌘K (2026-07-18) — `src/components/layout/command-palette.tsx`. 학생 이름/학번 검색→상세 점프(search RPC 재사용), 빠른 액션 6종, 페이지 이동(feature flag 반영). 헤더 트리거 + ⌘K/Ctrl+K, standalone 모드 제외
 - [ ] 보강/클리닉 관리 (결석→보강 제안→알림 플로우)
 - [ ] 입학 대기자(waitlist) 관리
 - [ ] 대시보드 위젯별 Suspense 스트리밍 (`dashboard.ts:88` 단일 페이로드 분해)
