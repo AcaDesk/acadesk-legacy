@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import { getGuardianDetail, getStudentsForSelect } from '@/app/actions/guardians'
 import { GuardianDetailClient } from './guardian-detail-client'
-import { FEATURES } from '@/lib/features.config'
+import { getEffectiveFeatureStatusForCurrentTenant } from '@/lib/feature-flags-server'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 
@@ -11,7 +11,7 @@ interface GuardianDetailPageProps {
 
 export default async function GuardianDetailPage({ params }: GuardianDetailPageProps) {
   // Feature flag checks
-  const featureStatus = FEATURES.guardianManagement
+  const featureStatus = await getEffectiveFeatureStatusForCurrentTenant('guardianManagement')
 
   if (featureStatus === 'inactive') {
     return (

@@ -1,5 +1,5 @@
 import { PageWrapper } from "@/components/layout/page-wrapper"
-import { FEATURES } from '@/lib/features.config'
+import { getEffectiveFeatureStatusForCurrentTenant } from '@/lib/feature-flags-server'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { requireAuth } from '@/lib/auth/helpers'
@@ -19,7 +19,7 @@ interface Props {
 
 export default async function ExamDetailPage({ params }: Props) {
   // Feature flag checks
-  const featureStatus = FEATURES.gradesManagement
+  const featureStatus = await getEffectiveFeatureStatusForCurrentTenant('gradesManagement')
 
   if (featureStatus === 'inactive') {
     return <ComingSoon featureName="시험 관리" description="시험을 등록하고 관리하여, 학생들의 시험 성적을 체계적으로 기록할 수 있습니다." />

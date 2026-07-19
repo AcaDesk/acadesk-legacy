@@ -2,7 +2,7 @@ import { Suspense } from 'react'
 import { PageWrapper } from '@/components/layout/page-wrapper'
 import { EntryClient } from './entry-client'
 import { Skeleton } from '@ui/skeleton'
-import { FEATURES } from '@/lib/features.config'
+import { getEffectiveFeatureStatusForCurrentTenant } from '@/lib/feature-flags-server'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { requireAuth } from '@/lib/auth/helpers'
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 
 export default async function GradeEntryPage() {
   // Feature flag checks
-  const featureStatus = FEATURES.gradesManagement
+  const featureStatus = await getEffectiveFeatureStatusForCurrentTenant('gradesManagement')
 
   if (featureStatus === 'inactive') {
     return (

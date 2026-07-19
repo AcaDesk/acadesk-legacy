@@ -1,4 +1,4 @@
-import { FEATURES } from '@/lib/features.config'
+import { getEffectiveFeatureStatusForCurrentTenant } from '@/lib/feature-flags-server'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import {
@@ -12,7 +12,7 @@ export default async function ConsultationsPage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
   // Feature flag checks
-  const featureStatus = FEATURES.consultationManagement
+  const featureStatus = await getEffectiveFeatureStatusForCurrentTenant('consultationManagement')
 
   if (featureStatus === 'inactive') {
     return (

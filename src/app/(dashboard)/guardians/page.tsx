@@ -6,7 +6,7 @@ import { PageWrapper } from "@/components/layout/page-wrapper"
 import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/page-error-boundary'
 import { GuardianList } from '@/components/features/guardians/guardian-list'
 import { RoleGuard } from '@/components/auth/role-guard'
-import { FEATURES } from '@/lib/features.config'
+import { getEffectiveFeatureStatusForCurrentTenant } from '@/lib/feature-flags-server'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { PAGE_ANIMATIONS } from '@/lib/animation-config'
@@ -15,7 +15,7 @@ import { requireAuth } from '@/lib/auth/helpers'
 export default async function GuardiansPage() {
   await requireAuth()
 
-  const featureStatus = FEATURES.guardianManagement
+  const featureStatus = await getEffectiveFeatureStatusForCurrentTenant('guardianManagement')
 
   if (featureStatus === 'inactive') {
     return <ComingSoon featureName="보호자 관리" description="학부모 및 보호자 정보를 체계적으로 관리하고, 효과적인 소통을 지원하는 기능을 준비하고 있습니다." />

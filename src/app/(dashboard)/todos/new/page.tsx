@@ -1,12 +1,12 @@
 import { PageWrapper } from '@/components/layout/page-wrapper'
-import { FEATURES } from '@/lib/features.config'
+import { getEffectiveFeatureStatusForCurrentTenant } from '@/lib/feature-flags-server'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { getStudentsMaster } from '@/app/actions/students/queries'
 import { NewTodoForm } from './new-todo-form'
 
 export default async function NewTodoPage() {
-  const featureStatus = FEATURES.todoManagement
+  const featureStatus = await getEffectiveFeatureStatusForCurrentTenant('todoManagement')
 
   if (featureStatus === 'inactive') {
     return (

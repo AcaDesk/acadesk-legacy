@@ -1,4 +1,4 @@
-import { FEATURES } from '@/lib/features.config'
+import { getEffectiveFeatureStatusForCurrentTenant } from '@/lib/feature-flags-server'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { verifyStaff } from '@/lib/auth/verify-permission'
@@ -31,7 +31,7 @@ interface NotificationLog {
 
 export default async function NotificationsPage() {
   // Feature flag checks
-  const featureStatus = FEATURES.notificationSystem;
+  const featureStatus = await getEffectiveFeatureStatusForCurrentTenant('notificationSystem')
 
   if (featureStatus === 'inactive') {
     return <ComingSoon featureName="알림 시스템" description="SMS와 이메일을 통한 자동 알림 발송, 알림 스케줄 관리 등의 기능을 준비하고 있습니다." />;

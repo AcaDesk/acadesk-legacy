@@ -13,16 +13,16 @@ import Link from 'next/link'
 import { PageWrapper } from "@/components/layout/page-wrapper"
 import { PAGE_LAYOUT, GRID_LAYOUTS, TEXT_STYLES, CARD_STYLES } from '@/lib/constants'
 
-import { FEATURES } from '@/lib/features.config'
+import { getEffectiveFeatureStatusForCurrentTenant } from '@/lib/feature-flags-server'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { PAGE_ANIMATIONS, getListItemAnimation } from '@/lib/animation-config'
 import { EmptyState } from '@/components/ui/loading-state'
 import { cn } from '@/lib/utils'
 
-export default function LibraryPage() {
+export default async function LibraryPage() {
   // Feature flag checks
-  const featureStatus = FEATURES.libraryManagement;
+  const featureStatus = await getEffectiveFeatureStatusForCurrentTenant('libraryManagement')
 
   if (featureStatus === 'inactive') {
     return <ComingSoon featureName="교재 관리" description="교재 및 도서 대여, 진도 관리를 체계적으로 지원하여 학습 자료 운영을 효율화하는 기능을 준비하고 있습니다." />;

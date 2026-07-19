@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 
-import { FEATURES } from '@/lib/features.config'
+import { getEffectiveFeatureStatusForCurrentTenant } from '@/lib/feature-flags-server'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { getStudentsForReport } from '@/app/actions/reports/report-generation'
@@ -23,7 +23,7 @@ interface Student {
 
 export default async function NewReportPage() {
   // Feature flag checks
-  const featureStatus = FEATURES.reportManagement;
+  const featureStatus = await getEffectiveFeatureStatusForCurrentTenant('reportManagement')
 
   if (featureStatus === 'inactive') {
     return <ComingSoon featureName="월간 리포트" description="학생별 월간 성적, 출석, 과제 완료율을 자동으로 분석하여 리포트를 생성하는 기능을 준비하고 있습니다." />;

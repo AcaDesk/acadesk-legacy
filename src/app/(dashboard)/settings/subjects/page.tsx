@@ -1,14 +1,14 @@
 export const dynamic = 'force-dynamic'
 
 import { getSubjectsWithStatistics } from '@/app/actions/subjects'
-import { FEATURES } from '@/lib/features.config'
+import { getEffectiveFeatureStatusForCurrentTenant } from '@/lib/feature-flags-server'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { SubjectsClient } from './subjects-client'
 
 export default async function SubjectsPage() {
   // Feature flag checks
-  const featureStatus = FEATURES.subjectManagement
+  const featureStatus = await getEffectiveFeatureStatusForCurrentTenant('subjectManagement')
 
   if (featureStatus === 'inactive') {
     return (

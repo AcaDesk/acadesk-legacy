@@ -82,3 +82,19 @@ export async function getEffectiveFeatures(
 
   return result
 }
+
+/**
+ * 현재 로그인 테넌트 기준 유효 상태 — 페이지 게이트용.
+ *
+ * getCurrentTenantId()가 인증까지 수행하므로 미인증 시 로그인으로
+ * 리다이렉트된다 (대시보드 페이지는 어차피 미들웨어 뒤라 동작 동일).
+ * 요청 단위 인증 캐시(request-cache) 덕에 페이지의 requireAuth와
+ * 중복 호출해도 추가 왕복은 없다.
+ */
+export async function getEffectiveFeatureStatusForCurrentTenant(
+  key: FeatureKey
+): Promise<FeatureStatus> {
+  const { getCurrentTenantId } = await import('@/lib/auth/helpers')
+  const { tenantId } = await getCurrentTenantId()
+  return getEffectiveFeatureStatus(key, tenantId)
+}

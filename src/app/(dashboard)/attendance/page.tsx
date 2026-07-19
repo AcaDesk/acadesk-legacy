@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { PageHeader } from '@ui/page-header';
 import { PageErrorBoundary, SectionErrorBoundary } from '@/components/layout/page-error-boundary';
-import { FEATURES } from '@/lib/features.config';
+import { getEffectiveFeatureStatusForCurrentTenant } from '@/lib/feature-flags-server'
 import { ComingSoon } from '@/components/layout/coming-soon';
 import { Maintenance } from '@/components/layout/maintenance';
 import { PAGE_ANIMATIONS } from '@/lib/animation-config';
@@ -21,7 +21,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function AttendancePage() {
   // 피처 플래그 상태 체크
-  const featureStatus = FEATURES.attendanceManagement;
+  const featureStatus = await getEffectiveFeatureStatusForCurrentTenant('attendanceManagement')
 
   if (featureStatus === 'inactive') {
     return <ComingSoon featureName="출석 관리" description="실시간 출석 체크, 지각/결석 기록, 출석률 통계를 손쉽게 관리할 수 있는 기능을 준비하고 있습니다." />;

@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 
-import { FEATURES } from '@/lib/features.config'
+import { getEffectiveFeatureStatusForCurrentTenant } from '@/lib/feature-flags-server'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { getReports, getStudentsForFilter } from '@/app/actions/reports/queries'
@@ -8,7 +8,7 @@ import { ReportsContent } from './reports-content'
 
 export default async function ReportsPage() {
   // Feature flag checks
-  const featureStatus = FEATURES.reportManagement;
+  const featureStatus = await getEffectiveFeatureStatusForCurrentTenant('reportManagement')
 
   if (featureStatus === 'inactive') {
     return <ComingSoon featureName="리포트 관리" description="생성된 모든 리포트를 조회하고 보호자에게 전송할 수 있는 기능을 준비하고 있습니다." />;

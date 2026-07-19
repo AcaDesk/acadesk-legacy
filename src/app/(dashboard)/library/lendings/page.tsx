@@ -1,14 +1,14 @@
 export const dynamic = 'force-dynamic'
 
 import { getBookLendings } from '@/app/actions/book-lendings'
-import { FEATURES } from '@/lib/features.config'
+import { getEffectiveFeatureStatusForCurrentTenant } from '@/lib/feature-flags-server'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { BookLendingsClient } from './book-lendings-client'
 
 export default async function BookLendingsPage() {
   // Feature flag checks
-  const featureStatus = FEATURES.libraryManagement
+  const featureStatus = await getEffectiveFeatureStatusForCurrentTenant('libraryManagement')
 
   if (featureStatus === 'inactive') {
     return (

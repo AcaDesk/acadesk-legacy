@@ -1,4 +1,4 @@
-import { FEATURES } from '@/lib/features.config'
+import { getEffectiveFeatureStatusForCurrentTenant } from '@/lib/feature-flags-server'
 import { ComingSoon } from '@/components/layout/coming-soon'
 import { Maintenance } from '@/components/layout/maintenance'
 import { PageWrapper } from "@/components/layout/page-wrapper"
@@ -17,7 +17,7 @@ export default async function ReportDetailPage({
   const { id } = await params
 
   // Feature flag checks
-  const featureStatus = FEATURES.reportManagement;
+  const featureStatus = await getEffectiveFeatureStatusForCurrentTenant('reportManagement')
 
   if (featureStatus === 'inactive') {
     return <ComingSoon featureName="리포트 상세" description="학생별 월간 리포트를 상세하게 확인하고 보호자에게 전송할 수 있는 기능을 준비하고 있습니다." />;
