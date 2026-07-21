@@ -57,6 +57,11 @@
 - [x] `src/app/admin/layout.tsx` 신설 — `/admin` 하위 전체 verifyPlatformAdmin 심층방어
 - [x] `getCurrentTenantId`에 `deleted_at is null` 필터 추가
 
+### 1.7.1 Content-Security-Policy ✅ (2026-07-22, 외부 보안 점검 대응)
+- [x] nonce 기반 CSP (프로덕션 전용, unsafe-eval 없음) — `middleware.ts`에서 요청별 nonce 생성 + 요청 헤더로 Next 인라인 스크립트 자동 nonce 주입, `'strict-dynamic'`. 허용 도메인: img DiceBear / connect Supabase(https+wss)·Sentry ingest
+- [x] next-themes 테마 초기화 스크립트 nonce 전달 (layout→Providers→ThemeProvider), 커스텀 404(`not-found.tsx`, 동적 렌더로 nonce 정합), `/offline`은 SW 프리캐시 특성상 unsafe-inline 폴백
+- ⚠️ 외부 스크립트/이미지/API 새로 도입 시 middleware.ts의 CSP 목록에 추가 필수 (누락 시 조용히 차단됨)
+
 ### 1.8 백업 ✅ (2026-07-17 문서화 완료)
 - [x] RPO/RTO 정의 + 복구 런북 문서화 — `docs/BACKUP_RECOVERY.md`
 - [ ] 수동: Supabase Dashboard → Add-ons에서 PITR 활성화 여부 확인/활성화 (Pro 플랜, 보존 7일 권장) — CLI/API로 확인 불가하여 대시보드 확인 필요

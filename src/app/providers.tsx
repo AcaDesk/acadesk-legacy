@@ -6,7 +6,7 @@ import { useState, ReactNode } from "react"
 import { ThemeProvider } from "@/components/providers/theme-provider"
 import { OfflineIndicator } from "@/components/ui/offline-indicator"
 
-export function Providers({ children }: { children: ReactNode }) {
+export function Providers({ children, nonce }: { children: ReactNode; nonce?: string }) {
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -26,6 +26,7 @@ export function Providers({ children }: { children: ReactNode }) {
         defaultTheme="system"
         enableSystem
         disableTransitionOnChange
+        nonce={nonce}
       >
         <OfflineIndicator />
         {children}

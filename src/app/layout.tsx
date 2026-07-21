@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next"
+import { headers } from "next/headers"
 import { Inter_Tight, Noto_Sans_KR } from "next/font/google"
 import "./globals.css"
 import { Toaster } from "@ui/toaster"
@@ -54,15 +55,19 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  // CSP nonce — 미들웨어가 요청마다 생성. next-themes의 테마 초기화 인라인
+  // 스크립트에 전달해야 nonce 기반 CSP에서 차단되지 않는다 (FOUC 방지 스크립트).
+  const nonce = (await headers()).get('x-nonce') ?? undefined
+
   return (
     <html lang="ko" suppressHydrationWarning>
       <body className={`${interTight.variable} ${notoSansKR.variable} font-sans antialiased`}>
-        <Providers>
+        <Providers nonce={nonce}>
           {children}
         </Providers>
         <Toaster />
