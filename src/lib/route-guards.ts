@@ -30,6 +30,13 @@ export function isPublicPath(pathname: string): boolean {
     return true
   }
 
+  // 서버-투-서버 엔드포인트 — 미들웨어 로그인 리다이렉트를 우회해야 한다.
+  // /api/cron/*은 자체 CRON_SECRET Bearer 인증(fail-closed)을 수행하고,
+  // /api/health는 업타임 모니터용 무상태 응답(정보 비노출)이다.
+  if (pathname.startsWith('/api/cron/') || pathname === '/api/health') {
+    return true
+  }
+
   // 특정 하위 경로 허용 (예: /auth/invite/accept?token=)
   if (pathname.startsWith("/auth/invite/accept")) {
     return true

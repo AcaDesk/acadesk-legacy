@@ -62,6 +62,12 @@
 - [x] next-themes 테마 초기화 스크립트 nonce 전달 (layout→Providers→ThemeProvider), 커스텀 404(`not-found.tsx`, 동적 렌더로 nonce 정합), `/offline`은 SW 프리캐시 특성상 unsafe-inline 폴백
 - ⚠️ 외부 스크립트/이미지/API 새로 도입 시 middleware.ts의 CSP 목록에 추가 필수 (누락 시 조용히 차단됨)
 
+### 1.7.2 배포 장애 복구 ✅ (2026-07-22)
+- [x] 원인: 7/16 vercel.json의 5분 크론(`*/5`)이 **Vercel Hobby 플랜 제한(일일 크론만 허용)** 위반 → 이후 30개 커밋 전부 배포 즉시 거부 (7/14가 마지막 성공 배포였음)
+- [x] run-due-jobs 크론을 일일(`30 0 * * *`)로 임시 변경 → 배포 복구 확인 (CSP·서울 리전 icn1 라이브 확인)
+- [x] `/api/cron/*`·`/api/health` 미들웨어 공개 경로 처리 — 자체 인증(CRON_SECRET) 보유, 로그인 리다이렉트로 크론이 무력화되던 버그 수정
+- [ ] **결정 필요**: 예약 배치 5분 주기 복원 방법 — ① GitHub Actions 스케줄로 크론 엔드포인트 호출(무료, CRON_SECRET GitHub Secrets 등록 필요) ② Vercel Pro 업그레이드($20/월, vercel.json만 원복). 현재는 일일 1회라 배치 센터 예약 발송이 지정 시각에 안 나감 (리마인더 크론은 원래 일일이라 정상)
+
 ### 1.8 백업 ✅ (2026-07-17 문서화 완료)
 - [x] RPO/RTO 정의 + 복구 런북 문서화 — `docs/BACKUP_RECOVERY.md`
 - [ ] 수동: Supabase Dashboard → Add-ons에서 PITR 활성화 여부 확인/활성화 (Pro 플랜, 보존 7일 권장) — CLI/API로 확인 불가하여 대시보드 확인 필요
